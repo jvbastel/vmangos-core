@@ -51,4 +51,48 @@ namespace Bots
         }
         return parsed;
     }
+
+    GroupCommandPlan PlanGroupCommand(GroupCommandKind kind, GroupFacts const& facts)
+    {
+        GroupCommandPlan plan = {false, "", false, false, false, false, false};
+        if (!facts.botKnown)
+        {
+            plan.line = "No bot has that name.";
+            return plan;
+        }
+
+        if (kind == GroupCommandKind::Dismiss)
+        {
+            if (!facts.botInPlayerGroup)
+            {
+                plan.line = "That bot is not in your group.";
+                return plan;
+            }
+            plan.ok = true;
+            plan.leaveGroup = true;
+            plan.logout = facts.botOnline;
+            return plan;
+        }
+
+        if (!facts.botInPlayerGroup)
+        {
+            if (facts.botInOtherGroup)
+                plan.line = "That bot is in another group.";
+            else if (!facts.playerMayInvite)
+                plan.line = "Only the group leader can invite.";
+            else if (facts.groupFull)
+                plan.line = "Your group is full.";
+            if (*plan.line)
+                return plan;
+        }
+        plan.ok = true;
+        if (!facts.botOnline)
+        {
+            plan.login = true;
+            return plan;
+        }
+        plan.addToGroup = !facts.botInPlayerGroup;
+        plan.teleport = true;
+        return plan;
+    }
 }

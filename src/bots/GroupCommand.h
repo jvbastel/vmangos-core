@@ -32,6 +32,33 @@ namespace Bots
     // around the words do not count. The name can be any one word: the bot
     // manager knows the bots, also the offline ones.
     ParsedGroupCommand ParseGroupCommand(std::string const& text);
+
+    // What the bot manager knows when a group command arrives.
+    struct GroupFacts
+    {
+        bool botKnown;         // A bot has the name.
+        bool botOnline;        // The bot is in the world.
+        bool botInPlayerGroup; // The bot is a member of the group of the player.
+        bool botInOtherGroup;  // The bot is a member of another group.
+        bool playerMayInvite;  // The player has no group, or leads it or assists.
+        bool groupFull;        // The group of the player has no free place.
+    };
+
+    // The steps of a group command, in this order. An offline bot only logs
+    // in: the bot manager plans again when the bot is in the world.
+    struct GroupCommandPlan
+    {
+        bool ok;
+        // A short fixed line for the player when not ok, else "".
+        char const* line;
+        bool login;
+        bool addToGroup;
+        bool teleport; // To the player.
+        bool leaveGroup;
+        bool logout;
+    };
+
+    GroupCommandPlan PlanGroupCommand(GroupCommandKind kind, GroupFacts const& facts);
 }
 
 #endif
