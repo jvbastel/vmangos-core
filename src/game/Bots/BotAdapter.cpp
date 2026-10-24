@@ -6,6 +6,7 @@
 */
 
 #include "BotAdapter.h"
+#include "Group.h"
 #include "Log.h"
 #include "MotionMaster.h"
 #include "ObjectAccessor.h"
@@ -173,6 +174,19 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     return true;
 }
 
+std::vector<Bots::Guid> BotAdapter::GetGroupMembers() const
+{
+    std::vector<Bots::Guid> members{GetSelf()};
+    if (Group* group = me->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player const* member = ref->getSource();
+            if (member && member != me && member->IsInWorld() && member->IsInMap(me))
+                members.push_back(GuidOf(member));
+        }
+    return members;
+}
+
 void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
 {
     SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
@@ -185,6 +199,10 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         me->SetTargetGuid(unit->GetObjectGuid());
     }
     SpellCastResult const result = me->CastSpell(unit, entry, false);
+    // A spell with a cast time ends when the caster moves, for example when
+    // it follows a unit.
+    if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
+        me->StopMoving();
     if (result != SPELL_CAST_OK)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: result %u", me->GetName(), spell, uint32(result));
 }

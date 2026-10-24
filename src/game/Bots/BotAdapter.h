@@ -39,6 +39,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool KnowsSpell(Bots::SpellId spell) const override;
         Bots::SpellId GetNextRank(Bots::SpellId spell) const override;
         bool CanCast(Bots::SpellId spell, Bots::Guid target) const override;
+        std::vector<Bots::Guid> GetGroupMembers() const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;
