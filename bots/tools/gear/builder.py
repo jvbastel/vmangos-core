@@ -18,16 +18,15 @@ import generate
 
 
 
+# A Wowhead link has item=<entry>. Other numbers count only as whole words,
+# not as a part of a link or a name.
+_PASTE_ENTRY = re.compile(r"item=(\d+)|(?<![\w/=.?&-])(\d+)(?![\w/.])")
+
+
 def read_paste(text):
     """The item entries in the text: plain numbers and Wowhead item links
     (`.../item=6448/tail-spike`), in their order."""
-    entries = []
-    for line in text.splitlines():
-        if "wowhead" in line or "item=" in line:
-            entries += [int(m) for m in re.findall(r"item=(\d+)", line)]
-            line = re.sub(r"\S*item=\d+\S*", " ", line)
-        entries += [int(m) for m in re.findall(r"(?<![\w/=.])(\d+)(?![\w/])", line)]
-    return entries
+    return [int(link or number) for link, number in _PASTE_ENTRY.findall(text)]
 
 
 @dataclass(frozen=True)
@@ -45,7 +44,7 @@ def check_paste(entries, world):
     """Checks that each entry is a gear item of the 1.12 item data."""
     result = []
     for entry in entries:
-        if entry in world.items:
+        if entry in world.items and world.items[entry].slot:
             result.append(PastedEntry(entry, world.items[entry]))
         elif entry in world.entries:
             result.append(PastedEntry(entry, problem=f"item {entry} is not a gear item"))
@@ -57,6 +56,12 @@ def check_paste(entries, world):
 def fits_slot(item, slot):
     """True when the item can fill the slot of the format."""
     return item.slot == slot or (item.slot == "onehand" and slot in ("mainhand", "offhand"))
+
+
+def first_slot(item):
+    """The slot of the format for the item: the main hand for a one-handed
+    weapon."""
+    return "mainhand" if item.slot == "onehand" else item.slot
 
 
 def class_can_wear(item, slot, class_name):
@@ -94,7 +99,7 @@ class Found:
     banned: bool         # In the ban list of the generator.
 
 
-def _sources_in(world, entry, patch):
+def sources_in(world, entry, patch):
     sources = world.sources.get(entry, [])
     if patch is None:
         return [source for source in sources if any(level is not None for level in source.levels)]
@@ -122,7 +127,7 @@ def search(world, slot, filters, weights, bans=frozenset(), limit=200):
             continue
         if text and text not in item.name.lower():
             continue
-        sources = _sources_in(world, entry, filters.patch)
+        sources = sources_in(world, entry, filters.patch)
         if filters.source_kinds:
             kinds = {source.kind for source in sources} or {"none"}
             if not kinds & filters.source_kinds:
@@ -312,6 +317,6 @@ def new_line(item):
     """The template line of an item that the page adds: its slot, from its
     required level to 60, from its first content patch. A one-handed weapon
     goes to the main hand."""
-    slot = "mainhand" if item.slot == "onehand" else item.slot
+    slot = first_slot(item)
     first_patch = min(item.patches) if item.patches else 0
     return HandItem(slot, item.entry, max(item.required_level, LEVELS[0]), LEVELS[1], first_patch)

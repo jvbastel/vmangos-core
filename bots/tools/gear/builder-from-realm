@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Run the template builder page against the world database of a test realm.
+#
+#   bots/tools/gear/builder-from-realm [builder_web.py options]
+#
+# with-realm-db gives builder_web.py a read-only user of the test realm's
+# world database (`wowai/dev realm up` first). The page reads the item data
+# once (about 20 s), then serves http://127.0.0.1:8765/ until Ctrl+C.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$here/with-realm-db" uv run builder_web.py "$@"
