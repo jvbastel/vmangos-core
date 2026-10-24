@@ -128,8 +128,10 @@ void BotHooks::OnPlayerChat(Player* sender, uint32 type, Player* receiver, std::
 
     if (RouteBotCommand(sender, type, bots, text))
         return;
-    // Not a bot command: the chat client posts it to the chat service in a
-    // later ticket (one player_message).
+    // Not a bot command: one player_message to the chat service, built at
+    // the next update of the bot manager on the world thread.
+    sBotMgr.Chat().QueuePlayerMessage({sender->GetObjectGuid(), type,
+        receiver ? receiver->GetObjectGuid() : ObjectGuid(), text});
 }
 
 bool BotHooks::OnWhisperToOffline(Player* sender, std::string const& receiverName, std::string const& text)

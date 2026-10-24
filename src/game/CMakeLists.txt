@@ -196,6 +196,7 @@ set (game_SRCS
     PlayerBots/PlayerBotAI.cpp
     PlayerBots/PlayerBotMgr.cpp
     Bots/BotAI.cpp
+    Bots/BotChat.cpp
     Bots/BotCommands.cpp
     Bots/BotGear.cpp
     Bots/BotHooks.cpp
@@ -457,6 +458,7 @@ set (game_SRCS
     PlayerBots/PlayerBotAI.h
     PlayerBots/PlayerBotMgr.h
     Bots/BotAI.h
+    Bots/BotChat.h
     Bots/BotGear.h
     Bots/BotHooks.h
     Bots/BotLoot.h

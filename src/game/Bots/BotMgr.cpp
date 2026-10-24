@@ -156,6 +156,7 @@ void BotMgr::LoadConfig()
     m_settings.think.farMs = sConfig.GetIntDefault("Bots.ThinkMs.Far", 3000);
     m_settings.dataDir = sConfig.GetStringDefault("Bots.DataDir", "bots");
     AccountMgr::normalizeString(m_settings.accountPrefix);
+    m_chat.LoadConfig();
 
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Enable %u, accounts %s###, think %u/%u/%u ms, data %s",
         uint32(m_settings.enable), m_settings.accountPrefix.c_str(), m_settings.think.combatMs,
@@ -183,10 +184,14 @@ void BotMgr::Load()
     }
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %u bots loaded", uint32(m_bots.size()));
     m_gear.Load(m_settings.dataDir + "/gear");
+    m_chat.Start();
 }
 
 void BotMgr::Update(uint32 /*diff*/)
 {
+    // After the maps: the lines of bot chat whose delay ended.
+    for (BotLine& line : m_chat.Update())
+        m_lines.Push(std::move(line));
     SendLines();
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
@@ -229,6 +234,28 @@ bool BotMgr::IsOurBot(Player const* player) const
 {
     auto const record = m_bots.find(player->GetGUIDLow());
     return record != m_bots.end() && player->GetSession()->GetBot() == record->second.entry.get();
+}
+
+bool BotMgr::RoleOfOurBot(Player const* player, std::string& role) const
+{
+    if (!IsOurBot(player))
+        return false;
+    role = m_bots.find(player->GetGUIDLow())->second.role;
+    return true;
+}
+
+bool BotMgr::IsBotCharacter(ObjectGuid guid) const
+{
+    return guid.IsPlayer() && m_bots.count(guid.GetCounter()) != 0;
+}
+
+std::vector<ObjectGuid> BotMgr::OnlineBots() const
+{
+    std::vector<ObjectGuid> guids;
+    for (auto const& pair : m_bots)
+        if (pair.second.entry->state == PB_STATE_ONLINE)
+            guids.push_back(ObjectGuid(HIGHGUID_PLAYER, pair.first));
+    return guids;
 }
 
 void BotMgr::ApplyLevelRoutine(Player* bot) const

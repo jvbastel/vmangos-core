@@ -11,6 +11,7 @@
 #include "Common.h"
 #include "Policies/Singleton.h"
 #include "PlayerBotMgr.h"
+#include "BotChat.h"
 #include "BotGear.h"
 #include "BotLevelRoutine.h"
 #include "BotRecipe.h"
@@ -22,6 +23,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 class Group;
 
@@ -123,6 +125,15 @@ class BotMgr
         // Runs the level routine after a level-up of one of our bots.
         void OnLevelUp(Player* player);
 
+        // Bot chat. Its QueuePlayerMessage works from any thread.
+        BotChat& Chat() { return m_chat; }
+        // For bot chat: the role of one of our bots that is online, or false.
+        bool RoleOfOurBot(Player const* player, std::string& role) const;
+        // True for a character of the `bot_character` table, online or not.
+        bool IsBotCharacter(ObjectGuid guid) const;
+        // The characters of our bots that are online.
+        std::vector<ObjectGuid> OnlineBots() const;
+
     private:
         BotRecord* FindByName(std::string const& name);
         uint32 ChooseAccount(std::string& error);
@@ -142,6 +153,7 @@ class BotMgr
         Bots::Inbox<BotLine> m_lines;
         Bots::Inbox<GroupCommandMessage> m_groupCommands;
         BotGear m_gear;
+        BotChat m_chat;
 };
 
 #define sBotMgr MaNGOS::Singleton<BotMgr>::Instance()
