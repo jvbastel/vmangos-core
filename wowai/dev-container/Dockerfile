@@ -3,7 +3,8 @@
 # It uses the same base image and the same build packages as the build stage
 # of `docker/server/Dockerfile` in vmangos-deploy. `wowai/dev` reads the base
 # image from that Dockerfile and passes it as `BUILD_BASE`. This image adds
-# only rsync, for the copy of the source tree.
+# only rsync, for the copy of the source tree, and GoogleTest, for the code
+# tests of src/bots.
 ARG BUILD_BASE=ubuntu:26.04
 FROM ${BUILD_BASE}
 
@@ -20,6 +21,7 @@ RUN \
     libmysqlclient-dev \
     libssl-dev \
     zlib1g-dev \
+    libgtest-dev \
     rsync && \
   rm -rf /var/lib/apt/lists/*
 
