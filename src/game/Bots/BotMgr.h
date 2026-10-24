@@ -14,12 +14,14 @@
 #include "BotGear.h"
 #include "BotLevelRoutine.h"
 #include "BotRecipe.h"
+#include "GroupCoordinator.h"
 #include "Inbox.h"
 #include "ObjectGuid.h"
 #include "ThinkTimer.h"
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 
 // The settings `Bots.*` of mangosd.conf.
@@ -97,6 +99,11 @@ class BotMgr
         // Runs the level routine after a level-up of one of our bots.
         void OnLevelUp(Player* player);
 
+        // From any map thread: the group coordinator of the group with the
+        // id `groupId`. The bot manager makes it at the first call, and drops
+        // it when the group is gone.
+        std::shared_ptr<Bots::GroupCoordinator> GetCoordinator(uint32 groupId);
+
     private:
         BotRecord* FindByName(std::string const& name);
         uint32 ChooseAccount(std::string& error);
@@ -104,13 +111,20 @@ class BotMgr
         void StartLogin(BotRecord& record, WorldSession* session);
         void SendLines();
         void PutOnPendingGear(BotRecord& record);
+        void DropOldCoordinators();
 
         BotSettings m_settings;
         BotLevelRoutine m_levelRoutine;
         std::map<uint32 /*character GUID*/, BotRecord> m_bots;
         Bots::Inbox<BotLine> m_lines;
         BotGear m_gear;
+        // The bots of one group can sit on two map threads.
+        std::mutex m_coordinatorsMutex;
+        std::map<uint32 /*group id*/, std::shared_ptr<Bots::GroupCoordinator>> m_coordinators;
 };
+
+// The class of the library for a class of the game. False for an unknown class.
+bool BotClassOf(uint8 gameClass, Bots::BotClass& botClass);
 
 #define sBotMgr MaNGOS::Singleton<BotMgr>::Instance()
 

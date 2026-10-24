@@ -7,6 +7,10 @@
 
 #include "BotAI.h"
 #include "BotMgr.h"
+#include "BotAdapter.h"
+#include "ClassModules.h"
+#include "Group.h"
+#include "ObjectAccessor.h"
 #include "Pet.h"
 #include "Player.h"
 #include "MotionMaster.h"
@@ -21,12 +25,10 @@ namespace
     float const NearPlayerYards = 100.0f;
     // A bot follows or comes to a player within this distance on its map.
     float const CommandReachYards = 100.0f;
-    // A following bot keeps this distance to the player, at a random angle.
-    float const MinFollowYards = 3.0f;
-    float const MaxFollowYards = 6.0f;
 }
 
-BotAI::BotAI(Bots::ThinkSettings const& thinkSettings) : PlayerBotAI(nullptr), m_thinkTimer(thinkSettings)
+BotAI::BotAI(Bots::ThinkSettings const& thinkSettings, Bots::BotRole role) :
+    PlayerBotAI(nullptr), m_thinkTimer(thinkSettings), m_role(role)
 {
 }
 
@@ -120,12 +122,21 @@ void BotAI::HandlePacket(WorldPacket const& packet)
 void BotAI::HandleCommand(BotCommandMessage const& message)
 {
     Player* player = me->GetMap()->GetPlayer(message.player);
-    Bots::CommandFacts const facts = {me->IsAlive(), IsInReach(player)};
+    Bots::CommandFacts const facts = {me->IsAlive(), IsInReach(player), m_role == Bots::BotRole::Tank, PullTargetOf(player)};
     Bots::CommandOutcome const outcome = Bots::ApplyBotCommand(m_commandState, message.kind, facts);
     if (!outcome.obeys)
     {
+        // A bot that is no tank ignores `pull` without a line.
+        if (!*outcome.line)
+            return;
         // The bot manager sends the line on the world thread.
         sBotMgr.QueueLine({me->GetObjectGuid(), message.chatType, message.player, outcome.line});
+        return;
+    }
+
+    if (message.kind == Bots::BotCommandKind::Pull)
+    {
+        StartPull(player);
         return;
     }
 
@@ -135,8 +146,38 @@ void BotAI::HandleCommand(BotCommandMessage const& message)
     {
         me->AttackStop();
         me->InterruptNonMeleeSpells(false);
+        std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
+        if (coordinator->GetPull().puller == me->GetObjectGuid().GetRawValue())
+            coordinator->EndPull();
     }
     StartCommand(player);
+}
+
+Bots::PullTarget BotAI::PullTargetOf(Player const* player) const
+{
+    if (!player || !player->GetSelectionGuid())
+        return Bots::PullTarget::None;
+    Unit const* target = ObjectAccessor::GetUnit(*me, player->GetSelectionGuid());
+    if (!target || !target->IsInWorld() || !target->IsInMap(me))
+        return Bots::PullTarget::None;
+    return me->IsValidAttackTarget(target) ? Bots::PullTarget::Enemy : Bots::PullTarget::NotEnemy;
+}
+
+void BotAI::StartPull(Player* player)
+{
+    // The tank pulls at its next think: the pull rules of its strategy read
+    // the pull state.
+    ObjectGuid const target = player->GetSelectionGuid();
+    Coordinator()->StartPull(me->GetObjectGuid().GetRawValue(), target.GetRawValue());
+    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s pulls %s", me->GetName(), target.GetString().c_str());
+}
+
+std::shared_ptr<Bots::GroupCoordinator> BotAI::Coordinator()
+{
+    if (Group* group = me->GetGroup())
+        return sBotMgr.GetCoordinator(group->GetId());
+    // No owner: the coordinator is a member of this AI.
+    return std::shared_ptr<Bots::GroupCoordinator>(std::shared_ptr<Bots::GroupCoordinator>(), &m_soloCoordinator);
 }
 
 void BotAI::StartCommand(Player* player)
@@ -146,7 +187,7 @@ void BotAI::StartCommand(Player* player)
     switch (m_commandState)
     {
         case Bots::CommandState::Follow:
-            motion->MoveFollow(player, frand(MinFollowYards, MaxFollowYards), frand(0.0f, 2 * M_PI_F));
+            BotAdapter(me).Follow(player->GetObjectGuid().GetRawValue());
             return;
         case Bots::CommandState::Come:
             motion->MovePoint(0, player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), MOVE_PATHFINDING | MOVE_RUN_MODE);
@@ -159,24 +200,6 @@ void BotAI::StartCommand(Player* player)
     motion->MoveIdle();
 }
 
-void BotAI::KeepCommand()
-{
-    // A following bot follows again after a teleport or a death, when the
-    // player is in reach.
-    if (m_commandState != Bots::CommandState::Follow || !me->IsAlive())
-        return;
-    if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == FOLLOW_MOTION_TYPE)
-        return;
-    Player* player = CommandPlayer();
-    if (IsInReach(player))
-        StartCommand(player);
-}
-
-Player* BotAI::CommandPlayer() const
-{
-    return m_commandPlayer ? me->GetMap()->GetPlayer(m_commandPlayer) : nullptr;
-}
-
 bool BotAI::IsInReach(Player const* player) const
 {
     return player && player != me && player->IsInWorld() && player->IsWithinDist(me, CommandReachYards);
@@ -187,7 +210,27 @@ void BotAI::Think()
     // Version 1 starts with a bot that stands in the world.
     if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND)
         me->SetStandState(UNIT_STAND_STATE_STAND);
-    KeepCommand();
+    if (!me->IsAlive())
+        return;
+
+    if (!m_strategiesMade)
+    {
+        Bots::BotClass botClass = Bots::BotClass::Warrior;
+        if (BotClassOf(me->GetClass(), botClass))
+            m_strategies = Bots::MakeStrategyStack(botClass, m_role);
+        else
+            m_strategies.Push(Bots::MakeCommandStrategy());
+        m_strategiesMade = true;
+    }
+
+    BotAdapter adapter(me);
+    std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
+    Bots::BotContext const context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue()};
+    std::string const rule = m_strategies.Think(context);
+    if (!rule.empty() && rule != m_lastRule)
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());
+    if (!rule.empty())
+        m_lastRule = rule;
 }
 
 bool BotAI::IsNearPlayer() const
