@@ -109,10 +109,7 @@ namespace Bots
                     return claim.caster;
             return NoGuid;
         }
-    }
 
-    namespace
-    {
         // Enemy healers
 
         // An enemy in the fight that casts a heal, and is no enemy healer
@@ -135,10 +132,7 @@ namespace Bots
                     return healer;
             return NoGuid;
         }
-    }
 
-    namespace
-    {
         // Chase limit
 
         bool IsDamageRole(BotRole role)
@@ -157,10 +151,7 @@ namespace Bots
                 && tank != Self(context) && context.view.GetVictim(target) != Self(context)
                 && !IsInChaseLimit(context, target);
         }
-    }
 
-    namespace
-    {
         // Dispel
 
         struct DispelSpell
@@ -245,7 +236,6 @@ namespace Bots
     {
         int const P = Priority::Group;
         std::vector<Rule> rules = {
-
             AlwaysRule("drop an interrupt claim", P + 94,
                 [](BotContext const& context) { return FindClaimToDrop(context) != NoGuid; },
                 [](BotContext const& context) { context.group.ReleaseInterrupt(FindClaimToDrop(context)); }),
