@@ -63,6 +63,11 @@ class BotAI : public PlayerBotAI
         // The coordinator of the bot's group, or the bot's own one.
         std::shared_ptr<Bots::GroupCoordinator> Coordinator();
         void Think();
+        // Accepts the resurrect of SMSG_RESURRECT_REQUEST.
+        void AcceptResurrect(WorldPacket const& packet);
+        // True when a member of the bot's group on its map eats or drinks
+        // after a fight: the group waits for it.
+        bool GroupRests();
         bool IsNearPlayer() const;
 
         void KeepLevelCorrect();

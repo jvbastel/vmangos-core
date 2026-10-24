@@ -153,6 +153,12 @@ class BotMgr
         bool HasPlayerMember(Group const& group) const;
         void PutOnPendingGear(BotRecord& record);
         void DropOldCoordinators();
+        // The wipe and rest moments that the coordinators saw since the last
+        // update: one call of OnGroupEvent each.
+        void TakeGroupEvents();
+        // A wipe or a rest of the group with the id `groupId`. The bot chat
+        // events `wipe` and `rest` (#50) start here.
+        void OnGroupEvent(uint32 groupId, Bots::GroupEvent const& event);
 
         BotSettings m_settings;
         BotLevelRoutine m_levelRoutine;

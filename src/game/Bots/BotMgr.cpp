@@ -201,6 +201,7 @@ void BotMgr::Update(uint32 /*diff*/)
         m_lines.Push(std::move(line));
     SendLines();
     DropOldCoordinators();
+    TakeGroupEvents();
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
     for (auto& pair : m_bots)
@@ -259,6 +260,36 @@ void BotMgr::DropOldCoordinators()
         else
             ++it;
     }
+}
+
+void BotMgr::TakeGroupEvents()
+{
+    std::vector<std::pair<uint32, Bots::GroupEvent>> events;
+    {
+        std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
+        for (auto const& pair : m_coordinators)
+            for (Bots::GroupEvent const& event : pair.second->TakeEvents())
+                events.emplace_back(pair.first, event);
+    }
+    for (auto const& pair : events)
+        OnGroupEvent(pair.first, pair.second);
+}
+
+void BotMgr::OnGroupEvent(uint32 groupId, Bots::GroupEvent const& event)
+{
+    if (event.kind == Bots::GroupEventKind::Wipe)
+    {
+        sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] Group %u wipes", groupId);
+        return;
+    }
+    char const* reason = "revives at its corpse";
+    if (event.reason == Bots::RestReason::Eat)
+        reason = "eats";
+    else if (event.reason == Bots::RestReason::Drink)
+        reason = "drinks";
+    auto found = m_bots.find(ObjectGuid(event.bot).GetCounter());
+    std::string const name = found != m_bots.end() ? found->second.entry->name : ObjectGuid(event.bot).GetString();
+    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] Group %u rests: %s %s", groupId, name.c_str(), reason);
 }
 
 bool BotMgr::IsOurBot(Player const* player) const
