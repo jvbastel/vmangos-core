@@ -120,7 +120,7 @@ TEST(ChatHttp, ASlowServiceTimesOut)
     auto const took = std::chrono::steady_clock::now() - start;
 
     EXPECT_FALSE(result.answered);
-    EXPECT_FALSE(result.error.empty());
+    EXPECT_NE(result.error.find("no answer within 200 ms"), std::string::npos) << result.error;
     EXPECT_LT(took, std::chrono::milliseconds(1000));
 }
 

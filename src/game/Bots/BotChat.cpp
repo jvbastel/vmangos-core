@@ -254,7 +254,15 @@ void BotChat::UpdateSessions()
         views.push_back(ViewOf(group));
 
     for (Bots::ChatEvent const& end : m_sessions.Update(views))
+    {
+        static char const* const reasons[] = {"bot_left", "group_disbanded", "player_logout"};
+        std::string bots;
+        for (Bots::Guid guid : end.endedBotGuids)
+            bots += (bots.empty() ? "" : ", ") + std::to_string(guid);
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[BotChat] session_end of group %u (%s): bots %s",
+            end.groupId, reasons[int(end.reason)], bots.c_str());
         m_client->Post(end);
+    }
 }
 
 bool BotChat::MaySay(Bots::DueChatLine const& due, BotLine& line) const

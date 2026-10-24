@@ -12,9 +12,9 @@ namespace
     {
     public:
         explicit HttpChatConnection(Bots::ChatClientSettings const& settings)
-            : m_client(BaseUrl(settings.url))
+            : m_client(BaseUrl(settings.url)), m_timeout(settings.timeoutMs)
         {
-            std::chrono::milliseconds const timeout(settings.timeoutMs);
+            std::chrono::milliseconds const timeout = m_timeout;
             m_client.set_keep_alive(true);
             m_client.set_connection_timeout(timeout);
             m_client.set_read_timeout(timeout);
@@ -26,10 +26,14 @@ namespace
         Bots::ChatPostResult Post(std::string const& body) override
         {
             Bots::ChatPostResult result;
+            auto const start = std::chrono::steady_clock::now();
             httplib::Result const answer = m_client.Post("/v1/events", body, "application/json");
             if (!answer)
             {
                 result.error = httplib::to_string(answer.error());
+                // A timeout shows as a failed read: say what it was.
+                if (std::chrono::steady_clock::now() - start >= m_timeout)
+                    result.error = "no answer within " + std::to_string(m_timeout.count()) + " ms (" + result.error + ")";
                 return result;
             }
             result.answered = true;
@@ -47,6 +51,7 @@ namespace
         }
 
         httplib::Client m_client;
+        std::chrono::milliseconds m_timeout;
     };
 }
 
