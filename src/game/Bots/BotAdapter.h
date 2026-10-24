@@ -36,6 +36,9 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         std::vector<Bots::Guid> GetAttackers(Bots::Guid unit) const override;
         bool HasAura(Bots::Guid unit, Bots::SpellId firstRank) const override;
         Bots::Guid GetFollowTarget() const override;
+        Bots::ChaseState GetChase() const override;
+        uint32 GetComboPoints() const override;
+        Bots::Guid GetPet() const override;
         bool KnowsSpell(Bots::SpellId spell) const override;
         Bots::SpellId GetNextRank(Bots::SpellId spell) const override;
         bool CanCast(Bots::SpellId spell, Bots::Guid target) const override;
@@ -45,6 +48,9 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void MoveTo(Bots::Position const& destination) override;
         void Attack(Bots::Guid target) override;
         void Chase(Bots::Guid target) override;
+        void ChaseBehind(Bots::Guid target) override;
+        void ChaseInRange(Bots::Guid target, float yards) override;
+        void PetAttack(Bots::Guid target) override;
         void Follow(Bots::Guid unit) override;
 
     private:

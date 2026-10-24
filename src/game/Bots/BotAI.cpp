@@ -147,7 +147,8 @@ void BotAI::HandlePacket(WorldPacket const& packet)
 void BotAI::HandleCommand(BotCommandMessage const& message)
 {
     Player* player = me->GetMap()->GetPlayer(message.player);
-    Bots::CommandFacts const facts = {me->IsAlive(), IsInReach(player), m_role == Bots::BotRole::Tank, PullTargetOf(player)};
+    Bots::CommandFacts const facts = {me->IsAlive(), IsInReach(player), m_role == Bots::BotRole::Tank, PullTargetOf(player),
+        IsDamageBot()};
     Bots::CommandOutcome const outcome = Bots::ApplyBotCommand(m_commandState, message.kind, facts);
     if (!outcome.obeys)
     {
@@ -164,11 +165,19 @@ void BotAI::HandleCommand(BotCommandMessage const& message)
         StartPull(player);
         return;
     }
+    if (message.kind == Bots::BotCommandKind::Attack)
+    {
+        // The damage bot switches at its next think (PickDamageTarget).
+        m_attackTarget = player->GetSelectionGuid();
+        sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s attacks %s", me->GetName(), m_attackTarget.GetString().c_str());
+        return;
+    }
 
     m_commandState = outcome.state;
     m_commandPlayer = message.player;
     if (message.kind == Bots::BotCommandKind::Stop)
     {
+        m_attackTarget.Clear();
         me->AttackStop();
         me->InterruptNonMeleeSpells(false);
         std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
@@ -186,6 +195,20 @@ Bots::PullTarget BotAI::PullTargetOf(Player const* player) const
     if (!target || !target->IsInWorld() || !target->IsInMap(me))
         return Bots::PullTarget::None;
     return me->IsValidAttackTarget(target) ? Bots::PullTarget::Enemy : Bots::PullTarget::NotEnemy;
+}
+
+bool BotAI::IsDamageBot() const
+{
+    return m_role == Bots::BotRole::Melee || m_role == Bots::BotRole::Ranged;
+}
+
+void BotAI::CheckAttackTarget()
+{
+    if (m_attackTarget.IsEmpty())
+        return;
+    Unit const* target = ObjectAccessor::GetUnit(*me, m_attackTarget);
+    if (!target || !target->IsInWorld() || !target->IsInMap(me) || !target->IsAlive())
+        m_attackTarget.Clear();
 }
 
 void BotAI::StartPull(Player* player)
@@ -248,9 +271,11 @@ void BotAI::Think()
         m_strategiesMade = true;
     }
 
+    CheckAttackTarget();
     BotAdapter adapter(me);
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
-    Bots::BotContext const context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue()};
+    Bots::BotContext const context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
+        m_attackTarget.GetRawValue()};
     std::string const rule = m_strategies.Think(context);
     if (!rule.empty() && rule != m_lastRule)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());

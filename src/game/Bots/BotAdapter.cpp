@@ -8,6 +8,8 @@
 #include "BotAdapter.h"
 #include "Log.h"
 #include "MotionMaster.h"
+#include "CreatureAI.h"
+#include "Pet.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "Spell.h"
@@ -22,6 +24,9 @@ namespace
     // A following bot keeps this distance to the unit, at a random angle.
     float const MinFollowYards = 3.0f;
     float const MaxFollowYards = 6.0f;
+    // A bot behind its target stays this far from it, like the melee party
+    // bots of CombatBotBaseAI.
+    float const BehindYards = 1.0f;
 
     Bots::Guid GuidOf(Unit const* unit)
     {
@@ -118,6 +123,27 @@ Bots::Guid BotAdapter::GetFollowTarget() const
     return follow ? GuidOf(follow->GetTarget()) : Bots::NoGuid;
 }
 
+Bots::ChaseState BotAdapter::GetChase() const
+{
+    MotionMaster const* motion = me->GetMotionMaster();
+    if (motion->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
+        return {Bots::NoGuid, false};
+    auto const* chase = dynamic_cast<ChaseMovementGenerator<Player> const*>(motion->GetCurrent());
+    if (!chase)
+        return {Bots::NoGuid, false};
+    return {GuidOf(chase->GetTarget()), chase->GetAngle() != 0.0f};
+}
+
+uint32 BotAdapter::GetComboPoints() const
+{
+    return me->GetComboPoints();
+}
+
+Bots::Guid BotAdapter::GetPet() const
+{
+    return GuidOf(me->GetPet());
+}
+
 bool BotAdapter::KnowsSpell(Bots::SpellId spell) const
 {
     return me->HasSpell(spell);
@@ -142,6 +168,9 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     if (!entry || !unit || !unit->IsAlive() || !me->HasSpell(spell))
         return false;
     if (me->IsNonMeleeSpellCasted(false, false, true))
+        return false;
+    // A spell with a cast time waits until the bot stands.
+    if (entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
         return false;
     if (!me->IsSpellReady(entry) || me->HasGCD(entry))
         return false;
@@ -207,6 +236,29 @@ void BotAdapter::Chase(Bots::Guid target)
 {
     if (Unit* unit = Find(target))
         me->GetMotionMaster()->MoveChase(unit);
+}
+
+void BotAdapter::ChaseBehind(Bots::Guid target)
+{
+    if (Unit* unit = Find(target))
+        me->GetMotionMaster()->MoveChase(unit, BehindYards, M_PI_F);
+}
+
+void BotAdapter::ChaseInRange(Bots::Guid target, float yards)
+{
+    if (Unit* unit = Find(target))
+        me->GetMotionMaster()->MoveChase(unit, yards);
+}
+
+void BotAdapter::PetAttack(Bots::Guid target)
+{
+    // Like the attack command of the pet bar, and like the party bots.
+    Pet* pet = me->GetPet();
+    Unit* unit = Find(target);
+    if (!pet || !pet->IsAlive() || !unit || !pet->AI())
+        return;
+    pet->GetCharmInfo()->SetIsCommandAttack(true);
+    pet->AI()->AttackStart(unit);
 }
 
 void BotAdapter::Follow(Bots::Guid unit)

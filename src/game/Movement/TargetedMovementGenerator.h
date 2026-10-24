@@ -56,6 +56,8 @@ class TargetedMovementGeneratorMedium
         }
 
         Unit* GetTarget() const { return i_target.getTarget(); }
+        // WOWAI: the angle from the facing of the target (BotAdapter::GetChase).
+        float GetAngle() const { return m_fAngle; }
 
         void UnitSpeedChanged() override { m_bRecalculateTravel=true; }
         void UpdateFinalDistance(float fDistance) override;
