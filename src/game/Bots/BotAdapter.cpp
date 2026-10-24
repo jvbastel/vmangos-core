@@ -20,6 +20,8 @@
 #include "TargetedMovementGenerator.h"
 #include "Utilities/Random.h"
 
+#include <algorithm>
+#include <cmath>
 #include <limits>
 
 namespace
@@ -30,6 +32,8 @@ namespace
     // A bot behind its target stays this far from it, like the melee party
     // bots of CombatBotBaseAI.
     float const BehindYards = 1.0f;
+    // The height of a body over the ground, for the rays to a wall.
+    float const BodyHeightYards = 2.0f;
 
     Bots::Guid GuidOf(Unit const* unit)
     {
@@ -249,7 +253,10 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
 
 void BotAdapter::MoveTo(Bots::Position const& destination)
 {
-    me->GetMotionMaster()->MovePoint(0, destination.x, destination.y, destination.z, MOVE_PATHFINDING | MOVE_RUN_MODE);
+    // The library keeps the height of the bot: put the place on the ground.
+    float z = destination.z;
+    me->UpdateAllowedPositionZ(destination.x, destination.y, z);
+    me->GetMotionMaster()->MovePoint(0, destination.x, destination.y, z, MOVE_PATHFINDING | MOVE_RUN_MODE);
 }
 
 void BotAdapter::Attack(Bots::Guid target)
@@ -337,4 +344,31 @@ void BotAdapter::Loot(bool mayMove)
 {
     if (m_loot)
         m_loot->Think(me, mayMove);
+}
+
+uint32 BotAdapter::GetEntry(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    return found && found->IsCreature() ? found->GetEntry() : 0;
+}
+
+Bots::Position BotAdapter::GetPosition(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found)
+        return {0.0f, 0.0f, 0.0f};
+    return {found->GetPositionX(), found->GetPositionY(), found->GetPositionZ()};
+}
+
+float BotAdapter::GetWallDistance(Bots::Position const& from, float angle, float maxYards) const
+{
+    // A ray of the collision models (vmaps and game objects) at the height
+    // of a body. A rising floor counts as a wall too.
+    float const z = from.z + BodyHeightYards;
+    float x = from.x + maxYards * std::cos(angle);
+    float y = from.y + maxYards * std::sin(angle);
+    float hitZ = z;
+    if (!me->GetMap()->GetLosHitPosition(from.x, from.y, z, x, y, hitZ, 0.0f))
+        return maxYards;
+    return std::min(maxYards, std::hypot(x - from.x, y - from.y));
 }
