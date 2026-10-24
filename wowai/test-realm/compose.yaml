@@ -88,8 +88,35 @@ services:
       - VMANGOS_DATABASE_USER=mangos
       - VMANGOS_DATABASE_PASSWORD=${WOWAI_REALM_DB_PASSWORD:?}
 
-  # The chat service (`botchat`, with BOTCHAT_LLM=fake) goes here. See the
-  # chat service dev loop in the version 1 build spec.
+  # The chat service, with the fake LLM backend. It runs the source of the
+  # chat service repository (WOWAI_BOTCHAT_SRC) from a bind mount with
+  # `uvicorn --reload`, so a Python edit takes effect at once. The image holds
+  # only Python and the dependencies. The core reaches it at
+  # http://botchat:8000.
+  botchat:
+    image: wowai-botchat:dev
+    build: ${WOWAI_BOTCHAT_SRC:?}
+    pull_policy: build
+    command: >-
+      uvicorn --factory botchat.app:create_app --app-dir src
+      --host 0.0.0.0 --port 8000 --reload --reload-dir src
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=2)']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ${WOWAI_BOTCHAT_SRC:?}:/app:ro
+    environment:
+      - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
+      - BOTCHAT_LLM=fake
 
 volumes:
   database:
