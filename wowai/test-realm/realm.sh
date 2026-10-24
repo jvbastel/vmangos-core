@@ -32,6 +32,9 @@
 #                           Default: <WOWAI_DEPLOY_DIR>/storage/mangosd/extracted-data
 #   WOWAI_BOTCHAT_SRC       A clone of the chat service repository, which the
 #                           botchat service runs. Default: ~/wowai/botchat
+#   WOWAI_BOTS_DATA         The bot data files (route files, ...), read and
+#                           written by mangosd. Default: bots/data of the fork
+#                           tree that runs `realm up` or `realm build`
 
 realm_dir="$(realpath -m "${WOWAI_REALM_DIR:-$HOME/wowai/test-realm}")"
 realm_files="$script_dir/test-realm"
@@ -62,6 +65,11 @@ realm_prepare() {
     "$realm_dir/storage/mangosd/honor" "$realm_dir/storage/realmd/logs"
   mkdir -p "$install_dir"
   install_dir="$(cd "$install_dir" && pwd)"
+  local bots_data
+  bots_data="$(realpath -m "${WOWAI_BOTS_DATA:-$src/bots/data}")"
+  # The GM route recorder writes into routes/. Made here, so that it belongs
+  # to the user and not to root.
+  mkdir -p "$bots_data/routes"
 
   local data
   data="$(realm_setting WOWAI_REALM_DATA "$deploy_dir/storage/mangosd/extracted-data")"
@@ -81,6 +89,7 @@ WOWAI_REALM_DIR=$realm_dir
 WOWAI_DEV_INSTALL=$install_dir
 WOWAI_REALM_DATA=$data
 WOWAI_BOTCHAT_SRC=$botchat
+WOWAI_BOTS_DATA=$bots_data
 WOWAI_REALM_LOGIN_PORT=$(realm_setting WOWAI_REALM_LOGIN_PORT 3725)
 WOWAI_REALM_WORLD_PORT=$(realm_setting WOWAI_REALM_WORLD_PORT 8086)
 WOWAI_REALM_SOAP_PORT=$(realm_setting WOWAI_REALM_SOAP_PORT 7879)
