@@ -195,3 +195,11 @@ TEST(Warlock, DoesNotFollowWhileItChasesALivingTarget)
 
     EXPECT_TRUE(warlock.fake.Deeds().empty());
 }
+
+TEST(Warlock, TheImpCastsFireboltAndBloodPactOnItsOwn)
+{
+    std::vector<Bots::SpellId> const autocast = Bots::PetAutocastSpells(Bots::BotClass::Warlock);
+
+    EXPECT_EQ(autocast, (std::vector<Bots::SpellId>{Warlock::Firebolt, Warlock::BloodPact}));
+    EXPECT_TRUE(Bots::PetAutocastSpells(Bots::BotClass::Rogue).empty());
+}

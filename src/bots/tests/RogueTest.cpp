@@ -125,7 +125,7 @@ TEST(Rogue, SinisterStrikeBuildsComboPoints)
     EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{CastOn(Rogue::SinisterStrike, Kobold)}));
 }
 
-TEST(Rogue, SliceAndDiceWithTwoComboPoints)
+TEST(Rogue, SliceAndDiceWithTwoComboPointsOnTheTarget)
 {
     RogueBot rogue;
     rogue.FightsKoboldFromBehind();
@@ -133,7 +133,7 @@ TEST(Rogue, SliceAndDiceWithTwoComboPoints)
 
     rogue.Think();
 
-    EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{CastOn(Rogue::SliceAndDice, Self)}));
+    EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{CastOn(Rogue::SliceAndDice, Kobold)}));
 }
 
 TEST(Rogue, EviscerateWithFiveComboPoints)

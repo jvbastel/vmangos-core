@@ -88,12 +88,13 @@ namespace Bots
                         return Fights(context) && context.view.GetComboPoints() >= EviscerateComboPoints;
                     },
                     Eviscerate, PickDamageTarget),
+                // On the target: the spell takes the combo points on it.
                 CastRule("slice and dice", P + 55,
                     [](BotContext const& context) {
                         return Fights(context) && context.view.GetComboPoints() >= SliceComboPoints
                             && !context.view.HasAura(Self(context), SliceAndDice);
                     },
-                    SliceAndDice, PickSelf),
+                    SliceAndDice, PickDamageTarget),
                 CastRule("sinister strike", P + 50, Fights, SinisterStrike, PickDamageTarget),
             };
             return std::make_shared<Strategy const>(Strategy{"rogue melee", std::move(rules)});

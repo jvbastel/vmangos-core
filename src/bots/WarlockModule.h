@@ -21,6 +21,11 @@ namespace Bots
         SpellId const CurseOfAgony = 980;
         SpellId const LifeTap = 1454;
 
+        // The spells of the Imp that it casts on its own (autocast). Not
+        // Phase Shift: the Imp cannot attack in it.
+        SpellId const Firebolt = 3110;
+        SpellId const BloodPact = 6307;
+
         // The ranged damage bot: out of combat it summons its Imp and keeps
         // its armor up. In the fight it sends the Imp to the damage target
         // (CommonRules.h), stands in range of the target, puts its damage

@@ -43,10 +43,12 @@ class BotLevelRoutine
         // `talentBuild` is the name of the bot's talent build, for example
         // "warrior_tank". With no build of that name, the bot spends no picks.
         void Apply(Player* bot, std::string const& talentBuild) const;
-        // Also on each summon of the pet.
+        // Also on each summon of the pet. It then turns on the autocast of
+        // the pet spells of the class module (Bots::PetAutocastSpells).
         void TeachPetSpells(Player* bot, Pet* pet) const;
 
     private:
+        void TurnOnPetAutocast(Player* bot, Pet* pet) const;
         void TeachQuestSpells(Player* bot) const;
         void TeachTrainerSpells(Player* bot) const;
         void TeachWeaponSkills(Player* bot) const;

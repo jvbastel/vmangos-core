@@ -9,6 +9,7 @@
 #include "BotLoot.h"
 #include "Log.h"
 #include "MotionMaster.h"
+#include "spline/MoveSpline.h"
 #include "CreatureAI.h"
 #include "Pet.h"
 #include "ObjectAccessor.h"
@@ -175,10 +176,14 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
         return false;
     if (me->IsNonMeleeSpellCasted(false, false, true))
         return false;
-    // A spell with a cast time waits until the bot stands.
-    if (entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
+    // A spell with a cast time waits until the bot stands. A chase keeps
+    // its unit state while the bot stands, so the spline counts.
+    if (entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->movespline->Finalized()))
         return false;
     if (!me->IsSpellReady(entry) || me->HasGCD(entry))
+        return false;
+    // For example a melee weapon for Sinister Strike.
+    if (!me->HasItemFitToSpellReqirements(entry))
         return false;
     if (entry->TargetAuraState && !unit->HasAuraState(AuraState(entry->TargetAuraState)))
         return false;
@@ -252,8 +257,14 @@ void BotAdapter::ChaseBehind(Bots::Guid target)
 
 void BotAdapter::ChaseInRange(Bots::Guid target, float yards)
 {
+    // A chase ends when the victim of the bot is another unit, so the bot
+    // takes the unit as its victim, without melee swings.
     if (Unit* unit = Find(target))
+    {
+        me->SetTargetGuid(unit->GetObjectGuid());
+        me->Attack(unit, false);
         me->GetMotionMaster()->MoveChase(unit, yards);
+    }
 }
 
 void BotAdapter::PetAttack(Bots::Guid target)
@@ -265,6 +276,9 @@ void BotAdapter::PetAttack(Bots::Guid target)
         return;
     pet->GetCharmInfo()->SetIsCommandAttack(true);
     pet->AI()->AttackStart(unit);
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s sends its pet %s (0x%016llx) to %s: pet victim %s",
+        me->GetName(), pet->GetName(), (unsigned long long)pet->GetObjectGuid().GetRawValue(),
+        unit->GetObjectGuid().GetString().c_str(), pet->GetVictim() ? pet->GetVictim()->GetObjectGuid().GetString().c_str() : "none");
 }
 
 void BotAdapter::Follow(Bots::Guid unit)

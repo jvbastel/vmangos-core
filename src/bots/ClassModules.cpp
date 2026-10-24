@@ -81,6 +81,13 @@ namespace Bots
         return nullptr;
     }
 
+    std::vector<SpellId> PetAutocastSpells(BotClass botClass)
+    {
+        if (botClass == BotClass::Warlock)
+            return {Warlock::Firebolt, Warlock::BloodPact};
+        return {};
+    }
+
     StrategyStack MakeStrategyStack(BotClass botClass, BotRole role)
     {
         StrategyStack stack;
