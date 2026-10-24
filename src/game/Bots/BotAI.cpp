@@ -14,6 +14,8 @@
 #include "Map.h"
 #include "Log.h"
 #include "Opcodes.h"
+#include "Packet.h"
+#include "WorldSession.h"
 
 namespace
 {
@@ -68,6 +70,15 @@ void BotAI::OnPacketReceived(WorldPacket const* packet)
     // The opcode first: most packets are of no use to the bot.
     if (!IsInboxOpcode(packet->GetOpcode()))
         return;
+    if (packet->GetOpcode() == SMSG_NEW_WORLD)
+    {
+        // A far teleport: the bot is out of the world, so UpdateAI does not
+        // run until the ack. The session handles the ack at its next update,
+        // like the ack of a client.
+        if (me)
+            me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(MSG_MOVE_WORLDPORT_ACK));
+        return;
+    }
     m_inbox.Push(*packet);
 }
 
@@ -113,7 +124,16 @@ void BotAI::KeepLevelCorrect()
 
 void BotAI::HandlePacket(WorldPacket const& packet)
 {
-    // The bot reacts to these packets in later tickets.
+    switch (packet.GetOpcode())
+    {
+        case SMSG_GROUP_INVITE:
+            // A normal /invite: the bot accepts, like the client of a player.
+            me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(CMSG_GROUP_ACCEPT));
+            return;
+        default:
+            break;
+    }
+    // The bot reacts to the other packets in later tickets.
     sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "[Bots] %s got %s", me->GetName(), LookupOpcodeName(packet.GetOpcode()));
 }
 
