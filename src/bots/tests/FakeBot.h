@@ -4,6 +4,8 @@
 #include "BotActions.h"
 #include "BotView.h"
 
+#include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <map>
 #include <set>
@@ -68,6 +70,14 @@ namespace Bots
             // The other members of the bot's group, in order.
             void SetGroupMembers(std::vector<Guid> const& others) { m_groupMembers = others; }
 
+            void SetEntry(Guid unit, std::uint32_t entry) { m_entry[unit] = entry; }
+            // A unit with a position and no distance of its own (SetDistance)
+            // is as far from the bot as their positions are.
+            void SetPosition(Guid unit, Position position) { m_position[unit] = position; }
+            // A wall along the line x = `x` (or y = `y`), from top to bottom.
+            void AddWallAtX(float x) { m_wallsAtX.push_back(x); }
+            void AddWallAtY(float y) { m_wallsAtY.push_back(y); }
+
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -93,6 +103,10 @@ namespace Bots
                 auto found = m_distance.find(unit);
                 if (found != m_distance.end())
                     return found->second;
+                auto here = m_position.find(m_self);
+                auto there = m_position.find(unit);
+                if (here != m_position.end() && there != m_position.end())
+                    return std::hypot(there->second.x - here->second.x, there->second.y - here->second.y);
                 return unit == m_self || GetHealth(unit).max ? 5.0f : 100000.0f;
             }
             bool IsInCombat(Guid unit) const override
@@ -135,6 +149,30 @@ namespace Bots
                 std::vector<Guid> members{m_self};
                 members.insert(members.end(), m_groupMembers.begin(), m_groupMembers.end());
                 return members;
+            }
+
+            std::uint32_t GetEntry(Guid unit) const override
+            {
+                auto found = m_entry.find(unit);
+                return found == m_entry.end() ? 0 : found->second;
+            }
+            Position GetPosition(Guid unit) const override
+            {
+                auto found = m_position.find(unit);
+                return found == m_position.end() ? Position{0, 0, 0} : found->second;
+            }
+            float GetWallDistance(Position const& from, float angle, float maxYards) const override
+            {
+                float nearest = maxYards;
+                float const dx = std::cos(angle);
+                float const dy = std::sin(angle);
+                for (float x : m_wallsAtX)
+                    if (std::fabs(dx) > 1e-6f && (x - from.x) / dx >= 0)
+                        nearest = std::min(nearest, (x - from.x) / dx);
+                for (float y : m_wallsAtY)
+                    if (std::fabs(dy) > 1e-6f && (y - from.y) / dy >= 0)
+                        nearest = std::min(nearest, (y - from.y) / dy);
+                return nearest;
             }
 
             // BotActions
@@ -204,6 +242,10 @@ namespace Bots
             Guid m_pet = NoGuid;
             bool m_lootWork = false;
             bool m_lootOnlyWithMove = false;
+            std::map<Guid, std::uint32_t> m_entry;
+            std::map<Guid, Position> m_position;
+            std::vector<float> m_wallsAtX;
+            std::vector<float> m_wallsAtY;
             std::vector<std::string> m_deeds;
         };
     }

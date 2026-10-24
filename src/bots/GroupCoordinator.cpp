@@ -50,4 +50,26 @@ namespace Bots
             return m_focusTarget != NoGuid;
         return m_pull.phase == PullPhase::Holding;
     }
+
+    BossFight GroupCoordinator::GetBossFight() const
+    {
+        Lock lock(m_mutex);
+        return m_bossFight;
+    }
+
+    bool GroupCoordinator::StartBossFight(Guid boss, std::uint32_t entry)
+    {
+        Lock lock(m_mutex);
+        if (m_bossFight.boss != NoGuid)
+            return m_bossFight.boss == boss;
+        m_bossFight = {boss, entry};
+        return true;
+    }
+
+    void GroupCoordinator::EndBossFight(Guid boss)
+    {
+        Lock lock(m_mutex);
+        if (m_bossFight.boss == boss)
+            m_bossFight = {NoGuid, 0};
+    }
 }

@@ -20,6 +20,7 @@ endif()
 add_library(bots STATIC
   BotAccounts.cpp
   BotCommand.cpp
+  BossReactions.cpp
   BotRecipe.cpp
   ChatClient.cpp
   ChatContract.cpp
@@ -42,6 +43,7 @@ add_library(bots STATIC
   SpellBook.cpp
   SpellFile.cpp
   Strategy.cpp
+  TaragamanReaction.cpp
   TalentBuild.cpp
   ThinkTimer.cpp
   WarlockModule.cpp
