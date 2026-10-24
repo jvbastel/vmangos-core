@@ -105,6 +105,26 @@ ChatCommand * ChatHandler::getCommandTable()
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 
+    static ChatCommand routeAddCommandTable[] =
+    {
+        { "point",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddPointCommand,       "", nullptr },
+        { "alt",        SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddAltCommand,         "", nullptr },
+        { "pack",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddPackCommand,        "", nullptr },
+        { "mob",        SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddMobCommand,         "", nullptr },
+        { "boss",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddBossCommand,        "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
+    static ChatCommand routeCommandTable[] =
+    {
+        { "start",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteStartCommand,          "", nullptr },
+        { "add",        SEC_ADMINISTRATOR,      true,  nullptr,                                        "", routeAddCommandTable },
+        { "undo",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteUndoCommand,           "", nullptr },
+        { "show",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteShowCommand,           "", nullptr },
+        { "stop",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteStopCommand,           "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
     static ChatCommand partyBotCommandTable[] =
     {
         { "add",        SEC_ADMINISTRATOR,      false, &ChatHandler::HandlePartyBotAddCommand,         "", nullptr },
@@ -1235,6 +1255,7 @@ ChatCommand * ChatHandler::getCommandTable()
         { "partybot",       SEC_ADMINISTRATOR,  false, nullptr,                       "Manage party bots", partyBotCommandTable },
         { "battlebot",      SEC_ADMINISTRATOR,  true, nullptr,                      "Manage battle bots", battleBotCommandTable},
         { "wowai",          SEC_ADMINISTRATOR,  true, nullptr,                          "Manage WOWAI bots", wowaiCommandTable    },
+        { "route",          SEC_ADMINISTRATOR,  true, nullptr,                "Record WOWAI dungeon routes", routeCommandTable    },
         { "world",          SEC_ADMINISTRATOR,  false, nullptr,                                        "", worldCommandTable    },
         { "possess",        SEC_GAMEMASTER,     false, &ChatHandler::HandlePossessCommand,             "", nullptr              },
         { "cinematic",      SEC_DEVELOPER,      false, nullptr,                                        "", cinematicCommandTable},
