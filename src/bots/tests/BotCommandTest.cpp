@@ -85,3 +85,13 @@ TEST(BotCommand, ACommandWithANameAddressesThatBotOnly)
 
     EXPECT_EQ(Bots::AddressedBots(parsed.command, GroupBots), std::vector<std::string>{"Grukk"});
 }
+
+TEST(BotCommand, PullIsACommand)
+{
+    ParsedBotCommand parsed = ParseBotCommand("Grukk PULL", GroupBots);
+
+    ASSERT_TRUE(parsed.ok);
+    EXPECT_EQ(parsed.command.kind, BotCommandKind::Pull);
+    EXPECT_EQ(parsed.command.botName, "Grukk");
+    EXPECT_STREQ(Bots::BotCommandWord(BotCommandKind::Pull), "pull");
+}
