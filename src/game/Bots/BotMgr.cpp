@@ -455,6 +455,15 @@ void BotMgr::RunGroupCommand(GroupCommandMessage const& message)
     if (!player)
         return;
     BotRecord* record = FindByName(message.botName);
+    if (record && message.kind == Bots::GroupCommandKind::Invite && !BotPlayer(*record))
+    {
+        // An offline bot can be in a group that only bots kept, after the
+        // player left it: that group does not hold the bot back.
+        ObjectGuid const botGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID));
+        Group* botGroup = sObjectMgr.GetGroupByMember(botGuid);
+        if (botGroup && !HasPlayerMember(*botGroup))
+            Player::RemoveFromGroup(botGroup, botGuid);
+    }
     if (!RunGroupPlan(message.kind, record, player) || message.kind != Bots::GroupCommandKind::Invite || BotPlayer(*record))
         return;
 
