@@ -144,3 +144,9 @@ def test_the_ban_file_rejects_other_lines(tmp_path):
 
     with pytest.raises(ValueError, match="line 2"):
         gear_data.read_bans(path)
+
+
+def test_an_item_keeps_its_display_id_for_the_icons_of_the_builder_page():
+    world = gear_data.build_world(tables(items=[item(100, display_id=7012)]))
+
+    assert world.items[100].display_id == 7012

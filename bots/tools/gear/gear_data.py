@@ -86,6 +86,7 @@ class Item:
     patches: frozenset    # The content patches in which the item exists.
     excluded: str         # Why no generated pool may hold the item, "" if none.
     unique: bool
+    display_id: int = 0   # ItemDisplayInfo.dbc row: the icon of the item.
 
     @property
     def quality_name(self):
@@ -127,6 +128,7 @@ class SourceRules:
 class World:
     items: dict = field(default_factory=dict)    # entry -> Item
     sources: dict = field(default_factory=dict)  # entry -> [Source]
+    entries: frozenset = frozenset()             # Every item_template entry, gear or not.
 
 
 def earliest_level(sources, patch, class_id, rules):
@@ -278,7 +280,8 @@ def _build_items(item_rows, spells, forbidden):
             armor_type=ARMOR_TYPES.get(row["subclass"], "") if row["class"] == 4 else "",
             required_level=row["required_level"], allowable_class=row["allowable_class"],
             allowable_race=row["allowable_race"], stats=stats, armor=row["armor"], dps=dps,
-            patches=frozenset(patches), excluded=_excluded(row), unique=row["max_count"] == 1)
+            patches=frozenset(patches), excluded=_excluded(row), unique=row["max_count"] == 1,
+            display_id=row.get("display_id", 0))
     return items
 
 
@@ -405,7 +408,8 @@ def build_world(tables):
         sources[entry] = [Source(s.kind, s.name, tuple(level if patch in patches else None
                                                         for patch, level in zip(PATCHES, s.levels)), s.classes)
                           for s in item_sources]
-    return World(items=items, sources=sources)
+    entries = frozenset(row["entry"] for row in tables.get("entries", [])) | frozenset(items)
+    return World(items=items, sources=sources, entries=entries)
 
 
 # Reading the world database.
@@ -417,7 +421,7 @@ QUERIES = {
         SELECT entry, patch, class, subclass, name, quality, flags, extra_flags, inventory_type,
                allowable_class, allowable_race, required_level, required_skill, required_spell,
                required_honor_rank, required_city_rank, required_reputation_faction, max_count,
-               random_property, armor, block, delay,
+               random_property, display_id, armor, block, delay,
                {", ".join(f"stat_type{i}, stat_value{i}" for i in range(1, 11))},
                {", ".join(f"dmg_min{i}, dmg_max{i}" for i in range(1, 6))},
                {", ".join(f"spellid_{i}, spelltrigger_{i}" for i in range(1, 6))}
@@ -430,6 +434,7 @@ QUERIES = {
         FROM spell_template
         WHERE build <= {CLIENT_BUILD} AND (effect1 = 6 OR effect2 = 6 OR effect3 = 6)""",
     "forbidden": "SELECT entry, patch, after_or_before FROM forbidden_items",
+    "entries": "SELECT DISTINCT entry FROM item_template",
     "quests": f"""
         SELECT entry, MIN(patch) AS patch, QuestLevel, MinLevel, RequiredRaces, RequiredClasses, Title,
                RewChoiceItemId1, RewChoiceItemId2, RewChoiceItemId3, RewChoiceItemId4, RewChoiceItemId5,
