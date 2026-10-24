@@ -324,7 +324,19 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     if (entry->IsSpellAppliesAura() && unit->HasAura(entry->Id))
         return false;
 
-    if (unit != me && entry->EffectImplicitTargetA[0] != TARGET_UNIT_CASTER)
+    // A melee ability (Kick, Shield Bash, Sinister Strike): like
+    // Spell::CheckRange. Without it, a Kick on a caster that is not the
+    // victim failed on each think (out of range, or not in front).
+    if (unit != me && entry->rangeIndex == SPELL_RANGE_IDX_COMBAT && !entry->IsNextMeleeSwingSpell())
+    {
+        if (!me->CanReachWithMeleeSpellAttack(unit))
+            return false;
+        // CastSpell turns the bot to its victim. Another unit must be in
+        // front already.
+        if (unit != me->GetVictim() && !me->IsFacingTarget(unit))
+            return false;
+    }
+    else if (unit != me && entry->EffectImplicitTargetA[0] != TARGET_UNIT_CASTER)
     {
         SpellRangeEntry const* range = sSpellRangeStore.LookupEntry(entry->rangeIndex);
         float const distance = me->GetCombatDistance(unit);
