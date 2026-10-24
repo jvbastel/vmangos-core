@@ -12,7 +12,8 @@ page with it. Then open http://127.0.0.1:8765/.
 The page has a search per slot, a paste box for item IDs and Wowhead links,
 and the slots of the template with their empty levels. It writes only
 hand-made templates, to bots/data/gear/<name>.txt. The logic is in
-builder.py, the item data in gear_data.py (shared with the generator). See
+builder.py, the item data in gear_data.py (shared with the generator). The
+page shows item icons when icon_cache.py has made the icon cache. See
 step 4 of the version 1 build spec, "Template builder page".
 """
 
@@ -31,6 +32,7 @@ from pydantic import BaseModel
 import builder
 import gear_data
 import generate
+import icon_cache
 
 HERE = Path(__file__).resolve().parent
 PAGE = HERE / "builder_page.html"
@@ -45,6 +47,12 @@ class NoIcons:
 
     def url(self, item):
         return None
+
+
+def icon_source(cache_dir):
+    """The icons of the cache in cache_dir (made by icon_cache.py), or no
+    icons when there is no cache."""
+    return icon_cache.IconCache.load(cache_dir) or NoIcons()
 
 
 class LineModel(BaseModel):
@@ -196,11 +204,16 @@ def main(argv=None):
                         help="the gear folder (default: bots/data/gear)")
     parser.add_argument("--settings", type=Path, default=HERE / "settings.toml")
     parser.add_argument("--bans", type=Path, default=HERE / "bans.txt")
+    parser.add_argument("--icons", type=Path, default=icon_cache.DEFAULT_CACHE,
+                        help="the icon cache of icon_cache.py (default: icon-cache)")
     args = parser.parse_args(argv)
 
     import uvicorn
 
     settings = generate.Settings.load(args.settings)
+    icons = icon_source(args.icons)
+    if isinstance(icons, NoIcons):
+        print(f"No icon cache in {args.icons}: the page shows item names by quality", file=sys.stderr)
     bans = gear_data.read_bans(args.bans)
     env = os.environ
     connection = gear_data.connect(env.get("WOWAI_GEAR_DB_HOST", "127.0.0.1"), int(env.get("WOWAI_GEAR_DB_PORT", "3306")),
@@ -211,7 +224,7 @@ def main(argv=None):
     finally:
         connection.close()
     print(f"Open http://{args.host}:{args.port}/", file=sys.stderr)
-    uvicorn.run(create_app(world, args.gear_dir, settings, bans), host=args.host, port=args.port)
+    uvicorn.run(create_app(world, args.gear_dir, settings, bans, icons), host=args.host, port=args.port)
     return 0
 
 
