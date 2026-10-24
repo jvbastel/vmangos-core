@@ -206,3 +206,27 @@ TEST(RouteRecorder, RouteNamesAreSafeFileNames)
     EXPECT_FALSE(Bots::IsValidRouteName("Ragefire"));
     EXPECT_FALSE(Bots::IsValidRouteName("rfc.txt"));
 }
+
+TEST(BossList, KnowsTheBossesOfEachDungeonByMap)
+{
+    Bots::BossList bosses;
+    bosses.Add(ParseRoute(RagefireStart).route);
+    bosses.Add(ParseRoute("route wailing_caverns 43\nboss 3653\n").route);
+
+    EXPECT_TRUE(bosses.IsBoss(389, 11517));
+    EXPECT_TRUE(bosses.IsBoss(389, 11520));
+    EXPECT_TRUE(bosses.IsBoss(43, 3653));
+    // A trash mob of the route, and a boss of another dungeon.
+    EXPECT_FALSE(bosses.IsBoss(389, 11319));
+    EXPECT_FALSE(bosses.IsBoss(43, 11517));
+}
+
+TEST(BossList, TwoRoutesOfOneDungeonAddTheirBosses)
+{
+    Bots::BossList bosses;
+    bosses.Add(ParseRoute("route rfc_a 389\nboss 11517\n").route);
+    bosses.Add(ParseRoute("route rfc_b 389\nboss 11518\n").route);
+
+    EXPECT_TRUE(bosses.IsBoss(389, 11517));
+    EXPECT_TRUE(bosses.IsBoss(389, 11518));
+}

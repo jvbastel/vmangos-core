@@ -35,6 +35,9 @@ namespace Bots
         PullTarget playerTarget;
         // The bot deals damage (melee or ranged): only a damage bot attacks.
         bool isDamage;
+        // A bot of the group eats or drinks after a fight: the group waits,
+        // so the tank does not pull.
+        bool groupRests = false;
     };
 
     struct CommandOutcome

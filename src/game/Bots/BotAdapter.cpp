@@ -7,6 +7,8 @@
 
 #include "BotAdapter.h"
 #include "BotLoot.h"
+#include "Bag.h"
+#include "Corpse.h"
 #include "Group.h"
 #include "Log.h"
 #include "MotionMaster.h"
@@ -14,11 +16,13 @@
 #include "CreatureAI.h"
 #include "Pet.h"
 #include "ObjectAccessor.h"
+#include "Packet.h"
 #include "Player.h"
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "SpellMgr.h"
 #include "TargetedMovementGenerator.h"
+#include "WorldSession.h"
 #include "Utilities/Random.h"
 
 #include <limits>
@@ -35,6 +39,52 @@ namespace
     Bots::Guid GuidOf(Unit const* unit)
     {
         return unit ? unit->GetObjectGuid().GetRawValue() : Bots::NoGuid;
+    }
+
+    // The first ranks of the spells that resurrect a dead player:
+    // Resurrection, Redemption, and Ancestral Spirit.
+    uint32 const ResurrectSpells[] = {2006, 7328, 2008};
+
+    // The food and the drink of a level: the item of the highest level
+    // that the bot may use. Vendor food and water of the Horde.
+    struct RestItem
+    {
+        uint32 level;
+        uint32 food;
+        uint32 drink;
+    };
+    RestItem const RestItems[] = {
+        {45, 8950, 8766}, // Homemade Cherry Pie, Morning Glory Dew
+        {35, 4601, 1645}, // Soft Banana Bread, Moonberry Juice
+        {25, 4544, 1708}, // Mulgore Spice Bread, Sweet Nectar
+        {15, 4542, 1205}, // Moist Cornbread, Melon Juice
+        {5, 4541, 1179},  // Freshly Baked Bread, Ice Cold Milk
+        {1, 4540, 159},   // Tough Hunk of Bread, Refreshing Spring Water
+    };
+    // The bot refills its food and its drink to this many before each use.
+    uint32 const RestItemStack = 5;
+
+    RestItem const& RestItemFor(uint32 level)
+    {
+        for (RestItem const& item : RestItems)
+            if (level >= item.level)
+                return item;
+        return RestItems[sizeof(RestItems) / sizeof(RestItems[0]) - 1];
+    }
+
+    Item* FindBagItem(Player const* bot, uint32 entry)
+    {
+        for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+            if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+                if (item->GetEntry() == entry)
+                    return item;
+        for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
+            if (Bag* bag = dynamic_cast<Bag*>(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, bagSlot)))
+                for (uint32 slot = 0; slot < bag->GetBagSize(); ++slot)
+                    if (Item* item = bag->GetItemByPos(uint8(slot)))
+                        if (item->GetEntry() == entry)
+                            return item;
+        return nullptr;
     }
 }
 
@@ -232,9 +282,22 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     // Like CombatBotBaseAI::CanTryToCastSpell of the party bots.
     SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
     Unit* unit = Find(target);
-    if (!entry || !unit || !unit->IsAlive() || !me->HasSpell(spell))
+    if (!entry || !unit || !me->HasSpell(spell))
+        return false;
+    // A resurrect targets a dead player that has not released, with no
+    // resurrect waiting for its answer. Any other spell targets the living.
+    if (entry->HasEffect(SPELL_EFFECT_RESURRECT) || entry->HasEffect(SPELL_EFFECT_RESURRECT_NEW))
+    {
+        Player const* player = unit->IsPlayer() ? static_cast<Player const*>(unit) : nullptr;
+        if (!player || player->IsAlive() || player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST) || player->IsRessurectRequested())
+            return false;
+    }
+    else if (!unit->IsAlive())
         return false;
     if (me->IsNonMeleeSpellCasted(false, false, true))
+        return false;
+    // A bot that eats or drinks sits: it casts again when it stands.
+    if (me->GetStandState() != UNIT_STAND_STATE_STAND)
         return false;
     // A spell with a cast time waits until the bot stands. A chase keeps
     // its unit state while the bot stands, so the spline counts.
@@ -396,4 +459,143 @@ void BotAdapter::Loot(bool mayMove)
 {
     if (m_loot)
         m_loot->Think(me, mayMove);
+}
+
+Unit const* BotAdapter::FindAnywhere(Bots::Guid unit) const
+{
+    if (Unit const* found = Find(unit))
+        return found;
+    ObjectGuid const guid(unit);
+    if (!guid.IsPlayer())
+        return nullptr;
+    Player const* player = ObjectAccessor::FindPlayer(guid);
+    return player && player->IsInWorld() ? player : nullptr;
+}
+
+Bots::LifeState BotAdapter::GetLifeState(Bots::Guid unit) const
+{
+    Unit const* found = FindAnywhere(unit);
+    if (!found || found->IsAlive())
+        return Bots::LifeState::Alive;
+    if (found->IsPlayer() && static_cast<Player const*>(found)->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
+        return Bots::LifeState::Ghost;
+    return Bots::LifeState::Dead;
+}
+
+Bots::Guid BotAdapter::GetGroupLeader() const
+{
+    Group const* group = me->GetGroup();
+    return group ? group->GetLeaderGuid().GetRawValue() : Bots::NoGuid;
+}
+
+float BotAdapter::GetCorpseDistance(Bots::Guid unit) const
+{
+    Corpse const* corpse = me->GetCorpse();
+    Unit const* found = FindAnywhere(unit);
+    if (!corpse || !found || found->GetMapId() != corpse->GetMapId() || found->GetInstanceId() != corpse->GetInstanceId())
+        return std::numeric_limits<float>::max();
+    return found->GetDistance(corpse->GetPositionX(), corpse->GetPositionY(), corpse->GetPositionZ());
+}
+
+bool BotAdapter::CanResurrect(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found || !found->IsAlive() || !found->IsPlayer())
+        return false;
+    Player const* player = static_cast<Player const*>(found);
+    for (auto const& pair : player->GetSpellMap())
+    {
+        if (pair.second.state == PLAYERSPELL_REMOVED || pair.second.disabled)
+            continue;
+        uint32 const firstRank = sSpellMgr.GetFirstSpellInChain(pair.first);
+        for (uint32 resurrect : ResurrectSpells)
+            if (firstRank == resurrect)
+                return true;
+    }
+    return false;
+}
+
+Bots::Power BotAdapter::GetMana(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found || found->GetPowerType() != POWER_MANA)
+        return {0, 0};
+    return {found->GetPower(POWER_MANA), found->GetMaxPower(POWER_MANA)};
+}
+
+bool BotAdapter::IsEating() const
+{
+    return me->HasAuraType(SPELL_AURA_MOD_REGEN);
+}
+
+bool BotAdapter::IsDrinking() const
+{
+    return me->HasAuraType(SPELL_AURA_MOD_POWER_REGEN);
+}
+
+void BotAdapter::Release()
+{
+    // Like the release button of a client.
+    me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(CMSG_REPOP_REQUEST));
+}
+
+void BotAdapter::ReviveAtCorpse()
+{
+    if (me->IsAlive())
+        return;
+    if (!me->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
+        me->BuildPlayerRepop();
+    Corpse const* corpse = me->GetCorpse();
+    if (!corpse)
+        return;
+    uint32 const mapId = corpse->GetMapId();
+    float const x = corpse->GetPositionX();
+    float const y = corpse->GetPositionY();
+    float const z = corpse->GetPositionZ();
+    float const o = corpse->GetOrientation();
+    bool const atCorpse = me->GetMapId() == mapId && me->GetDistance(x, y, z) < CORPSE_RECLAIM_RADIUS;
+
+    // Like the reclaim of a client at its corpse, with no 30 second wait.
+    me->ResurrectPlayer(0.5f);
+    me->SpawnCorpseBones();
+    // A ghost at the graveyard goes to where its corpse was.
+    if (!atCorpse)
+        me->TeleportTo(mapId, x, y, z, o);
+    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s revives at its corpse", me->GetName());
+}
+
+void BotAdapter::UseRestItem(uint32 entry)
+{
+    uint32 const count = me->GetItemCount(entry);
+    if (count < RestItemStack)
+    {
+        // Silently: no loot message and no chat line.
+        ItemPosCountVec dest;
+        if (me->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, entry, RestItemStack - count) == EQUIP_ERR_OK
+            && me->StoreNewItem(dest, entry, true))
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s refills item %u silently to %u", me->GetName(), entry, RestItemStack);
+    }
+    Item* item = FindBagItem(me, entry);
+    if (!item)
+    {
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s has no room for item %u", me->GetName(), entry);
+        return;
+    }
+
+    me->StopMoving();
+    me->GetMotionMaster()->Clear(false, true);
+    me->GetMotionMaster()->MoveIdle();
+    SpellCastTargets targets;
+    targets.setUnitTarget(me);
+    me->CastItemUseSpell(item, targets);
+}
+
+void BotAdapter::Eat()
+{
+    UseRestItem(RestItemFor(me->GetLevel()).food);
+}
+
+void BotAdapter::Drink()
+{
+    UseRestItem(RestItemFor(me->GetLevel()).drink);
 }

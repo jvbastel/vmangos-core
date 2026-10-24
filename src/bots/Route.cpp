@@ -353,3 +353,14 @@ namespace Bots
         return out.str();
     }
 }
+
+void Bots::BossList::Add(Route const& route)
+{
+    for (std::uint32_t entry : route.bosses)
+        m_bosses.emplace(route.mapId, entry);
+}
+
+bool Bots::BossList::IsBoss(std::uint32_t mapId, std::uint32_t entry) const
+{
+    return m_bosses.count(std::make_pair(mapId, entry)) != 0;
+}

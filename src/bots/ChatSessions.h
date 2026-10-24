@@ -2,6 +2,8 @@
 #define WOWAI_BOTS_CHAT_SESSIONS_H
 
 #include "ChatContract.h"
+#include "GroupCoordinator.h"
+#include <string>
 
 #include <cstdint>
 #include <map>
@@ -27,6 +29,13 @@ namespace Bots
 
     // An event with the facts of the group.
     ChatEvent MakeChatEvent(ChatGroupView const& group, ChatEventKind kind);
+
+    // The chat event of a group event of the coordinator: `boss_kill`,
+    // `wipe`, `loot_roll`, or `rest`. `name` is the fact that the game
+    // knows: the boss name of a boss kill, or the item name of a loot roll.
+    // False when the group has no chat session (no player online, or no bot),
+    // or when the bot of a rest is not in the group.
+    bool MakeGroupChatEvent(ChatGroupView const& group, GroupEvent const& event, std::string const& name, ChatEvent& chatEvent);
 
     class ChatSessions
     {

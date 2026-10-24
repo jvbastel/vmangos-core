@@ -9,6 +9,7 @@
 #include "BotMgr.h"
 #include "BotAdapter.h"
 #include "ClassModules.h"
+#include "DeathAndRest.h"
 #include "Group.h"
 #include "ObjectAccessor.h"
 #include "Pet.h"
@@ -19,7 +20,10 @@
 #include "Log.h"
 #include "Opcodes.h"
 #include "Packet.h"
+#include "Packets/Misc.h"
 #include "WorldSession.h"
+
+#include <chrono>
 
 namespace
 {
@@ -27,6 +31,13 @@ namespace
     float const NearPlayerYards = 100.0f;
     // A bot follows or comes to a player within this distance on its map.
     float const CommandReachYards = 100.0f;
+
+    // The clock of the group events of the coordinator.
+    int64 SteadyMs()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
 }
 
 BotAI::BotAI(Bots::ThinkSettings const& thinkSettings, Bots::BotRole role) :
@@ -141,8 +152,20 @@ void BotAI::HandlePacket(WorldPacket const& packet)
             m_loot.OnStartRoll(me, packet);
             return;
         case SMSG_LOOT_ROLL_WON:
-            // The bot chat event `loot_roll` (#50) starts from the result.
-            m_loot.OnRollWon(me, packet);
+        {
+            // Each bot of the group sees the roll end: the coordinator makes
+            // one `loot_roll` event of it.
+            BotLootRollWon const won = m_loot.OnRollWon(me, packet);
+            if (Group* group = me->GetGroup())
+                sBotMgr.GetCoordinator(group->GetId())->NoteRollWon(won.lootedTarget.GetRawValue(), won.itemSlot,
+                    won.itemEntry, won.winner.GetRawValue(), SteadyMs());
+            return;
+        }
+        case SMSG_PARTYKILLLOG:
+            OnPartyKill(packet);
+            return;
+        case SMSG_RESURRECT_REQUEST:
+            AcceptResurrect(packet);
             return;
         default:
             break;
@@ -151,11 +174,26 @@ void BotAI::HandlePacket(WorldPacket const& packet)
     sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "[Bots] %s got %s", me->GetName(), LookupOpcodeName(packet.GetOpcode()));
 }
 
+void BotAI::OnPartyKill(WorldPacket const& packet)
+{
+    // The group killed a creature. The member with the tap does not get the
+    // packet, the others do. A boss of the dungeon's route file is a
+    // `boss_kill`, once for the group.
+    WorldPacket data(packet);
+    ObjectGuid killer, victim;
+    data >> killer >> victim;
+    Group* group = me->GetGroup();
+    if (!group || !victim.IsCreature() || !sBotMgr.IsBoss(me->GetMapId(), victim.GetEntry()))
+        return;
+    sBotMgr.GetCoordinator(group->GetId())->NoteBossKill(victim.GetRawValue(), victim.GetEntry(), SteadyMs());
+}
+
 void BotAI::HandleCommand(BotCommandMessage const& message)
 {
     Player* player = me->GetMap()->GetPlayer(message.player);
-    Bots::CommandFacts const facts = {me->IsAlive(), IsInReach(player), m_role == Bots::BotRole::Tank, PullTargetOf(player),
+    Bots::CommandFacts facts = {me->IsAlive(), IsInReach(player), m_role == Bots::BotRole::Tank, PullTargetOf(player),
         IsDamageBot()};
+    facts.groupRests = GroupRests();
     Bots::CommandOutcome const outcome = Bots::ApplyBotCommand(m_commandState, message.kind, facts);
     if (!outcome.obeys)
     {
@@ -260,16 +298,38 @@ bool BotAI::IsInReach(Player const* player) const
     return player && player != me && player->IsInWorld() && player->IsWithinDist(me, CommandReachYards);
 }
 
+void BotAI::AcceptResurrect(WorldPacket const& packet)
+{
+    // Like a click on Accept: the session resurrects the bot at its next
+    // update, when the request is still valid.
+    WorldPacket data(packet);
+    ObjectGuid resurrector;
+    data >> resurrector;
+    auto response = std::make_unique<WorldPackets::Misc::ResurrectResponse>();
+    response->resurrectorGuid = resurrector;
+    response->accept = true;
+    me->GetSession()->QueuePacket(std::move(response));
+    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s accepts the resurrect of %s", me->GetName(), resurrector.GetString().c_str());
+}
+
+bool BotAI::GroupRests()
+{
+    for (Bots::Guid bot : Coordinator()->GetResting())
+    {
+        // Only a bot that is still here: a bot that logged out while it ate
+        // stays in the list of the coordinator.
+        Player const* player = me->GetMap()->GetPlayer(ObjectGuid(bot));
+        if (player && player->IsAlive() && player->GetGroup() == me->GetGroup())
+            return true;
+    }
+    return false;
+}
+
 void BotAI::Think()
 {
-    // Version 1 starts with a bot that stands in the world.
-    if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND)
-        me->SetStandState(UNIT_STAND_STATE_STAND);
     // A fight or a death ends the corpse work.
     if (!me->IsAlive() || me->IsInCombat())
         m_loot.Stop();
-    if (!me->IsAlive())
-        return;
 
     if (!m_strategiesMade)
     {
@@ -277,19 +337,34 @@ void BotAI::Think()
         if (BotClassOf(me->GetClass(), botClass))
             m_strategies = Bots::MakeStrategyStack(botClass, m_role);
         else
+        {
             m_strategies.Push(Bots::MakeCommandStrategy());
+            m_strategies.Push(Bots::MakeRestStrategy());
+            m_strategies.Push(Bots::MakeDeathStrategy());
+        }
         m_strategiesMade = true;
     }
 
     CheckAttackTarget();
     BotAdapter adapter(me, &m_loot);
+    // Version 1 starts with a bot that stands in the world. A bot that eats
+    // or drinks sits, until a fight: standing up ends the meal.
+    bool const rests = adapter.IsEating() || adapter.IsDrinking();
+    if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND && (!rests || me->IsInCombat()))
+        me->SetStandState(UNIT_STAND_STATE_STAND);
+
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
     // For the chase limit of the damage bots (GroupRules.h).
     if (m_role == Bots::BotRole::Tank)
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
+    Bots::WatchGroup(adapter, *coordinator);
     Bots::BotContext const context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};
     std::string const rule = m_strategies.Think(context);
+    // A bot without a group has no chat session: its own coordinator drops
+    // the events.
+    if (!me->GetGroup())
+        m_soloCoordinator.TakeEvents();
     if (!rule.empty() && rule != m_lastRule)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());
     if (!rule.empty())
@@ -297,7 +372,7 @@ void BotAI::Think()
 
     // Out of combat, a bot that is not busy with a corpse puts on a clear
     // upgrade that it looted.
-    if (!me->IsInCombat() && !m_loot.HasWork(me, false))
+    if (me->IsAlive() && !me->IsInCombat() && !m_loot.HasWork(me, false))
         m_loot.PutOnUpgrades(me);
 }
 

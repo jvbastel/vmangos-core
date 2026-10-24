@@ -13,8 +13,13 @@ namespace Bots
     Guid PickFocusTarget(BotContext const& context);
     Guid PickPullTarget(BotContext const& context);
 
-    // True when the bot can see unit `unit` and the unit is alive.
+    // True when the bot can see unit `unit` and the unit is alive: not dead
+    // and no ghost.
     bool IsAlive(BotView const& view, Guid unit);
+
+    // True when a living member of the bot's group that the bot can see is
+    // in combat, the bot too. False after the fight.
+    bool IsGroupInCombat(BotView const& view);
 
     // A rule that casts the highest known rank of the spell whose first rank
     // is `firstRank` on the picked unit. The bot can do it when it knows a

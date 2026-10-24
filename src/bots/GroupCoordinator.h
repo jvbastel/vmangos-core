@@ -3,8 +3,10 @@
 
 #include "BotTypes.h"
 
+#include <cstdint>
 #include <map>
 #include <mutex>
+#include <utility>
 #include <vector>
 
 namespace Bots
@@ -31,6 +33,40 @@ namespace Bots
         Guid bot;
     };
 
+    // Why a bot rests: it eats, drinks, or revives at its corpse.
+    enum class RestReason
+    {
+        None, // The bot does not rest.
+        Eat,
+        Drink,
+        Revive,
+    };
+
+    enum class GroupEventKind
+    {
+        Wipe,     // Every group member is dead.
+        Rest,     // A bot starts to eat or drink, or revives at its corpse.
+        BossKill, // The group killed a creature of the boss list.
+        LootRoll, // A loot roll of the group ended with a winner.
+    };
+
+    // A group event that the coordinator saw, for the bot chat events
+    // `wipe`, `rest`, `boss_kill`, and `loot_roll`.
+    struct GroupEvent
+    {
+        GroupEventKind kind;
+        Guid bot = NoGuid;                    // Rest: the bot that rests.
+        RestReason reason = RestReason::None; // Rest: why.
+        Guid target = NoGuid;                 // BossKill: the boss. LootRoll: the looted creature.
+        std::uint32_t entry = 0;              // BossKill: the creature entry. LootRoll: the item entry.
+        Guid winner = NoGuid;                 // LootRoll: the bot or player who won the item.
+    };
+
+    // Each bot of a group sees the same kill and the same roll end, at about
+    // the same time. The coordinator keeps one event for them, and forgets a
+    // kill or roll after this time, so that a respawned creature counts again.
+    std::int64_t const GroupEventMemoryMs = 60 * 1000;
+
     // The only shared state between the bots of one group. The bot manager
     // keeps one per group. A bot without a group has one of its own, so that
     // the strategies always have a coordinator.
@@ -38,8 +74,6 @@ namespace Bots
     // Threads: the bots of one group can briefly sit on two map threads, so
     // each call takes a small mutex. A call returns a copy, never a reference
     // into the coordinator.
-    //
-    // Later tickets add the group events here.
     class GroupCoordinator
     {
     public:
@@ -83,8 +117,41 @@ namespace Bots
         void ForgetEnemyHealer(Guid enemy);
         std::vector<Guid> GetEnemyHealers() const;
 
+        // The wipe: every group member is dead. The first SetWiped(true)
+        // after a time with a living member adds a wipe event.
+        bool IsWiped() const;
+        void SetWiped(bool wiped);
+
+        // The bots that eat or drink now, after a fight: the group waits for
+        // them. A bot that starts to rest adds a rest event. RestReason::None:
+        // the bot does not rest (any more).
+        void SetResting(Guid bot, RestReason reason);
+        std::vector<Guid> GetResting() const;
+        // A bot revives at its corpse: adds a rest event.
+        void NoteRevive(Guid bot);
+
+        // A bot saw SMSG_PARTYKILLLOG with a victim of the boss list. The
+        // first note of a kill adds a boss kill event. `nowMs`: any steady
+        // clock in milliseconds.
+        void NoteBossKill(Guid boss, std::uint32_t entry, std::int64_t nowMs);
+        // A bot saw SMSG_LOOT_ROLL_WON. The first note of a roll (looted
+        // creature and loot slot) adds a loot roll event.
+        void NoteRollWon(Guid looted, std::uint32_t itemSlot, std::uint32_t itemEntry, Guid winner, std::int64_t nowMs);
+
+        // The group events since the last call, oldest first. The bot
+        // manager takes them on the world thread.
+        std::vector<GroupEvent> TakeEvents();
+
     private:
+        // True for the first note of `key` within GroupEventMemoryMs.
+        bool FirstNote(std::pair<Guid, std::int64_t> key, std::int64_t nowMs);
+
         mutable std::mutex m_mutex;
+        bool m_wiped = false;
+        std::map<Guid, RestReason> m_resting;
+        std::vector<GroupEvent> m_events;
+        // The kills and rolls that made an event, with the time of the event.
+        std::map<std::pair<Guid, std::int64_t>, std::int64_t> m_seen;
         Guid m_focusTarget = NoGuid;
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.

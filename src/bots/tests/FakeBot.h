@@ -90,6 +90,22 @@ namespace Bots
             // The other members of the bot's group, in order.
             void SetGroupMembers(std::vector<Guid> const& others) { m_groupMembers = others; }
 
+            void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
+            void SetGroupLeader(Guid unit) { m_leader = unit; }
+            void SetCorpseDistance(Guid unit, float yards) { m_corpseDistance[unit] = yards; }
+            void SetCanResurrect(Guid unit, bool can = true)
+            {
+                if (can)
+                    m_resurrecters.insert(unit);
+                else
+                    m_resurrecters.erase(unit);
+            }
+            void SetMana(Guid unit, std::uint32_t current, std::uint32_t max) { m_mana[unit] = Power{current, max}; }
+            void SetEating(bool eating = true) { m_eating = eating; }
+            void SetDrinking(bool drinking = true) { m_drinking = drinking; }
+            // Spell `spell` targets dead units, for example a resurrect.
+            void SetCastsOnDead(SpellId spell) { m_castsOnDead.insert(spell); }
+
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -156,7 +172,11 @@ namespace Bots
             bool HasLootWork(bool mayMove) const override { return m_lootWork && (mayMove || !m_lootOnlyWithMove); }
             bool CanCast(SpellId spell, Guid target) const override
             {
-                return KnowsSpell(spell) && !m_cannotCast.count(spell) && GetHealth(target).current > 0;
+                if (!KnowsSpell(spell) || m_cannotCast.count(spell))
+                    return false;
+                if (m_castsOnDead.count(spell))
+                    return GetLifeState(target) == LifeState::Dead;
+                return GetHealth(target).current > 0 && GetLifeState(target) == LifeState::Alive;
             }
             bool KnowsSpell(SpellId spell) const override { return m_known.count(spell) != 0; }
             SpellId GetNextRank(SpellId spell) const override
@@ -171,6 +191,29 @@ namespace Bots
                 members.insert(members.end(), m_groupMembers.begin(), m_groupMembers.end());
                 return members;
             }
+
+            LifeState GetLifeState(Guid unit) const override
+            {
+                auto found = m_lifeState.find(unit);
+                return found == m_lifeState.end() ? LifeState::Alive : found->second;
+            }
+            Guid GetGroupLeader() const override { return m_leader; }
+            float GetCorpseDistance(Guid unit) const override
+            {
+                auto found = m_corpseDistance.find(unit);
+                return found == m_corpseDistance.end() ? 100000.0f : found->second;
+            }
+            bool CanResurrect(Guid unit) const override
+            {
+                return m_resurrecters.count(unit) != 0 && GetLifeState(unit) == LifeState::Alive;
+            }
+            Power GetMana(Guid unit) const override
+            {
+                auto found = m_mana.find(unit);
+                return found == m_mana.end() ? Power{0, 0} : found->second;
+            }
+            bool IsEating() const override { return m_eating; }
+            bool IsDrinking() const override { return m_drinking; }
 
             // BotActions
             void CastSpell(SpellId spell, Guid target) override
@@ -212,6 +255,10 @@ namespace Bots
                 m_chase = {NoGuid, false};
             }
             void Loot(bool mayMove) override { m_deeds.push_back(mayMove ? "loot" : "loot in place"); }
+            void Release() override { m_deeds.push_back("release"); }
+            void ReviveAtCorpse() override { m_deeds.push_back("revive at the corpse"); }
+            void Eat() override { m_deeds.push_back("eat"); }
+            void Drink() override { m_deeds.push_back("drink"); }
 
         private:
             void AddDeed(char const* verb, Guid unit)
@@ -242,6 +289,14 @@ namespace Bots
             Guid m_pet = NoGuid;
             bool m_lootWork = false;
             bool m_lootOnlyWithMove = false;
+            std::map<Guid, LifeState> m_lifeState;
+            Guid m_leader = NoGuid;
+            std::map<Guid, float> m_corpseDistance;
+            std::set<Guid> m_resurrecters;
+            std::map<Guid, Power> m_mana;
+            bool m_eating = false;
+            bool m_drinking = false;
+            std::set<SpellId> m_castsOnDead;
             std::vector<std::string> m_deeds;
         };
     }

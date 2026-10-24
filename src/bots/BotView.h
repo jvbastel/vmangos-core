@@ -109,6 +109,26 @@ namespace Bots
         // The members of the bot's group that the bot can see, the bot
         // first. Only the bot when it is in no group.
         virtual std::vector<Guid> GetGroupMembers() const = 0;
+
+        // Death and rest.
+        // The life state of unit `unit`. Alive for a unit that the bot
+        // cannot see. The leader of the bot's group is found on any map.
+        virtual LifeState GetLifeState(Guid unit) const = 0;
+        // The leader of the bot's group, or NoGuid without a group.
+        virtual Guid GetGroupLeader() const = 0;
+        // The distance in yards from unit `unit` to the corpse of the bot. A
+        // large number when the bot has no corpse, or when the unit is on
+        // another map than the corpse. The leader is found on any map.
+        virtual float GetCorpseDistance(Guid unit) const = 0;
+        // True when unit `unit` is alive and knows a spell that resurrects a
+        // dead player.
+        virtual bool CanResurrect(Guid unit) const = 0;
+        // The mana of unit `unit`. {0, 0} for a unit without mana.
+        virtual Power GetMana(Guid unit) const = 0;
+        // True when the bot eats now: it has the aura of its food.
+        virtual bool IsEating() const = 0;
+        // True when the bot drinks now: it has the aura of its drink.
+        virtual bool IsDrinking() const = 0;
     };
 }
 

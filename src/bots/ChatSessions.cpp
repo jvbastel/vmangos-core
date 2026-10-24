@@ -84,3 +84,31 @@ std::vector<std::uint32_t> Bots::ChatSessions::Groups() const
         ids.push_back(pair.first);
     return ids;
 }
+
+bool Bots::MakeGroupChatEvent(ChatGroupView const& group, GroupEvent const& event, std::string const& name, ChatEvent& chatEvent)
+{
+    if (group.player.guid == 0 || !group.playerOnline || group.bots.empty())
+        return false;
+    switch (event.kind)
+    {
+        case GroupEventKind::BossKill:
+            chatEvent = MakeChatEvent(group, ChatEventKind::BossKill);
+            chatEvent.bossName = name;
+            return true;
+        case GroupEventKind::Wipe:
+            chatEvent = MakeChatEvent(group, ChatEventKind::Wipe);
+            return true;
+        case GroupEventKind::LootRoll:
+            chatEvent = MakeChatEvent(group, ChatEventKind::LootRoll);
+            chatEvent.itemName = name;
+            chatEvent.winnerGuid = event.winner;
+            return true;
+        case GroupEventKind::Rest:
+            if (!HasBot(group.bots, event.bot))
+                return false;
+            chatEvent = MakeChatEvent(group, ChatEventKind::Rest);
+            chatEvent.restingBotGuid = event.bot;
+            return true;
+    }
+    return false;
+}

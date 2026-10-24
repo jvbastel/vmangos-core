@@ -5,7 +5,9 @@
 
 #include <cstdint>
 #include <functional>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 // The route of a dungeon: an ordered list of points and packs, and the boss
@@ -121,6 +123,19 @@ namespace Bots
     std::string AddBoss(Route& route, std::uint32_t entry);
     // Removes the last step, with its alternatives or mobs.
     std::string RemoveLastStep(Route& route);
+
+    // The boss lists of the route files, by dungeon map. A kill of one of
+    // these bosses is a `boss_kill` for bot chat.
+    class BossList
+    {
+    public:
+        void Add(Route const& route);
+        bool IsBoss(std::uint32_t mapId, std::uint32_t entry) const;
+        bool Empty() const { return m_bosses.empty(); }
+
+    private:
+        std::set<std::pair<std::uint32_t, std::uint32_t>> m_bosses; // (map, entry)
+    };
 }
 
 #endif

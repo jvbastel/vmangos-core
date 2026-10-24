@@ -14,6 +14,7 @@ add_executable(bots_tests
   CommandStrategyTest.cpp
   DamageTargetTest.cpp
   DataTokenizerTest.cpp
+  DeathAndRestTest.cpp
   FakeBotTest.cpp
   GearDataTest.cpp
   GearDrawTest.cpp

@@ -69,6 +69,7 @@ namespace Bots
         int const Class = 200;   // The class and role strategy.
         int const Group = 300;   // The generic group rules, for example interrupts.
         int const Boss = 400;    // A boss reaction.
+        int const Death = 500;   // A dead bot: release and revive, and nothing else.
     }
 
     // The active strategies of one bot, bottom first.

@@ -111,3 +111,64 @@ TEST(GroupCoordinator, TheTankHoldsThreatOnAFocusTargetOutsideAPull)
 
     EXPECT_TRUE(group.TankHoldsThreat());
 }
+
+namespace
+{
+    Bots::Guid const Boss = 0xF130002CFD000101; // Oggleflint, 11517.
+    Bots::Guid const Winner = 0x12;
+}
+
+TEST(GroupCoordinator, EachBotThatSeesABossKillAddsOneEvent)
+{
+    GroupCoordinator group;
+
+    group.NoteBossKill(Boss, 11517, 1000);
+    group.NoteBossKill(Boss, 11517, 1050);
+    group.NoteBossKill(Boss, 11517, 1100);
+
+    std::vector<Bots::GroupEvent> const events = group.TakeEvents();
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].kind, Bots::GroupEventKind::BossKill);
+    EXPECT_EQ(events[0].target, Boss);
+    EXPECT_EQ(events[0].entry, 11517u);
+}
+
+TEST(GroupCoordinator, ALateBotDoesNotRepeatABossKillThatWasTaken)
+{
+    GroupCoordinator group;
+    group.NoteBossKill(Boss, 11517, 1000);
+    group.TakeEvents();
+
+    group.NoteBossKill(Boss, 11517, 1200);
+
+    EXPECT_TRUE(group.TakeEvents().empty());
+}
+
+TEST(GroupCoordinator, AKillOfTheSameCreatureLongAfterIsANewEvent)
+{
+    GroupCoordinator group;
+    group.NoteBossKill(Boss, 11517, 1000);
+    group.TakeEvents();
+
+    // The creature respawned and died again.
+    group.NoteBossKill(Boss, 11517, 1000 + Bots::GroupEventMemoryMs + 1);
+
+    EXPECT_EQ(group.TakeEvents().size(), 1u);
+}
+
+TEST(GroupCoordinator, EachBotThatSeesARollEndAddsOneEvent)
+{
+    GroupCoordinator group;
+
+    group.NoteRollWon(Kobold, 0, 2140, Winner, 2000);
+    group.NoteRollWon(Kobold, 0, 2140, Winner, 2000);
+    group.NoteRollWon(Kobold, 1, 3196, Tank, 2000);
+
+    std::vector<Bots::GroupEvent> const events = group.TakeEvents();
+    ASSERT_EQ(events.size(), 2u);
+    EXPECT_EQ(events[0].kind, Bots::GroupEventKind::LootRoll);
+    EXPECT_EQ(events[0].entry, 2140u);
+    EXPECT_EQ(events[0].winner, Winner);
+    EXPECT_EQ(events[1].entry, 3196u);
+    EXPECT_EQ(events[1].winner, Tank);
+}
