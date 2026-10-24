@@ -132,3 +132,99 @@ TEST(MageFrost, RunsIntoCastingRangeOfAFarFocusTarget)
 
     EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
 }
+
+TEST(MageFrost, FrostNovasAnEnemyThatHitsItInMelee)
+{
+    FrostMage mage;
+    mage.fake.SetKnownSpell(Mage::FrostNova);
+    mage.TankHoldsKobold();
+    mage.fake.SetVictim(Kobold, MageBot);
+    mage.fake.SetDistance(Kobold, 3.0f);
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::FrostNova, MageBot)}));
+}
+
+TEST(MageFrost, ShieldsItselfWithIceBarrierWhenAttacked)
+{
+    FrostMage mage;
+    mage.fake.SetKnownSpell(Mage::IceBarrier);
+    mage.TankHoldsKobold();
+    mage.fake.SetVictim(Kobold, MageBot);
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::IceBarrier, MageBot)}));
+}
+
+TEST(MageFrost, EvocatesWithLittleManaInTheFight)
+{
+    FrostMage mage;
+    mage.fake.SetKnownSpell(Mage::Evocation);
+    mage.TankHoldsKobold();
+    mage.fake.SetInCombat(MageBot);
+    mage.fake.SetPower(MageBot, 40, 600);
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::Evocation, MageBot)}));
+}
+
+TEST(MageFrost, FinishesALowFocusTargetWithFireBlast)
+{
+    FrostMage mage;
+    mage.fake.SetKnownSpell(Mage::FireBlast);
+    mage.TankHoldsKobold();
+    mage.fake.SetHealth(Kobold, 30, 200);
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::FireBlast, Kobold)}));
+}
+
+TEST(MageFrost, PutsOnFrostArmorOutOfCombat)
+{
+    FrostMage mage;
+    mage.fake.SetKnownSpell(Mage::FrostArmor);
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::FrostArmor, MageBot)}));
+}
+
+TEST(MageFrost, PrefersIceArmorWhenItKnowsIt)
+{
+    FrostMage mage;
+    mage.fake.SetKnownSpell(Mage::FrostArmor);
+    mage.fake.SetKnownSpell(Mage::IceArmor);
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::IceArmor, MageBot)}));
+}
+
+TEST(MageFrost, CastsArcaneIntellectOnItselfOutOfCombat)
+{
+    FrostMage mage;
+    mage.fake.SetKnownSpell(Mage::FrostArmor);
+    mage.fake.SetAura(MageBot, Mage::FrostArmor);
+    mage.fake.SetKnownSpell(Mage::ArcaneIntellect);
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::ArcaneIntellect, MageBot)}));
+}
+
+TEST(MageFrost, DoesNotBuffInTheFight)
+{
+    FrostMage mage;
+    mage.fake.SetKnownSpell(Mage::FrostArmor);
+    mage.fake.SetKnownSpell(Mage::ArcaneIntellect);
+    mage.TankHoldsKobold();
+    mage.fake.SetInCombat(MageBot);
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::Frostbolt, Kobold)}));
+}
