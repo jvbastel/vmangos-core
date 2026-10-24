@@ -185,7 +185,10 @@ namespace Bots
             void MoveTo(Position const& destination) override
             {
                 std::ostringstream deed;
-                deed << "move to " << destination.x << ' ' << destination.y << ' ' << destination.z;
+                // To 0.01 yards, without float noise such as -0.
+                auto yards = [](float value) { return std::round(value * 100.0f) / 100.0f + 0.0f; };
+                deed << "move to " << yards(destination.x) << ' ' << yards(destination.y) << ' '
+                     << yards(destination.z);
                 m_deeds.push_back(deed.str());
             }
 

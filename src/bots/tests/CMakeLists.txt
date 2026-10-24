@@ -31,6 +31,7 @@ add_executable(bots_tests
   SpellDataTest.cpp
   SpellFileTest.cpp
   StrategyTest.cpp
+  TaragamanReactionTest.cpp
   TalentBuildTest.cpp
   TalentDataTest.cpp
   ThinkTimerTest.cpp
