@@ -112,6 +112,31 @@ TEST(GroupCoordinator, TheTankHoldsThreatOnAFocusTargetOutsideAPull)
     EXPECT_TRUE(group.TankHoldsThreat());
 }
 
+TEST(GroupCoordinator, StartsWithNoBossFight)
+{
+    GroupCoordinator group;
+
+    EXPECT_EQ(group.GetBossFight().boss, NoGuid);
+    EXPECT_EQ(group.GetBossFight().entry, 0u);
+}
+
+TEST(GroupCoordinator, KeepsTheFirstBossFightUntilItEnds)
+{
+    GroupCoordinator group;
+
+    EXPECT_TRUE(group.StartBossFight(Kobold, 11520));
+    EXPECT_FALSE(group.StartBossFight(Other, 11518));
+
+    EXPECT_EQ(group.GetBossFight().boss, Kobold);
+    EXPECT_EQ(group.GetBossFight().entry, 11520u);
+
+    group.EndBossFight(Other);
+    EXPECT_EQ(group.GetBossFight().boss, Kobold);
+    group.EndBossFight(Kobold);
+    EXPECT_EQ(group.GetBossFight().boss, NoGuid);
+    EXPECT_TRUE(group.StartBossFight(Other, 11518));
+}
+
 namespace
 {
     Bots::Guid const Boss = 0xF130002CFD000101; // Oggleflint, 11517.

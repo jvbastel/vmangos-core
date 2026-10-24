@@ -110,6 +110,18 @@ namespace Bots
         // first. Only the bot when it is in no group.
         virtual std::vector<Guid> GetGroupMembers() const = 0;
 
+        // Places, for the boss reactions (BossReactions.h).
+        // The creature entry of unit `unit`. 0 for a player and for a unit
+        // that the bot cannot see.
+        virtual std::uint32_t GetEntry(Guid unit) const = 0;
+        // The position of unit `unit`. {0, 0, 0} for a unit that the bot
+        // cannot see.
+        virtual Position GetPosition(Guid unit) const = 0;
+        // The distance in yards from `from` to the first wall in direction
+        // `angle` (radians, as the orientation of a unit: 0 is +x, pi/2 is
+        // +y), at the height of a body. `maxYards` when no wall is nearer.
+        virtual float GetWallDistance(Position const& from, float angle, float maxYards) const = 0;
+
         // Death and rest.
         // The life state of unit `unit`. Alive for a unit that the bot
         // cannot see. The leader of the bot's group is found on any map.

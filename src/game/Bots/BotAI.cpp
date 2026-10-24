@@ -357,6 +357,19 @@ void BotAI::Think()
     // For the chase limit of the damage bots (GroupRules.h).
     if (m_role == Bots::BotRole::Tank)
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
+    std::string const reaction = m_bossReaction.Active();
+    switch (m_bossReaction.Update(adapter, *coordinator, m_strategies, m_role))
+    {
+        case Bots::BossReactionSlot::Change::Pushed:
+            sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s pushes the boss reaction %s (boss 0x%016llx)", me->GetName(),
+                m_bossReaction.Active().c_str(), static_cast<unsigned long long>(coordinator->GetBossFight().boss));
+            break;
+        case Bots::BossReactionSlot::Change::Popped:
+            sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s pops the boss reaction %s", me->GetName(), reaction.c_str());
+            break;
+        case Bots::BossReactionSlot::Change::None:
+            break;
+    }
     Bots::WatchGroup(adapter, *coordinator);
     Bots::BotContext const context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};

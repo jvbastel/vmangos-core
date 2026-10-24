@@ -52,6 +52,9 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::SpellId GetNextRank(Bots::SpellId spell) const override;
         bool CanCast(Bots::SpellId spell, Bots::Guid target) const override;
         std::vector<Bots::Guid> GetGroupMembers() const override;
+        uint32 GetEntry(Bots::Guid unit) const override;
+        Bots::Position GetPosition(Bots::Guid unit) const override;
+        float GetWallDistance(Bots::Position const& from, float angle, float maxYards) const override;
         Bots::LifeState GetLifeState(Bots::Guid unit) const override;
         Bots::Guid GetGroupLeader() const override;
         float GetCorpseDistance(Bots::Guid unit) const override;

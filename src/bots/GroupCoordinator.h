@@ -33,6 +33,14 @@ namespace Bots
         Guid bot;
     };
 
+    // A fight of the group with a boss that has a boss reaction
+    // (BossReactions.h).
+    struct BossFight
+    {
+        Guid boss;           // NoGuid without a boss fight.
+        std::uint32_t entry; // The creature entry of the boss, or 0.
+    };
+
     // Why a bot rests: it eats, drinks, or revives at its corpse.
     enum class RestReason
     {
@@ -117,6 +125,17 @@ namespace Bots
         void ForgetEnemyHealer(Guid enemy);
         std::vector<Guid> GetEnemyHealers() const;
 
+        // The boss fight of the group. The coordinator holds the boss
+        // reaction of the group: each bot pushes the reaction of the boss
+        // fight onto its stack, and pops it when the fight ends
+        // (BossReactionSlot).
+        BossFight GetBossFight() const;
+        // The group fights boss `boss` of creature entry `entry` now. False
+        // when another boss fight is on: it stays.
+        bool StartBossFight(Guid boss, std::uint32_t entry);
+        // The fight with boss `boss` ends. Nothing for another boss.
+        void EndBossFight(Guid boss);
+
         // The wipe: every group member is dead. The first SetWiped(true)
         // after a time with a living member adds a wipe event.
         bool IsWiped() const;
@@ -157,6 +176,7 @@ namespace Bots
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;
         std::vector<Guid> m_enemyHealers;                 // In mark order.
+        BossFight m_bossFight = {NoGuid, 0};
     };
 }
 

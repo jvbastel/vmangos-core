@@ -11,6 +11,7 @@
 #include "PlayerBotAI.h"
 #include "ObjectGuid.h"
 #include "WorldPacket.h"
+#include "BossReactions.h"
 #include "BotCommand.h"
 #include "BotLoot.h"
 #include "BotRecipe.h"
@@ -91,6 +92,8 @@ class BotAI : public PlayerBotAI
         // the player and the role of the bot.
         Bots::StrategyStack m_strategies;
         bool m_strategiesMade = false;
+        // The boss reaction on m_strategies during a boss fight of the group.
+        Bots::BossReactionSlot m_bossReaction;
         // The rule of the last think that did something, for the debug log.
         std::string m_lastRule;
         // The coordinator of a bot without a group.
