@@ -46,6 +46,8 @@ namespace Bots
     bool GroupCoordinator::TankHoldsThreat() const
     {
         Lock lock(m_mutex);
+        if (m_pull.phase == PullPhase::None)
+            return m_focusTarget != NoGuid;
         return m_pull.phase == PullPhase::Holding;
     }
 }

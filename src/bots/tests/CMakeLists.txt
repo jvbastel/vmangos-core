@@ -12,6 +12,7 @@ add_executable(bots_tests
   ChatSessionsTest.cpp
   CommandStateTest.cpp
   CommandStrategyTest.cpp
+  DamageTargetTest.cpp
   DataTokenizerTest.cpp
   FakeBotTest.cpp
   GearDataTest.cpp
