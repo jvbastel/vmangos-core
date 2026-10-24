@@ -28,6 +28,7 @@ add_library(bots STATIC
   GearTemplate.cpp
   Route.cpp
   SpellFile.cpp
+  TalentBuild.cpp
   ThinkTimer.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

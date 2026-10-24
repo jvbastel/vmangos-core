@@ -1,0 +1,160 @@
+# Settings of the gear generator (generate.py). See step 4 of the version 1
+# build spec, "Generator". The numbers are tuned after play tests: change
+# them here, run the generator again, review the diff of bots/data/gear/,
+# and commit it.
+
+[levels]
+# The generator writes items for the character levels min to max.
+min = 1
+max = 60
+# An item counts at level L when its required level is from L minus this
+# number to L.
+required_level_window = 6
+
+[sources]
+# Creature loot counts when the creature level is at most L plus this.
+creature_level_margin = 0
+# A world drop (loot through a reference table) counts when the creature
+# level is at most L plus this.
+world_drop_level_margin = 3
+# A dungeon drop counts when the lowest creature level on the map is at most
+# L. Raid drops count only when this is true.
+include_raids = false
+
+[quality]
+# 0 grey, 1 white, 2 green, 3 blue, 4 epic.
+min = 1
+# Epic items count from this level on. No legendary items.
+epic_min_level = 60
+# [from level, to level, the most blue items a character wears].
+blue_caps = [[1, 19, 0], [20, 39, 2], [40, 54, 4], [55, 60, 6]]
+
+[pool]
+# The draw takes from the top items of a pool (GearPoolSize in
+# src/bots/GearDraw.h). Items that are never in the top of a pool are not
+# written.
+size = 10
+
+# One table per generated template: [roles.<class>_<role>].
+#
+# weapons: the weapon types of each weapon slot and of the ranged slot.
+#   Weapon types: axe axe2h bow gun mace mace2h polearm sword sword2h staff
+#   fist dagger thrown crossbow wand. The shield and holdable slots take any
+#   shield and any off-hand item.
+# shapes: the weapon shapes, [name, weapon slot, weapon slot].
+# armor: the armor types (cloth leather mail plate) of the head, shoulders,
+#   chest, wrists, hands, waist, legs, and feet slots. Plate and mail count
+#   only from the level at which the class learns them (40).
+# weights: the stat weights. Stats: strength agility stamina intellect spirit
+#   health mana armor (per point of armor, also armor_bonus) dps (weapon
+#   damage per second) wand_dps attack_power ranged_attack_power crit hit
+#   spell_crit spell_hit spell_damage healing holy_damage fire_damage
+#   nature_damage frost_damage shadow_damage arcane_damage mp5 defense dodge
+#   parry block block_value. Items that give spell damage to all schools also
+#   give healing. An item with a score of zero is never written.
+
+[roles.warrior_tank]
+# A one-handed weapon and a shield: Shield Bash is an interrupt.
+shapes = [["sword-and-board", "mainhand", "shield"]]
+armor = ["leather", "mail", "plate"]
+[roles.warrior_tank.weapons]
+mainhand = ["axe", "mace", "sword", "dagger", "fist"]
+ranged = ["bow", "gun", "crossbow", "thrown"]
+[roles.warrior_tank.weights]
+stamina = 1.0
+strength = 0.6
+agility = 0.6
+armor = 0.04
+armor_bonus = 0.04
+defense = 1.2
+dodge = 12.0
+parry = 10.0
+block = 6.0
+block_value = 0.3
+hit = 8.0
+crit = 4.0
+attack_power = 0.25
+health = 0.1
+dps = 0.8
+
+[roles.rogue_melee]
+# Two one-handed weapons. A dagger goes in the main hand only when the
+# Rogue's talent build uses daggers. The version 1 build does not: add
+# "dagger" to mainhand when it does.
+shapes = [["dual-wield", "mainhand", "offhand"]]
+armor = ["leather"]
+[roles.rogue_melee.weapons]
+mainhand = ["sword", "mace", "fist"]
+offhand = ["sword", "mace", "fist", "dagger"]
+ranged = ["bow", "gun", "crossbow", "thrown"]
+[roles.rogue_melee.weights]
+agility = 1.0
+strength = 0.5
+stamina = 0.4
+attack_power = 0.5
+crit = 12.0
+hit = 10.0
+armor = 0.01
+armor_bonus = 0.01
+dps = 2.5
+
+[roles.priest_healer]
+# A staff, or a one-handed weapon with an off-hand item, and a wand.
+shapes = [["staff", "twohand"], ["mace-and-off-hand", "mainhand", "holdable"]]
+armor = ["cloth"]
+[roles.priest_healer.weapons]
+twohand = ["staff"]
+mainhand = ["mace", "dagger"]
+ranged = ["wand"]
+[roles.priest_healer.weights]
+intellect = 1.0
+spirit = 0.9
+stamina = 0.5
+mana = 0.06
+healing = 0.7
+mp5 = 1.5
+spell_crit = 6.0
+armor = 0.01
+armor_bonus = 0.01
+wand_dps = 1.0
+
+[roles.warlock_ranged]
+shapes = [["staff", "twohand"], ["one-hand-and-off-hand", "mainhand", "holdable"]]
+armor = ["cloth"]
+[roles.warlock_ranged.weapons]
+twohand = ["staff"]
+mainhand = ["sword", "dagger"]
+ranged = ["wand"]
+[roles.warlock_ranged.weights]
+stamina = 1.0
+intellect = 0.8
+spirit = 0.5
+mana = 0.05
+spell_damage = 1.0
+shadow_damage = 0.9
+spell_crit = 5.0
+spell_hit = 8.0
+armor = 0.01
+armor_bonus = 0.01
+wand_dps = 1.0
+
+[roles.mage_ranged]
+# The frost mage of the test driver.
+shapes = [["staff", "twohand"], ["one-hand-and-off-hand", "mainhand", "holdable"]]
+armor = ["cloth"]
+[roles.mage_ranged.weapons]
+twohand = ["staff"]
+mainhand = ["sword", "dagger"]
+ranged = ["wand"]
+[roles.mage_ranged.weights]
+intellect = 1.0
+stamina = 0.6
+spirit = 0.4
+mana = 0.06
+spell_damage = 1.0
+frost_damage = 0.9
+spell_crit = 8.0
+spell_hit = 8.0
+armor = 0.01
+armor_bonus = 0.01
+wand_dps = 1.0

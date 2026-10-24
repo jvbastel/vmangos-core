@@ -110,6 +110,9 @@ class BotMgr
 
         BotSettings const& GetSettings() const { return m_settings; }
         BotLevelRoutine const& GetLevelRoutine() const { return m_levelRoutine; }
+        // Runs the level routine on a bot, with the talent build of its class
+        // and role.
+        void ApplyLevelRoutine(Player* bot) const;
 
         // True for a character that is one of our bots and online, not for
         // the bots of PlayerBotMgr.
