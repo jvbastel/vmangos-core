@@ -92,6 +92,42 @@ namespace Bots
         m_events.push_back({GroupEventKind::Rest, bot, RestReason::Revive});
     }
 
+    bool GroupCoordinator::FirstNote(std::pair<Guid, std::int64_t> key, std::int64_t nowMs)
+    {
+        for (auto it = m_seen.begin(); it != m_seen.end();)
+        {
+            if (nowMs - it->second > GroupEventMemoryMs)
+                it = m_seen.erase(it);
+            else
+                ++it;
+        }
+        return m_seen.emplace(key, nowMs).second;
+    }
+
+    void GroupCoordinator::NoteBossKill(Guid boss, std::uint32_t entry, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        // Key -1: no loot slot, so a kill never matches a roll.
+        if (!FirstNote({boss, -1}, nowMs))
+            return;
+        GroupEvent event = {GroupEventKind::BossKill};
+        event.target = boss;
+        event.entry = entry;
+        m_events.push_back(event);
+    }
+
+    void GroupCoordinator::NoteRollWon(Guid looted, std::uint32_t itemSlot, std::uint32_t itemEntry, Guid winner, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        if (!FirstNote({looted, itemSlot}, nowMs))
+            return;
+        GroupEvent event = {GroupEventKind::LootRoll};
+        event.target = looted;
+        event.entry = itemEntry;
+        event.winner = winner;
+        m_events.push_back(event);
+    }
+
     std::vector<GroupEvent> GroupCoordinator::TakeEvents()
     {
         Lock lock(m_mutex);

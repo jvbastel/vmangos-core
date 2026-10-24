@@ -152,3 +152,86 @@ TEST(ChatSessions, AChatEventCopiesTheFactsOfTheGroup)
     EXPECT_EQ(Guids(event.bots), (std::vector<Guid>{101, 102}));
     EXPECT_EQ(event.zone, "Durotar");
 }
+
+namespace
+{
+    GroupEvent Event(GroupEventKind kind)
+    {
+        GroupEvent event = {kind};
+        return event;
+    }
+}
+
+TEST(GroupChatEvent, ABossKillNamesTheBoss)
+{
+    GroupEvent kill = Event(GroupEventKind::BossKill);
+    kill.target = 0xF130002CFD000101;
+    kill.entry = 11517;
+    ChatEvent event;
+
+    ASSERT_TRUE(MakeGroupChatEvent(Group({Grumbar, Lirael}), kill, "Oggleflint", event));
+
+    EXPECT_EQ(event.kind, ChatEventKind::BossKill);
+    EXPECT_EQ(event.groupId, 42u);
+    EXPECT_EQ(event.player.name, "Jvb");
+    EXPECT_EQ(Guids(event.bots), (std::vector<Guid>{101, 102}));
+    EXPECT_EQ(event.zone, "Durotar");
+    EXPECT_EQ(event.bossName, "Oggleflint");
+}
+
+TEST(GroupChatEvent, AWipeHasOnlyTheGroupFacts)
+{
+    ChatEvent event;
+
+    ASSERT_TRUE(MakeGroupChatEvent(Group({Grumbar}), Event(GroupEventKind::Wipe), "", event));
+
+    EXPECT_EQ(event.kind, ChatEventKind::Wipe);
+    EXPECT_EQ(event.bossName, "");
+}
+
+TEST(GroupChatEvent, ALootRollNamesTheItemAndTheWinner)
+{
+    GroupEvent roll = Event(GroupEventKind::LootRoll);
+    roll.entry = 2140;
+    roll.winner = 7; // The player won.
+    ChatEvent event;
+
+    ASSERT_TRUE(MakeGroupChatEvent(Group({Grumbar}), roll, "Carving Knife", event));
+
+    EXPECT_EQ(event.kind, ChatEventKind::LootRoll);
+    EXPECT_EQ(event.itemName, "Carving Knife");
+    EXPECT_EQ(event.winnerGuid, 7u);
+}
+
+TEST(GroupChatEvent, ARestNamesTheBotThatRests)
+{
+    GroupEvent rest = Event(GroupEventKind::Rest);
+    rest.bot = 102;
+    rest.reason = RestReason::Drink;
+    ChatEvent event;
+
+    ASSERT_TRUE(MakeGroupChatEvent(Group({Grumbar, Lirael}), rest, "", event));
+
+    EXPECT_EQ(event.kind, ChatEventKind::Rest);
+    EXPECT_EQ(event.restingBotGuid, 102u);
+}
+
+TEST(GroupChatEvent, NoEventWithoutAChatSession)
+{
+    ChatEvent event;
+
+    EXPECT_FALSE(MakeGroupChatEvent(Group({Grumbar}, false), Event(GroupEventKind::Wipe), "", event));
+    EXPECT_FALSE(MakeGroupChatEvent(Group({}), Event(GroupEventKind::Wipe), "", event));
+    ChatGroupView noPlayer = Group({Grumbar});
+    noPlayer.player = {};
+    EXPECT_FALSE(MakeGroupChatEvent(noPlayer, Event(GroupEventKind::Wipe), "", event));
+}
+
+TEST(GroupChatEvent, NoRestEventForABotThatIsNotInTheGroup)
+{
+    GroupEvent rest = Event(GroupEventKind::Rest);
+    rest.bot = 999;
+    ChatEvent event;
+
+    EXPECT_FALSE(MakeGroupChatEvent(Group({Grumbar}), rest, "", event));
+}
