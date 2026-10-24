@@ -288,8 +288,10 @@ void BotChat::PostGroupEvent(uint32 groupId, Bots::GroupEvent const& event)
     }
 
     Bots::ChatEvent chatEvent;
-    if (Bots::MakeGroupChatEvent(ViewOf(group), event, name, chatEvent))
-        m_client->Post(chatEvent);
+    if (!Bots::MakeGroupChatEvent(ViewOf(group), event, name, chatEvent))
+        return;
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[BotChat] post %s", Bots::EncodeChatEvent(chatEvent).c_str());
+    m_client->Post(chatEvent);
 }
 
 bool BotChat::MaySay(Bots::DueChatLine const& due, BotLine& line) const
