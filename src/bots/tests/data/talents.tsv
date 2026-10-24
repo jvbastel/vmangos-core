@@ -1,0 +1,434 @@
+# Talents of Talent.dbc (1.12.1). Made by bots/tools/talents/export-talents.sh.
+# talentId	class	tree	tier	column	maxRank	requiredTalent	requiredRank	name
+23	mage	fire	3	4	2	0	0	Burning Soul
+24	mage	fire	4	2	2	0	0	Improved Fire Ward
+25	mage	fire	4	1	3	0	0	Improved Scorch
+26	mage	fire	1	2	5	0	0	Improved Fireball
+27	mage	fire	2	3	3	0	0	Improved Fire Blast
+28	mage	fire	2	2	2	0	0	Flame Throwing
+29	mage	fire	3	3	1	0	0	Pyroblast
+30	mage	fire	1	3	5	0	0	Impact
+31	mage	fire	3	2	3	0	0	Improved Flamestrike
+32	mage	fire	5	3	1	29	1	Blast Wave
+33	mage	fire	5	2	3	0	0	Critical Mass
+34	mage	fire	2	1	5	0	0	Ignite
+35	mage	fire	6	3	5	0	0	Fire Power
+36	mage	fire	7	2	1	33	3	Combustion
+37	mage	frost	1	2	5	0	0	Improved Frostbolt
+38	mage	frost	2	2	3	0	0	Frostbite
+61	mage	frost	3	1	3	0	0	Piercing Ice
+62	mage	frost	2	3	2	0	0	Improved Frost Nova
+63	mage	frost	3	4	3	0	0	Improved Blizzard
+64	mage	frost	5	3	3	0	0	Improved Cone of Cold
+65	mage	frost	2	4	3	0	0	Permafrost
+66	mage	frost	4	2	3	0	0	Frost Channeling
+67	mage	frost	4	3	5	62	2	Shatter
+68	mage	frost	6	3	5	0	0	Winter's Chill
+69	mage	frost	3	2	1	0	0	Cold Snap
+70	mage	frost	1	1	2	0	0	Frost Warding
+71	mage	frost	7	2	1	72	1	Ice Barrier
+72	mage	frost	5	2	1	0	0	Ice Block
+73	mage	frost	2	1	5	0	0	Ice Shards
+74	mage	arcane	1	1	2	0	0	Arcane Subtlety
+75	mage	arcane	2	3	5	0	0	Arcane Concentration
+76	mage	arcane	1	2	5	0	0	Arcane Focus
+77	mage	arcane	5	3	5	85	1	Arcane Mind
+78	mage	arcane	2	1	2	0	0	Wand Specialization
+80	mage	arcane	1	3	5	0	0	Improved Arcane Missiles
+81	mage	arcane	3	2	3	0	0	Improved Arcane Explosion
+82	mage	arcane	3	1	2	0	0	Magic Attunement
+83	mage	arcane	4	1	2	0	0	Improved Mana Shield
+85	mage	arcane	3	3	1	0	0	Arcane Resilience
+86	mage	arcane	5	2	1	0	0	Presence of Mind
+87	mage	arcane	7	2	1	421	3	Arcane Power
+88	mage	arcane	4	2	2	0	0	Improved Counterspell
+121	warrior	arms	3	3	3	127	3	Deep Wounds
+123	warrior	arms	5	4	5	0	0	Sword Specialization
+124	warrior	arms	1	1	3	0	0	Improved Heroic Strike
+125	warrior	arms	5	3	5	0	0	Mace Specialization
+126	warrior	arms	2	1	2	0	0	Improved Charge
+127	warrior	arms	1	3	3	0	0	Improved Rend
+128	warrior	arms	2	4	3	0	0	Improved Thunder Clap
+129	warrior	arms	6	3	3	0	0	Improved Hamstring
+130	warrior	arms	1	2	5	0	0	Deflection
+131	warrior	arms	3	1	2	0	0	Improved Overpower
+132	warrior	arms	5	1	5	0	0	Axe Specialization
+133	warrior	arms	5	2	1	0	0	Sweeping Strikes
+134	warrior	arms	6	1	5	0	0	Polearm Specialization
+135	warrior	arms	7	2	1	133	1	Mortal Strike
+136	warrior	arms	4	2	5	0	0	Two-Handed Weapon Specialization
+137	warrior	arms	3	2	1	641	5	Anger Management
+138	warrior	protection	1	3	5	0	0	Anticipation
+140	warrior	protection	2	3	5	0	0	Toughness
+141	warrior	protection	2	4	5	0	0	Iron Will
+142	warrior	protection	2	1	2	0	0	Improved Bloodrage
+143	warrior	protection	4	3	2	0	0	Improved Taunt
+144	warrior	protection	3	4	5	0	0	Defiance
+145	warrior	protection	3	2	3	1601	5	Improved Shield Block
+146	warrior	protection	4	1	3	0	0	Improved Sunder Armor
+147	warrior	protection	3	3	3	0	0	Improved Revenge
+148	warrior	protection	7	2	1	152	1	Shield Slam
+149	warrior	protection	5	3	2	0	0	Improved Shield Bash
+150	warrior	protection	5	1	2	0	0	Improved Shield Wall
+151	warrior	protection	4	2	3	0	0	Improved Disarm
+152	warrior	protection	5	2	1	0	0	Concussion Blow
+153	warrior	protection	3	1	1	142	2	Last Stand
+154	warrior	fury	3	4	5	0	0	Improved Battle Shout
+155	warrior	fury	4	3	5	0	0	Enrage
+156	warrior	fury	6	3	5	155	5	Flurry
+157	warrior	fury	1	3	5	0	0	Cruelty
+158	warrior	fury	1	2	5	0	0	Booming Voice
+159	warrior	fury	2	3	5	0	0	Unbridled Wrath
+160	warrior	fury	3	2	1	0	0	Piercing Howl
+161	warrior	fury	2	2	5	0	0	Improved Demoralizing Shout
+165	warrior	fury	5	2	1	0	0	Death Wish
+166	warrior	fury	3	1	3	0	0	Improved Cleave
+167	warrior	fury	7	2	1	165	1	Bloodthirst
+168	warrior	fury	5	1	5	0	0	Improved Slam
+181	rogue	combat	2	3	5	0	0	Precision
+182	rogue	combat	4	2	5	0	0	Dagger Specialization
+183	rogue	combat	5	4	5	0	0	Fist Weapon Specialization
+184	rogue	combat	5	1	5	0	0	Mace Specialization
+186	rogue	combat	1	3	5	0	0	Lightning Reflexes
+187	rogue	combat	2	2	5	0	0	Deflection
+201	rogue	combat	1	2	2	0	0	Improved Sinister Strike
+202	rogue	combat	2	1	3	0	0	Improved Backstab
+203	rogue	combat	1	1	3	0	0	Improved Gouge
+204	rogue	combat	3	1	2	0	0	Endurance
+205	rogue	combat	7	2	1	0	0	Adrenaline Rush
+206	rogue	combat	4	1	2	0	0	Improved Kick
+221	rogue	combat	4	3	5	181	5	Dual Wield Specialization
+222	rogue	combat	3	4	2	0	0	Improved Sprint
+223	rogue	combat	5	2	1	0	0	Blade Flurry
+241	rogue	subtlety	1	2	5	0	0	Master of Deception
+242	rogue	combat	5	3	5	0	0	Sword Specialization
+244	rogue	subtlety	2	3	5	0	0	Camouflage
+245	rogue	subtlety	3	1	3	0	0	Initiative
+246	rogue	subtlety	4	1	3	0	0	Setup
+247	rogue	subtlety	2	2	2	0	0	Elusiveness
+261	rogue	subtlety	1	3	5	0	0	Opportunity
+262	rogue	subtlety	4	2	3	0	0	Improved Sap
+263	rogue	subtlety	3	3	3	0	0	Improved Ambush
+265	rogue	subtlety	5	3	2	0	0	Dirty Deeds
+268	rogue	assassination	4	3	5	0	0	Improved Poisons
+269	rogue	assassination	3	3	5	270	5	Lethality
+270	rogue	assassination	1	3	5	0	0	Malice
+272	rogue	assassination	1	2	2	0	0	Remorseless Attacks
+273	rogue	assassination	2	1	3	0	0	Ruthlessness
+274	rogue	assassination	2	2	2	0	0	Murder
+276	rogue	assassination	1	1	3	0	0	Improved Eviscerate
+277	rogue	assassination	2	4	3	0	0	Improved Slice and Dice
+278	rogue	assassination	3	2	2	0	0	Improved Expose Armor
+279	rogue	assassination	5	3	3	0	0	Improved Kidney Shot
+280	rogue	assassination	5	2	1	0	0	Cold Blood
+281	rogue	assassination	3	1	1	0	0	Relentless Strikes
+283	rogue	assassination	6	2	5	280	1	Seal Fate
+284	rogue	subtlety	5	2	1	0	0	Preparation
+301	rogue	combat	3	2	1	187	5	Riposte
+303	rogue	subtlety	3	2	1	0	0	Ghostly Strike
+321	priest	discipline	2	4	2	0	0	Martyrdom
+322	priest	discipline	7	2	1	1201	5	Power Infusion
+341	priest	discipline	4	2	5	0	0	Mental Agility
+342	priest	discipline	1	2	5	0	0	Unbreakable Will
+343	priest	discipline	2	3	3	0	0	Improved Power Word: Shield
+344	priest	discipline	2	2	2	0	0	Improved Power Word: Fortitude
+345	priest	discipline	1	3	5	0	0	Wand Specialization
+346	priest	discipline	4	1	3	0	0	Improved Inner Fire
+347	priest	discipline	3	3	3	0	0	Meditation
+348	priest	discipline	3	2	1	0	0	Inner Focus
+350	priest	discipline	4	4	2	0	0	Improved Mana Burn
+351	priest	discipline	5	3	1	347	3	Divine Spirit
+352	priest	discipline	2	1	5	0	0	Silent Resolve
+361	priest	holy	3	4	3	0	0	Inspiration
+381	rogue	subtlety	7	2	1	284	1	Premeditation
+382	rogue	assassination	7	2	1	0	0	Vigor
+401	priest	holy	1	3	5	0	0	Holy Specialization
+402	priest	holy	5	3	5	0	0	Spiritual Guidance
+403	priest	holy	4	3	2	1181	5	Searing Light
+404	priest	holy	6	3	5	0	0	Spiritual Healing
+406	priest	holy	1	2	3	0	0	Improved Renew
+408	priest	holy	4	2	3	0	0	Improved Healing
+410	priest	holy	1	1	2	0	0	Healing Focus
+411	priest	holy	2	2	5	0	0	Spell Warding
+413	priest	holy	5	1	2	0	0	Improved Prayer of Healing
+421	mage	arcane	6	2	3	86	1	Arcane Instability
+442	priest	holy	3	1	1	0	0	Holy Nova
+461	priest	shadow	4	4	5	0	0	Shadow Weaving
+462	priest	shadow	6	3	5	0	0	Darkness
+463	priest	shadow	2	3	5	0	0	Shadow Focus
+464	priest	shadow	1	3	5	0	0	Blackout
+465	priest	shadow	1	2	5	0	0	Spirit Tap
+466	priest	shadow	2	1	3	0	0	Shadow Affinity
+481	priest	shadow	3	2	5	0	0	Improved Mind Blast
+482	priest	shadow	2	2	2	0	0	Improved Shadow Word: Pain
+483	priest	shadow	4	2	2	0	0	Improved Fade
+484	priest	shadow	5	2	1	0	0	Vampiric Embrace
+501	priest	shadow	3	3	1	0	0	Mind Flay
+521	priest	shadow	7	2	1	484	1	Shadowform
+541	priest	shadow	5	1	1	542	2	Silence
+542	priest	shadow	3	1	2	0	0	Improved Psychic Scream
+561	shaman	elemental	2	3	3	0	0	Call of Flame
+562	shaman	elemental	3	3	5	0	0	Call of Thunder
+563	shaman	elemental	1	3	5	0	0	Concussion
+564	shaman	elemental	1	2	5	0	0	Convection
+565	shaman	elemental	5	2	1	0	0	Elemental Fury
+567	shaman	elemental	4	1	2	0	0	Improved Fire Totems
+572	shaman	elemental	2	1	2	0	0	Earth's Grasp
+573	shaman	elemental	7	2	1	565	1	Elemental Mastery
+574	shaman	elemental	3	1	1	0	0	Elemental Focus
+575	shaman	elemental	3	2	5	0	0	Reverberation
+581	shaman	restoration	2	2	3	0	0	Ancestral Healing
+582	shaman	restoration	3	3	1	0	0	Totemic Mastery
+583	shaman	restoration	3	1	3	0	0	Nature's Guidance
+586	shaman	restoration	1	2	5	0	0	Improved Healing Wave
+587	shaman	restoration	3	2	5	0	0	Healing Focus
+588	shaman	restoration	4	2	5	0	0	Restorative Totems
+589	shaman	restoration	2	1	2	0	0	Improved Reincarnation
+590	shaman	restoration	7	2	1	588	5	Mana Tide Totem
+591	shaman	restoration	5	3	1	0	0	Nature's Swiftness
+592	shaman	restoration	6	3	5	0	0	Purification
+593	shaman	restoration	1	3	5	0	0	Tidal Focus
+594	shaman	restoration	4	3	5	0	0	Tidal Mastery
+595	shaman	restoration	2	3	5	0	0	Totemic Focus
+601	shaman	enhancement	3	4	5	0	0	Anticipation
+602	shaman	enhancement	4	2	5	613	5	Flurry
+605	shaman	enhancement	2	3	2	0	0	Improved Ghost Wolf
+607	shaman	enhancement	2	4	3	0	0	Improved Lightning Shield
+609	shaman	enhancement	2	1	2	0	0	Guardian Totems
+610	shaman	enhancement	3	1	2	0	0	Enhancing Totems
+611	shaman	enhancement	5	2	3	0	0	Elemental Weapons
+612	shaman	enhancement	1	3	5	0	0	Shield Specialization
+613	shaman	enhancement	2	2	5	0	0	Thundering Strikes
+614	shaman	enhancement	1	2	5	0	0	Ancestral Knowledge
+615	shaman	enhancement	4	3	5	0	0	Toughness
+616	shaman	enhancement	5	3	1	0	0	Parry
+617	shaman	enhancement	3	3	1	0	0	Two-Handed Axes and Maces
+641	warrior	arms	2	2	5	0	0	Tactical Mastery
+661	warrior	fury	3	3	3	0	0	Blood Craze
+662	warrior	arms	4	3	2	121	3	Impale
+681	rogue	subtlety	5	4	1	1123	3	Hemorrhage
+682	rogue	assassination	4	2	5	0	0	Vile Poisons
+702	warrior	protection	6	3	5	0	0	One-Handed Weapon Specialization
+721	shaman	elemental	6	3	5	562	5	Lightning Mastery
+741	mage	frost	4	1	2	0	0	Arctic Reach
+761	druid	balance	1	2	1	0	0	Nature's Grasp
+762	druid	balance	1	1	5	0	0	Improved Wrath
+763	druid	balance	2	2	5	0	0	Improved Moonfire
+764	druid	balance	3	4	2	0	0	Nature's Reach
+781	druid	balance	2	4	3	0	0	Natural Shapeshifter
+782	druid	balance	3	1	3	0	0	Improved Thorns
+783	druid	balance	5	3	3	0	0	Moonglow
+784	druid	balance	4	3	5	0	0	Improved Starfire
+787	druid	balance	2	1	3	0	0	Improved Entangling Roots
+788	druid	balance	3	3	1	791	5	Omen of Clarity
+789	druid	balance	5	2	1	0	0	Nature's Grace
+790	druid	balance	6	2	5	789	1	Moonfury
+791	druid	balance	2	3	5	0	0	Natural Weapons
+792	druid	balance	4	2	5	763	5	Vengeance
+793	druid	balance	7	2	1	0	0	Moonkin Form
+794	druid	feral-combat	2	3	5	0	0	Thick Hide
+795	druid	feral-combat	1	3	5	0	0	Feral Aggression
+796	druid	feral-combat	1	2	5	0	0	Ferocity
+797	druid	feral-combat	2	2	2	0	0	Brutal Impact
+798	druid	feral-combat	3	3	3	0	0	Sharpened Claws
+799	druid	feral-combat	2	1	5	0	0	Feral Instinct
+800	druid	feral-combat	4	3	2	798	3	Blood Frenzy
+801	druid	feral-combat	4	4	2	798	3	Primal Fury
+802	druid	feral-combat	4	1	2	0	0	Improved Shred
+803	druid	feral-combat	4	2	3	0	0	Predatory Strikes
+804	druid	feral-combat	3	2	1	0	0	Feral Charge
+805	druid	feral-combat	5	1	2	0	0	Savage Fury
+807	druid	feral-combat	3	1	2	0	0	Feline Swiftness
+808	druid	feral-combat	6	2	5	803	3	Heart of the Wild
+809	druid	feral-combat	7	2	1	0	0	Leader of the Pack
+821	druid	restoration	1	2	5	0	0	Improved Mark of the Wild
+822	druid	restoration	1	3	5	0	0	Furor
+823	druid	restoration	2	2	5	0	0	Nature's Focus
+824	druid	restoration	2	1	5	0	0	Improved Healing Touch
+825	druid	restoration	6	3	5	0	0	Improved Regrowth
+826	druid	restoration	2	3	2	0	0	Improved Enrage
+827	druid	restoration	3	3	1	0	0	Insect Swarm
+828	druid	restoration	5	3	5	827	1	Gift of Nature
+829	druid	restoration	3	2	3	0	0	Reflection
+830	druid	restoration	4	4	3	0	0	Improved Rejuvenation
+831	druid	restoration	5	1	1	824	5	Nature's Swiftness
+841	druid	restoration	3	4	5	0	0	Subtlety
+842	druid	restoration	5	4	2	0	0	Improved Tranquility
+843	druid	restoration	4	2	5	0	0	Tranquil Spirit
+844	druid	restoration	7	2	1	843	5	Swiftmend
+881	priest	shadow	4	3	3	0	0	Shadow Reach
+901	shaman	enhancement	7	2	1	611	3	Stormstrike
+921	druid	balance	1	3	4	761	1	Improved Nature's Grasp
+941	warlock	destruction	1	3	5	0	0	Cataclysm
+943	warlock	destruction	2	2	5	0	0	Bane
+944	warlock	destruction	1	2	5	0	0	Improved Shadow Bolt
+961	warlock	destruction	5	2	5	0	0	Improved Immolate
+963	warlock	destruction	3	4	1	0	0	Shadowburn
+964	warlock	destruction	4	2	2	0	0	Destructive Reach
+965	warlock	destruction	4	4	5	0	0	Improved Searing Pain
+966	warlock	destruction	6	3	5	0	0	Emberstorm
+967	warlock	destruction	5	3	1	981	5	Ruin
+968	warlock	destruction	7	2	1	961	5	Conflagrate
+981	warlock	destruction	3	3	5	0	0	Devastation
+982	warlock	destruction	2	3	5	0	0	Aftermath
+983	warlock	destruction	3	1	2	0	0	Improved Firebolt
+984	warlock	destruction	3	2	2	0	0	Improved Lash of Pain
+985	warlock	destruction	4	1	2	0	0	Intensity
+986	warlock	destruction	5	1	2	985	2	Pyroclasm
+1001	warlock	affliction	3	2	5	0	0	Fel Concentration
+1002	warlock	affliction	4	2	2	0	0	Nightfall
+1003	warlock	affliction	1	3	5	0	0	Improved Corruption
+1004	warlock	affliction	2	4	5	0	0	Improved Drain Life
+1005	warlock	affliction	1	2	5	0	0	Suppression
+1006	warlock	affliction	2	1	3	0	0	Improved Curse of Weakness
+1007	warlock	affliction	2	3	2	0	0	Improved Life Tap
+1021	warlock	affliction	4	1	2	0	0	Grim Reach
+1022	warlock	affliction	7	2	1	0	0	Dark Pact
+1041	warlock	affliction	5	2	1	0	0	Siphon Life
+1042	warlock	affliction	6	2	5	1041	1	Shadow Mastery
+1061	warlock	affliction	3	3	1	0	0	Amplify Curse
+1081	warlock	affliction	5	3	1	1061	1	Curse of Exhaustion
+1082	warlock	affliction	5	4	4	1081	1	Improved Curse of Exhaustion
+1101	warlock	affliction	2	2	2	0	0	Improved Drain Soul
+1121	warlock	affliction	4	4	2	0	0	Improved Drain Mana
+1122	rogue	combat	6	3	3	0	0	Aggression
+1123	rogue	subtlety	4	3	3	0	0	Serrated Blades
+1141	mage	fire	3	1	2	0	0	Incinerate
+1142	mage	arcane	4	4	3	0	0	Arcane Meditation
+1162	druid	feral-combat	5	3	1	0	0	Faerie Fire (Feral)
+1181	priest	holy	2	3	5	0	0	Divine Fury
+1201	priest	discipline	5	2	5	0	0	Mental Strength
+1202	priest	discipline	6	3	5	0	0	Force of Will
+1221	warlock	demonology	1	1	2	0	0	Improved Healthstone
+1222	warlock	demonology	1	2	3	0	0	Improved Imp
+1223	warlock	demonology	1	3	5	0	0	Demonic Embrace
+1224	warlock	demonology	2	1	2	0	0	Improved Health Funnel
+1225	warlock	demonology	2	2	3	0	0	Improved Voidwalker
+1226	warlock	demonology	3	2	1	0	0	Fel Domination
+1227	warlock	demonology	4	2	2	1226	1	Master Summoner
+1241	warlock	demonology	3	3	5	0	0	Fel Stamina
+1242	warlock	demonology	2	3	5	0	0	Fel Intellect
+1243	warlock	demonology	3	1	3	0	0	Improved Succubus
+1244	warlock	demonology	6	3	5	1262	5	Master Demonologist
+1261	warlock	demonology	5	4	2	0	0	Improved Firestone
+1262	warlock	demonology	4	3	5	0	0	Unholy Power
+1263	warlock	demonology	7	3	2	0	0	Improved Spellstone
+1281	warlock	demonology	5	2	1	0	0	Demonic Sacrifice
+1282	warlock	demonology	7	2	1	1281	1	Soul Link
+1283	warlock	demonology	5	1	5	0	0	Improved Enslave Demon
+1284	warlock	affliction	3	1	3	0	0	Improved Curse of Agony
+1301	hunter	survival	1	2	3	0	0	Humanoid Slaying
+1303	hunter	survival	6	3	5	0	0	Lightning Reflexes
+1304	hunter	survival	2	1	5	0	0	Entrapment
+1305	hunter	survival	2	3	5	0	0	Improved Wing Clip
+1306	hunter	survival	3	1	2	0	0	Clever Traps
+1308	hunter	survival	3	3	1	0	0	Deterrence
+1309	hunter	survival	4	4	2	0	0	Improved Feign Death
+1310	hunter	survival	4	2	3	0	0	Surefooted
+1311	hunter	survival	1	3	5	0	0	Deflection
+1312	hunter	survival	5	3	1	1308	1	Counterattack
+1321	hunter	survival	5	2	3	0	0	Killer Instinct
+1322	hunter	survival	4	1	2	0	0	Trap Mastery
+1325	hunter	survival	7	2	1	1321	3	Wyvern Sting
+1341	hunter	marksmanship	1	2	5	0	0	Improved Concussive Shot
+1342	hunter	marksmanship	1	3	5	0	0	Efficiency
+1343	hunter	marksmanship	2	2	5	0	0	Improved Hunter's Mark
+1344	hunter	marksmanship	2	3	5	0	0	Lethal Shots
+1345	hunter	marksmanship	3	1	1	0	0	Aimed Shot
+1346	hunter	marksmanship	3	2	5	0	0	Improved Arcane Shot
+1347	hunter	marksmanship	5	2	3	0	0	Barrage
+1348	hunter	marksmanship	4	2	5	0	0	Improved Serpent Sting
+1349	hunter	marksmanship	4	3	5	1344	5	Mortal Shots
+1351	hunter	marksmanship	5	3	3	0	0	Improved Scorpid Sting
+1352	hunter	marksmanship	3	4	3	0	0	Hawk Eye
+1353	hunter	marksmanship	5	1	1	0	0	Scatter Shot
+1361	hunter	marksmanship	7	2	1	1347	3	Trueshot Aura
+1362	hunter	marksmanship	6	3	5	0	0	Ranged Weapon Specialization
+1381	hunter	beast-mastery	2	2	5	0	0	Improved Aspect of the Monkey
+1382	hunter	beast-mastery	1	2	5	0	0	Improved Aspect of the Hawk
+1384	hunter	beast-mastery	3	1	2	0	0	Pathfinding
+1385	hunter	beast-mastery	4	2	2	0	0	Improved Mend Pet
+1386	hunter	beast-mastery	7	2	1	1387	1	Bestial Wrath
+1387	hunter	beast-mastery	5	2	1	0	0	Intimidation
+1388	hunter	beast-mastery	5	1	2	0	0	Spirit Bond
+1389	hunter	beast-mastery	1	3	5	0	0	Endurance Training
+1390	hunter	beast-mastery	5	4	2	0	0	Bestial Discipline
+1391	hunter	beast-mastery	3	2	1	0	0	Bestial Swiftness
+1393	hunter	beast-mastery	4	3	5	0	0	Ferocity
+1395	hunter	beast-mastery	2	3	3	0	0	Thick Hide
+1396	hunter	beast-mastery	3	3	5	0	0	Unleashed Fury
+1397	hunter	beast-mastery	6	3	5	1393	5	Frenzy
+1401	paladin	retribution	1	2	5	0	0	Improved Blessing of Might
+1402	paladin	retribution	6	2	5	1411	5	Vengeance
+1403	paladin	retribution	2	3	5	0	0	Deflection
+1405	paladin	retribution	4	3	2	0	0	Improved Retribution Aura
+1407	paladin	retribution	1	3	5	0	0	Benediction
+1409	paladin	retribution	5	3	1	0	0	Sanctity Aura
+1410	paladin	retribution	5	1	3	0	0	Two-Handed Weapon Specialization
+1411	paladin	retribution	3	2	5	0	0	Conviction
+1421	paladin	protection	1	3	5	0	0	Redoubt
+1422	paladin	protection	1	2	5	0	0	Improved Devotion Aura
+1423	paladin	protection	2	4	5	0	0	Toughness
+1424	paladin	protection	3	3	3	1421	5	Shield Specialization
+1425	paladin	protection	2	2	2	0	0	Guardian's Favor
+1426	paladin	protection	5	3	5	0	0	Reckoning
+1429	paladin	protection	6	3	5	0	0	One-Handed Weapon Specialization
+1430	paladin	protection	7	2	1	1431	1	Holy Shield
+1431	paladin	protection	5	2	1	0	0	Blessing of Sanctuary
+1432	paladin	holy	2	2	5	0	0	Spiritual Focus
+1433	paladin	holy	5	2	1	1461	5	Divine Favor
+1435	paladin	holy	3	2	1	0	0	Consecration
+1441	paladin	retribution	7	2	1	0	0	Repentance
+1442	paladin	protection	3	1	1	0	0	Blessing of Kings
+1443	paladin	holy	3	3	2	0	0	Improved Lay on Hands
+1444	paladin	holy	3	1	3	0	0	Healing Light
+1446	paladin	holy	4	3	2	0	0	Improved Blessing of Wisdom
+1449	paladin	holy	1	3	5	0	0	Divine Intellect
+1450	paladin	holy	1	2	5	0	0	Divine Strength
+1461	paladin	holy	4	2	5	0	0	Illumination
+1463	paladin	holy	2	3	5	0	0	Improved Seal of Righteousness
+1464	paladin	retribution	2	2	3	0	0	Improved Seal of the Crusader
+1465	paladin	holy	5	3	3	0	0	Lasting Judgement
+1481	paladin	retribution	3	3	1	0	0	Seal of Command
+1501	paladin	protection	3	2	3	0	0	Improved Righteous Fury
+1502	paladin	holy	7	2	1	1433	1	Holy Shock
+1521	paladin	protection	4	2	3	0	0	Improved Hammer of Justice
+1541	warrior	fury	6	1	2	0	0	Improved Berserker Rage
+1542	warrior	fury	4	2	2	0	0	Improved Execute
+1543	warrior	fury	5	4	2	0	0	Improved Intercept
+1561	priest	holy	5	2	1	0	0	Spirit of Redemption
+1581	warrior	fury	4	1	5	0	0	Dual Wield Specialization
+1601	warrior	protection	1	2	5	0	0	Shield Specialization
+1621	hunter	survival	2	2	2	0	0	Savage Strikes
+1622	hunter	survival	3	2	5	0	0	Survivalist
+1623	hunter	survival	1	1	3	0	0	Monster Slaying
+1624	hunter	beast-mastery	2	1	2	0	0	Improved Eyes of the Beast
+1625	hunter	beast-mastery	2	4	2	0	0	Improved Revive Pet
+1626	paladin	protection	4	3	3	0	0	Improved Concentration Aura
+1627	paladin	holy	6	3	5	0	0	Holy Power
+1628	paladin	holy	3	4	2	0	0	Unyielding Faith
+1629	paladin	protection	3	4	5	0	0	Anticipation
+1630	paladin	protection	2	1	3	0	0	Precision
+1631	paladin	retribution	2	1	2	0	0	Improved Judgement
+1632	paladin	retribution	4	1	2	0	0	Eye for an Eye
+1633	paladin	retribution	3	1	3	0	0	Vindication
+1634	paladin	retribution	3	4	2	0	0	Pursuit of Justice
+1635	priest	holy	4	1	2	0	0	Holy Reach
+1636	priest	holy	3	2	3	0	0	Blessed Recovery
+1637	priest	holy	7	2	1	1561	1	Lightwell
+1638	priest	shadow	5	3	2	484	1	Improved Vampiric Embrace
+1639	mage	fire	4	4	3	0	0	Master of Elements
+1640	shaman	elemental	2	2	3	0	0	Elemental Warding
+1641	shaman	elemental	5	1	2	0	0	Storm Reach
+1642	shaman	elemental	4	2	3	0	0	Eye of the Storm
+1643	shaman	enhancement	6	3	5	0	0	Weapon Mastery
+1645	shaman	elemental	4	4	3	0	0	Elemental Devastation
+1646	shaman	restoration	3	4	3	0	0	Healing Grace
+1647	shaman	enhancement	5	1	2	0	0	Improved Weapon Totems
+1648	shaman	restoration	5	1	3	0	0	Healing Way
+1649	mage	frost	1	3	3	0	0	Elemental Precision
+1650	mage	arcane	2	2	5	0	0	Magic Absorption
+1700	rogue	subtlety	2	1	2	0	0	Sleight of Hand
+1701	rogue	subtlety	5	1	2	0	0	Heightened Senses
+1702	rogue	subtlety	6	3	5	0	0	Deadliness
+1703	rogue	combat	6	2	2	223	1	Weapon Expertise
