@@ -25,6 +25,14 @@ namespace Bots
         Guid target; // NoGuid without a pull.
     };
 
+    // A bot will interrupt the cast of spell `spell` by enemy `caster`.
+    struct InterruptClaim
+    {
+        Guid caster;
+        SpellId spell;
+        Guid bot;
+    };
+
     // A fight of the group with a boss that has a boss reaction
     // (BossReactions.h).
     struct BossFight
@@ -74,8 +82,6 @@ namespace Bots
     // Threads: the bots of one group can briefly sit on two map threads, so
     // each call takes a small mutex. A call returns a copy, never a reference
     // into the coordinator.
-    //
-    // Later tickets add the interrupt claims here.
     class GroupCoordinator
     {
     public:
@@ -96,6 +102,29 @@ namespace Bots
         // a pull. The damage bots wait for it.
         bool TankHoldsThreat() const;
 
+        // The interrupt claims (GroupRules.h): two bots never interrupt the
+        // same cast. An enemy casts one spell at a time, so a claim of a
+        // caster on another spell is of a cast that ended.
+        // Claims the cast of `spell` by `caster` for `bot`. True when no
+        // other bot holds the claim on that cast.
+        bool ClaimInterrupt(Guid caster, SpellId spell, Guid bot);
+        // The bot that holds the claim on the cast, or NoGuid.
+        Guid GetInterruptClaim(Guid caster, SpellId spell) const;
+        std::vector<InterruptClaim> GetInterruptClaims() const;
+        // The cast of `caster` ended, or its bot gave it up.
+        void ReleaseInterrupt(Guid caster);
+
+        // The tank of the group, or NoGuid. The bot AI of the tank sets it
+        // on each think. For the chase limit (GroupRules.h).
+        Guid GetTank() const;
+        void SetTank(Guid tank);
+
+        // The enemy healers: the enemies that cast a heal in a fight. The
+        // damage bots attack them first (GroupRules.h).
+        void MarkEnemyHealer(Guid enemy);
+        void ForgetEnemyHealer(Guid enemy);
+        std::vector<Guid> GetEnemyHealers() const;
+
         // The boss fight of the group. The coordinator holds the boss
         // reaction of the group: each bot pushes the reaction of the boss
         // fight onto its stack, and pops it when the fight ends
@@ -106,6 +135,7 @@ namespace Bots
         bool StartBossFight(Guid boss, std::uint32_t entry);
         // The fight with boss `boss` ends. Nothing for another boss.
         void EndBossFight(Guid boss);
+
         // The wipe: every group member is dead. The first SetWiped(true)
         // after a time with a living member adds a wipe event.
         bool IsWiped() const;
@@ -143,6 +173,9 @@ namespace Bots
         std::map<std::pair<Guid, std::int64_t>, std::int64_t> m_seen;
         Guid m_focusTarget = NoGuid;
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
+        std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
+        Guid m_tank = NoGuid;
+        std::vector<Guid> m_enemyHealers;                 // In mark order.
         BossFight m_bossFight = {NoGuid, 0};
     };
 }

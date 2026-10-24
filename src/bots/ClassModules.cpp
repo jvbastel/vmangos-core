@@ -1,6 +1,7 @@
 #include "ClassModules.h"
 #include "CommonRules.h"
 #include "DeathAndRest.h"
+#include "GroupRules.h"
 #include "MageModule.h"
 #include "PriestModule.h"
 #include "RogueModule.h"
@@ -98,6 +99,7 @@ namespace Bots
         StrategyStack stack;
         stack.Push(MakeCommandStrategy());
         stack.Push(MakeRestStrategy());
+        stack.Push(MakeGroupStrategy(role));
         if (std::shared_ptr<Strategy const> strategy = MakeClassStrategy(botClass, role))
             stack.Push(strategy);
         stack.Push(MakeDeathStrategy());

@@ -15,6 +15,8 @@ namespace Bots
         SpellId const SinisterStrike = 1752;
         SpellId const Eviscerate = 2098;
         SpellId const SliceAndDice = 5171;
+        // Interrupts a cast: a generic group rule (GroupRules.h).
+        SpellId const Kick = 1766;
 
         // The melee damage bot: it attacks the damage target (DamageRules.h)
         // from behind when the target attacks another unit, builds combo

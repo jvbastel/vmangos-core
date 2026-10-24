@@ -19,6 +19,7 @@
 #include "Packet.h"
 #include "Player.h"
 #include "Spell.h"
+#include "SpellAuras.h"
 #include "SpellMgr.h"
 #include "TargetedMovementGenerator.h"
 #include "WorldSession.h"
@@ -123,6 +124,31 @@ Bots::SpellId BotAdapter::GetCurrentCast(Bots::Guid unit) const
     return Bots::NoSpell;
 }
 
+Bots::CastInfo BotAdapter::GetCast(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found)
+        return {Bots::NoSpell, Bots::CastKind::None, false};
+    for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL})
+    {
+        Spell const* spell = found->GetCurrentSpell(type);
+        if (!spell)
+            continue;
+        SpellEntry const* info = spell->m_spellInfo;
+        Bots::CastKind const kind = info->IsHealSpell() ? Bots::CastKind::Heal
+            : info->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+        // The test of Spell::EffectInterruptCast, the effect of Kick and
+        // Shield Bash.
+        bool const casting = spell->getState() == SPELL_STATE_CASTING
+            || (spell->getState() == SPELL_STATE_PREPARING && spell->GetCastTime() > 0);
+        bool const interruptible = casting && info->PreventionType == SPELL_PREVENTION_TYPE_SILENCE
+            && (type == CURRENT_GENERIC_SPELL ? spell->GetCastTime() > 0 && info->HasSpellInterruptFlag(SPELL_INTERRUPT_FLAG_DAMAGE_PUSHBACK)
+                : info->HasChannelInterruptFlag(AURA_INTERRUPT_ACTION_CANCELS));
+        return {info->Id, kind, interruptible};
+    }
+    return {Bots::NoSpell, Bots::CastKind::None, false};
+}
+
 Bots::Power BotAdapter::GetPower(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
@@ -136,6 +162,13 @@ float BotAdapter::GetDistance(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
     return found ? me->GetDistance(found) : std::numeric_limits<float>::max();
+}
+
+float BotAdapter::GetDistanceBetween(Bots::Guid a, Bots::Guid b) const
+{
+    Unit const* first = Find(a);
+    Unit const* second = Find(b);
+    return first && second ? first->GetDistance(second) : std::numeric_limits<float>::max();
 }
 
 bool BotAdapter::IsInCombat(Bots::Guid unit) const
@@ -171,6 +204,28 @@ bool BotAdapter::HasAura(Bots::Guid unit, Bots::SpellId firstRank) const
     return false;
 }
 
+bool BotAdapter::HasDebuff(Bots::Guid unit, Bots::DispelKind kind) const
+{
+    Unit const* found = Find(unit);
+    if (!found)
+        return false;
+    DispelType type = DISPEL_MAGIC;
+    switch (kind)
+    {
+        case Bots::DispelKind::Magic: type = DISPEL_MAGIC; break;
+        case Bots::DispelKind::Curse: type = DISPEL_CURSE; break;
+        case Bots::DispelKind::Disease: type = DISPEL_DISEASE; break;
+        case Bots::DispelKind::Poison: type = DISPEL_POISON; break;
+    }
+    for (auto const& pair : found->GetSpellAuraHolderMap())
+    {
+        SpellAuraHolder const* holder = pair.second;
+        if (holder && !holder->IsPositive() && holder->GetSpellProto()->Dispel == uint32(type))
+            return true;
+    }
+    return false;
+}
+
 bool BotAdapter::HasLootWork(bool mayMove) const
 {
     return m_loot && m_loot->HasWork(me, mayMove);
@@ -198,7 +253,11 @@ Bots::ChaseState BotAdapter::GetChase() const
 
 uint32 BotAdapter::GetComboPoints() const
 {
-    return me->GetComboPoints();
+    // The points sit on one unit. After a switch to another target (an
+    // enemy healer, or `attack`), the bot has none on its new target, and
+    // Slice and Dice would fail with no combo points on each think.
+    Unit const* victim = me->GetVictim();
+    return victim && victim->GetObjectGuid() == me->GetComboTargetGuid() ? me->GetComboPoints() : 0;
 }
 
 Bots::Guid BotAdapter::GetPet() const
@@ -269,7 +328,19 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     if (entry->IsSpellAppliesAura() && unit->HasAura(entry->Id))
         return false;
 
-    if (unit != me && entry->EffectImplicitTargetA[0] != TARGET_UNIT_CASTER)
+    // A melee ability (Kick, Shield Bash, Sinister Strike): like
+    // Spell::CheckRange. Without it, a Kick on a caster that is not the
+    // victim failed on each think (out of range, or not in front).
+    if (unit != me && entry->rangeIndex == SPELL_RANGE_IDX_COMBAT && !entry->IsNextMeleeSwingSpell())
+    {
+        if (!me->CanReachWithMeleeSpellAttack(unit))
+            return false;
+        // CastSpell turns the bot to its victim. Another unit must be in
+        // front already.
+        if (unit != me->GetVictim() && !me->IsFacingTarget(unit))
+            return false;
+    }
+    else if (unit != me && entry->EffectImplicitTargetA[0] != TARGET_UNIT_CASTER)
     {
         SpellRangeEntry const* range = sSpellRangeStore.LookupEntry(entry->rangeIndex);
         float const distance = me->GetCombatDistance(unit);

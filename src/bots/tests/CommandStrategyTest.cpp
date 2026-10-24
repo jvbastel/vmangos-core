@@ -143,16 +143,16 @@ TEST(CommandStrategy, ThePullerDoesNotLootDuringItsPull)
     EXPECT_EQ(bot.Think(CommandState::Follow), "");
 }
 
-TEST(ClassModules, TheWarriorTankHasTheCommandRestClassAndDeathStrategies)
+TEST(ClassModules, TheWarriorTankHasTheCommandRestGroupClassAndDeathStrategies)
 {
     StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Warrior, Bots::BotRole::Tank);
 
-    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "rest", "warrior tank", "death"}));
+    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "rest", "group rules", "warrior tank", "death"}));
 }
 
 TEST(ClassModules, AClassAndRoleWithoutAModuleHaveNoClassStrategy)
 {
     StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Druid, Bots::BotRole::Healer);
 
-    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "rest", "death"}));
+    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "rest", "group rules", "death"}));
 }

@@ -30,6 +30,27 @@ namespace Bots
                 m_health[unit] = Health{current, max};
             }
             void SetCurrentCast(Guid unit, SpellId spell) { m_casts[unit] = spell; }
+            // Unit `unit` casts spell `spell` of kind `kind`. NoSpell: the
+            // cast ends.
+            void SetCast(Guid unit, SpellId spell, CastKind kind, bool interruptible = true)
+            {
+                m_casts[unit] = spell;
+                m_castInfo[unit] = spell == NoSpell ? CastInfo{NoSpell, CastKind::None, false} : CastInfo{spell, kind, interruptible};
+            }
+            // The distance between two units. Unset: the distance of the
+            // farther unit from the bot.
+            void SetDistanceBetween(Guid a, Guid b, float yards)
+            {
+                m_between[{a, b}] = yards;
+                m_between[{b, a}] = yards;
+            }
+            void SetDebuff(Guid unit, DispelKind kind, bool has = true)
+            {
+                if (has)
+                    m_debuffs.insert({unit, kind});
+                else
+                    m_debuffs.erase({unit, kind});
+            }
             void SetKnownSpell(SpellId spell) { m_known.insert(spell); }
             // The bot knows the spell, but cannot cast it now (cooldown,
             // range, power, stance).
@@ -107,6 +128,11 @@ namespace Bots
                 auto found = m_casts.find(unit);
                 return found == m_casts.end() ? NoSpell : found->second;
             }
+            CastInfo GetCast(Guid unit) const override
+            {
+                auto found = m_castInfo.find(unit);
+                return found == m_castInfo.end() ? CastInfo{NoSpell, CastKind::None, false} : found->second;
+            }
 
             Power GetPower(Guid unit) const override
             {
@@ -123,6 +149,13 @@ namespace Bots
                 if (here != m_position.end() && there != m_position.end())
                     return std::hypot(there->second.x - here->second.x, there->second.y - here->second.y);
                 return unit == m_self || GetHealth(unit).max ? 5.0f : 100000.0f;
+            }
+            float GetDistanceBetween(Guid a, Guid b) const override
+            {
+                auto found = m_between.find({a, b});
+                if (found != m_between.end())
+                    return found->second;
+                return a == b ? 0.0f : std::max(GetDistance(a), GetDistance(b));
             }
             bool IsInCombat(Guid unit) const override
             {
@@ -143,6 +176,7 @@ namespace Bots
                 return attackers;
             }
             bool HasAura(Guid unit, SpellId firstRank) const override { return m_auras.count({unit, firstRank}) != 0; }
+            bool HasDebuff(Guid unit, DispelKind kind) const override { return m_debuffs.count({unit, kind}) != 0; }
             Guid GetFollowTarget() const override { return m_followTarget; }
             ChaseState GetChase() const override { return m_chase; }
             Guid GetPet() const override { return m_pet; }
@@ -275,6 +309,9 @@ namespace Bots
             Guid m_self;
             std::map<Guid, Health> m_health;
             std::map<Guid, SpellId> m_casts;
+            std::map<Guid, CastInfo> m_castInfo;
+            std::map<std::pair<Guid, Guid>, float> m_between;
+            std::set<std::pair<Guid, DispelKind>> m_debuffs;
             std::set<SpellId> m_known;
             std::map<SpellId, SpellId> m_nextRank;
             std::set<SpellId> m_cannotCast;

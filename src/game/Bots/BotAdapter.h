@@ -34,12 +34,15 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::Guid GetSelf() const override;
         Bots::Health GetHealth(Bots::Guid unit) const override;
         Bots::SpellId GetCurrentCast(Bots::Guid unit) const override;
+        Bots::CastInfo GetCast(Bots::Guid unit) const override;
         Bots::Power GetPower(Bots::Guid unit) const override;
         float GetDistance(Bots::Guid unit) const override;
+        float GetDistanceBetween(Bots::Guid a, Bots::Guid b) const override;
         bool IsInCombat(Bots::Guid unit) const override;
         Bots::Guid GetVictim(Bots::Guid unit) const override;
         std::vector<Bots::Guid> GetAttackers(Bots::Guid unit) const override;
         bool HasAura(Bots::Guid unit, Bots::SpellId firstRank) const override;
+        bool HasDebuff(Bots::Guid unit, Bots::DispelKind kind) const override;
         Bots::Guid GetFollowTarget() const override;
         Bots::ChaseState GetChase() const override;
         uint32 GetComboPoints() const override;

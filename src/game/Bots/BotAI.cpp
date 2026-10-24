@@ -356,6 +356,9 @@ void BotAI::Think()
         me->SetStandState(UNIT_STAND_STATE_STAND);
 
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
+    // For the chase limit of the damage bots (GroupRules.h).
+    if (m_role == Bots::BotRole::Tank)
+        coordinator->SetTank(me->GetObjectGuid().GetRawValue());
     std::string const reaction = m_bossReaction.Active();
     switch (m_bossReaction.Update(adapter, *coordinator, m_strategies, m_role))
     {
