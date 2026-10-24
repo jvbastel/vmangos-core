@@ -155,10 +155,22 @@ namespace Bots
         return false;
     }
 
-    BotRecipeResult ParseBotRecipe(std::vector<std::string> const& words)
+    BotRecipeResult ParseBotRecipe(std::vector<std::string> const& allWords)
     {
+        char const* const usage = "Usage: <name> <class> <role> [race] [gear <template>]";
+        std::vector<std::string> words = allWords;
+        std::string gearTemplate;
+        for (std::size_t i = 3; i < words.size(); ++i)
+            if (Lower(words[i]) == "gear")
+            {
+                if (i + 2 != words.size())
+                    return Fail(usage);
+                gearTemplate = Lower(words[i + 1]);
+                words.resize(i);
+                break;
+            }
         if (words.size() < 3 || words.size() > 4)
-            return Fail("Usage: <name> <class> <role> [race]");
+            return Fail(usage);
 
         std::string const classWord = Lower(words[1]);
         ClassInfo const* classInfo = nullptr;
@@ -207,6 +219,7 @@ namespace Bots
         result.recipe.botClass = classInfo->botClass;
         result.recipe.role = role;
         result.recipe.level = Version1BotLevel;
+        result.recipe.gearTemplate = gearTemplate;
         return result;
     }
 }

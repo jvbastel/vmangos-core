@@ -48,6 +48,9 @@ namespace Bots
         BotClass botClass;
         BotRole role;
         std::uint32_t level;
+        // The name of a gear template in lower case, or empty for the
+        // generated template of the class and role.
+        std::string gearTemplate;
     };
 
     struct BotRecipeResult
@@ -57,7 +60,8 @@ namespace Bots
         std::string error; // A short line for the GM, when not ok.
     };
 
-    // Reads the words `<name> <class> <role> [race]`, in any case. With no
+    // Reads the words `<name> <class> <role> [race] [gear <template>]`, in
+    // any case. With no
     // race, the class gets its default Horde race: an Orc Warrior, a Troll
     // Priest, an Orc Rogue, an Undead Warlock. The name is not checked here:
     // the game layer checks it like a player name.
