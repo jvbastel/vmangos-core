@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Run the gear generator against the world database of a test realm.
+#
+#   bots/tools/gear/generate-from-realm [generate.py options]
+#
+# with-realm-db gives generate.py a read-only user of the test realm's world
+# database (`wowai/dev realm up` first). Review the diff of bots/data/gear/.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$here/with-realm-db" uv run generate.py "$@"

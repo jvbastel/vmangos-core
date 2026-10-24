@@ -1,0 +1,83 @@
+build rogue_melee rogue melee
+# Rogue: a Combat Swords leveling build (20/31/0 at level 60).
+# DAGGERS: NO. This build uses swords: Sword Specialization and Weapon
+# Expertise, and no Dagger Specialization. So the gear generator puts no
+# dagger in the main hand (bots/tools/gear/settings.toml, rogue_melee).
+# Source: Odealo, "WoW Classic Rogue Starter Build and Leveling Guide",
+# https://odealo.com/articles/wow-classic-rogue-starter-build-and-leveling-guide
+# (read on 2026-10-24). Copied in the same order. The guide stops at level 59;
+# the point of level 60 is the last rank of Improved Poisons, to finish the
+# talent it started. The talents are those of 1.12.
+# Points at level 60: 31 combat, 20 assassination
+
+# Levels 10-11: Improved Sinister Strike 2/2 (combat tier 1)
+pick 201 1      # Improved Sinister Strike
+pick 201 2      # Improved Sinister Strike
+# Levels 12-14: Improved Gouge 3/3 (combat tier 1)
+pick 203 1      # Improved Gouge
+pick 203 2      # Improved Gouge
+pick 203 3      # Improved Gouge
+# Levels 15-19: Deflection 5/5 (combat tier 2)
+pick 187 1      # Deflection
+pick 187 2      # Deflection
+pick 187 3      # Deflection
+pick 187 4      # Deflection
+pick 187 5      # Deflection
+# Level 20: Riposte 1/1 (combat tier 3)
+pick 301 1      # Riposte
+# Levels 21-25: Precision 5/5 (combat tier 2)
+pick 181 1      # Precision
+pick 181 2      # Precision
+pick 181 3      # Precision
+pick 181 4      # Precision
+pick 181 5      # Precision
+# Levels 26-29: Dual Wield Specialization 4/5 (combat tier 4)
+pick 221 1      # Dual Wield Specialization
+pick 221 2      # Dual Wield Specialization
+pick 221 3      # Dual Wield Specialization
+pick 221 4      # Dual Wield Specialization
+# Level 30: Blade Flurry 1/1 (combat tier 5)
+pick 223 1      # Blade Flurry
+# Level 31: Dual Wield Specialization 5/5 (combat tier 4)
+pick 221 5      # Dual Wield Specialization
+# Levels 32-34: Sword Specialization 3/5 (combat tier 5)
+pick 242 1      # Sword Specialization
+pick 242 2      # Sword Specialization
+pick 242 3      # Sword Specialization
+# Levels 35-36: Weapon Expertise 2/2 (combat tier 6)
+pick 1703 1     # Weapon Expertise
+pick 1703 2     # Weapon Expertise
+# Levels 37-38: Sword Specialization 5/5 (combat tier 5)
+pick 242 4      # Sword Specialization
+pick 242 5      # Sword Specialization
+# Level 39: Aggression 1/3 (combat tier 6)
+pick 1122 1     # Aggression
+# Level 40: Adrenaline Rush 1/1 (combat tier 7)
+pick 205 1      # Adrenaline Rush
+# Levels 41-42: Remorseless Attacks 2/2 (assassination tier 1)
+pick 272 1      # Remorseless Attacks
+pick 272 2      # Remorseless Attacks
+# Levels 43-45: Malice 3/5 (assassination tier 1)
+pick 270 1      # Malice
+pick 270 2      # Malice
+pick 270 3      # Malice
+# Levels 46-47: Murder 2/2 (assassination tier 2)
+pick 274 1      # Murder
+pick 274 2      # Murder
+# Level 48: Improved Slice and Dice 1/3 (assassination tier 2)
+pick 277 1      # Improved Slice and Dice
+# Levels 49-50: Malice 5/5 (assassination tier 1)
+pick 270 4      # Malice
+pick 270 5      # Malice
+# Levels 51-55: Lethality 5/5 (assassination tier 3)
+pick 269 1      # Lethality
+pick 269 2      # Lethality
+pick 269 3      # Lethality
+pick 269 4      # Lethality
+pick 269 5      # Lethality
+# Levels 56-60: Improved Poisons 5/5 (assassination tier 4)
+pick 268 1      # Improved Poisons
+pick 268 2      # Improved Poisons
+pick 268 3      # Improved Poisons
+pick 268 4      # Improved Poisons
+pick 268 5      # Improved Poisons

@@ -16,13 +16,15 @@ set -euo pipefail
 bots_src="$1"
 work="$2"
 data="$(cd "${3:-$bots_src/../../bots/data}" 2>/dev/null && pwd)" || data="${3:-$bots_src/../../bots/data}"
+# The header-only libraries (nlohmann/json, cpp-httplib), never game headers.
+dep_include="$(cd "$bots_src/../../dep/include" && pwd)"
 mkdir -p "$work/src" "$work/out"
 
 # Keep the file times, so that only changed files build again.
 rsync -a --delete "$bots_src/" "$work/src/"
 
 cd "$work/out"
-cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_BOT_TESTS=1 -DBOT_DATA_DIR="$data" "$work/src" >/dev/null
+cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_BOT_TESTS=1 -DBOT_DATA_DIR="$data" -DBOT_DEP_INCLUDE_DIR="$dep_include" "$work/src" >/dev/null
 if ! make -j"$(nproc)"; then
   echo "The bot decision library failed to build alone. src/bots must build" >&2
   echo "without the rest of the core: it includes no game header (ADR 0002)." >&2

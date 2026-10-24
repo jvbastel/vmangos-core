@@ -11,10 +11,12 @@
 #include "Common.h"
 #include "Policies/Singleton.h"
 #include "PlayerBotMgr.h"
+#include "BotChat.h"
 #include "BotGear.h"
 #include "BotLevelRoutine.h"
 #include "BotRecipe.h"
 #include "GroupCoordinator.h"
+#include "GroupCommand.h"
 #include "Inbox.h"
 #include "ObjectGuid.h"
 #include "ThinkTimer.h"
@@ -23,6 +25,9 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
+
+class Group;
 
 // The settings `Bots.*` of mangosd.conf.
 struct BotSettings
@@ -45,6 +50,20 @@ struct BotRecord
     // The gear template that the bot puts on when it is in the world, after
     // its creation.
     std::string pendingGear;
+    // The player who invited the bot while it was offline: the bot joins the
+    // group and comes to the player when it is in the world. Empty: none.
+    ObjectGuid pendingInvite;
+    // The bot was in a group at its last update. A bot whose group goes away
+    // (a removal by the player, or the end of the group) logs out.
+    bool wasInGroup = false;
+};
+
+// An `invite` or `dismiss` from the chat of a player.
+struct GroupCommandMessage
+{
+    Bots::GroupCommandKind kind;
+    ObjectGuid player;   // The player who gave the command.
+    std::string botName; // As the player wrote it.
 };
 
 // A chat line that a bot says, for example a fixed line when it cannot obey a
@@ -82,6 +101,9 @@ class BotMgr
         // From any thread (the bot AIs on the map threads): the bot says the
         // line at the next update of the bot manager.
         void QueueLine(BotLine line) { m_lines.Push(std::move(line)); }
+        // From any thread (the chat handlers): the bot manager runs the
+        // group command at its next update.
+        void QueueGroupCommand(GroupCommandMessage message) { m_groupCommands.Push(std::move(message)); }
 
         // Equips a character in the world from a gear template, by name. With
         // no template name, a bot wears the generated template of its class
@@ -92,6 +114,9 @@ class BotMgr
 
         BotSettings const& GetSettings() const { return m_settings; }
         BotLevelRoutine const& GetLevelRoutine() const { return m_levelRoutine; }
+        // Runs the level routine on a bot, with the talent build of its class
+        // and role.
+        void ApplyLevelRoutine(Player* bot) const;
 
         // True for a character that is one of our bots and online, not for
         // the bots of PlayerBotMgr.
@@ -103,6 +128,14 @@ class BotMgr
         // id `groupId`. The bot manager makes it at the first call, and drops
         // it when the group is gone.
         std::shared_ptr<Bots::GroupCoordinator> GetCoordinator(uint32 groupId);
+        // Bot chat. Its QueuePlayerMessage works from any thread.
+        BotChat& Chat() { return m_chat; }
+        // For bot chat: the role of one of our bots that is online, or false.
+        bool RoleOfOurBot(Player const* player, std::string& role) const;
+        // True for a character of the `bot_character` table, online or not.
+        bool IsBotCharacter(ObjectGuid guid) const;
+        // The characters of our bots that are online.
+        std::vector<ObjectGuid> OnlineBots() const;
 
     private:
         BotRecord* FindByName(std::string const& name);
@@ -110,6 +143,11 @@ class BotMgr
         uint32 CreateAccount(std::string const& name, std::string& error);
         void StartLogin(BotRecord& record, WorldSession* session);
         void SendLines();
+        void RunGroupCommand(GroupCommandMessage const& message);
+        bool RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player* player);
+        void UpdateGroupOf(BotRecord& record);
+        // The group has a member that is no WOWAI bot, online or not.
+        bool HasPlayerMember(Group const& group) const;
         void PutOnPendingGear(BotRecord& record);
         void DropOldCoordinators();
 
@@ -117,10 +155,12 @@ class BotMgr
         BotLevelRoutine m_levelRoutine;
         std::map<uint32 /*character GUID*/, BotRecord> m_bots;
         Bots::Inbox<BotLine> m_lines;
+        Bots::Inbox<GroupCommandMessage> m_groupCommands;
         BotGear m_gear;
         // The bots of one group can sit on two map threads.
         std::mutex m_coordinatorsMutex;
         std::map<uint32 /*group id*/, std::shared_ptr<Bots::GroupCoordinator>> m_coordinators;
+        BotChat m_chat;
 };
 
 // The class of the library for a class of the game. False for an unknown class.

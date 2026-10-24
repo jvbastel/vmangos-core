@@ -21,22 +21,33 @@ add_library(bots STATIC
   BotAccounts.cpp
   BotCommand.cpp
   BotRecipe.cpp
+  ChatClient.cpp
+  ChatContract.cpp
+  ChatHttp.cpp
+  ChatSessions.cpp
   ClassModules.cpp
   CommandState.cpp
   CommonRules.cpp
   DataTokenizer.cpp
   GearDraw.cpp
   GearTemplate.cpp
+  GroupCommand.cpp
   GroupCoordinator.cpp
   Route.cpp
   SpellBook.cpp
   SpellFile.cpp
   Strategy.cpp
+  TalentBuild.cpp
   ThinkTimer.cpp
   WarriorModule.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-# The group coordinator has a mutex.
+
+# The header-only libraries of dep/include: nlohmann/json for the chat
+# contract and cpp-httplib for the chat client. `wowai/bots-test.sh` passes the
+# folder, because it builds a copy of this folder alone.
+set(BOT_DEP_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../dep/include" CACHE PATH "The dep/include folder of the core")
+target_include_directories(bots PRIVATE ${BOT_DEP_INCLUDE_DIR})
 find_package(Threads REQUIRED)
 target_link_libraries(bots PUBLIC Threads::Threads)
 

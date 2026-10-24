@@ -1,0 +1,78 @@
+build priest_healer priest healer
+# Priest healer: a Holy leveling build (healing talents from level 20,
+# Spiritual Healing at the end). The first 10 points (Wand Specialization
+# and Spirit Tap) help the bot kill alone while it levels.
+# Source: Icy Veins, "WoW Classic Holy Priest Leveling Talent Build from 1 to 60",
+# https://www.icy-veins.com/wow-classic/holy-priest-leveling-talent-build-from-1-to-60
+# (read on 2026-10-24 from the Wayback Machine copy of 2025-12-06). Copied in
+# the same order, with no changes. The talents are those of 1.12.
+# Points at level 60: 14 discipline, 5 shadow, 32 holy
+
+# Levels 10-14: Wand Specialization 5/5 (discipline tier 1)
+pick 345 1      # Wand Specialization
+pick 345 2      # Wand Specialization
+pick 345 3      # Wand Specialization
+pick 345 4      # Wand Specialization
+pick 345 5      # Wand Specialization
+# Levels 15-19: Spirit Tap 5/5 (shadow tier 1)
+pick 465 1      # Spirit Tap
+pick 465 2      # Spirit Tap
+pick 465 3      # Spirit Tap
+pick 465 4      # Spirit Tap
+pick 465 5      # Spirit Tap
+# Levels 20-21: Healing Focus 2/2 (holy tier 1)
+pick 410 1      # Healing Focus
+pick 410 2      # Healing Focus
+# Levels 22-24: Improved Renew 3/3 (holy tier 1)
+pick 406 1      # Improved Renew
+pick 406 2      # Improved Renew
+pick 406 3      # Improved Renew
+# Levels 25-29: Divine Fury 5/5 (holy tier 2)
+pick 1181 1     # Divine Fury
+pick 1181 2     # Divine Fury
+pick 1181 3     # Divine Fury
+pick 1181 4     # Divine Fury
+pick 1181 5     # Divine Fury
+# Level 30: Holy Nova 1/1 (holy tier 3)
+pick 442 1      # Holy Nova
+# Levels 31-35: Holy Specialization 5/5 (holy tier 1)
+pick 401 1      # Holy Specialization
+pick 401 2      # Holy Specialization
+pick 401 3      # Holy Specialization
+pick 401 4      # Holy Specialization
+pick 401 5      # Holy Specialization
+# Levels 36-37: Searing Light 2/2 (holy tier 4)
+pick 403 1      # Searing Light
+pick 403 2      # Searing Light
+# Levels 38-39: Holy Reach 2/2 (holy tier 4)
+pick 1635 1     # Holy Reach
+pick 1635 2     # Holy Reach
+# Levels 40-42: Improved Power Word: Shield 3/3 (discipline tier 2)
+pick 343 1      # Improved Power Word: Shield
+pick 343 2      # Improved Power Word: Shield
+pick 343 3      # Improved Power Word: Shield
+# Levels 43-44: Improved Power Word: Fortitude 2/2 (discipline tier 2)
+pick 344 1      # Improved Power Word: Fortitude
+pick 344 2      # Improved Power Word: Fortitude
+# Level 45: Inner Focus 1/1 (discipline tier 3)
+pick 348 1      # Inner Focus
+# Levels 46-48: Meditation 3/3 (discipline tier 3)
+pick 347 1      # Meditation
+pick 347 2      # Meditation
+pick 347 3      # Meditation
+# Level 49: Improved Healing 1/3 (holy tier 4)
+pick 408 1      # Improved Healing
+# Levels 50-54: Spiritual Guidance 5/5 (holy tier 5)
+pick 402 1      # Spiritual Guidance
+pick 402 2      # Spiritual Guidance
+pick 402 3      # Spiritual Guidance
+pick 402 4      # Spiritual Guidance
+pick 402 5      # Spiritual Guidance
+# Levels 55-56: Improved Healing 3/3 (holy tier 4)
+pick 408 2      # Improved Healing
+pick 408 3      # Improved Healing
+# Levels 57-60: Spiritual Healing 4/5 (holy tier 6)
+pick 404 1      # Spiritual Healing
+pick 404 2      # Spiritual Healing
+pick 404 3      # Spiritual Healing
+pick 404 4      # Spiritual Healing

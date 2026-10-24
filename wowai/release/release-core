@@ -6,6 +6,9 @@
 #       of the fork, with the stock vmangos-deploy Dockerfiles of a separate
 #       clone pinned to a known commit. The tags are
 #       wowai/vmangos-server:5875-<commit> and wowai/vmangos-database:<commit>.
+#       The server image is the stock one (tag
+#       wowai/vmangos-server-stock:5875-<commit>) plus bots/data of the
+#       commit in /home/vmangos/bots (bots-data.Dockerfile).
 #       --migration-edits passes the VMANGOS_MIGRATION_EDITS value that
 #       `merge-upstream` printed to the database build.
 #
@@ -63,6 +66,7 @@ services=(database realmd mangosd)
 . "$script_dir/play-realm.sh"
 
 server_image() { echo "$server_repository:$client_version-$1"; }
+stock_server_image() { echo "$server_repository-stock:$client_version-$1"; }
 database_image() { echo "$database_repository:$1"; }
 
 # Checks that $1 is a full commit of the fork that origin has.
@@ -93,6 +97,24 @@ ensure_deploy_clone() {
   fi
 }
 
+# Builds the server image: the stock server image plus bots/data of the
+# commit. The context holds only bots/data, read from Git, not the work tree.
+build_bots_data() {
+  local commit="$1" context
+  git -C "$src" cat-file -e "$commit:bots/data" 2>/dev/null || die "commit $commit has no bots/data folder"
+  context="$(mktemp -d)"
+  git -C "$src" archive "$commit" bots/data | tar -x -C "$context"
+  cp "$script_dir/bots-data.Dockerfile" "$context/Dockerfile"
+  echo "Building $(server_image "$commit") with bots/data..."
+  local status=0
+  docker build --file "$context/Dockerfile" \
+    --build-arg "BASE_IMAGE=$(stock_server_image "$commit")" \
+    --label "$revision_label=$commit" --label "org.opencontainers.image.source=$fork_url" \
+    --tag "$(server_image "$commit")" "$context" || status=$?
+  rm -rf "$context"
+  [ "$status" -eq 0 ] || die "the build of $(server_image "$commit") failed"
+}
+
 cmd_build() {
   local migration_edits=""
   while [ $# -gt 1 ]; do
@@ -114,10 +136,12 @@ cmd_build() {
     --label "org.opencontainers.image.source=$fork_url"
   )
   cd "$deploy_build_dir"
-  echo "Building $(server_image "$commit")..."
+  echo "Building $(stock_server_image "$commit")..."
   docker build --file docker/server/Dockerfile \
     --build-arg "VMANGOS_CLIENT_VERSION=$client_version" "${common[@]}" \
-    --tag "$(server_image "$commit")" .
+    --tag "$(stock_server_image "$commit")" .
+  build_bots_data "$commit"
+  cd "$deploy_build_dir"
   echo "Building $(database_image "$commit")..."
   docker build --file docker/database/Dockerfile \
     --build-arg "VMANGOS_MIGRATION_EDITS=$migration_edits" "${common[@]}" \

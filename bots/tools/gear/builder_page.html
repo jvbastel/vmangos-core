@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Template builder - WOWAI</title>
+<!-- The template builder page. builder_web.py serves it and its JSON API. -->
+<style>
+  body { background: #15171c; color: #ddd; font: 13px/1.4 system-ui, sans-serif; margin: 0; }
+  header { display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: #1f232b; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  main { display: grid; grid-template-columns: 440px 1fr; gap: 12px; padding: 12px; }
+  section { background: #1c1f26; border: 1px solid #2c313b; border-radius: 4px; padding: 8px; margin-bottom: 12px; }
+  h2 { font-size: 14px; margin: 4px 0 8px; }
+  input, select, button, textarea { background: #262a33; color: #ddd; border: 1px solid #3a404c; border-radius: 3px; font: inherit; }
+  input[type=number] { width: 42px; }
+  button { cursor: pointer; padding: 2px 8px; }
+  button.primary { background: #2d5a8a; }
+  .slot { border-top: 1px solid #2c313b; padding: 4px 2px; }
+  .slot.selected { background: #26304a; }
+  .slot-head { display: flex; justify-content: space-between; cursor: pointer; }
+  .slot-name { font-weight: 600; }
+  .empty { color: #e0a040; font-size: 12px; }
+  .full { color: #6a6; font-size: 12px; }
+  .line { display: flex; gap: 4px; align-items: center; margin: 2px 0 2px 8px; }
+  .line .item { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .problems { color: #f66; margin: 0; padding-left: 18px; }
+  .ok { color: #6c6; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; align-items: center; }
+  .filters fieldset { border: 1px solid #2c313b; padding: 2px 6px; margin: 0; }
+  .filters legend { font-size: 11px; color: #999; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 3px 6px; border-bottom: 1px solid #2a2f38; vertical-align: top; }
+  th { color: #999; font-weight: 500; }
+  td.num { text-align: right; }
+  .stats, .sources { font-size: 12px; color: #bbb; }
+  .tag { font-size: 11px; padding: 0 4px; border-radius: 2px; background: #3a2a2a; color: #e99; margin-left: 4px; }
+  .icon { width: 20px; height: 20px; vertical-align: middle; margin-right: 4px; border: 1px solid #000; }
+  .q0 { color: #9d9d9d; } .q1 { color: #ffffff; } .q2 { color: #1eff00; } .q3 { color: #0070dd; }
+  .q4 { color: #a335ee; } .q5 { color: #ff8000; } .q6 { color: #e6cc80; }
+  textarea { width: 100%; box-sizing: border-box; height: 56px; }
+  #paste-results { margin: 4px 0 0; padding-left: 18px; }
+  #status { margin-left: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Template builder</h1>
+  <label>Open <select id="open"><option value="">(new template)</option></select></label>
+  <label>Name <input id="name" size="18" placeholder="grukk_dungeon"></label>
+  <label>Class <select id="class"></select></label>
+  <label>Role <select id="role"></select></label>
+  <button id="save" class="primary">Save hand-made template</button>
+  <span id="status"></span>
+</header>
+<main>
+  <div>
+    <section>
+      <h2>Problems</h2>
+      <ul id="problems" class="problems"></ul>
+    </section>
+    <section>
+      <h2>Paste item IDs or Wowhead links</h2>
+      <textarea id="paste" placeholder="6448&#10;https://www.wowhead.com/classic/item=2042/staff-of-westfall"></textarea>
+      <button id="paste-add">Check and add</button>
+      <ul id="paste-results"></ul>
+    </section>
+    <section>
+      <h2>Slots <span class="empty" style="font-weight: normal">(orange: the levels with nothing worn, in 1.12)</span></h2>
+      <div id="slots"></div>
+    </section>
+  </div>
+  <section>
+    <h2>Search: <span id="search-slot"></span></h2>
+    <div class="filters">
+      <label>Name <input id="f-text" size="14"></label>
+      <label>Required level <input id="f-lmin" type="number" min="0" max="60"> to <input id="f-lmax" type="number" min="0" max="60"></label>
+      <label>Content patch <select id="f-patch"><option value="">any</option></select></label>
+      <label><input id="f-usable" type="checkbox" checked> Only what the class can use</label>
+      <fieldset><legend>Quality</legend><span id="f-quality"></span></fieldset>
+      <fieldset><legend>Source</legend><span id="f-source"></span></fieldset>
+      <fieldset><legend>Armor type</legend><span id="f-armor"></span></fieldset>
+    </div>
+    <table>
+      <thead><tr><th>Item</th><th>Req.</th><th>Score</th><th>Stats</th><th>Sources (level)</th><th></th></tr></thead>
+      <tbody id="results"></tbody>
+    </table>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let meta = null;
+let template = { name: "", class_name: "warrior", role: "tank", items: [] };
+const itemInfo = {};    // entry -> the item view of the server
+let selectedSlot = "head";
+let empty = {};         // position -> [[low, high]] from /api/check
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === "class") node.className = value;
+    else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+    else node.setAttribute(key, value);
+  }
+  for (const child of children) node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  return node;
+}
+
+// The name of an item: its icon when the server has one (item.icon), and the
+// name in the color of its quality.
+function itemLabel(item) {
+  const label = el("span", { class: "q" + item.quality, title: `${item.name} (${item.entry})` });
+  if (item.icon) label.append(el("img", { class: "icon", src: item.icon, alt: "" }));
+  label.append(item.name);
+  return label;
+}
+
+function statsText(item) {
+  const parts = Object.entries(item.stats).map(([name, value]) => `${value} ${name.replace(/_/g, " ")}`);
+  if (item.armor) parts.unshift(`${item.armor} armor`);
+  if (item.dps) parts.unshift(`${item.dps} dps`);
+  return parts.join(", ");
+}
+
+function sourcesText(item) {
+  if (!item.sources.length) return "no source";
+  return item.sources.map((s) => `${s.kind}: ${s.name}${s.level ? " (" + s.level + ")" : ""}`).join("; ");
+}
+
+async function api(method, path, body) {
+  const response = await fetch(path, {
+    method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
+  return data;
+}
+
+function checkboxes(container, values, name) {
+  for (const [value, label] of values) {
+    container.append(el("label", {}, el("input", { type: "checkbox", value, "data-filter": name }), ` ${label} `));
+  }
+}
+
+function checkedValues(name) {
+  return [...document.querySelectorAll(`input[data-filter=${name}]:checked`)].map((box) => box.value);
+}
+
+async function start() {
+  meta = await api("GET", "/api/meta");
+  for (const className of Object.keys(meta.classes)) $("class").append(el("option", { value: className }, className));
+  for (const name of meta.templates) $("open").append(el("option", { value: name }, name));
+  for (const [patch, name] of Object.entries(meta.patches)) $("f-patch").append(el("option", { value: patch }, name));
+  checkboxes($("f-quality"), Object.entries(meta.qualities).slice(0, 6), "quality");
+  checkboxes($("f-source"), meta.source_kinds.map((kind) => [kind, kind]), "source");
+  checkboxes($("f-armor"), meta.armor_types.map((kind) => [kind, kind]), "armor");
+  for (const box of document.querySelectorAll(".filters input, .filters select")) box.addEventListener("change", search);
+  $("f-text").addEventListener("input", search);
+  $("class").addEventListener("change", () => { template.class_name = $("class").value; fillRoles(); changed(); });
+  $("role").addEventListener("change", () => { template.role = $("role").value; changed(); });
+  $("name").addEventListener("input", () => { template.name = $("name").value.trim(); changed(); });
+  $("open").addEventListener("change", openTemplate);
+  $("save").addEventListener("click", save);
+  $("paste-add").addEventListener("click", paste);
+  showHeader();
+  await changed();
+}
+
+function fillRoles() {
+  const roles = meta.classes[template.class_name] || [];
+  $("role").replaceChildren(...roles.map((role) => el("option", { value: role }, role)));
+  if (!roles.includes(template.role)) template.role = roles[0];
+  $("role").value = template.role;
+}
+
+function showHeader() {
+  $("name").value = template.name;
+  $("class").value = template.class_name;
+  fillRoles();
+}
+
+async function openTemplate() {
+  const name = $("open").value;
+  template = name ? (await api("GET", `/api/templates/${name}`)).template
+                  : { name: "", class_name: template.class_name, role: template.role, items: [] };
+  showHeader();
+  await changed();
+}
+
+// Checks the template on the server, then draws the slots and the search.
+async function changed() {
+  const result = await api("POST", "/api/check", template);
+  Object.assign(itemInfo, result.items);
+  empty = result.empty;
+  $("problems").replaceChildren(...(result.problems.length
+    ? result.problems.map((problem) => el("li", {}, problem))
+    : [el("li", { class: "ok" }, "No problems: mangosd can load this template.")]));
+  drawSlots();
+  await search();
+}
+
+function rangesText(ranges) {
+  return ranges.map(([low, high]) => (low === high ? `${low}` : `${low}-${high}`)).join(", ");
+}
+
+// The state of a slot: the levels at which its position is not full. The
+// twohand, shield, and holdable slots fill the main hand and off hand
+// positions, which the mainhand and offhand slots show.
+function slotState(slot) {
+  if (!(slot in empty)) return el("span", {});
+  const ranges = empty[slot];
+  return ranges.length ? el("span", { class: "empty" }, "empty at " + rangesText(ranges))
+                       : el("span", { class: "full" }, "full 1-60");
+}
+
+function drawSlots() {
+  $("slots").replaceChildren(...meta.slots.map((slot) => {
+    const box = el("div", { class: "slot" + (slot === selectedSlot ? " selected" : "") },
+      el("div", { class: "slot-head", onclick: () => { selectedSlot = slot; drawSlots(); search(); } },
+        el("span", { class: "slot-name" }, slot), slotState(slot)));
+    template.items.forEach((line, index) => { if (line.slot === slot) box.append(lineRow(line, index)); });
+    return box;
+  }));
+}
+
+function lineRow(line, index) {
+  const item = itemInfo[line.entry] || { name: `item ${line.entry}`, quality: 1, entry: line.entry, icon: null };
+  const number = (key) => el("input", {
+    type: "number", min: 1, max: 60, value: line[key], title: key.replace("_", " "),
+    onchange: (event) => { line[key] = parseInt(event.target.value, 10) || 0; changed(); },
+  });
+  const patch = el("select", {
+    title: "first content patch", onchange: (event) => { line.min_patch = parseInt(event.target.value, 10); changed(); },
+  }, ...Object.entries(meta.patches).map(([value, name]) => el("option", { value }, name)));
+  patch.value = String(line.min_patch);
+  return el("div", { class: "line" },
+    el("span", { class: "item" }, itemLabel(item),
+       item.usable === false ? el("span", { class: "tag" }, "class cannot use") : ""),
+    number("min_level"), "-", number("max_level"), patch,
+    el("button", { title: "remove", onclick: () => { template.items.splice(index, 1); changed(); } }, "x"));
+}
+
+async function search() {
+  $("search-slot").textContent = selectedSlot;
+  const params = new URLSearchParams({
+    slot: selectedSlot, class_name: template.class_name, role: template.role, text: $("f-text").value,
+    usable_only: $("f-usable").checked,
+  });
+  if ($("f-lmin").value) params.set("level_min", $("f-lmin").value);
+  if ($("f-lmax").value) params.set("level_max", $("f-lmax").value);
+  if ($("f-patch").value) params.set("patch", $("f-patch").value);
+  for (const name of ["quality", "source", "armor"]) for (const value of checkedValues(name)) params.append(name, value);
+  const { items } = await api("GET", "/api/search?" + params);
+  $("results").replaceChildren(...items.map((item) => el("tr", {},
+    el("td", {}, itemLabel(item),
+       item.banned ? el("span", { class: "tag", title: "in bans.txt of the generator" }, "banned") : "",
+       item.excluded ? el("span", { class: "tag", title: "no generated pool holds it" }, item.excluded) : ""),
+    el("td", { class: "num" }, item.required_level),
+    el("td", { class: "num" }, item.score.toFixed(2)),
+    el("td", { class: "stats" }, statsText(item)),
+    el("td", { class: "sources" }, sourcesText(item)),
+    el("td", {}, el("button", { onclick: () => addItem(item, selectedSlot) }, "Add")))));
+}
+
+function addItem(item, slot) {
+  itemInfo[item.entry] = item;
+  template.items.push({
+    slot, entry: item.entry, min_level: Math.max(item.required_level, 1), max_level: 60,
+    min_patch: item.patches.length ? item.patches[0] : 0,
+  });
+  changed();
+}
+
+async function paste() {
+  const { results } = await api("POST", "/api/paste", { text: $("paste").value });
+  $("paste-results").replaceChildren(...results.map((result) => (result.ok
+    ? el("li", { class: "ok" }, "added ", itemLabel(result.item), ` to ${result.line.slot}`)
+    : el("li", { class: "problems" }, result.problem))));
+  for (const result of results.filter((r) => r.ok)) {
+    itemInfo[result.entry] = result.item;
+    template.items.push(result.line);
+  }
+  await changed();
+}
+
+async function save() {
+  try {
+    const { path } = await api("PUT", `/api/templates/${encodeURIComponent(template.name)}`, template);
+    $("status").textContent = "Saved " + path;
+    $("status").className = "ok";
+    if (![...$("open").options].some((option) => option.value === template.name)) {
+      $("open").append(el("option", { value: template.name }, template.name));
+    }
+  } catch (error) {
+    $("status").textContent = "Not saved: " + error.message;
+    $("status").className = "problems";
+  }
+}
+
+start();
+</script>
+</body>
+</html>

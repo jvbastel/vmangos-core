@@ -1,0 +1,80 @@
+build mage_ranged mage ranged
+# Frost Mage: a single-target Frost leveling build (Frostbolt, Shatter,
+# Ice Barrier at level 40), with the rest in Arcane for mana.
+# Source: Icy Veins, "WoW Classic Single-Target Frost Mage Leveling Talent Build from 1 to 60",
+# https://www.icy-veins.com/wow-classic/single-target-frost-mage-leveling-talent-build-from-1-to-60
+# (read on 2026-10-24 from the Wayback Machine copy of 2025-12-08). Copied in
+# the same order, with no changes. The talents are those of 1.12.
+# Points at level 60: 34 frost, 17 arcane
+
+# Levels 10-12: Elemental Precision 3/3 (frost tier 1)
+pick 1649 1     # Elemental Precision
+pick 1649 2     # Elemental Precision
+pick 1649 3     # Elemental Precision
+# Levels 13-14: Improved Frostbolt 2/5 (frost tier 1)
+pick 37 1       # Improved Frostbolt
+pick 37 2       # Improved Frostbolt
+# Levels 15-17: Frostbite 3/3 (frost tier 2)
+pick 38 1       # Frostbite
+pick 38 2       # Frostbite
+pick 38 3       # Frostbite
+# Levels 18-22: Ice Shards 5/5 (frost tier 2)
+pick 73 1       # Ice Shards
+pick 73 2       # Ice Shards
+pick 73 3       # Ice Shards
+pick 73 4       # Ice Shards
+pick 73 5       # Ice Shards
+# Levels 23-24: Improved Frost Nova 2/2 (frost tier 2)
+pick 62 1       # Improved Frost Nova
+pick 62 2       # Improved Frost Nova
+# Levels 25-29: Shatter 5/5 (frost tier 4)
+pick 67 1       # Shatter
+pick 67 2       # Shatter
+pick 67 3       # Shatter
+pick 67 4       # Shatter
+pick 67 5       # Shatter
+# Level 30: Ice Block 1/1 (frost tier 5)
+pick 72 1       # Ice Block
+# Level 31: Cold Snap 1/1 (frost tier 3)
+pick 69 1       # Cold Snap
+# Levels 32-34: Improved Frostbolt 5/5 (frost tier 1)
+pick 37 3       # Improved Frostbolt
+pick 37 4       # Improved Frostbolt
+pick 37 5       # Improved Frostbolt
+# Levels 35-37: Frost Channeling 3/3 (frost tier 4)
+pick 66 1       # Frost Channeling
+pick 66 2       # Frost Channeling
+pick 66 3       # Frost Channeling
+# Levels 38-40: Piercing Ice 3/3 (frost tier 3)
+pick 61 1       # Piercing Ice
+pick 61 2       # Piercing Ice
+pick 61 3       # Piercing Ice
+# Level 41: Ice Barrier 1/1 (frost tier 7)
+pick 71 1       # Ice Barrier
+# Levels 42-43: Arctic Reach 2/2 (frost tier 4)
+pick 741 1      # Arctic Reach
+pick 741 2      # Arctic Reach
+# Levels 44-45: Arcane Subtlety 2/2 (arcane tier 1)
+pick 74 1       # Arcane Subtlety
+pick 74 2       # Arcane Subtlety
+# Levels 46-48: Arcane Focus 3/5 (arcane tier 1)
+pick 76 1       # Arcane Focus
+pick 76 2       # Arcane Focus
+pick 76 3       # Arcane Focus
+# Levels 49-53: Arcane Concentration 5/5 (arcane tier 2)
+pick 75 1       # Arcane Concentration
+pick 75 2       # Arcane Concentration
+pick 75 3       # Arcane Concentration
+pick 75 4       # Arcane Concentration
+pick 75 5       # Arcane Concentration
+# Level 54: Arcane Resilience 1/1 (arcane tier 3)
+pick 85 1       # Arcane Resilience
+# Levels 55-56: Wand Specialization 2/2 (arcane tier 2)
+pick 78 1       # Wand Specialization
+pick 78 2       # Wand Specialization
+# Levels 57-58: Improved Arcane Explosion 2/3 (arcane tier 3)
+pick 81 1       # Improved Arcane Explosion
+pick 81 2       # Improved Arcane Explosion
+# Levels 59-60: Arcane Meditation 2/3 (arcane tier 4)
+pick 1142 1     # Arcane Meditation
+pick 1142 2     # Arcane Meditation
