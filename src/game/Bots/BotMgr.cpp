@@ -403,8 +403,8 @@ void BotMgr::StartLogin(BotRecord& record, WorldSession* session)
 
 void BotMgr::PutOnPendingGear(BotRecord& record)
 {
-    WorldSession* session = sWorld.FindSession(record.entry->accountId);
-    Player* player = session ? session->GetPlayer() : nullptr;
+    // By GUID: the session of the account can hold another character.
+    Player* player = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, uint32(record.entry->playerGUID)));
     if (!player || !player->IsInWorld())
         return;
     if (Bots::GearTemplate const* gear = m_gear.Find(record.pendingGear))
