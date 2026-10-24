@@ -11,6 +11,7 @@
 #include "Common.h"
 #include "Policies/Singleton.h"
 #include "PlayerBotMgr.h"
+#include "BotGear.h"
 #include "BotLevelRoutine.h"
 #include "BotRecipe.h"
 #include "ThinkTimer.h"
@@ -37,6 +38,9 @@ struct BotRecord
     std::shared_ptr<PlayerBotEntry> entry;
     std::string role;
     bool worldBot = false;
+    // The gear template that the bot puts on when it is in the world, after
+    // its creation.
+    std::string pendingGear;
 };
 
 // The bot manager of the WOWAI bots. It sits next to PlayerBotMgr and shares
@@ -61,6 +65,13 @@ class BotMgr
         bool LoginBot(std::string const& name, std::string& error);
         bool LogoutBot(std::string const& name, std::string& error);
 
+        // Equips a character in the world from a gear template, by name. With
+        // no template name, a bot wears the generated template of its class
+        // and role. Fills `report` with the picks.
+        bool EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error);
+
+        BotGear const& GetGear() const { return m_gear; }
+
         BotSettings const& GetSettings() const { return m_settings; }
         BotLevelRoutine const& GetLevelRoutine() const { return m_levelRoutine; }
 
@@ -75,10 +86,12 @@ class BotMgr
         uint32 ChooseAccount(std::string& error);
         uint32 CreateAccount(std::string const& name, std::string& error);
         void StartLogin(BotRecord& record, WorldSession* session);
+        void PutOnPendingGear(BotRecord& record);
 
         BotSettings m_settings;
         BotLevelRoutine m_levelRoutine;
         std::map<uint32 /*character GUID*/, BotRecord> m_bots;
+        BotGear m_gear;
 };
 
 #define sBotMgr MaNGOS::Singleton<BotMgr>::Instance()

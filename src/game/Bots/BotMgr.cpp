@@ -21,6 +21,8 @@
 #include "World.h"
 #include "WorldSession.h"
 
+#include <algorithm>
+#include <cctype>
 #include <sstream>
 
 INSTANTIATE_SINGLETON_1(BotMgr);
@@ -65,6 +67,28 @@ namespace
                 break;
         }
         return CLASS_DRUID;
+    }
+
+    bool BotClassOf(uint8 gameClass, Bots::BotClass& botClass)
+    {
+        switch (gameClass)
+        {
+            case CLASS_WARRIOR: botClass = Bots::BotClass::Warrior; return true;
+            case CLASS_PRIEST: botClass = Bots::BotClass::Priest; return true;
+            case CLASS_ROGUE: botClass = Bots::BotClass::Rogue; return true;
+            case CLASS_WARLOCK: botClass = Bots::BotClass::Warlock; return true;
+            case CLASS_MAGE: botClass = Bots::BotClass::Mage; return true;
+            case CLASS_HUNTER: botClass = Bots::BotClass::Hunter; return true;
+            case CLASS_SHAMAN: botClass = Bots::BotClass::Shaman; return true;
+            case CLASS_DRUID: botClass = Bots::BotClass::Druid; return true;
+            default: return false;
+        }
+    }
+
+    std::string Lower(std::string text)
+    {
+        std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+        return text;
     }
 
     std::string RandomPassword()
@@ -124,6 +148,7 @@ void BotMgr::Load()
         } while (result->NextRow());
     }
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %u bots loaded", uint32(m_bots.size()));
+    m_gear.Load(m_settings.dataDir + "/gear");
 }
 
 void BotMgr::Update(uint32 /*diff*/)
@@ -131,6 +156,8 @@ void BotMgr::Update(uint32 /*diff*/)
     for (auto& pair : m_bots)
     {
         PlayerBotEntry& entry = *pair.second.entry;
+        if (entry.state == PB_STATE_ONLINE && !pair.second.pendingGear.empty())
+            PutOnPendingGear(pair.second);
         if (entry.state == PB_STATE_ONLINE && !sWorld.FindSession(entry.accountId))
         {
             // The session ended, for example after a kick.
@@ -285,6 +312,16 @@ bool BotMgr::CreateBot(Bots::BotRecipe const& recipe, std::string& error)
         return false;
     }
 
+    // The gear template: a named one must exist. With no name, the bot
+    // keeps its starting gear until a generated template exists.
+    std::string const gearName = recipe.gearTemplate.empty()
+        ? Bots::GeneratedGearTemplateName(recipe.botClass, recipe.role) : recipe.gearTemplate;
+    if (!recipe.gearTemplate.empty() && !m_gear.Find(gearName))
+    {
+        error = "No gear template is named " + gearName + ".";
+        return false;
+    }
+
     uint32 const accountId = ChooseAccount(error);
     if (!accountId)
         return false;
@@ -319,6 +356,10 @@ bool BotMgr::CreateBot(Bots::BotRecipe const& recipe, std::string& error)
     record.entry = NewEntry(guid, accountId, name, m_settings);
     record.role = role;
     record.worldBot = false;
+    if (m_gear.Find(gearName))
+        record.pendingGear = gearName;
+    else
+        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] No gear template %s: %s keeps its starting gear", gearName.c_str(), name.c_str());
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Made the bot %s (GUID %u, account %u, %s)", name.c_str(), guid, accountId, role.c_str());
 
     StartLogin(record, session);
@@ -375,4 +416,56 @@ void BotMgr::StartLogin(BotRecord& record, WorldSession* session)
     record.entry->state = PB_STATE_LOADING;
     session->SetBot(record.entry);
     sWorld.AddSession(session);
+}
+
+void BotMgr::PutOnPendingGear(BotRecord& record)
+{
+    // By GUID: the session of the account can hold another character.
+    Player* player = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, uint32(record.entry->playerGUID)));
+    if (!player || !player->IsInWorld())
+        return;
+    if (Bots::GearTemplate const* gear = m_gear.Find(record.pendingGear))
+        EquipFromGearTemplate(player, *gear);
+    record.pendingGear.clear();
+    // Then the level routine, for the weapon skills of the new gear.
+    m_levelRoutine.Apply(player);
+}
+
+bool BotMgr::EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error)
+{
+    std::string wanted = name;
+    Player* player = normalizePlayerName(wanted) ? sObjectMgr.GetPlayer(wanted.c_str()) : nullptr;
+    if (!player || !player->IsInWorld())
+    {
+        error = "No character named " + name + " is in the world.";
+        return false;
+    }
+
+    std::string gearName = Lower(templateName);
+    if (gearName.empty())
+    {
+        auto found = m_bots.find(player->GetGUIDLow());
+        Bots::BotClass botClass;
+        Bots::BotRole role;
+        if (found == m_bots.end() || !BotClassOf(player->GetClass(), botClass) || !Bots::ParseRoleName(found->second.role, role))
+        {
+            error = wanted + " is not a bot. Name a gear template.";
+            return false;
+        }
+        gearName = Bots::GeneratedGearTemplateName(botClass, role);
+    }
+    Bots::GearTemplate const* gear = m_gear.Find(gearName);
+    if (!gear)
+    {
+        error = "No gear template is named " + gearName + ".";
+        return false;
+    }
+
+    Bots::GearDraw const draw = EquipFromGearTemplate(player, *gear);
+    // A worn weapon without its skill leaves its slot at the next login.
+    if (IsOurBot(player))
+        m_levelRoutine.Apply(player);
+    report = wanted + " wears " + gear->name + (draw.shape.empty() ? "" : " (shape " + draw.shape + ")") + ": " +
+        (draw.picks.empty() ? std::string("nothing") : DescribeGearDraw(draw));
+    return true;
 }

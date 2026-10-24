@@ -21,6 +21,8 @@ add_library(bots STATIC
   BotAccounts.cpp
   BotRecipe.cpp
   DataTokenizer.cpp
+  GearDraw.cpp
+  GearTemplate.cpp
   SpellFile.cpp
   ThinkTimer.cpp
 )
