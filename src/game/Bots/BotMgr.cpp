@@ -778,6 +778,10 @@ void BotMgr::PutOnPendingGear(BotRecord& record)
     Player* player = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, uint32(record.entry->playerGUID)));
     if (!player || !player->IsInWorld())
         return;
+    // A dead bot keeps the gear for later: the core applies item stats only
+    // at the equip of a living player (see EquipCharacter).
+    if (!player->IsAlive())
+        return;
     if (Bots::GearTemplate const* gear = m_gear.Find(record.pendingGear))
         EquipFromGearTemplate(player, *gear);
     record.pendingGear.clear();
@@ -792,6 +796,14 @@ bool BotMgr::EquipCharacter(std::string const& name, std::string const& template
     if (!player || !player->IsInWorld())
     {
         error = "No character named " + name + " is in the world.";
+        return false;
+    }
+    // The core applies the stats of an item only when a living player
+    // equips it, but takes them off at any removal: gear put on a dead
+    // character would lower its stats for good.
+    if (!player->IsAlive())
+    {
+        error = wanted + " is dead. Revive it first.";
         return false;
     }
 

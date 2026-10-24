@@ -48,6 +48,8 @@ class BotGear
 // character's GUID, level, and the realm's content patch. It does not check
 // skills or the required level: a GM asked for this gear. Saves the
 // character when saving is on for it.
+// The player must be alive: the core does not apply the stats of an item
+// that a dead player equips, but removes them when the item goes.
 Bots::GearDraw EquipFromGearTemplate(Player* player, Bots::GearTemplate const& gearTemplate);
 
 // One line per pick for the GM and the log, for example "head 1234 Cap".
