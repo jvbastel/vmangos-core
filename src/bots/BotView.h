@@ -54,6 +54,10 @@ namespace Bots
         virtual Guid GetPet() const = 0;
         // The combo points of the bot on its current target.
         virtual std::uint32_t GetComboPoints() const = 0;
+        // True when the bot has corpse loot to do now: it is busy with a
+        // corpse, or a corpse that it may loot is near. `mayMove`: the bot
+        // may walk to a corpse.
+        virtual bool HasLootWork(bool mayMove) const = 0;
 
         // Spells and ranks, for the spell book helper (SpellBook.h).
         // True when the bot knows spell `spell`.

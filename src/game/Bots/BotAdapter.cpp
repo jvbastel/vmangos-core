@@ -6,6 +6,7 @@
 */
 
 #include "BotAdapter.h"
+#include "BotLoot.h"
 #include "Log.h"
 #include "MotionMaster.h"
 #include "CreatureAI.h"
@@ -112,6 +113,11 @@ bool BotAdapter::HasAura(Bots::Guid unit, Bots::SpellId firstRank) const
         if (sSpellMgr.GetFirstSpellInChain(pair.first) == firstRank)
             return true;
     return false;
+}
+
+bool BotAdapter::HasLootWork(bool mayMove) const
+{
+    return m_loot && m_loot->HasWork(me, mayMove);
 }
 
 Bots::Guid BotAdapter::GetFollowTarget() const
@@ -269,4 +275,10 @@ void BotAdapter::Follow(Bots::Guid unit)
         motion->Clear();
         motion->MoveFollow(found, frand(MinFollowYards, MaxFollowYards), frand(0.0f, 2 * M_PI_F));
     }
+}
+
+void BotAdapter::Loot(bool mayMove)
+{
+    if (m_loot)
+        m_loot->Think(me, mayMove);
 }

@@ -15,7 +15,9 @@
 namespace Bots
 {
     // The strategy of the command state: a bot that follows the player keeps
-    // following out of combat, for example after a fight or a teleport.
+    // following out of combat, for example after a fight or a teleport. Out
+    // of combat, the bot first loots the corpses near it (rule "loot a
+    // corpse", over "follow the player").
     std::shared_ptr<Strategy const> MakeCommandStrategy();
 
     // The class and role strategy, or null when no class module plays the

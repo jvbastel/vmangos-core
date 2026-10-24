@@ -51,6 +51,13 @@ namespace Bots
             void SetPet(Guid pet) { m_pet = pet; }
             void SetComboPoints(std::uint32_t points) { m_comboPoints = points; }
             void ClearDeeds() { m_deeds.clear(); }
+            // The bot has corpse loot to do. `onlyWithMove`: the corpse is
+            // out of reach, so only a bot that may move has work.
+            void SetLootWork(bool has, bool onlyWithMove = false)
+            {
+                m_lootWork = has;
+                m_lootOnlyWithMove = onlyWithMove;
+            }
             // The ranks of one spell, first rank first.
             void SetSpellChain(std::vector<SpellId> const& ranks)
             {
@@ -108,6 +115,7 @@ namespace Bots
             ChaseState GetChase() const override { return m_chase; }
             Guid GetPet() const override { return m_pet; }
             std::uint32_t GetComboPoints() const override { return m_comboPoints; }
+            bool HasLootWork(bool mayMove) const override { return m_lootWork && (mayMove || !m_lootOnlyWithMove); }
             bool CanCast(SpellId spell, Guid target) const override
             {
                 return KnowsSpell(spell) && !m_cannotCast.count(spell) && GetHealth(target).current > 0;
@@ -155,6 +163,7 @@ namespace Bots
                 AddDeed("follow", unit);
                 m_chase = {NoGuid, false};
             }
+            void Loot(bool mayMove) override { m_deeds.push_back(mayMove ? "loot" : "loot in place"); }
 
         private:
             void AddDeed(char const* verb, Guid unit)
@@ -179,6 +188,8 @@ namespace Bots
             ChaseState m_chase = {NoGuid, false};
             std::uint32_t m_comboPoints = 0;
             Guid m_pet = NoGuid;
+            bool m_lootWork = false;
+            bool m_lootOnlyWithMove = false;
             std::vector<std::string> m_deeds;
         };
     }

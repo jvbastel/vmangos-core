@@ -137,6 +137,13 @@ void BotAI::HandlePacket(WorldPacket const& packet)
             // A normal /invite: the bot accepts, like the client of a player.
             me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(CMSG_GROUP_ACCEPT));
             return;
+        case SMSG_LOOT_START_ROLL:
+            m_loot.OnStartRoll(me, packet);
+            return;
+        case SMSG_LOOT_ROLL_WON:
+            // The bot chat event `loot_roll` (#50) starts from the result.
+            m_loot.OnRollWon(me, packet);
+            return;
         default:
             break;
     }
@@ -258,6 +265,9 @@ void BotAI::Think()
     // Version 1 starts with a bot that stands in the world.
     if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND)
         me->SetStandState(UNIT_STAND_STATE_STAND);
+    // A fight or a death ends the corpse work.
+    if (!me->IsAlive() || me->IsInCombat())
+        m_loot.Stop();
     if (!me->IsAlive())
         return;
 
@@ -272,7 +282,7 @@ void BotAI::Think()
     }
 
     CheckAttackTarget();
-    BotAdapter adapter(me);
+    BotAdapter adapter(me, &m_loot);
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
     Bots::BotContext const context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};
@@ -281,6 +291,11 @@ void BotAI::Think()
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());
     if (!rule.empty())
         m_lastRule = rule;
+
+    // Out of combat, a bot that is not busy with a corpse puts on a clear
+    // upgrade that it looted.
+    if (!me->IsInCombat() && !m_loot.HasWork(me, false))
+        m_loot.PutOnUpgrades(me);
 }
 
 bool BotAI::IsNearPlayer() const

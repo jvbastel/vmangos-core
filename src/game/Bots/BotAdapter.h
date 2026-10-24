@@ -11,6 +11,7 @@
 #include "BotActions.h"
 #include "BotView.h"
 
+class BotLoot;
 class Player;
 class Unit;
 
@@ -23,7 +24,9 @@ class Unit;
 class BotAdapter : public Bots::BotView, public Bots::BotActions
 {
     public:
-        explicit BotAdapter(Player* me) : me(me) {}
+        // `loot`: the corpse loot of the bot, for HasLootWork and Loot. Null:
+        // the bot has no loot work.
+        explicit BotAdapter(Player* me, BotLoot* loot = nullptr) : me(me), m_loot(loot) {}
 
         // BotView
         Bots::Guid GetSelf() const override;
@@ -39,6 +42,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::ChaseState GetChase() const override;
         uint32 GetComboPoints() const override;
         Bots::Guid GetPet() const override;
+        bool HasLootWork(bool mayMove) const override;
         bool KnowsSpell(Bots::SpellId spell) const override;
         Bots::SpellId GetNextRank(Bots::SpellId spell) const override;
         bool CanCast(Bots::SpellId spell, Bots::Guid target) const override;
@@ -52,12 +56,14 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void ChaseInRange(Bots::Guid target, float yards) override;
         void PetAttack(Bots::Guid target) override;
         void Follow(Bots::Guid unit) override;
+        void Loot(bool mayMove) override;
 
     private:
         // The unit on the map of the bot, in the world, or null.
         Unit* Find(Bots::Guid unit) const;
 
         Player* me;
+        BotLoot* m_loot;
 };
 
 #endif

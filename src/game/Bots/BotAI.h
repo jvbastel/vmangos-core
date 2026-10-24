@@ -12,6 +12,7 @@
 #include "ObjectGuid.h"
 #include "WorldPacket.h"
 #include "BotCommand.h"
+#include "BotLoot.h"
 #include "BotRecipe.h"
 #include "CommandState.h"
 #include "GroupCoordinator.h"
@@ -77,6 +78,7 @@ class BotAI : public PlayerBotAI
         // It ends when it dies or the bot cannot see it, and at `stop`.
         ObjectGuid m_attackTarget;
         Bots::ThinkTimer m_thinkTimer;
+        BotLoot m_loot;
         Bots::BotRole m_role;
         // The active strategies. Made at the first think, from the class of
         // the player and the role of the bot.

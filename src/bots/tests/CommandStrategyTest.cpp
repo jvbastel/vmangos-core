@@ -85,6 +85,64 @@ TEST(CommandStrategy, AStayingBotDoesNotFollow)
     EXPECT_EQ(bot.Think(CommandState::Stay), "");
 }
 
+TEST(CommandStrategy, AFollowingBotLootsACorpseBeforeItFollows)
+{
+    Bot bot;
+    bot.fake.SetFollowTarget(Player);
+    bot.fake.SetLootWork(true, true);
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "loot a corpse");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"loot"}));
+}
+
+TEST(CommandStrategy, ABotFollowsAgainWhenItHasLooted)
+{
+    Bot bot;
+    bot.fake.SetLootWork(true, true);
+    bot.Think(CommandState::Follow);
+    bot.fake.SetLootWork(false);
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "follow the player");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"loot", "follow 0x0000000000000005"}));
+}
+
+TEST(CommandStrategy, ABotWithoutACommandLoots)
+{
+    Bot bot;
+    bot.fake.SetLootWork(true, true);
+
+    EXPECT_EQ(bot.Think(CommandState::None), "loot a corpse");
+}
+
+TEST(CommandStrategy, AStayingBotLootsOnlyInPlace)
+{
+    Bot bot;
+    bot.fake.SetLootWork(true, true);
+    EXPECT_EQ(bot.Think(CommandState::Stay), "");
+
+    bot.fake.SetLootWork(true, false);
+    EXPECT_EQ(bot.Think(CommandState::Stay), "loot a corpse");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"loot in place"}));
+}
+
+TEST(CommandStrategy, ABotDoesNotLootInAFight)
+{
+    Bot bot;
+    bot.fake.SetLootWork(true);
+    bot.fake.SetInCombat(Self);
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "");
+}
+
+TEST(CommandStrategy, ThePullerDoesNotLootDuringItsPull)
+{
+    Bot bot;
+    bot.fake.SetLootWork(true);
+    bot.group.StartPull(Self, Kobold);
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "");
+}
+
 TEST(ClassModules, TheWarriorTankHasTheCommandAndClassStrategies)
 {
     StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Warrior, Bots::BotRole::Tank);

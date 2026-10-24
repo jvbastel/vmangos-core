@@ -21,6 +21,7 @@ add_executable(bots_tests
   GroupCommandTest.cpp
   GroupCoordinatorTest.cpp
   InboxTest.cpp
+  LootTest.cpp
   RogueTest.cpp
   RouteTest.cpp
   SpellBookTest.cpp

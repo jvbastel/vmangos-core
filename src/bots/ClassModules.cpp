@@ -35,6 +35,19 @@ namespace Bots
                 && !IsAlive(context.view, context.view.GetChase().target)
                 && context.view.GetFollowTarget() != context.commandPlayer;
         }
+
+        // A bot may walk to a corpse when it follows or has no command. A
+        // bot that stays or comes loots only a corpse in reach.
+        bool MayWalkToLoot(BotContext const& context)
+        {
+            return context.command == CommandState::Follow || context.command == CommandState::None;
+        }
+
+        bool ShouldLoot(BotContext const& context)
+        {
+            Guid const self = context.view.GetSelf();
+            return !context.view.IsInCombat(self) && context.group.GetPull().puller != self;
+        }
     }
 
     std::shared_ptr<Strategy const> MakeCommandStrategy()
@@ -48,7 +61,16 @@ namespace Bots
                 && context.view.GetDistance(context.commandPlayer) <= FollowReachYards;
         };
         follow.action.run = [](BotContext const& context) { context.actions.Follow(context.commandPlayer); };
-        return std::make_shared<Strategy const>(Strategy{"command", {follow}});
+
+        // Over the follow rule: a looting bot finishes the corpse, and then
+        // follows again.
+        Rule loot;
+        loot.name = "loot a corpse";
+        loot.priority = Priority::Command + 20;
+        loot.trigger = ShouldLoot;
+        loot.action.canDo = [](BotContext const& context) { return context.view.HasLootWork(MayWalkToLoot(context)); };
+        loot.action.run = [](BotContext const& context) { context.actions.Loot(MayWalkToLoot(context)); };
+        return std::make_shared<Strategy const>(Strategy{"command", {loot, follow}});
     }
 
     std::shared_ptr<Strategy const> MakeClassStrategy(BotClass botClass, BotRole role)
