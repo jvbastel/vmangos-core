@@ -6,9 +6,10 @@
 */
 
 // The GM commands of the WOWAI bots:
-//   .wowai bot create <name> <class> <role> [race]
+//   .wowai bot create <name> <class> <role> [race] [gear <template>]
 //   .wowai bot login <name>
 //   .wowai bot logout <name>
+//   .wowai gear equip <character> [template]
 // They work in the game and on the console and SOAP.
 
 #include "BotMgr.h"
@@ -37,6 +38,9 @@ bool ChatHandler::HandleWowaiBotCreateCommand(char* args)
     if (parsed.ok && sBotMgr.CreateBot(parsed.recipe, error))
     {
         PSendSysMessage("Bot %s made. It logs in now.", parsed.recipe.name.c_str());
+        std::string const gear = Bots::GeneratedGearTemplateName(parsed.recipe.botClass, parsed.recipe.role);
+        if (parsed.recipe.gearTemplate.empty() && !sBotMgr.GetGear().Find(gear))
+            PSendSysMessage("No gear template is named %s. The bot keeps its starting gear.", gear.c_str());
         return true;
     }
     SendSysMessage(error.c_str());
@@ -65,6 +69,22 @@ bool ChatHandler::HandleWowaiBotLogoutCommand(char* args)
     if (words.size() == 1 && sBotMgr.LogoutBot(words[0], error))
     {
         PSendSysMessage("Bot %s logs out.", words[0].c_str());
+        return true;
+    }
+    SendSysMessage(error.c_str());
+    SetSentErrorMessage(true);
+    return false;
+}
+
+bool ChatHandler::HandleWowaiGearEquipCommand(char* args)
+{
+    std::vector<std::string> words = Words(args);
+    std::string error = "Usage: .wowai gear equip <character> [template]";
+    std::string report;
+    if ((words.size() == 1 || words.size() == 2) &&
+        sBotMgr.EquipCharacter(words[0], words.size() == 2 ? words[1] : "", report, error))
+    {
+        SendSysMessage(report.c_str());
         return true;
     }
     SendSysMessage(error.c_str());

@@ -89,6 +89,18 @@ botchat_is_fake() {
 }
 check "the botchat service answers /health with the fake LLM backend" botchat_is_fake
 
+# The botchat database: botchat.sql of the chat service, then its migrations.
+check "the database service creates the botchat database with botchat.sql" \
+  test "$(realm_sql mysql "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = 'botchat'")" = 1
+check "the botchat service applies its migrations at start" \
+  test "$(realm_sql botchat "SELECT COUNT(*) FROM botchat_migrations")" = 1
+botchat_user_sql() {
+  "$dev" realm compose exec -T database sh -c \
+    'mariadb -u botchat -p"$BOTCHAT_DB_PASSWORD" --batch --skip-column-names -e "$1"' sh "$1" 2>&1 | tr -d '\r'
+}
+check "the botchat user sees only the botchat database" \
+  test "$(botchat_user_sql "SHOW DATABASES" | tr '\n' ' ')" = "botchat information_schema "
+
 # The GM account, made by `realm up`.
 gm="$(sed -n 's/^WOWAI_REALM_GM_ACCOUNT=//p' "$WOWAI_REALM_DIR/.env"):$(sed -n 's/^WOWAI_REALM_GM_PASSWORD=//p' "$WOWAI_REALM_DIR/.env")"
 check "the setup creates a GM account with level 6" \

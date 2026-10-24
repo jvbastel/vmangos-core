@@ -23,6 +23,9 @@ services:
       start_period: 24h
     volumes:
       - database:/var/lib/mysql
+      # botchat.sql of the chat service: the botchat database and user. The
+      # play realm has the same file in storage/database/custom-sql/.
+      - ${WOWAI_BOTCHAT_SRC:?}/custom-sql:/sql/custom:ro
     environment:
       - VMANGOS_DEPLOY_VERSION=1
       - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
@@ -37,7 +40,8 @@ services:
       - VMANGOS_REALMLIST_ALLOWED_SECURITY_LEVEL=0
       - VMANGOS_ENABLE_AUTOMATIC_WORLD_DB_CORRECTIONS=1
       - VMANGOS_HALT_ON_MIGRATION_EDITS=1
-      - VMANGOS_PROCESS_CUSTOM_SQL=0
+      - VMANGOS_PROCESS_CUSTOM_SQL=1
+      - BOTCHAT_DB_PASSWORD=${WOWAI_REALM_BOTCHAT_DB_PASSWORD:?}
 
   realmd:
     image: ${WOWAI_SERVER_IMAGE:?}
@@ -117,6 +121,7 @@ services:
     environment:
       - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
       - BOTCHAT_LLM=fake
+      - BOTCHAT_DB_PASSWORD=${WOWAI_REALM_BOTCHAT_DB_PASSWORD:?}
 
 volumes:
   database:

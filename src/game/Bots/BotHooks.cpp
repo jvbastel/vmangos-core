@@ -8,6 +8,7 @@
 #include "BotHooks.h"
 #include "BotAI.h"
 #include "BotCommand.h"
+#include "BotMgr.h"
 #include "Group.h"
 #include "Player.h"
 #include "SharedDefines.h"
@@ -73,6 +74,12 @@ namespace
                     bot.ai->PushCommand({parsed.command.kind, sender->GetObjectGuid(), type});
         return true;
     }
+}
+
+void BotHooks::OnLevelUp(Player* player)
+{
+    if (player->IsBot())
+        sBotMgr.OnLevelUp(player);
 }
 
 void BotHooks::OnPlayerChat(Player* sender, uint32 type, Player* receiver, std::string const& text)

@@ -79,10 +79,31 @@ TEST(BotRecipe, RefusesAnUnknownClassOrRole)
 
 TEST(BotRecipe, RefusesTooFewOrTooManyWords)
 {
-    std::string const usage = "Usage: <name> <class> <role> [race]";
+    std::string const usage = "Usage: <name> <class> <role> [race] [gear <template>]";
 
     EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior"}).error, usage);
     EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior", "tank", "orc", "extra"}).error, usage);
+    EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior", "tank", "gear"}).error, usage);
+    EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior", "tank", "orc", "gear", "a", "b"}).error, usage);
+}
+
+TEST(BotRecipe, WithNoGearWordTheBotWearsTheGeneratedTemplate)
+{
+    EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior", "tank"}).recipe.gearTemplate, "");
+    EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior", "tank", "tauren"}).recipe.gearTemplate, "");
+}
+
+TEST(BotRecipe, TheGearWordNamesATemplate)
+{
+    BotRecipeResult result = ParseBotRecipe({"Grukk", "warrior", "tank", "GEAR", "Grukk_Dungeon"});
+    ASSERT_TRUE(result.ok) << result.error;
+    EXPECT_EQ(result.recipe.gearTemplate, "grukk_dungeon");
+    EXPECT_EQ(result.recipe.race, BotRace::Orc);
+
+    result = ParseBotRecipe({"Grukk", "warrior", "tank", "tauren", "gear", "grukk_dungeon"});
+    ASSERT_TRUE(result.ok) << result.error;
+    EXPECT_EQ(result.recipe.gearTemplate, "grukk_dungeon");
+    EXPECT_EQ(result.recipe.race, BotRace::Tauren);
 }
 
 TEST(BotRecipe, RoleNamesAreTheWordsOfTheCommand)

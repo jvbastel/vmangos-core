@@ -11,6 +11,8 @@
 #include "Common.h"
 #include "Policies/Singleton.h"
 #include "PlayerBotMgr.h"
+#include "BotGear.h"
+#include "BotLevelRoutine.h"
 #include "BotRecipe.h"
 #include "Inbox.h"
 #include "ObjectGuid.h"
@@ -38,6 +40,9 @@ struct BotRecord
     std::shared_ptr<PlayerBotEntry> entry;
     std::string role;
     bool worldBot = false;
+    // The gear template that the bot puts on when it is in the world, after
+    // its creation.
+    std::string pendingGear;
 };
 
 // A chat line that a bot says, for example a fixed line when it cannot obey a
@@ -76,7 +81,21 @@ class BotMgr
         // line at the next update of the bot manager.
         void QueueLine(BotLine line) { m_lines.Push(std::move(line)); }
 
+        // Equips a character in the world from a gear template, by name. With
+        // no template name, a bot wears the generated template of its class
+        // and role. Fills `report` with the picks.
+        bool EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error);
+
+        BotGear const& GetGear() const { return m_gear; }
+
         BotSettings const& GetSettings() const { return m_settings; }
+        BotLevelRoutine const& GetLevelRoutine() const { return m_levelRoutine; }
+
+        // True for a character that is one of our bots and online, not for
+        // the bots of PlayerBotMgr.
+        bool IsOurBot(Player const* player) const;
+        // Runs the level routine after a level-up of one of our bots.
+        void OnLevelUp(Player* player);
 
     private:
         BotRecord* FindByName(std::string const& name);
@@ -84,10 +103,13 @@ class BotMgr
         uint32 CreateAccount(std::string const& name, std::string& error);
         void StartLogin(BotRecord& record, WorldSession* session);
         void SendLines();
+        void PutOnPendingGear(BotRecord& record);
 
         BotSettings m_settings;
+        BotLevelRoutine m_levelRoutine;
         std::map<uint32 /*character GUID*/, BotRecord> m_bots;
         Bots::Inbox<BotLine> m_lines;
+        BotGear m_gear;
 };
 
 #define sBotMgr MaNGOS::Singleton<BotMgr>::Instance()

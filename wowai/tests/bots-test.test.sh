@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end test of the code tests command: `wowai/dev test`.
 #
-# It copies only `src/bots/` and `wowai/` of this working tree into a
+# It copies only `src/bots/`, `bots/`, and `wowai/` of this working tree into a
 # temporary tree, so the rest of the core is not there. It runs the code tests
 # in their own dev container and volume, and removes them again at the end.
 # Run it from any folder:
@@ -31,6 +31,7 @@ trap cleanup EXIT
 mkdir -p "$WOWAI_SRC/src"
 cp -a "$repo/src/bots" "$WOWAI_SRC/src/bots"
 cp -a "$repo/wowai" "$WOWAI_SRC/wowai"
+cp -a "$repo/bots" "$WOWAI_SRC/bots"
 
 echo "Code tests in a tree with only src/bots..."
 if "$dev" test > "$tmp/test.log" 2>&1; then status=0; else status=$?; fi
@@ -39,6 +40,7 @@ check "the test command passes without the rest of the core" test "$status" = 0
 check "the test command runs ctest" grep -q "tests passed" "$tmp/test.log"
 check "the test command runs the tokenizer tests" grep -q "DataTokenizer\\." "$tmp/test.log"
 check "the test command runs the fake adapter tests" grep -q "FakeBot\\." "$tmp/test.log"
+check "the test command runs the spell data tests" grep -q "SpellData\\." "$tmp/test.log"
 check "the test command builds no server" \
   test ! -e "$WOWAI_DEV_INSTALL/bin/mangosd" -a ! -e "$WOWAI_DEV_INSTALL/bin/realmd"
 

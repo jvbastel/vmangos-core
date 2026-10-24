@@ -82,6 +82,7 @@
 #include "GameEventMgr.h"
 #include "world/scourge_invasion.h"
 #include "world/world_event_wareffort.h"
+#include "BotHooks.h"
 
 #include <climits>
 
@@ -3212,6 +3213,8 @@ void Player::GiveLevel(uint32 level)
     // update level to hunter/summon pet
     if (Pet* pet = GetPet())
         pet->SynchronizeLevelWithOwner();
+
+    BotHooks::OnLevelUp(this);
 }
 
 void Player::UpdateFreeTalentPoints(bool resetIfNeed)

@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# The upstream merge script of the fork.
+#
+#   merge-upstream
+#       Fetch upstream and merge its `development` branch into `wowai`, with a
+#       merge (never a rebase). It stops before the merge commit, so that you
+#       review the merge by hand. It lists each old file in sql/migrations/
+#       that upstream edited, renamed, or deleted, and it prints the
+#       VMANGOS_MIGRATION_EDITS value for the release build.
+#
+# After the review:
+#   1. `git commit` (or fix the conflicts first, then `git commit`).
+#   2. `git push origin wowai`.
+#   3. Build the release image with the value:
+#      wowai/release/release-core build --migration-edits '<value>' <commit>
+#   4. Run all gates again before the play realm gets the new image.
+#
+# Merge on demand, about once a month at most, and never in the middle of a
+# feature. It pushes nothing.
+#
+# Settings (environment variables):
+#   WOWAI_SRC           The fork tree. Default: the tree of this script.
+#   WOWAI_MERGE_BRANCH  Default: wowai
+#   WOWAI_UPSTREAM      The upstream remote. Default: upstream
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+src="$(cd "${WOWAI_SRC:-$(git -C "$script_dir" rev-parse --show-toplevel)}" && pwd)"
+branch="${WOWAI_MERGE_BRANCH:-wowai}"
+upstream="${WOWAI_UPSTREAM:-upstream}"
+upstream_ref="$upstream/development"
+
+die() { echo "merge-upstream: $*" >&2; exit 1; }
+g() { git -C "$src" "$@"; }
+
+case "${1:-}" in
+  "") ;;
+  help | -h | --help) sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
+  *) die "it takes no arguments" ;;
+esac
+
+# The VMANGOS_MIGRATION_EDITS target of a migration file, as in the
+# migration-edits rules of vmangos-deploy's .github/deploy.yaml. Every other
+# .sql file there counts as world.
+target_of() {
+  case "$1" in
+    *_characters.sql) echo characters ;;
+    *_logon.sql) echo realmd ;;
+    *_logs.sql) echo logs ;;
+    *.sql) echo world ;;
+    *) echo "" ;;
+  esac
+}
+
+[ "$(g rev-parse --abbrev-ref HEAD)" = "$branch" ] || die "check out '$branch' first"
+! g rev-parse -q --verify MERGE_HEAD >/dev/null || die "a merge is in progress. Finish it with 'git commit' or stop it with 'git merge --abort'."
+[ -z "$(g status --porcelain --untracked-files=no)" ] || die "the tree has local changes. Commit or stash them first."
+
+g fetch --quiet "$upstream"
+if g fetch --quiet origin 2>/dev/null && g rev-parse -q --verify "origin/$branch" >/dev/null; then
+  [ -z "$(g rev-list "HEAD..origin/$branch")" ] || die "'$branch' is behind origin/$branch. Pull first."
+fi
+
+base="$(g merge-base HEAD "$upstream_ref")"
+if [ "$base" = "$(g rev-parse "$upstream_ref")" ]; then
+  echo "'$branch' already has all of $upstream_ref."
+  exit 0
+fi
+echo "Merging $upstream_ref ($(g rev-parse --short "$upstream_ref"), $(g rev-list --count "$base..$upstream_ref") new commits) into $branch."
+
+# Old migrations that upstream edited, renamed, or deleted since the base.
+declare -A edited_targets=()
+listed=0
+echo
+echo "Old files in sql/migrations/ that upstream edited, renamed, or deleted:"
+while IFS=$'\t' read -r status old new; do
+  case "$status" in
+    M*) echo "  edited:  $old" ;;
+    D*) echo "  deleted: $old" ;;
+    R*) echo "  renamed: $old -> $new" ;;
+    *) continue ;;
+  esac
+  listed=$((listed + 1))
+  target="$(target_of "$old")"
+  [ -z "$target" ] || edited_targets["$old"]="$target"
+done < <(g diff --name-status -M "$base" "$upstream_ref" -- sql/migrations/)
+[ "$listed" -gt 0 ] || echo "  none"
+
+# The value: per target, the upstream commits that changed those files, in
+# history order. Format: <target>:core@<commit>[,core@<commit>]... joined by |.
+declare -A target_commits=()
+while read -r commit; do
+  for file in "${!edited_targets[@]}"; do
+    if [ -n "$(g diff --name-only "$commit^" "$commit" -- "$file")" ]; then
+      target="${edited_targets[$file]}"
+      case ",${target_commits[$target]:-}," in
+        *",core@$commit,"*) ;;
+        *) target_commits[$target]="${target_commits[$target]:+${target_commits[$target]},}core@$commit" ;;
+      esac
+    fi
+  done
+done < <(g rev-list --reverse --first-parent "$base..$upstream_ref")
+value=""
+for target in world characters realmd logs; do
+  [ -z "${target_commits[$target]:-}" ] || value="${value:+$value|}$target:${target_commits[$target]}"
+done
+echo
+echo "The value for the release build (release-core build --migration-edits):"
+echo "VMANGOS_MIGRATION_EDITS='$value'"
+echo
+
+status=0
+g merge --no-ff --no-commit --log "$upstream_ref" -m "Merge $upstream_ref into $branch" || status=$?
+echo
+if [ "$status" -ne 0 ]; then
+  echo "The merge has conflicts. Fix them, review the merge, then 'git commit'."
+  exit "$status"
+fi
+echo "The merge is staged and not committed. Review it by hand, then 'git commit'"
+echo "and 'git push origin $branch'. Run all gates again before a release."

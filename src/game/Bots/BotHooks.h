@@ -15,9 +15,12 @@
 class Player;
 
 // The calls of the WOWAI bots in upstream core files. Each hook is one line
-// there; the work happens here.
+// in an upstream file and does nothing for a player who is not our bot.
 namespace BotHooks
 {
+    // At the end of Player::GiveLevel: runs the level routine for our bots.
+    void OnLevelUp(Player* player);
+
     // WorldSession::HandleChatMessageOpcode, in the party and whisper
     // branches, after the core sent the message normally. `receiver` is the
     // whispered player, or null for party chat. A bot command goes into the

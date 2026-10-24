@@ -59,11 +59,17 @@ class BotAI : public PlayerBotAI
         void Think();
         bool IsNearPlayer() const;
 
+        void KeepLevelCorrect();
+
         Bots::Inbox<WorldPacket> m_inbox;
         Bots::Inbox<BotCommandMessage> m_commands;
         Bots::CommandState m_commandState = Bots::CommandState::None;
         ObjectGuid m_commandPlayer; // The player of the last command that the bot obeyed.
         Bots::ThinkTimer m_thinkTimer;
+        // The level routine ran after the login (and so after the creation).
+        bool m_levelRoutineDone = false;
+        // The pet that has its pet spells. Empty without a pet.
+        ObjectGuid m_taughtPet;
 };
 
 #endif
