@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# The release script of the core.
+#
+#   release-core build [--migration-edits <value>] <commit>
+#       Build the server image and the database image of a pushed full commit
+#       of the fork, with the stock vmangos-deploy Dockerfiles of a separate
+#       clone pinned to a known commit. The tags are
+#       wowai/vmangos-server:5875-<commit> and wowai/vmangos-database:<commit>.
+#       --migration-edits passes the VMANGOS_MIGRATION_EDITS value that
+#       `merge-upstream` printed to the database build.
+#
+# Settings (environment variables):
+#   WOWAI_SRC               The fork tree. It checks that the commit is on
+#                           origin. Default: the tree of this script.
+#   WOWAI_FORK_URL          The URL the Dockerfiles clone the core from.
+#                           Default: https://github.com/jvbastel/vmangos-core.git
+#   WOWAI_DEPLOY_URL        Default: https://github.com/mserajnik/vmangos-deploy.git
+#   WOWAI_DEPLOY_PIN        The vmangos-deploy commit to build with.
+#   WOWAI_DEPLOY_BUILD_DIR  The separate vmangos-deploy clone for builds, with
+#                           core.autocrlf=false. Default: ~/wowai/vmangos-deploy-build
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+src="$(cd "${WOWAI_SRC:-$(git -C "$script_dir" rev-parse --show-toplevel)}" && pwd)"
+fork_url="${WOWAI_FORK_URL:-https://github.com/jvbastel/vmangos-core.git}"
+deploy_url="${WOWAI_DEPLOY_URL:-https://github.com/mserajnik/vmangos-deploy.git}"
+# The vmangos-deploy commit of the play realm's images on 2026-10-24. Bump it
+# by hand after reading the vmangos-deploy changes.
+deploy_pin="${WOWAI_DEPLOY_PIN:-dab80cea5d0b7c161d5846715c265a4c4a1a9a5c}"
+deploy_build_dir="${WOWAI_DEPLOY_BUILD_DIR:-$HOME/wowai/vmangos-deploy-build}"
+
+client_version=5875
+server_repository=wowai/vmangos-server
+database_repository=wowai/vmangos-database
+revision_label=org.opencontainers.image.revision
+
+die() { echo "release-core: $*" >&2; exit 1; }
+
+server_image() { echo "$server_repository:$client_version-$1"; }
+database_image() { echo "$database_repository:$1"; }
+
+# Checks that $1 is a full commit of the fork that origin has.
+check_pushed_commit() {
+  local commit="$1"
+  [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "'$commit' is not a full commit (40 hex digits). A branch name or a short commit can give a stale build."
+  git -C "$src" fetch --quiet origin || die "cannot fetch origin in $src"
+  git -C "$src" cat-file -e "$commit^{commit}" 2>/dev/null || die "commit $commit is not in $src"
+  [ -n "$(git -C "$src" for-each-ref --contains "$commit" refs/remotes/origin)" ] ||
+    die "commit $commit is not on any branch of origin. Push it first: the Dockerfiles clone it from $fork_url."
+}
+
+# Makes the separate vmangos-deploy clone and puts it at the pinned commit.
+ensure_deploy_clone() {
+  if [ ! -d "$deploy_build_dir/.git" ]; then
+    git -c core.autocrlf=false clone --quiet "$deploy_url" "$deploy_build_dir"
+  fi
+  git -C "$deploy_build_dir" config core.autocrlf false
+  [ -z "$(git -C "$deploy_build_dir" status --porcelain)" ] ||
+    die "the vmangos-deploy clone $deploy_build_dir has local changes"
+  if [ "$(git -C "$deploy_build_dir" rev-parse HEAD)" != "$deploy_pin" ]; then
+    git -C "$deploy_build_dir" cat-file -e "$deploy_pin^{commit}" 2>/dev/null ||
+      git -C "$deploy_build_dir" fetch --quiet origin
+    git -C "$deploy_build_dir" checkout --quiet --detach "$deploy_pin"
+  fi
+  if grep -rlq $'\r' "$deploy_build_dir/docker"; then
+    die "files under $deploy_build_dir/docker have CRLF line endings. Clone it again with core.autocrlf=false."
+  fi
+}
+
+cmd_build() {
+  local migration_edits=""
+  while [ $# -gt 1 ]; do
+    case "$1" in
+      --migration-edits) migration_edits="$2"; shift 2 ;;
+      *) die "unknown option $1" ;;
+    esac
+  done
+  [ $# -eq 1 ] || die "usage: release-core build [--migration-edits <value>] <commit>"
+  local commit="$1"
+  check_pushed_commit "$commit"
+  ensure_deploy_clone
+
+  local common=(
+    --build-arg "VMANGOS_REPOSITORY_URL=$fork_url"
+    --build-arg "VMANGOS_REVISION=$commit"
+    --build-arg "VMANGOS_FAIL_ON_PATCH_ERROR=1"
+    --label "$revision_label=$commit"
+    --label "org.opencontainers.image.source=$fork_url"
+  )
+  cd "$deploy_build_dir"
+  echo "Building $(server_image "$commit")..."
+  docker build --file docker/server/Dockerfile \
+    --build-arg "VMANGOS_CLIENT_VERSION=$client_version" "${common[@]}" \
+    --tag "$(server_image "$commit")" .
+  echo "Building $(database_image "$commit")..."
+  docker build --file docker/database/Dockerfile \
+    --build-arg "VMANGOS_MIGRATION_EDITS=$migration_edits" "${common[@]}" \
+    --tag "$(database_image "$commit")" .
+  echo "Built $(server_image "$commit") and $(database_image "$commit")."
+}
+
+usage() { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; }
+
+case "${1:-help}" in
+  build) shift; cmd_build "$@" ;;
+  help | -h | --help) usage ;;
+  *) usage >&2; exit 1 ;;
+esac
