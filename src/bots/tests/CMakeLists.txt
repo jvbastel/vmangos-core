@@ -14,6 +14,7 @@ add_executable(bots_tests
   GearTemplateTest.cpp
   GroupCommandTest.cpp
   InboxTest.cpp
+  LootTest.cpp
   RouteTest.cpp
   SpellDataTest.cpp
   SpellFileTest.cpp
