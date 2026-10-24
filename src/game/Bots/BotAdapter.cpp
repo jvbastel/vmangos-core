@@ -199,7 +199,11 @@ Bots::ChaseState BotAdapter::GetChase() const
 
 uint32 BotAdapter::GetComboPoints() const
 {
-    return me->GetComboPoints();
+    // The points sit on one unit. After a switch to another target (an
+    // enemy healer, or `attack`), the bot has none on its new target, and
+    // Slice and Dice would fail with no combo points on each think.
+    Unit const* victim = me->GetVictim();
+    return victim && victim->GetObjectGuid() == me->GetComboTargetGuid() ? me->GetComboPoints() : 0;
 }
 
 Bots::Guid BotAdapter::GetPet() const
