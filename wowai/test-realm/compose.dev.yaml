@@ -1,0 +1,11 @@
+# The dev override of the test realm: mangosd and realmd run the binaries of
+# the dev install folder (`wowai/dev build`) instead of the image's.
+
+services:
+  realmd:
+    volumes:
+      - ${WOWAI_DEV_INSTALL:?}/bin:/opt/vmangos/bin:ro
+
+  mangosd:
+    volumes:
+      - ${WOWAI_DEV_INSTALL:?}/bin:/opt/vmangos/bin:ro

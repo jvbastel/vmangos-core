@@ -1,0 +1,95 @@
+# The test realm. Use it through `wowai/dev realm ...`, which writes the
+# settings to the .env file of the realm folder (default ~/wowai/test-realm)
+# and always adds compose.dev.yaml, the dev override.
+#
+# It is its own Compose project, apart from the play realm in
+# vmangos-deploy: its own project name, database volume, and ports. The
+# database starts fresh from the database image. The play realm's
+# characters are not copied.
+
+name: ${WOWAI_REALM_PROJECT:?}
+
+services:
+  database:
+    image: ${WOWAI_DATABASE_IMAGE:?}
+    pull_policy: never
+    restart: unless-stopped
+    stop_grace_period: 2m
+    healthcheck:
+      test: ['CMD', 'vmangos-healthcheck']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 24h
+    volumes:
+      - database:/var/lib/mysql
+    environment:
+      - VMANGOS_DEPLOY_VERSION=1
+      - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
+      - MARIADB_USER=mangos
+      - MARIADB_PASSWORD=${WOWAI_REALM_DB_PASSWORD:?}
+      - MARIADB_ROOT_PASSWORD=${WOWAI_REALM_DB_ROOT_PASSWORD:?}
+      - VMANGOS_REALMLIST_NAME=WOWAI Test
+      - VMANGOS_REALMLIST_ADDRESS=127.0.0.1
+      - VMANGOS_REALMLIST_PORT=${WOWAI_REALM_WORLD_PORT:?}
+      - VMANGOS_REALMLIST_ICON=0
+      - VMANGOS_REALMLIST_TIMEZONE=2
+      - VMANGOS_REALMLIST_ALLOWED_SECURITY_LEVEL=0
+      - VMANGOS_ENABLE_AUTOMATIC_WORLD_DB_CORRECTIONS=1
+      - VMANGOS_HALT_ON_MIGRATION_EDITS=1
+      - VMANGOS_PROCESS_CUSTOM_SQL=0
+
+  realmd:
+    image: ${WOWAI_SERVER_IMAGE:?}
+    pull_policy: never
+    command: realmd
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - ${WOWAI_REALM_LOGIN_PORT:?}:3724
+    volumes:
+      - ${WOWAI_REALM_DIR:?}/config/realmd.conf:/opt/vmangos/config/realmd.conf:ro
+      - ${WOWAI_REALM_DIR:?}/storage/realmd/logs:/opt/vmangos/storage/logs
+    environment:
+      - VMANGOS_DEPLOY_VERSION=1
+      - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
+      - VMANGOS_UID=${WOWAI_REALM_UID:?}
+      - VMANGOS_GID=${WOWAI_REALM_GID:?}
+      - VMANGOS_DATABASE_USER=mangos
+      - VMANGOS_DATABASE_PASSWORD=${WOWAI_REALM_DB_PASSWORD:?}
+
+  mangosd:
+    image: ${WOWAI_SERVER_IMAGE:?}
+    pull_policy: never
+    command: mangosd
+    tty: true
+    stdin_open: true
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 2m
+    ports:
+      - ${WOWAI_REALM_WORLD_PORT:?}:8085
+      # SOAP on localhost only. The image pins SOAP.Port to 7878.
+      - 127.0.0.1:${WOWAI_REALM_SOAP_PORT:?}:7878
+    volumes:
+      - ${WOWAI_REALM_DIR:?}/config/mangosd.conf:/opt/vmangos/config/mangosd.conf:ro
+      - ${WOWAI_REALM_DATA:?}:/opt/vmangos/storage/data:ro
+      - ${WOWAI_REALM_DIR:?}/storage/mangosd/logs:/opt/vmangos/storage/logs
+      - ${WOWAI_REALM_DIR:?}/storage/mangosd/honor:/opt/vmangos/storage/honor
+    environment:
+      - VMANGOS_DEPLOY_VERSION=1
+      - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
+      - VMANGOS_UID=${WOWAI_REALM_UID:?}
+      - VMANGOS_GID=${WOWAI_REALM_GID:?}
+      - VMANGOS_DATABASE_USER=mangos
+      - VMANGOS_DATABASE_PASSWORD=${WOWAI_REALM_DB_PASSWORD:?}
+
+  # The chat service (`botchat`, with BOTCHAT_LLM=fake) goes here. See the
+  # chat service dev loop in the version 1 build spec.
+
+volumes:
+  database:
