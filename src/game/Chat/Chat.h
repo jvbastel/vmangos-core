@@ -302,6 +302,7 @@ class ChatHandler
         bool HandleWowaiBotCreateCommand(char* args);
         bool HandleWowaiBotLoginCommand(char* args);
         bool HandleWowaiBotLogoutCommand(char* args);
+        bool HandleWowaiGearEquipCommand(char* args);
         bool HandleBattleBotAddAlteracCommand(char* args);
         bool HandleBattleBotAddArathiCommand(char* args);
         bool HandleBattleBotAddWarsongCommand(char* args);
