@@ -17,6 +17,12 @@
 #       release record for `rollback`. The configuration, the storage, the
 #       database volume, and the previous images stay.
 #
+#   release-core rollback
+#       Undo the newest release that was not rolled back: set the previous
+#       images back and run `docker compose up -d`. If that release ran a
+#       migration of our own, it first stops the servers and restores the
+#       backup made before the release.
+#
 # Settings (environment variables):
 #   WOWAI_SRC               The fork tree. It checks that the commit is on
 #                           origin. Default: the tree of this script.
@@ -161,11 +167,25 @@ cmd_up() {
   echo "Released $commit to $play_realm."
 }
 
+cmd_rollback() {
+  [ $# -eq 0 ] || die "usage: release-core rollback"
+  local record
+  record="$(latest_record core)"
+  [ -n "$record" ] || die "there is no core release to roll back in $records"
+  RESTORE_STOP=(realmd mangosd)
+  rollback_record "$record" >/dev/null
+  # A new database image restarts the database service, which applies the
+  # migrations that the backup lacks.
+  play_compose up -d
+  echo "Rolled back. The play realm runs $(compose_image mangosd)."
+}
+
 usage() { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; }
 
 case "${1:-help}" in
   build) shift; cmd_build "$@" ;;
   up) shift; cmd_up "$@" ;;
+  rollback) shift; cmd_rollback "$@" ;;
   help | -h | --help) usage ;;
   *) usage >&2; exit 1 ;;
 esac

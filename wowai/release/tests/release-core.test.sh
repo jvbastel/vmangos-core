@@ -46,8 +46,12 @@ git_quiet -C "$tmp/fork" checkout -b wowai
 echo "-- ours" >"$tmp/fork/sql/migrations/20261001000000_characters.sql"
 git_quiet -C "$tmp/fork" add -A
 git_quiet -C "$tmp/fork" commit -m "Our migration"
-git_quiet -C "$tmp/fork" push origin wowai
 pushed="$(git -C "$tmp/fork" rev-parse HEAD)"
+echo "fix" >"$tmp/fork/fix.cpp"
+git_quiet -C "$tmp/fork" add -A
+git_quiet -C "$tmp/fork" commit -m "A fix with no migration"
+git_quiet -C "$tmp/fork" push origin wowai
+pushed2="$(git -C "$tmp/fork" rev-parse HEAD)"
 echo "code" >"$tmp/fork/code.cpp"
 git_quiet -C "$tmp/fork" add -A
 git_quiet -C "$tmp/fork" commit -m "Not pushed"
@@ -159,6 +163,31 @@ check "the other lines of the Compose file stay" \
 check "the Compose file keeps its CRLF endings" \
   test "$(grep -c $'\r$' "$play/compose.yaml")" = "$(wc -l <"$play/compose.yaml")"
 check "up removes no image" bash -c '! grep -E " (rmi|image rm|image prune|system prune)" "$0"' "$FAKE_DOCKER_LOG"
+first_backup="$(ls "$play/storage/database/backups")"
+
+# --- rollback ---
+
+# A second release with no new migration of our own.
+"$release" build "$pushed2" >/dev/null
+cp "$play/compose.yaml" "$tmp/compose.first"
+"$release" up "$pushed2" >/dev/null 2>&1
+reset_docker_log
+check "rollback of a release without a migration of our own works" "$release" rollback
+check "it sets the previous release's tags back" cmp -s "$play/compose.yaml" "$tmp/compose.first"
+check "it restores no backup" not_logged "restore"
+check "it runs docker compose up -d" logged "$play | compose up -d"
+
+reset_docker_log
+check "rollback of the first release, which ran a migration of our own, works" "$release" rollback
+check "it sets the published images back, as the file was" cmp -s "$play/compose.yaml" "$tmp/compose.before"
+check "it stops the servers" logged "$play | compose stop realmd mangosd"
+check "it restores the backup made before that release" \
+  logged "$play | compose run --rm database-backup restore --target /backup $first_backup"
+check "the servers stop before the restore, and start after it" \
+  bash -c 'grep -n . "$0" | grep -E "compose (stop|run --rm database-backup restore|up -d)" | cut -d"|" -f2 | tr -d "\n" | grep -q "compose stop.*restore.*compose up -d"' "$FAKE_DOCKER_LOG"
+check "rollback removes no image" bash -c '! grep -E " (rmi|image rm|image prune|system prune)" "$0"' "$FAKE_DOCKER_LOG"
+
+check "a rollback with no release left fails" bash -c '! "$0" rollback >/dev/null 2>&1' "$release"
 
 echo
 if [ "$failures" -eq 0 ]; then echo "All checks passed."; else echo "$failures check(s) failed."; exit 1; fi

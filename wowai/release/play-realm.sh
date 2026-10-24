@@ -110,7 +110,7 @@ write_record() {
   local -n new_images="$6"
   local service file
   mkdir -p "$records"
-  file="$records/$kind-$(date -u +%Y%m%dT%H%M%SZ).env"
+  file="$records/$kind-$(date -u +%Y%m%dT%H%M%S.%NZ).env"
   {
     printf 'COMMIT=%q\n' "$commit"
     printf 'PREVIOUS_COMMIT=%q\n' "$previous"
@@ -128,4 +128,26 @@ write_record() {
 # The newest release record of <kind> that was not rolled back.
 latest_record() {
   find "$records" -maxdepth 1 -name "$1-*.env" 2>/dev/null | sort | tail -n 1
+}
+
+# rollback_record <record>: sets the previous images of the release back and
+# marks the record as rolled back. If the release ran a migration (the record
+# lists one, or "unknown"), it first stops the services in RESTORE_STOP and
+# restores the backup made before the release. It prints "restored" then.
+# The caller starts the services.
+rollback_record() {
+  local record="$1" service image_var policy_var
+  # shellcheck disable=SC1090
+  . "$record"
+  echo "Rolling back $COMMIT (record $(basename "$record"))." >&2
+  if [ -n "${MIGRATIONS// /}" ]; then
+    echo "It ran migrations ($MIGRATIONS). Restoring the backup $BACKUP." >&2
+    restore_backup "$BACKUP" "${RESTORE_STOP[@]}" >&2
+    echo restored
+  fi
+  for service in "${services[@]}"; do
+    image_var="PREVIOUS_IMAGE_$service" policy_var="PREVIOUS_POLICY_$service"
+    set_compose_image "$service" "${!image_var}" "${!policy_var}"
+  done
+  mv "$record" "$record.rolled-back"
 }
