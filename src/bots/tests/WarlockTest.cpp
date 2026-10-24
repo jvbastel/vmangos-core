@@ -67,7 +67,7 @@ namespace
             group.HoldPull(Tank);
             fake.SetInCombat(Self);
             fake.SetVictim(Imp, Kobold);
-            fake.ChaseInRange(Kobold, 20.0f);
+            fake.ChaseToRange(Kobold, 20.0f);
             fake.ClearDeeds();
         }
     };
@@ -135,7 +135,7 @@ TEST(Warlock, GetsInRangeOfTheTarget)
 
     warlock.Think();
 
-    EXPECT_EQ(warlock.fake.Deeds(), (std::vector<std::string>{"chase in range 0xf130000302000022"}));
+    EXPECT_EQ(warlock.fake.Deeds(), (std::vector<std::string>{"chase to range 0xf130000302000022"}));
 }
 
 TEST(Warlock, PutsItsDamageOverTimeSpellsOnTheTarget)
@@ -178,7 +178,7 @@ TEST(Warlock, SwitchesItAndTheImpToTheAttackTargetOfThePlayer)
     warlock.Think();
 
     EXPECT_EQ(warlock.fake.Deeds(),
-        (std::vector<std::string>{"pet attack 0xf130000302000033", "chase in range 0xf130000302000033"}));
+        (std::vector<std::string>{"pet attack 0xf130000302000033", "chase to range 0xf130000302000033"}));
 }
 
 TEST(Warlock, DoesNotFollowWhileItChasesALivingTarget)

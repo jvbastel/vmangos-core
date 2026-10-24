@@ -34,6 +34,7 @@ add_library(bots STATIC
   GroupCommand.cpp
   GroupCoordinator.cpp
   Loot.cpp
+  PriestModule.cpp
   RogueModule.cpp
   Route.cpp
   SpellBook.cpp

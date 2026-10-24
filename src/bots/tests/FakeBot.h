@@ -65,6 +65,9 @@ namespace Bots
                     m_nextRank[ranks[i]] = ranks[i + 1];
             }
 
+            // The other members of the bot's group, in order.
+            void SetGroupMembers(std::vector<Guid> const& others) { m_groupMembers = others; }
+
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -127,6 +130,13 @@ namespace Bots
                 return found == m_nextRank.end() ? NoSpell : found->second;
             }
 
+            std::vector<Guid> GetGroupMembers() const override
+            {
+                std::vector<Guid> members{m_self};
+                members.insert(members.end(), m_groupMembers.begin(), m_groupMembers.end());
+                return members;
+            }
+
             // BotActions
             void CastSpell(SpellId spell, Guid target) override
             {
@@ -152,9 +162,9 @@ namespace Bots
                 AddDeed("chase behind", target);
                 m_chase = {target, true};
             }
-            void ChaseInRange(Guid target, float /*yards*/) override
+            void ChaseToRange(Guid target, float /*yards*/) override
             {
-                AddDeed("chase in range", target);
+                AddDeed("chase to range", target);
                 m_chase = {target, false};
             }
             void PetAttack(Guid target) override { AddDeed("pet attack", target); }
@@ -185,6 +195,7 @@ namespace Bots
             std::map<Guid, Guid> m_victim;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
+            std::vector<Guid> m_groupMembers;
             ChaseState m_chase = {NoGuid, false};
             std::uint32_t m_comboPoints = 0;
             Guid m_pet = NoGuid;

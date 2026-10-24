@@ -1,5 +1,6 @@
 #include "ClassModules.h"
 #include "CommonRules.h"
+#include "PriestModule.h"
 #include "RogueModule.h"
 #include "WarlockModule.h"
 #include "WarriorModule.h"
@@ -20,6 +21,7 @@ namespace Bots
 
         ClassModule const Modules[] = {
             {BotClass::Warrior, BotRole::Tank, &Warrior::MakeTankStrategy},
+            {BotClass::Priest, BotRole::Healer, &Priest::MakeHealerStrategy},
             {BotClass::Rogue, BotRole::Melee, &Rogue::MakeMeleeStrategy},
             {BotClass::Warlock, BotRole::Ranged, &Warlock::MakeRangedStrategy},
         };

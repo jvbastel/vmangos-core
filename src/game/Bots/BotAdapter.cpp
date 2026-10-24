@@ -7,6 +7,7 @@
 
 #include "BotAdapter.h"
 #include "BotLoot.h"
+#include "Group.h"
 #include "Log.h"
 #include "MotionMaster.h"
 #include "spline/MoveSpline.h"
@@ -213,6 +214,19 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     return true;
 }
 
+std::vector<Bots::Guid> BotAdapter::GetGroupMembers() const
+{
+    std::vector<Bots::Guid> members{GetSelf()};
+    if (Group* group = me->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player const* member = ref->getSource();
+            if (member && member != me && member->IsInWorld() && member->IsInMap(me))
+                members.push_back(GuidOf(member));
+        }
+    return members;
+}
+
 void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
 {
     SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
@@ -225,6 +239,10 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         me->SetTargetGuid(unit->GetObjectGuid());
     }
     SpellCastResult const result = me->CastSpell(unit, entry, false);
+    // A spell with a cast time ends when the caster moves, for example when
+    // it follows a unit.
+    if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
+        me->StopMoving();
     if (result != SPELL_CAST_OK)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: result %u", me->GetName(), spell, uint32(result));
 }
@@ -246,25 +264,39 @@ void BotAdapter::Attack(Bots::Guid target)
 void BotAdapter::Chase(Bots::Guid target)
 {
     if (Unit* unit = Find(target))
+    {
+        // A melee chase, also after a ranged one (ChaseToRange).
+        me->SetCasterChaseDistance(0.0f);
         me->GetMotionMaster()->MoveChase(unit);
+    }
 }
 
 void BotAdapter::ChaseBehind(Bots::Guid target)
 {
     if (Unit* unit = Find(target))
+    {
+        me->SetCasterChaseDistance(0.0f);
         me->GetMotionMaster()->MoveChase(unit, BehindYards, M_PI_F);
+    }
 }
 
-void BotAdapter::ChaseInRange(Bots::Guid target, float yards)
+void BotAdapter::ChaseToRange(Bots::Guid target, float yards)
 {
-    // A chase ends when the victim of the bot is another unit, so the bot
-    // takes the unit as its victim, without melee swings.
-    if (Unit* unit = Find(target))
-    {
-        me->SetTargetGuid(unit->GetObjectGuid());
-        me->Attack(unit, false);
-        me->GetMotionMaster()->MoveChase(unit, yards);
-    }
+    // Like CombatBotBaseAI::BeginChasing of a ranged party bot: the chase
+    // path ends at the caster chase distance, in line of sight. A chase
+    // needs the target as the victim, so the bot attacks it without a
+    // melee swing.
+    Unit* unit = Find(target);
+    if (!unit)
+        return;
+    MotionMaster* motion = me->GetMotionMaster();
+    if (me->GetMinChaseDistance() == yards && motion->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE
+        && me->GetVictim() == unit)
+        return;
+    me->SetCasterChaseDistance(yards);
+    me->SetTargetGuid(unit->GetObjectGuid());
+    me->Attack(unit, false);
+    motion->MoveChase(unit, 1.0f);
 }
 
 void BotAdapter::PetAttack(Bots::Guid target)

@@ -9,7 +9,7 @@ namespace Bots
         {
             // The Warlock stands this far from its target: in the range of
             // its spells (30 yards), and out of the melee.
-            float const RangeYards = 20.0f;
+            float const RangeYards = 25.0f;
             // Life Tap below this mana, and above this health, in percent.
             std::uint32_t const LowManaPercent = 25;
             std::uint32_t const SpareHealthPercent = 60;
@@ -82,7 +82,7 @@ namespace Bots
                     },
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) {
-                            context.actions.ChaseInRange(PickDamageTarget(context), RangeYards);
+                            context.actions.ChaseToRange(PickDamageTarget(context), RangeYards);
                         }}},
 
                 CastRule("life tap", P + 60,

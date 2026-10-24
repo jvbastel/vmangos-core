@@ -46,6 +46,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool KnowsSpell(Bots::SpellId spell) const override;
         Bots::SpellId GetNextRank(Bots::SpellId spell) const override;
         bool CanCast(Bots::SpellId spell, Bots::Guid target) const override;
+        std::vector<Bots::Guid> GetGroupMembers() const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;
@@ -53,7 +54,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void Attack(Bots::Guid target) override;
         void Chase(Bots::Guid target) override;
         void ChaseBehind(Bots::Guid target) override;
-        void ChaseInRange(Bots::Guid target, float yards) override;
+        void ChaseToRange(Bots::Guid target, float yards) override;
         void PetAttack(Bots::Guid target) override;
         void Follow(Bots::Guid unit) override;
         void Loot(bool mayMove) override;
