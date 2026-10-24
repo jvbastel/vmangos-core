@@ -20,6 +20,7 @@ add_executable(bots_tests
   GearTemplateTest.cpp
   GroupCommandTest.cpp
   GroupCoordinatorTest.cpp
+  InterruptClaimTest.cpp
   InboxTest.cpp
   LootTest.cpp
   MageFrostTest.cpp

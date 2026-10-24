@@ -3,7 +3,9 @@
 
 #include "BotTypes.h"
 
+#include <map>
 #include <mutex>
+#include <vector>
 
 namespace Bots
 {
@@ -21,6 +23,14 @@ namespace Bots
         Guid target; // NoGuid without a pull.
     };
 
+    // A bot will interrupt the cast of spell `spell` by enemy `caster`.
+    struct InterruptClaim
+    {
+        Guid caster;
+        SpellId spell;
+        Guid bot;
+    };
+
     // The only shared state between the bots of one group. The bot manager
     // keeps one per group. A bot without a group has one of its own, so that
     // the strategies always have a coordinator.
@@ -29,7 +39,7 @@ namespace Bots
     // each call takes a small mutex. A call returns a copy, never a reference
     // into the coordinator.
     //
-    // Later tickets add the interrupt claims and the group events here.
+    // Later tickets add the group events here.
     class GroupCoordinator
     {
     public:
@@ -50,10 +60,23 @@ namespace Bots
         // a pull. The damage bots wait for it.
         bool TankHoldsThreat() const;
 
+        // The interrupt claims (GroupRules.h): two bots never interrupt the
+        // same cast. An enemy casts one spell at a time, so a claim of a
+        // caster on another spell is of a cast that ended.
+        // Claims the cast of `spell` by `caster` for `bot`. True when no
+        // other bot holds the claim on that cast.
+        bool ClaimInterrupt(Guid caster, SpellId spell, Guid bot);
+        // The bot that holds the claim on the cast, or NoGuid.
+        Guid GetInterruptClaim(Guid caster, SpellId spell) const;
+        std::vector<InterruptClaim> GetInterruptClaims() const;
+        // The cast of `caster` ended, or its bot gave it up.
+        void ReleaseInterrupt(Guid caster);
+
     private:
         mutable std::mutex m_mutex;
         Guid m_focusTarget = NoGuid;
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
+        std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
     };
 }
 

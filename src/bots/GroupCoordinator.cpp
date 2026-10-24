@@ -50,4 +50,36 @@ namespace Bots
             return m_focusTarget != NoGuid;
         return m_pull.phase == PullPhase::Holding;
     }
+
+    bool GroupCoordinator::ClaimInterrupt(Guid caster, SpellId spell, Guid bot)
+    {
+        Lock lock(m_mutex);
+        auto found = m_interruptClaims.find(caster);
+        if (found != m_interruptClaims.end() && found->second.spell == spell && found->second.bot != bot)
+            return false;
+        m_interruptClaims[caster] = {caster, spell, bot};
+        return true;
+    }
+
+    Guid GroupCoordinator::GetInterruptClaim(Guid caster, SpellId spell) const
+    {
+        Lock lock(m_mutex);
+        auto found = m_interruptClaims.find(caster);
+        return found != m_interruptClaims.end() && found->second.spell == spell ? found->second.bot : NoGuid;
+    }
+
+    std::vector<InterruptClaim> GroupCoordinator::GetInterruptClaims() const
+    {
+        Lock lock(m_mutex);
+        std::vector<InterruptClaim> claims;
+        for (auto const& pair : m_interruptClaims)
+            claims.push_back(pair.second);
+        return claims;
+    }
+
+    void GroupCoordinator::ReleaseInterrupt(Guid caster)
+    {
+        Lock lock(m_mutex);
+        m_interruptClaims.erase(caster);
+    }
 }
