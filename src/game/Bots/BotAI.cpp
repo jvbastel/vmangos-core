@@ -23,12 +23,21 @@
 #include "Packets/Misc.h"
 #include "WorldSession.h"
 
+#include <chrono>
+
 namespace
 {
     // A bot out of combat thinks more often within this distance of a player.
     float const NearPlayerYards = 100.0f;
     // A bot follows or comes to a player within this distance on its map.
     float const CommandReachYards = 100.0f;
+
+    // The clock of the group events of the coordinator.
+    int64 SteadyMs()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
 }
 
 BotAI::BotAI(Bots::ThinkSettings const& thinkSettings, Bots::BotRole role) :
@@ -143,8 +152,17 @@ void BotAI::HandlePacket(WorldPacket const& packet)
             m_loot.OnStartRoll(me, packet);
             return;
         case SMSG_LOOT_ROLL_WON:
-            // The bot chat event `loot_roll` (#50) starts from the result.
-            m_loot.OnRollWon(me, packet);
+        {
+            // Each bot of the group sees the roll end: the coordinator makes
+            // one `loot_roll` event of it.
+            BotLootRollWon const won = m_loot.OnRollWon(me, packet);
+            if (Group* group = me->GetGroup())
+                sBotMgr.GetCoordinator(group->GetId())->NoteRollWon(won.lootedTarget.GetRawValue(), won.itemSlot,
+                    won.itemEntry, won.winner.GetRawValue(), SteadyMs());
+            return;
+        }
+        case SMSG_PARTYKILLLOG:
+            OnPartyKill(packet);
             return;
         case SMSG_RESURRECT_REQUEST:
             AcceptResurrect(packet);
@@ -154,6 +172,20 @@ void BotAI::HandlePacket(WorldPacket const& packet)
     }
     // The bot reacts to the other packets in later tickets.
     sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "[Bots] %s got %s", me->GetName(), LookupOpcodeName(packet.GetOpcode()));
+}
+
+void BotAI::OnPartyKill(WorldPacket const& packet)
+{
+    // The group killed a creature. The member with the tap does not get the
+    // packet, the others do. A boss of the dungeon's route file is a
+    // `boss_kill`, once for the group.
+    WorldPacket data(packet);
+    ObjectGuid killer, victim;
+    data >> killer >> victim;
+    Group* group = me->GetGroup();
+    if (!group || !victim.IsCreature() || !sBotMgr.IsBoss(me->GetMapId(), victim.GetEntry()))
+        return;
+    sBotMgr.GetCoordinator(group->GetId())->NoteBossKill(victim.GetRawValue(), victim.GetEntry(), SteadyMs());
 }
 
 void BotAI::HandleCommand(BotCommandMessage const& message)
@@ -326,6 +358,10 @@ void BotAI::Think()
     Bots::BotContext const context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};
     std::string const rule = m_strategies.Think(context);
+    // A bot without a group has no chat session: its own coordinator drops
+    // the events.
+    if (!me->GetGroup())
+        m_soloCoordinator.TakeEvents();
     if (!rule.empty() && rule != m_lastRule)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());
     if (!rule.empty())

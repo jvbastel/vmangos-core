@@ -55,6 +55,8 @@ class BotAI : public PlayerBotAI
 
     private:
         void HandlePacket(WorldPacket const& packet);
+        // SMSG_PARTYKILLLOG: a boss kill of the group goes to the coordinator.
+        void OnPartyKill(WorldPacket const& packet);
         void HandleCommand(BotCommandMessage const& message);
         void StartCommand(Player* player);
         void StartPull(Player* player);

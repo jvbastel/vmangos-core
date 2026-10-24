@@ -17,6 +17,7 @@
 #include "BotRecipe.h"
 #include "GroupCoordinator.h"
 #include "GroupCommand.h"
+#include "Route.h"
 #include "Inbox.h"
 #include "ObjectGuid.h"
 #include "ThinkTimer.h"
@@ -139,6 +140,11 @@ class BotMgr
         bool IsBotCharacter(ObjectGuid guid) const;
         // The characters of our bots that are online.
         std::vector<ObjectGuid> OnlineBots() const;
+        // From any map thread: the creature entry is in the boss list of a
+        // route file of the dungeon map. The bot manager reads the route
+        // files at startup only, so the bots can read the list without a
+        // lock: a boss added with the route recorder counts after a restart.
+        bool IsBoss(uint32 mapId, uint32 entry) const { return m_bosses.IsBoss(mapId, entry); }
 
     private:
         BotRecord* FindByName(std::string const& name);
@@ -152,12 +158,14 @@ class BotMgr
         // The group has a member that is no WOWAI bot, online or not.
         bool HasPlayerMember(Group const& group) const;
         void PutOnPendingGear(BotRecord& record);
+        // The boss lists of the route files in <DataDir>/routes.
+        void LoadBossList();
         void DropOldCoordinators();
         // The wipe and rest moments that the coordinators saw since the last
         // update: one call of OnGroupEvent each.
         void TakeGroupEvents();
-        // A wipe or a rest of the group with the id `groupId`. The bot chat
-        // events `wipe` and `rest` (#50) start here.
+        // A group event of the group with the id `groupId`, once for the
+        // group: a log line and its bot chat event.
         void OnGroupEvent(uint32 groupId, Bots::GroupEvent const& event);
 
         BotSettings m_settings;
@@ -170,6 +178,7 @@ class BotMgr
         std::mutex m_coordinatorsMutex;
         std::map<uint32 /*group id*/, std::shared_ptr<Bots::GroupCoordinator>> m_coordinators;
         BotChat m_chat;
+        Bots::BossList m_bosses;
 };
 
 // The class of the library for a class of the game. False for an unknown class.

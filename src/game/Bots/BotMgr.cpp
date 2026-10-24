@@ -22,6 +22,8 @@
 #include "SharedDefines.h"
 #include "Utilities/Random.h"
 #include "World.h"
+#include "IO/Filesystem/FileSystem.h"
+#include <fstream>
 #include "WorldSession.h"
 
 #include <algorithm>
@@ -191,6 +193,7 @@ void BotMgr::Load()
     }
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %u bots loaded", uint32(m_bots.size()));
     m_gear.Load(m_settings.dataDir + "/gear");
+    LoadBossList();
     m_chat.Start();
 }
 
@@ -275,11 +278,49 @@ void BotMgr::TakeGroupEvents()
         OnGroupEvent(pair.first, pair.second);
 }
 
+void BotMgr::LoadBossList()
+{
+    std::string const dir = m_settings.dataDir + "/routes";
+    std::string const extension = ".txt";
+    m_bosses = Bots::BossList();
+    uint32 routes = 0;
+    for (std::string const& file : IO::Filesystem::GetAllFilesInFolder(dir, IO::Filesystem::OutputFilePath::JustFileName))
+    {
+        if (file.size() <= extension.size() || file.compare(file.size() - extension.size(), extension.size(), extension) != 0)
+            continue;
+        std::string const path = dir + "/" + file;
+        std::ifstream in(path, std::ios::binary);
+        std::ostringstream text;
+        text << in.rdbuf();
+        Bots::RouteResult const result = Bots::ParseRoute(text.str());
+        if (!in || !result.ok)
+        {
+            sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Route %s: %s", path.c_str(), in ? result.error.c_str() : "cannot read the file");
+            continue;
+        }
+        m_bosses.Add(result.route);
+        ++routes;
+    }
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %u route files loaded for the boss lists", routes);
+}
+
 void BotMgr::OnGroupEvent(uint32 groupId, Bots::GroupEvent const& event)
 {
+    m_chat.PostGroupEvent(groupId, event);
     if (event.kind == Bots::GroupEventKind::Wipe)
     {
         sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] Group %u wipes", groupId);
+        return;
+    }
+    if (event.kind == Bots::GroupEventKind::BossKill)
+    {
+        sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] Group %u kills the boss %u", groupId, event.entry);
+        return;
+    }
+    if (event.kind == Bots::GroupEventKind::LootRoll)
+    {
+        sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] Group %u: %s wins the roll on %u", groupId,
+            ObjectGuid(event.winner).GetString().c_str(), event.entry);
         return;
     }
     char const* reason = "revives at its corpse";
