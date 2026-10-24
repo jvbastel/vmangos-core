@@ -11,6 +11,7 @@
 #include "Common.h"
 #include "GearDraw.h"
 #include "GearTemplate.h"
+#include "Loot.h"
 
 #include <map>
 #include <string>
@@ -32,10 +33,14 @@ class BotGear
         // A template by name, in lower case. Null if there is none.
         Bots::GearTemplate const* Find(std::string const& name) const;
 
+        // The scores of a generated template, by name. Null if there is none.
+        Bots::GearScores const* FindScores(std::string const& name) const;
+
         std::size_t Count() const { return m_templates.size(); }
 
     private:
         std::map<std::string, Bots::GearTemplate> m_templates;
+        std::map<std::string, Bots::GearScores> m_scores;
 };
 
 // Equips a character that is in the world from a gear template: it destroys

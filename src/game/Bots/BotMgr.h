@@ -111,6 +111,9 @@ class BotMgr
         bool EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error);
 
         BotGear const& GetGear() const { return m_gear; }
+        // The scores of the generated gear template of a bot's class and
+        // role, for its loot decisions. Null for no bot or no template.
+        Bots::GearScores const* GearScoresOf(Player const* bot) const;
 
         BotSettings const& GetSettings() const { return m_settings; }
         BotLevelRoutine const& GetLevelRoutine() const { return m_levelRoutine; }

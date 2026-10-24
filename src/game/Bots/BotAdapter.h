@@ -11,6 +11,7 @@
 #include "BotActions.h"
 #include "BotView.h"
 
+class BotLoot;
 class Player;
 class Unit;
 
@@ -23,7 +24,9 @@ class Unit;
 class BotAdapter : public Bots::BotView, public Bots::BotActions
 {
     public:
-        explicit BotAdapter(Player* me) : me(me) {}
+        // `loot`: the corpse loot of the bot, for HasLootWork and Loot. Null:
+        // the bot has no loot work.
+        explicit BotAdapter(Player* me, BotLoot* loot = nullptr) : me(me), m_loot(loot) {}
 
         // BotView
         Bots::Guid GetSelf() const override;
@@ -36,6 +39,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         std::vector<Bots::Guid> GetAttackers(Bots::Guid unit) const override;
         bool HasAura(Bots::Guid unit, Bots::SpellId firstRank) const override;
         Bots::Guid GetFollowTarget() const override;
+        bool HasLootWork(bool mayMove) const override;
         bool KnowsSpell(Bots::SpellId spell) const override;
         Bots::SpellId GetNextRank(Bots::SpellId spell) const override;
         bool CanCast(Bots::SpellId spell, Bots::Guid target) const override;
@@ -47,12 +51,14 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void Attack(Bots::Guid target) override;
         void Chase(Bots::Guid target) override;
         void Follow(Bots::Guid unit) override;
+        void Loot(bool mayMove) override;
 
     private:
         // The unit on the map of the bot, in the world, or null.
         Unit* Find(Bots::Guid unit) const;
 
         Player* me;
+        BotLoot* m_loot;
 };
 
 #endif

@@ -300,6 +300,16 @@ void BotMgr::ApplyLevelRoutine(Player* bot) const
     m_levelRoutine.Apply(bot, talentBuild);
 }
 
+Bots::GearScores const* BotMgr::GearScoresOf(Player const* bot) const
+{
+    auto const record = m_bots.find(bot->GetGUIDLow());
+    Bots::BotClass botClass;
+    Bots::BotRole role;
+    if (record == m_bots.end() || !BotClassOf(bot->GetClass(), botClass) || !Bots::ParseRoleName(record->second.role, role))
+        return nullptr;
+    return m_gear.FindScores(Bots::GeneratedGearTemplateName(botClass, role));
+}
+
 void BotMgr::OnLevelUp(Player* player)
 {
     if (!IsOurBot(player))

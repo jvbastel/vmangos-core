@@ -40,6 +40,10 @@ namespace Bots
         virtual bool HasAura(Guid unit, SpellId firstRank) const = 0;
         // The unit that the bot follows now, or NoGuid.
         virtual Guid GetFollowTarget() const = 0;
+        // True when the bot has corpse loot to do now: it is busy with a
+        // corpse, or a corpse that it may loot is near. `mayMove`: the bot
+        // may walk to a corpse.
+        virtual bool HasLootWork(bool mayMove) const = 0;
 
         // Spells and ranks, for the spell book helper (SpellBook.h).
         // True when the bot knows spell `spell`.

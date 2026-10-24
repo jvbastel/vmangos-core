@@ -33,6 +33,7 @@ add_library(bots STATIC
   GearTemplate.cpp
   GroupCommand.cpp
   GroupCoordinator.cpp
+  Loot.cpp
   PriestModule.cpp
   Route.cpp
   SpellBook.cpp

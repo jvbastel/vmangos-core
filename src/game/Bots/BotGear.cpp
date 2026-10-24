@@ -94,6 +94,7 @@ namespace
 void BotGear::Load(std::string const& gearDir)
 {
     m_templates.clear();
+    m_scores.clear();
     std::vector<std::string> files = IO::Filesystem::GetAllFilesInFolder(gearDir, IO::Filesystem::OutputFilePath::JustFileName);
     std::sort(files.begin(), files.end());
     for (std::string const& file : files)
@@ -143,6 +144,8 @@ void BotGear::Load(std::string const& gearDir)
             gear.name.c_str(), uint32(items.size()), uint32(gear.items.size()), uint32(sWorld.GetWowPatch()));
         gear.items = items;
         std::string const name = gear.name;
+        if (gear.kind == Bots::GearTemplateKind::Generated)
+            m_scores.emplace(name, Bots::GearScores(gear));
         m_templates[name] = std::move(gear);
     }
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %u gear templates loaded from %s", uint32(m_templates.size()), gearDir.c_str());
@@ -152,6 +155,12 @@ Bots::GearTemplate const* BotGear::Find(std::string const& name) const
 {
     auto found = m_templates.find(name);
     return found == m_templates.end() ? nullptr : &found->second;
+}
+
+Bots::GearScores const* BotGear::FindScores(std::string const& name) const
+{
+    auto found = m_scores.find(name);
+    return found == m_scores.end() ? nullptr : &found->second;
 }
 
 Bots::GearDraw EquipFromGearTemplate(Player* player, Bots::GearTemplate const& gearTemplate)
