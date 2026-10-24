@@ -16,6 +16,7 @@
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "Spell.h"
+#include "SpellAuras.h"
 #include "SpellMgr.h"
 #include "TargetedMovementGenerator.h"
 #include "Utilities/Random.h"
@@ -69,6 +70,31 @@ Bots::SpellId BotAdapter::GetCurrentCast(Bots::Guid unit) const
     return Bots::NoSpell;
 }
 
+Bots::CastInfo BotAdapter::GetCast(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found)
+        return {Bots::NoSpell, Bots::CastKind::None, false};
+    for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL})
+    {
+        Spell const* spell = found->GetCurrentSpell(type);
+        if (!spell)
+            continue;
+        SpellEntry const* info = spell->m_spellInfo;
+        Bots::CastKind const kind = info->IsHealSpell() ? Bots::CastKind::Heal
+            : info->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+        // The test of Spell::EffectInterruptCast, the effect of Kick and
+        // Shield Bash.
+        bool const casting = spell->getState() == SPELL_STATE_CASTING
+            || (spell->getState() == SPELL_STATE_PREPARING && spell->GetCastTime() > 0);
+        bool const interruptible = casting && info->PreventionType == SPELL_PREVENTION_TYPE_SILENCE
+            && (type == CURRENT_GENERIC_SPELL ? spell->GetCastTime() > 0 && info->HasSpellInterruptFlag(SPELL_INTERRUPT_FLAG_DAMAGE_PUSHBACK)
+                : info->HasChannelInterruptFlag(AURA_INTERRUPT_ACTION_CANCELS));
+        return {info->Id, kind, interruptible};
+    }
+    return {Bots::NoSpell, Bots::CastKind::None, false};
+}
+
 Bots::Power BotAdapter::GetPower(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
@@ -82,6 +108,13 @@ float BotAdapter::GetDistance(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
     return found ? me->GetDistance(found) : std::numeric_limits<float>::max();
+}
+
+float BotAdapter::GetDistanceBetween(Bots::Guid a, Bots::Guid b) const
+{
+    Unit const* first = Find(a);
+    Unit const* second = Find(b);
+    return first && second ? first->GetDistance(second) : std::numeric_limits<float>::max();
 }
 
 bool BotAdapter::IsInCombat(Bots::Guid unit) const
@@ -114,6 +147,28 @@ bool BotAdapter::HasAura(Bots::Guid unit, Bots::SpellId firstRank) const
     for (auto const& pair : found->GetSpellAuraHolderMap())
         if (sSpellMgr.GetFirstSpellInChain(pair.first) == firstRank)
             return true;
+    return false;
+}
+
+bool BotAdapter::HasDebuff(Bots::Guid unit, Bots::DispelKind kind) const
+{
+    Unit const* found = Find(unit);
+    if (!found)
+        return false;
+    DispelType type = DISPEL_MAGIC;
+    switch (kind)
+    {
+        case Bots::DispelKind::Magic: type = DISPEL_MAGIC; break;
+        case Bots::DispelKind::Curse: type = DISPEL_CURSE; break;
+        case Bots::DispelKind::Disease: type = DISPEL_DISEASE; break;
+        case Bots::DispelKind::Poison: type = DISPEL_POISON; break;
+    }
+    for (auto const& pair : found->GetSpellAuraHolderMap())
+    {
+        SpellAuraHolder const* holder = pair.second;
+        if (holder && !holder->IsPositive() && holder->GetSpellProto()->Dispel == uint32(type))
+            return true;
+    }
     return false;
 }
 
