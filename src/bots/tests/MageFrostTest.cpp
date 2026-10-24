@@ -121,3 +121,14 @@ TEST(MageFrost, CastsFireballBeforeItLearnsFrostbolt)
 
     EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::Fireball, Kobold)}));
 }
+
+TEST(MageFrost, RunsIntoCastingRangeOfAFarFocusTarget)
+{
+    FrostMage mage;
+    mage.fake.SetDistance(Kobold, 40.0f);
+    mage.TankHoldsKobold();
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
+}

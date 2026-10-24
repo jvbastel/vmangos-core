@@ -45,6 +45,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void MoveTo(Bots::Position const& destination) override;
         void Attack(Bots::Guid target) override;
         void Chase(Bots::Guid target) override;
+        void ChaseToRange(Bots::Guid target, float yards) override;
         void Follow(Bots::Guid unit) override;
 
     private:

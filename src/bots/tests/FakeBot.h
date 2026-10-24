@@ -129,6 +129,13 @@ namespace Bots
 
             void Attack(Guid target) override { AddDeed("attack", target); }
             void Chase(Guid target) override { AddDeed("chase", target); }
+            void ChaseToRange(Guid target, float yards) override
+            {
+                AddDeed("chase", target);
+                std::ostringstream range;
+                range << " to " << yards << " yards";
+                m_deeds.back() += range.str();
+            }
             void Follow(Guid unit) override { AddDeed("follow", unit); }
 
         private:

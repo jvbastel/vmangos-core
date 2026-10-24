@@ -10,6 +10,7 @@ namespace Bots
         {
             int const P = Priority::Class;
             std::vector<Rule> rules = {
+                CloseInRule(P + 70),
                 CastRule("frostbolt", P + 60, MayAttackFocus, Frostbolt, PickFocusTarget),
                 // Below level 4, and against a target that Frostbolt cannot
                 // hit, for example one immune to frost.

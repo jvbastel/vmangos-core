@@ -13,6 +13,15 @@ namespace Bots
     // pull, the focus target is in the fight already (the tank fights back,
     // or the player names it with `attack`).
     bool MayAttackFocus(BotContext const& context);
+
+    // The casting range of a ranged damage bot, and its distance from the
+    // focus target when it runs closer.
+    float const CastingRangeYards = 30.0f;
+    float const RangedStandYards = 25.0f;
+
+    // A rule of a ranged damage bot: it runs into casting range of the focus
+    // target when it may attack it.
+    Rule CloseInRule(int priority);
 }
 
 #endif

@@ -185,6 +185,10 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         me->SetTargetGuid(unit->GetObjectGuid());
     }
     SpellCastResult const result = me->CastSpell(unit, entry, false);
+    // Like CombatBotBaseAI::DoCastSpell: a spell with a cast time stops the
+    // bot, so that the movement does not break the cast.
+    if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
+        me->StopMoving();
     if (result != SPELL_CAST_OK)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: result %u", me->GetName(), spell, uint32(result));
 }
@@ -207,6 +211,12 @@ void BotAdapter::Chase(Bots::Guid target)
 {
     if (Unit* unit = Find(target))
         me->GetMotionMaster()->MoveChase(unit);
+}
+
+void BotAdapter::ChaseToRange(Bots::Guid target, float yards)
+{
+    if (Unit* unit = Find(target))
+        me->GetMotionMaster()->MoveChase(unit, yards);
 }
 
 void BotAdapter::Follow(Bots::Guid unit)
