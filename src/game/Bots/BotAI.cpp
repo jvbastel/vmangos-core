@@ -348,8 +348,10 @@ void BotAI::Think()
     CheckAttackTarget();
     BotAdapter adapter(me, &m_loot);
     // Version 1 starts with a bot that stands in the world. A bot that eats
-    // or drinks sits, until a fight: standing up ends the meal.
-    bool const rests = adapter.IsEating() || adapter.IsDrinking();
+    // or drinks sits until it is full or a fight starts: standing up ends
+    // the meal. A bot that is full again (a heal, a GM `.replenish`) stands
+    // up at once, so the group does not wait for its food aura to run out.
+    bool const rests = Bots::RestsNow(adapter);
     if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND && (!rests || me->IsInCombat()))
         me->SetStandState(UNIT_STAND_STATE_STAND);
 

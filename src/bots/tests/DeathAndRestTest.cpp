@@ -371,6 +371,8 @@ TEST(GroupWatch, NoWipeWhileOneMemberLives)
 TEST(GroupWatch, TheCoordinatorSeesABotStartToEatOnce)
 {
     GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetHealth(Mage, 200, 600);
+    bot.fake.SetMana(Mage, 100, 400);
     bot.fake.SetEating();
 
     bot.Watch();
@@ -386,6 +388,7 @@ TEST(GroupWatch, TheCoordinatorSeesABotStartToEatOnce)
 TEST(GroupWatch, TheCoordinatorSeesABotStartToDrink)
 {
     GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetMana(Mage, 100, 400);
     bot.fake.SetDrinking();
 
     bot.Watch();
@@ -398,6 +401,7 @@ TEST(GroupWatch, TheCoordinatorSeesABotStartToDrink)
 TEST(GroupWatch, ABotThatStopsEatingNoLongerRests)
 {
     GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetHealth(Mage, 200, 600);
     bot.fake.SetEating();
     bot.Watch();
 
@@ -405,4 +409,77 @@ TEST(GroupWatch, ABotThatStopsEatingNoLongerRests)
     bot.Watch();
 
     EXPECT_TRUE(bot.group.GetResting().empty());
+}
+
+// A bot that is full again stops resting, even while its food or drink aura
+// lasts: a GM `.replenish` or a heal fills it before the meal ends. Else the
+// group "rests" and the tank refuses `pull` with "We are resting."
+
+TEST(GroupWatch, AFullBotWithAFoodAuraDoesNotRest)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetEating();
+    bot.fake.SetDrinking();
+
+    bot.Watch();
+
+    EXPECT_TRUE(bot.group.GetResting().empty());
+    EXPECT_TRUE(bot.group.TakeEvents().empty());
+}
+
+TEST(GroupWatch, AnEatingBotWithFullHealthRestsWhileItDrinksForMana)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetMana(Mage, 300, 400);
+    bot.fake.SetEating();
+    bot.fake.SetDrinking();
+
+    bot.Watch();
+
+    EXPECT_EQ(bot.group.GetResting(), (std::vector<Bots::Guid>{Mage}));
+    std::vector<GroupEvent> const events = bot.group.TakeEvents();
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_TRUE(IsRest(events[0], Mage, RestReason::Drink));
+}
+
+TEST(GroupWatch, ABotThatEatsUntilFullStopsResting)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetHealth(Mage, 200, 600);
+    bot.fake.SetEating();
+    bot.Watch();
+
+    bot.fake.SetHealth(Mage, 600, 600);
+    bot.Watch();
+
+    EXPECT_TRUE(bot.group.GetResting().empty());
+}
+
+TEST(Rest, RestsNowOnlyWhileTheMealStillFillsTheBot)
+{
+    FakeBot fake(Mage);
+    fake.SetHealth(Mage, 600, 600);
+    fake.SetMana(Mage, 400, 400);
+    EXPECT_FALSE(Bots::RestsNow(fake));
+
+    fake.SetEating();
+    EXPECT_FALSE(Bots::RestsNow(fake));
+    fake.SetHealth(Mage, 599, 600);
+    EXPECT_TRUE(Bots::RestsNow(fake));
+
+    fake.SetEating(false);
+    fake.SetDrinking();
+    EXPECT_FALSE(Bots::RestsNow(fake));
+    fake.SetMana(Mage, 399, 400);
+    EXPECT_TRUE(Bots::RestsNow(fake));
+}
+
+TEST(Rest, ADeadBotDoesNotRest)
+{
+    FakeBot fake(Mage);
+    fake.SetHealth(Mage, 0, 600);
+    fake.SetLifeState(Mage, LifeState::Dead);
+    fake.SetEating();
+
+    EXPECT_FALSE(Bots::RestsNow(fake));
 }

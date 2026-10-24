@@ -46,6 +46,21 @@ namespace Bots
                 && context.group.GetPull().puller != self;
         }
 
+        // Why the bot rests now: its meal still fills it. Eating comes first.
+        RestReason RestReasonOf(BotView const& view)
+        {
+            Guid const self = view.GetSelf();
+            if (!IsAlive(view, self))
+                return RestReason::None;
+            Health const health = view.GetHealth(self);
+            Power const mana = view.GetMana(self);
+            if (view.IsEating() && health.current < health.max)
+                return RestReason::Eat;
+            if (view.IsDrinking() && mana.current < mana.max)
+                return RestReason::Drink;
+            return RestReason::None;
+        }
+
         BotAction Always(std::function<void(BotContext const&)> run)
         {
             return BotAction{[](BotContext const&) { return true; }, std::move(run)};
@@ -115,14 +130,7 @@ namespace Bots
             // Over the corpse loot and the follow rule: a move stands the
             // bot up and ends its meal.
             Rule{"keep resting", P + 30,
-                [](BotContext const& context) {
-                    Guid const self = context.view.GetSelf();
-                    Health const health = context.view.GetHealth(self);
-                    Power const mana = context.view.GetMana(self);
-                    return AfterFight(context)
-                        && ((context.view.IsEating() && health.current < health.max)
-                            || (context.view.IsDrinking() && mana.current < mana.max));
-                },
+                [](BotContext const& context) { return AfterFight(context) && RestsNow(context.view); },
                 Always(Nothing)},
         };
         return std::make_shared<Strategy const>(Strategy{"rest", std::move(rules)});
@@ -132,11 +140,11 @@ namespace Bots
     {
         group.SetWiped(!SomeoneLives(view));
 
-        RestReason reason = RestReason::None;
-        if (view.IsEating())
-            reason = RestReason::Eat;
-        else if (view.IsDrinking())
-            reason = RestReason::Drink;
-        group.SetResting(view.GetSelf(), IsAlive(view, view.GetSelf()) ? reason : RestReason::None);
+        group.SetResting(view.GetSelf(), RestReasonOf(view));
+    }
+
+    bool RestsNow(BotView const& view)
+    {
+        return RestReasonOf(view) != RestReason::None;
     }
 }

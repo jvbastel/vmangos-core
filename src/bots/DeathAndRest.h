@@ -26,6 +26,12 @@ namespace Bots
     // drinks, and a bot that eats or drinks keeps resting until it is full.
     std::shared_ptr<Strategy const> MakeRestStrategy();
 
+    // True while the meal of the bot still fills it: it eats and its health
+    // is not full, or it drinks and its mana is not full. A bot that is full
+    // again does not rest, even while its food or drink aura lasts, so it
+    // stands up and the group does not wait for it.
+    bool RestsNow(BotView const& view);
+
     // The group watch of one bot, before each think: it tells the
     // coordinator whether every member that the bot sees is dead (the wipe)
     // and whether the bot rests now.
