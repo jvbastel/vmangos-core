@@ -12,6 +12,7 @@ add_executable(bots_tests
   GearDataTest.cpp
   GearDrawTest.cpp
   GearTemplateTest.cpp
+  GroupCommandTest.cpp
   InboxTest.cpp
   RouteTest.cpp
   SpellDataTest.cpp

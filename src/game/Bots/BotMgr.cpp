@@ -114,6 +114,37 @@ namespace
         entry->ai->botEntry = entry.get();
         return entry;
     }
+
+    Player* BotPlayer(BotRecord const& record)
+    {
+        // By GUID: the session of the account can hold another character.
+        return ObjectAccessor::FindPlayer(ObjectGuid(HIGHGUID_PLAYER, uint32(record.entry->playerGUID)));
+    }
+
+    Bots::GroupFacts GroupFactsFor(BotRecord const* record, Player* player)
+    {
+        Bots::GroupFacts facts = {};
+        Group* group = player->GetGroup();
+        facts.playerMayInvite = !group || group->IsLeader(player->GetObjectGuid()) || group->IsAssistant(player->GetObjectGuid());
+        facts.groupFull = group && group->IsFull();
+        if (!record)
+            return facts;
+
+        ObjectGuid const botGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID));
+        Player* bot = BotPlayer(*record);
+        // An offline bot keeps its group in the database.
+        Group* botGroup = bot ? bot->GetGroup() : sObjectMgr.GetGroupByMember(botGuid);
+        facts.botKnown = true;
+        facts.botOnline = record->entry->state == PB_STATE_ONLINE && bot;
+        facts.botInPlayerGroup = group && group->IsMember(botGuid);
+        facts.botInOtherGroup = botGroup && botGroup != group;
+        return facts;
+    }
+
+    void TellPlayer(Player* player, char const* line)
+    {
+        ChatHandler(player->GetSession()).SendSysMessage(line);
+    }
 }
 
 void BotMgr::LoadConfig()
@@ -157,9 +188,15 @@ void BotMgr::Load()
 void BotMgr::Update(uint32 /*diff*/)
 {
     SendLines();
+    for (GroupCommandMessage const& message : m_groupCommands.Drain())
+        RunGroupCommand(message);
     for (auto& pair : m_bots)
     {
         PlayerBotEntry& entry = *pair.second.entry;
+        if (entry.state == PB_STATE_ONLINE)
+            UpdateGroupOf(pair.second);
+        if (entry.state == PB_STATE_OFFLINE)
+            pair.second.pendingInvite.Clear();
         if (entry.state == PB_STATE_ONLINE && !pair.second.pendingGear.empty())
             PutOnPendingGear(pair.second);
         if (entry.state == PB_STATE_ONLINE && !sWorld.FindSession(entry.accountId))
@@ -423,6 +460,129 @@ bool BotMgr::LogoutBot(std::string const& name, std::string& error)
     return true;
 }
 
+void BotMgr::RunGroupCommand(GroupCommandMessage const& message)
+{
+    Player* player = ObjectAccessor::FindPlayer(message.player);
+    if (!player)
+        return;
+    BotRecord* record = FindByName(message.botName);
+    if (record && message.kind == Bots::GroupCommandKind::Invite && !BotPlayer(*record))
+    {
+        // An offline bot can be in a group that only bots kept, after the
+        // player left it: that group does not hold the bot back.
+        ObjectGuid const botGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID));
+        Group* botGroup = sObjectMgr.GetGroupByMember(botGuid);
+        if (botGroup && !HasPlayerMember(*botGroup))
+            Player::RemoveFromGroup(botGroup, botGuid);
+    }
+    if (!RunGroupPlan(message.kind, record, player) || message.kind != Bots::GroupCommandKind::Invite || BotPlayer(*record))
+        return;
+
+    // The bot is not in the world: it joins when it is.
+    if (record->entry->state == PB_STATE_OFFLINE)
+    {
+        std::string error;
+        if (!LoginBot(record->entry->name, error))
+        {
+            TellPlayer(player, error.c_str());
+            return;
+        }
+    }
+    record->pendingInvite = message.player;
+}
+
+bool BotMgr::RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player* player)
+{
+    Bots::GroupCommandPlan const plan = Bots::PlanGroupCommand(kind, GroupFactsFor(record, player));
+    if (!plan.ok)
+    {
+        TellPlayer(player, plan.line);
+        return false;
+    }
+    // The login is the caller's step: the rest waits for the bot to be in
+    // the world.
+    Player* bot = BotPlayer(*record);
+    if (plan.login || ((plan.addToGroup || plan.teleport) && !bot))
+        return true;
+
+    ObjectGuid const botGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID));
+    Group* group = player->GetGroup();
+    if (plan.addToGroup)
+    {
+        if (!group)
+        {
+            group = new Group;
+            if (!group->Create(player->GetObjectGuid(), player->GetName()))
+            {
+                delete group;
+                return false;
+            }
+            sObjectMgr.AddGroup(group);
+        }
+        if (!group->AddMember(botGuid, bot->GetName()))
+            return false;
+        group->BroadcastGroupUpdate();
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s joins the group of %s", bot->GetName(), player->GetName());
+    }
+    if (plan.teleport)
+        bot->TeleportTo(player->GetMapId(), player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetOrientation());
+    if (plan.leaveGroup)
+    {
+        Player::RemoveFromGroup(group, botGuid);
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s leaves the group of %s", record->entry->name.c_str(), player->GetName());
+    }
+    if (plan.logout)
+    {
+        record->wasInGroup = false;
+        record->entry->state = PB_STATE_OFFLINE;
+    }
+    return true;
+}
+
+void BotMgr::UpdateGroupOf(BotRecord& record)
+{
+    Player* bot = BotPlayer(record);
+    if (!bot)
+        return; // Not in the world yet, or in a far teleport.
+
+    if (!record.pendingInvite.IsEmpty())
+    {
+        ObjectGuid const inviter = record.pendingInvite;
+        record.pendingInvite.Clear();
+        Player* player = ObjectAccessor::FindPlayer(inviter);
+        // The bot logged in only for this invite.
+        if (!player || !RunGroupPlan(Bots::GroupCommandKind::Invite, &record, player))
+        {
+            record.entry->state = PB_STATE_OFFLINE;
+            return;
+        }
+    }
+
+    Group* group = bot->GetGroup();
+    if (group && !HasPlayerMember(*group))
+    {
+        // The player left: the bots do not keep a group of their own, so
+        // that a later invite finds the bot free.
+        Player::RemoveFromGroup(group, bot->GetObjectGuid());
+        group = nullptr;
+    }
+    if (record.wasInGroup && !group)
+    {
+        // The player removed the bot, or the group ended.
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s is out of its group and logs out", bot->GetName());
+        record.entry->state = PB_STATE_OFFLINE;
+    }
+    record.wasInGroup = group != nullptr;
+}
+
+bool BotMgr::HasPlayerMember(Group const& group) const
+{
+    for (Group::MemberSlot const& slot : group.GetMemberSlots())
+        if (m_bots.find(slot.guid.GetCounter()) == m_bots.end())
+            return true;
+    return false;
+}
+
 void BotMgr::SendLines()
 {
     for (BotLine const& line : m_lines.Drain())
@@ -457,6 +617,7 @@ void BotMgr::StartLogin(BotRecord& record, WorldSession* session)
     record.entry->ai.reset(new BotAI(m_settings.think));
     record.entry->ai->botEntry = record.entry.get();
     record.entry->state = PB_STATE_LOADING;
+    record.wasInGroup = false;
     session->SetBot(record.entry);
     sWorld.AddSession(session);
 }

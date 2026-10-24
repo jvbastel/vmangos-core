@@ -409,6 +409,8 @@ void WorldSession::HandleChatMessageOpcode(WorldPackets::Chat::ChatMessage const
             MasterPlayer* player = ObjectAccessor::FindMasterPlayer(packet.whisperTargetOrChannel.c_str());
             uint32 tSecurity = GetSecurity();
             uint32 pSecurity = player ? player->GetSession()->GetSecurity() : SEC_PLAYER;
+            if (!player && packet.lang != LANG_ADDON && BotHooks::OnWhisperToOffline(_player, packet.whisperTargetOrChannel, packet.message))
+                return;
             if (!player || (tSecurity == SEC_PLAYER && pSecurity > SEC_PLAYER && !player->AcceptsWhispersFrom(masterPlr->GetObjectGuid())))
             {
                 SendPlayerNotFoundNotice(packet.whisperTargetOrChannel);
