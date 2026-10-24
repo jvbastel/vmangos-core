@@ -79,6 +79,11 @@ void BotAI::UpdateAI(uint32 const diff)
     if (!me || !me->IsInWorld())
         return;
 
+    // A new character starts with the intro cinematic. A client ends it with
+    // CMSG_COMPLETE_CINEMATIC; until then, no creature can target the bot.
+    if (me->GetCurrentCinematicEntry())
+        me->CinematicEnd();
+
     for (WorldPacket const& packet : m_inbox.Drain())
         HandlePacket(packet);
     for (BotCommandMessage const& message : m_commands.Drain())

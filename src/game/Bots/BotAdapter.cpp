@@ -186,7 +186,7 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
     }
     SpellCastResult const result = me->CastSpell(unit, entry, false);
     if (result != SPELL_CAST_OK)
-        sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "[Bots] %s cannot cast %u: result %u", me->GetName(), spell, uint32(result));
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: result %u", me->GetName(), spell, uint32(result));
 }
 
 void BotAdapter::MoveTo(Bots::Position const& destination)
