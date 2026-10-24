@@ -20,6 +20,8 @@ namespace Bots
         SpellId const Revenge = 6572;
         SpellId const BattleShout = 6673;
         SpellId const Bloodrage = 2687;
+        // Interrupts a cast, with a shield: a generic group rule (GroupRules.h).
+        SpellId const ShieldBash = 72;
 
         // The tank: it pulls the pull target of the group coordinator when it
         // is the puller, holds threat on the focus target, and fights back an

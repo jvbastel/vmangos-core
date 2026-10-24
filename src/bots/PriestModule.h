@@ -18,6 +18,9 @@ namespace Bots
         SpellId const PowerWordFortitude = 1243;
         SpellId const InnerFire = 588;
         SpellId const Fade = 586;
+        // Dispels, from level 14 and 18: generic group rules (GroupRules.h).
+        SpellId const CureDisease = 528;
+        SpellId const DispelMagic = 527;
         // The debuff of Power Word: Shield: no new shield while it lasts.
         SpellId const WeakenedSoul = 6788;
 

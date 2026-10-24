@@ -20,6 +20,33 @@ namespace Bots
         // A chase from BotActions::ChaseToRange is not behind.
     };
 
+    // The kind of spell that a unit casts, for the interrupts.
+    enum class CastKind
+    {
+        None,  // The unit casts nothing.
+        Heal,  // A heal.
+        Harm,  // A harmful spell, for example a damage spell.
+        Other, // For example a buff.
+    };
+
+    // The spell that a unit casts now.
+    struct CastInfo
+    {
+        SpellId spell; // NoSpell when the unit casts nothing.
+        CastKind kind;
+        // Kick or Shield Bash can stop the cast now.
+        bool interruptible;
+    };
+
+    // The kinds of debuff that a dispel spell removes.
+    enum class DispelKind
+    {
+        Magic,
+        Curse,
+        Disease,
+        Poison,
+    };
+
     class BotView
     {
     public:
@@ -32,11 +59,17 @@ namespace Bots
         // The spell that unit `unit` casts now, or NoSpell.
         virtual SpellId GetCurrentCast(Guid unit) const = 0;
 
+        // The spell that unit `unit` casts now, with its kind.
+        virtual CastInfo GetCast(Guid unit) const = 0;
+
         // The power of unit `unit`. {0, 0} for a unit that the bot cannot see.
         virtual Power GetPower(Guid unit) const = 0;
         // The distance in yards from the bot to unit `unit`. A large number
         // for a unit that the bot cannot see.
         virtual float GetDistance(Guid unit) const = 0;
+        // The distance in yards between units `a` and `b`. A large number
+        // when the bot cannot see one of them.
+        virtual float GetDistanceBetween(Guid a, Guid b) const = 0;
         // True when unit `unit` is in combat.
         virtual bool IsInCombat(Guid unit) const = 0;
         // The unit that unit `unit` attacks, or NoGuid.
@@ -46,6 +79,9 @@ namespace Bots
         // True when unit `unit` has an aura of any rank of the spell whose
         // first rank is `firstRank`.
         virtual bool HasAura(Guid unit, SpellId firstRank) const = 0;
+        // True when unit `unit` has a harmful aura that a dispel of kind
+        // `kind` removes.
+        virtual bool HasDebuff(Guid unit, DispelKind kind) const = 0;
         // The unit that the bot follows now, or NoGuid.
         virtual Guid GetFollowTarget() const = 0;
         // The unit that the bot chases now, and how.

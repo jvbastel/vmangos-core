@@ -34,6 +34,7 @@ add_library(bots STATIC
   GearTemplate.cpp
   GroupCommand.cpp
   GroupCoordinator.cpp
+  GroupRules.cpp
   Loot.cpp
   MageModule.cpp
   PriestModule.cpp

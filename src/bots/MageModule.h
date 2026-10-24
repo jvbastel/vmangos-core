@@ -21,6 +21,8 @@ namespace Bots
         SpellId const FrostArmor = 168;
         SpellId const IceArmor = 7302; // Replaces Frost Armor from level 30.
         SpellId const ArcaneIntellect = 1459;
+        // A dispel, from level 18: a generic group rule (GroupRules.h).
+        SpellId const RemoveLesserCurse = 475;
 
         // The frost damage strategy: it attacks the focus target with the
         // targeting rules of all damage bots (DamageRules.h).
