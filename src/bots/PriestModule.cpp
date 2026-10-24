@@ -80,6 +80,15 @@ namespace Bots
                 return NoGuid;
             }
 
+            // The first dead member that has not released, or NoGuid.
+            Guid DeadMember(BotContext const& context)
+            {
+                for (Guid member : context.view.GetGroupMembers())
+                    if (context.view.GetLifeState(member) == LifeState::Dead)
+                        return member;
+                return NoGuid;
+            }
+
             // The most hurt member that needs a heal and is beyond the heal
             // reach, or NoGuid.
             Guid HurtMemberOutOfReach(BotContext const& context)
@@ -134,6 +143,13 @@ namespace Bots
                     },
                     BotAction{[](BotContext const&) { return true; },
                         [](BotContext const& context) { context.actions.Follow(HurtMemberOutOfReach(context)); }}},
+
+                // After the fight, under the heals: the living first.
+                CastRule("resurrect a member", P + 45,
+                    [](BotContext const& context) {
+                        return !IsGroupInCombat(context.view) && DeadMember(context) != NoGuid;
+                    },
+                    Resurrection, DeadMember),
 
                 // The buffs, out of combat only: in a fight the mana is for
                 // the heals.

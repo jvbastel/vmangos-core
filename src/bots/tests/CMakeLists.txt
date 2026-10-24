@@ -13,6 +13,7 @@ add_executable(bots_tests
   CommandStateTest.cpp
   CommandStrategyTest.cpp
   DataTokenizerTest.cpp
+  DeathAndRestTest.cpp
   FakeBotTest.cpp
   GearDataTest.cpp
   GearDrawTest.cpp

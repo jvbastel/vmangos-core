@@ -25,6 +25,18 @@ namespace Bots
         // Do the next step of the corpse loot: walk to the corpse, open it,
         // take the loot, or close it. `mayMove`: as in BotView::HasLootWork.
         virtual void Loot(bool mayMove) = 0;
+
+        // Release the spirit of the dead bot, like the release button of a
+        // player: the bot becomes a ghost at the graveyard.
+        virtual void Release() = 0;
+        // Revive the dead bot at its corpse at once, with no ghost run. A
+        // bot that has not released releases first.
+        virtual void ReviveAtCorpse() = 0;
+        // Sit and eat the food of the bot's level. The bot's food refills
+        // silently, so the bot never runs out.
+        virtual void Eat() = 0;
+        // Sit and drink the water of the bot's level. It refills silently.
+        virtual void Drink() = 0;
     };
 }
 

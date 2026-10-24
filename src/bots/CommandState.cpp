@@ -8,6 +8,7 @@ namespace Bots
         char const* const OutOfReachLine = "I cannot reach you.";
         char const* const NoTargetLine = "You have no target.";
         char const* const CannotPullLine = "I cannot pull that.";
+        char const* const RestingLine = "We are resting.";
 
         CommandOutcome Obey(CommandState state)
         {
@@ -47,6 +48,8 @@ namespace Bots
                     return Refuse(current, NoTargetLine);
                 if (facts.playerTarget == PullTarget::NotEnemy)
                     return Refuse(current, CannotPullLine);
+                if (facts.groupRests)
+                    return Refuse(current, RestingLine);
                 return Obey(current);
         }
         return Obey(current);

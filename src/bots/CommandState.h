@@ -33,6 +33,9 @@ namespace Bots
         // The bot is a tank: only a tank pulls.
         bool isTank;
         PullTarget playerTarget;
+        // A bot of the group eats or drinks after a fight: the group waits,
+        // so the tank does not pull.
+        bool groupRests = false;
     };
 
     struct CommandOutcome

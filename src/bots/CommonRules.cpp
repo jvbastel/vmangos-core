@@ -20,7 +20,15 @@ namespace Bots
 
     bool IsAlive(BotView const& view, Guid unit)
     {
-        return unit != NoGuid && view.GetHealth(unit).current > 0;
+        return unit != NoGuid && view.GetHealth(unit).current > 0 && view.GetLifeState(unit) == LifeState::Alive;
+    }
+
+    bool IsGroupInCombat(BotView const& view)
+    {
+        for (Guid member : view.GetGroupMembers())
+            if (IsAlive(view, member) && view.IsInCombat(member))
+                return true;
+        return false;
     }
 
     Rule CastRule(std::string name, int priority, Trigger trigger, SpellId firstRank, TargetPicker target)

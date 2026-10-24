@@ -134,3 +134,14 @@ TEST(CommandState, OnlyTheTankPullsAndTheOtherBotsSayNothing)
         EXPECT_STREQ(outcome.line, "");
     }
 }
+
+TEST(CommandState, TheTankDoesNotPullWhileTheGroupRests)
+{
+    CommandFacts facts = Tank(Bots::PullTarget::Enemy);
+    facts.groupRests = true;
+
+    CommandOutcome outcome = ApplyBotCommand(CommandState::Follow, BotCommandKind::Pull, facts);
+
+    EXPECT_FALSE(outcome.obeys);
+    EXPECT_STREQ(outcome.line, "We are resting.");
+}
