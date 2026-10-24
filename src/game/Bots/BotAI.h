@@ -13,8 +13,11 @@
 #include "WorldPacket.h"
 #include "BotCommand.h"
 #include "BotLoot.h"
+#include "BotRecipe.h"
 #include "CommandState.h"
+#include "GroupCoordinator.h"
 #include "Inbox.h"
+#include "Strategy.h"
 #include "ThinkTimer.h"
 
 // A bot command for one bot, from the chat of a player.
@@ -35,7 +38,7 @@ struct BotCommandMessage
 class BotAI : public PlayerBotAI
 {
     public:
-        explicit BotAI(Bots::ThinkSettings const& thinkSettings);
+        BotAI(Bots::ThinkSettings const& thinkSettings, Bots::BotRole role);
 
         // True for the packets that the bots use: kill log, loot roll start
         // and win, resurrect request, group invite, and teleport.
@@ -54,9 +57,11 @@ class BotAI : public PlayerBotAI
         void HandlePacket(WorldPacket const& packet);
         void HandleCommand(BotCommandMessage const& message);
         void StartCommand(Player* player);
-        void KeepCommand();
-        Player* CommandPlayer() const;
+        void StartPull(Player* player);
+        Bots::PullTarget PullTargetOf(Player const* player) const;
         bool IsInReach(Player const* player) const;
+        // The coordinator of the bot's group, or the bot's own one.
+        std::shared_ptr<Bots::GroupCoordinator> Coordinator();
         void Think();
         bool IsNearPlayer() const;
 
@@ -68,6 +73,15 @@ class BotAI : public PlayerBotAI
         ObjectGuid m_commandPlayer; // The player of the last command that the bot obeyed.
         Bots::ThinkTimer m_thinkTimer;
         BotLoot m_loot;
+        Bots::BotRole m_role;
+        // The active strategies. Made at the first think, from the class of
+        // the player and the role of the bot.
+        Bots::StrategyStack m_strategies;
+        bool m_strategiesMade = false;
+        // The rule of the last think that did something, for the debug log.
+        std::string m_lastRule;
+        // The coordinator of a bot without a group.
+        Bots::GroupCoordinator m_soloCoordinator;
         // The level routine ran after the login (and so after the creation).
         bool m_levelRoutineDone = false;
         // The pet that has its pet spells. Empty without a pet.

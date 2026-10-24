@@ -74,3 +74,63 @@ TEST(CommandState, ABotStaysWhenThePlayerIsOutOfReach)
 {
     EXPECT_TRUE(ApplyBotCommand(CommandState::Follow, BotCommandKind::Stay, {true, false}).obeys);
 }
+
+namespace
+{
+    CommandFacts Tank(Bots::PullTarget target)
+    {
+        CommandFacts facts = Ready;
+        facts.isTank = true;
+        facts.playerTarget = target;
+        return facts;
+    }
+}
+
+TEST(CommandState, TheTankPullsAnEnemyTargetAndKeepsItsState)
+{
+    CommandOutcome outcome = ApplyBotCommand(CommandState::Follow, BotCommandKind::Pull, Tank(Bots::PullTarget::Enemy));
+
+    EXPECT_TRUE(outcome.obeys);
+    EXPECT_EQ(outcome.state, CommandState::Follow);
+    EXPECT_STREQ(outcome.line, "");
+}
+
+TEST(CommandState, PullWithNoTargetGivesTheFixedLine)
+{
+    CommandOutcome outcome = ApplyBotCommand(CommandState::Follow, BotCommandKind::Pull, Tank(Bots::PullTarget::None));
+
+    EXPECT_FALSE(outcome.obeys);
+    EXPECT_EQ(outcome.state, CommandState::Follow);
+    EXPECT_STREQ(outcome.line, "You have no target.");
+}
+
+TEST(CommandState, TheTankDoesNotPullAFriend)
+{
+    CommandOutcome outcome = ApplyBotCommand(CommandState::None, BotCommandKind::Pull, Tank(Bots::PullTarget::NotEnemy));
+
+    EXPECT_FALSE(outcome.obeys);
+    EXPECT_STREQ(outcome.line, "I cannot pull that.");
+}
+
+TEST(CommandState, ADeadTankDoesNotPull)
+{
+    CommandFacts facts = Tank(Bots::PullTarget::Enemy);
+    facts.botAlive = false;
+
+    EXPECT_STREQ(ApplyBotCommand(CommandState::None, BotCommandKind::Pull, facts).line, "I am dead.");
+}
+
+TEST(CommandState, OnlyTheTankPullsAndTheOtherBotsSayNothing)
+{
+    for (Bots::PullTarget target : {Bots::PullTarget::Enemy, Bots::PullTarget::None})
+    {
+        CommandFacts facts = Tank(target);
+        facts.isTank = false;
+
+        CommandOutcome outcome = ApplyBotCommand(CommandState::Follow, BotCommandKind::Pull, facts);
+
+        EXPECT_FALSE(outcome.obeys);
+        EXPECT_EQ(outcome.state, CommandState::Follow);
+        EXPECT_STREQ(outcome.line, "");
+    }
+}

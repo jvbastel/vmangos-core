@@ -30,6 +30,22 @@
 
 INSTANTIATE_SINGLETON_1(BotMgr);
 
+bool BotClassOf(uint8 gameClass, Bots::BotClass& botClass)
+{
+    switch (gameClass)
+    {
+        case CLASS_WARRIOR: botClass = Bots::BotClass::Warrior; return true;
+        case CLASS_PRIEST: botClass = Bots::BotClass::Priest; return true;
+        case CLASS_ROGUE: botClass = Bots::BotClass::Rogue; return true;
+        case CLASS_WARLOCK: botClass = Bots::BotClass::Warlock; return true;
+        case CLASS_MAGE: botClass = Bots::BotClass::Mage; return true;
+        case CLASS_HUNTER: botClass = Bots::BotClass::Hunter; return true;
+        case CLASS_SHAMAN: botClass = Bots::BotClass::Shaman; return true;
+        case CLASS_DRUID: botClass = Bots::BotClass::Druid; return true;
+        default: return false;
+    }
+}
+
 namespace
 {
     uint8 GameRace(Bots::BotRace race)
@@ -72,22 +88,6 @@ namespace
         return CLASS_DRUID;
     }
 
-    bool BotClassOf(uint8 gameClass, Bots::BotClass& botClass)
-    {
-        switch (gameClass)
-        {
-            case CLASS_WARRIOR: botClass = Bots::BotClass::Warrior; return true;
-            case CLASS_PRIEST: botClass = Bots::BotClass::Priest; return true;
-            case CLASS_ROGUE: botClass = Bots::BotClass::Rogue; return true;
-            case CLASS_WARLOCK: botClass = Bots::BotClass::Warlock; return true;
-            case CLASS_MAGE: botClass = Bots::BotClass::Mage; return true;
-            case CLASS_HUNTER: botClass = Bots::BotClass::Hunter; return true;
-            case CLASS_SHAMAN: botClass = Bots::BotClass::Shaman; return true;
-            case CLASS_DRUID: botClass = Bots::BotClass::Druid; return true;
-            default: return false;
-        }
-    }
-
     std::string Lower(std::string text)
     {
         std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(std::tolower(c)); });
@@ -103,14 +103,21 @@ namespace
         return password;
     }
 
-    std::shared_ptr<PlayerBotEntry> NewEntry(uint32 guid, uint32 account, std::string const& name, BotSettings const& settings)
+    Bots::BotRole RoleOf(std::string const& role)
+    {
+        Bots::BotRole botRole = Bots::BotRole::Melee;
+        Bots::ParseRoleName(role, botRole);
+        return botRole;
+    }
+
+    std::shared_ptr<PlayerBotEntry> NewEntry(uint32 guid, uint32 account, std::string const& name, std::string const& role, BotSettings const& settings)
     {
         std::shared_ptr<PlayerBotEntry> entry = std::make_shared<PlayerBotEntry>(guid, account, 0);
         entry->name = name;
         entry->customBot = true;
         // Our bots are persistent characters: the core saves them like players.
         entry->allowSaving = true;
-        entry->ai.reset(new BotAI(settings.think));
+        entry->ai.reset(new BotAI(settings.think, RoleOf(role)));
         entry->ai->botEntry = entry.get();
         return entry;
     }
@@ -176,7 +183,7 @@ void BotMgr::Load()
         {
             Field* fields = result->Fetch();
             BotRecord record;
-            record.entry = NewEntry(fields[0].GetUInt32(), fields[1].GetUInt32(), fields[4].GetCppString(), m_settings);
+            record.entry = NewEntry(fields[0].GetUInt32(), fields[1].GetUInt32(), fields[4].GetCppString(), fields[2].GetCppString(), m_settings);
             record.role = fields[2].GetCppString();
             record.worldBot = fields[3].GetUInt8() != 0;
             m_bots[fields[0].GetUInt32()] = record;
@@ -193,6 +200,7 @@ void BotMgr::Update(uint32 /*diff*/)
     for (BotLine& line : m_chat.Update())
         m_lines.Push(std::move(line));
     SendLines();
+    DropOldCoordinators();
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
     for (auto& pair : m_bots)
@@ -227,6 +235,29 @@ void BotMgr::Update(uint32 /*diff*/)
             sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] %s cannot log in", entry.name.c_str());
             entry.state = PB_STATE_OFFLINE;
         }
+    }
+}
+
+std::shared_ptr<Bots::GroupCoordinator> BotMgr::GetCoordinator(uint32 groupId)
+{
+    std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
+    std::shared_ptr<Bots::GroupCoordinator>& coordinator = m_coordinators[groupId];
+    if (!coordinator)
+        coordinator = std::make_shared<Bots::GroupCoordinator>();
+    return coordinator;
+}
+
+void BotMgr::DropOldCoordinators()
+{
+    // On the world thread, after the maps. A bot holds its coordinator only
+    // during its think, so a group that is gone frees its coordinator here.
+    std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
+    for (auto it = m_coordinators.begin(); it != m_coordinators.end();)
+    {
+        if (!sObjectMgr.GetGroupById(it->first))
+            it = m_coordinators.erase(it);
+        else
+            ++it;
     }
 }
 
@@ -442,7 +473,7 @@ bool BotMgr::CreateBot(Bots::BotRecipe const& recipe, std::string& error)
     sWorld.UpdateRealmCharCount(accountId);
 
     BotRecord& record = m_bots[guid];
-    record.entry = NewEntry(guid, accountId, name, m_settings);
+    record.entry = NewEntry(guid, accountId, name, role, m_settings);
     record.role = role;
     record.worldBot = false;
     if (m_gear.Find(gearName))
@@ -651,7 +682,7 @@ void BotMgr::SendLines()
 void BotMgr::StartLogin(BotRecord& record, WorldSession* session)
 {
     // A new AI each time, with an empty inbox and a fresh think timer.
-    record.entry->ai.reset(new BotAI(m_settings.think));
+    record.entry->ai.reset(new BotAI(m_settings.think, RoleOf(record.role)));
     record.entry->ai->botEntry = record.entry.get();
     record.entry->state = PB_STATE_LOADING;
     record.wasInGroup = false;

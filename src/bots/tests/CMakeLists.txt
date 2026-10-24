@@ -11,20 +11,25 @@ add_executable(bots_tests
   ChatHttpTest.cpp
   ChatSessionsTest.cpp
   CommandStateTest.cpp
+  CommandStrategyTest.cpp
   DataTokenizerTest.cpp
   FakeBotTest.cpp
   GearDataTest.cpp
   GearDrawTest.cpp
   GearTemplateTest.cpp
   GroupCommandTest.cpp
+  GroupCoordinatorTest.cpp
   InboxTest.cpp
   LootTest.cpp
   RouteTest.cpp
+  SpellBookTest.cpp
   SpellDataTest.cpp
   SpellFileTest.cpp
+  StrategyTest.cpp
   TalentBuildTest.cpp
   TalentDataTest.cpp
   ThinkTimerTest.cpp
+  WarriorTankTest.cpp
 )
 # GoogleTest 1.17 needs C++17. The library itself stays C++14, like the core.
 set_target_properties(bots_tests PROPERTIES CXX_STANDARD 17)

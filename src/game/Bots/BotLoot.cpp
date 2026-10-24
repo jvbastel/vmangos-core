@@ -258,6 +258,13 @@ void BotLoot::Stop()
     m_lootedAll = true;
 }
 
+bool BotLoot::HasWork(Player* bot, bool mayMove) const
+{
+    if (m_step != Step::None)
+        return true;
+    return mayMove && FindCorpse(bot);
+}
+
 bool BotLoot::Think(Player* bot, bool mayMove)
 {
     ++m_stepThinks;
@@ -325,8 +332,6 @@ bool BotLoot::Think(Player* bot, bool mayMove)
             break;
         }
     }
-
-    PutOnUpgrades(bot);
     return false;
 }
 

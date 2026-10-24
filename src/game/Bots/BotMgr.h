@@ -15,6 +15,7 @@
 #include "BotGear.h"
 #include "BotLevelRoutine.h"
 #include "BotRecipe.h"
+#include "GroupCoordinator.h"
 #include "GroupCommand.h"
 #include "Inbox.h"
 #include "ObjectGuid.h"
@@ -22,6 +23,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -125,6 +127,10 @@ class BotMgr
         // Runs the level routine after a level-up of one of our bots.
         void OnLevelUp(Player* player);
 
+        // From any map thread: the group coordinator of the group with the
+        // id `groupId`. The bot manager makes it at the first call, and drops
+        // it when the group is gone.
+        std::shared_ptr<Bots::GroupCoordinator> GetCoordinator(uint32 groupId);
         // Bot chat. Its QueuePlayerMessage works from any thread.
         BotChat& Chat() { return m_chat; }
         // For bot chat: the role of one of our bots that is online, or false.
@@ -146,6 +152,7 @@ class BotMgr
         // The group has a member that is no WOWAI bot, online or not.
         bool HasPlayerMember(Group const& group) const;
         void PutOnPendingGear(BotRecord& record);
+        void DropOldCoordinators();
 
         BotSettings m_settings;
         BotLevelRoutine m_levelRoutine;
@@ -153,8 +160,14 @@ class BotMgr
         Bots::Inbox<BotLine> m_lines;
         Bots::Inbox<GroupCommandMessage> m_groupCommands;
         BotGear m_gear;
+        // The bots of one group can sit on two map threads.
+        std::mutex m_coordinatorsMutex;
+        std::map<uint32 /*group id*/, std::shared_ptr<Bots::GroupCoordinator>> m_coordinators;
         BotChat m_chat;
 };
+
+// The class of the library for a class of the game. False for an unknown class.
+bool BotClassOf(uint8 gameClass, Bots::BotClass& botClass);
 
 #define sBotMgr MaNGOS::Singleton<BotMgr>::Instance()
 

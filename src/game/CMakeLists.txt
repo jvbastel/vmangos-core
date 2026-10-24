@@ -195,6 +195,7 @@ set (game_SRCS
     PlayerBots/BattleBotWaypoints.cpp
     PlayerBots/PlayerBotAI.cpp
     PlayerBots/PlayerBotMgr.cpp
+    Bots/BotAdapter.cpp
     Bots/BotAI.cpp
     Bots/BotChat.cpp
     Bots/BotCommands.cpp
@@ -457,6 +458,7 @@ set (game_SRCS
     PlayerBots/BattleBotWaypoints.h
     PlayerBots/PlayerBotAI.h
     PlayerBots/PlayerBotMgr.h
+    Bots/BotAdapter.h
     Bots/BotAI.h
     Bots/BotChat.h
     Bots/BotGear.h

@@ -52,10 +52,20 @@ class BotLoot
         // to the corpse for it.
         BotLootRollWon OnRollWon(Player* bot, WorldPacket const& packet);
 
-        // At each think of a living bot out of combat. `mayMove`: the command
-        // state lets the bot walk to a corpse. True while the bot is busy
-        // with a corpse; the bot then does not follow.
+        // True when the bot has corpse work: it is busy with a corpse, or it
+        // may walk (`mayMove`) to a corpse that it may loot. The rule "loot a
+        // corpse" of the command strategy (ClassModules.cpp) asks this, and
+        // it comes before "follow the player".
+        bool HasWork(Player* bot, bool mayMove) const;
+
+        // The next step of the corpse work, for the rule "loot a corpse".
+        // `mayMove`: the command state lets the bot walk to a corpse. True
+        // while the bot is busy with a corpse.
         bool Think(Player* bot, bool mayMove);
+
+        // Puts on one clear upgrade from the bags. At each think of a living
+        // bot out of combat that is not busy with a corpse.
+        void PutOnUpgrades(Player* bot);
 
         // Stops the corpse work, for example when a fight starts.
         void Stop();
@@ -77,7 +87,6 @@ class BotLoot
         // The bag-full rule, for an item that does not fit. True when the
         // bot deleted a grey item for it.
         bool MakeRoom(Player* bot, ItemPrototype const* proto, uint32 count);
-        void PutOnUpgrades(Player* bot);
         void Finish(Player* bot);
 
         Step m_step = Step::None;

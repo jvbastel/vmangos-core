@@ -3,6 +3,7 @@
 // (tests/data/learnable-spells.tsv, made by
 // bots/tools/spells/export-learnable-spells.sh).
 #include "SpellFile.h"
+#include "WarriorModule.h"
 
 #include <gtest/gtest.h>
 
@@ -112,4 +113,27 @@ TEST(SpellData, TheWarlockFileHasTheSpellsOfTheImp)
         (std::vector<std::uint32_t>{3110, 6307, 7799, 4511, 7804, 2947}));
     EXPECT_EQ(Bots::SpellsUpToLevel(result.spells, Bots::SpellKind::Quest, 16),
         (std::vector<std::uint32_t>{688, 697}));
+}
+
+TEST(SpellData, TheWarriorModuleNamesItsSpellsByTheFirstRank)
+{
+    namespace Warrior = Bots::Warrior;
+    std::map<std::uint32_t, std::string> const learnable = LearnableSpells();
+    std::map<std::uint32_t, std::string> const expected = {
+        {Warrior::BattleStance, "Battle Stance"},
+        {Warrior::DefensiveStance, "Defensive Stance"},
+        {Warrior::Charge, "Charge (Rank 1)"},
+        {Warrior::Taunt, "Taunt"},
+        {Warrior::HeroicStrike, "Heroic Strike (Rank 1)"},
+        {Warrior::SunderArmor, "Sunder Armor (Rank 1)"},
+        {Warrior::Revenge, "Revenge (Rank 1)"},
+        {Warrior::BattleShout, "Battle Shout (Rank 1)"},
+        {Warrior::Bloodrage, "Bloodrage"},
+    };
+    for (auto const& spell : expected)
+    {
+        auto const found = learnable.find(spell.first);
+        ASSERT_NE(found, learnable.end()) << "spell " << spell.first << " is no learnable spell";
+        EXPECT_EQ(found->second, spell.second);
+    }
 }

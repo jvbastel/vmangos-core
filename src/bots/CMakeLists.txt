@@ -25,16 +25,22 @@ add_library(bots STATIC
   ChatContract.cpp
   ChatHttp.cpp
   ChatSessions.cpp
+  ClassModules.cpp
   CommandState.cpp
+  CommonRules.cpp
   DataTokenizer.cpp
   GearDraw.cpp
-  GroupCommand.cpp
-  Loot.cpp
   GearTemplate.cpp
+  GroupCommand.cpp
+  GroupCoordinator.cpp
+  Loot.cpp
   Route.cpp
+  SpellBook.cpp
   SpellFile.cpp
+  Strategy.cpp
   TalentBuild.cpp
   ThinkTimer.cpp
+  WarriorModule.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
