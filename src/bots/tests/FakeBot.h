@@ -48,6 +48,13 @@ namespace Bots
                     m_auras.erase({unit, firstRank});
             }
             void SetFollowTarget(Guid unit) { m_followTarget = unit; }
+            // The bot has corpse loot to do. `onlyWithMove`: the corpse is
+            // out of reach, so only a bot that may move has work.
+            void SetLootWork(bool has, bool onlyWithMove = false)
+            {
+                m_lootWork = has;
+                m_lootOnlyWithMove = onlyWithMove;
+            }
             // The ranks of one spell, first rank first.
             void SetSpellChain(std::vector<SpellId> const& ranks)
             {
@@ -102,6 +109,7 @@ namespace Bots
             }
             bool HasAura(Guid unit, SpellId firstRank) const override { return m_auras.count({unit, firstRank}) != 0; }
             Guid GetFollowTarget() const override { return m_followTarget; }
+            bool HasLootWork(bool mayMove) const override { return m_lootWork && (mayMove || !m_lootOnlyWithMove); }
             bool CanCast(SpellId spell, Guid target) const override
             {
                 return KnowsSpell(spell) && !m_cannotCast.count(spell) && GetHealth(target).current > 0;
@@ -137,6 +145,7 @@ namespace Bots
                 m_deeds.back() += range.str();
             }
             void Follow(Guid unit) override { AddDeed("follow", unit); }
+            void Loot(bool mayMove) override { m_deeds.push_back(mayMove ? "loot" : "loot in place"); }
 
         private:
             void AddDeed(char const* verb, Guid unit)
@@ -158,6 +167,8 @@ namespace Bots
             std::map<Guid, Guid> m_victim;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
+            bool m_lootWork = false;
+            bool m_lootOnlyWithMove = false;
             std::vector<std::string> m_deeds;
         };
     }

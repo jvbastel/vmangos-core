@@ -201,6 +201,7 @@ set (game_SRCS
     Bots/BotCommands.cpp
     Bots/BotGear.cpp
     Bots/BotHooks.cpp
+    Bots/BotLoot.cpp
     Bots/BotLevelRoutine.cpp
     Bots/BotMgr.cpp
     Bots/RouteCommands.cpp
@@ -462,6 +463,7 @@ set (game_SRCS
     Bots/BotChat.h
     Bots/BotGear.h
     Bots/BotHooks.h
+    Bots/BotLoot.h
     Bots/BotLevelRoutine.h
     Bots/BotMgr.h
     Server/Protocol/Opcodes.h

@@ -12,6 +12,7 @@
 #include "ObjectGuid.h"
 #include "WorldPacket.h"
 #include "BotCommand.h"
+#include "BotLoot.h"
 #include "BotRecipe.h"
 #include "CommandState.h"
 #include "GroupCoordinator.h"
@@ -71,6 +72,7 @@ class BotAI : public PlayerBotAI
         Bots::CommandState m_commandState = Bots::CommandState::None;
         ObjectGuid m_commandPlayer; // The player of the last command that the bot obeyed.
         Bots::ThinkTimer m_thinkTimer;
+        BotLoot m_loot;
         Bots::BotRole m_role;
         // The active strategies. Made at the first think, from the class of
         // the player and the role of the bot.

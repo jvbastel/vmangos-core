@@ -25,6 +25,9 @@ namespace Bots
         virtual void ChaseToRange(Guid target, float yards) = 0;
         // Follow unit `unit` at a short distance.
         virtual void Follow(Guid unit) = 0;
+        // Do the next step of the corpse loot: walk to the corpse, open it,
+        // take the loot, or close it. `mayMove`: as in BotView::HasLootWork.
+        virtual void Loot(bool mayMove) = 0;
     };
 }
 
