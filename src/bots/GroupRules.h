@@ -17,7 +17,8 @@
 // - Enemy healers: an enemy that casts a heal becomes an enemy healer of the
 //   group. The damage bots attack it first (PickDamageTarget), until it dies.
 // - Chase limit: a damage bot chases an enemy only up to ChaseLimitYards from
-//   the tank, and then comes back to the tank.
+//   the tank, and then comes back to the tank. Only the attack target of the
+//   player has no limit.
 // - Dispel: a bot that knows a dispel spell removes a debuff of that kind
 //   from a group member. At level 16 no bot of the group knows one.
 namespace Bots

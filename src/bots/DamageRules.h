@@ -14,7 +14,7 @@ namespace Bots
     // 2. an enemy healer in the fight (GroupRules.h), until it dies;
     // 3. the focus target, once the tank holds threat on it, while it is in
     //    the chase limit (GroupRules.h);
-    // 4. an enemy that attacks the bot itself.
+    // 4. an enemy that attacks the bot itself, in the chase limit.
     Guid PickDamageTarget(BotContext const& context);
 
     // True when the bot has a damage target now.

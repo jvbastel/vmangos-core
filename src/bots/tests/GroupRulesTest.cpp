@@ -451,8 +451,11 @@ TEST(GroupRules, ARangedBotComesBackAndStopsCastingOnAFleeingEnemy)
     EXPECT_EQ(party.mage.fake.Deeds(), std::vector<std::string>{});
 }
 
-TEST(GroupRules, ABotFightsAnEnemyThatAttacksItFarFromTheTank)
+TEST(GroupRules, ABotBringsAnEnemyThatAttacksItFarFromTheTankBackToTheTank)
 {
+    // A fleeing enemy can keep the bot as its victim, so the limit is the
+    // same for an enemy that attacks the bot: it follows the bot to the
+    // tank, and the bot fights it there.
     Party party;
     party.World([](FakeBot& fake) {
         fake.SetVictim(Warlock, RogueBot);
@@ -463,7 +466,15 @@ TEST(GroupRules, ABotFightsAnEnemyThatAttacksItFarFromTheTank)
     party.rogue.fake.ClearDeeds();
     Flees(party, 22.0f);
 
-    EXPECT_NE(party.rogue.Think(), "come back to the tank");
+    EXPECT_EQ(party.rogue.Think(), "come back to the tank");
+    party.rogue.fake.SetFollowTarget(Tank);
+    party.rogue.fake.ClearDeeds();
+    party.rogue.Think();
+    EXPECT_TRUE(party.rogue.fake.Deeds().empty());
+
+    party.World([](FakeBot& fake) { fake.SetDistanceBetween(Warlock, Tank, 4.0f); });
+    party.rogue.Think();
+    EXPECT_EQ(party.rogue.fake.Deeds(), std::vector<std::string>{Deed("chase", Warlock)});
 }
 
 TEST(GroupRules, TheAttackTargetOfThePlayerHasNoChaseLimit)

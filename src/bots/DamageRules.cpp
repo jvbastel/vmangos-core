@@ -15,7 +15,7 @@ namespace Bots
         if (IsAlive(context.view, focus) && context.group.TankHoldsThreat() && IsInChaseLimit(context, focus))
             return focus;
         for (Guid attacker : context.view.GetAttackers(context.view.GetSelf()))
-            if (IsAlive(context.view, attacker))
+            if (IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker))
                 return attacker;
         return NoGuid;
     }

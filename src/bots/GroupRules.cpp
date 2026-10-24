@@ -140,16 +140,16 @@ namespace Bots
             return role == BotRole::Melee || role == BotRole::Ranged;
         }
 
-        // The bot chases an enemy out of the chase limit. An enemy that
-        // attacks the bot does not flee: the bot fights it where it is. The
-        // attack target of the player has no limit.
+        // The bot chases an enemy out of the chase limit. The attack target
+        // of the player has no limit. An enemy that attacks the bot has
+        // one: a fleeing enemy can keep the bot as its victim, and an enemy
+        // that does attack the bot follows it to the tank.
         bool ChasesTooFar(BotContext const& context)
         {
             Guid const target = context.view.GetChase().target;
             Guid const tank = context.group.GetTank();
             return IsAlive(context.view, target) && target != context.attackTarget && IsAlive(context.view, tank)
-                && tank != Self(context) && context.view.GetVictim(target) != Self(context)
-                && !IsInChaseLimit(context, target);
+                && tank != Self(context) && !IsInChaseLimit(context, target);
         }
 
         // Dispel
