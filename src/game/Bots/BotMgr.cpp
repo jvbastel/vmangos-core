@@ -458,7 +458,17 @@ uint32 BotMgr::ChooseAccount(std::string& error)
     std::vector<Bots::BotAccount> pool;
     for (auto const& pair : accounts)
         pool.push_back(pair.second);
-    Bots::AccountChoice choice = Bots::ChooseBotAccount(m_settings.accountPrefix, pool);
+    // The character of a bot made just now may not be saved yet: the bots
+    // that this manager knows count too, so that back-to-back creates get
+    // two accounts.
+    std::map<std::string, std::uint32_t> knownBots;
+    for (auto const& pair : m_bots)
+    {
+        auto const account = accounts.find(pair.second.entry->accountId);
+        if (account != accounts.end())
+            ++knownBots[account->second.name];
+    }
+    Bots::AccountChoice choice = Bots::ChooseBotAccount(m_settings.accountPrefix, pool, knownBots);
     switch (choice.kind)
     {
         case Bots::AccountChoice::UseExisting:

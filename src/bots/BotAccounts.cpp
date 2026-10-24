@@ -39,8 +39,20 @@ namespace Bots
         return Upper(prefix) + digits;
     }
 
-    AccountChoice ChooseBotAccount(std::string const& prefix, std::vector<BotAccount> const& accounts)
+    AccountChoice ChooseBotAccount(std::string const& prefix, std::vector<BotAccount> const& databaseAccounts,
+        std::map<std::string, std::uint32_t> const& knownBots)
     {
+        std::map<std::string, std::uint32_t> known;
+        for (auto const& pair : knownBots)
+            known[Upper(pair.first)] += pair.second;
+        std::vector<BotAccount> accounts = databaseAccounts;
+        for (BotAccount& account : accounts)
+        {
+            auto const found = known.find(Upper(account.name));
+            if (found != known.end() && found->second > account.characters)
+                account.characters = found->second;
+        }
+
         std::string const upperPrefix = Upper(prefix);
         std::set<int> taken;
         BotAccount const* emptiest = nullptr;

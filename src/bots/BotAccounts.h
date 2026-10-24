@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_BOT_ACCOUNTS_H
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -38,7 +39,14 @@ namespace Bots
 
     // Chooses the account of a new bot. `accounts` may hold any accounts:
     // only the names of the pool count, in any case.
-    AccountChoice ChooseBotAccount(std::string const& prefix, std::vector<BotAccount> const& accounts);
+    //
+    // `knownBots`: the number of bots that the bot manager knows on each
+    // account, by name in any case. A new character is saved
+    // asynchronously, so the database count of its account can still be 0
+    // right after the create. An account counts the higher of both numbers,
+    // so two creates in a row never share an account.
+    AccountChoice ChooseBotAccount(std::string const& prefix, std::vector<BotAccount> const& accounts,
+        std::map<std::string, std::uint32_t> const& knownBots = {});
 
     // The name of the pool account with this number, for example BOT001.
     std::string BotAccountName(std::string const& prefix, int number);

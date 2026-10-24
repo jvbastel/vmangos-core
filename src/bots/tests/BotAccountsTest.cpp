@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdio>
+#include <map>
 
 using Bots::AccountChoice;
 using Bots::BotAccount;
@@ -91,4 +92,43 @@ TEST(BotAccounts, ThePoolIsFullWhenEachAccountHas10Characters)
     AccountChoice choice = ChooseBotAccount("BOT", FullNumberRange(10));
 
     EXPECT_EQ(choice.kind, AccountChoice::PoolFull);
+}
+
+// The bot manager saves a new character asynchronously. Right after one
+// create, the database still shows the account of that bot without
+// characters. The bots that the manager knows count too, so two creates in a
+// row give two accounts.
+TEST(BotAccounts, BackToBackCreatesGetTwoAccounts)
+{
+    std::vector<BotAccount> const database = {{"BOT001", 1}, {"BOT002", 0}};
+    std::map<std::string, std::uint32_t> known = {{"BOT001", 1}};
+
+    AccountChoice first = ChooseBotAccount("BOT", database, known);
+    ASSERT_EQ(first.kind, AccountChoice::UseExisting);
+    EXPECT_EQ(first.name, "BOT002");
+
+    // The database has not seen the new character yet.
+    known[first.name] += 1;
+    AccountChoice second = ChooseBotAccount("BOT", database, known);
+    EXPECT_EQ(second.kind, AccountChoice::Create);
+    EXPECT_EQ(second.name, "BOT003");
+}
+
+TEST(BotAccounts, ABotMadeOnANewAccountKeepsThatAccountForItself)
+{
+    // The first create made BOT001; its character is not saved yet.
+    AccountChoice choice = ChooseBotAccount("BOT", {{"BOT001", 0}}, {{"bot001", 1}});
+
+    EXPECT_EQ(choice.kind, AccountChoice::Create);
+    EXPECT_EQ(choice.name, "BOT002");
+}
+
+TEST(BotAccounts, TheDatabaseCountWinsWhenItIsHigher)
+{
+    // Characters that the manager does not know (for example made by hand)
+    // count as well.
+    AccountChoice choice = ChooseBotAccount("BOT", {{"BOT001", 2}, {"BOT002", 0}}, {{"BOT001", 1}});
+
+    EXPECT_EQ(choice.kind, AccountChoice::UseExisting);
+    EXPECT_EQ(choice.name, "BOT002");
 }
