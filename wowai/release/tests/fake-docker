@@ -4,7 +4,8 @@
 # the few calls whose result the scripts read:
 #
 #   docker build ... --label org.opencontainers.image.revision=<c> -t <image> ...
-#       records <image> with revision <c> in $FAKE_DOCKER_IMAGES.
+#       records <image> with revision <c> in $FAKE_DOCKER_IMAGES. With a
+#       folder as the context, it logs each file as "context: <path>".
 #   docker image inspect [--format <f>] <image>
 #       fails for an unknown image. With a format that names the revision
 #       label, it prints the recorded revision.
@@ -39,6 +40,10 @@ case "${1:-}" in
       shift
     done
     drain_stdin "$last"
+    # A folder context: log its files, as they are at build time.
+    if [ -d "$last" ]; then
+      (cd "$last" && find . -type f | sed 's|^\./|context: |' | sort) >>"$FAKE_DOCKER_LOG"
+    fi
     [ -n "$tag" ] || { echo "fake-docker: build without a tag" >&2; exit 1; }
     printf '%s\n' "$revision" >"$(image_file "$tag")"
     ;;

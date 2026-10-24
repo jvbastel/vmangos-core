@@ -4,9 +4,12 @@ find_package(GTest REQUIRED)
 
 add_executable(bots_tests
   BotAccountsTest.cpp
+  BotCommandTest.cpp
   BotRecipeTest.cpp
+  CommandStateTest.cpp
   DataTokenizerTest.cpp
   FakeBotTest.cpp
+  GearDataTest.cpp
   GearDrawTest.cpp
   GearTemplateTest.cpp
   InboxTest.cpp
