@@ -115,6 +115,46 @@ namespace Bots
         return "ranged";
     }
 
+    char const* ClassName(BotClass botClass)
+    {
+        for (ClassInfo const& info : Classes())
+            if (info.botClass == botClass)
+                return info.name;
+        return "";
+    }
+
+    bool ParseClassName(std::string const& word, BotClass& botClass)
+    {
+        std::string const lower = Lower(word);
+        for (ClassInfo const& info : Classes())
+            if (lower == info.name)
+            {
+                botClass = info.botClass;
+                return true;
+            }
+        return false;
+    }
+
+    bool ParseRoleName(std::string const& word, BotRole& role)
+    {
+        std::string const lower = Lower(word);
+        for (BotRole r : AllRoles)
+            if (lower == RoleName(r))
+            {
+                role = r;
+                return true;
+            }
+        return false;
+    }
+
+    bool ClassCanPlayRole(BotClass botClass, BotRole role)
+    {
+        for (ClassInfo const& info : Classes())
+            if (info.botClass == botClass)
+                return Contains(info.roles, role);
+        return false;
+    }
+
     BotRecipeResult ParseBotRecipe(std::vector<std::string> const& words)
     {
         if (words.size() < 3 || words.size() > 4)
