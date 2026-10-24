@@ -7,6 +7,8 @@
 
 
 #include "BotLevelRoutine.h"
+#include "BotMgr.h"
+#include "ClassModules.h"
 #include "Bag.h"
 #include "Chat.h"
 #include "DBCStores.h"
@@ -294,6 +296,26 @@ void BotLevelRoutine::TeachPetSpells(Player* bot, Pet* pet) const
             ++taught;
     if (taught)
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s taught %u spells to its pet %s", bot->GetName(), taught, pet->GetName());
+    TurnOnPetAutocast(bot, pet);
+}
+
+void BotLevelRoutine::TurnOnPetAutocast(Player* bot, Pet* pet) const
+{
+    // Like the autocast toggle of the pet bar (HandlePetSpellAutocastOpcode).
+    Bots::BotClass botClass;
+    CharmInfo* charmInfo = pet->GetCharmInfo();
+    if (!charmInfo || !BotClassOf(bot->GetClass(), botClass))
+        return;
+    std::vector<Bots::SpellId> const autocast = Bots::PetAutocastSpells(botClass);
+    for (auto const& spell : pet->m_petSpells)
+    {
+        if (spell.second.state == PETSPELL_REMOVED || spell.second.active == ACT_ENABLED)
+            continue;
+        if (std::find(autocast.begin(), autocast.end(), sSpellMgr.GetFirstSpellInChain(spell.first)) == autocast.end())
+            continue;
+        pet->ToggleAutocast(spell.first, true);
+        charmInfo->SetSpellAutocast(spell.first, true);
+    }
 }
 
 void BotLevelRoutine::SpendTalentPicks(Player* bot, std::string const& talentBuild) const

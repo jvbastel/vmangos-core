@@ -95,3 +95,13 @@ TEST(BotCommand, PullIsACommand)
     EXPECT_EQ(parsed.command.botName, "Grukk");
     EXPECT_STREQ(Bots::BotCommandWord(BotCommandKind::Pull), "pull");
 }
+
+TEST(BotCommand, AttackIsACommand)
+{
+    ParsedBotCommand parsed = ParseBotCommand("attack", GroupBots);
+
+    ASSERT_TRUE(parsed.ok);
+    EXPECT_EQ(parsed.command.kind, BotCommandKind::Attack);
+    EXPECT_EQ(parsed.command.botName, "");
+    EXPECT_STREQ(Bots::BotCommandWord(BotCommandKind::Attack), "attack");
+}

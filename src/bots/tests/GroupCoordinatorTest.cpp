@@ -101,3 +101,13 @@ TEST(GroupCoordinator, BotsOnTwoMapThreadsSeeAWholePull)
     }
     writer.join();
 }
+
+TEST(GroupCoordinator, TheTankHoldsThreatOnAFocusTargetOutsideAPull)
+{
+    // The tank fights back an enemy that attacks it.
+    GroupCoordinator group;
+
+    group.SetFocusTarget(Kobold);
+
+    EXPECT_TRUE(group.TankHoldsThreat());
+}

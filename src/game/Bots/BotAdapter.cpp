@@ -12,6 +12,9 @@
 #include "Group.h"
 #include "Log.h"
 #include "MotionMaster.h"
+#include "spline/MoveSpline.h"
+#include "CreatureAI.h"
+#include "Pet.h"
 #include "ObjectAccessor.h"
 #include "Packet.h"
 #include "Player.h"
@@ -28,6 +31,9 @@ namespace
     // A following bot keeps this distance to the unit, at a random angle.
     float const MinFollowYards = 3.0f;
     float const MaxFollowYards = 6.0f;
+    // A bot behind its target stays this far from it, like the melee party
+    // bots of CombatBotBaseAI.
+    float const BehindYards = 1.0f;
 
     Bots::Guid GuidOf(Unit const* unit)
     {
@@ -175,6 +181,27 @@ Bots::Guid BotAdapter::GetFollowTarget() const
     return follow ? GuidOf(follow->GetTarget()) : Bots::NoGuid;
 }
 
+Bots::ChaseState BotAdapter::GetChase() const
+{
+    MotionMaster const* motion = me->GetMotionMaster();
+    if (motion->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
+        return {Bots::NoGuid, false};
+    auto const* chase = dynamic_cast<ChaseMovementGenerator<Player> const*>(motion->GetCurrent());
+    if (!chase)
+        return {Bots::NoGuid, false};
+    return {GuidOf(chase->GetTarget()), chase->GetAngle() != 0.0f};
+}
+
+uint32 BotAdapter::GetComboPoints() const
+{
+    return me->GetComboPoints();
+}
+
+Bots::Guid BotAdapter::GetPet() const
+{
+    return GuidOf(me->GetPet());
+}
+
 bool BotAdapter::KnowsSpell(Bots::SpellId spell) const
 {
     return me->HasSpell(spell);
@@ -213,7 +240,14 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     // A bot that eats or drinks sits: it casts again when it stands.
     if (me->GetStandState() != UNIT_STAND_STATE_STAND)
         return false;
+    // A spell with a cast time waits until the bot stands. A chase keeps
+    // its unit state while the bot stands, so the spline counts.
+    if (entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->movespline->Finalized()))
+        return false;
     if (!me->IsSpellReady(entry) || me->HasGCD(entry))
+        return false;
+    // For example a melee weapon for Sinister Strike.
+    if (!me->HasItemFitToSpellReqirements(entry))
         return false;
     if (entry->TargetAuraState && !unit->HasAuraState(AuraState(entry->TargetAuraState)))
         return false;
@@ -268,8 +302,8 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         me->SetTargetGuid(unit->GetObjectGuid());
     }
     SpellCastResult const result = me->CastSpell(unit, entry, false);
-    // A spell with a cast time ends when the caster moves, for example when
-    // it follows a unit.
+    // Like CombatBotBaseAI::DoCastSpell: a spell with a cast time ends when the
+    // caster moves (for example when it follows or chases a unit), so stop the bot.
     if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
         me->StopMoving();
     if (result != SPELL_CAST_OK)
@@ -293,7 +327,63 @@ void BotAdapter::Attack(Bots::Guid target)
 void BotAdapter::Chase(Bots::Guid target)
 {
     if (Unit* unit = Find(target))
+    {
+        // A melee chase, also after a ranged one (ChaseToRange).
+        me->SetCasterChaseDistance(0.0f);
         me->GetMotionMaster()->MoveChase(unit);
+    }
+}
+
+void BotAdapter::ChaseBehind(Bots::Guid target)
+{
+    Unit* unit = Find(target);
+    if (!unit)
+        return;
+    me->SetCasterChaseDistance(0.0f);
+    // A chase with an offset does not move a bot that stands close to the
+    // unit already, so a bot in front of the unit first walks behind it. The
+    // next think then starts the chase from behind.
+    if (unit->HasInArc(me, M_PI_F))
+    {
+        float x, y, z;
+        unit->GetNearPoint(me, x, y, z, me->GetObjectBoundingRadius(), BehindYards, unit->GetOrientation() + M_PI_F);
+        me->GetMotionMaster()->MovePoint(0, x, y, z, MOVE_PATHFINDING | MOVE_RUN_MODE);
+        return;
+    }
+    me->GetMotionMaster()->MoveChase(unit, BehindYards, M_PI_F);
+}
+
+void BotAdapter::ChaseToRange(Bots::Guid target, float yards)
+{
+    // Like CombatBotBaseAI::BeginChasing of a ranged party bot: the chase
+    // path ends at the caster chase distance, in line of sight. A chase
+    // needs the target as the victim, so the bot attacks it without a
+    // melee swing.
+    Unit* unit = Find(target);
+    if (!unit)
+        return;
+    MotionMaster* motion = me->GetMotionMaster();
+    if (me->GetMinChaseDistance() == yards && motion->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE
+        && me->GetVictim() == unit)
+        return;
+    me->SetCasterChaseDistance(yards);
+    me->SetTargetGuid(unit->GetObjectGuid());
+    me->Attack(unit, false);
+    motion->MoveChase(unit, 1.0f);
+}
+
+void BotAdapter::PetAttack(Bots::Guid target)
+{
+    // Like the attack command of the pet bar, and like the party bots.
+    Pet* pet = me->GetPet();
+    Unit* unit = Find(target);
+    if (!pet || !pet->IsAlive() || !unit || !pet->AI())
+        return;
+    pet->GetCharmInfo()->SetIsCommandAttack(true);
+    pet->AI()->AttackStart(unit);
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s sends its pet %s (0x%016llx) to %s: pet victim %s",
+        me->GetName(), pet->GetName(), (unsigned long long)pet->GetObjectGuid().GetRawValue(),
+        unit->GetObjectGuid().GetString().c_str(), pet->GetVictim() ? pet->GetVictim()->GetObjectGuid().GetString().c_str() : "none");
 }
 
 void BotAdapter::Follow(Bots::Guid unit)

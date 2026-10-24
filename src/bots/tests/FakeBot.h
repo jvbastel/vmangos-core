@@ -48,6 +48,9 @@ namespace Bots
                     m_auras.erase({unit, firstRank});
             }
             void SetFollowTarget(Guid unit) { m_followTarget = unit; }
+            void SetPet(Guid pet) { m_pet = pet; }
+            void SetComboPoints(std::uint32_t points) { m_comboPoints = points; }
+            void ClearDeeds() { m_deeds.clear(); }
             // The bot has corpse loot to do. `onlyWithMove`: the corpse is
             // out of reach, so only a bot that may move has work.
             void SetLootWork(bool has, bool onlyWithMove = false)
@@ -128,6 +131,9 @@ namespace Bots
             }
             bool HasAura(Guid unit, SpellId firstRank) const override { return m_auras.count({unit, firstRank}) != 0; }
             Guid GetFollowTarget() const override { return m_followTarget; }
+            ChaseState GetChase() const override { return m_chase; }
+            Guid GetPet() const override { return m_pet; }
+            std::uint32_t GetComboPoints() const override { return m_comboPoints; }
             bool HasLootWork(bool mayMove) const override { return m_lootWork && (mayMove || !m_lootOnlyWithMove); }
             bool CanCast(SpellId spell, Guid target) const override
             {
@@ -189,8 +195,30 @@ namespace Bots
             }
 
             void Attack(Guid target) override { AddDeed("attack", target); }
-            void Chase(Guid target) override { AddDeed("chase", target); }
-            void Follow(Guid unit) override { AddDeed("follow", unit); }
+            void Chase(Guid target) override
+            {
+                AddDeed("chase", target);
+                m_chase = {target, false};
+            }
+            void ChaseBehind(Guid target) override
+            {
+                AddDeed("chase behind", target);
+                m_chase = {target, true};
+            }
+            void ChaseToRange(Guid target, float yards) override
+            {
+                AddDeed("chase", target);
+                std::ostringstream range;
+                range << " to " << yards << " yards";
+                m_deeds.back() += range.str();
+                m_chase = {target, false};
+            }
+            void PetAttack(Guid target) override { AddDeed("pet attack", target); }
+            void Follow(Guid unit) override
+            {
+                AddDeed("follow", unit);
+                m_chase = {NoGuid, false};
+            }
             void Loot(bool mayMove) override { m_deeds.push_back(mayMove ? "loot" : "loot in place"); }
             void Release() override { m_deeds.push_back("release"); }
             void ReviveAtCorpse() override { m_deeds.push_back("revive at the corpse"); }
@@ -218,6 +246,9 @@ namespace Bots
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
             std::vector<Guid> m_groupMembers;
+            ChaseState m_chase = {NoGuid, false};
+            std::uint32_t m_comboPoints = 0;
+            Guid m_pet = NoGuid;
             bool m_lootWork = false;
             bool m_lootOnlyWithMove = false;
             std::map<Guid, LifeState> m_lifeState;

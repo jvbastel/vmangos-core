@@ -29,6 +29,9 @@ namespace Bots
         // The command state of the bot, and the player of that command.
         CommandState command;
         Guid commandPlayer;
+        // The target of the player at the last `attack` of a damage bot, or
+        // NoGuid. It comes before the focus target (PickDamageTarget).
+        Guid attackTarget;
     };
 
     using Trigger = std::function<bool(BotContext const&)>;

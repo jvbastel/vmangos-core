@@ -28,6 +28,7 @@ add_library(bots STATIC
   ClassModules.cpp
   CommandState.cpp
   CommonRules.cpp
+  DamageRules.cpp
   DataTokenizer.cpp
   DeathAndRest.cpp
   GearDraw.cpp
@@ -35,13 +36,16 @@ add_library(bots STATIC
   GroupCommand.cpp
   GroupCoordinator.cpp
   Loot.cpp
+  MageModule.cpp
   PriestModule.cpp
+  RogueModule.cpp
   Route.cpp
   SpellBook.cpp
   SpellFile.cpp
   Strategy.cpp
   TalentBuild.cpp
   ThinkTimer.cpp
+  WarlockModule.cpp
   WarriorModule.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

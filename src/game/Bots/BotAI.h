@@ -59,6 +59,9 @@ class BotAI : public PlayerBotAI
         void StartCommand(Player* player);
         void StartPull(Player* player);
         Bots::PullTarget PullTargetOf(Player const* player) const;
+        bool IsDamageBot() const;
+        // Forgets the attack target when it died or the bot cannot see it.
+        void CheckAttackTarget();
         bool IsInReach(Player const* player) const;
         // The coordinator of the bot's group, or the bot's own one.
         std::shared_ptr<Bots::GroupCoordinator> Coordinator();
@@ -76,6 +79,9 @@ class BotAI : public PlayerBotAI
         Bots::Inbox<BotCommandMessage> m_commands;
         Bots::CommandState m_commandState = Bots::CommandState::None;
         ObjectGuid m_commandPlayer; // The player of the last command that the bot obeyed.
+        // The target of the player at the last `attack`, for a damage bot.
+        // It ends when it dies or the bot cannot see it, and at `stop`.
+        ObjectGuid m_attackTarget;
         Bots::ThinkTimer m_thinkTimer;
         BotLoot m_loot;
         Bots::BotRole m_role;

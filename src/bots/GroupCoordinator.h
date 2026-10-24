@@ -71,8 +71,9 @@ namespace Bots
         void HoldPull(Guid puller);
         // The fight of the pull ends: no pull and no focus target.
         void EndPull();
-        // True when the target of the pull attacks the tank. The damage bots
-        // wait for it.
+        // True when the tank holds threat on the focus target: the target of
+        // the pull attacks the tank, or the tank fights back an enemy outside
+        // a pull. The damage bots wait for it.
         bool TankHoldsThreat() const;
 
         // The wipe: every group member is dead. The first SetWiped(true)

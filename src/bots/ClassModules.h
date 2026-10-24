@@ -5,6 +5,7 @@
 #include "Strategy.h"
 
 #include <memory>
+#include <vector>
 
 // The class modules and the strategy stack of a new bot.
 //
@@ -23,6 +24,11 @@ namespace Bots
     // The class and role strategy, or null when no class module plays the
     // role.
     std::shared_ptr<Strategy const> MakeClassStrategy(BotClass botClass, BotRole role);
+
+    // The pet spells that the pet of a bot of class `botClass` casts on its
+    // own (autocast), by the spell ID of the first rank. Empty for a class
+    // without a pet.
+    std::vector<SpellId> PetAutocastSpells(BotClass botClass);
 
     // The strategy stack of a bot, bottom first: the command strategy, the
     // rest after a fight, the class and role strategy, and the death

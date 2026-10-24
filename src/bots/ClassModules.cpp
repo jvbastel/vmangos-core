@@ -1,7 +1,10 @@
 #include "ClassModules.h"
 #include "CommonRules.h"
 #include "DeathAndRest.h"
+#include "MageModule.h"
 #include "PriestModule.h"
+#include "RogueModule.h"
+#include "WarlockModule.h"
 #include "WarriorModule.h"
 
 namespace Bots
@@ -20,7 +23,10 @@ namespace Bots
 
         ClassModule const Modules[] = {
             {BotClass::Warrior, BotRole::Tank, &Warrior::MakeTankStrategy},
+            {BotClass::Mage, BotRole::Ranged, &Mage::MakeFrostStrategy},
             {BotClass::Priest, BotRole::Healer, &Priest::MakeHealerStrategy},
+            {BotClass::Rogue, BotRole::Melee, &Rogue::MakeMeleeStrategy},
+            {BotClass::Warlock, BotRole::Ranged, &Warlock::MakeRangedStrategy},
         };
 
         bool ShouldFollow(BotContext const& context)
@@ -30,6 +36,8 @@ namespace Bots
                 && !context.view.IsInCombat(self)
                 // The tank on its way to the pull target.
                 && context.group.GetPull().puller != self
+                // A damage bot on its way to its target.
+                && !IsAlive(context.view, context.view.GetChase().target)
                 && context.view.GetFollowTarget() != context.commandPlayer;
         }
 
@@ -76,6 +84,13 @@ namespace Bots
             if (module.botClass == botClass && module.role == role)
                 return module.make();
         return nullptr;
+    }
+
+    std::vector<SpellId> PetAutocastSpells(BotClass botClass)
+    {
+        if (botClass == BotClass::Warlock)
+            return {Warlock::Firebolt, Warlock::BloodPact};
+        return {};
     }
 
     StrategyStack MakeStrategyStack(BotClass botClass, BotRole role)

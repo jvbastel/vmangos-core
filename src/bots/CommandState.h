@@ -15,7 +15,7 @@ namespace Bots
         Come,   // The bot goes to where the player was, then stays there.
     };
 
-    // The target of the player who gave the command, for `pull`.
+    // The target of the player who gave the command, for `pull` and `attack`.
     enum class PullTarget
     {
         None,     // The player has no target.
@@ -33,6 +33,8 @@ namespace Bots
         // The bot is a tank: only a tank pulls.
         bool isTank;
         PullTarget playerTarget;
+        // The bot deals damage (melee or ranged): only a damage bot attacks.
+        bool isDamage;
         // A bot of the group eats or drinks after a fight: the group waits,
         // so the tank does not pull.
         bool groupRests = false;
@@ -49,7 +51,9 @@ namespace Bots
     // The new command state of a bot after a bot command. A bot obeys
     // silently; only a bot that cannot obey gets a line. `pull` keeps the
     // command state: the tank pulls, and then follows again. A bot that is
-    // no tank ignores `pull` without a line.
+    // no tank ignores `pull` without a line. `attack` is the same for the
+    // damage bots: it keeps the command state, and the tank and the healer
+    // ignore it without a line.
     CommandOutcome ApplyBotCommand(CommandState current, BotCommandKind kind, CommandFacts const& facts);
 }
 

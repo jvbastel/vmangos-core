@@ -19,6 +19,7 @@ namespace Bots
             {BotCommandKind::Come, "come"},
             {BotCommandKind::Stop, "stop"},
             {BotCommandKind::Pull, "pull"},
+            {BotCommandKind::Attack, "attack"},
         };
 
         std::string Lower(std::string text)

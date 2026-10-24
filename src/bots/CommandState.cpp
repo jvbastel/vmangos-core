@@ -9,6 +9,7 @@ namespace Bots
         char const* const NoTargetLine = "You have no target.";
         char const* const CannotPullLine = "I cannot pull that.";
         char const* const RestingLine = "We are resting.";
+        char const* const CannotAttackLine = "I cannot attack that.";
 
         CommandOutcome Obey(CommandState state)
         {
@@ -50,6 +51,17 @@ namespace Bots
                     return Refuse(current, CannotPullLine);
                 if (facts.groupRests)
                     return Refuse(current, RestingLine);
+                return Obey(current);
+            case BotCommandKind::Attack:
+                // Party chat reaches all bots: only the damage bots answer.
+                if (!facts.isDamage)
+                    return Refuse(current, "");
+                if (!facts.botAlive)
+                    return Refuse(current, DeadLine);
+                if (facts.playerTarget == PullTarget::None)
+                    return Refuse(current, NoTargetLine);
+                if (facts.playerTarget == PullTarget::NotEnemy)
+                    return Refuse(current, CannotAttackLine);
                 return Obey(current);
         }
         return Obey(current);

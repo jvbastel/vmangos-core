@@ -20,6 +20,13 @@ namespace Bots
         virtual void Attack(Guid target) = 0;
         // Run to unit `target` and stay in melee range of it.
         virtual void Chase(Guid target) = 0;
+        // Run behind unit `target` and stay in melee range there.
+        virtual void ChaseBehind(Guid target) = 0;
+        // Run to unit `target` until it is `yards` away, and stay about that
+        // far from it: the chase of a ranged bot.
+        virtual void ChaseToRange(Guid target, float yards) = 0;
+        // The pet of the bot attacks unit `target`.
+        virtual void PetAttack(Guid target) = 0;
         // Follow unit `unit` at a short distance.
         virtual void Follow(Guid unit) = 0;
         // Do the next step of the corpse loot: walk to the corpse, open it,
