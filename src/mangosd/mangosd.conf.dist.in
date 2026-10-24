@@ -3241,6 +3241,47 @@ BattleBot.AutoEquip = 1
 BattleBot.AutoJoin = 0
 
 ###################################################################################################################
+# WOWAI BOTS
+#
+#    The own bot system of the WOWAI fork (src/game/Bots). It shares no setting with the PlayerBot, PartyBot, and
+#    BattleBot settings above. A GM makes each bot once with `.wowai bot create`.
+#
+#    Bots.Enable
+#        Enables the WOWAI bots.
+#        Default: 1 - on
+#                 0 - off
+#
+#    Bots.AccountPrefix
+#        Name prefix of the realmd accounts of the bots, for example BOT001. The bots make these accounts
+#        themselves, with random passwords and no GM rights.
+#        Default: "BOT"
+#
+#    Bots.ThinkMs.Combat
+#        Time in milliseconds between two decisions of a bot in combat.
+#        Default: 100
+#
+#    Bots.ThinkMs.NearPlayer
+#        Time in milliseconds between two decisions of a bot out of combat and near a player.
+#        Default: 500
+#
+#    Bots.ThinkMs.Far
+#        Time in milliseconds between two decisions of a bot far from any player.
+#        Default: 3000
+#
+#    Bots.DataDir
+#        Folder of the bot data files: gear templates, talent builds, and spell files.
+#        Default: "bots"
+#
+###################################################################################################################
+
+Bots.Enable = 1
+Bots.AccountPrefix = "BOT"
+Bots.ThinkMs.Combat = 100
+Bots.ThinkMs.NearPlayer = 500
+Bots.ThinkMs.Far = 3000
+Bots.DataDir = "bots"
+
+###################################################################################################################
 # MAIL FLOODING MITIGATION
 #
 #    MailSpam.ExpireSecs
