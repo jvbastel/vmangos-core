@@ -9,6 +9,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace Bots
@@ -28,6 +29,25 @@ namespace Bots
             }
             void SetCurrentCast(Guid unit, SpellId spell) { m_casts[unit] = spell; }
             void SetKnownSpell(SpellId spell) { m_known.insert(spell); }
+            // The bot knows the spell, but cannot cast it now (cooldown,
+            // range, power, stance).
+            void SetCannotCast(SpellId spell) { m_cannotCast.insert(spell); }
+            void SetPower(Guid unit, std::uint32_t current, std::uint32_t max) { m_power[unit] = Power{current, max}; }
+            void SetDistance(Guid unit, float yards) { m_distance[unit] = yards; }
+            void SetInCombat(Guid unit, bool inCombat = true) { m_inCombat[unit] = inCombat; }
+            void SetVictim(Guid unit, Guid victim)
+            {
+                m_victim[unit] = victim;
+                m_inCombat[unit] = victim != NoGuid;
+            }
+            void SetAura(Guid unit, SpellId firstRank, bool has = true)
+            {
+                if (has)
+                    m_auras.insert({unit, firstRank});
+                else
+                    m_auras.erase({unit, firstRank});
+            }
+            void SetFollowTarget(Guid unit) { m_followTarget = unit; }
             // The ranks of one spell, first rank first.
             void SetSpellChain(std::vector<SpellId> const& ranks)
             {
@@ -50,6 +70,42 @@ namespace Bots
                 return found == m_casts.end() ? NoSpell : found->second;
             }
 
+            Power GetPower(Guid unit) const override
+            {
+                auto found = m_power.find(unit);
+                return found == m_power.end() ? Power{0, 0} : found->second;
+            }
+            float GetDistance(Guid unit) const override
+            {
+                auto found = m_distance.find(unit);
+                if (found != m_distance.end())
+                    return found->second;
+                return unit == m_self || GetHealth(unit).max ? 5.0f : 100000.0f;
+            }
+            bool IsInCombat(Guid unit) const override
+            {
+                auto found = m_inCombat.find(unit);
+                return found != m_inCombat.end() && found->second;
+            }
+            Guid GetVictim(Guid unit) const override
+            {
+                auto found = m_victim.find(unit);
+                return found == m_victim.end() ? NoGuid : found->second;
+            }
+            std::vector<Guid> GetAttackers(Guid unit) const override
+            {
+                std::vector<Guid> attackers;
+                for (auto const& pair : m_victim)
+                    if (pair.second == unit && unit != NoGuid)
+                        attackers.push_back(pair.first);
+                return attackers;
+            }
+            bool HasAura(Guid unit, SpellId firstRank) const override { return m_auras.count({unit, firstRank}) != 0; }
+            Guid GetFollowTarget() const override { return m_followTarget; }
+            bool CanCast(SpellId spell, Guid target) const override
+            {
+                return KnowsSpell(spell) && !m_cannotCast.count(spell) && GetHealth(target).current > 0;
+            }
             bool KnowsSpell(SpellId spell) const override { return m_known.count(spell) != 0; }
             SpellId GetNextRank(SpellId spell) const override
             {
@@ -71,12 +127,30 @@ namespace Bots
                 m_deeds.push_back(deed.str());
             }
 
+            void Attack(Guid target) override { AddDeed("attack", target); }
+            void Chase(Guid target) override { AddDeed("chase", target); }
+            void Follow(Guid unit) override { AddDeed("follow", unit); }
+
         private:
+            void AddDeed(char const* verb, Guid unit)
+            {
+                std::ostringstream deed;
+                deed << verb << " 0x" << std::hex << std::setw(16) << std::setfill('0') << unit;
+                m_deeds.push_back(deed.str());
+            }
+
             Guid m_self;
             std::map<Guid, Health> m_health;
             std::map<Guid, SpellId> m_casts;
             std::set<SpellId> m_known;
             std::map<SpellId, SpellId> m_nextRank;
+            std::set<SpellId> m_cannotCast;
+            std::map<Guid, Power> m_power;
+            std::map<Guid, float> m_distance;
+            std::map<Guid, bool> m_inCombat;
+            std::map<Guid, Guid> m_victim;
+            std::set<std::pair<Guid, SpellId>> m_auras;
+            Guid m_followTarget = NoGuid;
             std::vector<std::string> m_deeds;
         };
     }

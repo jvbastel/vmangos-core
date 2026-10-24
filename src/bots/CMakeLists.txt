@@ -21,7 +21,9 @@ add_library(bots STATIC
   BotAccounts.cpp
   BotCommand.cpp
   BotRecipe.cpp
+  ClassModules.cpp
   CommandState.cpp
+  CommonRules.cpp
   DataTokenizer.cpp
   GearDraw.cpp
   GearTemplate.cpp
@@ -31,6 +33,7 @@ add_library(bots STATIC
   SpellFile.cpp
   Strategy.cpp
   ThinkTimer.cpp
+  WarriorModule.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 # The group coordinator has a mutex.

@@ -27,6 +27,13 @@ namespace Bots
         std::uint32_t current;
         std::uint32_t max;
     };
+
+    // The power of a unit in its own kind: mana, rage, or energy.
+    struct Power
+    {
+        std::uint32_t current;
+        std::uint32_t max;
+    };
 }
 
 #endif
