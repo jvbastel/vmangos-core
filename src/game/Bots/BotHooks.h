@@ -30,6 +30,13 @@ namespace BotHooks
     // thread, at the same time as the maps. So this only reads the group and
     // pushes into the locked inboxes of the bots.
     void OnPlayerChat(Player* sender, uint32 type, Player* receiver, std::string const& text);
+
+    // WorldSession::HandleChatMessageOpcode, in the whisper branch, when no
+    // player of that name is online. A whisper of `invite` or `dismiss` to an
+    // offline bot goes to the bot manager, so that a player with no group
+    // can invite the first bot. True: the hook took the whisper, and the core
+    // sends no "player not found" notice. Same threads as OnPlayerChat.
+    bool OnWhisperToOffline(Player* sender, std::string const& receiverName, std::string const& text);
 }
 
 #endif

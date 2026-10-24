@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Run a command of the gear tools against the world database of a test realm.
+#
+#   bots/tools/gear/with-realm-db <command> [arguments]
+#
+# It makes (again) the read-only MySQL user `wowai_gear` with a new random
+# password and only SELECT on the world database `mangos`, through
+# `wowai/dev realm sql`. The database of the test realm has no host port, so
+# a short-lived container on the realm's network forwards a localhost port
+# to it (forward.py, image python:3.12-slim). Then it runs the command in
+# this folder with the WOWAI_GEAR_DB_* variables of generate.py set, and
+# removes the forwarder when the command ends. The realm settings are those
+# of `wowai/dev realm` (WOWAI_REALM_DIR and the rest).
+#
+# Settings: WOWAI_GEAR_FORWARD_PORT (default 13306), WOWAI_GEAR_FORWARD_IMAGE.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+dev="$here/../../../wowai/dev"
+port="${WOWAI_GEAR_FORWARD_PORT:-13306}"
+image="${WOWAI_GEAR_FORWARD_IMAGE:-python:3.12-slim}"
+
+password="$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24 || true)"
+"$dev" realm sql mysql "CREATE OR REPLACE USER 'wowai_gear'@'%' IDENTIFIED BY '$password'; GRANT SELECT ON mangos.* TO 'wowai_gear'@'%';"
+
+database="$("$dev" realm compose ps --quiet database)"
+[ -n "$database" ] || { echo "with-realm-db: the test realm database does not run (wowai/dev realm up)" >&2; exit 1; }
+network="$(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' "$database" | awk '{print $1}')"
+alias="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$database")"
+
+forwarder="$(docker run --detach --rm --network "$network" --publish "127.0.0.1:$port:3306" \
+  --mount "type=bind,source=$here/forward.py,target=/forward.py,readonly" "$image" \
+  python /forward.py "$alias" 3306)"
+trap 'docker stop --time 1 "$forwarder" >/dev/null 2>&1 || true' EXIT
+sleep 1
+
+cd "$here"
+WOWAI_GEAR_DB_HOST=127.0.0.1 WOWAI_GEAR_DB_PORT="$port" WOWAI_GEAR_DB_USER=wowai_gear \
+  WOWAI_GEAR_DB_PASSWORD="$password" WOWAI_GEAR_DB_NAME=mangos "$@"

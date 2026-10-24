@@ -1,0 +1,82 @@
+build warlock_ranged warlock ranged
+# Warlock: an Affliction leveling build (damage over time, Siphon Life,
+# Shadow Mastery), with the rest in Demonology for the pet.
+# Source: Icy Veins, "WoW Classic Affliction Warlock Leveling Talent Build from 1 to 60",
+# https://icy-veins.com/wow-classic/affliction-warlock-leveling-talent-build-from-1-to-60
+# (read on 2026-10-24 from the Wayback Machine copy of 2026-01-21). Copied in
+# the same order, with no changes. The talents are those of 1.12.
+# Points at level 60: 30 affliction, 21 demonology
+
+# Levels 10-14: Improved Corruption 5/5 (affliction tier 1)
+pick 1003 1     # Improved Corruption
+pick 1003 2     # Improved Corruption
+pick 1003 3     # Improved Corruption
+pick 1003 4     # Improved Corruption
+pick 1003 5     # Improved Corruption
+# Levels 15-16: Improved Life Tap 2/2 (affliction tier 2)
+pick 1007 1     # Improved Life Tap
+pick 1007 2     # Improved Life Tap
+# Levels 17-18: Suppression 2/5 (affliction tier 1)
+pick 1005 1     # Suppression
+pick 1005 2     # Suppression
+# Levels 19-20: Improved Healthstone 2/2 (demonology tier 1)
+pick 1221 1     # Improved Healthstone
+pick 1221 2     # Improved Healthstone
+# Levels 21-23: Demonic Embrace 3/5 (demonology tier 1)
+pick 1223 1     # Demonic Embrace
+pick 1223 2     # Demonic Embrace
+pick 1223 3     # Demonic Embrace
+# Levels 24-26: Improved Voidwalker 3/3 (demonology tier 2)
+pick 1225 1     # Improved Voidwalker
+pick 1225 2     # Improved Voidwalker
+pick 1225 3     # Improved Voidwalker
+# Levels 27-28: Improved Drain Soul 2/2 (affliction tier 2)
+pick 1101 1     # Improved Drain Soul
+pick 1101 2     # Improved Drain Soul
+# Level 29: Amplify Curse 1/1 (affliction tier 3)
+pick 1061 1     # Amplify Curse
+# Levels 30-32: Suppression 5/5 (affliction tier 1)
+pick 1005 3     # Suppression
+pick 1005 4     # Suppression
+pick 1005 5     # Suppression
+# Levels 33-34: Grim Reach 2/2 (affliction tier 4)
+pick 1021 1     # Grim Reach
+pick 1021 2     # Grim Reach
+# Levels 35-36: Nightfall 2/2 (affliction tier 4)
+pick 1002 1     # Nightfall
+pick 1002 2     # Nightfall
+# Level 37: Improved Curse of Agony 1/3 (affliction tier 3)
+pick 1284 1     # Improved Curse of Agony
+# Level 38: Siphon Life 1/1 (affliction tier 5)
+pick 1041 1     # Siphon Life
+# Level 39: Curse of Exhaustion 1/1 (affliction tier 5)
+pick 1081 1     # Curse of Exhaustion
+# Levels 40-41: Improved Curse of Agony 3/3 (affliction tier 3)
+pick 1284 2     # Improved Curse of Agony
+pick 1284 3     # Improved Curse of Agony
+# Level 42: Improved Curse of Exhaustion 1/4 (affliction tier 5)
+pick 1082 1     # Improved Curse of Exhaustion
+# Levels 43-47: Shadow Mastery 5/5 (affliction tier 6)
+pick 1042 1     # Shadow Mastery
+pick 1042 2     # Shadow Mastery
+pick 1042 3     # Shadow Mastery
+pick 1042 4     # Shadow Mastery
+pick 1042 5     # Shadow Mastery
+# Levels 48-49: Fel Intellect 2/5 (demonology tier 2)
+pick 1242 1     # Fel Intellect
+pick 1242 2     # Fel Intellect
+# Level 50: Fel Domination 1/1 (demonology tier 3)
+pick 1226 1     # Fel Domination
+# Levels 51-54: Fel Stamina 4/5 (demonology tier 3)
+pick 1241 1     # Fel Stamina
+pick 1241 2     # Fel Stamina
+pick 1241 3     # Fel Stamina
+pick 1241 4     # Fel Stamina
+# Levels 55-56: Master Summoner 2/2 (demonology tier 4)
+pick 1227 1     # Master Summoner
+pick 1227 2     # Master Summoner
+# Levels 57-60: Unholy Power 4/5 (demonology tier 4)
+pick 1262 1     # Unholy Power
+pick 1262 2     # Unholy Power
+pick 1262 3     # Unholy Power
+pick 1262 4     # Unholy Power

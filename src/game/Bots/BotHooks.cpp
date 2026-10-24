@@ -9,6 +9,7 @@
 #include "BotAI.h"
 #include "BotCommand.h"
 #include "BotMgr.h"
+#include "GroupCommand.h"
 #include "Group.h"
 #include "Player.h"
 #include "SharedDefines.h"
@@ -74,6 +75,24 @@ namespace
                     bot.ai->PushCommand({parsed.command.kind, sender->GetObjectGuid(), type});
         return true;
     }
+
+    // Queues `invite` or `dismiss` for the bot manager. False when the text
+    // is no group command for the bots. `whispered` is the name of the
+    // whispered bot, or empty for party chat.
+    bool RouteGroupCommand(Player* sender, std::string const& whispered, std::string const& text)
+    {
+        Bots::ParsedGroupCommand const parsed = Bots::ParseGroupCommand(text);
+        if (!parsed.ok)
+            return false;
+        std::string botName = parsed.command.botName;
+        // The word alone is for the whispered bot. In party chat it names no bot.
+        if (botName.empty())
+            botName = whispered;
+        if (botName.empty())
+            return false;
+        sBotMgr.QueueGroupCommand({parsed.command.kind, sender->GetObjectGuid(), botName});
+        return true;
+    }
 }
 
 void BotHooks::OnLevelUp(Player* player)
@@ -91,10 +110,15 @@ void BotHooks::OnPlayerChat(Player* sender, uint32 type, Player* receiver, std::
     switch (type)
     {
         case CHAT_MSG_PARTY:
+            // Any party chat: the group of the player can have no bot yet.
+            if (RouteGroupCommand(sender, "", text))
+                return;
             bots = PartyBots(sender);
             break;
         case CHAT_MSG_WHISPER:
             bots = WhisperedBot(sender, receiver);
+            if (!bots.empty() && RouteGroupCommand(sender, bots.front().name, text))
+                return;
             break;
         default:
             return;
@@ -108,4 +132,10 @@ void BotHooks::OnPlayerChat(Player* sender, uint32 type, Player* receiver, std::
     // the next update of the bot manager on the world thread.
     sBotMgr.Chat().QueuePlayerMessage({sender->GetObjectGuid(), type,
         receiver ? receiver->GetObjectGuid() : ObjectGuid(), text});
+}
+
+bool BotHooks::OnWhisperToOffline(Player* sender, std::string const& receiverName, std::string const& text)
+{
+    // The bot manager answers a name that is no bot.
+    return sender && RouteGroupCommand(sender, receiverName, text);
 }

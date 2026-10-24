@@ -121,10 +121,14 @@ void BotGear::Load(std::string const& gearDir)
             continue;
         }
 
-        // Each item must exist in this realm and fit its slot.
+        // Each item must exist in this realm and fit its slot. An item of a
+        // later content patch than the realm's is not in item_template here,
+        // and the draw never takes it, so it is dropped with no message.
         std::vector<Bots::GearItem> items;
         for (Bots::GearItem const& item : gear.items)
         {
+            if (item.minPatch > sWorld.GetWowPatch())
+                continue;
             ItemPrototype const* proto = sObjectMgr.GetItemPrototype(item.entry);
             if (!proto)
                 sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Gear template %s, line %u: no item has the entry %u",
@@ -135,6 +139,8 @@ void BotGear::Load(std::string const& gearDir)
             else
                 items.push_back(item);
         }
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] Gear template %s: %u of %u items in content patch %u",
+            gear.name.c_str(), uint32(items.size()), uint32(gear.items.size()), uint32(sWorld.GetWowPatch()));
         gear.items = items;
         std::string const name = gear.name;
         m_templates[name] = std::move(gear);

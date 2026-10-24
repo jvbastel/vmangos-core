@@ -1,0 +1,4 @@
+# The ban file of the gear generator: one `ban <entry>` line per item. A
+# banned item never enters a generated gear template. It is the only
+# override of the generator. Put the item name in a comment, for example:
+#   ban 1234  # An item that a normal leveling player cannot get

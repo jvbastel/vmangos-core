@@ -9,6 +9,8 @@
 #include "BotLevelRoutine.h"
 #include "Bag.h"
 #include "Chat.h"
+#include "DBCStores.h"
+#include "IO/Filesystem/FileSystem.h"
 #include "Log.h"
 #include "ObjectMgr.h"
 #include "Pet.h"
@@ -16,6 +18,7 @@
 #include "SharedDefines.h"
 #include "SpellMgr.h"
 
+#include <algorithm>
 #include <fstream>
 #include <set>
 #include <sstream>
@@ -47,6 +50,72 @@ namespace
             explicit TrainerLearner(Player* player) : ChatHandler(player) {}
             using ChatHandler::HandleLearnTrainerHelper;
     };
+
+    // The class of a talent tree, from the ClassMask of TalentTab.dbc. False
+    // for the Paladin, which the bots do not play.
+    bool BotClassOfMask(uint32 classMask, Bots::BotClass& botClass)
+    {
+        switch (classMask)
+        {
+            case 1 << (CLASS_WARRIOR - 1): botClass = Bots::BotClass::Warrior; return true;
+            case 1 << (CLASS_PRIEST - 1):  botClass = Bots::BotClass::Priest; return true;
+            case 1 << (CLASS_ROGUE - 1):   botClass = Bots::BotClass::Rogue; return true;
+            case 1 << (CLASS_WARLOCK - 1): botClass = Bots::BotClass::Warlock; return true;
+            case 1 << (CLASS_MAGE - 1):    botClass = Bots::BotClass::Mage; return true;
+            case 1 << (CLASS_HUNTER - 1):  botClass = Bots::BotClass::Hunter; return true;
+            case 1 << (CLASS_SHAMAN - 1):  botClass = Bots::BotClass::Shaman; return true;
+            case 1 << (CLASS_DRUID - 1):   botClass = Bots::BotClass::Druid; return true;
+            default:                       return false;
+        }
+    }
+
+    // The talents of Talent.dbc as plain data for the library. The tree is
+    // the ID of the TalentTab.dbc row.
+    Bots::TalentTable MakeTalentTable()
+    {
+        Bots::TalentTable table;
+        for (uint32 i = 0; i < sTalentStore.GetNumRows(); ++i)
+        {
+            TalentEntry const* talent = sTalentStore.LookupEntry(i);
+            if (!talent)
+                continue;
+            TalentTabEntry const* tab = sTalentTabStore.LookupEntry(talent->TalentTab);
+            Bots::BotClass botClass;
+            if (!tab || !BotClassOfMask(tab->ClassMask, botClass))
+                continue;
+            uint32 maxRank = 0;
+            for (uint32 rank = 0; rank < MAX_TALENT_RANK; ++rank)
+                if (talent->RankID[rank])
+                    maxRank = rank + 1;
+            table[talent->TalentID] = Bots::TalentInfo{talent->TalentID, botClass, "tab " + std::to_string(talent->TalentTab),
+                talent->Row + 1, maxRank, talent->DependsOn, talent->DependsOn ? talent->DependsOnRank + 1 : 0};
+        }
+        return table;
+    }
+
+    // The rank (from 1) of each talent of its class that the character has.
+    std::map<uint32, uint32> KnownTalentRanks(Player const* bot)
+    {
+        std::map<uint32, uint32> known;
+        for (uint32 i = 0; i < sTalentStore.GetNumRows(); ++i)
+        {
+            TalentEntry const* talent = sTalentStore.LookupEntry(i);
+            if (!talent)
+                continue;
+            TalentTabEntry const* tab = sTalentTabStore.LookupEntry(talent->TalentTab);
+            if (!tab || !(tab->ClassMask & bot->GetClassMask()))
+                continue;
+            for (int32 rank = MAX_TALENT_RANK - 1; rank >= 0; --rank)
+                if (talent->RankID[rank] && bot->HasSpell(talent->RankID[rank]))
+                {
+                    known[talent->TalentID] = uint32(rank + 1);
+                    break;
+                }
+        }
+        return known;
+    }
+
+    std::string const TextExtension = ".txt";
 
     uint8 const WeaponSlots[] = {EQUIPMENT_SLOT_MAINHAND, EQUIPMENT_SLOT_OFFHAND, EQUIPMENT_SLOT_RANGED};
 }
@@ -87,9 +156,40 @@ void BotLevelRoutine::Load(std::string const& dataDir)
     }
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %u spells of %u classes loaded from %s/spells",
         count, uint32(m_classSpells.size()), dataDir.c_str());
+    LoadTalentBuilds(dataDir + "/talents");
 }
 
-void BotLevelRoutine::Apply(Player* bot) const
+void BotLevelRoutine::LoadTalentBuilds(std::string const& talentDir)
+{
+    m_talentBuilds.clear();
+    Bots::TalentTable const talents = MakeTalentTable();
+    std::vector<std::string> files = IO::Filesystem::GetAllFilesInFolder(talentDir, IO::Filesystem::OutputFilePath::JustFileName);
+    std::sort(files.begin(), files.end());
+    for (std::string const& file : files)
+    {
+        if (file.size() <= TextExtension.size() ||
+            file.compare(file.size() - TextExtension.size(), TextExtension.size(), TextExtension) != 0)
+            continue;
+        std::string const path = talentDir + "/" + file;
+        std::ifstream stream(path, std::ios::binary);
+        std::ostringstream text;
+        text << stream.rdbuf();
+        Bots::TalentBuildResult result = Bots::ParseTalentBuild(text.str());
+        std::string error = result.ok ? Bots::CheckTalentBuildFileName(result.build, file.substr(0, file.size() - TextExtension.size())) : result.error;
+        if (error.empty())
+            error = Bots::CheckTalentRules(result.build, talents);
+        if (!error.empty())
+        {
+            sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Talent build %s, %s", path.c_str(), error.c_str());
+            continue;
+        }
+        std::string const name = result.build.name;
+        m_talentBuilds[name] = std::move(result.build);
+    }
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %u talent builds loaded from %s", uint32(m_talentBuilds.size()), talentDir.c_str());
+}
+
+void BotLevelRoutine::Apply(Player* bot, std::string const& talentBuild) const
 {
     std::size_t const knownBefore = bot->GetSpellMap().size();
     // The quest spells first: a trainer teaches only the higher ranks of
@@ -97,6 +197,8 @@ void BotLevelRoutine::Apply(Player* bot) const
     TeachQuestSpells(bot);
     TeachTrainerSpells(bot);
     TeachWeaponSkills(bot);
+    // After the trainer spells: a talent can need a spell first.
+    SpendTalentPicks(bot, talentBuild);
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s at level %u: the level routine taught %u spells",
         bot->GetName(), bot->GetLevel(), uint32(bot->GetSpellMap().size() - knownBefore));
     if (Pet* pet = bot->GetPet())
@@ -192,4 +294,36 @@ void BotLevelRoutine::TeachPetSpells(Player* bot, Pet* pet) const
             ++taught;
     if (taught)
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s taught %u spells to its pet %s", bot->GetName(), taught, pet->GetName());
+}
+
+void BotLevelRoutine::SpendTalentPicks(Player* bot, std::string const& talentBuild) const
+{
+    auto const build = m_talentBuilds.find(talentBuild);
+    if (build == m_talentBuilds.end())
+    {
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s has no talent build named %s", bot->GetName(), talentBuild.c_str());
+        return;
+    }
+    Bots::TalentPlan const plan = Bots::PlanTalentPicks(build->second, bot->GetLevel(), KnownTalentRanks(bot));
+    if (plan.reset)
+    {
+        bot->ResetTalents(true);
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s at level %u: talents reset for the build %s",
+            bot->GetName(), bot->GetLevel(), talentBuild.c_str());
+    }
+    uint32 learned = 0;
+    for (Bots::TalentPick const& pick : plan.learn)
+    {
+        // The core counts the rank from 0.
+        if (!bot->LearnTalent(pick.talentId, pick.rank - 1))
+        {
+            sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] %s cannot learn the talent %u rank %u of the build %s (line %u)",
+                bot->GetName(), pick.talentId, pick.rank, talentBuild.c_str(), uint32(pick.line));
+            break;
+        }
+        ++learned;
+    }
+    if (learned || plan.reset)
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s at level %u learned %u talent picks of the build %s",
+            bot->GetName(), bot->GetLevel(), learned, talentBuild.c_str());
 }
