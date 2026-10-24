@@ -27,14 +27,17 @@ src="$(cd "${WOWAI_SRC:-$(git -C "$script_dir" rev-parse --show-toplevel)}" && p
 deploy_dir="${WOWAI_DEPLOY_DIR:-/mnt/c/Games/vmangos-deploy}"
 install_dir="${WOWAI_DEV_INSTALL:-$HOME/wowai/dev-install}"
 
-tree_id="$(basename "$src" | tr -c 'a-zA-Z0-9_.-\n' '-')-$(printf '%s' "$src" | sha1sum | cut -c1-8)"
+tree_id="$(basename "$src" | tr -c 'a-zA-Z0-9_.\n-' '-')-$(printf '%s' "$src" | sha1sum | cut -c1-8)"
 container="wowai-dev-$tree_id"
 volume="wowai-dev-build-$tree_id"
 image="wowai/dev-build:latest"
 
 # Dev build options. The release build keeps the vmangos-deploy options.
+# DEBUG_SYMBOLS does not add -g on Linux in upstream CMake, so the build type
+# RelWithDebInfo gives the debug symbols.
 cmake_options=(
   -DCMAKE_INSTALL_PREFIX=/opt/vmangos
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo
   -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
   -DDEBUG_SYMBOLS=1
   -DBUILD_EXTRACTORS=0
@@ -114,8 +117,10 @@ patches=(/patches/*.patch)
 mapfile -t patched < <(cat "${patches[@]}" | tr -d '\r' | sed -n 's|^diff --git a/\([^ ]*\) b/.*|\1|p' | sort -u)
 
 # Copy the tree without .git and keep the file times. The patched files are
-# handled below. CMake writes revision.h and Progression.h into the copy.
-excludes=(--exclude=/.git --exclude=/build/ --exclude=/src/shared/revision.h --exclude=/src/shared/Progression.h)
+# handled below. Files that Git ignores are not copied and not deleted: CMake
+# writes some of them into the copy, for example revision.h, Progression.h,
+# and migrations_list.h.
+excludes=(--exclude=/.git --filter=':- .gitignore')
 for f in "${patched[@]}"; do excludes+=("--exclude=/$f"); done
 rsync -a --delete "${excludes[@]}" /src/ "$core/"
 
