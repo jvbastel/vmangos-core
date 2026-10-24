@@ -239,8 +239,8 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         me->SetTargetGuid(unit->GetObjectGuid());
     }
     SpellCastResult const result = me->CastSpell(unit, entry, false);
-    // A spell with a cast time ends when the caster moves, for example when
-    // it follows a unit.
+    // Like CombatBotBaseAI::DoCastSpell: a spell with a cast time ends when the
+    // caster moves (for example when it follows or chases a unit), so stop the bot.
     if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
         me->StopMoving();
     if (result != SPELL_CAST_OK)
@@ -273,11 +273,21 @@ void BotAdapter::Chase(Bots::Guid target)
 
 void BotAdapter::ChaseBehind(Bots::Guid target)
 {
-    if (Unit* unit = Find(target))
+    Unit* unit = Find(target);
+    if (!unit)
+        return;
+    me->SetCasterChaseDistance(0.0f);
+    // A chase with an offset does not move a bot that stands close to the
+    // unit already, so a bot in front of the unit first walks behind it. The
+    // next think then starts the chase from behind.
+    if (unit->HasInArc(me, M_PI_F))
     {
-        me->SetCasterChaseDistance(0.0f);
-        me->GetMotionMaster()->MoveChase(unit, BehindYards, M_PI_F);
+        float x, y, z;
+        unit->GetNearPoint(me, x, y, z, me->GetObjectBoundingRadius(), BehindYards, unit->GetOrientation() + M_PI_F);
+        me->GetMotionMaster()->MovePoint(0, x, y, z, MOVE_PATHFINDING | MOVE_RUN_MODE);
+        return;
     }
+    me->GetMotionMaster()->MoveChase(unit, BehindYards, M_PI_F);
 }
 
 void BotAdapter::ChaseToRange(Bots::Guid target, float yards)

@@ -1,5 +1,6 @@
 #include "WarlockModule.h"
 #include "CommonRules.h"
+#include "DamageRules.h"
 
 namespace Bots
 {
@@ -7,9 +8,6 @@ namespace Bots
     {
         namespace
         {
-            // The Warlock stands this far from its target: in the range of
-            // its spells (30 yards), and out of the melee.
-            float const RangeYards = 25.0f;
             // Life Tap below this mana, and above this health, in percent.
             std::uint32_t const LowManaPercent = 25;
             std::uint32_t const SpareHealthPercent = 60;
@@ -24,11 +22,6 @@ namespace Bots
                 return !context.view.IsInCombat(Self(context));
             }
 
-            bool HasTarget(BotContext const& context)
-            {
-                return PickDamageTarget(context) != NoGuid;
-            }
-
             std::uint32_t Percent(std::uint32_t current, std::uint32_t max)
             {
                 return max ? current * 100 / max : 0;
@@ -39,7 +32,7 @@ namespace Bots
             {
                 return CastRule(std::move(name), priority,
                     [firstRank](BotContext const& context) {
-                        return HasTarget(context) && !context.view.HasAura(PickDamageTarget(context), firstRank);
+                        return HasDamageTarget(context) && !context.view.HasAura(PickDamageTarget(context), firstRank);
                     },
                     firstRank, PickDamageTarget);
             }
@@ -68,35 +61,28 @@ namespace Bots
                     DemonSkin, PickSelf),
 
                 // The fight: the Imp attacks the damage target, and the
-                // Warlock stands in range of it.
+                // Warlock runs into casting range of it.
                 Rule{"send the imp", P + 80,
                     [](BotContext const& context) {
                         Guid const pet = context.view.GetPet();
-                        return HasTarget(context) && context.view.GetVictim(pet) != PickDamageTarget(context);
+                        return HasDamageTarget(context) && context.view.GetVictim(pet) != PickDamageTarget(context);
                     },
                     {[](BotContext const& context) { return IsAlive(context.view, context.view.GetPet()); },
                         [](BotContext const& context) { context.actions.PetAttack(PickDamageTarget(context)); }}},
-                Rule{"get in range", P + 75,
-                    [](BotContext const& context) {
-                        return HasTarget(context) && context.view.GetChase().target != PickDamageTarget(context);
-                    },
-                    {[](BotContext const&) { return true; },
-                        [](BotContext const& context) {
-                            context.actions.ChaseToRange(PickDamageTarget(context), RangeYards);
-                        }}},
+                CloseInRule(P + 75),
 
                 CastRule("life tap", P + 60,
                     [](BotContext const& context) {
                         Power const mana = context.view.GetPower(Self(context));
                         Health const health = context.view.GetHealth(Self(context));
-                        return HasTarget(context) && Percent(mana.current, mana.max) < LowManaPercent
+                        return HasDamageTarget(context) && Percent(mana.current, mana.max) < LowManaPercent
                             && Percent(health.current, health.max) > SpareHealthPercent;
                     },
                     LifeTap, PickSelf),
                 DotRule("corruption", P + 55, Corruption),
                 DotRule("curse of agony", P + 50, CurseOfAgony),
                 DotRule("immolate", P + 45, Immolate),
-                CastRule("shadow bolt", P + 40, HasTarget, ShadowBolt, PickDamageTarget),
+                CastRule("shadow bolt", P + 40, HasDamageTarget, ShadowBolt, PickDamageTarget),
             };
             return std::make_shared<Strategy const>(Strategy{"warlock ranged", std::move(rules)});
         }

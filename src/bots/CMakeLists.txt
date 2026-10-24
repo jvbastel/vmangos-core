@@ -28,12 +28,14 @@ add_library(bots STATIC
   ClassModules.cpp
   CommandState.cpp
   CommonRules.cpp
+  DamageRules.cpp
   DataTokenizer.cpp
   GearDraw.cpp
   GearTemplate.cpp
   GroupCommand.cpp
   GroupCoordinator.cpp
   Loot.cpp
+  MageModule.cpp
   PriestModule.cpp
   RogueModule.cpp
   Route.cpp

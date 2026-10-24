@@ -1,4 +1,4 @@
-#include "CommonRules.h"
+#include "DamageRules.h"
 #include "FakeBot.h"
 
 #include <gtest/gtest.h>

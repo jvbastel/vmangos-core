@@ -16,7 +16,7 @@ namespace Bots
         SpellId const Eviscerate = 2098;
         SpellId const SliceAndDice = 5171;
 
-        // The melee damage bot: it attacks the damage target (CommonRules.h)
+        // The melee damage bot: it attacks the damage target (DamageRules.h)
         // from behind when the target attacks another unit, builds combo
         // points with Sinister Strike, keeps Slice and Dice up, and spends
         // five combo points on Eviscerate.

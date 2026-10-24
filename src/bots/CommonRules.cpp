@@ -18,19 +18,6 @@ namespace Bots
         return context.group.GetPull().target;
     }
 
-    Guid PickDamageTarget(BotContext const& context)
-    {
-        if (IsAlive(context.view, context.attackTarget))
-            return context.attackTarget;
-        Guid const focus = context.group.GetFocusTarget();
-        if (IsAlive(context.view, focus) && context.group.TankHoldsThreat())
-            return focus;
-        for (Guid attacker : context.view.GetAttackers(context.view.GetSelf()))
-            if (IsAlive(context.view, attacker))
-                return attacker;
-        return NoGuid;
-    }
-
     bool IsAlive(BotView const& view, Guid unit)
     {
         return unit != NoGuid && view.GetHealth(unit).current > 0;

@@ -28,7 +28,7 @@ namespace Bots
 
         // The ranged damage bot: out of combat it summons its Imp and keeps
         // its armor up. In the fight it sends the Imp to the damage target
-        // (CommonRules.h), stands in range of the target, puts its damage
+        // (DamageRules.h), runs into casting range of the target, puts its damage
         // over time spells on it, and casts Shadow Bolt.
         std::shared_ptr<Strategy const> MakeRangedStrategy();
     }

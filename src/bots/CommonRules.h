@@ -13,12 +13,6 @@ namespace Bots
     Guid PickFocusTarget(BotContext const& context);
     Guid PickPullTarget(BotContext const& context);
 
-    // The targeting rules of the damage bots (melee and ranged), or NoGuid:
-    // 1. the attack target of the player (`attack`), at once;
-    // 2. the focus target, once the tank holds threat on it;
-    // 3. an enemy that attacks the bot itself.
-    Guid PickDamageTarget(BotContext const& context);
-
     // True when the bot can see unit `unit` and the unit is alive.
     bool IsAlive(BotView const& view, Guid unit);
 

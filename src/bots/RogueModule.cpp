@@ -1,5 +1,6 @@
 #include "RogueModule.h"
 #include "CommonRules.h"
+#include "DamageRules.h"
 
 namespace Bots
 {

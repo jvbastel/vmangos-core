@@ -125,9 +125,10 @@ TEST(Warlock, SendsTheImpOnceTheTankHoldsThreat)
     EXPECT_EQ(warlock.fake.Deeds(), (std::vector<std::string>{"pet attack 0xf130000302000022"}));
 }
 
-TEST(Warlock, GetsInRangeOfTheTarget)
+TEST(Warlock, RunsIntoCastingRangeOfTheTarget)
 {
     WarlockBot warlock;
+    warlock.fake.SetDistance(Kobold, 40.0f);
     warlock.group.StartPull(Tank, Kobold);
     warlock.fake.SetVictim(Kobold, Tank);
     warlock.group.HoldPull(Tank);
@@ -135,7 +136,7 @@ TEST(Warlock, GetsInRangeOfTheTarget)
 
     warlock.Think();
 
-    EXPECT_EQ(warlock.fake.Deeds(), (std::vector<std::string>{"chase to range 0xf130000302000022"}));
+    EXPECT_EQ(warlock.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
 }
 
 TEST(Warlock, PutsItsDamageOverTimeSpellsOnTheTarget)
@@ -178,7 +179,7 @@ TEST(Warlock, SwitchesItAndTheImpToTheAttackTargetOfThePlayer)
     warlock.Think();
 
     EXPECT_EQ(warlock.fake.Deeds(),
-        (std::vector<std::string>{"pet attack 0xf130000302000033", "chase to range 0xf130000302000033"}));
+        (std::vector<std::string>{"pet attack 0xf130000302000033", CastOn(Warlock::Corruption, Wolf)}));
 }
 
 TEST(Warlock, DoesNotFollowWhileItChasesALivingTarget)
