@@ -24,6 +24,7 @@ add_library(bots STATIC
   ChatClient.cpp
   ChatContract.cpp
   ChatHttp.cpp
+  ChatSessions.cpp
   CommandState.cpp
   DataTokenizer.cpp
   GearDraw.cpp
