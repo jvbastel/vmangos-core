@@ -23,6 +23,7 @@ add_library(bots STATIC
   DataTokenizer.cpp
   GearDraw.cpp
   GearTemplate.cpp
+  Route.cpp
   SpellFile.cpp
   ThinkTimer.cpp
 )

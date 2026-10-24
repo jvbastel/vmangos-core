@@ -201,6 +201,7 @@ set (game_SRCS
     Bots/BotHooks.cpp
     Bots/BotLevelRoutine.cpp
     Bots/BotMgr.cpp
+    Bots/RouteCommands.cpp
     Server/Protocol/Opcodes.cpp
     Server/Packets/Battleground.cpp
     Server/Packets/AuctionHouse.cpp

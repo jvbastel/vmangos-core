@@ -10,6 +10,7 @@ add_executable(bots_tests
   GearDrawTest.cpp
   GearTemplateTest.cpp
   InboxTest.cpp
+  RouteTest.cpp
   SpellDataTest.cpp
   SpellFileTest.cpp
   ThinkTimerTest.cpp
