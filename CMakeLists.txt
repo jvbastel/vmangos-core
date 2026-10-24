@@ -281,6 +281,10 @@ set_property(DIRECTORY APPEND PROPERTY
 
 message(STATUS "MaNGOS CXX flags      : ${MANGOS_CXX_FLAGS}")
 
+if(BUILD_BOT_TESTS)
+  enable_testing()
+endif()
+
 add_subdirectory(src)
 add_subdirectory(dep)
 
