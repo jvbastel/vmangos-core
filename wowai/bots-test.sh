@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Builds the bot decision library and its GoogleTest tests alone, then runs
+# ctest. `wowai/dev test` runs it in the dev container, and the fork CI runs
+# it on each push.
+#
+#   wowai/bots-test.sh <src/bots folder> <work folder>
+#
+# It builds a copy of only the src/bots folder, so that the rest of the core
+# is not there. A library file that includes a game header then fails to
+# build (ADR 0002 of WOWAI). The work folder keeps the build between runs.
+set -euo pipefail
+
+[ "$#" -eq 2 ] || { echo "Usage: $0 <src/bots folder> <work folder>" >&2; exit 2; }
+bots_src="$1"
+work="$2"
+mkdir -p "$work/src" "$work/out"
+
+# Keep the file times, so that only changed files build again.
+rsync -a --delete "$bots_src/" "$work/src/"
+
+cd "$work/out"
+[ -f CMakeCache.txt ] || cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_BOT_TESTS=1 "$work/src"
+if ! make -j"$(nproc)"; then
+  echo "The bot decision library failed to build alone. src/bots must build" >&2
+  echo "without the rest of the core: it includes no game header (ADR 0002)." >&2
+  exit 1
+fi
+ctest --output-on-failure

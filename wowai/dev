@@ -7,6 +7,8 @@
 #   wowai/dev shell [cmd]    Run a command (default: bash) in the dev container.
 #   wowai/dev stop           Stop the dev container. The build volume stays.
 #   wowai/dev clean          Remove the dev container and its build volume.
+#   wowai/dev test           Build only the bot decision library (src/bots) and
+#                            its GoogleTest tests, and run ctest. No realm.
 #   wowai/dev realm <cmd>    The test realm: up, setup, build, migrate, sql,
 #                            down, compose. See `wowai/dev realm help`.
 #
@@ -187,6 +189,12 @@ cmd_clean() {
   docker volume rm "$volume" >/dev/null 2>&1 || true
 }
 
+# Code tests. The copy of src/bots and its build stay in /build/bots.
+cmd_test() {
+  ensure_container
+  in_container bash /src/wowai/bots-test.sh /src/src/bots /build/bots
+}
+
 usage() {
   sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d' | sed 's/^# \{0,1\}//'
 }
@@ -197,6 +205,7 @@ case "${1:-help}" in
   shell) shift; cmd_shell "$@" ;;
   stop) shift; cmd_stop "$@" ;;
   clean) shift; cmd_clean "$@" ;;
+  test) shift; cmd_test "$@" ;;
   # The test realm (wowai/test-realm/realm.sh).
   realm) shift; source "$script_dir/test-realm/realm.sh"; cmd_realm "$@" ;;
   help|-h|--help) usage ;;

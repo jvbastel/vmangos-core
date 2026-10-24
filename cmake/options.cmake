@@ -7,6 +7,7 @@ option(BUILD_EXTRACTORS               "Build extractors"                        
 option(BUILD_REALMMERGE               "Build helper tool for merging character databases"                                             OFF)
 option(ENABLE_MAILSENDER              "Enables support for sending emails via sendgrid.com (requires libcurl)"                        OFF)
 option(ENABLE_CPPTRACE                "Enables cpptrace stack tracing; can be disabled if using other tools like GDB"                 ON)
+option(BUILD_BOT_TESTS                "Build the GoogleTest tests of the bot decision library (needs GoogleTest)"                     OFF)
 
 if(USE_EXTRACTORS)
   message(WARNING "USE_EXTRACTORS is deprecated, please use BUILD_EXTRACTORS instead")
@@ -74,6 +75,7 @@ message(STATUS
     ENABLE_MAILSENDER         Enables support for sending emails via sendgrid.com (requires libcurl)
     SUPPORTED_CLIENT_BUILD    Client version the core will support
     ENABLE_CPPTRACE           Enables cpptrace stack tracing; can be disabled if using other tools like GDB
+    BUILD_BOT_TESTS           Build the GoogleTest tests of the bot decision library (needs GoogleTest)
 
 
   To set an option simply type -D<OPTION>=<VALUE> after 'cmake <srcs>'.

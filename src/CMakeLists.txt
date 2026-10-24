@@ -25,6 +25,7 @@ endif()
 add_subdirectory(shared)
 add_subdirectory(framework)
 add_subdirectory(realmd)
+add_subdirectory(bots)
 add_subdirectory(game)
 add_subdirectory(mangosd)
 

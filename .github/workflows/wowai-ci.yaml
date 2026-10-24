@@ -1,0 +1,64 @@
+# The CI of the WOWAI fork. On each push it builds the fork with the code
+# tests of the bot decision library (src/bots), runs them with ctest, and
+# makes sure that src/bots builds alone, without game headers (ADR 0002 of
+# WOWAI). `wowai/dev test` runs the same `wowai/bots-test.sh` locally.
+#
+# The job runs in the base image of the dev container and of the
+# vmangos-deploy build stage, with the same packages as
+# `wowai/dev-container/Dockerfile`. Keep the three in step.
+name: WOWAI CI
+
+on:
+  push:
+
+jobs:
+  bots:
+    name: Build the fork and run the bot code tests
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update
+          apt install -y --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            cmake \
+            git \
+            libcurl4-openssl-dev \
+            libmysqlclient-dev \
+            libssl-dev \
+            zlib1g-dev \
+            libgtest-dev \
+            rsync
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build the fork with the bot code tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_INSTALL_PREFIX="$PWD/_install" \
+            -DBUILD_EXTRACTORS=0 \
+            -DBUILD_BOT_TESTS=1 \
+            -DBUILD_FOR_HOST_CPU=0 \
+            -DENABLE_MAILSENDER=1 \
+            -DENABLE_CPPTRACE=0 \
+            -DSUPPORTED_CLIENT_BUILD=5875
+          cmake --build build --parallel "$(nproc)"
+
+      - name: Run the bot code tests
+        shell: bash
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Build src/bots alone (no game headers) and run its tests
+        shell: bash
+        run: wowai/bots-test.sh "$PWD/src/bots" "$RUNNER_TEMP/bots"
