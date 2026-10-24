@@ -13,12 +13,16 @@ namespace Bots
         while (std::getline(input, line))
         {
             ++number;
+            std::string::size_type comment = line.find(CommentMarker);
+            if (comment != std::string::npos)
+                line.erase(comment);
             std::istringstream lineInput(line);
             DataLine dataLine{number, {}};
             std::string word;
             while (lineInput >> word)
                 dataLine.words.push_back(word);
-            lines.push_back(dataLine);
+            if (!dataLine.words.empty())
+                lines.push_back(dataLine);
         }
         return lines;
     }
