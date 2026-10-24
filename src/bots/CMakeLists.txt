@@ -29,6 +29,7 @@ add_library(bots STATIC
   Route.cpp
   SpellBook.cpp
   SpellFile.cpp
+  Strategy.cpp
   ThinkTimer.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
