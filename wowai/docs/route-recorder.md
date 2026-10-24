@@ -36,7 +36,7 @@ When you finish, set the line back to `set realmlist 127.0.0.1` for the play rea
 
 ## 3. Record the route
 
-Go to the dungeon, for example with `.tele ragefire` (`.lookup tele ragefire` shows the names). Then walk the route that the group must take, in order.
+Go to the dungeon. For example, `.tele RagefireChasm` takes you to the entrance in Orgrimmar. Walk into the portal. Then walk the route that the group must take, in order.
 
 | Command | What it does |
 |---|---|
@@ -62,7 +62,7 @@ Tips:
 
 ## 4. Commit the file
 
-The file is in your fork tree, for example `bots/data/routes/ragefire_chasm.txt`. Check it and commit it.
+The file is in your fork tree, for example `bots/data/routes/ragefire_chasm.txt`. The answers in the game show the path inside the container, `bots/routes/ragefire_chasm.txt`, which is the same file. Check it and commit it.
 
 ## Without a client
 
