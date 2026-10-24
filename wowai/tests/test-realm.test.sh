@@ -54,7 +54,7 @@ soap() {
     "http://127.0.0.1:$WOWAI_REALM_SOAP_PORT/"
 }
 mangosd_container() { docker ps --quiet --filter "label=com.docker.compose.project=$WOWAI_REALM_PROJECT" --filter "label=com.docker.compose.service=mangosd"; }
-mangosd_exe_sha() { docker exec "$(mangosd_container)" sh -c 'sha256sum /proc/$(pidof mangosd)/exe' | cut -d' ' -f1; }
+mangosd_exe_sha() { docker exec --user "$(id -u)" "$(mangosd_container)" sh -c 'sha256sum /proc/$(pidof mangosd)/exe' | cut -d' ' -f1; }
 
 echo "Bringing up the test realm..."
 "$dev" realm up
@@ -81,8 +81,7 @@ check "the override mounts the dev install folder over /opt/vmangos/bin" \
 check "mangosd runs the dev build" \
   test "$(mangosd_exe_sha)" = "$(sha256sum "$WOWAI_DEV_INSTALL/bin/mangosd" | cut -d' ' -f1)"
 
-# The GM account.
-"$dev" realm setup
+# The GM account, made by `realm up`.
 gm="$(sed -n 's/^WOWAI_REALM_GM_ACCOUNT=//p' "$WOWAI_REALM_DIR/.env"):$(sed -n 's/^WOWAI_REALM_GM_PASSWORD=//p' "$WOWAI_REALM_DIR/.env")"
 check "the setup creates a GM account with level 6" \
   test "$(realm_sql realmd "SELECT aa.gmlevel FROM account a JOIN account_access aa ON aa.id = a.id WHERE a.username = '${gm%%:*}'")" = 6
