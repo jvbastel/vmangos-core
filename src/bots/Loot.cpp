@@ -17,14 +17,23 @@ namespace Bots
 
     bool GearScores::IsClearUpgrade(std::uint32_t entry, std::vector<GearOption> const& options) const
     {
+        return BestUpgradeOption(entry, options) < options.size();
+    }
+
+    std::size_t GearScores::BestUpgradeOption(std::uint32_t entry, std::vector<GearOption> const& options) const
+    {
+        std::size_t best = options.size();
         auto const found = m_scores.find(entry);
         if (found == m_scores.end())
-            return false;
-        for (GearOption const& option : options)
+            return best;
+        double const score = found->second;
+
+        double bestGain = 0.0;
+        for (std::size_t index = 0; index < options.size(); ++index)
         {
             double worn = 0.0;
             bool known = true;
-            for (WornItem const& item : option)
+            for (WornItem const& item : options[index])
             {
                 auto const wornScore = m_scores.find(item.entry);
                 if (wornScore != m_scores.end())
@@ -32,13 +41,15 @@ namespace Bots
                 else if (item.grade == ItemGrade::High)
                     known = false;
             }
-            if (!known)
-                continue;
             // A small tolerance, so that exactly a tenth more counts.
-            if (found->second > worn && found->second >= worn * ClearUpgradeFactor - 1e-9)
-                return true;
+            bool const clear = known && score > worn && score >= worn * ClearUpgradeFactor - 1e-9;
+            if (clear && (best == options.size() || score - worn > bestGain))
+            {
+                best = index;
+                bestGain = score - worn;
+            }
         }
-        return false;
+        return best;
     }
 
     BagRoom ChooseBagRoom(std::vector<BagItem> const& bagItems, IncomingItem const& incoming)

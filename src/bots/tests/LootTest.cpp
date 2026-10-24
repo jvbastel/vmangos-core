@@ -143,3 +143,20 @@ TEST(BagFull, OnEqualValuesTheFirstGreyItemGoes)
     std::vector<BagItem> const bag = {NotGrey(1), Grey(5), Grey(5)};
     EXPECT_EQ(ChooseBagRoom(bag, IncomingItem{6, false}).index, 1u);
 }
+
+TEST(ClearUpgrade, TheBestOptionIsTheOneWithTheLargestGain)
+{
+    GearScores scores = Scores(
+        "item finger 10 10-20 0 12\n"
+        "item finger 11 10-20 0 5\n"
+        "item finger 12 10-20 0 20\n");
+    std::vector<GearOption> const rings = {{{10, ItemGrade::High}}, {{11, ItemGrade::High}}};
+    EXPECT_EQ(scores.BestUpgradeOption(12, rings), 1u);
+}
+
+TEST(ClearUpgrade, WithNoClearUpgradeTheBestOptionIsPastTheEnd)
+{
+    GearScores scores = Scores("item finger 10 10-20 0 12\n");
+    std::vector<GearOption> const rings = {{{10, ItemGrade::High}}, {{10, ItemGrade::High}}};
+    EXPECT_EQ(scores.BestUpgradeOption(10, rings), rings.size());
+}

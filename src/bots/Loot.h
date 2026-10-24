@@ -63,6 +63,11 @@ namespace Bots
             // has an unknown score, so that option is never a clear upgrade.
             bool IsClearUpgrade(std::uint32_t entry, std::vector<GearOption> const& options) const;
 
+            // The index of the option where the item is a clear upgrade with
+            // the largest gain in score (the first one on a tie), or
+            // `options.size()` when the item is no clear upgrade.
+            std::size_t BestUpgradeOption(std::uint32_t entry, std::vector<GearOption> const& options) const;
+
         private:
             std::map<std::uint32_t, double> m_scores;
     };
