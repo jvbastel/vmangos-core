@@ -7,6 +7,8 @@
 #   wowai/dev shell [cmd]    Run a command (default: bash) in the dev container.
 #   wowai/dev stop           Stop the dev container. The build volume stays.
 #   wowai/dev clean          Remove the dev container and its build volume.
+#   wowai/dev realm <cmd>    The test realm: up, setup, build, migrate, sql,
+#                            down, compose. See `wowai/dev realm help`.
 #
 # The dev container is long-lived. It uses the same base image as the build
 # stage of vmangos-deploy, bind-mounts the source tree read-only, and keeps
@@ -195,6 +197,8 @@ case "${1:-help}" in
   shell) shift; cmd_shell "$@" ;;
   stop) shift; cmd_stop "$@" ;;
   clean) shift; cmd_clean "$@" ;;
+  # The test realm (wowai/test-realm/realm.sh).
+  realm) shift; source "$script_dir/test-realm/realm.sh"; cmd_realm "$@" ;;
   help|-h|--help) usage ;;
   *) usage >&2; exit 2 ;;
 esac
