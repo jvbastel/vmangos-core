@@ -30,6 +30,8 @@
 #                           image, else ghcr.io/mserajnik/vmangos-database:latest
 #   WOWAI_REALM_DATA        Extracted client data (read-only).
 #                           Default: <WOWAI_DEPLOY_DIR>/storage/mangosd/extracted-data
+#   WOWAI_BOTCHAT_SRC       A clone of the chat service repository, which the
+#                           botchat service runs. Default: ~/wowai/botchat
 
 realm_dir="$(realpath -m "${WOWAI_REALM_DIR:-$HOME/wowai/test-realm}")"
 realm_files="$script_dir/test-realm"
@@ -64,6 +66,9 @@ realm_prepare() {
   local data
   data="$(realm_setting WOWAI_REALM_DATA "$deploy_dir/storage/mangosd/extracted-data")"
   [ -d "$data/5875" ] || die "no extracted client data in $data (set WOWAI_REALM_DATA)"
+  local botchat
+  botchat="$(realpath -m "$(realm_setting WOWAI_BOTCHAT_SRC "$HOME/wowai/botchat")")"
+  [ -f "$botchat/Dockerfile" ] || die "no chat service in $botchat (clone jvbastel/botchat there, or set WOWAI_BOTCHAT_SRC)"
 
   local env
   env="$(cat <<EOF
@@ -75,6 +80,7 @@ WOWAI_REALM_PROJECT=$(realm_setting WOWAI_REALM_PROJECT wowai-test-realm)
 WOWAI_REALM_DIR=$realm_dir
 WOWAI_DEV_INSTALL=$install_dir
 WOWAI_REALM_DATA=$data
+WOWAI_BOTCHAT_SRC=$botchat
 WOWAI_REALM_LOGIN_PORT=$(realm_setting WOWAI_REALM_LOGIN_PORT 3725)
 WOWAI_REALM_WORLD_PORT=$(realm_setting WOWAI_REALM_WORLD_PORT 8086)
 WOWAI_REALM_SOAP_PORT=$(realm_setting WOWAI_REALM_SOAP_PORT 7879)

@@ -9,6 +9,7 @@
 #   wowai/tests/test-realm.test.sh
 #
 # Keep the temporary realm for a look by hand: WOWAI_TEST_KEEP=1.
+# The botchat service runs WOWAI_BOTCHAT_SRC (default ~/wowai/botchat).
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -80,6 +81,13 @@ check "the override mounts the dev install folder over /opt/vmangos/bin" \
   bash -c "docker inspect --format '{{range .Mounts}}{{.Source}}={{.Destination}} {{end}}' '$(mangosd_container)' | grep -q '$WOWAI_DEV_INSTALL/bin=/opt/vmangos/bin '"
 check "mangosd runs the dev build" \
   test "$(mangosd_exe_sha)" = "$(sha256sum "$WOWAI_DEV_INSTALL/bin/mangosd" | cut -d' ' -f1)"
+
+# The chat service, from the realm network, as the core reaches it.
+botchat_is_fake() {
+  docker run --rm --network "${WOWAI_REALM_PROJECT}_default" alpine:latest \
+    wget -qO- http://botchat:8000/health | grep -q '"llm":"fake"'
+}
+check "the botchat service answers /health with the fake LLM backend" botchat_is_fake
 
 # The GM account, made by `realm up`.
 gm="$(sed -n 's/^WOWAI_REALM_GM_ACCOUNT=//p' "$WOWAI_REALM_DIR/.env"):$(sed -n 's/^WOWAI_REALM_GM_PASSWORD=//p' "$WOWAI_REALM_DIR/.env")"
