@@ -1,5 +1,6 @@
 #include "ClassModules.h"
 #include "CommonRules.h"
+#include "PriestModule.h"
 #include "WarriorModule.h"
 
 namespace Bots
@@ -18,6 +19,7 @@ namespace Bots
 
         ClassModule const Modules[] = {
             {BotClass::Warrior, BotRole::Tank, &Warrior::MakeTankStrategy},
+            {BotClass::Priest, BotRole::Healer, &Priest::MakeHealerStrategy},
         };
 
         bool ShouldFollow(BotContext const& context)

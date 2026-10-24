@@ -51,6 +51,10 @@ namespace Bots
         // `target` now: the spell is ready, the global cooldown is over, and
         // the power, the stance, the aura states, and the range allow it.
         virtual bool CanCast(SpellId spell, Guid target) const = 0;
+
+        // The members of the bot's group that the bot can see, the bot
+        // first. Only the bot when it is in no group.
+        virtual std::vector<Guid> GetGroupMembers() const = 0;
     };
 }
 
