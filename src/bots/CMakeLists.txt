@@ -25,12 +25,16 @@ add_library(bots STATIC
   DataTokenizer.cpp
   GearDraw.cpp
   GearTemplate.cpp
+  GroupCoordinator.cpp
   Route.cpp
   SpellBook.cpp
   SpellFile.cpp
   ThinkTimer.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# The group coordinator has a mutex.
+find_package(Threads REQUIRED)
+target_link_libraries(bots PUBLIC Threads::Threads)
 
 if(BUILD_BOT_TESTS)
   add_subdirectory(tests)

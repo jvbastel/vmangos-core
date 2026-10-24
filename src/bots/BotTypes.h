@@ -9,6 +9,8 @@ namespace Bots
 {
     // The full 64-bit GUID of a unit, as the game layer has it in ObjectGuid.
     using Guid = std::uint64_t;
+    // No unit, for example no target.
+    Guid const NoGuid = 0;
 
     using SpellId = std::uint32_t;
     SpellId const NoSpell = 0;
