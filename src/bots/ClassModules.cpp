@@ -1,5 +1,7 @@
 #include "ClassModules.h"
 #include "CommonRules.h"
+#include "RogueModule.h"
+#include "WarlockModule.h"
 #include "WarriorModule.h"
 
 namespace Bots
@@ -18,6 +20,8 @@ namespace Bots
 
         ClassModule const Modules[] = {
             {BotClass::Warrior, BotRole::Tank, &Warrior::MakeTankStrategy},
+            {BotClass::Rogue, BotRole::Melee, &Rogue::MakeMeleeStrategy},
+            {BotClass::Warlock, BotRole::Ranged, &Warlock::MakeRangedStrategy},
         };
 
         bool ShouldFollow(BotContext const& context)
@@ -27,6 +31,8 @@ namespace Bots
                 && !context.view.IsInCombat(self)
                 // The tank on its way to the pull target.
                 && context.group.GetPull().puller != self
+                // A damage bot on its way to its target.
+                && !IsAlive(context.view, context.view.GetChase().target)
                 && context.view.GetFollowTarget() != context.commandPlayer;
         }
     }

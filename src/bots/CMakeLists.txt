@@ -33,12 +33,14 @@ add_library(bots STATIC
   GearTemplate.cpp
   GroupCommand.cpp
   GroupCoordinator.cpp
+  RogueModule.cpp
   Route.cpp
   SpellBook.cpp
   SpellFile.cpp
   Strategy.cpp
   TalentBuild.cpp
   ThinkTimer.cpp
+  WarlockModule.cpp
   WarriorModule.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

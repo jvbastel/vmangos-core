@@ -21,6 +21,7 @@ add_executable(bots_tests
   GroupCommandTest.cpp
   GroupCoordinatorTest.cpp
   InboxTest.cpp
+  RogueTest.cpp
   RouteTest.cpp
   SpellBookTest.cpp
   SpellDataTest.cpp
@@ -29,6 +30,7 @@ add_executable(bots_tests
   TalentBuildTest.cpp
   TalentDataTest.cpp
   ThinkTimerTest.cpp
+  WarlockTest.cpp
   WarriorTankTest.cpp
 )
 # GoogleTest 1.17 needs C++17. The library itself stays C++14, like the core.

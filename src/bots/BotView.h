@@ -12,6 +12,14 @@ namespace Bots
     // adapter in src/game/Bots wraps Player and Unit, and the fake adapter in
     // tests/ serves the tests. Each new query that a trigger needs is a new
     // call here, and both adapters implement it.
+    // How the bot runs after a unit in a fight.
+    struct ChaseState
+    {
+        Guid target; // NoGuid when the bot chases no unit.
+        bool behind; // The bot runs behind the unit (BotActions::ChaseBehind).
+        // A chase from BotActions::ChaseInRange is not behind.
+    };
+
     class BotView
     {
     public:
@@ -40,6 +48,12 @@ namespace Bots
         virtual bool HasAura(Guid unit, SpellId firstRank) const = 0;
         // The unit that the bot follows now, or NoGuid.
         virtual Guid GetFollowTarget() const = 0;
+        // The unit that the bot chases now, and how.
+        virtual ChaseState GetChase() const = 0;
+        // The pet of the bot, for example the Imp of a Warlock, or NoGuid.
+        virtual Guid GetPet() const = 0;
+        // The combo points of the bot on its current target.
+        virtual std::uint32_t GetComboPoints() const = 0;
 
         // Spells and ranks, for the spell book helper (SpellBook.h).
         // True when the bot knows spell `spell`.

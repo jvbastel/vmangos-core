@@ -48,6 +48,9 @@ namespace Bots
                     m_auras.erase({unit, firstRank});
             }
             void SetFollowTarget(Guid unit) { m_followTarget = unit; }
+            void SetPet(Guid pet) { m_pet = pet; }
+            void SetComboPoints(std::uint32_t points) { m_comboPoints = points; }
+            void ClearDeeds() { m_deeds.clear(); }
             // The ranks of one spell, first rank first.
             void SetSpellChain(std::vector<SpellId> const& ranks)
             {
@@ -102,6 +105,9 @@ namespace Bots
             }
             bool HasAura(Guid unit, SpellId firstRank) const override { return m_auras.count({unit, firstRank}) != 0; }
             Guid GetFollowTarget() const override { return m_followTarget; }
+            ChaseState GetChase() const override { return m_chase; }
+            Guid GetPet() const override { return m_pet; }
+            std::uint32_t GetComboPoints() const override { return m_comboPoints; }
             bool CanCast(SpellId spell, Guid target) const override
             {
                 return KnowsSpell(spell) && !m_cannotCast.count(spell) && GetHealth(target).current > 0;
@@ -128,8 +134,27 @@ namespace Bots
             }
 
             void Attack(Guid target) override { AddDeed("attack", target); }
-            void Chase(Guid target) override { AddDeed("chase", target); }
-            void Follow(Guid unit) override { AddDeed("follow", unit); }
+            void Chase(Guid target) override
+            {
+                AddDeed("chase", target);
+                m_chase = {target, false};
+            }
+            void ChaseBehind(Guid target) override
+            {
+                AddDeed("chase behind", target);
+                m_chase = {target, true};
+            }
+            void ChaseInRange(Guid target, float /*yards*/) override
+            {
+                AddDeed("chase in range", target);
+                m_chase = {target, false};
+            }
+            void PetAttack(Guid target) override { AddDeed("pet attack", target); }
+            void Follow(Guid unit) override
+            {
+                AddDeed("follow", unit);
+                m_chase = {NoGuid, false};
+            }
 
         private:
             void AddDeed(char const* verb, Guid unit)
@@ -151,6 +176,9 @@ namespace Bots
             std::map<Guid, Guid> m_victim;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
+            ChaseState m_chase = {NoGuid, false};
+            std::uint32_t m_comboPoints = 0;
+            Guid m_pet = NoGuid;
             std::vector<std::string> m_deeds;
         };
     }
