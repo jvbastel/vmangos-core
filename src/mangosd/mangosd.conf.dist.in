@@ -3282,6 +3282,43 @@ Bots.ThinkMs.Far = 3000
 Bots.DataDir = "bots"
 
 ###################################################################################################################
+# WOWAI BOT CHAT
+#
+#    The chat client of the WOWAI bots. It sends bot chat events to the chat service (the botchat
+#    repository) and the bots say the lines that come back. If the service is slow or down, the bots
+#    say nothing and the core writes a log line. The realm works fully without the service.
+#    The core reads these settings at startup only.
+#
+#    BotChat.Enable
+#        Enables bot chat.
+#        Default: 1 - on
+#                 0 - off
+#
+#    BotChat.Url
+#        Base URL of the chat service. The core calls POST <url>/v1/events.
+#        Default: "http://botchat:8000" (the botchat service of the realm's Docker Compose stack)
+#
+#    BotChat.Workers
+#        Number of worker threads that call the chat service at the same time.
+#        Default: 4 (the 4 parallel slots of llama-server)
+#
+#    BotChat.QueueSize
+#        Number of events that wait for a worker. When the queue is full, the oldest event drops.
+#        Default: 64
+#
+#    BotChat.TimeoutMs
+#        Time in milliseconds after which one call to the chat service fails.
+#        Default: 5000
+#
+###################################################################################################################
+
+BotChat.Enable = 1
+BotChat.Url = "http://botchat:8000"
+BotChat.Workers = 4
+BotChat.QueueSize = 64
+BotChat.TimeoutMs = 5000
+
+###################################################################################################################
 # MAIL FLOODING MITIGATION
 #
 #    MailSpam.ExpireSecs
