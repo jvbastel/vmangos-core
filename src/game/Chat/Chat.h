@@ -298,6 +298,10 @@ class ChatHandler
         bool HandlePartyBotUnequipCommand(char * args);
         bool HandlePartyBotRemoveCommand(char * args);
         bool HandleBattleBotAddCommand(char* args, uint8 bg);
+        // WOWAI bots (src/game/Bots/BotCommands.cpp)
+        bool HandleWowaiBotCreateCommand(char* args);
+        bool HandleWowaiBotLoginCommand(char* args);
+        bool HandleWowaiBotLogoutCommand(char* args);
         bool HandleBattleBotAddAlteracCommand(char* args);
         bool HandleBattleBotAddArathiCommand(char* args);
         bool HandleBattleBotAddWarsongCommand(char* args);
