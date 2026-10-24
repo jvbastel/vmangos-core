@@ -44,6 +44,9 @@ git_quiet -C "$tmp/fork" remote add origin "$tmp/fork.git"
 git_quiet -C "$tmp/fork" fetch upstream
 git_quiet -C "$tmp/fork" checkout -b wowai
 echo "-- ours" >"$tmp/fork/sql/migrations/20261001000000_characters.sql"
+mkdir -p "$tmp/fork/bots/data/gear" "$tmp/fork/bots/tools/gear"
+echo "template warrior_tank warrior tank generated" >"$tmp/fork/bots/data/gear/warrior_tank.txt"
+echo "print('a tool')" >"$tmp/fork/bots/tools/gear/generate.py"
 git_quiet -C "$tmp/fork" add -A
 git_quiet -C "$tmp/fork" commit -m "Our migration"
 pushed="$(git -C "$tmp/fork" rev-parse HEAD)"
@@ -106,6 +109,21 @@ check "both builds use the full commit" \
 check "both builds fail on a patch error" \
   test "$(grep -cF -- "--build-arg VMANGOS_FAIL_ON_PATCH_ERROR=1 " "$FAKE_DOCKER_LOG")" = 2
 check "the server image is tagged with the commit" docker image inspect --format "{{.Id}}" "$server"
+stock="wowai/vmangos-server-stock:5875-$pushed"
+check "the stock server image gets its own tag" \
+  logged "$WOWAI_DEPLOY_BUILD_DIR | build --file docker/server/Dockerfile --build-arg VMANGOS_CLIENT_VERSION=5875"
+check "the stock server build is tagged as the stock image" \
+  bash -c 'grep -F docker/server/Dockerfile "$0" | grep -qF -- "--tag $1 "' "$FAKE_DOCKER_LOG" "$stock"
+check "the server image adds bots/data on top of the stock image" \
+  bash -c 'grep -F -- "--build-arg BASE_IMAGE=$1 " "$0" | grep -qF -- "--tag $2 "' "$FAKE_DOCKER_LOG" "$stock" "$server"
+check "the bots/data build context holds the commit's bots/data" \
+  logged "context: bots/data/gear/warrior_tank.txt"
+check "the bots/data build context holds no other files of the fork" \
+  not_logged "context: bots/tools/gear/generate.py"
+check "the bots/data build has the revision label" \
+  bash -c 'grep -F -- "--build-arg BASE_IMAGE=" "$0" | grep -qF -- "--label org.opencontainers.image.revision=$1"' "$FAKE_DOCKER_LOG" "$pushed"
+check "the bots/data Dockerfile copies bots/data to the working folder of mangosd" \
+  grep -qx 'COPY bots/data/ /home/vmangos/bots/' "$here/../bots-data.Dockerfile"
 check "the database image is tagged with the commit" docker image inspect --format "{{.Id}}" "$database"
 
 reset_docker_log
