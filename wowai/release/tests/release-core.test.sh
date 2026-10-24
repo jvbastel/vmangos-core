@@ -109,5 +109,56 @@ reset_docker_log
 check "the database build gets VMANGOS_MIGRATION_EDITS" \
   bash -c 'grep -F docker/database/Dockerfile "$0" | grep -qF -- "--build-arg VMANGOS_MIGRATION_EDITS=world:core@abc|characters:core@def "' "$FAKE_DOCKER_LOG"
 
+# --- up ---
+
+# A fake play realm: the vmangos-deploy example Compose file with the backup
+# service on, with CRLF endings as Git on Windows writes it. Its images are
+# the published ones of the upstream commit.
+play="$tmp/play"
+export WOWAI_PLAY_REALM="$play"
+mkdir -p "$play/storage/database/backups"
+sed 's/$/\r/' "$here/play-compose.yaml" >"$play/compose.yaml"
+cp "$play/compose.yaml" "$tmp/compose.before"
+fake_image() { printf '%s\n' "$2" >"$FAKE_DOCKER_IMAGES/$(printf '%s' "$1" | tr '/:' '__')"; }
+fake_image ghcr.io/mserajnik/vmangos-database "$upstream_commit"
+fake_image ghcr.io/mserajnik/vmangos-server:5875 "$upstream_commit"
+
+# The Compose file without its image and pull_policy lines.
+other_lines() { grep -vE '^    (image|pull_policy):' "$1"; }
+service_block() { tr -d '\r' <"$play/compose.yaml" | sed -n "/^  $1:/,/^  [a-z#]/p"; }
+
+reset_docker_log
+check "up refuses a commit that has no images" \
+  bash -c '! "$0" up "$1" >/dev/null 2>&1' "$release" "$unpushed"
+reset_docker_log
+check "up stops when the backup fails" \
+  bash -c '! FAKE_DOCKER_BACKUP_FAILS=1 "$0" up "$1" >/dev/null 2>&1' "$release" "$pushed"
+check "a failed up leaves the Compose file as it was" cmp -s "$play/compose.yaml" "$tmp/compose.before"
+check "a failed up starts nothing" not_logged "compose up"
+
+reset_docker_log
+check "up of a built commit works" "$release" up "$pushed"
+check "up makes a backup with the backup-now command" \
+  logged "$play | compose run --rm -e DB_DUMP_CRON= -e DB_DUMP_ONCE=true database-backup"
+check "the backup comes before the start" \
+  test "$(grep -n 'DB_DUMP_ONCE' "$FAKE_DOCKER_LOG" | cut -d: -f1)" -lt "$(grep -n 'compose up -d' "$FAKE_DOCKER_LOG" | cut -d: -f1)"
+check "up runs docker compose up -d in the play realm" logged "$play | compose up -d"
+check "database gets the new database image" \
+  bash -c 'grep -qx "    image: $1" <<<"$0"' "$(service_block database)" "$database"
+check "realmd gets the new server image" \
+  bash -c 'grep -qx "    image: $1" <<<"$0"' "$(service_block realmd)" "$server"
+check "mangosd gets the new server image and keeps its anchor" \
+  bash -c 'grep -qx "    image: &mangosd-image $1" <<<"$0"' "$(service_block mangosd)" "$server"
+for service in database realmd mangosd; do
+  check "$service has pull_policy: never once" \
+    test "$(service_block "$service" | grep -c '^    pull_policy: never$')" = 1
+done
+check "the other lines of the Compose file stay" \
+  bash -c 'diff <(grep -vE "^    (image|pull_policy):" "$0") <(grep -vE "^    (image|pull_policy):" "$1")' \
+  "$tmp/compose.before" "$play/compose.yaml"
+check "the Compose file keeps its CRLF endings" \
+  test "$(grep -c $'\r$' "$play/compose.yaml")" = "$(wc -l <"$play/compose.yaml")"
+check "up removes no image" bash -c '! grep -E " (rmi|image rm|image prune|system prune)" "$0"' "$FAKE_DOCKER_LOG"
+
 echo
 if [ "$failures" -eq 0 ]; then echo "All checks passed."; else echo "$failures check(s) failed."; exit 1; fi
