@@ -44,6 +44,7 @@ namespace Bots
         //    a member attacks it while it is in combat.
         // 2. Ends the boss fight when the bot sees the boss dead or out of
         //    combat (a wipe). A bot that cannot see the boss keeps the fight.
+        //    A focus target on the boss ends with the fight.
         // 3. Pushes the reaction of the boss fight onto `stack`, or pops it
         //    when the fight ended.
         Change Update(BotView const& view, GroupCoordinator& group, StrategyStack& stack, BotRole role);

@@ -165,3 +165,31 @@ TEST(BossReactionSlot, AFightThatAnotherBotEndedPopsTheReaction)
     EXPECT_EQ(bot.Update(), BossReactionSlot::Change::Popped);
     EXPECT_FALSE(Has(bot.stack, "taragaman the hungerer"));
 }
+
+TEST(BossReactionSlot, AWipeAlsoEndsTheFocusOnTheBoss)
+{
+    HealerBot bot;
+    bot.fake.SetVictim(Taragaman, Tank);
+    bot.group.SetFocusTarget(Taragaman);
+    bot.Update();
+
+    // The group died, and he went back out of combat: the damage bots must
+    // not attack him again on their own after they revive.
+    bot.fake.SetVictim(Taragaman, NoGuid);
+    bot.Update();
+
+    EXPECT_EQ(bot.group.GetFocusTarget(), NoGuid);
+}
+
+TEST(BossReactionSlot, TheEndOfTheFightKeepsAnotherFocus)
+{
+    HealerBot bot;
+    bot.fake.SetVictim(Taragaman, Tank);
+    bot.Update();
+    bot.group.SetFocusTarget(Imp);
+
+    bot.fake.SetVictim(Taragaman, NoGuid);
+    bot.Update();
+
+    EXPECT_EQ(bot.group.GetFocusTarget(), Imp);
+}

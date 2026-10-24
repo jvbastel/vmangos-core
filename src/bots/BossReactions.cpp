@@ -65,6 +65,10 @@ namespace Bots
         if (fight.boss != NoGuid && SeesFightEnd(view, fight.boss))
         {
             group.EndBossFight(fight.boss);
+            // After a wipe he lives: the focus on him must end too, else the
+            // damage bots attack him again as soon as they revive.
+            if (group.GetFocusTarget() == fight.boss)
+                group.EndPull();
             fight = group.GetBossFight();
         }
         if (fight.boss == NoGuid)
