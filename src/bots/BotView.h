@@ -141,6 +141,11 @@ namespace Bots
         virtual bool IsEating() const = 0;
         // True when the bot drinks now: it has the aura of its drink.
         virtual bool IsDrinking() const = 0;
+        // True when a living enemy fights, or runs home from a fight
+        // (evades), within `yards` of the bot or with its home within its
+        // aggro distance of the bot; or when an enemy would attack the bot
+        // where it stands (the bot is within its aggro distance).
+        virtual bool IsFightNear(float yards) const = 0;
     };
 }
 

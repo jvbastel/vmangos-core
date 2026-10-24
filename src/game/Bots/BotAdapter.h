@@ -62,6 +62,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::Power GetMana(Bots::Guid unit) const override;
         bool IsEating() const override;
         bool IsDrinking() const override;
+        bool IsFightNear(float yards) const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;

@@ -12,12 +12,17 @@ namespace Bots
     // distance of the corpse.
     float const ReviveNearLeaderYards = 30.0f;
 
+    // A dead bot does not revive at its corpse at once while an enemy within
+    // this distance fights or evades, or would attack it (BotView::IsFightNear).
+    float const ReviveClearOfFightYards = 30.0f;
+
     // The strategy of a dead bot, in the Death band: it outranks every other
     // rule, so a dead bot does nothing else. The player picks the moment of
     // release: when the leader becomes a ghost, the bot releases. A ghost
     // revives at its corpse when the leader is alive near the corpse. After
     // a fight that no living member can resurrect from, the bot revives at
-    // its corpse at once. Otherwise the bot waits, for example for the
+    // its corpse at once. The fight is over when no living member fights and
+    // no enemy near the corpse fights, evades, or would attack the bot. Otherwise the bot waits, for example for the
     // Priest's resurrect.
     std::shared_ptr<Strategy const> MakeDeathStrategy();
 

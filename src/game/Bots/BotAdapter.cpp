@@ -13,7 +13,11 @@
 #include "Log.h"
 #include "MotionMaster.h"
 #include "spline/MoveSpline.h"
+#include "CellImpl.h"
+#include "Creature.h"
 #include "CreatureAI.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
 #include "Pet.h"
 #include "ObjectAccessor.h"
 #include "Packet.h"
@@ -28,9 +32,28 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <list>
 
 namespace
 {
+    // IsFightNear: how far it looks for a fight, and the margin around the
+    // aggro distance of a creature that goes home from a fight.
+    float const FightSearchYards = 100.0f;
+    float const HomeMarginYards = 5.0f;
+
+    // The living creatures within `range` of `source`, for IsFightNear.
+    struct LivingCreatureCheck
+    {
+        WorldObject const* source;
+        float range;
+
+        WorldObject const& GetFocusObject() const { return *source; }
+        bool operator()(Creature* creature) const
+        {
+            return creature->IsAlive() && source->IsWithinDistInMap(creature, range);
+        }
+    };
+
     // A following bot keeps this distance to the unit, at a random angle.
     float const MinFollowYards = 3.0f;
     float const MaxFollowYards = 6.0f;
@@ -577,6 +600,38 @@ bool BotAdapter::IsEating() const
 bool BotAdapter::IsDrinking() const
 {
     return me->HasAuraType(SPELL_AURA_MOD_POWER_REGEN);
+}
+
+bool BotAdapter::IsFightNear(float yards) const
+{
+    // All living creatures in range, seen or not: a dead bot does not see
+    // every unit around its corpse. A fight can move far from the corpse (a
+    // boss chases the last fighter), so the search goes wider than `yards`.
+    float const searchYards = std::max(yards, FightSearchYards);
+    std::list<Creature*> creatures;
+    LivingCreatureCheck check = {me, searchYards};
+    MaNGOS::CreatureListSearcher<LivingCreatureCheck> searcher(creatures, check);
+    Cell::VisitGridObjects(me, searcher, searchYards);
+    for (Creature const* creature : creatures)
+    {
+        if (creature->IsPet() || creature->IsFriendlyTo(me))
+            continue;
+        float const aggroYards = creature->IsHostileTo(me) ? creature->GetAttackDistance(me) : 0.0f;
+        // A creature in evade mode runs home from a fight and stays out of
+        // combat until it is there.
+        if (creature->IsInCombat() || creature->IsInEvadeMode())
+        {
+            if (me->IsWithinDistInMap(creature, yards))
+                return true;
+            Position const& home = creature->GetHomePosition();
+            if (aggroYards > 0.0f && me->IsWithinDist3d(home.x, home.y, home.z, aggroYards + HomeMarginYards))
+                return true;
+            continue;
+        }
+        if (aggroYards > 0.0f && me->IsWithinDistInMap(creature, aggroYards))
+            return true;
+    }
+    return false;
 }
 
 void BotAdapter::Release()

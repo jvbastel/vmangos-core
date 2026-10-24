@@ -177,6 +177,29 @@ TEST(Death, WithNobodyToResurrectADeadBotWaitsForTheEndOfTheFight)
     EXPECT_EQ(bot.Think(), "wait dead");
 }
 
+// The last bot that fought died: only the player lives, out of combat, but
+// the enemy still fights or runs home next to the corpse. That is no end of
+// the fight, so the dead bots wait. (A tank revived next to the boss in #40.)
+TEST(Death, ADeadBotWaitsWhileAnEnemyFightsNearIt)
+{
+    DeadMage bot;
+    bot.Die(Healer);
+    bot.Die(Tank);
+    bot.fake.SetFightNear(20.0f);
+
+    EXPECT_EQ(bot.Think(), "wait dead");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
+TEST(Death, ADeadBotRevivesWhenTheNearestFightIsFarAway)
+{
+    DeadMage bot;
+    bot.Die(Healer);
+    bot.fake.SetFightNear(Bots::ReviveClearOfFightYards + 5.0f);
+
+    EXPECT_EQ(bot.Think(), "revive when nobody can resurrect");
+}
+
 TEST(Death, InAWipeTheBotsWaitForTheLeaderToRelease)
 {
     DeadMage bot;

@@ -111,6 +111,9 @@ namespace Bots
             void SetMana(Guid unit, std::uint32_t current, std::uint32_t max) { m_mana[unit] = Power{current, max}; }
             void SetEating(bool eating = true) { m_eating = eating; }
             void SetDrinking(bool drinking = true) { m_drinking = drinking; }
+            // A fight within `yards` of the bot (IsFightNear): any distance
+            // up to `yards` counts as near.
+            void SetFightNear(float yards) { m_fightNearYards = yards; }
             // Spell `spell` targets dead units, for example a resurrect.
             void SetCastsOnDead(SpellId spell) { m_castsOnDead.insert(spell); }
 
@@ -249,6 +252,7 @@ namespace Bots
             }
             bool IsEating() const override { return m_eating; }
             bool IsDrinking() const override { return m_drinking; }
+            bool IsFightNear(float yards) const override { return m_fightNearYards >= 0.0f && m_fightNearYards <= yards; }
 
             // BotActions
             void CastSpell(SpellId spell, Guid target) override
@@ -338,6 +342,7 @@ namespace Bots
             std::map<Guid, Power> m_mana;
             bool m_eating = false;
             bool m_drinking = false;
+            float m_fightNearYards = -1.0f;
             std::set<SpellId> m_castsOnDead;
             std::vector<std::string> m_deeds;
         };

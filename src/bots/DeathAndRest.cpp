@@ -98,7 +98,8 @@ namespace Bots
             Rule{"revive when nobody can resurrect", P + 10,
                 [](BotContext const& context) {
                     return SelfState(context) == LifeState::Dead && SomeoneLives(context.view)
-                        && !IsGroupInCombat(context.view) && !SomeoneCanResurrect(context.view);
+                        && !IsGroupInCombat(context.view) && !context.view.IsFightNear(ReviveClearOfFightYards)
+                        && !SomeoneCanResurrect(context.view);
                 },
                 Always([](BotContext const& context) {
                     context.actions.ReviveAtCorpse();
