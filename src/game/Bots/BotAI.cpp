@@ -6,6 +6,8 @@
 */
 
 #include "BotAI.h"
+#include "BotMgr.h"
+#include "Pet.h"
 #include "Player.h"
 #include "Map.h"
 #include "Log.h"
@@ -56,9 +58,33 @@ void BotAI::UpdateAI(uint32 const diff)
     for (WorldPacket const& packet : m_inbox.Drain())
         HandlePacket(packet);
 
+    KeepLevelCorrect();
+
     Bots::ThinkState state = Bots::ThinkStateFor(me->IsInCombat(), IsNearPlayer());
     if (m_thinkTimer.Advance(diff, state))
         Think();
+}
+
+void BotAI::KeepLevelCorrect()
+{
+    // At the first update in the world after each login, so also after the
+    // creation. The routine is idempotent, so a bot that is correct already
+    // stays the same.
+    if (!m_levelRoutineDone)
+    {
+        sBotMgr.GetLevelRoutine().Apply(me);
+        m_levelRoutineDone = true;
+    }
+
+    // Each summon of a pet: the new pet gets its pet spells.
+    Pet* pet = me->GetPet();
+    ObjectGuid const petGuid = pet ? pet->GetObjectGuid() : ObjectGuid();
+    if (petGuid != m_taughtPet)
+    {
+        if (pet)
+            sBotMgr.GetLevelRoutine().TeachPetSpells(me, pet);
+        m_taughtPet = petGuid;
+    }
 }
 
 void BotAI::HandlePacket(WorldPacket const& packet)

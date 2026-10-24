@@ -1,0 +1,6 @@
+# Warrior spells that no trainer teaches. Format: see src/bots/SpellFile.h.
+# The level is the minimum level of the class quest.
+quest-spell 10 71     # Defensive Stance
+quest-spell 10 355    # Taunt
+quest-spell 10 7386   # Sunder Armor (Rank 1)
+quest-spell 30 2458   # Berserker Stance

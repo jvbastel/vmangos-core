@@ -12,6 +12,7 @@
 #include "Policies/Singleton.h"
 #include "PlayerBotMgr.h"
 #include "BotGear.h"
+#include "BotLevelRoutine.h"
 #include "BotRecipe.h"
 #include "ThinkTimer.h"
 
@@ -72,6 +73,13 @@ class BotMgr
         BotGear const& GetGear() const { return m_gear; }
 
         BotSettings const& GetSettings() const { return m_settings; }
+        BotLevelRoutine const& GetLevelRoutine() const { return m_levelRoutine; }
+
+        // True for a character that is one of our bots and online, not for
+        // the bots of PlayerBotMgr.
+        bool IsOurBot(Player const* player) const;
+        // Runs the level routine after a level-up of one of our bots.
+        void OnLevelUp(Player* player);
 
     private:
         BotRecord* FindByName(std::string const& name);
@@ -81,6 +89,7 @@ class BotMgr
         void PutOnPendingGear(BotRecord& record);
 
         BotSettings m_settings;
+        BotLevelRoutine m_levelRoutine;
         std::map<uint32 /*character GUID*/, BotRecord> m_bots;
         BotGear m_gear;
 };

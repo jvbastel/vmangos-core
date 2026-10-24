@@ -1,0 +1,4309 @@
+# Learnable spells of the 1.12.1 world database. Made by bots/tools/spells/export-learnable-spells.sh.
+10	Blizzard	Rank 1
+11	Swiftness	
+16	Fear (NYI)	
+17	Power Word: Shield	Rank 1
+53	Backstab	Rank 1
+65	Haste	
+66	Lesser Invisibility	
+71	Defensive Stance	
+72	Shield Bash	Rank 1
+75	Auto Shot	
+76	zzOLDRiposte	Rank 1
+78	Heroic Strike	Rank 1
+81	Dodge	Passive
+87	zzOLDTwo-Hand Strike	
+89	Cripple	Rank 1
+91	Savage Assault	
+94	zzOLDWisdom Aura	Rank 2
+99	Demoralizing Roar	Rank 1
+100	Charge	Rank 1
+101	Trip	Rank 1
+107	Block	Passive
+109	zzOLDBlur	
+113	Chains of Ice	Rank 1
+114	zzOLDFrost Shield	Rank 1
+116	Frostbolt	Rank 1
+118	Polymorph	Rank 1
+120	Cone of Cold	Rank 1
+122	Frost Nova	Rank 1
+126	Eye of Kilrogg	Summon
+130	Slow Fall	
+131	Water Breathing	
+132	Detect Lesser Invisibility	
+133	Fireball	Rank 1
+134	Fire Shield	
+136	Mend Pet	Rank 1
+139	Renew	Rank 1
+143	Fireball	Rank 2
+145	Fireball	Rank 3
+168	Frost Armor	Rank 1
+172	Corruption	Rank 1
+179	zzOLDResist Fire	Rank 1
+184	Fire Shield II	
+196	One-Handed Axes	
+197	Two-Handed Axes	
+198	One-Handed Maces	
+199	Two-Handed Maces	
+200	Polearms	
+201	One-Handed Swords	
+202	Two-Handed Swords	
+203	Unarmed	
+204	Defense	
+205	Frostbolt	Rank 2
+227	Staves	
+228	Polymorph: Chicken	Rank 2
+246	Slow	Rank 1
+264	Bows	
+266	Guns	
+278	zzOLDTwo-Hand Strike II	
+279	zzOLDTwo-Hand Strike III	
+284	Heroic Strike	Rank 2
+285	Heroic Strike	Rank 3
+302	Savage Assault II	
+308	zzOLDSpirit Armor	Rank 1
+315	zzOLDMolten Blast	Rank 1
+324	Lightning Shield	Rank 1
+325	Lightning Shield	Rank 2
+331	Healing Wave	Rank 1
+332	Healing Wave	Rank 2
+339	Entangling Roots	Rank 1
+344	zzOLDUnyielding Will	Level 1
+348	Immolate	Rank 1
+355	Taunt	
+365	zzOLDUndying Strength	Rank 1
+370	Purge	Rank 1
+379	Bloodlust	
+403	Lightning Bolt	Rank 1
+408	Kidney Shot	Rank 1
+409	Shadowskin	
+410	Shadowskin II	
+411	Shadowskin III	
+421	Chain Lightning	Rank 1
+424	zzOLDEarthquake	
+451	zzOLDShadow Word: Silence	Rank 1
+453	Mind Soothe	Rank 1
+455	Replenish Spirit	
+456	SHOWLABEL Only OFF	
+457	Feeblemind	
+465	Devotion Aura	Rank 1
+466	zzOLDBrilliance Aura	
+467	Thorns	Rank 1
+474	Fumble	
+475	Remove Lesser Curse	
+491	Khadgar's Unlocking	Rank 1
+498	Divine Protection	Rank 1
+503	zzOLDBlur II	
+507	Fumble II	
+509	Feeblemind II	
+512	Chains of Ice	Rank 2
+513	Earth Elemental	
+522	SPELLDEFENSE (DND)	
+526	Cure Poison	
+527	Dispel Magic	Rank 1
+528	Cure Disease	
+529	Lightning Bolt	Rank 2
+530	Charm (Possess)	
+543	Fire Ward	Rank 1
+544	zzOLDSpirit Armor	Rank 2
+545	zzOLDMolten Blast	Rank 2
+546	Water Walking	
+547	Healing Wave	Rank 3
+548	Lightning Bolt	Rank 3
+549	zzOLDUndying Strength	Rank 2
+550	Nullify Poison	Rank 1
+552	Abolish Disease	
+553	Bloodlust II	
+554	zzOLDUnyielding Will	Rank 2
+555	Feral Spirit	
+556	Astral Recall	
+585	Smite	Rank 1
+586	Fade	Rank 1
+587	Conjure Food	Rank 1
+588	Inner Fire	Rank 1
+589	Shadow Word: Pain	Rank 1
+590	zzOLDHoly Word: Might	Rank 1
+591	Smite	Rank 2
+592	Power Word: Shield	Rank 2
+593	zzOLDShadow Word: Fumble	Rank 1
+594	Shadow Word: Pain	Rank 2
+595	Prayer of Protection	
+596	Prayer of Healing	Rank 1
+597	Conjure Food	Rank 2
+598	Smite	Rank 3
+599	zzOLDHoly Word: Might	Rank 2
+600	Power Word: Shield	Rank 3
+601	Sword Mastery	Rank 1
+602	Inner Fire	Rank 3
+603	Curse of Doom	
+604	Dampen Magic	Rank 1
+605	Mind Control	Rank 1
+606	Mind Rot	Rank 1
+629	zzOLDHoly Word: Protect	Rank 2
+630	zzOLDHoly Word: Protect	Rank 1
+633	Lay on Hands	Rank 1
+634	zzOLDSeal of Fortitude	
+635	Holy Light	Rank 1
+636	zzOLDDominance Aura	Rank 1
+637	zzOLDSeal of Light II	
+638	zzOLDSeal of Fortitude II	
+639	Holy Light	Rank 2
+640	zzOLDSeal of Shadow	
+641	zzOLDSeal of Fire	
+642	Divine Shield	Rank 1
+643	Devotion Aura	Rank 3
+644	zzOLDSeal of Fortitude III	
+645	zzOLDDominance Aura	Rank 2
+646	zzOLDSeal of Light III	
+647	Holy Light	Rank 3
+648	zzOLDBlessing of Reckoning	Rank 1
+649	zzOLDHealing Aura	Rank 1
+668	Language Common	
+669	Language Orcish	
+670	Language Taurahe	
+671	Language Darnassian	
+672	Language Dwarven	
+674	Dual Wield	Passive
+676	Disarm	
+677	zzOLDHoly Flurry II	
+678	zzOLDHoly Strike	Rank 2
+679	zzOLDHoly Strike	Rank 1
+680	zzOLDHoly Strike	Rank 4
+686	Shadow Bolt	Rank 1
+687	Demon Skin	Rank 1
+688	Summon Imp	Summon
+689	Drain Life	Rank 1
+690	Firebolt II	
+691	Summon Felhunter	Summon
+693	Create Soulstone (Minor)	
+694	Mocking Blow	Rank 1
+695	Shadow Bolt	Rank 2
+696	Demon Skin	Rank 2
+697	Summon Voidwalker	Summon
+698	Ritual of Summoning	
+699	Drain Life	Rank 2
+700	Sleep	Rank 1
+701	Firebolt	
+702	Curse of Weakness	Rank 1
+703	Garrote	Rank 1
+704	Curse of Recklessness	Rank 1
+705	Shadow Bolt	Rank 3
+706	Demon Armor	Rank 1
+707	Immolate	Rank 2
+708	zzOLDSpellstone Purge	
+709	Drain Life	Rank 3
+710	Banish	Rank 1
+711	Hellfire	
+712	Summon Succubus	Summon
+740	Tranquility	Rank 1
+748	Staff Strike II (Disabled)	
+749	Firestaff	
+750	Plate Mail	
+751	Staff Strike (Disabled)	
+752	Staff Strike IV (Disabled)	
+753	Firestaff II	
+755	Health Funnel	Rank 1
+756	zzOLDConjure: Lockpick	
+759	Conjure Mana Agate	
+761	zzOLDSpirit Burn	
+762	zzOLDSpirit Burn II	
+765	zzOLDWater Elemental	Rank 1
+768	Cat Form	Shapeshift
+769	Swipe	Rank 3
+770	Faerie Fire	Rank 1
+771	zzOLDCharm Beast	
+772	Rend	Rank 1
+773	zzOLDSlow Poison	
+774	Rejuvenation	Rank 1
+775	Tree Form	Shapeshift
+776	Abolish Magic	Rank 1
+778	Faerie Fire	Rank 2
+779	Swipe	Rank 1
+780	Swipe	Rank 2
+781	Disengage	Rank 1
+782	Thorns	Rank 2
+783	Travel Form	Shapeshift
+818	Basic Campfire	
+819	Toughness	Rank 1
+820	Regeneration	Rank 1
+821	Meditation	Rank 1
+824	Horse Riding	Passive
+825	Wolf Riding	Passive
+826	Ram Riding	Passive
+828	Tiger Riding	Passive
+837	Frostbolt	Rank 3
+839	Haste II	
+841	zzOLDResist Fire	Rank 2
+845	Cleave	Rank 1
+847	zzOLDResist Frost II	
+849	Elemental Armor	
+851	Polymorph: Sheep	Rank 3
+853	Hammer of Justice	Rank 1
+855	Feeblemind III	
+857	Khadgar's Unlocking	Rank 2
+861	zzOLDShadow Word: Silence	Rank 2
+863	Blur III	
+865	Frost Nova	Rank 2
+867	Fumble III	
+871	Shield Wall	
+877	Elemental Fury	
+879	Exorcism	Rank 1
+883	Call Pet	
+885	Invisibility	
+895	Fire Elemental	
+899	zzOLDMolten Blast	Rank 3
+901	zzOLDSpirit Armor	Rank 3
+903	zzOLDResist Nature	Rank 2
+905	Lightning Shield	Rank 3
+909	zzOLDUnyielding Will	Rank 3
+911	zzOLDSpirit Burn III	
+913	Healing Wave	Rank 4
+915	Lightning Bolt	Rank 4
+917	zzOLDUndying Strength	Rank 3
+921	Pick Pocket	
+923	zzOLDMolten Blast	Rank 4
+930	Chain Lightning	Rank 2
+932	Replenish Spirit II	
+934	zzOLDSpirit Armor	Rank 4
+937	zzOLDSpirit Burn IV	
+939	Healing Wave	Rank 5
+943	Lightning Bolt	Rank 5
+945	Lightning Shield	Rank 4
+947	zzOLDUnyielding Will	Rank 4
+951	zzOLDMolten Blast	Rank 5
+955	zzOLDUndying Strength	Rank 4
+957	zzOLDSpirit Burn V	
+959	Healing Wave	Rank 6
+963	zzOLDEarthquake II	
+966	zzOLDGroup Astral Recall	Rank 1
+968	Feral Spirit II	
+970	Shadow Word: Pain	Rank 3
+972	zzOLDHoly Protection	Rank 1
+976	Shadow Protection	Rank 1
+978	zzOLDGlimpse of Instincts	
+980	Curse of Agony	Rank 1
+982	Revive Pet	
+984	Smite	Rank 4
+986	zzOLDHoly Word: Protect	Rank 3
+988	Dispel Magic	Rank 2
+990	Conjure Food	Rank 3
+992	Shadow Word: Pain	Rank 4
+994	Prayer of Protection II	
+996	Prayer of Healing	Rank 2
+998	zzOLDShadow Word: Fumble	Rank 2
+1000	zzOLDHoly Word: Might	Rank 3
+1002	Eyes of the Beast	
+1004	Smite	Rank 5
+1006	Inner Fire	Rank 4
+1008	Amplify Magic	Rank 1
+1009	Savage Pummel	Rank 1
+1010	Curse of Idiocy	Rank 1
+1014	Curse of Agony	Rank 2
+1020	Divine Shield	Rank 2
+1022	Blessing of Protection	Rank 1
+1024	zzOLDSeal of Shadow II	
+1026	Holy Light	Rank 4
+1028	zzOLDSeal of Light IV	
+1030	zzOLDSeal of Fire II	
+1032	Devotion Aura	Rank 5
+1034	zzOLDBlessing of Reckoning	Rank 2
+1036	zzOLDBlessing of Fury	
+1038	Blessing of Salvation	
+1042	Holy Light	Rank 5
+1044	Blessing of Freedom	
+1048	zzOLDSeal of Light V	
+1050	Sacrifice	
+1052	zzOLDBlessing of Righteousness	Rank 1
+1056	Slow Poison II	
+1058	Rejuvenation	Rank 2
+1062	Entangling Roots	Rank 2
+1064	Chain Heal	Rank 1
+1066	Aquatic Form	Shapeshift
+1069	zzOLDFaerie Fire	Rank 3
+1073	zzOLDDivine Escape (NYI)	
+1075	Thorns	Rank 3
+1079	Rip	Rank 1
+1082	Claw	Rank 1
+1084	Firebolt III	
+1086	Demon Armor	Rank 2
+1088	Shadow Bolt	Rank 4
+1090	Sleep	Rank 2
+1092	zzOLDSunder Soul	
+1094	Immolate	Rank 3
+1096	Firebolt IV	
+1098	Enslave Demon	Rank 1
+1106	Shadow Bolt	Rank 5
+1108	Curse of Weakness	Rank 2
+1110	zzOLDSunder Soul II	
+1112	Shadow Nova II	
+1114	Dodge Mastery	Rank 1
+1116	Chaos Shield	
+1120	Drain Soul	Rank 1
+1122	Inferno	Summon
+1124	Hellfire II	
+1126	Mark of the Wild	Rank 1
+1130	Hunter's Mark	Rank 1
+1134	zzOLDInner Rage	Rank 1
+1152	Purify	
+1160	Demoralizing Shout	Rank 1
+1161	Challenging Shout	
+1178	Bear Form (Passive)	Passive
+1179	Beast Claws	
+1180	Daggers	
+1181	Regeneration	Rank 2
+1182	Regeneration	Rank 3
+1183	Regeneration	Rank 4
+1243	Power Word: Fortitude	Rank 1
+1244	Power Word: Fortitude	Rank 2
+1245	Power Word: Fortitude	Rank 3
+1430	Rejuvenation	Rank 3
+1449	Arcane Explosion	Rank 1
+1450	Arcane Spirit II	
+1451	Arcane Spirit III	
+1452	Arcane Spirit IV	
+1453	Arcane Spirit V	
+1454	Life Tap	Rank 1
+1455	Life Tap	Rank 2
+1456	Life Tap	Rank 3
+1457	zzOLDBurning Spirit	Rank 4
+1459	Arcane Intellect	Rank 1
+1460	Arcane Intellect	Rank 2
+1461	Arcane Intellect	Rank 3
+1462	Beast Lore	
+1463	Mana Shield	Rank 1
+1464	Slam	Rank 1
+1465	zzOLDBurning Intellect III	
+1466	zzOLDBurning Intellect IV	
+1490	Curse of the Elements	Rank 1
+1491	zzOLDCritical Shot	Rank 1
+1492	zzOLDCritical Shot	Rank 2
+1494	Track Beasts	
+1495	Mongoose Bite	Rank 1
+1499	Freezing Trap	Rank 1
+1504	zzOLDWounding Shot	
+1505	zzOLDWounding Shot II	
+1506	zzOLDWounding Shot III	
+1507	zzOLDWounding Shot IV	
+1508	zzOLDWounding Shot V	
+1510	Volley	Rank 1
+1513	Scare Beast	Rank 1
+1515	Tame Beast	
+1516	Quick Shot	Rank 1
+1522	Pet Upgrade (NYI)	
+1523	Pet Upgrade II (NYI)	
+1524	Pet Upgrade III (NYI)	
+1525	Major Pet Upgrade (NYI)	
+1526	Major Pet Upgrade II (NYI)	
+1527	Major Pet Upgrade III (NYI)	
+1528	Free Master	Rank 1
+1535	Fire Nova Totem	Rank 1
+1540	Volley	
+1542	zzOLDHunter's Will	
+1543	Flare	
+1608	Heroic Strike	Rank 4
+1628	zzOLDTwo-Hand Strike IV	
+1629	zzOLDTwo-Hand Strike V	
+1635	zzOLDEnrage	Rank 1
+1645	zzOLDSpell - Reuse 1645	Rank 2
+1648	zzOLDSpell - Reuse 1648	Rank 3
+1663	Savage Assault III	
+1664	Savage Assault IV	
+1665	Savage Assault V	
+1671	Shield Bash	Rank 2
+1672	Shield Bash	Rank 3
+1680	Whirlwind	
+1698	Shockwave	Rank 1
+1706	Levitate	
+1707	zzOLDMind Bomb	Rank 1
+1708	Mighty Blow III	
+1709	Mighty Blow IV	
+1714	Curse of Tongues	Rank 1
+1715	Hamstring	Rank 1
+1719	Recklessness	
+1725	Distract	
+1731	Defensive Strike	
+1732	Defensive Strike II	
+1735	Demoralizing Roar	Rank 2
+1739	Morale Boost (NYI)	
+1742	Cower	Rank 1
+1752	Sinister Strike	Rank 1
+1753	Cower	Rank 2
+1754	Cower	Rank 3
+1755	Cower	Rank 4
+1756	Cower	Rank 5
+1757	Sinister Strike	Rank 2
+1758	Sinister Strike	Rank 3
+1759	Sinister Strike	Rank 4
+1760	Sinister Strike	Rank 5
+1766	Kick	Rank 1
+1767	Kick	Rank 2
+1768	Kick	Rank 3
+1769	Kick	Rank 4
+1770	zzOLDKick	Rank 5
+1776	Gouge	Rank 1
+1777	Gouge	Rank 2
+1784	Stealth	Rank 1
+1785	Stealth	Rank 2
+1786	Stealth	Rank 3
+1787	Stealth	Rank 4
+1794	Disheartening Blow	
+1804	Pick Lock	
+1812	zzOLDEvasive Slash	
+1813	zzOLDEvasive Slash II	
+1814	zzOLDEvasive Slash III	
+1815	zzOLDEvasive Slash IV	
+1822	Rake	Rank 1
+1823	Rake	Rank 2
+1824	Rake	Rank 3
+1833	Cheap Shot	
+1834	Gathering Speed	
+1842	Disarm Trap	
+1849	Beast Claws II	
+1850	Dash	Rank 1
+1856	Vanish	Rank 1
+1857	Vanish	Rank 2
+1860	Safe Fall	Passive
+1864	Torpor	Racial
+1866	zzOLDHoly Strike	Rank 3
+1868	zzOLDHoly Flurry	
+1869	zzOLDHoly Flurry III	
+1870	zzOLDHoly Flurry IV	
+1918	Staff Strike III (Disabled)	
+1919	zzOLDImmunity: Disease	
+1920	Firestaff III	
+1921	Firestaff IV	
+1922	Firestaff V	
+1933	Twirling Novastrike II	
+1941	zzOLDMana Funnel	Rank 1
+1943	Rupture	Rank 1
+1945	zzOLDEthereal Form	Rank 1
+1947	zzOLDDark Ritual	
+1949	Hellfire	Rank 1
+1953	Blink	
+1956	zzOLDFire II	
+1957	zzOLDFire III	
+1958	zzOLDFire IV	
+1959	zzOLDFire V	
+1960	zzOLDSniper Shot	Rank 1
+1963	zzOLDScatter Shot	
+1964	zzOLDScatter Shot II	
+1965	zzOLDScatter Shot III	
+1966	Feint	Rank 1
+1967	zzOLDScatter Shot V	
+1968	zzOLDDizzy Shot	
+1969	zzOLDDizzy Shot II	
+1970	zzOLDDizzy Shot III	
+1971	zzOLDHip Shot	
+1972	zzOLDHip Shot II	
+1973	zzOLDHip Shot III	
+1975	zzOLDHead Shot	
+1976	zzOLDHead Shot II	
+1977	zzOLDHead Shot III	
+1978	Serpent Sting	Rank 1
+1979	zzOLDSilencing Shot	Rank 1
+1980	Bombard	
+2006	Resurrection	Rank 1
+2008	Ancestral Spirit	Rank 1
+2010	Resurrection	Rank 2
+2011	zzOLDRebirth	Rank 2
+2018	Blacksmithing	Apprentice
+2050	Lesser Heal	Rank 1
+2052	Lesser Heal	Rank 2
+2053	Lesser Heal	Rank 3
+2054	Heal	Rank 1
+2055	Heal	Rank 2
+2060	Greater Heal	Rank 1
+2061	Flash Heal	Rank 1
+2070	Sap	Rank 2
+2090	Rejuvenation	Rank 4
+2091	Rejuvenation	Rank 5
+2094	Blind	
+2096	Mind Vision	Rank 1
+2098	Eviscerate	Rank 1
+2108	Leatherworking	Apprentice
+2120	Flamestrike	Rank 1
+2121	Flamestrike	Rank 2
+2123	Holy Affinity	Rank 1
+2128	zzOLDFreeze	
+2129	zzOLDFreeze II	
+2130	zzOLDFreeze III	
+2131	zzOLDFreeze IV	
+2136	Fire Blast	Rank 1
+2137	Fire Blast	Rank 2
+2138	Fire Blast	Rank 3
+2139	Counterspell	
+2153	Handstitched Leather Pants	
+2156	Light Winter Cloak	
+2157	Light Winter Boots	
+2158	Fine Leather Boots	
+2159	Fine Leather Cloak	
+2160	Embossed Leather Vest	
+2161	Embossed Leather Boots	
+2162	Embossed Leather Cloak	
+2163	White Leather Jerkin	
+2164	Fine Leather Gloves	
+2165	Medium Armor Kit	
+2166	Toughened Leather Armor	
+2167	Dark Leather Boots	
+2168	Dark Leather Cloak	
+2169	Dark Leather Tunic	
+2259	Alchemy	Apprentice
+2331	Minor Mana Potion	
+2332	Minor Rejuvenation Potion	
+2333	Elixir of Lesser Agility	
+2334	Elixir of Minor Fortitude	
+2335	Swiftness Potion	
+2336	Elixir of Tongues	
+2337	Lesser Healing Potion	
+2351	Sanctuary	
+2353	Sanctuary II	
+2354	Sanctuary III	
+2362	Create Spellstone	
+2366	Herb Gathering	Apprentice
+2368	Herb Gathering	Journeyman
+2382	Generic	
+2385	Brown Linen Vest	
+2386	Linen Boots	
+2389	Red Linen Robe	
+2392	Red Linen Shirt	
+2393	White Linen Shirt	
+2394	Blue Linen Shirt	
+2395	Barbaric Linen Vest	
+2396	Green Linen Shirt	
+2397	Reinforced Linen Cape	
+2399	Green Woolen Vest	
+2401	Woolen Boots	
+2402	Woolen Cape	
+2403	Gray Woolen Robe	
+2406	Gray Woolen Shirt	
+2427	zzOLDNumbing Strike	
+2428	zzOLDNumbing Strike II	
+2429	zzOLDNumbing Strike III	
+2430	zzOLDNumbing Strike IV	
+2431	zzOLDNumbing Strike V	
+2457	Battle Stance	
+2458	Berserker Stance	
+2459	zzOLDOffensive Stance	Rank 2
+2460	zzOLDOffensive Stance	Rank 3
+2463	zzOLDPower Stance	Rank 2
+2479	Honorless Target	
+2481	Find Treasure	Racial
+2484	Earthbind Totem	
+2495	zzOLDHoly Strike	Rank 5
+2497	zzOLDDivine Strike	Rank 1
+2498	zzOLDDivine Strike	Rank 2
+2499	zzOLDDivine Strike	Rank 3
+2500	zzOLDDivine Strike	Rank 5
+2501	zzOLDDivine Strike	Rank 4
+2502	zzOLDStunning Smash	
+2503	zzOLDStunning Smash II	
+2504	zzOLDStunning Smash III	
+2505	zzOLDStunning Smash IV	
+2506	zzOLDStunning Smash V	
+2537	Crusader Strike	Rank 1
+2539	Spiced Wolf Meat	
+2541	Coyote Steak	
+2542	Goretusk Liver Pie	
+2543	Westfall Stew	
+2544	Crab Cake	
+2545	Cooked Crab Claw	
+2546	Dry Pork Ribs	
+2547	Redridge Goulash	
+2548	Succulent Pork Ribs	
+2549	Seasoned Wolf Kabob	
+2550	Cooking	Apprentice 
+2564	Dodge!	
+2565	Shield Block	
+2566	zzOLDParry!	
+2567	Thrown	
+2575	Mining	Apprentice
+2576	Mining	Journeyman
+2583	zzOLDWeaken Mind (NYI)	Rank 1
+2589	Backstab	Rank 2
+2590	Backstab	Rank 3
+2591	Backstab	Rank 4
+2601	Fire Shield III	
+2602	Fire Shield IV	
+2606	Shock	Rank 2
+2607	Shock	Rank 1
+2608	Shock	Rank 3
+2609	Shock	Rank 4
+2610	Shock	Rank 5
+2616	zzOLDLightning Storm	Rank 1
+2617	zzOLDLightning Storm	Rank 2
+2627	Dagger Strike (Disabled)	
+2628	Dagger Strike II (Disabled)	
+2629	Dagger Strike III (Disabled)	
+2630	Dagger Strike IV (Disabled)	
+2635	Beast Slayer	Rank 1
+2637	Hibernate	Rank 1
+2641	Dismiss Pet	
+2643	Multi-Shot	Rank 1
+2645	Ghost Wolf	
+2649	Growl	Rank 1
+2651	Elune's Grace	Rank 1
+2652	Touch of Weakness	Rank 1
+2658	Smelt Silver	
+2659	Smelt Bronze	
+2661	Copper Chain Belt	
+2662	Copper Chain Pants	
+2664	Runed Copper Bracers	
+2665	Coarse Sharpening Stone	
+2666	Runed Copper Belt	
+2667	Runed Copper Breastplate	
+2668	Rough Bronze Leggings	
+2670	Rough Bronze Cuirass	
+2671	Rough Bronze Bracers	
+2672	Patterned Bronze Bracers	
+2673	Silvered Bronze Breastplate	
+2674	Heavy Sharpening Stone	
+2675	Shining Silver Breastplate	
+2677	zzOLDHoly Smash	Rank 1
+2679	zzOLDHoly Smash	Rank 2
+2680	zzOLDHoly Smash	Rank 3
+2681	zzOLDHoly Smash	Rank 4
+2682	zzOLDHoly Smash	Rank 5
+2687	Bloodrage	
+2689	Soul Steal	
+2690	Soul Steal Effect	
+2691	Mana Burn	
+2692	Heroic Strength	Rank 1
+2697	zzOLDSmash	Rank 1
+2699	zzOLDSmash	Rank 2
+2700	zzOLDSmash	Rank 3
+2701	zzOLDSmash	Rank 4
+2702	zzOLDSmash	Rank 5
+2707	zzOLDSpirit Staff	
+2709	zzOLDSpirit Staff II	
+2710	zzOLDSpirit Staff III	
+2711	zzOLDSpirit Staff IV	
+2712	zzOLDSpirit Staff V	
+2717	zzOLDShadow Dagger	
+2719	zzOLDShadow Dagger II	
+2720	zzOLDShadow Dagger III	
+2721	zzOLDShadow Dagger IV	
+2722	zzOLDShadow Dagger V	
+2727	zzOLDShadow Staff	
+2728	zzOLDShadow Staff II	
+2729	zzOLDShadow Staff III	
+2730	zzOLDShadow Staff IV	
+2731	zzOLDShadow Staff V	
+2737	Copper Mace	
+2738	Copper Axe	
+2739	Copper Shortsword	
+2740	Bronze Mace	
+2741	Bronze Axe	
+2742	Bronze Shortsword	
+2764	Throw	
+2767	Shadow Word: Pain	Rank 5
+2768	zzOLDHoly Word: Might	Rank 4
+2770	zzOLDHoly Word: Protect	Rank 4
+2771	zzOLDHoly Word: Protect	Rank 5
+2782	Remove Curse	
+2783	zzOLDRemove Curse	Rank 2
+2791	Power Word: Fortitude	Rank 4
+2795	Beer Basted Boar Ribs	
+2797	Mind Bomb Effect	Rank 1
+2800	Lay on Hands	Rank 2
+2808	zzOLDSeal of Frost	
+2809	zzOLDSeal of Frost II	
+2812	Holy Wrath	Rank 1
+2816	Bark of Doom	
+2835	Deadly Poison	Rank 1
+2836	Detect Traps	Passive
+2837	Deadly Poison II	Rank 2
+2838	Creeping Pain	
+2840	Creeping Anguish	
+2841	Creeping Torment	
+2842	Poisons	
+2849	zzOLDParry!	
+2852	zzOLDSeal of Light	
+2854	zzOLDCyclone	Rank 1
+2855	Detect Magic	
+2856	zzOLDDONOTREUSE	Rank 1
+2860	Chain Lightning	Rank 3
+2864	zzOLDSpirit Armor	Rank 5
+2866	zzOLDSpell - Reuse 2866	Rank 1
+2867	zzOLDResist Fire	Rank 2
+2870	Cure Disease	
+2871	Nullify Disease	Rank 1
+2878	Turn Undead	Rank 1
+2893	Abolish Poison	
+2894	zzOLDDONOTREUSE	Rank 2
+2895	zzOLDDONOTREUSE	Rank 3
+2908	Soothe Animal	Rank 1
+2912	Starfire	Rank 1
+2916	(OLD) Magic Focus	Rank 1
+2917	zzOLDHoly Specialization	Rank 1
+2922	zzOLDRooting Attack	
+2924	zzOLDRooting Attack II	
+2925	zzOLDRooting Attack III	
+2937	zzOLDSleep	Rank 3
+2941	Immolate	Rank 4
+2944	Devouring Plague	Rank 1
+2947	Fire Shield	Rank 1
+2948	Scorch	Rank 1
+2951	Hellfire III	
+2964	Bolt of Woolen Cloth	
+2970	Detect Invisibility	
+2973	Raptor Strike	Rank 1
+2974	Wing Clip	Rank 1
+2983	Sprint	Rank 1
+3005	zzOLDHead Shot IV	
+3009	Claw	Rank 8
+3010	Claw	Rank 7
+3011	Fire Shot	Rank 1
+3013	Volley II	
+3015	Bombard II	
+3025	Cat Form (Passive)	Passive
+3029	Claw	Rank 2
+3032	zzOLDScout Form	
+3034	Viper Sting	Rank 1
+3035	zzOLDTrueshot	Rank 1
+3036	zzOLDTrueshot	Rank 2
+3037	zzOLDTrueshot	Rank 3
+3038	zzOLDTrueshot	Rank 4
+3043	Scorpid Sting	Rank 1
+3044	Arcane Shot	Rank 1
+3045	Rapid Fire	
+3050	Detect	
+3100	Blacksmithing	Journeyman
+3101	Alchemy	Journeyman
+3102	Cooking	Journeyman
+3104	Leatherworking	Journeyman
+3110	Firebolt	Rank 1
+3111	Mend Pet	Rank 2
+3116	Coarse Weightstone	
+3117	Heavy Weightstone	
+3124	Parry	
+3127	Parry	Passive
+3133	Beast Claws III	
+3137	Abolish Poison Effect	
+3140	Fireball	Rank 4
+3170	Weak Troll's Blood Potion	
+3171	Elixir of Wisdom	
+3172	Minor Magic Resistance Potion	
+3173	Lesser Mana Potion	
+3174	Elixir of Poison Resistance	
+3175	Limited Invulnerability Potion	
+3176	Strong Troll's Blood Potion	
+3177	Elixir of Defense	
+3188	Elixir of Ogre's Strength	
+3230	Elixir of Minor Agility	
+3273	First Aid	Apprentice
+3274	First Aid	Journeyman
+3276	Heavy Linen Bandage	
+3277	Wool Bandage	
+3278	Heavy Wool Bandage	
+3292	Heavy Copper Broadsword	
+3293	Copper Battle Axe	
+3294	Thick War Axe	
+3295	Deadly Bronze Poniard	
+3296	Heavy Bronze Mace	
+3297	Mighty Iron Hammer	
+3304	Smelt Tin	
+3307	Smelt Iron	
+3308	Smelt Gold	
+3319	Copper Chain Boots	
+3320	Rough Grinding Stone	
+3321	Copper Chain Vest	
+3323	Runed Copper Gauntlets	
+3324	Runed Copper Pants	
+3325	Gemmed Copper Gauntlets	
+3326	Coarse Grinding Stone	
+3328	Rough Bronze Shoulders	
+3330	Silvered Bronze Shoulders	
+3331	Silvered Bronze Boots	
+3333	Silvered Bronze Gauntlets	
+3334	Green Iron Boots	
+3336	Green Iron Gauntlets	
+3337	Heavy Grinding Stone	
+3365	Opening	
+3370	Crocolisk Steak	
+3371	Blood Sausage	
+3372	Murloc Fin Soup	
+3373	Crocolisk Gumbo	
+3376	Curiously Tasty Omelet	
+3377	Gooey Spider Cake	
+3386	Spears	
+3397	Big Bear Steak	
+3398	Hot Lion Chops	
+3399	Tasty Lion Steak	
+3400	Soothing Turtle Bisque	
+3413	Cooking	Expert
+3420	Crippling Poison	Rank 1
+3421	Crippling Poison II	Rank 2
+3447	Healing Potion	
+3448	Lesser Invisibility Potion	
+3449	Shadow Oil	
+3450	Elixir of Fortitude	
+3451	Mighty Troll's Blood Potion	
+3452	Mana Potion	
+3453	Elixir of Detect Lesser Invisibility	
+3454	Frost Oil	
+3464	Alchemy	Expert
+3466	zzOLDKick	Rank 6
+3472	Holy Light	Rank 6
+3487	zzOLDResistance Aura	Rank 1
+3491	Big Bronze Knife	
+3492	Hardened Iron Shortsword	
+3493	Jade Serpentblade	
+3494	Solid Iron Maul	
+3495	Golden Iron Destroyer	
+3496	Moonsteel Broadsword	
+3497	Frost Tiger Blade	
+3498	Massive Iron Axe	
+3500	Shadow Crescent Axe	
+3501	Green Iron Bracers	
+3502	Green Iron Helm	
+3503	Golden Scale Coif	
+3504	Green Iron Shoulders	
+3505	Golden Scale Shoulders	
+3506	Green Iron Leggings	
+3507	Golden Scale Leggings	
+3508	Green Iron Hauberk	
+3511	Golden Scale Cuirass	
+3513	Polished Steel Boots	
+3515	Golden Scale Boots	
+3538	Blacksmithing	Expert
+3552	Conjure Mana Jade	
+3558	zzOLDResist Frost	Rank 1
+3561	Teleport: Stormwind	
+3562	Teleport: Ironforge	
+3563	Teleport: Undercity	
+3564	Mining	Expert
+3565	Teleport: Darnassus	
+3566	Teleport: Thunder Bluff	
+3567	Teleport: Orgrimmar	
+3569	Smelt Steel	
+3570	Herb Gathering	Expert
+3597	zzOLDSmash	Rank 6
+3599	Searing Totem	Rank 1
+3627	Rejuvenation	Rank 6
+3629	zzOLDSpell - Reuse 3629	Rank 1
+3661	Mend Pet	Rank 3
+3662	Mend Pet	Rank 4
+3668	zzOLDTrueshot	Rank 5
+3674	Black Arrow	Rank 1
+3698	Health Funnel	Rank 2
+3699	Health Funnel	Rank 3
+3700	Health Funnel	Rank 4
+3712	zzOLDDark Ritual II	
+3716	Torment	Rank 1
+3741	Holy Resist	Rank 1
+3743	zzOLDHoly Smash	Rank 6
+3747	Power Word: Shield	Rank 4
+3753	Handstitched Leather Belt	
+3755	Linen Bag	
+3756	Embossed Leather Gloves	
+3757	Woolen Bag	
+3758	Green Woolen Bag	
+3759	Embossed Leather Pants	
+3760	Hillman's Cloak	
+3761	Fine Leather Tunic	
+3762	Hillman's Leather Vest	
+3763	Fine Leather Belt	
+3764	Hillman's Leather Gloves	
+3765	Dark Leather Gloves	
+3766	Dark Leather Belt	
+3767	Hillman's Belt	
+3768	Hillman's Shoulders	
+3769	Dark Leather Shoulders	
+3770	Toughened Leather Gloves	
+3771	Barbaric Gloves	
+3772	Green Leather Armor	
+3773	Guardian Armor	
+3774	Green Leather Belt	
+3775	Guardian Belt	
+3776	Green Leather Bracers	
+3777	Guardian Leather Bracers	
+3778	Gem-studded Leather Belt	
+3779	Barbaric Belt	
+3780	Heavy Armor Kit	
+3811	Leatherworking	Expert
+3813	Small Silk Pack	
+3816	Cured Light Hide	
+3817	Cured Medium Hide	
+3818	Cured Heavy Hide	
+3839	Bolt of Silk Cloth	
+3840	Heavy Linen Gloves	
+3841	Green Linen Bracers	
+3842	Handstitched Linen Britches	
+3843	Heavy Woolen Gloves	
+3844	Heavy Woolen Cloak	
+3845	Soft-soled Linen Boots	
+3847	Red Woolen Boots	
+3848	Double-stitched Woolen Shoulders	
+3849	Reinforced Woolen Shoulders	
+3850	Heavy Woolen Pants	
+3851	Phoenix Pants	
+3852	Gloves of Meditation	
+3854	Azure Silk Gloves	
+3855	Spidersilk Boots	
+3856	Spider Silk Slippers	
+3857	Enchanter's Cowl	
+3858	Shadow Hood	
+3859	Azure Silk Vest	
+3860	Boots of the Enchanter	
+3861	Long Silken Cloak	
+3862	Icy Cloak	
+3863	Spider Belt	
+3864	Star Belt	
+3865	Bolt of Mageweave	
+3866	Stylish Red Shirt	
+3868	Phoenix Gloves	
+3869	Bright Yellow Shirt	
+3870	Dark Silk Shirt	
+3871	Formal White Shirt	
+3872	Rich Purple Silk Shirt	
+3873	Black Swashbuckler's Shirt	
+3908	Tailoring	Apprentice
+3909	Tailoring	Journeyman
+3910	Tailoring	Expert
+3914	Brown Linen Pants	
+3915	Brown Linen Shirt	
+3918	Rough Blasting Powder	
+3919	Rough Dynamite	
+3920	Crafted Light Shot	
+3921	Deprecated Solid Shot	
+3922	Handful of Copper Bolts	
+3923	Rough Copper Bomb	
+3924	Copper Tube	
+3925	Rough Boomstick	
+3926	Copper Modulator	
+3928	Mechanical Squirrel	
+3929	Coarse Blasting Powder	
+3930	Crafted Heavy Shot	
+3931	Coarse Dynamite	
+3932	Target Dummy	
+3933	Small Seaforium Charge	
+3934	Flying Tiger Goggles	
+3936	Deadly Blunderbuss	
+3937	Large Copper Bomb	
+3938	Bronze Tube	
+3939	Lovingly Crafted Boomstick	
+3940	Shadow Goggles	
+3941	Small Bronze Bomb	
+3942	Whirring Bronze Gizmo	
+3944	Flame Deflector	
+3945	Heavy Blasting Powder	
+3946	Heavy Dynamite	
+3947	Crafted Solid Shot	
+3949	Silver-plated Shotgun	
+3950	Big Bronze Bomb	
+3952	Minor Recombobulator	
+3953	Bronze Framework	
+3954	Moonsight Rifle	
+3955	Explosive Sheep	
+3956	Green Tinted Goggles	
+3957	Ice Deflector	
+3958	Iron Strut	
+3959	Discombobulator Ray	
+3960	Portable Bronze Mortar	
+3961	Gyrochronatom	
+3962	Iron Grenade	
+3963	Compact Harvest Reaper Kit	
+3964	Deprecated BKP "Impact" Shot	
+3965	Advanced Target Dummy	
+3966	Craftsman's Monocle	
+3967	Big Iron Bomb	
+3968	Goblin Land Mine	
+3969	Mechanical Dragonling	
+3971	Gnomish Cloaking Device	
+3972	Large Seaforium Charge	
+3973	Silver Contact	
+3977	Crude Scope	
+3978	Standard Scope	
+3979	Accurate Scope	
+4036	Engineering	Apprentice
+4037	Engineering	Journeyman
+4038	Engineering	Expert
+4094	Barbecued Buzzard Wing	
+4096	Raptor Hide Harness	
+4097	Raptor Hide Belt	
+4101	Enraging Bite	
+4102	Gore	
+4104	Flight of the Peregrine	
+4105	Rapid Gallop	
+4112	Tough Shell	Rank 1
+4113	Tough Shell	Rank 2
+4114	Tough Shell	Rank 4
+4115	Tough Shell	Rank 3
+4116	Heroic Strength	Rank 2
+4117	Heroic Strength	Rank 3
+4118	Heroic Strength	Rank 4
+4119	Heroic Strength	Rank 5
+4120	Heroic Strength	Rank 6
+4121	Heroic Strength	Rank 7
+4122	Heroic Strength	Rank 8
+4133	Bruise	
+4136	Bruise	
+4138	Bruise	
+4140	Bruise	
+4142	Feast of Prey	
+4144	Spider Poison	
+4147	Enraged Howl	
+4148	Growl of Fortitude	
+4149	Toughen Hide	
+4154	Ferocity	
+4159	Tight Pinch	
+4161	Quick Snap	
+4164	Throw Rock	
+4165	Throw Rock II	
+4166	Vulnerable	
+4167	Web	
+4168	Web II	
+4169	Web III	
+4171	Cat's Agility	Rank 1
+4172	Cat's Agility	Rank 2
+4173	Cat's Agility	Rank 3
+4174	Cat's Agility	Rank 4
+4175	Cat's Agility	Rank 5
+4176	Cat's Agility	Rank 6
+4177	Cat's Agility	Rank 7
+4178	Cat's Agility	Rank 8
+4187	Great Stamina	Rank 1
+4188	Great Stamina	Rank 2
+4189	Great Stamina	Rank 3
+4190	Great Stamina	Rank 4
+4191	Great Stamina	Rank 5
+4192	Great Stamina	Rank 6
+4193	Great Stamina	Rank 7
+4194	Great Stamina	Rank 8
+4195	Great Stamina	Rank 1
+4196	Great Stamina	Rank 2
+4197	Great Stamina	Rank 3
+4198	Great Stamina	Rank 4
+4199	Great Stamina	Rank 5
+4200	Great Stamina	Rank 6
+4201	Great Stamina	Rank 7
+4202	Great Stamina	Rank 8
+4204	Mighty Intellect	Rank 1
+4205	Mighty Intellect	Rank 2
+4206	Mighty Intellect	Rank 3
+4207	Mighty Intellect	Rank 4
+4208	Mighty Intellect	Rank 5
+4209	Healing Tongue	
+4210	Mighty Intellect	Rank 6
+4211	Mighty Intellect	Rank 7
+4212	Mighty Intellect	Rank 8
+4221	Healing Tongue II	
+4222	Indomitable Spirit	Rank 1
+4223	Indomitable Spirit	Rank 2
+4224	Indomitable Spirit	Rank 3
+4225	Indomitable Spirit	Rank 4
+4226	Indomitable Spirit	Rank 5
+4227	Indomitable Spirit	Rank 6
+4228	Indomitable Spirit	Rank 7
+4229	Indomitable Spirit	Rank 8
+4238	Roar of Fortitude	
+4241	Vital Wound	
+4242	Pester	
+4245	Open Wound	
+4246	Clenched Pinchers	
+4247	Physical Prowess	Rank 1
+4248	Physical Prowess	Rank 2
+4249	Physical Prowess	Rank 3
+4250	Physical Prowess	Rank 4
+4251	Physical Prowess	Rank 5
+4252	Physical Prowess	Rank 6
+4253	Physical Prowess	Rank 7
+4254	OLDPhysical Prowess	Rank 8
+4263	Mental Acuity	Rank 1
+4264	Mental Acuity	Rank 2
+4265	Mental Acuity	Rank 3
+4266	Mental Acuity	Rank 4
+4267	Mental Acuity	Rank 5
+4268	Mental Acuity	Rank 6
+4269	Mental Acuity	Rank 7
+4270	Mental Acuity	Rank 8
+4279	Consume Flesh	
+4281	Quickness	
+4283	Stomp	
+4284	Tendon Slice	
+4286	Poisonous Spit	
+4287	Sword Mastery	Rank 2
+4289	Axe Mastery	Rank 1
+4290	Axe Mastery	Rank 2
+4293	Mace Mastery	Rank 1
+4294	Mace Mastery	Rank 2
+4297	Dagger Mastery	Rank 1
+4298	Dagger Mastery	Rank 2
+4301	Sword Finesse	Rank 1
+4302	Sword Finesse	Rank 2
+4303	Sword Finesse	Rank 3
+4307	Axe Finesse	Rank 1
+4308	Axe Finesse	Rank 2
+4309	Axe Finesse	Rank 3
+4312	Strider Presence	
+4315	Rabid Maw	
+4317	Eye Peck	
+4328	Mace Finesse	Rank 1
+4329	Mace Finesse	Rank 2
+4330	Mace Finesse	Rank 3
+4334	Axe Specialization	Rank 1
+4335	Axe Specialization	Rank 2
+4336	Axe Specialization	Rank 3
+4338	Axe Specialization	Rank 4
+4339	Axe Specialization	Rank 5
+4340	Axe Specialization	Rank 6
+4341	Axe Specialization	Rank 7
+4342	Axe Specialization	Rank 8
+4350	Sword Specialization	Rank 1
+4351	Sword Specialization	Rank 2
+4352	Sword Specialization	Rank 3
+4353	Sword Specialization	Rank 4
+4354	Sword Specialization	Rank 5
+4355	Sword Specialization	Rank 6
+4356	Sword Specialization	Rank 7
+4357	Sword Specialization	Rank 8
+4366	Mace Specialization	Rank 1
+4368	Mace Specialization	Rank 2
+4369	Mace Specialization	Rank 3
+4370	Mace Specialization	Rank 4
+4371	Mace Specialization	Rank 5
+4372	Mace Specialization	Rank 6
+4373	Mace Specialization	Rank 7
+4374	Mace Specialization	Rank 8
+4382	Dagger Specialization	Rank 1
+4384	Dagger Specialization	Rank 2
+4385	Dagger Specialization	Rank 3
+4386	Dagger Specialization	Rank 4
+4387	Dagger Specialization	Rank 5
+4388	Dagger Specialization	Rank 6
+4389	Dagger Specialization	Rank 7
+4390	Dagger Specialization	Rank 8
+4398	2H Axe Mastery	Rank 1
+4400	2H Axe Mastery	Rank 2
+4402	2H Mace Mastery	Rank 1
+4405	2H Mace Mastery	Rank 2
+4406	2H Sword Mastery	Rank 1
+4408	2H Sword Mastery	Rank 2
+4410	Staff Mastery	Rank 1
+4412	Staff Mastery	Rank 2
+4414	2H Axe Finesse	Rank 1
+4416	2H Axe Finesse	Rank 2
+4417	2H Axe Finesse	Rank 3
+4418	2H Sword Power	Rank 1
+4420	2H Sword Power	Rank 2
+4421	2H Sword Power	Rank 3
+4425	Spider Poison	Spider
+4426	2H Mace Finesse	Rank 1
+4428	2H Mace Finesse	Rank 2
+4429	2H Mace Finesse	Rank 3
+4433	Melee Finesse	Rank 1
+4435	Melee Finesse	Rank 2
+4437	Melee Finesse	Rank 3
+4440	2H Axe Specialization	Rank 1
+4442	2H Axe Specialization	Rank 2
+4443	2H Axe Specialization	Rank 3
+4444	2H Axe Specialization	Rank 4
+4445	2H Axe Specialization	Rank 5
+4446	2H Axe Specialization	Rank 6
+4447	2H Axe Specialization	Rank 7
+4448	2H Axe Specialization	Rank 8
+4456	2H Sword Specialization	Rank 1
+4458	2H Sword Specialization	Rank 2
+4459	2H Sword Specialization	Rank 3
+4460	2H Sword Specialization	Rank 4
+4461	2H Sword Specialization	Rank 5
+4462	2H Sword Specialization	Rank 6
+4463	2H Sword Specialization	Rank 7
+4464	2H Sword Specialization	Rank 8
+4472	2H Mace Specialization	Rank 1
+4474	2H Mace Specialization	Rank 2
+4475	2H Mace Specialization	Rank 3
+4476	2H Mace Specialization	Rank 4
+4477	2H Mace Specialization	Rank 5
+4478	2H Mace Specialization	Rank 6
+4479	2H Mace Specialization	Rank 7
+4480	2H Mace Specialization	Rank 8
+4488	Staff Specialization	Rank 1
+4490	Staff Specialization	Rank 2
+4491	Staff Specialization	Rank 3
+4492	Staff Specialization	Rank 4
+4493	Staff Specialization	Rank 5
+4494	Staff Specialization	Rank 6
+4495	Staff Specialization	Rank 7
+4496	Staff Specialization	Rank 8
+4508	Discolored Healing Potion	
+4511	Phase Shift	
+4517	Meditation	Rank 2
+4518	Meditation	Rank 3
+4519	Meditation	Rank 4
+4527	Toughness	Rank 2
+4528	Toughness	Rank 3
+4529	Toughness	Rank 4
+4530	Toughness	Rank 5
+4531	Toughness	Rank 6
+4532	Toughness	Rank 7
+4533	Toughness	Rank 8
+4540	Holy Resist	Rank 2
+4541	Holy Resist	Rank 3
+4542	Holy Resist	Rank 4
+4543	Holy Resist	Rank 5
+4544	Holy Resist	Rank 6
+4545	Holy Resist	Rank 7
+4546	Holy Resist	Rank 8
+4547	Fire Resist	Rank 1
+4548	Nature Resist	Rank 1
+4549	Frost Resist	Rank 1
+4550	Shadow Resist	Rank 1
+4551	Fire Resist	Rank 2
+4552	Fire Resist	Rank 3
+4553	Fire Resist	Rank 4
+4554	Fire Resist	Rank 5
+4555	Fire Resist	Rank 6
+4556	Fire Resist	Rank 7
+4557	Fire Resist	Rank 8
+4558	Nature Resist	Rank 2
+4559	Nature Resist	Rank 3
+4560	Nature Resist	Rank 4
+4561	Nature Resist	Rank 5
+4562	Nature Resist	Rank 6
+4563	Nature Resist	Rank 7
+4564	Nature Resist	Rank 8
+4565	Frost Resist	Rank 2
+4566	Frost Resist	Rank 3
+4567	Frost Resist	Rank 4
+4568	Frost Resist	Rank 5
+4569	Frost Resist	Rank 6
+4570	Frost Resist	Rank 7
+4571	Frost Resist	Rank 8
+4572	Shadow Resist	Rank 2
+4573	Shadow Resist	Rank 3
+4574	Shadow Resist	Rank 4
+4575	Shadow Resist	Rank 5
+4576	Shadow Resist	Rank 6
+4577	Shadow Resist	Rank 7
+4578	Shadow Resist	Rank 8
+4579	Magic Resist	Rank 1
+4580	Magic Resist	Rank 2
+4581	Magic Resist	Rank 3
+4582	Magic Resist	Rank 4
+4583	Magic Resist	Rank 5
+4584	Magic Resist	Rank 6
+4585	Magic Resist	Rank 7
+4586	Magic Resist	Rank 8
+4631	Beast Slayer	Rank 2
+4632	Beast Slayer	Rank 3
+4633	Beast Slayer	Rank 4
+4634	Beast Slayer	Rank 5
+4635	Beast Slayer	Rank 6
+4636	Beast Slayer	Rank 7
+4637	Beast Slayer (OLD)	Rank 8
+4645	Demon Slayer	Rank 1
+4646	Demon Slayer	Rank 2
+4647	Demon Slayer	Rank 3
+4648	Demon Slayer	Rank 4
+4649	Demon Slayer	Rank 5
+4650	Demon Slayer	Rank 6
+4651	Demon Slayer (OLD)	Rank 7
+4652	Demon Slayer (OLD)	Rank 8
+4661	Dragon Slayer	Rank 1
+4662	Dragon Slayer	Rank 2
+4663	Dragon Slayer	Rank 3
+4664	Dragon Slayer	Rank 4
+4665	Dragon Slayer	Rank 5
+4666	Dragon Slayer	Rank 6
+4667	Dragon Slayer (OLD)	Rank 7
+4668	Dragon Slayer (OLD)	Rank 8
+4678	Elemental Slayer	Rank 1
+4680	Elemental Slayer	Rank 2
+4681	Elemental Slayer	Rank 3
+4683	Elemental Slayer	Rank 4
+4684	Elemental Slayer	Rank 5
+4685	Elemental Slayer	Rank 6
+4687	Elemental Slayer (OLD)	Rank 7
+4688	Elemental Slayer (OLD)	Rank 8
+4697	Giant Slayer	Rank 1
+4699	Giant Slayer	Rank 2
+4700	Giant Slayer	Rank 3
+4701	Giant Slayer	Rank 4
+4702	Giant Slayer	Rank 5
+4703	Giant Slayer	Rank 6
+4705	Giant Slayer (OLD)	Rank 7
+4706	Giant Slayer (OLD)	Rank 8
+4714	Undead Slayer	Rank 1
+4715	Growl of Fortitude	Bear
+4717	Undead Slayer	Rank 2
+4718	Undead Slayer	Rank 3
+4719	Undead Slayer	Rank 4
+4720	Undead Slayer	Rank 5
+4721	Undead Slayer	Rank 6
+4722	Undead Slayer	Rank 7
+4723	Undead Slayer (OLD)	Rank 8
+4731	Enraging Bite	Bear
+4732	Roar of Fortitude	Bear
+4733	Gore	Boar
+4734	Toughen Hide	Boar
+4735	Vital Wound	Boar
+4736	Flight of the Peregrine	Bird
+4737	Eye Peck	Bird
+4739	Pester	Bird
+4740	Ferocity	Cat
+4741	Open Wound	Cat
+4742	Tough Shell	Crab - Rank 1
+4743	Tough Shell	Crab
+4744	Tough Shell	Crab - Rank 3
+4745	Tough Shell	Crab - Rank 4
+4746	Tight Pinch	Crab
+4747	Clenched Pinchers	Crab
+4748	Quick Snap	Crocilisk
+4750	Consume Flesh	Crocilisk
+4751	Dodge Mastery	Rank 2
+4752	Dodge Mastery	Rank 3
+4755	zzOLDParry Mastery	Rank 1
+4756	zzOLDParry Mastery	Rank 2
+4757	zzOLDParry Mastery	Rank 3
+4760	Shield Blocking	Rank 1
+4762	Shield Blocking	Rank 2
+4763	Shield Blocking	Rank 3
+4766	Rapid Gallop	Horse
+4767	Stomp	Horse
+4768	Feast of Prey	Raptor
+4769	Vulnerable	Raptor
+4770	Tendon Slice	Raptor
+4771	Bruise	Gorilla - Rank 1
+4772	Bruise	Gorilla - Rank 2
+4773	Bruise	Gorilla - Rank 3
+4774	Bruise	Gorilla - Rank 4
+4775	Throw Rock	Gorilla - Rank 1
+4776	Throw Rock	Gorilla - Rank 2
+4777	Quickness	Gorilla
+4778	Lightning Reflexes	Rank 1
+4780	Lightning Reflexes	Rank 2
+4782	Web	Spider - Rank 1
+4783	Web	Spider - Rank 2
+4785	Web	Spider - Rank 3
+4786	Holy Affinity	Rank 2
+4788	Fire Affinity	Rank 1
+4790	Fire Affinity	Rank 2
+4792	Nature Affinity	Rank 1
+4794	Nature Affinity	Rank 2
+4796	Frost Affinity	Rank 1
+4798	Frost Affinity	Rank 2
+4800	zzOLDShadow Affinity	Rank 1
+4802	zzOLDShadow Affinity	Rank 2
+4804	Poisonous Spit	Spider
+4805	Distracting Spit	
+4806	Distracting Spit	Tall Strider
+4807	Healing Tongue	Tall Strider - Rank 1
+4808	Healing Tongue	Tall Strider - Rank 2
+4810	(OLD) Magic Focus	Rank 2
+4811	(Old) Magic Focus	Rank 3
+4814	Strider Presence	Tall Strider
+4815	Enraged Howl	Wolf
+4816	Rabid Maw	Wolf
+4818	zzOLDHoly Specialization	Rank 2
+4819	zzOLDHoly Specialization	Rank 3
+4820	zzOLDHoly Specialization	Rank 4
+4821	zzOLDHoly Specialization	Rank 5
+4822	zzOLDHoly Specialization	Rank 6
+4823	zzOLDHoly Specialization	Rank 7
+4824	zzOLDHoly Specialization	Rank 8
+4832	Fire Specialization	Rank 1
+4834	Fire Specialization	Rank 2
+4835	Fire Specialization	Rank 3
+4836	Fire Specialization	Rank 4
+4837	Fire Specialization	Rank 5
+4838	Fire Specialization	Rank 6
+4839	Fire Specialization	Rank 7
+4840	Fire Specialization	Rank 8
+4848	Nature Specialization	Rank 1
+4850	Nature Specialization	Rank 2
+4851	Nature Specialization	Rank 3
+4852	Nature Specialization	Rank 4
+4853	Nature Specialization	Rank 5
+4854	Nature Specialization	Rank 6
+4855	Nature Specialization	Rank 7
+4856	Nature Specialization	Rank 8
+4864	Frost Specialization	Rank 1
+4866	Frost Specialization	Rank 2
+4867	Frost Specialization	Rank 3
+4868	Frost Specialization	Rank 4
+4869	Frost Specialization	Rank 5
+4870	Frost Specialization	Rank 6
+4871	Frost Specialization	Rank 7
+4872	Frost Specialization	Rank 8
+4880	Shadow Specialization	Rank 1
+4882	Shadow Specialization	Rank 2
+4883	Shadow Specialization	Rank 3
+4884	Shadow Specialization	Rank 4
+4885	Shadow Specialization	Rank 5
+4886	Shadow Specialization	Rank 6
+4887	Shadow Specialization	Rank 7
+4888	Shadow Specialization	Rank 8
+4896	Bow Mastery	Rank 1
+4897	Bow Mastery	Rank 2
+4900	Gun Mastery	Rank 1
+4902	Gun Mastery	Rank 2
+4904	Thrown Mastery	Rank 1
+4907	Thrown Mastery	Rank 2
+4909	Thrown Finesse	
+4913	Thrown Finesse II	
+4914	Thrown Finesse III	
+4915	Bow Power	Rank 1
+4917	Bow Power	Rank 2
+4918	Bow Power	Rank 3
+4921	Gun Power	Rank 1
+4923	Gun Power	Rank 2
+4924	Gun Power	Rank 3
+4942	Lesser Stoneshield Potion	
+4987	Cleanse	
+5009	Wands	
+5011	Crossbows	
+5019	Shoot	
+5027	Heroic Strength	Rank 9
+5028	Heroic Strength	Rank 10
+5029	Heroic Strength	Rank 11
+5030	Heroic Strength	Rank 12
+5031	zzOLDHeroic Strength	Rank 13
+5032	zzOLDHeroic Strength	Rank 14
+5033	zzOLDHeroic Strength	Rank 15
+5041	Great Stamina	Rank 9
+5042	Great Stamina	Rank 10
+5043	zzOLDGreat Stamina	Rank 11
+5044	zzOLDGreat Stamina	Rank 12
+5045	zzOLDGreat Stamina	Rank 13
+5046	zzOLDGreat Stamina	Rank 14
+5047	zzOLDGreat Stamina	Rank 15
+5048	Great Stamina	Rank 9
+5049	Great Stamina	Rank 10
+5055	Cat's Agility	Rank 9
+5056	Cat's Agility	Rank 10
+5057	Cat's Agility	Rank 11
+5058	Cat's Agility	Rank 12
+5059	Cat's Agility	Rank 13
+5060	Cat's Agility	Rank 14
+5061	Cat's Agility	Rank 15
+5069	Mighty Intellect	Rank 9
+5070	Mighty Intellect	Rank 10
+5071	Mighty Intellect	Rank 11
+5072	Mighty Intellect	Rank 12
+5073	Mighty Intellect	Rank 13
+5074	Mighty Intellect	Rank 14
+5075	Mighty Intellect	Rank 15
+5084	Indomitable Spirit	Rank 9
+5085	Indomitable Spirit	Rank 10
+5086	Indomitable Spirit	Rank 11
+5087	Indomitable Spirit	Rank 12
+5088	Indomitable Spirit	Rank 13
+5089	Indomitable Spirit	Rank 14
+5090	Indomitable Spirit	Rank 15
+5104	Minor Scorpion Venom	
+5116	Concussive Shot	
+5118	Aspect of the Cheetah	
+5119	Beast Tracking	
+5120	Undead Tracker	Rank 1
+5121	Giant Tracker	Rank 1
+5122	Demon Tracker	Rank 1
+5123	Dragon Tracker	Rank 1
+5124	Elemental Tracker	Rank 1
+5138	Drain Mana	Rank 1
+5143	Arcane Missiles	Rank 1
+5144	Arcane Missiles	Rank 2
+5145	Arcane Missiles	Rank 3
+5149	Beast Training	
+5169	Defias Disguise	
+5170	Disguise	
+5171	Slice and Dice	Rank 1
+5176	Wrath	Rank 1
+5177	Wrath	Rank 2
+5178	Wrath	Rank 3
+5179	Wrath	Rank 4
+5180	Wrath	Rank 5
+5185	Healing Touch	Rank 1
+5186	Healing Touch	Rank 2
+5187	Healing Touch	Rank 3
+5188	Healing Touch	Rank 4
+5189	Healing Touch	Rank 5
+5195	Entangling Roots	Rank 3
+5196	Entangling Roots	Rank 4
+5198	zzOLDCyclone	Rank 2
+5201	Claw	Rank 3
+5209	Challenging Roar	
+5211	Bash	Rank 1
+5215	Prowl	Rank 1
+5217	Tiger's Fury	Rank 1
+5221	Shred	Rank 1
+5223	zzOLDPlay Dead	Rank 1
+5225	Track Humanoids	
+5227	Underwater Breathing	Racial Passive
+5229	Enrage	
+5232	Mark of the Wild	Rank 2
+5234	Mark of the Wild	Rank 4
+5238	zzOLDSpell Break	Rank 1
+5240	zzOLDSpell Break	Rank 2
+5242	Battle Shout	Rank 2
+5244	Kodo Hide Bag	
+5246	Intimidating Shout	
+5256	Claw Cover	
+5264	South Seas Pirate Disguise	
+5265	Stonesplinter Trogg Disguise	
+5266	Syndicate Disguise	
+5267	Dalaran Wizard Disguise	
+5268	Dark Iron Dwarf Disguise	
+5277	Evasion	
+5301	Defensive State (DND)	
+5308	Execute	Rank 1
+5333	zzOLDStarburst	
+5340	2H Axe Specialization	Rank 9
+5341	2H Axe Specialization	Rank 10
+5342	2H Axe Specialization	Rank 11
+5343	2H Axe Specialization	Rank 12
+5344	2H Axe Specialization	Rank 13
+5345	2H Axe Specialization	Rank 14
+5346	2H Axe Specialization	Rank 15
+5348	2H Mace Specialization	Rank 9
+5349	2H Mace Specialization	Rank 10
+5350	2H Mace Specialization	Rank 11
+5351	2H Mace Specialization	Rank 12
+5352	2H Mace Specialization	Rank 13
+5353	2H Mace Specialization	Rank 14
+5354	2H Mace Specialization	Rank 15
+5355	2H Sword Specialization	Rank 9
+5356	2H Sword Specialization	Rank 10
+5357	2H Sword Specialization	Rank 11
+5358	2H Sword Specialization	Rank 12
+5359	2H Sword Specialization	Rank 13
+5360	2H Sword Specialization	Rank 14
+5364	Thick Skin	Rank 1
+5368	Thick Skin	Rank 2
+5369	Thick Skin	Rank 3
+5370	Thick Skin	Rank 4
+5377	Hand Snap	
+5378	Thick Skin	Turtle - Rank 1
+5380	Thick Skin	Turtle - Rank 2
+5381	Thick Skin	Turtle - Rank 3
+5382	Thick Skin	Turtle - Rank 4
+5383	Hand Snap	Turtle
+5384	Feign Death	
+5388	zzOLDGhost Wolf	Rank 2
+5391	zzOLDEthereal Form	Rank 2
+5394	Healing Stream Totem	Rank 1
+5395	Death Capsule	
+5398	Claw Cover	Scorpion
+5399	Minor Scorpion Venom	Scorpion
+5428	Axe Specialization	Rank 9
+5429	Axe Specialization	Rank 10
+5430	Axe Specialization	Rank 11
+5431	Axe Specialization	Rank 12
+5432	Axe Specialization	Rank 13
+5433	Axe Specialization	Rank 14
+5448	Sword Specialization	Rank 9
+5449	Sword Specialization	Rank 10
+5450	Sword Specialization	Rank 11
+5451	Sword Specialization	Rank 12
+5452	Sword Specialization	Rank 13
+5453	Sword Specialization	Rank 14
+5454	2H Sword Finesse	Rank 1
+5455	2H Sword Finesse	Rank 2
+5456	2H Sword Finesse	Rank 3
+5466	2H Axe Power	Rank 1
+5467	2H Axe Power	Rank 2
+5468	2H Axe Power	Rank 3
+5481	Sword Power	Rank 1
+5482	Sword Power	Rank 2
+5483	Sword Power	Rank 3
+5484	Howl of Terror	Rank 1
+5487	Bear Form	Shapeshift
+5500	Sense Demons	
+5502	Sense Undead	
+5504	Conjure Water	Rank 1
+5505	Conjure Water	Rank 2
+5506	Conjure Water	Rank 3
+5509	Axe Power	Rank 1
+5510	Axe Power	Rank 2
+5511	Axe Power	Rank 3
+5513	Axe Specialization	Rank 15
+5527	2H Mace Power	Rank 1
+5528	2H Mace Power	Rank 2
+5529	2H Mace Power	Rank 3
+5545	Mace Power	Rank 1
+5546	Mace Power	Rank 2
+5547	Mace Power	Rank 3
+5548	Mace Specialization	Rank 9
+5549	Mace Specialization	Rank 10
+5550	Mace Specialization	Rank 11
+5551	Mace Specialization	Rank 12
+5552	Mace Specialization	Rank 13
+5553	Mace Specialization	Rank 14
+5554	Mace Specialization	Rank 15
+5569	zzOLDHoly Strike	Rank 6
+5573	Divine Protection	Rank 2
+5575	zzOLDBlessing of Reckoning	Rank 3
+5580	zzOLDBlessing of Reckoning	Rank 4
+5581	Script Test	
+5585	Dagger Power	Rank 1
+5586	Dagger Power	Rank 2
+5587	Dagger Power	Rank 3
+5588	Hammer of Justice	Rank 2
+5589	Hammer of Justice	Rank 3
+5592	zzOLDRedemption	
+5599	Blessing of Protection	Rank 2
+5601	zzOLDBlessing of Righteousness	Rank 2
+5602	zzOLDBlessing of Righteousness	Rank 3
+5606	zzOLDHealing Aura	Rank 2
+5609	zzOLDHealing Aura	Rank 3
+5614	Exorcism	Rank 2
+5615	Exorcism	Rank 3
+5618	zzOLDResistance Aura	Rank 2
+5626	Gun Specialization	Rank 1
+5627	Turn Undead	Rank 2
+5630	Gun Specialization	Rank 2
+5631	Gun Specialization	Rank 3
+5632	Gun Specialization	Rank 4
+5633	Gun Specialization	Rank 5
+5634	Gun Specialization	Rank 6
+5635	Gun Specialization	Rank 7
+5636	Gun Specialization	Rank 8
+5637	Gun Specialization	Rank 9
+5638	Gun Specialization	Rank 10
+5639	Gun Specialization	Rank 11
+5640	Gun Specialization	Rank 12
+5641	Gun Specialization	Rank 13
+5642	Gun Specialization	Rank 14
+5643	Gun Specialization	Rank 15
+5645	zzOLDWisdom Aura	Rank 3
+5668	Peasant Disguise	
+5669	Peon Disguise	
+5675	Mana Spring Totem	Rank 1
+5676	Searing Pain	Rank 1
+5682	Lightning Reflexes	Rank 3
+5683	Lightning Reflexes	Rank 4
+5684	Lightning Reflexes	Rank 5
+5685	Lightning Reflexes	Rank 6
+5686	Lightning Reflexes	Rank 7
+5687	Lightning Reflexes	Rank 8
+5697	Unending Breath	
+5699	Create Healthstone	
+5701	zzOLDCreate Greater Bloodstone	
+5704	zzOLDShadow Word: Befuddle	Rank 1
+5715	Staff Power	Rank 1
+5716	Staff Power	Rank 2
+5717	Staff Power	Rank 3
+5730	Stoneclaw Totem	Rank 1
+5734	zzOLDInvisibility Totem	Rank 1
+5737	zzOLDCrippling Curse	Rank 1
+5740	Rain of Fire	Rank 1
+5742	Bow Specialization	Rank 1
+5743	Bow Specialization	Rank 2
+5744	Bow Specialization	Rank 3
+5745	Bow Specialization	Rank 4
+5746	Bow Specialization	Rank 5
+5747	Bow Specialization	Rank 6
+5748	Bow Specialization	Rank 7
+5749	Bow Specialization	Rank 8
+5750	Bow Specialization	Rank 9
+5751	Bow Specialization	Rank 10
+5752	Bow Specialization	Rank 11
+5753	Bow Specialization	Rank 12
+5754	Bow Specialization	Rank 13
+5755	Bow Specialization	Rank 14
+5756	Bow Specialization	Rank 15
+5757	Crossbow Mastery	Rank 1
+5758	Crossbow Mastery	Rank 2
+5763	Mind-numbing Poison	Rank 1
+5782	Fear	Rank 1
+5784	Summon Felsteed	Summon
+5786	Shield Defense	Rank 1
+5787	Shield Defense	Rank 2
+5788	Shield Defense	Rank 3
+5789	Shield Defense	Rank 4
+5790	Shield Defense	Rank 5
+5791	Shield Defense	Rank 6
+5792	OLDShield Defense	Rank 7
+5793	OLDShield Defense	Rank 8
+5794	Shield Blocking	Rank 4
+5795	Shield Blocking	Rank 5
+5796	Shield Blocking	Rank 6
+5812	Nature Power	Rank 1
+5813	Nature Power	Rank 2
+5814	Nature Power	Rank 3
+5815	Nature Power	Rank 4
+5816	Nature Focus	Rank 1
+5817	Nature Focus	Rank 2
+5818	Nature Focus	Rank 3
+5819	Nature Affinity	Rank 3
+5820	Nature Specialization	Rank 9
+5821	Nature Specialization	Rank 10
+5822	Nature Affinity	Rank 4
+5834	Fire Focus	Rank 1
+5835	Fire Power	Rank 1
+5837	Fire Focus	Rank 2
+5838	Fire Focus	Rank 3
+5839	Fire Power	Rank 2
+5840	Fire Power	Rank 3
+5841	Fire Power	Rank 4
+5842	Fire Affinity	Rank 3
+5843	Fire Affinity	Rank 4
+5844	Fire Specialization	Rank 9
+5845	Fire Specialization	Rank 10
+5865	Frost Focus	Rank 1
+5866	Frost Power	Rank 1
+5867	Frost Focus	Rank 2
+5868	Frost Focus	Rank 3
+5869	Frost Power	Rank 2
+5870	Frost Power	Rank 3
+5871	Frost Power	Rank 4
+5872	Frost Affinity	Rank 3
+5873	Frost Affinity	Rank 4
+5874	Frost Specialization	Rank 9
+5875	Frost Specialization	Rank 10
+5891	Shadow Specialization	Rank 9
+5892	Shadow Specialization	Rank 10
+5893	zzOLDShadow Affinity	Rank 3
+5894	zzOLDShadow Affinity	Rank 4
+5896	Shadow Power	Rank 1
+5897	zzOLDShadow Focus	Rank 1
+5898	Shadow Power	Rank 2
+5899	Shadow Power	Rank 3
+5900	Shadow Power	Rank 4
+5901	zzOLDShadow Focus	Rank 2
+5902	zzOLDShadow Focus	Rank 3
+5919	Holy Affinity	Rank 3
+5920	Holy Affinity	Rank 4
+5921	zzOLDHoly Specialization	Rank 9
+5922	zzOLDHoly Specialization	Rank 10
+5923	Holy Power	Rank 1
+5924	Holy Power	Rank 2
+5925	Holy Power	Rank 3
+5926	Holy Power	Rank 4
+5927	Holy Focus	Rank 1
+5928	Holy Focus	Rank 2
+5929	Holy Focus	Rank 3
+5941	Evade	Rank 1
+5942	Evade	Rank 2
+5943	Evade	Rank 3
+5944	Evade (OLD)	Rank 4
+5952	Throwing Specialization	Rank 1
+5953	Throwing Specialization	Rank 2
+5954	Throwing Specialization	Rank 3
+5955	Throwing Specialization	Rank 4
+5956	Throwing Specialization	Rank 5
+5957	Throwing Specialization	Rank 6
+5958	Throwing Specialization	Rank 7
+5969	Crossbow Specialization	Rank 1
+5970	Crossbow Power	Rank 1
+5971	Crossbow Power	Rank 2
+5972	Crossbow Power	Rank 3
+5973	Crossbow Specialization	Rank 2
+5974	Crossbow Specialization	Rank 3
+5975	Crossbow Specialization	Rank 4
+5976	Crossbow Specialization	Rank 5
+5977	Crossbow Specialization	Rank 6
+5979	Crossbow Specialization	Rank 7
+6041	Lightning Bolt	Rank 6
+6057	Wand Specialization	Rank 1
+6058	zzOLDLightning Storm	Rank 3
+6060	Smite	Rank 6
+6063	Heal	Rank 3
+6064	Heal	Rank 4
+6065	Power Word: Shield	Rank 5
+6066	Power Word: Shield	Rank 6
+6069	zzOLDShadow Word: Befuddle	Rank 2
+6074	Renew	Rank 2
+6075	Renew	Rank 3
+6076	Renew	Rank 4
+6077	Renew	Rank 5
+6078	Renew	Rank 6
+6085	Wand Specialization	Rank 2
+6086	zzOLDWand Specialization	Rank 3
+6087	zzOLDWand Specialization	Rank 4
+6088	zzOLDWand Specialization	Rank 5
+6089	Wand Specialization	Rank 6
+6090	Wand Specialization	Rank 7
+6091	Wand Specialization	Rank 8
+6092	Wand Specialization	Rank 9
+6093	Wand Specialization	Rank 10
+6094	Wand Power	Rank 1
+6095	Wand Mastery	Rank 1
+6096	Wand Mastery	Rank 2
+6097	Wand Power	Rank 2
+6098	Wand Power	Rank 3
+6117	Mage Armor	Rank 1
+6118	zzOLDMage Armor	Rank 3
+6119	Combat Swap (DND)	
+6123	Combat Swap (DND)	
+6127	Conjure Water	Rank 4
+6129	Conjure Food	Rank 4
+6131	Frost Nova	Rank 3
+6134	zzOLDFrost Shield	Rank 2
+6135	zzOLDFrost Shield	Rank 3
+6139	zzOLDBlink	Rank 2
+6141	Blizzard	Rank 2
+6143	Frost Ward	Rank 1
+6146	Slow	Rank 2
+6148	zzOLDWater Elemental	Rank 2
+6151	Sneaky	Rank 1
+6152	zzOLDSpell - Reuse 6152	Rank 1
+6153	Sneaky	Rank 2
+6155	Sneaky	Rank 3
+6156	Sneaky	Rank 4
+6157	Sneaky	Rank 5
+6159	zzOLDSpell - Reuse 6159	Rank 2
+6160	zzOLDSpell - Reuse 6160	Rank 3
+6161	zzOLDSpell - Reuse 6161	Rank 4
+6162	zzOLDSpell - Reuse 6162	Rank 5
+6178	Charge	Rank 2
+6186	zzOLDRiposte	Rank 2
+6190	Demoralizing Shout	Rank 2
+6192	Battle Shout	Rank 3
+6196	Far Sight	
+6197	Eagle Eye	
+6201	Create Healthstone (Minor)	
+6202	Create Healthstone (Lesser)	
+6205	Curse of Weakness	Rank 3
+6207	zzOLDBlood Boil	Rank 1
+6208	zzOLDBlood Boil	Rank 2
+6209	zzOLDBlood Boil	Rank 3
+6213	Fear	Rank 2
+6215	Fear	Rank 3
+6217	Curse of Agony	Rank 3
+6219	Rain of Fire	Rank 2
+6222	Corruption	Rank 2
+6223	Corruption	Rank 3
+6226	Drain Mana	Rank 2
+6229	Shadow Ward	Rank 1
+6230	zzOLDHoly Ward	Rank 1
+6233	Closing	
+6246	Closing	
+6247	Opening	
+6280	Pet Hardiness	Rank 1
+6281	Pet Hardiness	Rank 2
+6282	Pet Hardiness	Rank 3
+6283	Pet Hardiness	Rank 4
+6284	Pet Hardiness	Any Pet - Rank 1
+6286	Pet Hardiness	Rank 5
+6287	Pet Hardiness	Any Pet - Rank 2
+6288	Pet Hardiness	Any Pet - Rank 3
+6289	Pet Hardiness	Any Pet - Rank 4
+6290	Pet Hardiness	Any Pet - Rank 5
+6307	Blood Pact	Rank 1
+6311	Pet Aggression	Rank 1
+6312	Pet Aggression	Any Pet - Rank 1
+6314	Pet Aggression	Rank 2
+6315	Pet Aggression	Rank 3
+6316	Pet Aggression	Rank 4
+6317	Pet Aggression	Rank 5
+6318	Pet Aggression	Any Pet - Rank 2
+6319	Pet Aggression	Any Pet - Rank 3
+6320	Pet Aggression	Any Pet - Rank 4
+6321	Pet Aggression	Any Pet - Rank 5
+6328	Pet Recovery	Rank 1
+6329	Pet Recovery	Any Pet - Rank 1
+6331	Pet Recovery	Rank 2
+6332	Pet Recovery	Rank 3
+6333	Pet Recovery	Rank 4
+6334	Pet Recovery	Rank 5
+6335	Pet Recovery	Any Pet - Rank 2
+6336	Pet Recovery	Any Pet - Rank 3
+6337	Pet Recovery	Any Pet - Rank 4
+6338	Pet Recovery	Any Pet - Rank 5
+6343	Thunder Clap	Rank 1
+6344	zzOLDThunderclap	Rank 2
+6346	Fear Ward	
+6353	Soul Fire	Rank 1
+6356	Spell Immunity	
+6358	Seduction	
+6360	Soothing Kiss	Rank 1
+6363	Searing Totem	Rank 2
+6364	Searing Totem	Rank 3
+6365	Searing Totem	Rank 4
+6366	Create Firestone (Lesser)	
+6375	Healing Stream Totem	Rank 2
+6376	zzOLDHealing Totem	Rank 4
+6377	Healing Stream Totem	Rank 3
+6378	zzOLDHealing Totem	Rank 5
+6390	Stoneclaw Totem	Rank 2
+6391	Stoneclaw Totem	Rank 3
+6392	Stoneclaw Totem	Rank 4
+6412	Kaldorei Spider Kabob	
+6413	Scorpid Surprise	
+6414	Roasted Kodo Meat	
+6415	Fillet of Frenzy	
+6416	Strider Stew	
+6417	Dig Rat Stew	
+6418	Crispy Lizard Tail	
+6419	Lean Venison	
+6441	Explosive Shells	
+6443	Pet Resistance	Rank 1
+6444	Pet Resistance	Rank 2
+6445	Pet Resistance	Rank 3
+6446	Pet Resistance	Rank 4
+6447	Pet Resistance	Rank 5
+6448	Pet Resistance	Any Pet - Rank 1
+6450	Pet Resistance	Any Pet - Rank 2
+6451	Pet Resistance	Any Pet - Rank 3
+6452	Pet Resistance	Any Pet - Rank 4
+6453	Pet Resistance	Any Pet - Rank 5
+6458	Ornate Spyglass	
+6461	Pick Lock	Journeyman
+6463	Pick Lock	Expert
+6470	Tiny Bronze Key	
+6471	Tiny Iron Key	
+6477	Opening	
+6478	Opening	
+6495	Sentry Totem	
+6499	Boiled Clams	
+6500	Goblin Deviled Clams	
+6501	Clam Chowder	
+6510	Blinding Powder	
+6517	Pearl-handled Dagger	
+6518	Iridescent Hammer	
+6521	Pearl-clasped Cloak	
+6538	Dig Trap	
+6539	Dig Trap	Scorpion
+6544	zzOLDHeroic Leap	Rank 1
+6546	Rend	Rank 2
+6547	Rend	Rank 3
+6548	Rend	Rank 4
+6552	Pummel	Rank 1
+6554	Pummel	Rank 2
+6555	zzOLDPummel	Rank 3
+6558	Debuff	Rank 1
+6560	LeCraft Test Spell	
+6561	zzOLDSpell - Reuse 6561	Rank 3
+6564	zzOLDSavage Blow	Rank 1
+6566	zzOLDSavage Blow	Rank 2
+6568	zzOLDRiposte	Rank 3
+6570	zzOLDSunder (NYI)	Rank 1
+6572	Revenge	Rank 1
+6574	Revenge	Rank 2
+6576	Intimidating Growl	
+6577	Intimidating Growl	Wolf
+6580	Pierce Ankle	
+6582	Pierce Ankle	Crocilisk
+6603	Attack	
+6617	Rage Potion	
+6618	Great Rage Potion	
+6619	Cowardly Flight Potion	
+6624	Free Action Potion	
+6651	Instant Toxin	Rank 1
+6661	Barbaric Harness	
+6664	Survival Instinct	
+6666	Survival Instinct	Cat
+6673	Battle Shout	Rank 1
+6686	Red Linen Bag	
+6688	Red Woolen Bag	
+6690	Lesser Wizard's Robe	
+6692	Robes of Arcana	
+6693	Green Silk Pack	
+6695	Black Silk Pack	
+6702	Murloc Scale Belt	
+6703	Murloc Scale Breastplate	
+6704	Thick Murloc Armor	
+6705	Murloc Scale Bracers	
+6739	zzOLDDominance Aura	Rank 3
+6756	Mark of the Wild	Rank 3
+6760	Eviscerate	Rank 2
+6761	Eviscerate	Rank 3
+6762	Eviscerate	Rank 4
+6768	Feint	Rank 2
+6770	Sap	Rank 1
+6772	Trip	Rank 2
+6774	Slice and Dice	Rank 2
+6778	Healing Touch	Rank 6
+6780	Wrath	Rank 6
+6783	Prowl	Rank 2
+6785	Ravage	Rank 1
+6787	Ravage	Rank 2
+6789	Death Coil	Rank 1
+6793	Tiger's Fury	Rank 2
+6795	Growl	
+6798	Bash	Rank 2
+6800	Shred	Rank 2
+6807	Maul	Rank 1
+6808	Maul	Rank 2
+6809	Maul	Rank 3
+6873	Foul Chill	
+6940	Blessing of Sacrifice	Rank 1
+6969	Free Master	Rank 2
+6975	zzOLDQuick Shot	Rank 2
+6976	zzOLDQuick Shot	Rank 3
+6977	zzOLDQuick Shot	Rank 4
+6979	Fire Shot	Rank 2
+6980	Fire Shot	Rank 3
+6984	Frost Shot	Rank 2
+6985	Frost Shot	Rank 3
+6991	Feed Pet	
+6994	zzOLDFeinting Strike	Rank 2
+6996	zzOLDExplosive Shot	Rank 2
+7027	zzOLDSniper Shot	Rank 2
+7028	zzOLDSniper Shot	Rank 3
+7029	zzOLDSniper Shot	Rank 4
+7128	Inner Fire	Rank 2
+7133	Fine Leather Pants	
+7135	Dark Leather Pants	
+7147	Guardian Pants	
+7149	Barbaric Leggings	
+7151	Barbaric Shoulders	
+7153	Guardian Cloak	
+7156	Guardian Gloves	
+7179	Elixir of Water Breathing	
+7181	Greater Healing Potion	
+7198	Meditation	Rank 5
+7200	Regeneration	Rank 5
+7203	Sneaky	Rank 6
+7204	Sneaky	Rank 7
+7205	Sneaky	Rank 8
+7206	Sneaky	Rank 9
+7211	Devilsaur Barb	
+7213	Giant Clam Scorcho	
+7221	Iron Shield Spike	
+7222	Iron Counterweight	
+7223	Golden Scale Bracers	
+7224	Steel Weapon Chain	
+7255	Holy Protection Potion	
+7256	Shadow Protection Potion	
+7257	Fire Protection Potion	
+7258	Frost Protection Potion	
+7259	Nature Protection Potion	
+7266	Duel	
+7267	Grovel	
+7294	Retribution Aura	Rank 1
+7300	Frost Armor	Rank 2
+7301	Frost Armor	Rank 3
+7302	Ice Armor	Rank 1
+7320	Ice Armor	Rank 2
+7322	Frostbolt	Rank 4
+7325	zzOLDWisdom Aura	Rank 1
+7328	Redemption	Rank 1
+7340	Language Gnomish	
+7341	Language Troll	
+7355	Stuck	
+7359	Bright Campfire	
+7369	Cleave	Rank 2
+7371	Charge	Rank 1
+7372	Hamstring	Rank 2
+7373	Hamstring	Rank 3
+7379	Revenge	Rank 3
+7384	Overpower	Rank 1
+7386	Sunder Armor	Rank 1
+7390	zzOLDTaunt	Rank 2
+7391	zzOLDTaunt	Rank 3
+7400	Mocking Blow	Rank 2
+7402	Mocking Blow	Rank 3
+7405	Sunder Armor	Rank 2
+7408	Heavy Copper Maul	
+7411	Enchanting	Apprentice 
+7412	Enchanting	Journeyman
+7413	Enchanting	Expert
+7420	Enchant Chest - Minor Health	
+7426	Enchant Chest - Minor Absorption	
+7428	Enchant Bracer - Minor Deflect	
+7430	Arclight Spanner	
+7434	Imbue Weapon - Beastslayer	
+7443	Enchant Chest - Minor Mana	
+7448	Imbue Chest - Lesser Absorb	
+7451	Imbue Chest - Minor Spirit	
+7454	Enchant Cloak - Minor Resistance	
+7457	Enchant Bracer - Minor Stamina	
+7620	Fishing	Apprentice
+7623	Brown Linen Robe	
+7624	White Linen Robe	
+7629	Red Linen Vest	
+7630	Blue Linen Vest	
+7633	Blue Linen Robe	
+7636	Green Woolen Robe	
+7639	Blue Overalls	
+7641	Shadow Bolt	Rank 6
+7643	Greater Adept's Robe	
+7646	Curse of Weakness	Rank 4
+7648	Corruption	Rank 4
+7651	Drain Life	Rank 4
+7658	Curse of Recklessness	Rank 2
+7659	Curse of Recklessness	Rank 3
+7731	Fishing	Journeyman
+7732	Fishing	Expert
+7744	Will of the Forsaken	Racial
+7745	Enchant 2H Weapon - Minor Impact	
+7748	Enchant Chest - Lesser Health	
+7751	Brilliant Smallfish	
+7752	Slitherskin Mackerel	
+7753	Longjaw Mud Snapper	
+7754	Loch Frenzy Delight	
+7755	Bristle Whisker Catfish	
+7766	Enchant Bracer - Minor Spirit	
+7769	Imbue Bracers - Minor Wisdom OLD	
+7771	Enchant Cloak - Minor Protection	
+7776	Enchant Chest - Lesser Mana	
+7779	Enchant Bracer - Minor Agility	
+7782	Enchant Bracer - Minor Strength	
+7786	Enchant Weapon - Minor Beastslayer	
+7788	Enchant Weapon - Minor Striking	
+7793	Enchant 2H Weapon - Lesser Intellect	
+7795	Runed Silver Rod	
+7799	Firebolt	Rank 2
+7800	Firebolt	Rank 3
+7801	Firebolt	Rank 4
+7802	Firebolt	Rank 5
+7804	Blood Pact	Rank 2
+7805	Blood Pact	Rank 3
+7806	Flameblade	Rank 1
+7807	Flameblade	Rank 2
+7808	Flameblade	Rank 3
+7809	Torment	Rank 2
+7810	Torment	Rank 3
+7811	Torment	Rank 4
+7812	Sacrifice	Rank 1
+7813	Soothing Kiss	Rank 2
+7814	Lash of Pain	Rank 1
+7815	Lash of Pain	Rank 2
+7816	Lash of Pain	Rank 3
+7817	Rough Bronze Boots	
+7818	Silver Rod	
+7827	Rainbow Fin Albacore	
+7828	Rockscale Cod	
+7836	Blackmouth Oil	
+7837	Fire Oil	
+7841	Swim Speed Potion	
+7845	Elixir of Firepower	
+7853	Imbue Chest - Lesser Spirit	
+7855	Imbue Chest - Absorb	
+7857	Enchant Chest - Health	
+7859	Enchant Bracer - Lesser Spirit	
+7861	Enchant Cloak - Lesser Fire Resistance	
+7863	Enchant Boots - Minor Stamina	
+7865	Imbue Cloak - Lesser Protection	
+7867	Enchant Boots - Minor Agility	
+7870	Lesser Invisibility	
+7887	Overpower	Rank 2
+7892	Stylish Blue Shirt	
+7893	Stylish Green Shirt	
+7924	First Aid	Expert
+7928	Silk Bandage	
+7929	Heavy Silk Bandage	
+7934	Anti-Venom	
+7935	Strong Anti-Venom	
+7953	Deviate Scale Cloak	
+7954	Deviate Scale Gloves	
+7955	Deviate Scale Belt	
+8004	Lesser Healing Wave	Rank 1
+8005	Healing Wave	Rank 7
+8008	Lesser Healing Wave	Rank 2
+8010	Lesser Healing Wave	Rank 3
+8012	Purge	Rank 2
+8017	Rockbiter Weapon	Rank 1
+8018	Rockbiter Weapon	Rank 2
+8019	Rockbiter Weapon	Rank 3
+8024	Flametongue Weapon	Rank 1
+8027	Flametongue Weapon	Rank 2
+8030	Flametongue Weapon	Rank 3
+8033	Frostbrand Weapon	Rank 1
+8038	Frostbrand Weapon	Rank 2
+8042	Earth Shock	Rank 1
+8044	Earth Shock	Rank 2
+8045	Earth Shock	Rank 3
+8046	Earth Shock	Rank 4
+8050	Flame Shock	Rank 1
+8052	Flame Shock	Rank 2
+8053	Flame Shock	Rank 3
+8056	Frost Shock	Rank 1
+8058	Frost Shock	Rank 2
+8060	zzOLDLightning Shock	Rank 1
+8071	Stoneskin Totem	Rank 1
+8075	Strength of Earth Totem	Rank 1
+8092	Mind Blast	Rank 1
+8102	Mind Blast	Rank 2
+8103	Mind Blast	Rank 3
+8104	Mind Blast	Rank 4
+8105	Mind Blast	Rank 5
+8106	Mind Blast	Rank 6
+8122	Psychic Scream	Rank 1
+8124	Psychic Scream	Rank 2
+8127	zzOLDBrainwash	Rank 1
+8129	Mana Burn	Rank 1
+8131	Mana Burn	Rank 2
+8134	Lightning Shield	Rank 5
+8143	Tremor Totem	
+8154	Stoneskin Totem	Rank 2
+8155	Stoneskin Totem	Rank 3
+8160	Strength of Earth Totem	Rank 2
+8161	Strength of Earth Totem	Rank 3
+8166	Poison Cleansing Totem	
+8170	Disease Cleansing Totem	
+8177	Grounding Totem	
+8181	Frost Resistance Totem	Rank 1
+8184	Fire Resistance Totem	Rank 1
+8190	Magma Totem	Rank 1
+8192	Mind Soothe	Rank 2
+8194	zzOLDBrainwash	Rank 2
+8198	Thunder Clap	Rank 2
+8204	Thunder Clap	Rank 3
+8205	Thunder Clap	Rank 4
+8227	Flametongue Totem	Rank 1
+8232	Windfury Weapon	Rank 1
+8235	Windfury Weapon	Rank 2
+8238	Savory Deviate Delight	
+8240	Elixir of Giant Growth	
+8243	Flash Bomb	
+8249	Flametongue Totem	Rank 2
+8288	Drain Soul	Rank 2
+8289	Drain Soul	Rank 3
+8296	Mass Smelt Copper OLD	
+8316	Fire Shield	Rank 2
+8317	Fire Shield	Rank 3
+8322	Moonglow Vest	
+8334	Practice Lock	
+8339	EZ-Thro Dynamite	
+8366	Ironforge Chain	
+8367	Ironforge Breastplate	
+8368	Ironforge Gauntlets	
+8380	Sunder Armor	Rank 3
+8386	Attacking	
+8387	Find Herbs	Rank 2
+8388	Find Minerals	Rank 2
+8400	Fireball	Rank 5
+8401	Fireball	Rank 6
+8402	Fireball	Rank 7
+8406	Frostbolt	Rank 5
+8407	Frostbolt	Rank 6
+8408	Frostbolt	Rank 7
+8412	Fire Blast	Rank 4
+8413	Fire Blast	Rank 5
+8416	Arcane Missiles	Rank 4
+8417	Arcane Missiles	Rank 5
+8422	Flamestrike	Rank 3
+8423	Flamestrike	Rank 4
+8427	Blizzard	Rank 3
+8429	zzOLDMinor Phantasm	Rank 1
+8437	Arcane Explosion	Rank 2
+8438	Arcane Explosion	Rank 3
+8439	Arcane Explosion	Rank 4
+8444	Scorch	Rank 2
+8445	Scorch	Rank 3
+8446	Scorch	Rank 4
+8450	Dampen Magic	Rank 2
+8451	Dampen Magic	Rank 3
+8455	Amplify Magic	Rank 2
+8457	Fire Ward	Rank 2
+8458	Fire Ward	Rank 3
+8461	Frost Ward	Rank 2
+8462	Frost Ward	Rank 3
+8465	Simple Dress	
+8467	White Woolen Dress	
+8479	zzOLDLesser Phantasm	Rank 2
+8480	zzOLDPhantasm	Rank 3
+8481	zzOLDGreater Phantasm	Rank 4
+8483	White Swashbuckler's Shirt	
+8489	Red Swashbuckler's Shirt	
+8492	Cone of Cold	Rank 2
+8494	Mana Shield	Rank 2
+8495	Mana Shield	Rank 3
+8498	Fire Nova Totem	Rank 2
+8499	Fire Nova Totem	Rank 3
+8512	Windfury Totem	Rank 1
+8604	Herb Baked Egg	
+8607	Smoked Bear Meat	
+8613	Skinning	Apprentice
+8617	Skinning	Journeyman
+8618	Skinning	Expert
+8621	Sinister Strike	Rank 6
+8623	Eviscerate	Rank 5
+8624	Eviscerate	Rank 6
+8629	Gouge	Rank 3
+8631	Garrote	Rank 2
+8632	Garrote	Rank 3
+8633	Garrote	Rank 4
+8637	Feint	Rank 3
+8639	Rupture	Rank 2
+8640	Rupture	Rank 3
+8643	Kidney Shot	Rank 2
+8647	Expose Armor	Rank 1
+8649	Expose Armor	Rank 2
+8650	Expose Armor	Rank 3
+8676	Ambush	Rank 1
+8681	Instant Poison	Rank 1
+8687	Instant Poison II	Rank 2
+8691	Instant Poison III	Rank 3
+8694	Mind-numbing Poison II	Rank 2
+8696	Sprint	Rank 2
+8721	Backstab	Rank 5
+8724	Ambush	Rank 2
+8725	Ambush	Rank 3
+8737	Mail	
+8758	Azure Silk Pants	
+8760	Azure Silk Hood	
+8762	Silk Headband	
+8764	Earthen Vest	
+8766	Azure Silk Belt	
+8768	Iron Buckle	
+8770	Robe of Power	
+8772	Crimson Silk Belt	
+8774	Green Silken Shoulders	
+8776	Linen Belt	
+8778	Boots of Darkness	
+8780	Hands of Darkness	
+8782	Truefaith Gloves	
+8784	Green Silk Armor	
+8786	Azure Silk Cloak	
+8789	Crimson Silk Cloak	
+8791	Crimson Silk Vest	
+8793	Crimson Silk Shoulders	
+8795	Azure Shoulders	
+8797	Earthen Silk Belt	
+8799	Crimson Silk Pantaloons	
+8802	Crimson Silk Robe	
+8804	Crimson Silk Gloves	
+8820	Slam	Rank 2
+8823	Crusader Strike	Rank 2
+8824	Crusader Strike	Rank 3
+8835	Grace of Air Totem	Rank 1
+8880	Copper Dagger	
+8895	Goblin Rocket Boots	
+8903	Healing Touch	Rank 7
+8905	Wrath	Rank 7
+8907	Mark of the Wild	Rank 5
+8910	Rejuvenation	Rank 7
+8914	Thorns	Rank 4
+8918	Tranquility	Rank 2
+8921	Moonfire	Rank 1
+8924	Moonfire	Rank 2
+8925	Moonfire	Rank 3
+8926	Moonfire	Rank 4
+8927	Moonfire	Rank 5
+8928	Moonfire	Rank 6
+8929	Moonfire	Rank 7
+8936	Regrowth	Rank 1
+8938	Regrowth	Rank 2
+8939	Regrowth	Rank 3
+8940	Regrowth	Rank 4
+8941	Regrowth	Rank 5
+8946	Cure Poison	
+8949	Starfire	Rank 2
+8950	Starfire	Rank 3
+8951	Starfire	Rank 4
+8955	Soothe Animal	Rank 2
+8972	Maul	Rank 4
+8974	zzOLDGrowl	Rank 2
+8975	zzOLDGrowl	Rank 3
+8976	zzOLDGrowl	Rank 4
+8983	Bash	Rank 3
+8992	Shred	Rank 3
+8998	Cower	Rank 1
+9000	Cower	Rank 2
+9005	Pounce	Rank 1
+9035	Hex of Weakness	Rank 1
+9060	Light Leather Quiver	
+9062	Small Leather Ammo Pouch	
+9064	Rugged Leather Pants	
+9065	Light Leather Bracers	
+9068	Light Leather Pants	
+9070	Black Whelp Cloak	
+9072	Red Whelp Gloves	
+9074	Nimble Leather Gloves	
+9077	Leather	
+9078	Cloth	
+9116	Shield	
+9125	Generic	
+9145	Fletcher's Gloves	
+9146	Herbalist's Gloves	
+9147	Earthen Leather Shoulders	
+9148	Pilferer's Gloves	
+9149	Heavy Earthen Gloves	
+9193	Heavy Quiver	
+9194	Heavy Leather Ammo Pouch	
+9195	Dusky Leather Leggings	
+9196	Dusky Leather Armor	
+9197	Green Whelp Armor	
+9198	Frost Leather Cloak	
+9201	Dusky Bracers	
+9202	Green Whelp Bracers	
+9206	Dusky Belt	
+9207	Dusky Boots	
+9208	Swift Boots	
+9269	Gnomish Universal Remote	
+9271	Aquadynamic Fish Attractor	
+9273	Goblin Jumper Cables	
+9472	Flash Heal	Rank 2
+9473	Flash Heal	Rank 3
+9474	Flash Heal	Rank 4
+9484	Shackle Undead	Rank 1
+9485	Shackle Undead	Rank 2
+9490	Demoralizing Roar	Rank 3
+9492	Rip	Rank 2
+9493	Rip	Rank 3
+9513	Thistle Tea	
+9578	Fade	Rank 2
+9579	Fade	Rank 3
+9592	Fade	Rank 4
+9634	Dire Bear Form	Shapeshift
+9672	Frostbolt	
+9745	Maul	Rank 5
+9747	Demoralizing Roar	Rank 4
+9749	Faerie Fire	Rank 3
+9750	Regrowth	Rank 6
+9752	Rip	Rank 4
+9754	Swipe	Rank 4
+9756	Thorns	Rank 5
+9758	Healing Touch	Rank 8
+9785	Blacksmithing	Artisan
+9787	Weaponsmith	Artisan
+9788	Armorsmith	Artisan
+9811	Barbaric Iron Shoulders	
+9813	Barbaric Iron Breastplate	
+9814	Barbaric Iron Helm	
+9818	Barbaric Iron Boots	
+9820	Barbaric Iron Gloves	
+9821	Dash	Rank 2
+9823	Pounce	Rank 2
+9827	Pounce	Rank 3
+9829	Shred	Rank 4
+9830	Shred	Rank 5
+9833	Moonfire	Rank 8
+9834	Moonfire	Rank 9
+9835	Moonfire	Rank 10
+9839	Rejuvenation	Rank 8
+9840	Rejuvenation	Rank 9
+9841	Rejuvenation	Rank 10
+9845	Tiger's Fury	Rank 3
+9846	Tiger's Fury	Rank 4
+9849	Claw	Rank 4
+9850	Claw	Rank 5
+9852	Entangling Roots	Rank 5
+9853	Entangling Roots	Rank 6
+9856	Regrowth	Rank 7
+9857	Regrowth	Rank 8
+9858	Regrowth	Rank 9
+9862	Tranquility	Rank 3
+9863	Tranquility	Rank 4
+9866	Ravage	Rank 3
+9867	Ravage	Rank 4
+9870	zzOLDGrowl	Rank 5
+9871	zzOLDGrowl	Rank 6
+9875	Starfire	Rank 5
+9876	Starfire	Rank 6
+9880	Maul	Rank 6
+9881	Maul	Rank 7
+9884	Mark of the Wild	Rank 6
+9885	Mark of the Wild	Rank 7
+9888	Healing Touch	Rank 9
+9889	Healing Touch	Rank 10
+9892	Cower	Rank 3
+9894	Rip	Rank 5
+9896	Rip	Rank 6
+9898	Demoralizing Roar	Rank 5
+9901	Soothe Animal	Rank 3
+9904	Rake	Rank 4
+9907	Faerie Fire	Rank 4
+9908	Swipe	Rank 5
+9910	Thorns	Rank 6
+9912	Wrath	Rank 8
+9913	Prowl	Rank 3
+9916	Steel Breastplate	
+9918	Solid Sharpening Stone	
+9920	Solid Grinding Stone	
+9921	Solid Weightstone	
+9926	Heavy Mithril Shoulder	
+9928	Heavy Mithril Gauntlet	
+9931	Mithril Scale Pants	
+9933	Heavy Mithril Pants	
+9935	Steel Plate Helm	
+9937	Mithril Scale Bracers	
+9939	Mithril Shield Spike	
+9942	Mithril Scale Gloves	
+9945	Ornate Mithril Pants	
+9950	Ornate Mithril Gloves	
+9952	Ornate Mithril Shoulders	
+9954	Truesilver Gauntlets	
+9957	Orcish War Leggings	
+9959	Heavy Mithril Breastplate	
+9961	Mithril Coif	
+9964	Mithril Spurs	
+9966	Mithril Scale Shoulders	
+9968	Heavy Mithril Boots	
+9970	Heavy Mithril Helm	
+9972	Ornate Mithril Breastplate	
+9974	Truesilver Breastplate	
+9979	Ornate Mithril Boots	
+9980	Ornate Mithril Helm	
+9983	Copper Claymore	
+9985	Bronze Warhammer	
+9986	Bronze Greatsword	
+9987	Bronze Battle Axe	
+9993	Heavy Mithril Axe	
+9995	Blue Glittering Axe	
+9997	Wicked Mithril Blade	
+10001	Big Black Mace	
+10003	The Shatterer	
+10005	Dazzling Mithril Rapier	
+10007	Phantom Blade	
+10009	Runed Mithril Hammer	
+10011	Blight	
+10013	Ebon Shiv	
+10015	Truesilver Champion	
+10053	Conjure Mana Citrine	
+10054	Conjure Mana Ruby	
+10059	Portal: Stormwind	
+10097	Smelt Mithril	
+10098	Smelt Truesilver	
+10138	Conjure Water	Rank 5
+10139	Conjure Water	Rank 6
+10140	Conjure Water	Rank 7
+10144	Conjure Food	Rank 5
+10145	Conjure Food	Rank 6
+10148	Fireball	Rank 8
+10149	Fireball	Rank 9
+10150	Fireball	Rank 10
+10151	Fireball	Rank 11
+10156	Arcane Intellect	Rank 4
+10157	Arcane Intellect	Rank 5
+10159	Cone of Cold	Rank 3
+10160	Cone of Cold	Rank 4
+10161	Cone of Cold	Rank 5
+10165	Khadgar's Unlocking	Rank 3
+10166	Khadgar's Unlocking	Rank 4
+10169	Amplify Magic	Rank 3
+10170	Amplify Magic	Rank 4
+10173	Dampen Magic	Rank 4
+10174	Dampen Magic	Rank 5
+10177	Frost Ward	Rank 4
+10179	Frostbolt	Rank 8
+10180	Frostbolt	Rank 9
+10181	Frostbolt	Rank 10
+10185	Blizzard	Rank 4
+10186	Blizzard	Rank 5
+10187	Blizzard	Rank 6
+10191	Mana Shield	Rank 4
+10192	Mana Shield	Rank 5
+10193	Mana Shield	Rank 6
+10197	Fire Blast	Rank 6
+10199	Fire Blast	Rank 7
+10201	Arcane Explosion	Rank 5
+10202	Arcane Explosion	Rank 6
+10205	Scorch	Rank 5
+10206	Scorch	Rank 6
+10207	Scorch	Rank 7
+10211	Arcane Missiles	Rank 6
+10212	Arcane Missiles	Rank 7
+10215	Flamestrike	Rank 5
+10216	Flamestrike	Rank 6
+10219	Ice Armor	Rank 3
+10220	Ice Armor	Rank 4
+10223	Fire Ward	Rank 4
+10225	Fire Ward	Rank 5
+10228	Greater Invisibility	
+10230	Frost Nova	Rank 4
+10232	zzOLDBlink	Rank 3
+10234	zzOLDSleep	Rank 4
+10236	Humanoid Tracking	
+10238	Demon Tracking	
+10240	Undead Tracking	
+10241	Dragon Tracking	
+10242	Elemental Tracking	
+10248	Mining	Artisan
+10269	zzOLDDominance Aura	Rank 4
+10270	zzOLDDominance Aura	Rank 5
+10275	zzOLDWisdom Aura	Rank 4
+10278	Blessing of Protection	Rank 3
+10280	zzOLDBlessing of Righteousness	Rank 4
+10281	zzOLDBlessing of Righteousness	Rank 5
+10284	zzOLDHealing Aura	Rank 4
+10285	zzOLDHealing Aura	Rank 5
+10286	zzOLDHealing Aura	Rank 6
+10290	Devotion Aura	Rank 2
+10291	Devotion Aura	Rank 4
+10292	Devotion Aura	Rank 6
+10293	Devotion Aura	Rank 7
+10298	Retribution Aura	Rank 2
+10299	Retribution Aura	Rank 3
+10300	Retribution Aura	Rank 4
+10301	Retribution Aura	Rank 5
+10306	zzOLDResistance Aura	Rank 3
+10308	Hammer of Justice	Rank 4
+10310	Lay on Hands	Rank 3
+10312	Exorcism	Rank 4
+10313	Exorcism	Rank 5
+10314	Exorcism	Rank 6
+10318	Holy Wrath	Rank 2
+10322	Redemption	Rank 2
+10324	Redemption	Rank 3
+10326	Turn Undead	Rank 3
+10328	Holy Light	Rank 7
+10329	Holy Light	Rank 8
+10332	zzOLDHoly Strike	Rank 7
+10333	zzOLDHoly Strike	Rank 8
+10336	Crusader Strike	Rank 4
+10337	Crusader Strike	Rank 5
+10391	Lightning Bolt	Rank 7
+10392	Lightning Bolt	Rank 8
+10395	Healing Wave	Rank 8
+10396	Healing Wave	Rank 9
+10399	Rockbiter Weapon	Rank 4
+10406	Stoneskin Totem	Rank 4
+10407	Stoneskin Totem	Rank 5
+10408	Stoneskin Totem	Rank 6
+10412	Earth Shock	Rank 5
+10413	Earth Shock	Rank 6
+10414	Earth Shock	Rank 7
+10419	zzOLDMolten Blast	Rank 6
+10420	zzOLDMolten Blast	Rank 7
+10427	Stoneclaw Totem	Rank 5
+10428	Stoneclaw Totem	Rank 6
+10431	Lightning Shield	Rank 6
+10432	Lightning Shield	Rank 7
+10437	Searing Totem	Rank 5
+10438	Searing Totem	Rank 6
+10442	Strength of Earth Totem	Rank 4
+10447	Flame Shock	Rank 4
+10448	Flame Shock	Rank 5
+10456	Frostbrand Weapon	Rank 3
+10462	Healing Stream Totem	Rank 4
+10463	Healing Stream Totem	Rank 5
+10466	Lesser Healing Wave	Rank 4
+10467	Lesser Healing Wave	Rank 5
+10468	Lesser Healing Wave	Rank 6
+10472	Frost Shock	Rank 3
+10473	Frost Shock	Rank 4
+10478	Frost Resistance Totem	Rank 2
+10479	Frost Resistance Totem	Rank 3
+10482	Cured Thick Hide	
+10486	Windfury Weapon	Rank 3
+10487	Thick Armor Kit	
+10490	Comfortable Leather Hat	
+10495	Mana Spring Totem	Rank 2
+10496	Mana Spring Totem	Rank 3
+10497	Mana Spring Totem	Rank 4
+10499	Nightscape Tunic	
+10507	Nightscape Headband	
+10509	Turtle Scale Gloves	
+10511	Turtle Scale Breastplate	
+10516	Nightscape Shoulders	
+10518	Turtle Scale Bracers	
+10520	Big Voodoo Robe	
+10525	Tough Scorpid Breastplate	
+10526	Flametongue Totem	Rank 3
+10529	Wild Leather Shoulders	
+10531	Big Voodoo Mask	
+10533	Tough Scorpid Bracers	
+10537	Fire Resistance Totem	Rank 2
+10538	Fire Resistance Totem	Rank 3
+10542	Tough Scorpid Gloves	
+10544	Wild Leather Vest	
+10546	Wild Leather Helmet	
+10548	Nightscape Pants	
+10550	Nightscape Cloak	
+10552	Turtle Scale Helm	
+10554	Tough Scorpid Boots	
+10556	Turtle Scale Leggings	
+10558	Nightscape Boots	
+10560	Big Voodoo Pants	
+10562	Big Voodoo Cloak	
+10564	Tough Scorpid Shoulders	
+10566	Wild Leather Boots	
+10568	Tough Scorpid Leggings	
+10570	Tough Scorpid Helm	
+10572	Wild Leather Leggings	
+10574	Wild Leather Cloak	
+10585	Magma Totem	Rank 2
+10586	Magma Totem	Rank 3
+10587	Magma Totem	Rank 4
+10591	zzOLDLightning Shock	Rank 2
+10592	zzOLDLightning Shock	Rank 3
+10595	Nature Resistance Totem	Rank 1
+10600	Nature Resistance Totem	Rank 2
+10601	Nature Resistance Totem	Rank 3
+10605	Chain Lightning	Rank 4
+10613	Windfury Totem	Rank 2
+10614	Windfury Totem	Rank 3
+10619	Dragonscale Gauntlets	
+10621	Wolfshead Helm	
+10622	Chain Heal	Rank 2
+10623	Chain Heal	Rank 3
+10627	Grace of Air Totem	Rank 2
+10630	Gauntlets of the Sea	
+10632	Helm of Fire	
+10647	Feathered Breastplate	
+10650	Dragonscale Breastplate	
+10656	Dragonscale Leatherworking	
+10658	Elemental Leatherworking	
+10660	Tribal Leatherworking	
+10662	Leatherworking	Artisan
+10768	Skinning	Artisan
+10797	Starshards	Rank 1
+10840	Mageweave Bandage	
+10841	Heavy Mageweave Bandage	
+10844	Powerful Smelling Salts	
+10846	First Aid	Artisan
+10861	Raptor Riding	Passive
+10874	Mana Burn	Rank 3
+10875	Mana Burn	Rank 4
+10876	Mana Burn	Rank 5
+10880	Resurrection	Rank 3
+10881	Resurrection	Rank 4
+10884	zzOLDHoly Protection	Rank 2
+10885	zzOLDHoly Protection	Rank 3
+10888	Psychic Scream	Rank 3
+10890	Psychic Scream	Rank 4
+10892	Shadow Word: Pain	Rank 6
+10893	Shadow Word: Pain	Rank 7
+10894	Shadow Word: Pain	Rank 8
+10898	Power Word: Shield	Rank 7
+10899	Power Word: Shield	Rank 8
+10900	Power Word: Shield	Rank 9
+10901	Power Word: Shield	Rank 10
+10906	Undead Horsemanship	Passive
+10907	Mechanostrider Piloting	Passive
+10909	Mind Vision	Rank 2
+10911	Mind Control	Rank 2
+10912	Mind Control	Rank 3
+10915	Flash Heal	Rank 5
+10916	Flash Heal	Rank 6
+10917	Flash Heal	Rank 7
+10927	Renew	Rank 7
+10928	Renew	Rank 8
+10929	Renew	Rank 9
+10933	Smite	Rank 7
+10934	Smite	Rank 8
+10937	Power Word: Fortitude	Rank 5
+10938	Power Word: Fortitude	Rank 6
+10941	Fade	Rank 5
+10942	Fade	Rank 6
+10945	Mind Blast	Rank 7
+10946	Mind Blast	Rank 8
+10947	Mind Blast	Rank 9
+10951	Inner Fire	Rank 5
+10952	Inner Fire	Rank 6
+10953	Mind Soothe	Rank 3
+10955	Shackle Undead	Rank 3
+10957	Shadow Protection	Rank 2
+10958	Shadow Protection	Rank 3
+10960	Prayer of Healing	Rank 3
+10961	Prayer of Healing	Rank 4
+10963	Greater Heal	Rank 2
+10964	Greater Heal	Rank 3
+10965	Greater Heal	Rank 4
+11113	Blast Wave	Rank 1
+11197	Expose Armor	Rank 4
+11198	Expose Armor	Rank 5
+11267	Ambush	Rank 4
+11268	Ambush	Rank 5
+11269	Ambush	Rank 6
+11273	Rupture	Rank 4
+11274	Rupture	Rank 5
+11275	Rupture	Rank 6
+11279	Backstab	Rank 6
+11280	Backstab	Rank 7
+11281	Backstab	Rank 8
+11285	Gouge	Rank 4
+11286	Gouge	Rank 5
+11289	Garrote	Rank 5
+11290	Garrote	Rank 6
+11293	Sinister Strike	Rank 7
+11294	Sinister Strike	Rank 8
+11297	Sap	Rank 3
+11299	Eviscerate	Rank 7
+11300	Eviscerate	Rank 8
+11303	Feint	Rank 4
+11305	Sprint	Rank 3
+11314	Fire Nova Totem	Rank 4
+11315	Fire Nova Totem	Rank 5
+11341	Instant Poison IV	Rank 4
+11342	Instant Poison V	Rank 5
+11343	Instant Poison VI	Rank 6
+11357	Deadly Poison III	Rank 3
+11358	Deadly Poison IV	Rank 4
+11400	Mind-numbing Poison III	Rank 3
+11416	Portal: Ironforge	
+11417	Portal: Orgrimmar	
+11418	Portal: Undercity	
+11419	Portal: Darnassus	
+11420	Portal: Thunder Bluff	
+11426	Ice Barrier	Rank 1
+11447	Elixir of Waterwalking	
+11448	Greater Mana Potion	
+11449	Elixir of Agility	
+11450	Elixir of Greater Defense	
+11451	Oil of Immolation	
+11452	Restorative Potion	
+11453	Magic Resistance Potion	
+11454	Inlaid Mithril Cylinder	
+11456	Goblin Rocket Fuel	
+11457	Superior Healing Potion	
+11458	Wildvine Potion	
+11459	Philosophers' Stone	
+11460	Elixir of Detect Undead	
+11461	Arcane Elixir	
+11464	Invisibility Potion	
+11465	Elixir of Greater Intellect	
+11466	Gift of Arthas	
+11467	Elixir of Greater Agility	
+11468	Elixir of Dream Vision	
+11472	Elixir of Giants	
+11473	Ghost Dye	
+11476	Elixir of Shadow Power	
+11477	Elixir of Demonslaying	
+11478	Elixir of Detect Demon	
+11479	Transmute: Iron to Gold	
+11480	Transmute: Mithril to Truesilver	
+11549	Battle Shout	Rank 4
+11550	Battle Shout	Rank 5
+11551	Battle Shout	Rank 6
+11554	Demoralizing Shout	Rank 3
+11555	Demoralizing Shout	Rank 4
+11556	Demoralizing Shout	Rank 5
+11560	zzOLDInner Rage	Rank 2
+11561	zzOLDInner Rage	Rank 3
+11564	Heroic Strike	Rank 5
+11565	Heroic Strike	Rank 6
+11566	Heroic Strike	Rank 7
+11567	Heroic Strike	Rank 8
+11572	Rend	Rank 5
+11573	Rend	Rank 6
+11574	Rend	Rank 7
+11578	Charge	Rank 3
+11580	Thunder Clap	Rank 5
+11581	Thunder Clap	Rank 6
+11584	Overpower	Rank 3
+11585	Overpower	Rank 4
+11588	zzOLDTaunt	Rank 4
+11589	zzOLDTaunt	Rank 5
+11590	zzOLDTaunt	Rank 6
+11596	Sunder Armor	Rank 4
+11597	Sunder Armor	Rank 5
+11600	Revenge	Rank 4
+11601	Revenge	Rank 5
+11604	Slam	Rank 3
+11605	Slam	Rank 4
+11608	Cleave	Rank 3
+11609	Cleave	Rank 4
+11611	Alchemy	Artisan
+11643	Golden Scale Gauntlets	
+11659	Shadow Bolt	Rank 7
+11660	Shadow Bolt	Rank 8
+11661	Shadow Bolt	Rank 9
+11665	Immolate	Rank 5
+11667	Immolate	Rank 6
+11668	Immolate	Rank 7
+11671	Corruption	Rank 5
+11672	Corruption	Rank 6
+11675	Drain Soul	Rank 4
+11677	Rain of Fire	Rank 3
+11678	Rain of Fire	Rank 4
+11683	Hellfire	Rank 2
+11684	Hellfire	Rank 3
+11687	Life Tap	Rank 4
+11688	Life Tap	Rank 5
+11689	Life Tap	Rank 6
+11693	Health Funnel	Rank 5
+11694	Health Funnel	Rank 6
+11695	Health Funnel	Rank 7
+11699	Drain Life	Rank 5
+11700	Drain Life	Rank 6
+11703	Drain Mana	Rank 3
+11704	Drain Mana	Rank 4
+11707	Curse of Weakness	Rank 5
+11708	Curse of Weakness	Rank 6
+11711	Curse of Agony	Rank 4
+11712	Curse of Agony	Rank 5
+11713	Curse of Agony	Rank 6
+11717	Curse of Recklessness	Rank 4
+11719	Curse of Tongues	Rank 2
+11721	Curse of the Elements	Rank 2
+11722	Curse of the Elements	Rank 3
+11725	Enslave Demon	Rank 2
+11726	Enslave Demon	Rank 3
+11729	Create Healthstone (Greater)	
+11730	Create Healthstone (Major)	
+11733	Demon Armor	Rank 3
+11734	Demon Armor	Rank 4
+11735	Demon Armor	Rank 5
+11739	Shadow Ward	Rank 2
+11740	Shadow Ward	Rank 3
+11743	Detect Greater Invisibility	
+11762	Firebolt	Rank 6
+11763	Firebolt	Rank 7
+11766	Blood Pact	Rank 4
+11767	Blood Pact	Rank 5
+11770	Fire Shield	Rank 4
+11771	Fire Shield	Rank 5
+11774	Torment	Rank 5
+11775	Torment	Rank 6
+11778	Lash of Pain	Rank 4
+11779	Lash of Pain	Rank 5
+11780	Lash of Pain	Rank 6
+11784	Soothing Kiss	Rank 3
+11785	Soothing Kiss	Rank 4
+11993	Herb Gathering	Artisan
+12044	Simple Linen Pants	
+12045	Simple Linen Boots	
+12046	Simple Kilt	
+12047	Colorful Kilt	
+12048	Black Mageweave Vest	
+12049	Black Mageweave Leggings	
+12050	Black Mageweave Robe	
+12051	Evocation	
+12052	Shadoweave Pants	
+12053	Black Mageweave Gloves	
+12055	Shadoweave Robe	
+12056	Red Mageweave Vest	
+12059	White Bandit Mask	
+12060	Red Mageweave Pants	
+12061	Orange Mageweave Shirt	
+12062	Stormcloth Pants	
+12063	Stormcloth Gloves	
+12064	Orange Martial Shirt	
+12065	Mageweave Bag	
+12066	Red Mageweave Gloves	
+12067	Dreamweave Gloves	
+12068	Stormcloth Vest	
+12069	Cindercloth Robe	
+12070	Dreamweave Vest	
+12071	Shadoweave Gloves	
+12072	Black Mageweave Headband	
+12073	Black Mageweave Boots	
+12074	Black Mageweave Shoulders	
+12075	Lavender Mageweave Shirt	
+12076	Shadoweave Shoulders	
+12077	Simple Black Dress	
+12078	Red Mageweave Shoulders	
+12079	Red Mageweave Bag	
+12080	Pink Mageweave Shirt	
+12081	Admiral's Hat	
+12082	Shadoweave Boots	
+12083	Stormcloth Headband	
+12084	Red Mageweave Headband	
+12085	Tuxedo Shirt	
+12086	Shadoweave Mask	
+12087	Stormcloth Shoulders	
+12088	Cindercloth Boots	
+12089	Tuxedo Pants	
+12090	Stormcloth Boots	
+12091	White Wedding Dress	
+12092	Dreamweave Circlet	
+12093	Tuxedo Jacket	
+12180	Tailoring	Artisan
+12259	Silvered Bronze Leggings	
+12505	Pyroblast	Rank 2
+12522	Pyroblast	Rank 3
+12523	Pyroblast	Rank 4
+12524	Pyroblast	Rank 5
+12525	Pyroblast	Rank 6
+12526	Pyroblast	Rank 7
+12566	Plainsrunning	
+12584	Gold Power Core	
+12585	Solid Blasting Powder	
+12586	Solid Dynamite	
+12587	Bright-Eye Goggles	
+12589	Mithril Tube	
+12590	Gyromatic Micro-Adjustor	
+12591	Unstable Trigger	
+12594	Fire Goggles	
+12595	Mithril Blunderbuss	
+12596	Hi-Impact Mithril Slugs	
+12597	Deadly Scope	
+12599	Mithril Casing	
+12603	Mithril Frag Bomb	
+12607	Catseye Ultra Goggles	
+12609	Catseye Elixir	
+12614	Mithril Heavy-bore Rifle	
+12615	Spellpower Goggles Xtreme	
+12616	Parachute Cloak	
+12617	Deepdive Helmet	
+12618	Rose Colored Goggles	
+12619	Hi-Explosive Bomb	
+12620	Sniper Scope	
+12621	Mithril Gyro-Shot	
+12622	Green Lens	
+12624	Mithril Mechanical Dragonling	
+12656	Engineering	Artisan
+12680	Journeyman Gemology	
+12681	Gemology - Copper (DND)	
+12682	Gemology - Tin (DND)	
+12687	Expert Gemology	
+12689	Gemology - Iron (DND)	
+12690	Gemology - Mithril (DND)	
+12691	Artisan Gemology	
+12715	Goblin Rocket Fuel Recipe	
+12716	Goblin Mortar	
+12717	Goblin Mining Helmet	
+12718	Goblin Construction Helmet	
+12719	Explosive Arrow	
+12720	Goblin "Boom" Box	
+12722	Goblin Radio	
+12754	The Big One	
+12755	Goblin Bomb Dispenser	
+12758	Goblin Rocket Helmet	
+12759	Gnomish Death Ray	
+12760	Goblin Sapper Charge	
+12824	Polymorph	Rank 2
+12825	Polymorph	Rank 3
+12826	Polymorph	Rank 4
+12895	Inlaid Mithril Cylinder Plans	
+12897	Gnomish Goggles	
+12899	Gnomish Shrink Ray	
+12900	Mobile Alarm	
+12902	Gnomish Net-o-Matic Projector	
+12903	Gnomish Harm Prevention Belt	
+12904	Gnomish Ham Radio	
+12905	Gnomish Rocket Boots	
+12906	Gnomish Battle Chicken	
+12907	Gnomish Mind Control Cap	
+12908	Goblin Dragon Gun	
+13018	Blast Wave	Rank 2
+13019	Blast Wave	Rank 3
+13020	Blast Wave	Rank 4
+13021	Blast Wave	Rank 5
+13028	Goldthorn Tea	
+13031	Ice Barrier	Rank 2
+13032	Ice Barrier	Rank 3
+13033	Ice Barrier	Rank 4
+13034	zzOLDIce Barrier	Rank 5
+13035	zzOLDIce Barrier	Rank 6
+13036	zzOLDIce Barrier	Rank 7
+13159	Aspect of the Pack	
+13161	Aspect of the Beast	
+13163	Aspect of the Monkey	
+13165	Aspect of the Hawk	Rank 1
+13220	Wound Poison	Rank 1
+13228	Wound Poison II	Rank 2
+13229	Wound Poison III	Rank 3
+13230	Wound Poison IV	Rank 4
+13240	The Mortar: Reloaded	
+13358	Defensive State (DND)	
+13378	Enchant Shield - Minor Stamina	
+13380	Enchant 2H Weapon - Lesser Spirit	
+13419	Enchant Cloak - Minor Agility	
+13421	Enchant Cloak - Lesser Protection	
+13464	Enchant Shield - Lesser Protection	
+13485	Enchant Shield - Lesser Spirit	
+13501	Enchant Bracer - Lesser Stamina	
+13503	Enchant Weapon - Lesser Striking	
+13522	Enchant Cloak - Lesser Shadow Resistance	
+13529	Enchant 2H Weapon - Lesser Impact	
+13536	Enchant Bracer - Lesser Strength	
+13538	Enchant Chest - Lesser Absorption	
+13542	Mend Pet	Rank 5
+13543	Mend Pet	Rank 6
+13544	Mend Pet	Rank 7
+13549	Serpent Sting	Rank 2
+13550	Serpent Sting	Rank 3
+13551	Serpent Sting	Rank 4
+13552	Serpent Sting	Rank 5
+13553	Serpent Sting	Rank 6
+13554	Serpent Sting	Rank 7
+13555	Serpent Sting	Rank 8
+13607	Enchant Chest - Mana	
+13612	Enchant Gloves - Mining	
+13617	Enchant Gloves - Herbalism	
+13620	Enchant Gloves - Fishing	
+13622	Enchant Bracer - Lesser Intellect	
+13626	Enchant Chest - Minor Stats	
+13628	Runed Golden Rod	
+13631	Enchant Shield - Lesser Stamina	
+13635	Enchant Cloak - Defense	
+13637	Enchant Boots - Lesser Agility	
+13640	Enchant Chest - Greater Health	
+13642	Enchant Bracer - Spirit	
+13644	Enchant Boots - Lesser Stamina	
+13646	Enchant Bracer - Lesser Deflection	
+13648	Enchant Bracer - Stamina	
+13653	Enchant Weapon - Lesser Beastslayer	
+13655	Enchant Weapon - Lesser Elemental Slayer	
+13657	Enchant Cloak - Fire Resistance	
+13659	Enchant Shield - Spirit	
+13661	Enchant Bracer - Strength	
+13663	Enchant Chest - Greater Mana	
+13687	Enchant Boots - Lesser Spirit	
+13689	Enchant Shield - Lesser Block	
+13693	Enchant Weapon - Striking	
+13695	Enchant 2H Weapon - Impact	
+13698	Enchant Gloves - Skinning	
+13700	Enchant Chest - Lesser Stats	
+13702	Runed Truesilver Rod	
+13746	Enchant Cloak - Greater Defense	
+13794	Enchant Cloak - Resistance	
+13795	Immolation Trap	Rank 1
+13809	Frost Trap	
+13813	Explosive Trap	Rank 1
+13815	Enchant Gloves - Agility	
+13817	Enchant Shield - Stamina	
+13819	Summon Warhorse	Summon
+13822	Enchant Bracer - Intellect	
+13836	Enchant Boots - Stamina	
+13841	Enchant Gloves - Advanced Mining	
+13846	Enchant Bracer - Greater Spirit	
+13858	Enchant Chest - Superior Health	
+13868	Enchant Gloves - Advanced Herbalism	
+13882	Enchant Cloak - Lesser Agility	
+13887	Enchant Gloves - Strength	
+13890	Enchant Boots - Minor Speed	
+13896	Feedback	Rank 1
+13898	Enchant Weapon - Fiery Weapon	
+13905	Enchant Shield - Greater Spirit	
+13908	Desperate Prayer	Rank 1
+13915	Enchant Weapon - Demonslaying	
+13917	Enchant Chest - Superior Mana	
+13920	Enchanting	Artisan
+13931	Enchant Bracer - Deflection	
+13933	Enchant Shield - Frost Resistance	
+13935	Enchant Boots - Agility	
+13937	Enchant 2H Weapon - Greater Impact	
+13939	Enchant Bracer - Greater Strength	
+13941	Enchant Chest - Stats	
+13943	Enchant Weapon - Greater Striking	
+13945	Enchant Bracer - Greater Stamina	
+13947	Enchant Gloves - Riding Skill	
+13948	Enchant Gloves - Minor Haste	
+14260	Raptor Strike	Rank 2
+14261	Raptor Strike	Rank 3
+14262	Raptor Strike	Rank 4
+14263	Raptor Strike	Rank 5
+14264	Raptor Strike	Rank 6
+14265	Raptor Strike	Rank 7
+14266	Raptor Strike	Rank 8
+14267	Wing Clip	Rank 2
+14268	Wing Clip	Rank 3
+14269	Mongoose Bite	Rank 2
+14270	Mongoose Bite	Rank 3
+14271	Mongoose Bite	Rank 4
+14272	Disengage	Rank 2
+14273	Disengage	Rank 3
+14274	Distracting Shot	Rank 2
+14275	Scorpid Sting	Rank 2
+14276	Scorpid Sting	Rank 3
+14277	Scorpid Sting	Rank 4
+14279	Viper Sting	Rank 2
+14280	Viper Sting	Rank 3
+14281	Arcane Shot	Rank 2
+14282	Arcane Shot	Rank 3
+14283	Arcane Shot	Rank 4
+14284	Arcane Shot	Rank 5
+14285	Arcane Shot	Rank 6
+14286	Arcane Shot	Rank 7
+14287	Arcane Shot	Rank 8
+14288	Multi-Shot	Rank 2
+14289	Multi-Shot	Rank 3
+14290	Multi-Shot	Rank 4
+14293	Lesser Magic Wand	
+14294	Volley	Rank 2
+14295	Volley	Rank 3
+14296	Black Arrow	Rank 2
+14302	Immolation Trap	Rank 2
+14303	Immolation Trap	Rank 3
+14304	Immolation Trap	Rank 4
+14305	Immolation Trap	Rank 5
+14310	Freezing Trap	Rank 2
+14311	Freezing Trap	Rank 3
+14316	Explosive Trap	Rank 2
+14317	Explosive Trap	Rank 3
+14318	Aspect of the Hawk	Rank 2
+14319	Aspect of the Hawk	Rank 3
+14320	Aspect of the Hawk	Rank 4
+14321	Aspect of the Hawk	Rank 5
+14322	Aspect of the Hawk	Rank 6
+14323	Hunter's Mark	Rank 2
+14324	Hunter's Mark	Rank 3
+14325	Hunter's Mark	Rank 4
+14326	Scare Beast	Rank 2
+14327	Scare Beast	Rank 3
+14379	Golden Rod	
+14380	Truesilver Rod	
+14807	Greater Magic Wand	
+14809	Lesser Mystic Wand	
+14810	Greater Mystic Wand	
+14818	Divine Spirit	Rank 2
+14819	Divine Spirit	Rank 3
+14891	Smelt Dark Iron	
+14914	Holy Fire	Rank 1
+14916	Growl	Rank 2
+14917	Growl	Rank 3
+14918	Growl	Rank 4
+14919	Growl	Rank 5
+14920	Growl	Rank 6
+14921	Growl	Rank 7
+14923	Growl	Rank 3
+14924	Growl	Rank 4
+14925	Growl	Rank 5
+14926	Growl	Rank 6
+14927	Growl	Rank 7
+14930	Quickdraw Quiver	
+14932	Thick Leather Ammo Pouch	
+15107	Windwall Totem	Rank 1
+15111	Windwall Totem	Rank 2
+15112	Windwall Totem	Rank 3
+15207	Lightning Bolt	Rank 9
+15208	Lightning Bolt	Rank 10
+15255	Mechanical Repair Kit	
+15261	Holy Fire	Rank 8
+15262	Holy Fire	Rank 2
+15263	Holy Fire	Rank 3
+15264	Holy Fire	Rank 4
+15265	Holy Fire	Rank 5
+15266	Holy Fire	Rank 6
+15267	Holy Fire	Rank 7
+15292	Dark Iron Pulverizer	
+15293	Dark Iron Mail	
+15294	Dark Iron Sunderer	
+15295	Dark Iron Shoulders	
+15296	Dark Iron Plate	
+15430	Holy Nova	Rank 2
+15431	Holy Nova	Rank 3
+15432	zzOLDHoly Nova	Rank 4
+15433	zzOLDHoly Nova	Rank 5
+15590	Fist Weapons	
+15596	Smoking Heart of the Mountain	
+15628	Pet Bombling	
+15629	Distracting Shot	Rank 3
+15630	Distracting Shot	Rank 4
+15631	Distracting Shot	Rank 5
+15632	Distracting Shot	Rank 6
+15633	Lil' Smoky	
+15833	Dreamless Sleep Potion	
+15853	Lean Wolf Steak	
+15855	Roast Raptor	
+15856	Hot Wolf Ribs	
+15861	Jungle Stew	
+15863	Carrion Surprise	
+15865	Mystery Stew	
+15906	Dragonbreath Chili	
+15910	Heavy Kodo Stew	
+15915	Spiced Chili Crab	
+15933	Monster Omelet	
+15935	Crispy Bat Wing	
+15972	Glinting Steel Dagger	
+15973	Searing Golden Blade	
+16092	Defensive State (DND)	
+16153	Smelt Thorium	
+16314	Rockbiter Weapon	Rank 5
+16315	Rockbiter Weapon	Rank 6
+16316	Rockbiter Weapon	Rank 7
+16339	Flametongue Weapon	Rank 4
+16341	Flametongue Weapon	Rank 5
+16342	Flametongue Weapon	Rank 6
+16355	Frostbrand Weapon	Rank 4
+16356	Frostbrand Weapon	Rank 5
+16362	Windfury Weapon	Rank 4
+16387	Flametongue Totem	Rank 4
+16639	Dense Grinding Stone	
+16640	Dense Weightstone	
+16641	Dense Sharpening Stone	
+16642	Thorium Armor	
+16643	Thorium Belt	
+16644	Thorium Bracers	
+16645	Radiant Belt	
+16646	Imperial Plate Shoulders	
+16647	Imperial Plate Belt	
+16648	Radiant Breastplate	
+16649	Imperial Plate Bracers	
+16650	Wildthorn Mail	
+16651	Thorium Shield Spike	
+16652	Thorium Boots	
+16653	Thorium Helm	
+16654	Radiant Gloves	
+16655	Fiery Plate Gauntlets	
+16656	Radiant Boots	
+16657	Imperial Plate Boots	
+16658	Imperial Plate Helm	
+16659	Radiant Circlet	
+16660	Dawnbringer Shoulders	
+16661	Storm Gauntlets	
+16662	Thorium Leggings	
+16663	Imperial Plate Chest	
+16664	Runic Plate Shoulders	
+16665	Runic Plate Boots	
+16667	Demon Forged Breastplate	
+16697	Cower	Rank 6
+16724	Whitesoul Helm	
+16725	Radiant Leggings	
+16726	Runic Plate Helm	
+16728	Helm of the Great Chief	
+16729	Lionheart Helm	
+16730	Imperial Plate Leggings	
+16731	Runic Breastplate	
+16732	Runic Plate Leggings	
+16741	Stronghold Gauntlets	
+16742	Enchanted Thorium Helm	
+16744	Enchanted Thorium Leggings	
+16745	Enchanted Thorium Breastplate	
+16746	Invulnerable Mail	
+16810	Nature's Grasp	Rank 2
+16811	Nature's Grasp	Rank 3
+16812	Nature's Grasp	Rank 4
+16813	Nature's Grasp	Rank 5
+16827	Claw	Rank 1
+16828	Claw	Rank 2
+16829	Claw	Rank 3
+16830	Claw	Rank 4
+16831	Claw	Rank 5
+16832	Claw	Rank 6
+16914	Hurricane	Rank 1
+16960	Thorium Greatsword	
+16965	Bleakwood Hew	
+16967	Inlaid Thorium Hammer	
+16969	Ornate Thorium Handaxe	
+16970	Dawn's Edge	
+16971	Huge Thorium Battleaxe	
+16973	Enchanted Battlehammer	
+16978	Blazing Rapier	
+16980	Rune Edge	
+16983	Serenity	
+16984	Volcanic Hammer	
+16985	Corruption	
+16986	Blood Talon	
+16987	Darkspear	
+16988	Hammer of the Titans	
+16990	Arcanite Champion	
+16991	Annihilator	
+16992	Frostguard	
+16993	Masterwork Stormhammer	
+16994	Arcanite Reaper	
+16995	Heartseeker	
+17039	Master Swordsmith	
+17040	Master Hammersmith	
+17041	Master Axesmith	
+17180	Enchanted Thorium	
+17181	Enchanted Leather	
+17187	Transmute: Arcanite	
+17253	Bite	Rank 1
+17254	Bite	Rank 1
+17255	Bite	Rank 2
+17256	Bite	Rank 3
+17257	Bite	Rank 4
+17258	Bite	Rank 5
+17259	Bite	Rank 6
+17260	Bite	Rank 7
+17261	Bite	Rank 8
+17311	Mind Flay	Rank 2
+17312	Mind Flay	Rank 3
+17313	Mind Flay	Rank 4
+17314	Mind Flay	Rank 5
+17329	Nature's Grasp	Rank 6
+17347	Hemorrhage	Rank 2
+17348	Hemorrhage	Rank 3
+17354	Mana Tide Totem	Rank 2
+17359	Mana Tide Totem	Rank 3
+17387	zzOLDFaerie Fire (Bear)	Rank 2
+17388	zzOLDFaerie Fire (Bear)	Rank 3
+17389	zzOLDFaerie Fire (Bear)	Rank 4
+17390	Faerie Fire (Feral)	Rank 2
+17391	Faerie Fire (Feral)	Rank 3
+17392	Faerie Fire (Feral)	Rank 4
+17401	Hurricane	Rank 2
+17402	Hurricane	Rank 3
+17551	Stonescale Oil	
+17552	Mighty Rage Potion	
+17553	Superior Mana Potion	
+17554	Elixir of Superior Defense	
+17555	Elixir of the Sages	
+17556	Major Healing Potion	
+17557	Elixir of Brute Force	
+17559	Transmute: Air to Fire	
+17560	Transmute: Fire to Earth	
+17561	Transmute: Earth to Water	
+17562	Transmute: Water to Air	
+17563	Transmute: Undeath to Water	
+17564	Transmute: Water to Undeath	
+17565	Transmute: Life to Earth	
+17566	Transmute: Earth to Life	
+17570	Greater Stoneshield Potion	
+17571	Elixir of the Mongoose	
+17572	Purification Potion	
+17573	Greater Arcane Elixir	
+17574	Greater Fire Protection Potion	
+17575	Greater Frost Protection Potion	
+17576	Greater Nature Protection Potion	
+17577	Greater Arcane Protection Potion	
+17578	Greater Shadow Protection Potion	
+17579	Greater Holy Protection Potion	
+17580	Major Mana Potion	
+17632	Alchemist's Stone	
+17634	Flask of Petrification	
+17635	Flask of the Titans	
+17636	Flask of Distilled Wisdom	
+17637	Flask of Supreme Power	
+17638	Flask of Chromatic Resistance	
+17727	Create Spellstone (Greater)	
+17728	Create Spellstone (Major)	
+17735	Suffering	Rank 1
+17737	Language Gutterspeak	
+17750	Suffering	Rank 2
+17751	Suffering	Rank 3
+17752	Suffering	Rank 4
+17767	Consume Shadows	Rank 1
+17850	Consume Shadows	Rank 2
+17851	Consume Shadows	Rank 3
+17852	Consume Shadows	Rank 4
+17853	Consume Shadows	Rank 5
+17854	Consume Shadows	Rank 6
+17862	Curse of Shadow	Rank 1
+17919	Searing Pain	Rank 2
+17920	Searing Pain	Rank 3
+17921	Searing Pain	Rank 4
+17922	Searing Pain	Rank 5
+17923	Searing Pain	Rank 6
+17924	Soul Fire	Rank 2
+17925	Death Coil	Rank 2
+17926	Death Coil	Rank 3
+17928	Howl of Terror	Rank 2
+17937	Curse of Shadow	Rank 2
+17951	Create Firestone	
+17952	Create Firestone (Greater)	
+17953	Create Firestone (Major)	
+18137	Shadowguard	Rank 1
+18238	Spotted Yellowtail	
+18239	Cooked Glossy Mightfish	
+18240	Grilled Squid	
+18241	Filet of Redgill	
+18242	Hot Smoked Bass	
+18243	Nightfin Soup	
+18244	Poached Sunscale Salmon	
+18245	Lobster Stew	
+18246	Mightfish Steak	
+18247	Baked Salmon	
+18248	Fishing	Artisan
+18260	Cooking	Artisan
+18401	Bolt of Runecloth	
+18402	Runecloth Belt	
+18403	Frostweave Tunic	
+18404	Frostweave Robe	
+18405	Runecloth Bag	
+18406	Runecloth Robe	
+18407	Runecloth Tunic	
+18408	Cindercloth Vest	
+18409	Runecloth Cloak	
+18410	Ghostweave Belt	
+18411	Frostweave Gloves	
+18412	Cindercloth Gloves	
+18413	Ghostweave Gloves	
+18414	Brightcloth Robe	
+18415	Brightcloth Gloves	
+18416	Ghostweave Vest	
+18417	Runecloth Gloves	
+18418	Cindercloth Cloak	
+18419	Felcloth Pants	
+18420	Brightcloth Cloak	
+18421	Wizardweave Leggings	
+18422	Cloak of Fire	
+18423	Runecloth Boots	
+18424	Frostweave Pants	
+18434	Cindercloth Pants	
+18436	Robe of Winter Night	
+18437	Felcloth Boots	
+18438	Runecloth Pants	
+18439	Brightcloth Pants	
+18440	Mooncloth Leggings	
+18441	Ghostweave Pants	
+18442	Felcloth Hood	
+18444	Runecloth Headband	
+18445	Mooncloth Bag	
+18446	Wizardweave Robe	
+18447	Mooncloth Vest	
+18448	Mooncloth Shoulders	
+18449	Runecloth Shoulders	
+18450	Wizardweave Turban	
+18451	Felcloth Robe	
+18452	Mooncloth Circlet	
+18453	Felcloth Shoulders	
+18454	Gloves of Spell Mastery	
+18455	Bottomless Bag	
+18456	Truefaith Vestments	
+18457	Robe of the Archmage	
+18458	Robe of the Void	
+18499	Berserker Rage	
+18540	Ritual of Doom	
+18560	Mooncloth	
+18629	Runecloth Bandage	
+18630	Heavy Runecloth Bandage	
+18647	Banish	Rank 2
+18657	Hibernate	Rank 2
+18658	Hibernate	Rank 3
+18807	Mind Flay	Rank 6
+18809	Pyroblast	Rank 8
+18848	Parry	Passive
+18867	Shadowburn	Rank 2
+18868	Shadowburn	Rank 3
+18869	Shadowburn	Rank 4
+18870	Shadowburn	Rank 5
+18871	Shadowburn	Rank 6
+18879	Siphon Life	Rank 2
+18880	Siphon Life	Rank 3
+18881	Siphon Life	Rank 4
+18930	Conflagrate	Rank 2
+18931	Conflagrate	Rank 3
+18932	Conflagrate	Rank 4
+18937	Dark Pact	Rank 2
+18938	Dark Pact	Rank 3
+18960	Teleport: Moonglade	
+18995	Kodo Riding	Passive
+19047	Cured Rugged Hide	
+19048	Heavy Scorpid Bracers	
+19049	Wicked Leather Gauntlets	
+19050	Green Dragonscale Breastplate	
+19051	Heavy Scorpid Vest	
+19052	Wicked Leather Bracers	
+19053	Chimeric Gloves	
+19054	Red Dragonscale Breastplate	
+19055	Runic Leather Gauntlets	
+19058	Rugged Armor Kit	
+19059	Volcanic Leggings	
+19060	Green Dragonscale Leggings	
+19061	Living Shoulders	
+19062	Ironfeather Shoulders	
+19063	Chimeric Boots	
+19064	Heavy Scorpid Gauntlets	
+19065	Runic Leather Bracers	
+19066	Frostsaber Boots	
+19067	Stormshroud Pants	
+19068	Warbear Harness	
+19070	Heavy Scorpid Belt	
+19071	Wicked Leather Headband	
+19072	Runic Leather Belt	
+19073	Chimeric Leggings	
+19074	Frostsaber Leggings	
+19075	Heavy Scorpid Leggings	
+19076	Volcanic Breastplate	
+19077	Blue Dragonscale Breastplate	
+19078	Living Leggings	
+19079	Stormshroud Armor	
+19080	Warbear Woolies	
+19081	Chimeric Vest	
+19082	Runic Leather Headband	
+19083	Wicked Leather Pants	
+19084	Devilsaur Gauntlets	
+19085	Black Dragonscale Breastplate	
+19086	Ironfeather Breastplate	
+19087	Frostsaber Gloves	
+19088	Heavy Scorpid Helm	
+19089	Blue Dragonscale Shoulders	
+19090	Stormshroud Shoulders	
+19091	Runic Leather Pants	
+19092	Wicked Leather Belt	
+19093	Onyxia Scale Cloak	
+19094	Black Dragonscale Shoulders	
+19095	Living Breastplate	
+19097	Devilsaur Leggings	
+19098	Wicked Leather Armor	
+19100	Heavy Scorpid Shoulders	
+19101	Volcanic Shoulders	
+19102	Runic Leather Armor	
+19103	Runic Leather Shoulders	
+19104	Frostsaber Tunic	
+19106	Onyxia Scale Breastplate	
+19107	Black Dragonscale Leggings	
+19236	Desperate Prayer	Rank 2
+19238	Desperate Prayer	Rank 3
+19240	Desperate Prayer	Rank 4
+19241	Desperate Prayer	Rank 5
+19242	Desperate Prayer	Rank 6
+19243	Desperate Prayer	Rank 7
+19244	Spell Lock	Rank 1
+19261	Touch of Weakness	Rank 2
+19262	Touch of Weakness	Rank 3
+19264	Touch of Weakness	Rank 4
+19265	Touch of Weakness	Rank 5
+19266	Touch of Weakness	Rank 6
+19271	Feedback	Rank 2
+19273	Feedback	Rank 3
+19274	Feedback	Rank 4
+19275	Feedback	Rank 5
+19276	Devouring Plague	Rank 2
+19277	Devouring Plague	Rank 3
+19278	Devouring Plague	Rank 4
+19279	Devouring Plague	Rank 5
+19280	Devouring Plague	Rank 6
+19281	Hex of Weakness	Rank 2
+19282	Hex of Weakness	Rank 3
+19283	Hex of Weakness	Rank 4
+19284	Hex of Weakness	Rank 5
+19285	Hex of Weakness	Rank 6
+19289	Elune's Grace	Rank 2
+19291	Elune's Grace	Rank 3
+19292	Elune's Grace	Rank 4
+19293	Elune's Grace	Rank 5
+19296	Starshards	Rank 2
+19299	Starshards	Rank 3
+19302	Starshards	Rank 4
+19303	Starshards	Rank 5
+19304	Starshards	Rank 6
+19305	Starshards	Rank 7
+19308	Shadowguard	Rank 2
+19309	Shadowguard	Rank 3
+19310	Shadowguard	Rank 4
+19311	Shadowguard	Rank 5
+19312	Shadowguard	Rank 6
+19435	Mooncloth Boots	
+19438	Sacrifice	Rank 2
+19440	Sacrifice	Rank 3
+19441	Sacrifice	Rank 4
+19442	Sacrifice	Rank 5
+19443	Sacrifice	Rank 6
+19474	Rain of Fire	Rank 1
+19476	Dispel Magic	Rank 1
+19478	Tainted Blood	Rank 1
+19480	Paranoia	
+19505	Devour Magic	Rank 1
+19567	Salt Shaker	
+19647	Spell Lock	Rank 2
+19655	Tainted Blood	Rank 2
+19656	Tainted Blood	Rank 3
+19660	Tainted Blood	Rank 4
+19666	Silver Skeleton Key	
+19667	Golden Skeleton Key	
+19668	Truesilver Skeleton Key	
+19669	Arcanite Skeleton Key	
+19731	Devour Magic	Rank 2
+19734	Devour Magic	Rank 3
+19736	Devour Magic	Rank 4
+19740	Blessing of Might	Rank 1
+19742	Blessing of Wisdom	Rank 1
+19744	zzOLDSeal of Light	Rank 1
+19746	Concentration Aura	
+19750	Flash of Light	Rank 1
+19752	Divine Intervention	
+19788	Dense Blasting Powder	
+19790	Thorium Grenade	
+19791	Thorium Widget	
+19792	Thorium Rifle	
+19793	Lifelike Mechanical Toad	
+19794	Spellpower Goggles Xtreme Plus	
+19795	Thorium Tube	
+19796	Dark Iron Rifle	
+19799	Dark Iron Bomb	
+19800	Thorium Shells	
+19801	Tranquilizing Shot	
+19814	Masterwork Target Dummy	
+19815	Delicate Arcanite Converter	
+19819	Voice Amplification Modulator	
+19825	Master Engineer's Goggles	
+19830	Arcanite Dragonling	
+19831	Arcane Bomb	
+19833	Flawless Arcanite Rifle	
+19834	Blessing of Might	Rank 2
+19835	Blessing of Might	Rank 3
+19836	Blessing of Might	Rank 4
+19837	Blessing of Might	Rank 5
+19838	Blessing of Might	Rank 6
+19850	Blessing of Wisdom	Rank 2
+19852	Blessing of Wisdom	Rank 3
+19853	Blessing of Wisdom	Rank 4
+19854	Blessing of Wisdom	Rank 5
+19876	Shadow Resistance Aura	Rank 1
+19878	Track Demons	
+19879	Track Dragonkin	
+19880	Track Elementals	
+19882	Track Giants	
+19883	Track Humanoids	
+19884	Track Undead	
+19885	Track Hidden	
+19888	Frost Resistance Aura	Rank 1
+19891	Fire Resistance Aura	Rank 1
+19895	Shadow Resistance Aura	Rank 2
+19896	Shadow Resistance Aura	Rank 3
+19897	Frost Resistance Aura	Rank 2
+19898	Frost Resistance Aura	Rank 3
+19899	Fire Resistance Aura	Rank 2
+19900	Fire Resistance Aura	Rank 3
+19939	Flash of Light	Rank 2
+19940	Flash of Light	Rank 3
+19941	Flash of Light	Rank 4
+19942	Flash of Light	Rank 5
+19943	Flash of Light	Rank 6
+19976	zzOLDSeal of Light	Rank 2
+19977	Blessing of Light	Rank 1
+19978	Blessing of Light	Rank 2
+19979	Blessing of Light	Rank 3
+19998	zzOLDRetribution Aura	Rank 6
+20008	Enchant Bracer - Greater Intellect	
+20009	Enchant Bracer - Superior Spirit	
+20010	Enchant Bracer - Superior Strength	
+20011	Enchant Bracer - Superior Stamina	
+20012	Enchant Gloves - Greater Agility	
+20013	Enchant Gloves - Greater Strength	
+20014	Enchant Cloak - Greater Resistance	
+20015	Enchant Cloak - Superior Defense	
+20016	Enchant Shield - Superior Spirit	
+20017	Enchant Shield - Greater Stamina	
+20020	Enchant Boots - Greater Stamina	
+20023	Enchant Boots - Greater Agility	
+20024	Enchant Boots - Spirit	
+20025	Enchant Chest - Greater Stats	
+20026	Enchant Chest - Major Health	
+20028	Enchant Chest - Major Mana	
+20029	Enchant Weapon - Icy Chill	
+20030	Enchant 2H Weapon - Superior Impact	
+20031	Enchant Weapon - Superior Striking	
+20032	Enchant Weapon - Lifestealing	
+20033	Enchant Weapon - Unholy Weapon	
+20034	Enchant Weapon - Crusader	
+20035	Enchant 2H Weapon - Major Spirit	
+20036	Enchant 2H Weapon - Major Intellect	
+20043	Aspect of the Wild	Rank 1
+20051	Runed Arcanite Rod	
+20116	Consecration	Rank 2
+20154	Seal of Righteousness	Rank 1
+20162	Seal of the Crusader	Rank 2
+20163	zzOLDSeal of Fury	Rank 1
+20164	Seal of Justice	
+20165	Seal of Light	Rank 1
+20166	Seal of Wisdom	Rank 1
+20190	Aspect of the Wild	Rank 2
+20201	Arcanite Rod	
+20219	Gnomish Engineer	
+20222	Goblin Engineer	
+20230	Retaliation	
+20252	Intercept	Rank 1
+20271	Judgement	
+20287	Seal of Righteousness	Rank 2
+20288	Seal of Righteousness	Rank 3
+20289	Seal of Righteousness	Rank 4
+20290	Seal of Righteousness	Rank 5
+20291	Seal of Righteousness	Rank 6
+20292	Seal of Righteousness	Rank 7
+20293	Seal of Righteousness	Rank 8
+20305	Seal of the Crusader	Rank 3
+20306	Seal of the Crusader	Rank 4
+20307	Seal of the Crusader	Rank 5
+20308	Seal of the Crusader	Rank 6
+20309	zzOLDSeal of the Crusader	Rank 6
+20347	Seal of Light	Rank 2
+20348	Seal of Light	Rank 3
+20349	Seal of Light	Rank 4
+20356	Seal of Wisdom	Rank 2
+20357	Seal of Wisdom	Rank 3
+20419	zzOLDSeal of Fury	Rank 2
+20421	zzOLDSeal of Fury	Rank 3
+20422	zzOLDSeal of Fury	Rank 4
+20423	zzOLDSeal of Fury	Rank 5
+20484	Rebirth	Rank 1
+20549	War Stomp	Racial
+20550	Endurance	Racial Passive
+20551	Nature Resistance	Racial Passive
+20552	Cultivation	Racial Passive
+20554	Berserking	Racial
+20555	Regeneration	Racial Passive
+20557	Beast Slaying	Racial Passive
+20558	Throwing Specialization	Racial Passive
+20559	Mocking Blow	Rank 4
+20560	Mocking Blow	Rank 5
+20569	Cleave	Rank 5
+20572	Blood Fury	Racial
+20573	Hardiness	Racial Passive
+20574	Axe Specialization	Racial Passive
+20575	Command	Racial Passive
+20576	Command	Racial Passive
+20577	Cannibalize	Racial
+20579	Shadow Resistance	Racial Passive
+20580	Shadowmeld	Racial
+20582	Quickness	Racial Passive
+20583	Nature Resistance	Racial Passive
+20585	Wisp Spirit	Racial Passive
+20589	Escape Artist	Racial
+20591	Expansive Mind	Racial Passive
+20592	Arcane Resistance	Racial Passive
+20593	Engineering Specialization	Racial Passive
+20594	Stoneform	Racial
+20595	Gun Specialization	Racial Passive
+20596	Frost Resistance	Racial Passive
+20597	Sword Specialization	Racial Passive
+20598	The Human Spirit	Racial Passive
+20599	Diplomacy	Racial Passive
+20600	Perception	Racial
+20608	Reincarnation	Passive
+20609	Ancestral Spirit	Rank 2
+20610	Ancestral Spirit	Rank 3
+20616	Intercept	Rank 2
+20617	Intercept	Rank 3
+20626	Undermine Clam Chowder	
+20648	Medium Leather	
+20649	Heavy Leather	
+20650	Thick Leather	
+20658	Execute	Rank 2
+20660	Execute	Rank 3
+20661	Execute	Rank 4
+20662	Execute	Rank 5
+20719	Feline Grace	Passive
+20729	Blessing of Sacrifice	Rank 2
+20736	Distracting Shot	Rank 1
+20739	Rebirth	Rank 2
+20742	Rebirth	Rank 3
+20747	Rebirth	Rank 4
+20748	Rebirth	Rank 5
+20752	Create Soulstone (Lesser)	
+20755	Create Soulstone	
+20756	Create Soulstone (Greater)	
+20757	Create Soulstone (Major)	
+20770	Resurrection	Rank 5
+20772	Redemption	Rank 4
+20773	Redemption	Rank 5
+20776	Ancestral Spirit	Rank 4
+20777	Ancestral Spirit	Rank 5
+20848	Flarecore Mantle	
+20849	Flarecore Gloves	
+20853	Corehound Boots	
+20854	Molten Helm	
+20855	Black Dragonscale Boots	
+20864	Mace Specialization	Racial Passive
+20872	Fiery Chain Girdle	
+20873	Fiery Chain Shoulders	
+20874	Dark Iron Bracers	
+20876	Dark Iron Leggings	
+20890	Dark Iron Reaver	
+20895	Spirit Bond	Rank 2
+20896	zzOLDSpirit Bond	Rank 3
+20897	Dark Iron Destroyer	
+20900	Aimed Shot	Rank 2
+20901	Aimed Shot	Rank 3
+20902	Aimed Shot	Rank 4
+20903	Aimed Shot	Rank 5
+20904	Aimed Shot	Rank 6
+20905	Trueshot Aura	Rank 2
+20906	Trueshot Aura	Rank 3
+20907	zzOLDLacerate	Rank 2
+20908	zzOLDLacerate	Rank 3
+20909	Counterattack	Rank 2
+20910	Counterattack	Rank 3
+20911	Blessing of Sanctuary	Rank 1
+20912	Blessing of Sanctuary	Rank 2
+20913	Blessing of Sanctuary	Rank 3
+20914	Blessing of Sanctuary	Rank 4
+20915	Seal of Command	Rank 2
+20916	Mithril Headed Trout	
+20918	Seal of Command	Rank 3
+20919	Seal of Command	Rank 4
+20920	Seal of Command	Rank 5
+20922	Consecration	Rank 3
+20923	Consecration	Rank 4
+20924	Consecration	Rank 5
+20925	Holy Shield	Rank 1
+20927	Holy Shield	Rank 2
+20928	Holy Shield	Rank 3
+20929	Holy Shock	Rank 2
+20930	Holy Shock	Rank 3
+21009	Shadowmeld Passive	Racial Passive
+21082	Seal of the Crusader	Rank 1
+21084	Seal of Righteousness	Rank 1
+21143	Gingerbread Cookie	
+21144	Egg Nog	
+21161	Sulfuron Hammer	
+21175	Spider Sausage	
+21184	Rogue Passive (DND)	
+21551	Mortal Strike	Rank 2
+21552	Mortal Strike	Rank 3
+21553	Mortal Strike	Rank 4
+21560	zzOLDPrayer of Fortitude	Rank 1
+21562	Prayer of Fortitude	Rank 1
+21563	Command	Racial Passive
+21564	Prayer of Fortitude	Rank 2
+21651	Opening	
+21652	Closing	
+21849	Gift of the Wild	Rank 1
+21850	Gift of the Wild	Rank 2
+21913	Edge of Winter	
+21923	Elixir of Frost Power	
+21931	Enchant Weapon - Winter's Might	
+21940	SnowMaster 9000	
+21943	Gloves of the Greatfather	
+21945	Green Holiday Shirt	
+22027	Remove Insignia	
+22331	Rugged Leather	
+22430	Refined Scale of Onyxia	
+22434	Charged Scale of Onyxia	
+22480	Tender Wolf Steak	
+22568	Ferocious Bite	Rank 1
+22570	Mangle	Rank 1
+22704	Field Repair Bot 74A	
+22711	Shadowskin Gloves	
+22727	Core Armor Kit	
+22732	Major Rejuvenation Potion	
+22749	Enchant  Weapon - Spell Power	
+22750	Enchant  Weapon - Healing Power	
+22757	Elemental Sharpening Stone	
+22759	Flarecore Wraps	
+22761	Runn Tum Tuber Surprise	
+22782	Mage Armor	Rank 2
+22783	Mage Armor	Rank 3
+22793	Biznicks 247x128 Accurascope	
+22795	Core Marksman Rifle	
+22797	Force Reactive Disk	
+22808	Elixir of Greater Water Breathing	
+22810	Opening - No Text	
+22812	Barkskin	
+22813	Gordok Ogre Suit	
+22815	Gordok Ogre Suit	
+22827	Ferocious Bite	Rank 2
+22828	Ferocious Bite	Rank 3
+22829	Ferocious Bite	Rank 4
+22842	Frenzied Regeneration	Rank 1
+22866	Belt of the Archmage	
+22867	Felcloth Gloves	
+22868	Inferno Gloves	
+22869	Mooncloth Gloves	
+22870	Cloak of Warding	
+22895	Frenzied Regeneration	Rank 2
+22896	Frenzied Regeneration	Rank 3
+22902	Mooncloth Robe	
+22921	Girdle of Insight	
+22922	Mongoose Boots	
+22923	Swift Flight Bracers	
+22926	Chromatic Cloak	
+22927	Hide of the Wild	
+22928	Shifting Cloak	
+22967	Smelt Elementium	
+23027	zzOLDArcane Brilliance	Rank 1
+23028	Arcane Brilliance	Rank 1
+23066	Red Firework	
+23067	Blue Firework	
+23068	Green Firework	
+23069	EZ-Thro Dynamite II	
+23070	Dense Dynamite	
+23071	Truesilver Transformer	
+23077	Gyrofreeze Ice Reflector	
+23078	Goblin Jumper Cables XL	
+23079	Major Recombobulator	
+23080	Powerful Seaforium Charge	
+23081	Hyper-Radiant Flame Reflector	
+23082	Ultra-Flash Shadow Reflector	
+23096	Alarm-O-Bot	
+23099	Dash	Rank 1
+23109	Dash	Rank 2
+23110	Dash	Rank 3
+23129	World Enlarger	
+23145	Dive	Rank 1
+23147	Dive	Rank 2
+23148	Dive	Rank 3
+23161	Summon Dreadsteed	Summon
+23162	Harass	Rank 1
+23164	Harass	Rank 2
+23165	Harass	Rank 3
+23190	Heavy Leather Ball	
+23198	Avoidance	
+23214	Summon Charger	Summon
+23399	Barbaric Bracers	
+23486	Dimensional Ripper - Everlook	
+23489	Ultrasafe Transporter - Gadgetzan	
+23507	Snake Burst Firework	
+23628	Heavy Timbermaw Belt	
+23629	Heavy Timbermaw Boots	
+23632	Girdle of the Dawn	
+23633	Gloves of the Dawn	
+23636	Dark Iron Helm	
+23637	Dark Iron Gauntlets	
+23638	Black Amnesty	
+23639	Blackfury	
+23650	Ebon Hand	
+23652	Blackguard	
+23653	Nightfall	
+23662	Wisdom of the Timbermaw	
+23663	Mantle of the Timbermaw	
+23664	Argent Boots	
+23665	Argent Shoulders	
+23666	Flarecore Robe	
+23667	Flarecore Leggings	
+23703	Might of the Timbermaw	
+23704	Timbermaw Brawlers	
+23705	Dawn Treaders	
+23706	Golden Mantle of the Dawn	
+23707	Lava Belt	
+23708	Chromatic Gauntlets	
+23709	Corehound Belt	
+23710	Molten Belt	
+23787	Powerful Anti-Venom	
+23799	Enchant Weapon - Strength	
+23800	Enchant Weapon - Agility	
+23801	Enchant Bracer - Mana Regeneration	
+23802	Enchant Bracer - Healing Power	
+23803	Enchant Weapon - Mighty Spirit	
+23804	Enchant Weapon - Mighty Intellect	
+23892	Bloodthirst	Rank 2
+23893	Bloodthirst	Rank 3
+23894	Bloodthirst	Rank 4
+23923	Shield Slam	Rank 2
+23924	Shield Slam	Rank 3
+23925	Shield Slam	Rank 4
+23992	Fire Resistance	Rank 1
+24091	Bloodvine Vest	
+24092	Bloodvine Leggings	
+24093	Bloodvine Boots	
+24121	Primal Batskin Jerkin	
+24122	Primal Batskin Gloves	
+24123	Primal Batskin Bracers	
+24124	Blood Tiger Breastplate	
+24125	Blood Tiger Shoulders	
+24132	Wyvern Sting	Rank 2
+24133	Wyvern Sting	Rank 3
+24136	Bloodsoul Breastplate	
+24137	Bloodsoul Shoulders	
+24138	Bloodsoul Gauntlets	
+24139	Darksoul Breastplate	
+24140	Darksoul Leggings	
+24141	Darksoul Shoulders	
+24239	Hammer of Wrath	Rank 3
+24266	Gurubashi Mojo Madness	
+24274	Hammer of Wrath	Rank 2
+24275	Hammer of Wrath	Rank 1
+24356	Bloodvine Goggles	
+24357	Bloodvine Lens	
+24365	Mageblood Potion	
+24366	Greater Dreamless Sleep Potion	
+24367	Living Action Potion	
+24368	Major Troll's Blood Potion	
+24399	Dark Iron Boots	
+24418	Heavy Crocolisk Stew	
+24423	Screech	Rank 1
+24439	Fire Resistance	Rank 2
+24440	Fire Resistance	Rank 1
+24441	Fire Resistance	Rank 2
+24444	Fire Resistance	Rank 3
+24445	Fire Resistance	Rank 4
+24446	Frost Resistance	Rank 1
+24447	Frost Resistance	Rank 2
+24448	Frost Resistance	Rank 3
+24449	Frost Resistance	Rank 4
+24450	Prowl	Rank 1
+24452	Prowl	Rank 2
+24453	Prowl	Rank 3
+24463	Fire Resistance	Rank 3
+24464	Fire Resistance	Rank 4
+24475	Frost Resistance	Rank 1
+24476	Frost Resistance	Rank 2
+24477	Frost Resistance	Rank 3
+24478	Frost Resistance	Rank 4
+24488	Shadow Resistance	Rank 1
+24490	Shadow Resistance	Rank 1
+24492	Nature Resistance	Rank 1
+24493	Arcane Resistance	Rank 1
+24494	Nature Resistance	Rank 1
+24495	Arcane Resistance	Rank 1
+24497	Arcane Resistance	Rank 2
+24500	Arcane Resistance	Rank 3
+24501	Arcane Resistance	Rank 4
+24502	Nature Resistance	Rank 2
+24503	Nature Resistance	Rank 3
+24504	Nature Resistance	Rank 4
+24505	Shadow Resistance	Rank 2
+24506	Shadow Resistance	Rank 3
+24507	Shadow Resistance	Rank 4
+24508	Arcane Resistance	Rank 2
+24509	Arcane Resistance	Rank 3
+24510	Arcane Resistance	Rank 4
+24511	Nature Resistance	Rank 2
+24512	Nature Resistance	Rank 3
+24513	Nature Resistance	Rank 4
+24514	Shadow Resistance	Rank 2
+24515	Shadow Resistance	Rank 3
+24516	Shadow Resistance	Rank 4
+24545	Natural Armor	Rank 1
+24547	Natural Armor	Rank 1
+24549	Natural Armor	Rank 2
+24550	Natural Armor	Rank 3
+24551	Natural Armor	Rank 4
+24552	Natural Armor	Rank 5
+24553	Natural Armor	Rank 6
+24554	Natural Armor	Rank 7
+24555	Natural Armor	Rank 8
+24556	Natural Armor	Rank 2
+24557	Natural Armor	Rank 3
+24558	Natural Armor	Rank 4
+24559	Natural Armor	Rank 5
+24560	Natural Armor	Rank 6
+24561	Natural Armor	Rank 7
+24562	Natural Armor	Rank 8
+24577	Screech	Rank 2
+24578	Screech	Rank 3
+24579	Screech	Rank 4
+24583	Scorpid Poison	Rank 2
+24586	Scorpid Poison	Rank 3
+24587	Scorpid Poison	Rank 4
+24597	Furious Howl	Rank 4
+24603	Furious Howl	Rank 3
+24604	Furious Howl	Rank 1
+24605	Furious Howl	Rank 2
+24629	Natural Armor	Rank 9
+24630	Natural Armor	Rank 10
+24631	Natural Armor	Rank 9
+24632	Natural Armor	Rank 10
+24640	Scorpid Poison	Rank 1
+24654	Blue Dragonscale Leggings	
+24655	Green Dragonscale Gauntlets	
+24703	Dreamscale Breastplate	
+24801	Smoked Desert Dumplings	
+24844	Lightning Breath	Rank 1
+24846	Spitfire Bracers	
+24847	Spitfire Gauntlets	
+24848	Spitfire Breastplate	
+24849	Sandstalker Bracers	
+24850	Sandstalker Gauntlets	
+24851	Sandstalker Breastplate	
+24901	Runed Stygian Leggings	
+24902	Runed Stygian Belt	
+24903	Runed Stygian Boots	
+24912	Darkrune Gauntlets	
+24913	Darkrune Helm	
+24914	Darkrune Breastplate	
+24940	Black Whelp Tunic	
+24949	Defensive State 2 (DND)	
+24974	Insect Swarm	Rank 2
+24975	Insect Swarm	Rank 3
+24976	Insect Swarm	Rank 4
+24977	Insect Swarm	Rank 5
+25008	Lightning Breath	Rank 2
+25009	Lightning Breath	Rank 3
+25010	Lightning Breath	Rank 4
+25011	Lightning Breath	Rank 5
+25012	Lightning Breath	Rank 6
+25072	Enchant Gloves - Threat	
+25073	Enchant Gloves - Shadow Power	
+25074	Enchant Gloves - Frost Power	
+25076	Cobra Reflexes	Rank 1
+25078	Enchant Gloves - Fire Power	
+25079	Enchant Gloves - Healing Power	
+25080	Enchant Gloves - Superior Agility	
+25081	Enchant Cloak - Greater Fire Resistance	
+25082	Enchant Cloak - Greater Nature Resistance	
+25083	Enchant Cloak - Stealth	
+25084	Enchant Cloak - Subtlety	
+25086	Enchant Cloak - Dodge	
+25124	Minor Wizard Oil	
+25125	Minor Mana Oil	
+25126	Lesser Wizard Oil	
+25127	Lesser Mana Oil	
+25128	Wizard Oil	
+25129	Brilliant Wizard Oil	
+25130	Brilliant Mana Oil	
+25146	Transmute: Elemental Fire	
+25163	Oozeling's Disgusting Aura	
+25286	Heroic Strike	Rank 9
+25288	Revenge	Rank 6
+25289	Battle Shout	Rank 7
+25290	Blessing of Wisdom	Rank 6
+25291	Blessing of Might	Rank 7
+25292	Holy Light	Rank 9
+25294	Multi-Shot	Rank 5
+25295	Serpent Sting	Rank 9
+25296	Aspect of the Hawk	Rank 7
+25297	Healing Touch	Rank 11
+25298	Starfire	Rank 7
+25299	Rejuvenation	Rank 11
+25300	Backstab	Rank 9
+25302	Feint	Rank 5
+25304	Frostbolt	Rank 11
+25306	Fireball	Rank 12
+25307	Shadow Bolt	Rank 10
+25309	Immolate	Rank 8
+25311	Corruption	Rank 7
+25314	Greater Heal	Rank 5
+25315	Renew	Rank 10
+25316	Prayer of Healing	Rank 5
+25345	Arcane Missiles	Rank 8
+25347	Deadly Poison V	Rank 5
+25357	Healing Wave	Rank 10
+25359	Grace of Air Totem	Rank 3
+25361	Strength of Earth Totem	Rank 5
+25659	Dirge's Kickin' Chimaerok Chops	
+25664	DIRGE TEST	
+25674	Lesser Draconic (Language)	
+25704	Smoked Sagefish	
+25780	Righteous Fury	
+25782	Greater Blessing of Might	Rank 1
+25890	Greater Blessing of Light	Rank 1
+25894	Greater Blessing of Wisdom	Rank 1
+25895	Greater Blessing of Salvation	
+25898	Greater Blessing of Kings	
+25899	Greater Blessing of Sanctuary	Rank 1
+25908	Tranquil Air Totem	
+25916	Greater Blessing of Might	Rank 2
+25918	Greater Blessing of Wisdom	Rank 2
+25954	Sagefish Delight	
+26011	Tranquil Mechanical Yeti	
+26064	Shell Shield	Rank 1
+26085	Soul Pouch	
+26086	Felcloth Bag	
+26087	Core Felcloth Bag	
+26090	Thunderstomp	Rank 1
+26177	Charge	Rank 2
+26178	Charge	Rank 3
+26179	Charge	Rank 4
+26187	Thunderstomp	Rank 2
+26188	Thunderstomp	Rank 3
+26201	Charge	Rank 5
+26277	Elixir of Greater Firepower	
+26279	Stormshroud Gloves	
+26290	Bow Specialization	Racial Passive
+26296	Berserking	Racial
+26297	Berserking	Racial
+26403	Festive Red Dress	
+26407	Festive Red Pant Suit	
+26416	Small Blue Rocket	
+26417	Small Green Rocket	
+26418	Small Red Rocket	
+26420	Large Blue Rocket	
+26421	Large Green Rocket	
+26422	Large Red Rocket	
+26423	Blue Rocket Cluster	
+26424	Green Rocket Cluster	
+26425	Red Rocket Cluster	
+26426	Large Blue Rocket Cluster	
+26427	Large Green Rocket Cluster	
+26428	Large Red Rocket Cluster	
+26442	Firework Launcher	
+26443	Firework Cluster Launcher	
+27585	Heavy Obsidian Belt	
+27586	Jagged Obsidian Shield	
+27587	Thick Obsidian Breastplate	
+27588	Light Obsidian Belt	
+27589	Black Grasp of the Destroyer	
+27590	Obsidian Mail Tunic	
+27658	Enchanted Mageweave Pouch	
+27659	Enchanted Runecloth Bag	
+27660	Big Bag of Enchantment	
+27681	Prayer of Spirit	Rank 1
+27683	Prayer of Shadow Protection	Rank 1
+27685	Charge	Rank 6
+27724	Cenarion Herb Bag	
+27725	Satchel of Cenarius	
+27762	Libram	
+27763	Totem	
+27764	Fetish	
+27799	Holy Nova	Rank 4
+27800	Holy Nova	Rank 5
+27801	Holy Nova	Rank 6
+27829	Titanic Leggings	
+27830	Persuader	
+27832	Sageblade	
+27837	Enchant 2H Weapon - Agility	
+27841	Divine Spirit	Rank 4
+27842	zzOLDDivine Spirit	Rank 5
+27870	Lightwell	Rank 2
+27871	Lightwell	Rank 3
+28205	Glacial Gloves	
+28207	Glacial Vest	
+28208	Glacial Cloak	
+28209	Glacial Wrists	
+28210	Gaea's Embrace	
+28219	Polar Tunic	
+28220	Polar Gloves	
+28221	Polar Bracers	
+28222	Icy Scale Breastplate	
+28223	Icy Scale Gauntlets	
+28224	Icy Scale Bracers	
+28242	Icebane Breastplate	
+28243	Icebane Gauntlets	
+28244	Icebane Bracers	
+28270	Polymorph: Cow	
+28271	Polymorph: Turtle	
+28272	Polymorph: Pig	
+28327	Steam Tonk Controller	
+28461	Ironvine Breastplate	
+28462	Ironvine Gloves	
+28463	Ironvine Belt	
+28472	Bramblewood Helm	
+28473	Bramblewood Boots	
+28474	Bramblewood Belt	
+28480	Sylvan Vest	
+28481	Sylvan Crown	
+28482	Sylvan Shoulders	
+28609	Frost Ward	Rank 5
+28610	Shadow Ward	Rank 4
+28612	Conjure Food	Rank 7
+29166	Innervate	
+29228	Flame Shock	Rank 6
+30021	Crystal Infused Bandage	
+30047	Crystal Throat Lozenge	
+30965	zzOLDExpose Armor	
+31016	Eviscerate	Rank 9
+31018	Ferocious Bite	Rank 5
+33388	Riding	Apprentice
+33391	Riding	Journeyman

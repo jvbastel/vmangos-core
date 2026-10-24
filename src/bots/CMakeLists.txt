@@ -23,6 +23,8 @@ add_library(bots STATIC
   DataTokenizer.cpp
   GearDraw.cpp
   GearTemplate.cpp
+  Route.cpp
+  SpellFile.cpp
   ThinkTimer.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

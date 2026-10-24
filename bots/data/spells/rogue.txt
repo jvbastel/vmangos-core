@@ -1,0 +1,3 @@
+# Rogue spells that no trainer teaches. Format: see src/bots/SpellFile.h.
+# The level is the minimum level of the class quest.
+quest-spell 20 2842   # Poisons

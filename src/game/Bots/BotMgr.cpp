@@ -105,6 +105,8 @@ namespace
         std::shared_ptr<PlayerBotEntry> entry = std::make_shared<PlayerBotEntry>(guid, account, 0);
         entry->name = name;
         entry->customBot = true;
+        // Our bots are persistent characters: the core saves them like players.
+        entry->allowSaving = true;
         entry->ai.reset(new BotAI(settings.think));
         entry->ai->botEntry = entry.get();
         return entry;
@@ -128,6 +130,7 @@ void BotMgr::LoadConfig()
 
 void BotMgr::Load()
 {
+    m_levelRoutine.Load(m_settings.dataDir);
     m_bots.clear();
     std::unique_ptr<QueryResult> result = CharacterDatabase.Query(
         "SELECT `b`.`guid`, `b`.`account`, `b`.`role`, `b`.`world_bot`, `c`.`name`"
@@ -179,6 +182,20 @@ void BotMgr::Update(uint32 /*diff*/)
             entry.state = PB_STATE_OFFLINE;
         }
     }
+}
+
+bool BotMgr::IsOurBot(Player const* player) const
+{
+    auto const record = m_bots.find(player->GetGUIDLow());
+    return record != m_bots.end() && player->GetSession()->GetBot() == record->second.entry.get();
+}
+
+void BotMgr::OnLevelUp(Player* player)
+{
+    if (!IsOurBot(player))
+        return;
+    m_levelRoutine.Apply(player);
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s reaches level %u", player->GetName(), player->GetLevel());
 }
 
 BotRecord* BotMgr::FindByName(std::string const& name)
@@ -410,6 +427,8 @@ void BotMgr::PutOnPendingGear(BotRecord& record)
     if (Bots::GearTemplate const* gear = m_gear.Find(record.pendingGear))
         EquipFromGearTemplate(player, *gear);
     record.pendingGear.clear();
+    // Then the level routine, for the weapon skills of the new gear.
+    m_levelRoutine.Apply(player);
 }
 
 bool BotMgr::EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error)
@@ -443,6 +462,9 @@ bool BotMgr::EquipCharacter(std::string const& name, std::string const& template
     }
 
     Bots::GearDraw const draw = EquipFromGearTemplate(player, *gear);
+    // A worn weapon without its skill leaves its slot at the next login.
+    if (IsOurBot(player))
+        m_levelRoutine.Apply(player);
     report = wanted + " wears " + gear->name + (draw.shape.empty() ? "" : " (shape " + draw.shape + ")") + ": " +
         (draw.picks.empty() ? std::string("nothing") : DescribeGearDraw(draw));
     return true;
