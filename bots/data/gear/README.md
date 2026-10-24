@@ -73,8 +73,21 @@ bots/tools/gear/builder-from-realm         # then open http://127.0.0.1:8765/
 ```
 
 It reads the item data once from the test realm (about 20 s), with the same
-read-only user as the generator (`with-realm-db`). Without icons, the page
-shows item names in the color of their quality.
+read-only user as the generator (`with-realm-db`).
+
+For item icons, run the one-time icon script once against a local 1.12
+client. It only reads the client archives (`ItemDisplayInfo.dbc` and the
+BLP icons) and writes PNG files to `bots/tools/gear/icon-cache/`, which git
+ignores (about 2,200 icons, 17 MB, 10 s):
+
+```
+cd bots/tools/gear && uv run icon_cache.py /mnt/c/Games/WoW-1.12.1
+```
+
+The page then shows the icons (`--icons DIR` takes another cache folder).
+Without the cache, it shows item names in the color of their quality. About
+50 old display rows name icons that are not in the client; their items show
+text only.
 
 It needs `uv`. The tests: `cd bots/tools/gear && uv run pytest`, and
 `wowai/dev test` (GearDataTest reads the files of this folder). mangosd drops

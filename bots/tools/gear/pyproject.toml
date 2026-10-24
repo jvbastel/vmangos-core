@@ -5,6 +5,8 @@ description = "The gear template generator of WOWAI and its shared item data mod
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.110",
+    "mpyq>=0.2.5",
+    "pillow>=13.0.0",
     "pymysql>=1.1",
     "uvicorn>=0.29",
 ]
