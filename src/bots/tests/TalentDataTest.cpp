@@ -145,3 +145,26 @@ TEST(TalentData, EachBuildFileKeepsTheTalentRules)
         }
     }
 }
+
+TEST(TalentData, TheVersion1RolesHaveAFullBuildToLevel60)
+{
+    // The level routine uses the build named <class>_<role>, so each version 1
+    // role needs that file, with one pick for each level from 10 to 60.
+    std::pair<Bots::BotClass, Bots::BotRole> const roles[] = {
+        {Bots::BotClass::Warrior, Bots::BotRole::Tank},
+        {Bots::BotClass::Priest, Bots::BotRole::Healer},
+        {Bots::BotClass::Rogue, Bots::BotRole::Melee},
+        {Bots::BotClass::Warlock, Bots::BotRole::Ranged},
+        {Bots::BotClass::Mage, Bots::BotRole::Ranged},
+    };
+    for (auto const& role : roles)
+    {
+        std::string const name = Bots::TalentBuildName(role.first, role.second);
+        SCOPED_TRACE(name);
+        std::filesystem::path const path = std::filesystem::path(BOT_DATA_DIR) / "talents" / (name + ".txt");
+        ASSERT_TRUE(std::filesystem::is_regular_file(path));
+        Bots::TalentBuildResult const result = Bots::ParseTalentBuild(ReadFile(path.string()));
+        ASSERT_TRUE(result.ok) << result.error;
+        EXPECT_EQ(result.build.picks.size(), Bots::MaxTalentPicks);
+    }
+}
