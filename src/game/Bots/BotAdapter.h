@@ -11,6 +11,8 @@
 #include "BotActions.h"
 #include "BotView.h"
 
+#include "Common.h"
+
 class BotLoot;
 class Player;
 class Unit;
@@ -50,6 +52,13 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         uint32 GetEntry(Bots::Guid unit) const override;
         Bots::Position GetPosition(Bots::Guid unit) const override;
         float GetWallDistance(Bots::Position const& from, float angle, float maxYards) const override;
+        Bots::LifeState GetLifeState(Bots::Guid unit) const override;
+        Bots::Guid GetGroupLeader() const override;
+        float GetCorpseDistance(Bots::Guid unit) const override;
+        bool CanResurrect(Bots::Guid unit) const override;
+        Bots::Power GetMana(Bots::Guid unit) const override;
+        bool IsEating() const override;
+        bool IsDrinking() const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;
@@ -61,10 +70,20 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void PetAttack(Bots::Guid target) override;
         void Follow(Bots::Guid unit) override;
         void Loot(bool mayMove) override;
+        void Release() override;
+        void ReviveAtCorpse() override;
+        void Eat() override;
+        void Drink() override;
 
     private:
         // The unit on the map of the bot, in the world, or null.
         Unit* Find(Bots::Guid unit) const;
+        // Like Find, and a player that is not on the map of the bot, for
+        // example the leader at a graveyard: the player is on another map
+        // thread, so only read it.
+        Unit const* FindAnywhere(Bots::Guid unit) const;
+        // Sits and uses the food or drink item `entry`, refilled silently.
+        void UseRestItem(uint32 entry);
 
         Player* me;
         BotLoot* m_loot;

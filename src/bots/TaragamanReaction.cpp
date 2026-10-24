@@ -39,11 +39,17 @@ namespace Bots
                 return {from.x + yards * std::cos(angle), from.y + yards * std::sin(angle), from.z};
             }
 
-            // The boss lives, and the bot stands in reach of Fire Nova.
+            bool SelfAlive(BotContext const& context)
+            {
+                return context.view.GetLifeState(context.view.GetSelf()) == LifeState::Alive;
+            }
+
+            // The bot and the boss live, and the bot stands in reach of Fire
+            // Nova.
             bool InFireNova(BotContext const& context)
             {
                 Guid const boss = Boss(context);
-                return IsAlive(context.view, boss)
+                return SelfAlive(context) && IsAlive(context.view, boss)
                     && Distance2d(context.view.GetPosition(boss), Self(context)) < FireNovaYards;
             }
 
@@ -110,7 +116,8 @@ namespace Bots
             bool ShouldGoToWall(BotContext const& context)
             {
                 Guid const boss = Boss(context);
-                if (!IsAlive(context.view, boss) || context.view.GetVictim(boss) != context.view.GetSelf())
+                if (!SelfAlive(context) || !IsAlive(context.view, boss)
+                    || context.view.GetVictim(boss) != context.view.GetSelf())
                     return false;
                 float yards = 0.0f;
                 WallBehind(context, yards);

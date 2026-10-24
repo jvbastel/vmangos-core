@@ -156,3 +156,20 @@ TEST(TaragamanReaction, NoReactionAfterHeDies)
 
     EXPECT_EQ(mage.Think(), "");
 }
+
+TEST(TaragamanReaction, ADeadBotDoesNotMove)
+{
+    InFight healer(Healer, BotRole::Healer, {0, -6, 2});
+    healer.fake.SetLifeState(Healer, Bots::LifeState::Ghost);
+
+    EXPECT_EQ(healer.Think(), "");
+}
+
+TEST(TaragamanReaction, ADeadTankDoesNotWalkToTheWall)
+{
+    InFight tank(Tank, BotRole::Tank, {2, 0, 0});
+    tank.fake.AddWallAtX(10);
+    tank.fake.SetLifeState(Tank, Bots::LifeState::Dead);
+
+    EXPECT_EQ(tank.Think(), "");
+}

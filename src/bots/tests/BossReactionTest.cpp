@@ -36,6 +36,7 @@ namespace
         GroupCoordinator group;
         StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Priest, BotRole::Healer);
         BossReactionSlot slot;
+        std::size_t const baseSize = stack.Names().size();
 
         HealerBot()
         {
@@ -92,7 +93,7 @@ TEST(BossReactionSlot, TheBossAttacksAGroupMemberThenTheReactionIsPushed)
     EXPECT_EQ(bot.slot.Active(), "taragaman the hungerer");
     // Once only.
     EXPECT_EQ(bot.Update(), BossReactionSlot::Change::None);
-    EXPECT_EQ(bot.stack.Names().size(), 3u);
+    EXPECT_EQ(bot.stack.Names().size(), bot.baseSize + 1);
 }
 
 TEST(BossReactionSlot, AGroupMemberAttacksTheBossThenTheReactionIsPushed)
@@ -128,7 +129,7 @@ TEST(BossReactionSlot, TheBossDiesThenTheReactionIsPopped)
     EXPECT_EQ(bot.group.GetBossFight().boss, NoGuid);
     EXPECT_FALSE(Has(bot.stack, "taragaman the hungerer"));
     EXPECT_EQ(bot.slot.Active(), "");
-    EXPECT_EQ(bot.stack.Names().size(), 2u);
+    EXPECT_EQ(bot.stack.Names().size(), bot.baseSize);
 }
 
 TEST(BossReactionSlot, TheBossLeavesTheFightThenTheReactionIsPopped)

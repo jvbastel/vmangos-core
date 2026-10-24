@@ -31,6 +31,7 @@ add_library(bots STATIC
   CommonRules.cpp
   DamageRules.cpp
   DataTokenizer.cpp
+  DeathAndRest.cpp
   GearDraw.cpp
   GearTemplate.cpp
   GroupCommand.cpp

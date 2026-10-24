@@ -28,6 +28,14 @@ namespace Bots
         std::uint32_t max;
     };
 
+    // Alive, dead, or released: a ghost.
+    enum class LifeState
+    {
+        Alive,
+        Dead,  // A dead body that has not released.
+        Ghost, // Released: the spirit, with a corpse where it died.
+    };
+
     // The power of a unit in its own kind: mana, rage, or energy.
     struct Power
     {

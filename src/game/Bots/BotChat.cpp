@@ -9,6 +9,7 @@
 #include "BotMgr.h"
 #include "Config/Config.h"
 #include "Group.h"
+#include "ItemPrototype.h"
 #include "Log.h"
 #include "Map.h"
 #include "ObjectAccessor.h"
@@ -263,6 +264,34 @@ void BotChat::UpdateSessions()
             end.groupId, reasons[int(end.reason)], bots.c_str());
         m_client->Post(end);
     }
+}
+
+void BotChat::PostGroupEvent(uint32 groupId, Bots::GroupEvent const& event)
+{
+    if (!m_client)
+        return;
+    Group* group = sObjectMgr.GetGroupById(groupId);
+    if (!group)
+        return;
+
+    // The fact that only the game knows: the boss name, or the item name.
+    std::string name;
+    if (event.kind == Bots::GroupEventKind::BossKill)
+    {
+        if (CreatureInfo const* info = sObjectMgr.GetCreatureTemplate(event.entry))
+            name = info->name;
+    }
+    else if (event.kind == Bots::GroupEventKind::LootRoll)
+    {
+        if (ItemPrototype const* proto = sObjectMgr.GetItemPrototype(event.entry))
+            name = proto->Name1;
+    }
+
+    Bots::ChatEvent chatEvent;
+    if (!Bots::MakeGroupChatEvent(ViewOf(group), event, name, chatEvent))
+        return;
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[BotChat] post %s", Bots::EncodeChatEvent(chatEvent).c_str());
+    m_client->Post(chatEvent);
 }
 
 bool BotChat::MaySay(Bots::DueChatLine const& due, BotLine& line) const

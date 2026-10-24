@@ -11,6 +11,7 @@
 #include "Common.h"
 #include "ChatClient.h"
 #include "ChatSessions.h"
+#include "GroupCoordinator.h"
 #include "Inbox.h"
 #include "ObjectGuid.h"
 
@@ -51,6 +52,10 @@ class BotChat
         // Posts the waiting player messages and the session_end events, and
         // gives the lines that the bots say now.
         std::vector<BotLine> Update();
+
+        // A group event of a coordinator: posts `boss_kill`, `wipe`,
+        // `loot_roll`, or `rest` for the group, once.
+        void PostGroupEvent(uint32 groupId, Bots::GroupEvent const& event);
 
         Bots::ChatClientSettings const& GetSettings() const { return m_settings; }
 
