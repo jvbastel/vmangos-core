@@ -190,11 +190,22 @@ bool BotMgr::IsOurBot(Player const* player) const
     return record != m_bots.end() && player->GetSession()->GetBot() == record->second.entry.get();
 }
 
+void BotMgr::ApplyLevelRoutine(Player* bot) const
+{
+    std::string talentBuild;
+    auto const record = m_bots.find(bot->GetGUIDLow());
+    Bots::BotClass botClass;
+    Bots::BotRole role;
+    if (record != m_bots.end() && BotClassOf(bot->GetClass(), botClass) && Bots::ParseRoleName(record->second.role, role))
+        talentBuild = Bots::TalentBuildName(botClass, role);
+    m_levelRoutine.Apply(bot, talentBuild);
+}
+
 void BotMgr::OnLevelUp(Player* player)
 {
     if (!IsOurBot(player))
         return;
-    m_levelRoutine.Apply(player);
+    ApplyLevelRoutine(player);
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s reaches level %u", player->GetName(), player->GetLevel());
 }
 
@@ -428,7 +439,7 @@ void BotMgr::PutOnPendingGear(BotRecord& record)
         EquipFromGearTemplate(player, *gear);
     record.pendingGear.clear();
     // Then the level routine, for the weapon skills of the new gear.
-    m_levelRoutine.Apply(player);
+    ApplyLevelRoutine(player);
 }
 
 bool BotMgr::EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error)
@@ -464,7 +475,7 @@ bool BotMgr::EquipCharacter(std::string const& name, std::string const& template
     Bots::GearDraw const draw = EquipFromGearTemplate(player, *gear);
     // A worn weapon without its skill leaves its slot at the next login.
     if (IsOurBot(player))
-        m_levelRoutine.Apply(player);
+        ApplyLevelRoutine(player);
     report = wanted + " wears " + gear->name + (draw.shape.empty() ? "" : " (shape " + draw.shape + ")") + ": " +
         (draw.picks.empty() ? std::string("nothing") : DescribeGearDraw(draw));
     return true;

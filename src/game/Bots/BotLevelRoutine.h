@@ -11,6 +11,7 @@
 
 #include "Common.h"
 #include "SpellFile.h"
+#include "TalentBuild.h"
 
 #include <map>
 #include <string>
@@ -27,15 +28,21 @@ struct TrainerSpellData;
 //   logic of `.learn all_trainer`, but no profession, riding, or pet trainer,
 // - the weapon skills of the class that the bot's weapons use, worn or in
 //   its bags, and it raises every weapon skill to 5 times L,
-// - the pet spells of level L or lower to the bot's pet.
-// Talent picks come in a later ticket.
+// - the pet spells of level L or lower to the bot's pet,
+// - the first L minus 9 picks of the bot's talent build, with
+//   Player::LearnTalent. A bot with a talent rank that those picks do not
+//   have (more picks than L minus 9, or a talent off the build) gets
+//   ResetTalents(true) first.
 class BotLevelRoutine
 {
     public:
-        // Reads `<dataDir>/spells/<class>.txt` of each class. At startup.
+        // Reads `<dataDir>/spells/<class>.txt` of each class, and the talent
+        // builds `<dataDir>/talents/*.txt`. At startup, after the DBC stores.
         void Load(std::string const& dataDir);
 
-        void Apply(Player* bot) const;
+        // `talentBuild` is the name of the bot's talent build, for example
+        // "warrior_tank". With no build of that name, the bot spends no picks.
+        void Apply(Player* bot, std::string const& talentBuild) const;
         // Also on each summon of the pet.
         void TeachPetSpells(Player* bot, Pet* pet) const;
 
@@ -43,9 +50,12 @@ class BotLevelRoutine
         void TeachQuestSpells(Player* bot) const;
         void TeachTrainerSpells(Player* bot) const;
         void TeachWeaponSkills(Player* bot) const;
+        void SpendTalentPicks(Player* bot, std::string const& talentBuild) const;
+        void LoadTalentBuilds(std::string const& talentDir);
         std::vector<TrainerSpellData const*> const& ClassTrainerSpells(uint8 botClass) const;
 
         std::map<uint8 /*class*/, std::vector<Bots::ClassSpell>> m_classSpells;
+        std::map<std::string /*name*/, Bots::TalentBuild> m_talentBuilds;
         mutable std::map<uint8 /*class*/, std::vector<TrainerSpellData const*>> m_trainerSpells;
 };
 

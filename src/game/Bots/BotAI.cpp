@@ -72,7 +72,7 @@ void BotAI::KeepLevelCorrect()
     // stays the same.
     if (!m_levelRoutineDone)
     {
-        sBotMgr.GetLevelRoutine().Apply(me);
+        sBotMgr.ApplyLevelRoutine(me);
         m_levelRoutineDone = true;
     }
 
