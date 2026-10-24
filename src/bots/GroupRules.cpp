@@ -1,5 +1,7 @@
 #include "GroupRules.h"
 #include "CommonRules.h"
+#include "MageModule.h"
+#include "PriestModule.h"
 #include "RogueModule.h"
 #include "SpellBook.h"
 #include "WarriorModule.h"
@@ -19,7 +21,8 @@ namespace Bots
             return context.view.GetSelf();
         }
 
-        Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
+        // A rule that the bot can always do when its trigger fires.
+        Rule AlwaysRule(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
         {
             Rule rule;
             rule.name = std::move(name);
@@ -156,6 +159,59 @@ namespace Bots
         }
     }
 
+    namespace
+    {
+        // Dispel
+
+        struct DispelSpell
+        {
+            SpellId firstRank;
+            DispelKind kind;
+        };
+
+        // No dispel spell of the version 1 classes removes poison.
+        DispelSpell const DispelSpells[] = {
+            {Priest::DispelMagic, DispelKind::Magic},
+            {Priest::CureDisease, DispelKind::Disease},
+            {Mage::RemoveLesserCurse, DispelKind::Curse},
+        };
+
+        // Below this health, a group member needs a heal more than a
+        // dispel: the heals of the healer come first.
+        float const BadlyHurt = 0.5f;
+
+        bool IsBadlyHurt(BotView const& view, Guid unit)
+        {
+            Health const health = view.GetHealth(unit);
+            return health.current > 0 && health.current < health.max * BadlyHurt;
+        }
+
+        // A debuff that the bot can dispel now.
+        struct Dispel
+        {
+            Guid member;
+            SpellId spell; // The known rank of the dispel spell.
+        };
+
+        Dispel FindDispel(BotContext const& context)
+        {
+            std::vector<Guid> const members = context.view.GetGroupMembers();
+            for (Guid member : members)
+                if (IsBadlyHurt(context.view, member))
+                    return {NoGuid, NoSpell};
+            for (DispelSpell const& dispel : DispelSpells)
+            {
+                SpellId const rank = HighestKnownRank(context.view, dispel.firstRank);
+                if (rank == NoSpell)
+                    continue;
+                for (Guid member : members)
+                    if (context.view.HasDebuff(member, dispel.kind) && context.view.CanCast(rank, member))
+                        return {member, rank};
+            }
+            return {NoGuid, NoSpell};
+        }
+    }
+
     std::vector<Guid> EnemiesInFight(BotContext const& context)
     {
         std::vector<Guid> enemies;
@@ -190,24 +246,31 @@ namespace Bots
         int const P = Priority::Group;
         std::vector<Rule> rules = {
 
-            Bookkeeping("drop an interrupt claim", P + 94,
+            AlwaysRule("drop an interrupt claim", P + 94,
                 [](BotContext const& context) { return FindClaimToDrop(context) != NoGuid; },
                 [](BotContext const& context) { context.group.ReleaseInterrupt(FindClaimToDrop(context)); }),
-            Bookkeeping("forget an enemy healer", P + 93,
+            AlwaysRule("forget an enemy healer", P + 93,
                 [](BotContext const& context) { return FindGoneEnemyHealer(context) != NoGuid; },
                 [](BotContext const& context) { context.group.ForgetEnemyHealer(FindGoneEnemyHealer(context)); }),
             InterruptRule("interrupt a heal", P + 90, CastKind::Heal),
             InterruptRule("interrupt a harmful spell", P + 85, CastKind::Harm),
             // Under the interrupts: the interrupt comes first, and another
             // bot marks the healer.
-            Bookkeeping("mark an enemy healer", P + 70,
+            AlwaysRule("mark an enemy healer", P + 70,
                 [](BotContext const& context) { return FindNewEnemyHealer(context) != NoGuid; },
                 [](BotContext const& context) { context.group.MarkEnemyHealer(FindNewEnemyHealer(context)); }),
+            // Under the interrupts and the chase limit, over the class rules.
+            AlwaysRule("dispel a debuff", P + 40,
+                [](BotContext const& context) { return FindDispel(context).member != NoGuid; },
+                [](BotContext const& context) {
+                    Dispel const dispel = FindDispel(context);
+                    context.actions.CastSpell(dispel.spell, dispel.member);
+                }),
         };
         // The bot stops the chase. PickDamageTarget skips the enemy until
         // it is in the chase limit again.
         if (IsDamageRole(role))
-            rules.push_back(Bookkeeping("come back to the tank", P + 80, ChasesTooFar,
+            rules.push_back(AlwaysRule("come back to the tank", P + 80, ChasesTooFar,
                 [](BotContext const& context) { context.actions.Follow(context.group.GetTank()); }));
         return std::make_shared<Strategy const>(Strategy{"group rules", std::move(rules)});
     }

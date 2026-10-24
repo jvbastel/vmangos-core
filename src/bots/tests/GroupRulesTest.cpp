@@ -491,3 +491,74 @@ TEST(GroupRules, TheTankHasNoChaseLimit)
 
     EXPECT_NE(party.tank.Think(), "come back to the tank");
 }
+
+// Dispel
+
+TEST(GroupRules, ALevel16GroupDispelsNothing)
+{
+    // No bot knows a dispel spell before level 18 (Cure Disease: 14).
+    Party party;
+    party.World([](FakeBot& fake) {
+        fake.SetDebuff(Tank, DispelKind::Magic);
+        fake.SetDebuff(Tank, DispelKind::Curse);
+    });
+
+    for (Bot* bot : party.Bots())
+        EXPECT_NE(bot->Think(), "dispel a debuff");
+}
+
+TEST(GroupRules, APriestThatKnowsDispelMagicDispelsAMagicDebuff)
+{
+    Party party;
+    party.priest.fake.SetKnownSpell(Priest::DispelMagic);
+    party.priest.fake.SetDebuff(Tank, DispelKind::Magic);
+
+    EXPECT_EQ(party.priest.Think(), "dispel a debuff");
+
+    EXPECT_EQ(party.priest.fake.Deeds(), std::vector<std::string>{CastOn(Priest::DispelMagic, Tank)});
+}
+
+TEST(GroupRules, AMageThatKnowsRemoveLesserCurseRemovesACurseOnly)
+{
+    Party party;
+    party.mage.fake.SetKnownSpell(Mage::RemoveLesserCurse);
+    party.mage.fake.SetDebuff(Tank, DispelKind::Magic);
+    EXPECT_NE(party.mage.Think(), "dispel a debuff");
+    party.mage.fake.ClearDeeds();
+
+    party.mage.fake.SetDebuff(RogueBot, DispelKind::Curse);
+
+    EXPECT_EQ(party.mage.Think(), "dispel a debuff");
+    EXPECT_EQ(party.mage.fake.Deeds(), std::vector<std::string>{CastOn(Mage::RemoveLesserCurse, RogueBot)});
+}
+
+TEST(GroupRules, APriestCuresADisease)
+{
+    Party party;
+    party.priest.fake.SetKnownSpell(Priest::CureDisease);
+    party.priest.fake.SetDebuff(MageBot, DispelKind::Disease);
+
+    EXPECT_EQ(party.priest.Think(), "dispel a debuff");
+
+    EXPECT_EQ(party.priest.fake.Deeds(), std::vector<std::string>{CastOn(Priest::CureDisease, MageBot)});
+}
+
+TEST(GroupRules, APriestHealsABadlyHurtMemberBeforeItDispels)
+{
+    Party party;
+    party.priest.fake.SetKnownSpell(Priest::DispelMagic);
+    party.priest.fake.SetDebuff(Tank, DispelKind::Magic);
+    party.priest.fake.SetHealth(Tank, 150, 400);
+
+    EXPECT_NE(party.priest.Think(), "dispel a debuff");
+}
+
+TEST(GroupRules, NoBotRemovesPoison)
+{
+    Party party;
+    party.priest.fake.SetKnownSpell(Priest::DispelMagic);
+    party.priest.fake.SetKnownSpell(Priest::CureDisease);
+    party.priest.fake.SetDebuff(Tank, DispelKind::Poison);
+
+    EXPECT_NE(party.priest.Think(), "dispel a debuff");
+}
