@@ -130,6 +130,13 @@ void BotAI::HandlePacket(WorldPacket const& packet)
             // A normal /invite: the bot accepts, like the client of a player.
             me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(CMSG_GROUP_ACCEPT));
             return;
+        case SMSG_LOOT_START_ROLL:
+            m_loot.OnStartRoll(me, packet);
+            return;
+        case SMSG_LOOT_ROLL_WON:
+            // The bot chat event `loot_roll` (#50) starts from the result.
+            m_loot.OnRollWon(me, packet);
+            return;
         default:
             break;
     }
@@ -207,6 +214,12 @@ void BotAI::Think()
     // Version 1 starts with a bot that stands in the world.
     if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND)
         me->SetStandState(UNIT_STAND_STATE_STAND);
+
+    // Loot after a fight: the bot does not follow while it loots a corpse.
+    if (!me->IsAlive() || me->IsInCombat())
+        m_loot.Stop();
+    else if (m_loot.Think(me, m_commandState == Bots::CommandState::Follow || m_commandState == Bots::CommandState::None))
+        return;
     KeepCommand();
 }
 

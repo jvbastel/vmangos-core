@@ -12,6 +12,7 @@
 #include "ObjectGuid.h"
 #include "WorldPacket.h"
 #include "BotCommand.h"
+#include "BotLoot.h"
 #include "CommandState.h"
 #include "Inbox.h"
 #include "ThinkTimer.h"
@@ -66,6 +67,7 @@ class BotAI : public PlayerBotAI
         Bots::CommandState m_commandState = Bots::CommandState::None;
         ObjectGuid m_commandPlayer; // The player of the last command that the bot obeyed.
         Bots::ThinkTimer m_thinkTimer;
+        BotLoot m_loot;
         // The level routine ran after the login (and so after the creation).
         bool m_levelRoutineDone = false;
         // The pet that has its pet spells. Empty without a pet.
