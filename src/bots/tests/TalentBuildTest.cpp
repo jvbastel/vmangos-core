@@ -157,3 +157,98 @@ TEST(TalentRules, RejectsAPickBeforeItsPrerequisite)
         {140, 3}, {140, 4}, {140, 5}, {145, 1}}),
         "line 12: The talent 145 needs rank 5 of the talent 1601 first.");
 }
+
+TEST(TalentBuild, TheLevelRoutineUsesTheBuildNamedForTheClassAndRole)
+{
+    EXPECT_EQ(Bots::TalentBuildName(BotClass::Mage, BotRole::Ranged), "mage_ranged");
+}
+
+TEST(TalentBuild, TheFileNameIsTheBuildName)
+{
+    Bots::TalentBuild build{"warrior_tank", BotClass::Warrior, BotRole::Tank, {}};
+    EXPECT_EQ(Bots::CheckTalentBuildFileName(build, "warrior_tank"), "");
+    EXPECT_EQ(Bots::CheckTalentBuildFileName(build, "tank"), "The file of the build warrior_tank must be warrior_tank.txt.");
+}
+
+TEST(TalentPicks, ACharacterAtLevelLHasLMinus9Picks)
+{
+    EXPECT_EQ(Bots::TalentPicksForLevel(1), 0u);
+    EXPECT_EQ(Bots::TalentPicksForLevel(9), 0u);
+    EXPECT_EQ(Bots::TalentPicksForLevel(10), 1u);
+    EXPECT_EQ(Bots::TalentPicksForLevel(16), 7u);
+    EXPECT_EQ(Bots::TalentPicksForLevel(60), 51u);
+}
+
+namespace
+{
+    using Known = std::map<std::uint32_t, std::uint32_t>;
+
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> Learned(Bots::TalentPlan const& plan)
+    {
+        std::vector<std::pair<std::uint32_t, std::uint32_t>> picks;
+        for (Bots::TalentPick const& pick : plan.learn)
+            picks.emplace_back(pick.talentId, pick.rank);
+        return picks;
+    }
+
+    using PickList = std::vector<std::pair<std::uint32_t, std::uint32_t>>;
+}
+
+TEST(TalentPicks, ANewLevel16BotLearnsTheFirst7Picks)
+{
+    Bots::TalentPlan plan = Bots::PlanTalentPicks(Build(With(FiveInTier1, {{140, 1}, {140, 2}, {140, 3}})), 16, {});
+
+    EXPECT_FALSE(plan.reset);
+    EXPECT_EQ(Learned(plan), With(FiveInTier1, {{140, 1}, {140, 2}}));
+}
+
+TEST(TalentPicks, ALevelUpLearnsOnlyTheNewPick)
+{
+    Bots::TalentPlan plan = Bots::PlanTalentPicks(Build(With(FiveInTier1, {{140, 1}, {140, 2}, {140, 3}})), 17,
+        Known{{1601, 5}, {140, 2}});
+
+    EXPECT_FALSE(plan.reset);
+    EXPECT_EQ(Learned(plan), (PickList{{140, 3}}));
+}
+
+TEST(TalentPicks, ABotWithItsPicksLearnsNothing)
+{
+    Bots::TalentPlan plan = Bots::PlanTalentPicks(Build(FiveInTier1), 13, Known{{1601, 4}});
+
+    EXPECT_FALSE(plan.reset);
+    EXPECT_TRUE(plan.learn.empty());
+}
+
+TEST(TalentPicks, ABotBelowLevel10LearnsNothing)
+{
+    Bots::TalentPlan plan = Bots::PlanTalentPicks(Build(FiveInTier1), 9, {});
+
+    EXPECT_FALSE(plan.reset);
+    EXPECT_TRUE(plan.learn.empty());
+}
+
+TEST(TalentPicks, AShortBuildStopsAtItsLastPick)
+{
+    Bots::TalentPlan plan = Bots::PlanTalentPicks(Build({{1601, 1}, {1601, 2}}), 30, Known{{1601, 1}});
+
+    EXPECT_FALSE(plan.reset);
+    EXPECT_EQ(Learned(plan), (PickList{{1601, 2}}));
+}
+
+TEST(TalentPicks, ABotWithMorePicksThanLMinus9ResetsFirst)
+{
+    // After a GM level-down from 16 to 12: 7 picks, 3 wanted.
+    Bots::TalentPlan plan = Bots::PlanTalentPicks(Build(With(FiveInTier1, {{140, 1}, {140, 2}})), 12,
+        Known{{1601, 5}, {140, 2}});
+
+    EXPECT_TRUE(plan.reset);
+    EXPECT_EQ(Learned(plan), (PickList{{1601, 1}, {1601, 2}, {1601, 3}}));
+}
+
+TEST(TalentPicks, ABotWithATalentOffTheBuildResetsFirst)
+{
+    Bots::TalentPlan plan = Bots::PlanTalentPicks(Build(FiveInTier1), 11, Known{{124, 1}});
+
+    EXPECT_TRUE(plan.reset);
+    EXPECT_EQ(Learned(plan), (PickList{{1601, 1}, {1601, 2}}));
+}

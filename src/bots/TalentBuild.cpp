@@ -1,6 +1,7 @@
 #include "TalentBuild.h"
 #include "DataTokenizer.h"
 
+#include <algorithm>
 #include <cstdlib>
 
 namespace Bots
@@ -125,5 +126,51 @@ namespace Bots
             ++points;
         }
         return "";
+    }
+}
+
+namespace Bots
+{
+    std::string CheckTalentBuildFileName(TalentBuild const& build, std::string const& fileStem)
+    {
+        if (build.name != fileStem)
+            return "The file of the build " + build.name + " must be " + build.name + ".txt.";
+        return "";
+    }
+
+    std::string TalentBuildName(BotClass botClass, BotRole role)
+    {
+        return std::string(ClassName(botClass)) + "_" + RoleName(role);
+    }
+
+    std::uint32_t TalentPicksForLevel(std::uint32_t level)
+    {
+        return level < 10 ? 0 : level - 9;
+    }
+
+    TalentPlan PlanTalentPicks(TalentBuild const& build, std::uint32_t level,
+        std::map<std::uint32_t, std::uint32_t> const& known)
+    {
+        std::size_t const count = std::min<std::size_t>(TalentPicksForLevel(level), build.picks.size());
+        std::map<std::uint32_t, std::uint32_t> wanted;
+        for (std::size_t i = 0; i < count; ++i)
+            wanted[build.picks[i].talentId] = build.picks[i].rank;
+
+        // A rank above the wanted rank cannot be unlearned alone.
+        TalentPlan plan{false, {}};
+        for (auto const& talent : known)
+        {
+            auto const want = wanted.find(talent.first);
+            if (talent.second > (want == wanted.end() ? 0 : want->second))
+                plan.reset = true;
+        }
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            TalentPick const& pick = build.picks[i];
+            auto const have = known.find(pick.talentId);
+            if (plan.reset || have == known.end() || have->second < pick.rank)
+                plan.learn.push_back(pick);
+        }
+        return plan;
     }
 }
