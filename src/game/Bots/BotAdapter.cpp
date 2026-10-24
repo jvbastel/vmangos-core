@@ -210,13 +210,30 @@ void BotAdapter::Attack(Bots::Guid target)
 void BotAdapter::Chase(Bots::Guid target)
 {
     if (Unit* unit = Find(target))
+    {
+        // A melee chase, also after a ranged one (ChaseToRange).
+        me->SetCasterChaseDistance(0.0f);
         me->GetMotionMaster()->MoveChase(unit);
+    }
 }
 
 void BotAdapter::ChaseToRange(Bots::Guid target, float yards)
 {
-    if (Unit* unit = Find(target))
-        me->GetMotionMaster()->MoveChase(unit, yards);
+    // Like CombatBotBaseAI::BeginChasing of a ranged party bot: the chase
+    // path ends at the caster chase distance, in line of sight. A chase
+    // needs the target as the victim, so the bot attacks it without a
+    // melee swing.
+    Unit* unit = Find(target);
+    if (!unit)
+        return;
+    MotionMaster* motion = me->GetMotionMaster();
+    if (me->GetMinChaseDistance() == yards && motion->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE
+        && me->GetVictim() == unit)
+        return;
+    me->SetCasterChaseDistance(yards);
+    me->SetTargetGuid(unit->GetObjectGuid());
+    me->Attack(unit, false);
+    motion->MoveChase(unit, 1.0f);
 }
 
 void BotAdapter::Follow(Bots::Guid unit)
