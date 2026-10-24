@@ -32,6 +32,9 @@
 #                           Default: <WOWAI_DEPLOY_DIR>/storage/mangosd/extracted-data
 #   WOWAI_BOTCHAT_SRC       A clone of the chat service repository, which the
 #                           botchat service runs. Default: ~/wowai/botchat
+#   WOWAI_BOT_DATA          The bot data files (gear templates and more) that
+#                           mangosd reads. Default: bots/data of the fork tree
+#                           that runs the command (not kept in .env)
 
 realm_dir="$(realpath -m "${WOWAI_REALM_DIR:-$HOME/wowai/test-realm}")"
 realm_files="$script_dir/test-realm"
@@ -81,6 +84,7 @@ WOWAI_REALM_DIR=$realm_dir
 WOWAI_DEV_INSTALL=$install_dir
 WOWAI_REALM_DATA=$data
 WOWAI_BOTCHAT_SRC=$botchat
+WOWAI_BOT_DATA=${WOWAI_BOT_DATA:-$src/bots/data}
 WOWAI_REALM_LOGIN_PORT=$(realm_setting WOWAI_REALM_LOGIN_PORT 3725)
 WOWAI_REALM_WORLD_PORT=$(realm_setting WOWAI_REALM_WORLD_PORT 8086)
 WOWAI_REALM_SOAP_PORT=$(realm_setting WOWAI_REALM_SOAP_PORT 7879)

@@ -1,5 +1,7 @@
 # The dev override of the test realm: mangosd and realmd run the binaries of
-# the dev install folder (`wowai/dev build`) instead of the image's.
+# the dev install folder (`wowai/dev build`) instead of the image's. mangosd
+# also reads the bot data files of the fork (WOWAI_BOT_DATA, `bots/data`) from
+# its working folder, where the default `Bots.DataDir = "bots"` finds them.
 
 services:
   realmd:
@@ -9,3 +11,4 @@ services:
   mangosd:
     volumes:
       - ${WOWAI_DEV_INSTALL:?}/bin:/opt/vmangos/bin:ro
+      - ${WOWAI_BOT_DATA:?}:/home/vmangos/bots:ro
