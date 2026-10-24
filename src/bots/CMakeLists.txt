@@ -19,6 +19,7 @@ endif()
 
 add_library(bots STATIC
   BotAccounts.cpp
+  BotCommand.cpp
   BotRecipe.cpp
   DataTokenizer.cpp
   ThinkTimer.cpp
