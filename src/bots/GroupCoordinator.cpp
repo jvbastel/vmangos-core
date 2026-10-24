@@ -103,4 +103,16 @@ namespace Bots
         Lock lock(m_mutex);
         return m_enemyHealers;
     }
+
+    Guid GroupCoordinator::GetTank() const
+    {
+        Lock lock(m_mutex);
+        return m_tank;
+    }
+
+    void GroupCoordinator::SetTank(Guid tank)
+    {
+        Lock lock(m_mutex);
+        m_tank = tank;
+    }
 }

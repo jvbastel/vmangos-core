@@ -284,6 +284,9 @@ void BotAI::Think()
     CheckAttackTarget();
     BotAdapter adapter(me, &m_loot);
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
+    // For the chase limit of the damage bots (GroupRules.h).
+    if (m_role == Bots::BotRole::Tank)
+        coordinator->SetTank(me->GetObjectGuid().GetRawValue());
     Bots::BotContext const context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};
     std::string const rule = m_strategies.Think(context);

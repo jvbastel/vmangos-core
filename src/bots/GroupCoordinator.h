@@ -72,6 +72,11 @@ namespace Bots
         // The cast of `caster` ended, or its bot gave it up.
         void ReleaseInterrupt(Guid caster);
 
+        // The tank of the group, or NoGuid. The bot AI of the tank sets it
+        // on each think. For the chase limit (GroupRules.h).
+        Guid GetTank() const;
+        void SetTank(Guid tank);
+
         // The enemy healers: the enemies that cast a heal in a fight. The
         // damage bots attack them first (GroupRules.h).
         void MarkEnemyHealer(Guid enemy);
@@ -83,6 +88,7 @@ namespace Bots
         Guid m_focusTarget = NoGuid;
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
+        Guid m_tank = NoGuid;
         std::vector<Guid> m_enemyHealers;                 // In mark order.
     };
 }

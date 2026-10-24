@@ -12,7 +12,7 @@ namespace Bots
         if (healer != NoGuid)
             return healer;
         Guid const focus = context.group.GetFocusTarget();
-        if (IsAlive(context.view, focus) && context.group.TankHoldsThreat())
+        if (IsAlive(context.view, focus) && context.group.TankHoldsThreat() && IsInChaseLimit(context, focus))
             return focus;
         for (Guid attacker : context.view.GetAttackers(context.view.GetSelf()))
             if (IsAlive(context.view, attacker))

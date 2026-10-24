@@ -112,11 +112,13 @@ namespace
                 fake.SetVictim(Kobold, Tank);
                 fake.SetVictim(Tank, Kobold);
                 fake.SetVictim(RogueBot, Kobold);
+                fake.SetInCombat(Healer);
+                fake.SetInCombat(MageBot);
             });
             rogue.fake.ChaseBehind(Kobold);
             mage.fake.SetDistance(Kobold, 25.0f);
-            // The tank tells the group that it is the tank.
-            tank.Think();
+            // The bot AI of the tank tells it.
+            group.SetTank(Tank);
             ClearDeeds();
         }
 
@@ -370,4 +372,122 @@ TEST(GroupRules, ABotForgetsADeadEnemyHealer)
 
     EXPECT_EQ(party.priest.Think(), "forget an enemy healer");
     EXPECT_TRUE(party.group.GetEnemyHealers().empty());
+}
+
+// Chase limit
+
+namespace
+{
+    // The kobold runs away from the tank: it attacks nobody, and it is
+    // `yards` from the tank.
+    void Flees(Party& party, float yards)
+    {
+        party.World([yards](FakeBot& fake) {
+            fake.SetVictim(Kobold, NoGuid);
+            fake.SetInCombat(Kobold);
+            fake.SetDistanceBetween(Kobold, Tank, yards);
+        });
+    }
+}
+
+TEST(GroupRules, AMeleeBotChasesAFleeingEnemyUpToTheLimit)
+{
+    Party party;
+    Flees(party, 18.0f);
+
+    EXPECT_NE(party.rogue.Think(), "come back to the tank");
+}
+
+TEST(GroupRules, AMeleeBotComesBackToTheTankFromAFleeingEnemy)
+{
+    Party party;
+    Flees(party, 22.0f);
+
+    EXPECT_EQ(party.rogue.Think(), "come back to the tank");
+
+    EXPECT_EQ(party.rogue.fake.Deeds(), std::vector<std::string>{Deed("follow", Tank)});
+}
+
+TEST(GroupRules, ABotThatCameBackDoesNotChaseTheFleeingEnemyAgain)
+{
+    Party party;
+    Flees(party, 22.0f);
+    party.rogue.Think();
+    party.rogue.fake.SetFollowTarget(Tank);
+    party.rogue.fake.ClearDeeds();
+
+    party.rogue.Think();
+
+    EXPECT_TRUE(party.rogue.fake.Deeds().empty());
+}
+
+TEST(GroupRules, ABotChasesTheEnemyAgainWhenItComesBack)
+{
+    Party party;
+    Flees(party, 22.0f);
+    party.rogue.Think();
+    party.rogue.fake.ClearDeeds();
+
+    party.World([](FakeBot& fake) {
+        fake.SetVictim(Kobold, Tank);
+        fake.SetDistanceBetween(Kobold, Tank, 3.0f);
+    });
+
+    EXPECT_NE(party.rogue.Think(), "");
+    EXPECT_EQ(party.rogue.fake.Deeds(), std::vector<std::string>{Deed("chase behind", Kobold)});
+}
+
+TEST(GroupRules, ARangedBotComesBackAndStopsCastingOnAFleeingEnemy)
+{
+    Party party;
+    party.mage.fake.ChaseToRange(Kobold, 25.0f);
+    party.mage.fake.ClearDeeds();
+    Flees(party, 22.0f);
+
+    EXPECT_EQ(party.mage.Think(), "come back to the tank");
+    party.mage.fake.ClearDeeds();
+    party.mage.Think();
+
+    EXPECT_EQ(party.mage.fake.Deeds(), std::vector<std::string>{});
+}
+
+TEST(GroupRules, ABotFightsAnEnemyThatAttacksItFarFromTheTank)
+{
+    Party party;
+    party.World([](FakeBot& fake) {
+        fake.SetVictim(Warlock, RogueBot);
+        fake.SetDistanceBetween(Warlock, Tank, 30.0f);
+    });
+    party.rogue.fake.SetVictim(RogueBot, Warlock);
+    party.rogue.fake.Chase(Warlock);
+    party.rogue.fake.ClearDeeds();
+    Flees(party, 22.0f);
+
+    EXPECT_NE(party.rogue.Think(), "come back to the tank");
+}
+
+TEST(GroupRules, TheAttackTargetOfThePlayerHasNoChaseLimit)
+{
+    Party party;
+    Flees(party, 22.0f);
+
+    EXPECT_NE(party.rogue.Think(Kobold), "come back to the tank");
+}
+
+TEST(GroupRules, NoChaseLimitWithoutALivingTank)
+{
+    Party party;
+    party.World([](FakeBot& fake) { fake.SetHealth(Tank, 0, 400); });
+    Flees(party, 22.0f);
+
+    EXPECT_NE(party.rogue.Think(), "come back to the tank");
+}
+
+TEST(GroupRules, TheTankHasNoChaseLimit)
+{
+    Party party;
+    party.tank.fake.Chase(Kobold);
+    Flees(party, 22.0f);
+
+    EXPECT_NE(party.tank.Think(), "come back to the tank");
 }

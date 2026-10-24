@@ -134,6 +134,28 @@ namespace Bots
         }
     }
 
+    namespace
+    {
+        // Chase limit
+
+        bool IsDamageRole(BotRole role)
+        {
+            return role == BotRole::Melee || role == BotRole::Ranged;
+        }
+
+        // The bot chases an enemy out of the chase limit. An enemy that
+        // attacks the bot does not flee: the bot fights it where it is. The
+        // attack target of the player has no limit.
+        bool ChasesTooFar(BotContext const& context)
+        {
+            Guid const target = context.view.GetChase().target;
+            Guid const tank = context.group.GetTank();
+            return IsAlive(context.view, target) && target != context.attackTarget && IsAlive(context.view, tank)
+                && tank != Self(context) && context.view.GetVictim(target) != Self(context)
+                && !IsInChaseLimit(context, target);
+        }
+    }
+
     std::vector<Guid> EnemiesInFight(BotContext const& context)
     {
         std::vector<Guid> enemies;
@@ -148,9 +170,10 @@ namespace Bots
         return enemies;
     }
 
-    bool IsInChaseLimit(BotContext const&, Guid)
+    bool IsInChaseLimit(BotContext const& context, Guid unit)
     {
-        return true;
+        Guid const tank = context.group.GetTank();
+        return !IsAlive(context.view, tank) || context.view.GetDistanceBetween(unit, tank) <= ChaseLimitYards;
     }
 
     Guid PickEnemyHealer(BotContext const& context)
@@ -162,10 +185,11 @@ namespace Bots
         return NoGuid;
     }
 
-    std::shared_ptr<Strategy const> MakeGroupStrategy(BotRole)
+    std::shared_ptr<Strategy const> MakeGroupStrategy(BotRole role)
     {
         int const P = Priority::Group;
         std::vector<Rule> rules = {
+
             Bookkeeping("drop an interrupt claim", P + 94,
                 [](BotContext const& context) { return FindClaimToDrop(context) != NoGuid; },
                 [](BotContext const& context) { context.group.ReleaseInterrupt(FindClaimToDrop(context)); }),
@@ -180,6 +204,11 @@ namespace Bots
                 [](BotContext const& context) { return FindNewEnemyHealer(context) != NoGuid; },
                 [](BotContext const& context) { context.group.MarkEnemyHealer(FindNewEnemyHealer(context)); }),
         };
+        // The bot stops the chase. PickDamageTarget skips the enemy until
+        // it is in the chase limit again.
+        if (IsDamageRole(role))
+            rules.push_back(Bookkeeping("come back to the tank", P + 80, ChasesTooFar,
+                [](BotContext const& context) { context.actions.Follow(context.group.GetTank()); }));
         return std::make_shared<Strategy const>(Strategy{"group rules", std::move(rules)});
     }
 }
