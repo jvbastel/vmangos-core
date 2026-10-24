@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# A stand-in for `docker` in the release script tests. It writes each call to
+# $FAKE_DOCKER_LOG as one line, "<working folder> | <arguments>", and acts out
+# the few calls whose result the scripts read:
+#
+#   docker build ... --label org.opencontainers.image.revision=<c> -t <image> ...
+#       records <image> with revision <c> in $FAKE_DOCKER_IMAGES.
+#   docker image inspect [--format <f>] <image>
+#       fails for an unknown image. With a format that names the revision
+#       label, it prints the recorded revision.
+#   docker compose run ... DB_DUMP_ONCE=true database-backup
+#       writes a new backup file to storage/database/backups/ in the
+#       working folder. With $FAKE_DOCKER_BACKUP_FAILS set, it fails instead.
+#   docker compose ... (anything else), docker run, ...: only logged.
+set -euo pipefail
+
+: "${FAKE_DOCKER_LOG:?}" "${FAKE_DOCKER_IMAGES:?}"
+mkdir -p "$FAKE_DOCKER_IMAGES"
+printf '%s | %s\n' "$PWD" "$*" >>"$FAKE_DOCKER_LOG"
+
+image_file() { printf '%s/%s' "$FAKE_DOCKER_IMAGES" "$(printf '%s' "$1" | tr '/:' '__')"; }
+
+# Reads a build context from stdin (`docker build -`), as the real one does.
+drain_stdin() { [ "${1:-}" != "-" ] || cat >/dev/null; }
+
+case "${1:-}" in
+  build)
+    shift
+    tag="" revision="" last=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -t | --tag) tag="$2"; shift ;;
+        --label)
+          case "$2" in org.opencontainers.image.revision=*) revision="${2#*=}" ;; esac
+          shift ;;
+        -f | --file | --build-arg) shift ;;
+      esac
+      last="$1"
+      shift
+    done
+    drain_stdin "$last"
+    [ -n "$tag" ] || { echo "fake-docker: build without a tag" >&2; exit 1; }
+    printf '%s\n' "$revision" >"$(image_file "$tag")"
+    ;;
+  image)
+    [ "${2:-}" = inspect ] || exit 0
+    shift 2
+    format=""
+    while [ $# -gt 1 ]; do
+      case "$1" in --format | -f) format="$2"; shift ;; esac
+      shift
+    done
+    file="$(image_file "$1")"
+    [ -f "$file" ] || { echo "Error: No such image: $1" >&2; exit 1; }
+    case "$format" in
+      *org.opencontainers.image.revision*) cat "$file" ;;
+      "") echo "[{}]" ;;
+      *) echo "sha256:fake" ;;
+    esac
+    ;;
+  compose)
+    if [[ " $* " == *" run "* && " $* " == *"DB_DUMP_ONCE=true"* && " $* " == *" database-backup "* ]]; then
+      [ -z "${FAKE_DOCKER_BACKUP_FAILS:-}" ] || { echo "fake-docker: backup failed" >&2; exit 1; }
+      mkdir -p storage/database/backups
+      n="$(find storage/database/backups -name 'db_backup_*' | wc -l)"
+      touch "storage/database/backups/db_backup_2026-10-24T12-00-0${n}Z.tgz"
+    fi
+    ;;
+esac
