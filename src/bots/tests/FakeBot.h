@@ -62,6 +62,9 @@ namespace Bots
                     m_nextRank[ranks[i]] = ranks[i + 1];
             }
 
+            // The other members of the bot's group, in order.
+            void SetGroupMembers(std::vector<Guid> const& others) { m_groupMembers = others; }
+
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -121,6 +124,13 @@ namespace Bots
                 return found == m_nextRank.end() ? NoSpell : found->second;
             }
 
+            std::vector<Guid> GetGroupMembers() const override
+            {
+                std::vector<Guid> members{m_self};
+                members.insert(members.end(), m_groupMembers.begin(), m_groupMembers.end());
+                return members;
+            }
+
             // BotActions
             void CastSpell(SpellId spell, Guid target) override
             {
@@ -167,6 +177,7 @@ namespace Bots
             std::map<Guid, Guid> m_victim;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
+            std::vector<Guid> m_groupMembers;
             bool m_lootWork = false;
             bool m_lootOnlyWithMove = false;
             std::vector<std::string> m_deeds;

@@ -7,6 +7,7 @@
 
 #include "BotAdapter.h"
 #include "BotLoot.h"
+#include "Group.h"
 #include "Log.h"
 #include "MotionMaster.h"
 #include "ObjectAccessor.h"
@@ -179,6 +180,19 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     return true;
 }
 
+std::vector<Bots::Guid> BotAdapter::GetGroupMembers() const
+{
+    std::vector<Bots::Guid> members{GetSelf()};
+    if (Group* group = me->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player const* member = ref->getSource();
+            if (member && member != me && member->IsInWorld() && member->IsInMap(me))
+                members.push_back(GuidOf(member));
+        }
+    return members;
+}
+
 void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
 {
     SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
@@ -191,8 +205,8 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         me->SetTargetGuid(unit->GetObjectGuid());
     }
     SpellCastResult const result = me->CastSpell(unit, entry, false);
-    // Like CombatBotBaseAI::DoCastSpell: a spell with a cast time stops the
-    // bot, so that the movement does not break the cast.
+    // Like CombatBotBaseAI::DoCastSpell: a spell with a cast time ends when the
+    // caster moves (for example when it follows or chases a unit), so stop the bot.
     if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
         me->StopMoving();
     if (result != SPELL_CAST_OK)

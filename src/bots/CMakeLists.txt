@@ -36,6 +36,7 @@ add_library(bots STATIC
   GroupCoordinator.cpp
   Loot.cpp
   MageModule.cpp
+  PriestModule.cpp
   Route.cpp
   SpellBook.cpp
   SpellFile.cpp
