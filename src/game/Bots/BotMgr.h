@@ -14,6 +14,8 @@
 #include "BotGear.h"
 #include "BotLevelRoutine.h"
 #include "BotRecipe.h"
+#include "Inbox.h"
+#include "ObjectGuid.h"
 #include "ThinkTimer.h"
 
 #include <map>
@@ -43,6 +45,16 @@ struct BotRecord
     std::string pendingGear;
 };
 
+// A chat line that a bot says, for example a fixed line when it cannot obey a
+// bot command.
+struct BotLine
+{
+    ObjectGuid bot;
+    uint32 chatType;     // CHAT_MSG_PARTY: to the party of the bot. CHAT_MSG_WHISPER: to `receiver`.
+    ObjectGuid receiver; // Only for a whisper.
+    std::string text;
+};
+
 // The bot manager of the WOWAI bots. It sits next to PlayerBotMgr and shares
 // no state with it. It keeps the low-level login layer of the core (the
 // socketless WorldSession, the PlayerAI hook, and the login of a character),
@@ -65,6 +77,10 @@ class BotMgr
         bool LoginBot(std::string const& name, std::string& error);
         bool LogoutBot(std::string const& name, std::string& error);
 
+        // From any thread (the bot AIs on the map threads): the bot says the
+        // line at the next update of the bot manager.
+        void QueueLine(BotLine line) { m_lines.Push(std::move(line)); }
+
         // Equips a character in the world from a gear template, by name. With
         // no template name, a bot wears the generated template of its class
         // and role. Fills `report` with the picks.
@@ -86,11 +102,13 @@ class BotMgr
         uint32 ChooseAccount(std::string& error);
         uint32 CreateAccount(std::string const& name, std::string& error);
         void StartLogin(BotRecord& record, WorldSession* session);
+        void SendLines();
         void PutOnPendingGear(BotRecord& record);
 
         BotSettings m_settings;
         BotLevelRoutine m_levelRoutine;
         std::map<uint32 /*character GUID*/, BotRecord> m_bots;
+        Bots::Inbox<BotLine> m_lines;
         BotGear m_gear;
 };
 

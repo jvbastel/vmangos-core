@@ -19,7 +19,9 @@ endif()
 
 add_library(bots STATIC
   BotAccounts.cpp
+  BotCommand.cpp
   BotRecipe.cpp
+  CommandState.cpp
   DataTokenizer.cpp
   GearDraw.cpp
   GearTemplate.cpp

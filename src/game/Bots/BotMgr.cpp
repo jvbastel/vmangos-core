@@ -8,6 +8,9 @@
 #include "BotMgr.h"
 #include "BotAI.h"
 #include "BotAccounts.h"
+#include "Chat.h"
+#include "Group.h"
+#include "ObjectAccessor.h"
 #include "Policies/SingletonImp.h"
 #include "AccountMgr.h"
 #include "Config/Config.h"
@@ -153,6 +156,7 @@ void BotMgr::Load()
 
 void BotMgr::Update(uint32 /*diff*/)
 {
+    SendLines();
     for (auto& pair : m_bots)
     {
         PlayerBotEntry& entry = *pair.second.entry;
@@ -406,6 +410,34 @@ bool BotMgr::LogoutBot(std::string const& name, std::string& error)
     // ends the session.
     record->entry->state = PB_STATE_OFFLINE;
     return true;
+}
+
+void BotMgr::SendLines()
+{
+    for (BotLine const& line : m_lines.Drain())
+    {
+        Player* bot = ObjectAccessor::FindPlayer(line.bot);
+        if (!bot || !bot->IsInWorld())
+            continue;
+
+        WorldPacket data;
+        if (line.chatType == CHAT_MSG_PARTY)
+        {
+            Group* group = bot->GetGroup();
+            if (!group)
+                continue;
+            ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, line.text.c_str(), LANG_UNIVERSAL, bot->GetChatTag(), bot->GetObjectGuid(), bot->GetName());
+            group->BroadcastPacket(&data, false, group->GetMemberGroup(bot->GetObjectGuid()));
+        }
+        else if (line.chatType == CHAT_MSG_WHISPER)
+        {
+            Player* receiver = ObjectAccessor::FindPlayer(line.receiver);
+            if (!receiver)
+                continue;
+            ChatHandler::BuildChatPacket(data, CHAT_MSG_WHISPER, line.text.c_str(), LANG_UNIVERSAL, bot->GetChatTag(), bot->GetObjectGuid(), bot->GetName());
+            receiver->GetSession()->SendPacket(&data);
+        }
+    }
 }
 
 void BotMgr::StartLogin(BotRecord& record, WorldSession* session)
