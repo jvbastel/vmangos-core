@@ -69,6 +69,7 @@
 #include "AuctionHouseBotMgr.h"
 #include "Transports/TransportMgr.h"
 #include "PlayerBotMgr.h"
+#include "BotMgr.h"
 #include "ZoneScriptMgr.h"
 #include "CharacterDatabaseCache.h"
 #include "CreatureGroups.h"
@@ -987,6 +988,7 @@ void World::LoadConfigSettings(bool reload)
     setConfigMinMax(CONFIG_UINT32_RELOCATION_VMAP_CHECK_TIMER, "Movement.RelocationVmapsCheckDelay", 0, 0, 2000);
 
     sPlayerBotMgr.LoadConfig();
+    sBotMgr.LoadConfig();
     setConfig(CONFIG_BOOL_PLAYER_BOT_SHOW_IN_WHO_LIST, "PlayerBot.ShowInWhoList", false);
     setConfig(CONFIG_UINT32_PARTY_BOT_MAX_BOTS, "PartyBot.MaxBots", 0);
     setConfig(CONFIG_BOOL_PARTY_BOT_SKIP_CHECKS, "PartyBot.SkipChecks", false);
@@ -1847,6 +1849,8 @@ void World::SetInitialWorldSettings()
 
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "Loading PlayerBot ..."); // Requires Players cache
     sPlayerBotMgr.Load();
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "Loading WOWAI bots ...");
+    sBotMgr.Load();
 
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "");
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "Loading faction change ...");
@@ -2129,6 +2133,8 @@ void World::Update(uint32 diff)
 
     // Update PlayerBotMgr
     sPlayerBotMgr.Update(diff);
+    // Update the WOWAI bot manager, after the maps
+    sBotMgr.Update(diff);
     // Update AutoBroadcast
     sAutoBroadCastMgr.Update(diff);
     // Update ban list if necessary

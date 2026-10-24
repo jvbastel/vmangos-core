@@ -3,8 +3,12 @@
 find_package(GTest REQUIRED)
 
 add_executable(bots_tests
+  BotAccountsTest.cpp
+  BotRecipeTest.cpp
   DataTokenizerTest.cpp
   FakeBotTest.cpp
+  InboxTest.cpp
+  ThinkTimerTest.cpp
 )
 # GoogleTest 1.17 needs C++17. The library itself stays C++14, like the core.
 set_target_properties(bots_tests PROPERTIES CXX_STANDARD 17)

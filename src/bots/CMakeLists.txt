@@ -18,7 +18,10 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 endif()
 
 add_library(bots STATIC
+  BotAccounts.cpp
+  BotRecipe.cpp
   DataTokenizer.cpp
+  ThinkTimer.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

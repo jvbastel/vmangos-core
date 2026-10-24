@@ -45,7 +45,10 @@ deploy_dir="${WOWAI_DEPLOY_DIR:-/mnt/c/Games/vmangos-deploy}"
 deploy_base="$(tr -d '\r' < "$deploy_dir/docker/server/Dockerfile" | sed -n 's/^FROM \([^ ]*\) AS build$/\1/p')"
 base_layer="$(docker image inspect --format '{{index .RootFS.Layers 0}}' "$deploy_base")"
 dev_container="$(docker ps --quiet --filter "label=wowai.dev.src=$WOWAI_SRC")"
-dev_image="$(docker container inspect --format '{{.Image}}' "$dev_container")"
+# The image name of the container, not its .Image id: with the containerd
+# image store, .Image is the platform manifest digest, which
+# `docker image inspect` cannot find.
+dev_image="$(docker container inspect --format '{{.Config.Image}}' "$dev_container")"
 check "the dev container is built on the vmangos-deploy build stage base ($deploy_base)" \
   bash -c "docker image inspect --format '{{json .RootFS.Layers}}' '$dev_image' | grep -q '$base_layer'"
 check "the dev container bind-mounts the source read-only" \

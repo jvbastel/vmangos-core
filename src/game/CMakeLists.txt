@@ -195,6 +195,9 @@ set (game_SRCS
     PlayerBots/BattleBotWaypoints.cpp
     PlayerBots/PlayerBotAI.cpp
     PlayerBots/PlayerBotMgr.cpp
+    Bots/BotAI.cpp
+    Bots/BotCommands.cpp
+    Bots/BotMgr.cpp
     Server/Protocol/Opcodes.cpp
     Server/Packets/Battleground.cpp
     Server/Packets/AuctionHouse.cpp
@@ -448,6 +451,8 @@ set (game_SRCS
     PlayerBots/BattleBotWaypoints.h
     PlayerBots/PlayerBotAI.h
     PlayerBots/PlayerBotMgr.h
+    Bots/BotAI.h
+    Bots/BotMgr.h
     Server/Protocol/Opcodes.h
     Server/Protocol/Opcodes_active.h
     Server/Packet.h
@@ -548,6 +553,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/Anticheat
   ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouse
   ${CMAKE_CURRENT_SOURCE_DIR}/Battlegrounds
+  ${CMAKE_CURRENT_SOURCE_DIR}/Bots
   ${CMAKE_CURRENT_SOURCE_DIR}/Chat
   ${CMAKE_CURRENT_SOURCE_DIR}/Commands
   ${CMAKE_CURRENT_SOURCE_DIR}/Database
@@ -632,6 +638,7 @@ SET_TARGET_PROPERTIES (game PROPERTIES FOLDER "Game Libs")
 
 target_link_libraries(game
   shared
+  bots
   Detour
   g3dlite
 )
