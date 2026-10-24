@@ -21,6 +21,7 @@ add_library(bots STATIC
   BotAccounts.cpp
   BotCommand.cpp
   BotRecipe.cpp
+  ChatContract.cpp
   CommandState.cpp
   DataTokenizer.cpp
   GearDraw.cpp
@@ -30,6 +31,14 @@ add_library(bots STATIC
   ThinkTimer.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# The header-only libraries of dep/include: nlohmann/json for the chat
+# contract and cpp-httplib for the chat client. `wowai/bots-test.sh` passes the
+# folder, because it builds a copy of this folder alone.
+set(BOT_DEP_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../dep/include" CACHE PATH "The dep/include folder of the core")
+target_include_directories(bots PRIVATE ${BOT_DEP_INCLUDE_DIR})
+find_package(Threads REQUIRED)
+target_link_libraries(bots PUBLIC Threads::Threads)
 
 if(BUILD_BOT_TESTS)
   add_subdirectory(tests)
