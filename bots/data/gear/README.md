@@ -5,7 +5,7 @@ can wear at each level. mangosd reads every `*.txt` file of this folder at
 startup (`<Bots.DataDir>/gear/`). See step 4 of the version 1 build spec.
 
 - Generated templates: `<class>_<role>.txt`, written by the generator in
-  `bots/tools/gear/` and reviewed by a person.
+  `bots/tools/gear/` and reviewed by a person. Do not edit them by hand.
 - Hand-made templates: `<name>.txt`, from the template builder page or by hand.
 
 The full rules are in `src/bots/GearTemplate.h` (the format) and
@@ -40,3 +40,25 @@ GM commands (console and SOAP too):
 - `.wowai gear equip <character> [template]` destroys the equipped items of a
   character in the world and equips it from the template. With no template, a
   bot wears the generated template of its class and role.
+
+## The generator
+
+`bots/tools/gear/generate.py` reads the world database through a read-only
+MySQL user and writes the generated templates of the roles in
+`bots/tools/gear/settings.toml`. The settings file holds the level, source,
+and quality numbers, the weapon shapes and armor types of each role, and the
+stat weights. `bots/tools/gear/bans.txt` (`ban <entry>` lines) removes items
+from every generated template. `gear_data.py` is the item data module that
+the generator and the template builder page share.
+
+To make the files again from a test realm (`wowai/dev realm up` first):
+
+```
+bots/tools/gear/generate-from-realm        # all roles, into this folder
+git diff --stat bots/data/gear/            # review, then commit
+```
+
+It needs `uv`. The tests: `cd bots/tools/gear && uv run pytest`, and
+`wowai/dev test` (GearDataTest reads the files of this folder). mangosd drops
+the items of a later content patch than the realm's `WowPatch` with no
+message.

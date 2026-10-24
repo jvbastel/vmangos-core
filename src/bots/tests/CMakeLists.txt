@@ -7,6 +7,7 @@ add_executable(bots_tests
   BotRecipeTest.cpp
   DataTokenizerTest.cpp
   FakeBotTest.cpp
+  GearDataTest.cpp
   GearDrawTest.cpp
   GearTemplateTest.cpp
   InboxTest.cpp
