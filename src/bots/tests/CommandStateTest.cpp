@@ -134,3 +134,52 @@ TEST(CommandState, OnlyTheTankPullsAndTheOtherBotsSayNothing)
         EXPECT_STREQ(outcome.line, "");
     }
 }
+
+namespace
+{
+    CommandFacts DamageBot(Bots::PullTarget target)
+    {
+        CommandFacts facts = Ready;
+        facts.isDamage = true;
+        facts.playerTarget = target;
+        return facts;
+    }
+}
+
+TEST(CommandState, ADamageBotAttacksAnEnemyTargetAndKeepsItsState)
+{
+    CommandOutcome outcome = ApplyBotCommand(CommandState::Follow, BotCommandKind::Attack, DamageBot(Bots::PullTarget::Enemy));
+
+    EXPECT_TRUE(outcome.obeys);
+    EXPECT_EQ(outcome.state, CommandState::Follow);
+    EXPECT_STREQ(outcome.line, "");
+}
+
+TEST(CommandState, AttackWithNoTargetOrAFriendGivesAFixedLine)
+{
+    EXPECT_STREQ(ApplyBotCommand(CommandState::Follow, BotCommandKind::Attack, DamageBot(Bots::PullTarget::None)).line,
+        "You have no target.");
+    CommandOutcome outcome = ApplyBotCommand(CommandState::Follow, BotCommandKind::Attack, DamageBot(Bots::PullTarget::NotEnemy));
+    EXPECT_FALSE(outcome.obeys);
+    EXPECT_STREQ(outcome.line, "I cannot attack that.");
+}
+
+TEST(CommandState, ADeadDamageBotDoesNotAttack)
+{
+    CommandFacts facts = DamageBot(Bots::PullTarget::Enemy);
+    facts.botAlive = false;
+
+    EXPECT_STREQ(ApplyBotCommand(CommandState::None, BotCommandKind::Attack, facts).line, "I am dead.");
+}
+
+TEST(CommandState, TheTankAndTheHealerIgnoreAttackAndSayNothing)
+{
+    CommandFacts facts = DamageBot(Bots::PullTarget::Enemy);
+    facts.isDamage = false;
+
+    CommandOutcome outcome = ApplyBotCommand(CommandState::Follow, BotCommandKind::Attack, facts);
+
+    EXPECT_FALSE(outcome.obeys);
+    EXPECT_EQ(outcome.state, CommandState::Follow);
+    EXPECT_STREQ(outcome.line, "");
+}

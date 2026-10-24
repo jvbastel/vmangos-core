@@ -18,6 +18,7 @@ namespace Bots
         Come,   // The bot comes to the player.
         Stop,   // The bot stops its current bot action.
         Pull,   // The tank pulls the target of the player.
+        Attack, // The damage bots attack the target of the player.
     };
 
     struct BotCommand
