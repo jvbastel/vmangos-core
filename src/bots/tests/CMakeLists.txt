@@ -11,6 +11,7 @@ add_executable(bots_tests
   FakeBotTest.cpp
   GearDrawTest.cpp
   GearTemplateTest.cpp
+  GroupCommandTest.cpp
   InboxTest.cpp
   RouteTest.cpp
   SpellDataTest.cpp

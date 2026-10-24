@@ -24,6 +24,7 @@ add_library(bots STATIC
   CommandState.cpp
   DataTokenizer.cpp
   GearDraw.cpp
+  GroupCommand.cpp
   GearTemplate.cpp
   Route.cpp
   SpellFile.cpp
