@@ -6,6 +6,7 @@
 
 #include <iomanip>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -26,6 +27,13 @@ namespace Bots
                 m_health[unit] = Health{current, max};
             }
             void SetCurrentCast(Guid unit, SpellId spell) { m_casts[unit] = spell; }
+            void SetKnownSpell(SpellId spell) { m_known.insert(spell); }
+            // The ranks of one spell, first rank first.
+            void SetSpellChain(std::vector<SpellId> const& ranks)
+            {
+                for (std::size_t i = 0; i + 1 < ranks.size(); ++i)
+                    m_nextRank[ranks[i]] = ranks[i + 1];
+            }
 
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
@@ -40,6 +48,13 @@ namespace Bots
             {
                 auto found = m_casts.find(unit);
                 return found == m_casts.end() ? NoSpell : found->second;
+            }
+
+            bool KnowsSpell(SpellId spell) const override { return m_known.count(spell) != 0; }
+            SpellId GetNextRank(SpellId spell) const override
+            {
+                auto found = m_nextRank.find(spell);
+                return found == m_nextRank.end() ? NoSpell : found->second;
             }
 
             // BotActions
@@ -60,6 +75,8 @@ namespace Bots
             Guid m_self;
             std::map<Guid, Health> m_health;
             std::map<Guid, SpellId> m_casts;
+            std::set<SpellId> m_known;
+            std::map<SpellId, SpellId> m_nextRank;
             std::vector<std::string> m_deeds;
         };
     }

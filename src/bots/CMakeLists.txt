@@ -26,6 +26,7 @@ add_library(bots STATIC
   GearDraw.cpp
   GearTemplate.cpp
   Route.cpp
+  SpellBook.cpp
   SpellFile.cpp
   ThinkTimer.cpp
 )
