@@ -48,6 +48,9 @@ namespace Bots
         BotClass botClass;
         BotRole role;
         std::uint32_t level;
+        // The name of a gear template in lower case, or empty for the
+        // generated template of the class and role.
+        std::string gearTemplate;
     };
 
     struct BotRecipeResult
@@ -57,7 +60,8 @@ namespace Bots
         std::string error; // A short line for the GM, when not ok.
     };
 
-    // Reads the words `<name> <class> <role> [race]`, in any case. With no
+    // Reads the words `<name> <class> <role> [race] [gear <template>]`, in
+    // any case. With no
     // race, the class gets its default Horde race: an Orc Warrior, a Troll
     // Priest, an Orc Rogue, an Undead Warlock. The name is not checked here:
     // the game layer checks it like a player name.
@@ -65,6 +69,13 @@ namespace Bots
 
     // The word of the role in the command and in the `bot_character` table.
     char const* RoleName(BotRole role);
+    // The word of the class in the command and in data files.
+    char const* ClassName(BotClass botClass);
+    // A class or role word of the command, in any case. False if unknown.
+    bool ParseClassName(std::string const& word, BotClass& botClass);
+    bool ParseRoleName(std::string const& word, BotRole& role);
+    // True when the class can play the role in a group.
+    bool ClassCanPlayRole(BotClass botClass, BotRole role);
 }
 
 #endif

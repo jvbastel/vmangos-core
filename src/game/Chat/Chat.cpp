@@ -99,9 +99,16 @@ ChatCommand * ChatHandler::getCommandTable()
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 
+    static ChatCommand wowaiGearCommandTable[] =
+    {
+        { "equip",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiGearEquipCommand,      "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
     static ChatCommand wowaiCommandTable[] =
     {
         { "bot",        SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiBotCommandTable },
+        { "gear",       SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiGearCommandTable },
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 

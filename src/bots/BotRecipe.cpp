@@ -115,10 +115,62 @@ namespace Bots
         return "ranged";
     }
 
-    BotRecipeResult ParseBotRecipe(std::vector<std::string> const& words)
+    char const* ClassName(BotClass botClass)
     {
+        for (ClassInfo const& info : Classes())
+            if (info.botClass == botClass)
+                return info.name;
+        return "";
+    }
+
+    bool ParseClassName(std::string const& word, BotClass& botClass)
+    {
+        std::string const lower = Lower(word);
+        for (ClassInfo const& info : Classes())
+            if (lower == info.name)
+            {
+                botClass = info.botClass;
+                return true;
+            }
+        return false;
+    }
+
+    bool ParseRoleName(std::string const& word, BotRole& role)
+    {
+        std::string const lower = Lower(word);
+        for (BotRole r : AllRoles)
+            if (lower == RoleName(r))
+            {
+                role = r;
+                return true;
+            }
+        return false;
+    }
+
+    bool ClassCanPlayRole(BotClass botClass, BotRole role)
+    {
+        for (ClassInfo const& info : Classes())
+            if (info.botClass == botClass)
+                return Contains(info.roles, role);
+        return false;
+    }
+
+    BotRecipeResult ParseBotRecipe(std::vector<std::string> const& allWords)
+    {
+        char const* const usage = "Usage: <name> <class> <role> [race] [gear <template>]";
+        std::vector<std::string> words = allWords;
+        std::string gearTemplate;
+        for (std::size_t i = 3; i < words.size(); ++i)
+            if (Lower(words[i]) == "gear")
+            {
+                if (i + 2 != words.size())
+                    return Fail(usage);
+                gearTemplate = Lower(words[i + 1]);
+                words.resize(i);
+                break;
+            }
         if (words.size() < 3 || words.size() > 4)
-            return Fail("Usage: <name> <class> <role> [race]");
+            return Fail(usage);
 
         std::string const classWord = Lower(words[1]);
         ClassInfo const* classInfo = nullptr;
@@ -167,6 +219,7 @@ namespace Bots
         result.recipe.botClass = classInfo->botClass;
         result.recipe.role = role;
         result.recipe.level = Version1BotLevel;
+        result.recipe.gearTemplate = gearTemplate;
         return result;
     }
 }

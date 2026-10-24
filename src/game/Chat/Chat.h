@@ -302,6 +302,7 @@ class ChatHandler
         bool HandleWowaiBotCreateCommand(char* args);
         bool HandleWowaiBotLoginCommand(char* args);
         bool HandleWowaiBotLogoutCommand(char* args);
+        bool HandleWowaiGearEquipCommand(char* args);
         // WOWAI route recorder (src/game/Bots/RouteCommands.cpp)
         bool HandleRouteStartCommand(char* args);
         bool HandleRouteAddPointCommand(char* args);

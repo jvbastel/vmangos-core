@@ -197,6 +197,7 @@ set (game_SRCS
     PlayerBots/PlayerBotMgr.cpp
     Bots/BotAI.cpp
     Bots/BotCommands.cpp
+    Bots/BotGear.cpp
     Bots/BotMgr.cpp
     Bots/RouteCommands.cpp
     Server/Protocol/Opcodes.cpp
@@ -453,6 +454,7 @@ set (game_SRCS
     PlayerBots/PlayerBotAI.h
     PlayerBots/PlayerBotMgr.h
     Bots/BotAI.h
+    Bots/BotGear.h
     Bots/BotMgr.h
     Server/Protocol/Opcodes.h
     Server/Protocol/Opcodes_active.h

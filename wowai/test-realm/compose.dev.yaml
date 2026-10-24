@@ -1,8 +1,9 @@
 # The dev override of the test realm: mangosd and realmd run the binaries of
 # the dev install folder (`wowai/dev build`) instead of the image's, and
 # mangosd reads and writes the bot data files of the fork tree
-# (`bots/data`) at its default `Bots.DataDir`, so that the GM route recorder
-# writes route files straight into the fork.
+# (`bots/data`: gear templates, route files, ...) at its default
+# `Bots.DataDir`, so that the GM route recorder writes route files straight
+# into the fork.
 
 services:
   realmd:
