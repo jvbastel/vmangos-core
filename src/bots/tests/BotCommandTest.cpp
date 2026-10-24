@@ -71,3 +71,17 @@ TEST(BotCommand, EachKindHasItsWord)
     EXPECT_STREQ(Bots::BotCommandWord(BotCommandKind::Follow), "follow");
     EXPECT_STREQ(Bots::BotCommandWord(BotCommandKind::Stop), "stop");
 }
+
+TEST(BotCommand, ACommandWithNoNameAddressesAllBots)
+{
+    ParsedBotCommand parsed = ParseBotCommand("follow", GroupBots);
+
+    EXPECT_EQ(Bots::AddressedBots(parsed.command, GroupBots), GroupBots);
+}
+
+TEST(BotCommand, ACommandWithANameAddressesThatBotOnly)
+{
+    ParsedBotCommand parsed = ParseBotCommand("grukk stop", GroupBots);
+
+    EXPECT_EQ(Bots::AddressedBots(parsed.command, GroupBots), std::vector<std::string>{"Grukk"});
+}

@@ -39,6 +39,10 @@ namespace Bots
     // command, so that it can go to the chat service.
     ParsedBotCommand ParseBotCommand(std::string const& text, std::vector<std::string> const& botNames);
 
+    // The names in `botNames` that a parsed command addresses: all of them,
+    // or only the bot of the bot name at the start.
+    std::vector<std::string> AddressedBots(BotCommand const& command, std::vector<std::string> const& botNames);
+
     // The word of a bot command, for example "follow".
     char const* BotCommandWord(BotCommandKind kind);
 }

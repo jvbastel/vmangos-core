@@ -84,6 +84,17 @@ namespace Bots
         return parsed;
     }
 
+    std::vector<std::string> AddressedBots(BotCommand const& command, std::vector<std::string> const& botNames)
+    {
+        if (command.botName.empty())
+            return botNames;
+        std::vector<std::string> addressed;
+        for (std::string const& name : botNames)
+            if (name == command.botName)
+                addressed.push_back(name);
+        return addressed;
+    }
+
     char const* BotCommandWord(BotCommandKind kind)
     {
         for (CommandInfo const& info : Commands)
