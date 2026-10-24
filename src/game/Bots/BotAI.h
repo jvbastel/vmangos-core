@@ -10,6 +10,7 @@
 
 #include "PlayerBotAI.h"
 #include "WorldPacket.h"
+#include "ObjectGuid.h"
 #include "Inbox.h"
 #include "ThinkTimer.h"
 
@@ -37,8 +38,14 @@ class BotAI : public PlayerBotAI
         void Think();
         bool IsNearPlayer() const;
 
+        void KeepLevelCorrect();
+
         Bots::Inbox<WorldPacket> m_inbox;
         Bots::ThinkTimer m_thinkTimer;
+        // The level routine ran after the login (and so after the creation).
+        bool m_levelRoutineDone = false;
+        // The pet that has its pet spells. Empty without a pet.
+        ObjectGuid m_taughtPet;
 };
 
 #endif
