@@ -21,6 +21,7 @@ add_library(bots STATIC
   BotAccounts.cpp
   BotRecipe.cpp
   DataTokenizer.cpp
+  Route.cpp
   ThinkTimer.cpp
 )
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
