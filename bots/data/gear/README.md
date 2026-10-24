@@ -58,6 +58,24 @@ bots/tools/gear/generate-from-realm        # all roles, into this folder
 git diff --stat bots/data/gear/            # review, then commit
 ```
 
+## The template builder page
+
+`bots/tools/gear/builder_web.py` is a small web page that builds hand-made
+templates. It has a search per slot (filters for required level, quality,
+source, content patch, and armor type) that shows the score, stats, and
+sources of each item, a paste box for item IDs and Wowhead item links, and
+the levels at which each slot is empty. It checks a template as mangosd
+does and writes only hand-made templates into this folder: it refuses the
+`<class>_<role>` names and never changes a generated file.
+
+```
+bots/tools/gear/builder-from-realm         # then open http://127.0.0.1:8765/
+```
+
+It reads the item data once from the test realm (about 20 s), with the same
+read-only user as the generator (`with-realm-db`). Without icons, the page
+shows item names in the color of their quality.
+
 It needs `uv`. The tests: `cd bots/tools/gear && uv run pytest`, and
 `wowai/dev test` (GearDataTest reads the files of this folder). mangosd drops
 the items of a later content patch than the realm's `WowPatch` with no

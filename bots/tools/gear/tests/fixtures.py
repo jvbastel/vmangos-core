@@ -9,7 +9,7 @@ def item(entry, name="Item", patch=0, item_class=4, subclass=1, inventory_type=5
          required_level=10, stats=None, armor=0, dmg=(0, 0), delay=0, block=0, spells=(),
          allowable_class=-1, allowable_race=-1, flags=0, extra_flags=0, max_count=0,
          random_property=0, required_honor_rank=0, required_reputation_faction=0,
-         required_skill=0, required_spell=0, required_city_rank=0):
+         required_skill=0, required_spell=0, required_city_rank=0, display_id=0):
     row = {
         "entry": entry, "patch": patch, "class": item_class, "subclass": subclass, "name": name,
         "quality": quality, "flags": flags, "extra_flags": extra_flags, "inventory_type": inventory_type,
@@ -17,7 +17,7 @@ def item(entry, name="Item", patch=0, item_class=4, subclass=1, inventory_type=5
         "required_level": required_level, "required_skill": required_skill, "required_spell": required_spell,
         "required_honor_rank": required_honor_rank, "required_city_rank": required_city_rank,
         "required_reputation_faction": required_reputation_faction, "max_count": max_count,
-        "random_property": random_property, "armor": armor, "block": block, "delay": delay,
+        "random_property": random_property, "display_id": display_id, "armor": armor, "block": block, "delay": delay,
     }
     stats = list((stats or {}).items())
     for i in range(1, 11):
@@ -58,7 +58,7 @@ def loot(entry, item_entry, ref=0, patch_min=0, patch_max=10):
 
 def tables(**given):
     names = ["items", "spells", "forbidden", "quests", "creatures", "spawns", "maps",
-             "creature_loot", "reference_loot", "vendors", "crafts"]
+             "creature_loot", "reference_loot", "vendors", "crafts", "entries"]
     result = {name: [] for name in names}
     result["maps"] = [{"entry": 0, "map_type": 0, "name": "Eastern Kingdoms"},
                       {"entry": 1, "map_type": 0, "name": "Kalimdor"}]

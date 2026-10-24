@@ -4,11 +4,14 @@ version = "0.1.0"
 description = "The gear template generator of WOWAI and its shared item data module."
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.110",
     "pymysql>=1.1",
+    "uvicorn>=0.29",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=8",
 ]
 
