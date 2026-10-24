@@ -9,9 +9,20 @@
 #define WOWAI_GAME_BOTAI_H
 
 #include "PlayerBotAI.h"
+#include "ObjectGuid.h"
 #include "WorldPacket.h"
+#include "BotCommand.h"
+#include "CommandState.h"
 #include "Inbox.h"
 #include "ThinkTimer.h"
+
+// A bot command for one bot, from the chat of a player.
+struct BotCommandMessage
+{
+    Bots::BotCommandKind kind;
+    ObjectGuid player; // The player who gave the command.
+    uint32 chatType;   // CHAT_MSG_PARTY or CHAT_MSG_WHISPER: where a reply goes.
+};
 
 // The AI of one WOWAI bot. It derives from PlayerBotAI, which acks teleports
 // and receives the packets of the socketless session. It is no PartyBotAI.
@@ -29,15 +40,29 @@ class BotAI : public PlayerBotAI
         // and win, resurrect request, group invite, and teleport.
         static bool IsInboxOpcode(uint16 opcode);
 
+        // The AI of a WOWAI bot, or null for any other player.
+        static BotAI* Of(Player const* player);
+
+        // From any thread: the bot handles the command in its next update.
+        void PushCommand(BotCommandMessage const& message);
+
         void OnPacketReceived(WorldPacket const* packet) override;
         void UpdateAI(uint32 const diff) override;
 
     private:
         void HandlePacket(WorldPacket const& packet);
+        void HandleCommand(BotCommandMessage const& message);
+        void StartCommand(Player* player);
+        void KeepCommand();
+        Player* CommandPlayer() const;
+        bool IsInReach(Player const* player) const;
         void Think();
         bool IsNearPlayer() const;
 
         Bots::Inbox<WorldPacket> m_inbox;
+        Bots::Inbox<BotCommandMessage> m_commands;
+        Bots::CommandState m_commandState = Bots::CommandState::None;
+        ObjectGuid m_commandPlayer; // The player of the last command that the bot obeyed.
         Bots::ThinkTimer m_thinkTimer;
 };
 
