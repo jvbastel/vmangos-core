@@ -3,6 +3,7 @@
 find_package(GTest REQUIRED)
 
 add_executable(bots_tests
+  BotAccountsTest.cpp
   DataTokenizerTest.cpp
   FakeBotTest.cpp
   ThinkTimerTest.cpp
