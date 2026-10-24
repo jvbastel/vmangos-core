@@ -292,3 +292,82 @@ TEST(GroupRules, NoInterruptOfAnEnemyOutsideTheFight)
 
     EXPECT_NE(party.rogue.Think(), "interrupt a heal");
 }
+
+// Enemy healers
+
+TEST(GroupRules, ABotMarksAnEnemyThatCastsAHeal)
+{
+    Party party;
+    party.Joins(Shaman);
+    party.Casts(Shaman, HealingWave, CastKind::Heal);
+
+    EXPECT_EQ(party.priest.Think(), "mark an enemy healer");
+
+    EXPECT_EQ(party.group.GetEnemyHealers(), std::vector<Bots::Guid>{Shaman});
+}
+
+TEST(GroupRules, ADamageBotSwitchesToAnEnemyHealerAndBackAfterItDies)
+{
+    Party party;
+    party.rogue.fake.SetCannotCast(Rogue::Kick);
+    party.Joins(Shaman);
+    party.Casts(Shaman, HealingWave, CastKind::Heal);
+    party.priest.Think();
+
+    EXPECT_EQ(party.rogue.Think(), "attack the target");
+    ASSERT_FALSE(party.rogue.fake.Deeds().empty());
+    EXPECT_EQ(party.rogue.fake.Deeds()[0], Deed("attack", Shaman));
+    party.rogue.fake.SetVictim(RogueBot, Shaman);
+    party.rogue.fake.ClearDeeds();
+
+    // The heal ends: the Rogue stays on the healer.
+    party.Casts(Shaman, NoSpell, CastKind::None);
+    EXPECT_NE(party.rogue.Think(), "attack the target");
+
+    party.Dies(Shaman);
+    party.rogue.fake.ClearDeeds();
+    party.priest.Think(); // It forgets the dead healer.
+    EXPECT_EQ(party.rogue.Think(), "attack the target");
+    ASSERT_FALSE(party.rogue.fake.Deeds().empty());
+    EXPECT_EQ(party.rogue.fake.Deeds()[0], Deed("attack", Kobold));
+}
+
+TEST(GroupRules, ARangedBotCastsOnTheEnemyHealer)
+{
+    Party party;
+    party.Joins(Shaman);
+    party.Casts(Shaman, HealingWave, CastKind::Heal);
+    party.priest.Think();
+    party.Casts(Shaman, NoSpell, CastKind::None);
+
+    EXPECT_EQ(party.mage.Think(), "frostbolt");
+
+    EXPECT_EQ(party.mage.fake.Deeds(), std::vector<std::string>{CastOn(Mage::Frostbolt, Shaman)});
+}
+
+TEST(GroupRules, TheAttackTargetOfThePlayerComesBeforeTheEnemyHealer)
+{
+    Party party;
+    party.Joins(Shaman);
+    party.Joins(Warlock);
+    party.Casts(Shaman, HealingWave, CastKind::Heal);
+    party.priest.Think();
+    party.Casts(Shaman, NoSpell, CastKind::None);
+
+    EXPECT_EQ(party.mage.Think(Warlock), "frostbolt");
+
+    EXPECT_EQ(party.mage.fake.Deeds(), std::vector<std::string>{CastOn(Mage::Frostbolt, Warlock)});
+}
+
+TEST(GroupRules, ABotForgetsADeadEnemyHealer)
+{
+    Party party;
+    party.Joins(Shaman);
+    party.Casts(Shaman, HealingWave, CastKind::Heal);
+    party.priest.Think();
+
+    party.Dies(Shaman);
+
+    EXPECT_EQ(party.priest.Think(), "forget an enemy healer");
+    EXPECT_TRUE(party.group.GetEnemyHealers().empty());
+}

@@ -72,11 +72,18 @@ namespace Bots
         // The cast of `caster` ended, or its bot gave it up.
         void ReleaseInterrupt(Guid caster);
 
+        // The enemy healers: the enemies that cast a heal in a fight. The
+        // damage bots attack them first (GroupRules.h).
+        void MarkEnemyHealer(Guid enemy);
+        void ForgetEnemyHealer(Guid enemy);
+        std::vector<Guid> GetEnemyHealers() const;
+
     private:
         mutable std::mutex m_mutex;
         Guid m_focusTarget = NoGuid;
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
+        std::vector<Guid> m_enemyHealers;                 // In mark order.
     };
 }
 

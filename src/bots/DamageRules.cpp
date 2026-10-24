@@ -1,5 +1,6 @@
 #include "DamageRules.h"
 #include "CommonRules.h"
+#include "GroupRules.h"
 
 namespace Bots
 {
@@ -7,6 +8,9 @@ namespace Bots
     {
         if (IsAlive(context.view, context.attackTarget))
             return context.attackTarget;
+        Guid const healer = PickEnemyHealer(context);
+        if (healer != NoGuid)
+            return healer;
         Guid const focus = context.group.GetFocusTarget();
         if (IsAlive(context.view, focus) && context.group.TankHoldsThreat())
             return focus;

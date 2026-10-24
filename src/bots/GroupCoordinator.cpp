@@ -1,5 +1,7 @@
 #include "GroupCoordinator.h"
 
+#include <algorithm>
+
 namespace Bots
 {
     using Lock = std::lock_guard<std::mutex>;
@@ -81,5 +83,24 @@ namespace Bots
     {
         Lock lock(m_mutex);
         m_interruptClaims.erase(caster);
+    }
+
+    void GroupCoordinator::MarkEnemyHealer(Guid enemy)
+    {
+        Lock lock(m_mutex);
+        if (std::find(m_enemyHealers.begin(), m_enemyHealers.end(), enemy) == m_enemyHealers.end())
+            m_enemyHealers.push_back(enemy);
+    }
+
+    void GroupCoordinator::ForgetEnemyHealer(Guid enemy)
+    {
+        Lock lock(m_mutex);
+        m_enemyHealers.erase(std::remove(m_enemyHealers.begin(), m_enemyHealers.end(), enemy), m_enemyHealers.end());
+    }
+
+    std::vector<Guid> GroupCoordinator::GetEnemyHealers() const
+    {
+        Lock lock(m_mutex);
+        return m_enemyHealers;
     }
 }

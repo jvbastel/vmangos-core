@@ -108,6 +108,32 @@ namespace Bots
         }
     }
 
+    namespace
+    {
+        // Enemy healers
+
+        // An enemy in the fight that casts a heal, and is no enemy healer
+        // of the group yet, or NoGuid.
+        Guid FindNewEnemyHealer(BotContext const& context)
+        {
+            std::vector<Guid> const healers = context.group.GetEnemyHealers();
+            for (Guid enemy : EnemiesInFight(context))
+                if (context.view.GetCast(enemy).kind == CastKind::Heal
+                    && std::find(healers.begin(), healers.end(), enemy) == healers.end())
+                    return enemy;
+            return NoGuid;
+        }
+
+        // An enemy healer that died, or that the bot cannot see, or NoGuid.
+        Guid FindGoneEnemyHealer(BotContext const& context)
+        {
+            for (Guid healer : context.group.GetEnemyHealers())
+                if (!IsAlive(context.view, healer))
+                    return healer;
+            return NoGuid;
+        }
+    }
+
     std::vector<Guid> EnemiesInFight(BotContext const& context)
     {
         std::vector<Guid> enemies;
@@ -127,8 +153,12 @@ namespace Bots
         return true;
     }
 
-    Guid PickEnemyHealer(BotContext const&)
+    Guid PickEnemyHealer(BotContext const& context)
     {
+        std::vector<Guid> const enemies = EnemiesInFight(context);
+        for (Guid healer : context.group.GetEnemyHealers())
+            if (std::find(enemies.begin(), enemies.end(), healer) != enemies.end() && IsInChaseLimit(context, healer))
+                return healer;
         return NoGuid;
     }
 
@@ -139,8 +169,16 @@ namespace Bots
             Bookkeeping("drop an interrupt claim", P + 94,
                 [](BotContext const& context) { return FindClaimToDrop(context) != NoGuid; },
                 [](BotContext const& context) { context.group.ReleaseInterrupt(FindClaimToDrop(context)); }),
+            Bookkeeping("forget an enemy healer", P + 93,
+                [](BotContext const& context) { return FindGoneEnemyHealer(context) != NoGuid; },
+                [](BotContext const& context) { context.group.ForgetEnemyHealer(FindGoneEnemyHealer(context)); }),
             InterruptRule("interrupt a heal", P + 90, CastKind::Heal),
             InterruptRule("interrupt a harmful spell", P + 85, CastKind::Harm),
+            // Under the interrupts: the interrupt comes first, and another
+            // bot marks the healer.
+            Bookkeeping("mark an enemy healer", P + 70,
+                [](BotContext const& context) { return FindNewEnemyHealer(context) != NoGuid; },
+                [](BotContext const& context) { context.group.MarkEnemyHealer(FindNewEnemyHealer(context)); }),
         };
         return std::make_shared<Strategy const>(Strategy{"group rules", std::move(rules)});
     }
