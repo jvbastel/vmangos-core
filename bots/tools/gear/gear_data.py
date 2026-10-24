@@ -107,8 +107,8 @@ class Source:
     dungeon, raid, vendor, or craft. levels[patch] is the level of the source
     in that content patch, or None when the source is not there. For loot it
     is the lowest level of the creatures that drop it, and for a dungeon or a
-    raid the lowest creature level on its map. Vendor and craft sources have
-    level 0: the item's required level is their level.
+    raid the lowest level of the creatures with loot on its map. Vendor and
+    craft sources have level 0: the item's required level is their level.
     """
     kind: str
     name: str
@@ -298,7 +298,8 @@ def _creature_contexts(tables):
         if not creature:
             continue
         level = creature["level_min"]
-        map_level[row["map"]] = min(map_level.get(row["map"], level), level)
+        if creature["loot_id"]:  # Not the critters and the friendly helpers.
+            map_level[row["map"]] = min(map_level.get(row["map"], level), level)
         key = (row["id"], row["map"])
         spawn_patches[key] = spawn_patches.get(key, frozenset()) | _patch_range(row["patch_min"], row["patch_max"])
 
@@ -308,9 +309,9 @@ def _creature_contexts(tables):
         patches &= _patch_range(creature_patch[entry], LAST_PATCH)
         creature = creatures[entry]
         if map_row["map_type"] == 1:
-            context = ("dungeon", map_row["name"], patches, map_level[map_id])
+            context = ("dungeon", map_row["name"], patches, map_level.get(map_id, creature["level_min"]))
         elif map_row["map_type"] == 2:
-            context = ("raid", map_row["name"], patches, map_level[map_id])
+            context = ("raid", map_row["name"], patches, map_level.get(map_id, creature["level_min"]))
         elif map_row["map_type"] == 0:
             context = ("creature", creature["name"], patches, creature["level_min"])
         else:

@@ -42,6 +42,9 @@ size = 10
 #   fist dagger thrown crossbow wand. The shield and holdable slots take any
 #   shield and any off-hand item.
 # shapes: the weapon shapes, [name, weapon slot, weapon slot].
+# armor: the armor types (cloth leather mail plate) of the head, shoulders,
+#   chest, wrists, hands, waist, legs, and feet slots. Plate and mail count
+#   only from the level at which the class learns them (40).
 # weights: the stat weights. Stats: strength agility stamina intellect spirit
 #   health mana armor (per point of armor, also armor_bonus) dps (weapon
 #   damage per second) wand_dps attack_power ranged_attack_power crit hit
@@ -53,6 +56,7 @@ size = 10
 [roles.warrior_tank]
 # A one-handed weapon and a shield: Shield Bash is an interrupt.
 shapes = [["sword-and-board", "mainhand", "shield"]]
+armor = ["leather", "mail", "plate"]
 [roles.warrior_tank.weapons]
 mainhand = ["axe", "mace", "sword", "dagger", "fist"]
 ranged = ["bow", "gun", "crossbow", "thrown"]
@@ -78,6 +82,7 @@ dps = 0.8
 # Rogue's talent build uses daggers. The version 1 build does not: add
 # "dagger" to mainhand when it does.
 shapes = [["dual-wield", "mainhand", "offhand"]]
+armor = ["leather"]
 [roles.rogue_melee.weapons]
 mainhand = ["sword", "mace", "fist"]
 offhand = ["sword", "mace", "fist", "dagger"]
@@ -96,6 +101,7 @@ dps = 2.5
 [roles.priest_healer]
 # A staff, or a one-handed weapon with an off-hand item, and a wand.
 shapes = [["staff", "twohand"], ["mace-and-off-hand", "mainhand", "holdable"]]
+armor = ["cloth"]
 [roles.priest_healer.weapons]
 twohand = ["staff"]
 mainhand = ["mace", "dagger"]
@@ -114,6 +120,7 @@ wand_dps = 1.0
 
 [roles.warlock_ranged]
 shapes = [["staff", "twohand"], ["one-hand-and-off-hand", "mainhand", "holdable"]]
+armor = ["cloth"]
 [roles.warlock_ranged.weapons]
 twohand = ["staff"]
 mainhand = ["sword", "dagger"]
@@ -134,6 +141,7 @@ wand_dps = 1.0
 [roles.mage_ranged]
 # The frost mage of the test driver.
 shapes = [["staff", "twohand"], ["one-hand-and-off-hand", "mainhand", "holdable"]]
+armor = ["cloth"]
 [roles.mage_ranged.weapons]
 twohand = ["staff"]
 mainhand = ["sword", "dagger"]

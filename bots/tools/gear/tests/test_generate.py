@@ -247,3 +247,14 @@ def test_a_role_that_uses_a_weapon_its_class_cannot_use_is_refused():
 
     with pytest.raises(ValueError, match="mage cannot use mace"):
         generate.Settings.from_dict(data)
+
+
+def test_a_role_can_keep_to_its_armor_types():
+    world = quest_world(item(100, subclass=1, stats={AGILITY: 5}),   # Cloth
+                        item(101, subclass=2, stats={AGILITY: 3}))   # Leather
+    data = copy.deepcopy(BASE)
+    data["roles"]["rogue_melee"]["armor"] = ["leather"]
+
+    found = generate.build_lines(world, generate.Settings.from_dict(data), "rogue_melee", set())
+    assert {line.entry for line in found} == {101}
+    assert {line.entry for line in lines(world, "rogue_melee")} == {100, 101}

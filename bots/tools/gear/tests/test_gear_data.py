@@ -52,14 +52,14 @@ def test_a_creature_without_a_spawn_is_no_source():
     assert earliest(world, 100) is None
 
 
-def test_a_dungeon_drop_counts_from_the_lowest_creature_level_on_the_map():
+def test_a_dungeon_drop_counts_from_the_lowest_level_of_the_creatures_with_loot_on_the_map():
     world = gear_data.build_world(tables(
         items=[item(100), item(101)],
         maps=[{"entry": 389, "map_type": 1, "name": "Ragefire Chasm"},
               {"entry": 409, "map_type": 2, "name": "Molten Core"}],
-        creatures=[creature(600, level=13, loot_id=0), creature(601, level=16, loot_id=601),
-                   creature(700, level=60, loot_id=700)],
-        spawns=[spawn(600, map_id=389), spawn(601, map_id=389), spawn(700, map_id=409)],
+        creatures=[creature(599, level=1, loot_id=0, name="A rat"), creature(600, level=13, loot_id=600),
+                   creature(601, level=16, loot_id=601), creature(700, level=60, loot_id=700)],
+        spawns=[spawn(599, map_id=389), spawn(600, map_id=389), spawn(601, map_id=389), spawn(700, map_id=409)],
         creature_loot=[loot(601, 100), loot(700, 101)]))
 
     assert earliest(world, 100) == 13

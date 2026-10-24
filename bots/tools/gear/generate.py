@@ -67,6 +67,7 @@ class Role:
     shapes: list      # [(name, [weapon slot, ...])]
     weapons: dict     # slot -> set of weapon types (mainhand, offhand, twohand, ranged)
     weights: dict
+    armor: set        # The armor types of the armor slots. Empty: all that the class wears.
 
 
 @dataclass(frozen=True)
@@ -108,7 +109,11 @@ class Settings:
                         raise ValueError(f"role {name}, shape {shape_name}: {slot} is not a weapon slot")
                     if slot in ("mainhand", "offhand", "twohand") and slot not in weapons:
                         raise ValueError(f"role {name}, shape {shape_name}: no weapon types for {slot}")
-            roles[name] = Role(name, class_name, role, shapes, weapons, dict(entry["weights"]))
+            armor = set(entry.get("armor", []))
+            for armor_type in armor:
+                if armor_type not in CLASSES[class_name][0]:
+                    raise ValueError(f"role {name}: a {class_name} cannot wear {armor_type}")
+            roles[name] = Role(name, class_name, role, shapes, weapons, dict(entry["weights"]), armor)
         sources = data["sources"]
         return Settings(
             min_level=data["levels"]["min"], max_level=data["levels"]["max"],
@@ -184,7 +189,7 @@ def _candidate_lines(world, settings, role, bans):
         sources = world.sources.get(entry, [])
         for slot in _slots_for(item, role):
             armor_level = _armor_level(item, slot, role.class_name)
-            if armor_level is None:
+            if armor_level is None or (slot in ARMOR_SLOTS and role.armor and item.armor_type not in role.armor):
                 continue
             if slot == "offhand" and item.unique:
                 continue  # The main hand can hold the same item.
