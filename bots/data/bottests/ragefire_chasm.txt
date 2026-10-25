@@ -38,3 +38,11 @@ target pack39
 command pull
 wait combat_end 300
 expect pack_dead pack39
+
+# The revive rule of jvbastel/WOWAI#72: the check t72_revive.py kills
+# members during the wait.
+scenario revive
+teleport pull_pack39
+clear 50
+command follow
+wait 120
