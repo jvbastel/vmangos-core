@@ -20,6 +20,7 @@
 #include "Route.h"
 #include "Inbox.h"
 #include "ObjectGuid.h"
+#include "StartDelay.h"
 #include "ThinkTimer.h"
 
 #include <map>
@@ -36,6 +37,7 @@ struct BotSettings
     bool enable = true;
     std::string accountPrefix = "BOT";
     Bots::ThinkSettings think;
+    Bots::StartDelaySettings startDelay;
     std::string dataDir = "bots";
 };
 
@@ -134,6 +136,11 @@ class BotMgr
         std::shared_ptr<Bots::GroupCoordinator> GetCoordinator(uint32 groupId);
         // Bot chat. Its QueuePlayerMessage works from any thread.
         BotChat& Chat() { return m_chat; }
+        // From any map thread: the random source of the bots, for their
+        // random choices such as the start delay (StartDelay.h). A scripted
+        // run seeds it, so that it can repeat and record the choices.
+        Bots::RandomSource& Random() { return m_random; }
+        void SeedRandom(uint32 seed) { m_random.Reseed(seed); }
         // For bot chat: the role of one of our bots that is online, or false.
         bool RoleOfOurBot(Player const* player, std::string& role) const;
         // True for a character of the `bot_character` table, online or not.
@@ -179,6 +186,7 @@ class BotMgr
         std::map<uint32 /*group id*/, std::shared_ptr<Bots::GroupCoordinator>> m_coordinators;
         BotChat m_chat;
         Bots::BossList m_bosses;
+        Bots::SeededRandom m_random{std::random_device()()};
 };
 
 // The class of the library for a class of the game. False for an unknown class.

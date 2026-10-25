@@ -3268,6 +3268,14 @@ BattleBot.AutoJoin = 0
 #        Time in milliseconds between two decisions of a bot far from any player.
 #        Default: 3000
 #
+#    Bots.StartDelayMs.Min
+#    Bots.StartDelayMs.Max
+#        Before a bot starts to move, it waits a random time from Min to Max milliseconds: at a `follow` or
+#        `come` command, when the player that it follows starts to move, and when it goes back to follow
+#        after a fight. Each bot draws a new time each time, so the bots of a group do not all start at
+#        the same moment. `stop` and `stay` act at once. A bot reads these settings when it logs in.
+#        Default: 300 (Min), 1500 (Max)
+#
 #    Bots.DataDir
 #        Folder of the bot data files: gear templates, talent builds, and spell files.
 #        Default: "bots"
@@ -3279,6 +3287,8 @@ Bots.AccountPrefix = "BOT"
 Bots.ThinkMs.Combat = 100
 Bots.ThinkMs.NearPlayer = 500
 Bots.ThinkMs.Far = 3000
+Bots.StartDelayMs.Min = 300
+Bots.StartDelayMs.Max = 1500
 Bots.DataDir = "bots"
 
 ###################################################################################################################

@@ -119,7 +119,7 @@ namespace
         entry->customBot = true;
         // Our bots are persistent characters: the core saves them like players.
         entry->allowSaving = true;
-        entry->ai.reset(new BotAI(settings.think, RoleOf(role)));
+        entry->ai.reset(new BotAI(settings.think, settings.startDelay, RoleOf(role)));
         entry->ai->botEntry = entry.get();
         return entry;
     }
@@ -163,13 +163,16 @@ void BotMgr::LoadConfig()
     m_settings.think.combatMs = sConfig.GetIntDefault("Bots.ThinkMs.Combat", 100);
     m_settings.think.nearPlayerMs = sConfig.GetIntDefault("Bots.ThinkMs.NearPlayer", 500);
     m_settings.think.farMs = sConfig.GetIntDefault("Bots.ThinkMs.Far", 3000);
+    m_settings.startDelay.minMs = sConfig.GetIntDefault("Bots.StartDelayMs.Min", 300);
+    m_settings.startDelay.maxMs = sConfig.GetIntDefault("Bots.StartDelayMs.Max", 1500);
     m_settings.dataDir = sConfig.GetStringDefault("Bots.DataDir", "bots");
     AccountMgr::normalizeString(m_settings.accountPrefix);
     m_chat.LoadConfig();
 
-    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Enable %u, accounts %s###, think %u/%u/%u ms, data %s",
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Enable %u, accounts %s###, think %u/%u/%u ms, start delay %u-%u ms, data %s",
         uint32(m_settings.enable), m_settings.accountPrefix.c_str(), m_settings.think.combatMs,
-        m_settings.think.nearPlayerMs, m_settings.think.farMs, m_settings.dataDir.c_str());
+        m_settings.think.nearPlayerMs, m_settings.think.farMs, m_settings.startDelay.minMs,
+        m_settings.startDelay.maxMs, m_settings.dataDir.c_str());
 }
 
 void BotMgr::Load()
@@ -764,7 +767,7 @@ void BotMgr::SendLines()
 void BotMgr::StartLogin(BotRecord& record, WorldSession* session)
 {
     // A new AI each time, with an empty inbox and a fresh think timer.
-    record.entry->ai.reset(new BotAI(m_settings.think, RoleOf(record.role)));
+    record.entry->ai.reset(new BotAI(m_settings.think, m_settings.startDelay, RoleOf(record.role)));
     record.entry->ai->botEntry = record.entry.get();
     record.entry->state = PB_STATE_LOADING;
     record.wasInGroup = false;

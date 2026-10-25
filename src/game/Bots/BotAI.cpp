@@ -15,6 +15,7 @@
 #include "Pet.h"
 #include "Player.h"
 #include "MotionMaster.h"
+#include "MoveSpline.h"
 #include "Utilities/Random.h"
 #include "Map.h"
 #include "Log.h"
@@ -40,8 +41,8 @@ namespace
     }
 }
 
-BotAI::BotAI(Bots::ThinkSettings const& thinkSettings, Bots::BotRole role) :
-    PlayerBotAI(nullptr), m_thinkTimer(thinkSettings), m_role(role)
+BotAI::BotAI(Bots::ThinkSettings const& thinkSettings, Bots::StartDelaySettings const& startDelay, Bots::BotRole role) :
+    PlayerBotAI(nullptr), m_thinkTimer(thinkSettings), m_startDelay(startDelay), m_role(role)
 {
 }
 
@@ -112,6 +113,7 @@ void BotAI::UpdateAI(uint32 const diff)
         HandleCommand(message);
 
     KeepLevelCorrect();
+    UpdateStartDelay(diff);
 
     Bots::ThinkState state = Bots::ThinkStateFor(me->IsInCombat(), IsNearPlayer());
     if (m_thinkTimer.Advance(diff, state))
@@ -229,7 +231,60 @@ void BotAI::HandleCommand(BotCommandMessage const& message)
         if (coordinator->GetPull().puller == me->GetObjectGuid().GetRawValue())
             coordinator->EndPull();
     }
+    if (m_commandState == Bots::CommandState::Follow || m_commandState == Bots::CommandState::Come)
+    {
+        // The bot starts when its delay ends (UpdateStartDelay).
+        uint32 const delay = m_startGate.OnMoveCommand(m_startDelay, sBotMgr.Random());
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s waits %u ms before it moves (%s)", me->GetName(), delay,
+            Bots::StartReasonName(Bots::StartReason::Command));
+        return;
+    }
+    // `stop` and `stay` act at once.
+    m_startGate.Cancel();
     StartCommand(player);
+}
+
+void BotAI::UpdateStartDelay(uint32 diff)
+{
+    Player* player = m_commandPlayer.IsEmpty() ? nullptr : me->GetMap()->GetPlayer(m_commandPlayer);
+    Bots::StartFacts facts;
+    facts.command = m_commandState;
+    facts.inCombat = me->IsInCombat();
+    facts.followsPlayer = player && BotAdapter(me).GetFollowTarget() == player->GetObjectGuid().GetRawValue();
+    facts.botStands = me->movespline->Finalized();
+    facts.playerMoves = player && player->IsMoving();
+    Bots::StartGate::Result const result = m_startGate.Update(diff, facts, m_startDelay, sBotMgr.Random());
+    switch (result.step)
+    {
+        case Bots::StartGate::Step::None:
+            return;
+        case Bots::StartGate::Step::Wait:
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s waits %u ms before it moves (%s)", me->GetName(),
+                result.delayMs, Bots::StartReasonName(result.reason));
+            if (result.reason == Bots::StartReason::PlayerMoves)
+            {
+                // The follow movement would start at once: the bot stands
+                // still until its delay ends.
+                me->GetMotionMaster()->Clear();
+                me->StopMoving();
+                me->GetMotionMaster()->MoveIdle();
+            }
+            return;
+        case Bots::StartGate::Step::Start:
+            break;
+    }
+    if (result.reason == Bots::StartReason::Command)
+    {
+        // The `follow` or `come` of the player, if it still holds.
+        if (player && IsInReach(player)
+            && (m_commandState == Bots::CommandState::Follow || m_commandState == Bots::CommandState::Come))
+            StartCommand(player);
+        return;
+    }
+    // Back to follow: the follow rule decides now, so the bot does not wait
+    // for its next think too.
+    if (me->IsAlive())
+        Think();
 }
 
 Bots::PullTarget BotAI::PullTargetOf(Player const* player) const
@@ -373,8 +428,9 @@ void BotAI::Think()
             break;
     }
     Bots::WatchGroup(adapter, *coordinator);
-    Bots::BotContext const context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
+    Bots::BotContext context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};
+    context.startWaits = m_startGate.Waiting();
     std::string const rule = m_strategies.Think(context);
     // A bot without a group has no chat session: its own coordinator drops
     // the events.

@@ -18,6 +18,7 @@
 #include "CommandState.h"
 #include "GroupCoordinator.h"
 #include "Inbox.h"
+#include "StartDelay.h"
 #include "Strategy.h"
 #include "ThinkTimer.h"
 
@@ -39,7 +40,7 @@ struct BotCommandMessage
 class BotAI : public PlayerBotAI
 {
     public:
-        BotAI(Bots::ThinkSettings const& thinkSettings, Bots::BotRole role);
+        BotAI(Bots::ThinkSettings const& thinkSettings, Bots::StartDelaySettings const& startDelay, Bots::BotRole role);
 
         // True for the packets that the bots use: kill log, loot roll start
         // and win, resurrect request, group invite, and teleport.
@@ -60,6 +61,8 @@ class BotAI : public PlayerBotAI
         void OnPartyKill(WorldPacket const& packet);
         void HandleCommand(BotCommandMessage const& message);
         void StartCommand(Player* player);
+        // The start delay: begins and ends the waits of m_startGate.
+        void UpdateStartDelay(uint32 diff);
         void StartPull(Player* player);
         Bots::PullTarget PullTargetOf(Player const* player) const;
         bool IsDamageBot() const;
@@ -86,6 +89,9 @@ class BotAI : public PlayerBotAI
         // It ends when it dies or the bot cannot see it, and at `stop`.
         ObjectGuid m_attackTarget;
         Bots::ThinkTimer m_thinkTimer;
+        Bots::StartDelaySettings m_startDelay;
+        // The bot waits a random delay before it starts to move.
+        Bots::StartGate m_startGate;
         BotLoot m_loot;
         Bots::BotRole m_role;
         // The active strategies. Made at the first think, from the class of
