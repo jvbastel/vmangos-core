@@ -2,6 +2,10 @@
 
 #include <gtest/gtest.h>
 
+#include <fstream>
+#include <map>
+#include <sstream>
+
 namespace
 {
     Bots::Route QuestRoute()
@@ -77,4 +81,52 @@ TEST(QuestProgress, CountsKillsLootAndVisitsForTheResultFile)
     EXPECT_EQ(progress.Objectives()[1].done, 2u);
     EXPECT_EQ(progress.Objectives()[2].done, 1u);
     EXPECT_EQ(progress.CompletedQuests(), (std::vector<std::uint32_t>{5722, 5723, 5725}));
+}
+
+TEST(RagefireChasmRoute, TheCommittedFileHasTheBossesTheQuestsAndTheirKills)
+{
+    std::ifstream file(std::string(BOT_DATA_DIR) + "/routes/ragefire_chasm.txt");
+    ASSERT_TRUE(file.good());
+    std::stringstream text;
+    text << file.rdbuf();
+    Bots::RouteResult result = Bots::ParseRoute(text.str());
+    ASSERT_TRUE(result.ok) << result.error;
+    Bots::Route const& route = result.route;
+
+    EXPECT_EQ(route.mapId, 389u);
+    EXPECT_TRUE(route.hasSeed);
+    EXPECT_EQ(route.bosses, (std::vector<std::uint32_t>{11517, 11520, 11518, 11519}));
+    std::vector<std::uint32_t> quests;
+    for (Bots::RouteQuest const& quest : route.quests)
+        quests.push_back(quest.id);
+    EXPECT_EQ(quests, (std::vector<std::uint32_t>{5722, 5723, 5724, 5725, 5728, 5761}));
+
+    // A full run kills enough of each entry, and each pack has its pull point
+    // right before it.
+    std::map<std::uint32_t, std::uint32_t> kills;
+    for (std::size_t i = 0; i < route.steps.size(); ++i)
+        if (route.steps[i].kind == Bots::RouteStepKind::Pack)
+        {
+            Bots::RoutePack const& pack = route.packs[route.steps[i].index];
+            for (Bots::RouteMob const& mob : pack.mobs)
+                ++kills[mob.entry];
+            ASSERT_GT(i, 0u);
+            ASSERT_EQ(route.steps[i - 1].kind, Bots::RouteStepKind::Point) << pack.name;
+            EXPECT_EQ(route.points[route.steps[i - 1].index].name, "pull_" + pack.name);
+        }
+    for (Bots::RouteQuest const& quest : route.quests)
+        for (Bots::QuestObjective const& objective : quest.objectives)
+        {
+            if (objective.kind == Bots::QuestObjectiveKind::Kill)
+                EXPECT_GE(kills[objective.entry], objective.count) << quest.id;
+            if (objective.kind == Bots::QuestObjectiveKind::Item)
+            {
+                std::uint32_t droppers = 0;
+                for (std::uint32_t entry : objective.entries)
+                    droppers += kills[entry];
+                EXPECT_GE(droppers, 1u) << quest.id;
+            }
+            if (objective.kind == Bots::QuestObjectiveKind::Visit)
+                EXPECT_NE(Bots::FindPoint(route, objective.point), nullptr) << quest.id;
+        }
 }
