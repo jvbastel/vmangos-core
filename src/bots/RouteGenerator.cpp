@@ -12,14 +12,6 @@ namespace Bots
 {
     namespace
     {
-        float Distance(Position const& a, Position const& b)
-        {
-            float const dx = a.x - b.x;
-            float const dy = a.y - b.y;
-            float const dz = a.z - b.z;
-            return std::sqrt(dx * dx + dy * dy + dz * dz);
-        }
-
         float DistanceToSegment(Position const& p, Position const& a, Position const& b)
         {
             float const vx = b.x - a.x;
@@ -29,7 +21,7 @@ namespace Bots
             float t = 0.0f;
             if (length2 > 0.0f)
                 t = std::max(0.0f, std::min(1.0f, ((p.x - a.x) * vx + (p.y - a.y) * vy + (p.z - a.z) * vz) / length2));
-            return Distance(p, {a.x + vx * t, a.y + vy * t, a.z + vz * t});
+            return Distance3d(p, {a.x + vx * t, a.y + vy * t, a.z + vz * t});
         }
 
         std::string Format(Position const& p)
@@ -47,7 +39,7 @@ namespace Bots
             {
                 m_arc.push_back(0.0f);
                 for (std::size_t i = 1; i < m_points.size(); ++i)
-                    m_arc.push_back(m_arc.back() + Distance(m_points[i - 1], m_points[i]));
+                    m_arc.push_back(m_arc.back() + Distance3d(m_points[i - 1], m_points[i]));
             }
 
             float Length() const { return m_arc.empty() ? 0.0f : m_arc.back(); }
@@ -183,7 +175,7 @@ namespace Bots
                 leaders.insert(spawns[i].groupLeader);
             }
             for (std::size_t j = 0; j < i; ++j)
-                if (spawns[j].hostile && Distance(spawns[i].position, spawns[j].position) <= clusterDistance)
+                if (spawns[j].hostile && Distance3d(spawns[i].position, spawns[j].position) <= clusterDistance)
                     join(i, j);
         }
 
@@ -219,7 +211,7 @@ namespace Bots
         for (std::size_t member : pack.members)
         {
             GeneratorSpawn const& spawn = spawns[member];
-            float distance = std::max(0.0f, Distance(position, spawn.position) - spawn.wanderDistance);
+            float distance = std::max(0.0f, Distance3d(position, spawn.position) - spawn.wanderDistance);
             Position previous = spawn.position;
             for (Position const& waypoint : spawn.patrol)
             {
@@ -392,16 +384,16 @@ namespace Bots
                 // Two quests at one corpse share the point of the first quest.
                 std::string pointName;
                 for (Event const& event : events)
-                    if (event.kind == EventKind::Visit && Distance(event.center, visit.position) < 0.5f)
+                    if (event.kind == EventKind::Visit && Distance3d(event.center, visit.position) < 0.5f)
                         pointName = event.name;
                 if (pointName.empty())
                 {
                     float bestS = 0.0f;
                     float best = 1e9f;
                     for (float s : samples)
-                        if (Distance(line.At(s), visit.position) < best)
+                        if (Distance3d(line.At(s), visit.position) < best)
                         {
-                            best = Distance(line.At(s), visit.position);
+                            best = Distance3d(line.At(s), visit.position);
                             bestS = s;
                         }
                     // The packs that guard the spot come first. A guard off the

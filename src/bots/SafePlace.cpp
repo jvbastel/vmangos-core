@@ -8,7 +8,6 @@ namespace Bots
 {
     namespace
     {
-        float const Pi = 3.14159265f;
         // FindSafeCastPlace: the rings round the unit, as parts of the cast
         // range; the spots on each ring; the most height of a spot over or
         // under the unit.
@@ -22,12 +21,6 @@ namespace Bots
         // A path step this much nearer to an enemy than the bot stands now
         // goes nearer.
         float const NearerYards = 0.5f;
-
-        float Distance3d(Position const& a, Position const& b)
-        {
-            float const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-            return std::sqrt(dx * dx + dy * dy + dz * dz);
-        }
 
         // From `at` to the edge of the enemy's body.
         float DistanceTo(NearEnemy const& enemy, Position const& at)

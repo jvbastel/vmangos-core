@@ -14,7 +14,6 @@ namespace Bots
     {
         namespace
         {
-            float const Pi = 3.14159265f;
             float const Degree = Pi / 180.0f;
 
             Guid Boss(BotContext const& context)
