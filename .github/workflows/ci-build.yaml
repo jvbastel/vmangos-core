@@ -36,6 +36,12 @@ jobs:
     permissions:
       contents: read
     strategy:
+      # Run every job to its end, so one failing job does not hide the results
+      # of the others.
+      fail-fast: false
+      # The fork keeps the Windows jobs of upstream: it follows upstream, which
+      # supports Windows. cpp-httplib (the bots' chat client) needs Windows 10,
+      # so src/bots/CMakeLists.txt builds the bots with _WIN32_WINNT=0x0A00.
       matrix:
         # Every supported client build is verified against Ubuntu GCC; the
         # latest (1.12.1.5875) additionally runs against Ubuntu Clang, Windows
