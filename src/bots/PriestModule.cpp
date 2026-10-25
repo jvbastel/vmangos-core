@@ -119,7 +119,8 @@ namespace Bots
 
             // The bot walks to a safe place in cast range of the corpse. With
             // none, it does not go: it gives the resurrect up, and the dead
-            // member runs back as a ghost.
+            // member runs back as a ghost. An enemy that came near the place
+            // on the way: the bot stops where it stands.
             void GoToCorpse(BotContext const& context)
             {
                 Guid const member = DeadMemberOutOfReach(context);
@@ -127,7 +128,10 @@ namespace Bots
                 if (context.view.FindSafeCastPlace(member, ResurrectCastYards, place))
                     context.actions.MoveTo(place);
                 else
+                {
                     context.group.GiveUpResurrect(member);
+                    context.actions.MoveTo(context.view.GetPosition(PickSelf(context)));
+                }
             }
 
             // The most hurt member that needs a heal and is beyond the heal

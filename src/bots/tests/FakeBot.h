@@ -117,7 +117,13 @@ namespace Bots
             void SetCannotCastOn(SpellId spell, Guid target) { m_cannotCastOn.insert({spell, target}); }
             // The safe place to cast on unit `unit` from (FindSafeCastPlace).
             // Unset: there is none.
-            void SetSafeCastPlace(Guid unit, Position place) { m_safeCastPlaces[unit] = place; }
+            void SetSafeCastPlace(Guid unit, Position place, bool has = true)
+            {
+                if (has)
+                    m_safeCastPlaces[unit] = place;
+                else
+                    m_safeCastPlaces.erase(unit);
+            }
 
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 

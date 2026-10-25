@@ -654,8 +654,12 @@ bool BotAdapter::IsDrinking() const
 bool BotAdapter::FindSafeCastPlace(Bots::Guid unit, float yards, Bots::Position& place) const
 {
     Unit const* target = Find(unit);
+    // The search for enemies reaches only so far: a farther target has no
+    // place that is known to be safe.
+    if (!target || me->GetDistance(target) + yards + SafeSearchMarginYards > MaxSafeSearchYards)
+        return false;
     GameRouteNav nav(me);
-    if (!target || !nav.Ready())
+    if (!nav.Ready())
         return false;
 
     // The enemies that a walk could pull: every living hostile creature
@@ -667,7 +671,7 @@ bool BotAdapter::FindSafeCastPlace(Bots::Guid unit, float yards, Bots::Position&
         float fromYards; // From the bot now.
     };
     std::vector<Enemy> enemies;
-    float const searchYards = std::min(me->GetDistance(target) + yards + SafeSearchMarginYards, MaxSafeSearchYards);
+    float const searchYards = me->GetDistance(target) + yards + SafeSearchMarginYards;
     std::list<Creature*> creatures;
     LivingCreatureCheck check = {me, searchYards};
     MaNGOS::CreatureListSearcher<LivingCreatureCheck> searcher(creatures, check);

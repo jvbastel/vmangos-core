@@ -307,11 +307,30 @@ TEST(Resurrect, WithNoSafePlaceInCastRangeThePriestGivesUpTheResurrect)
     GroupPriest bot;
     bot.DieOutOfReach(Mage);
 
+    bot.fake.SetPosition(Healer, {1.0f, 2.0f, 3.0f});
+
     bot.Think();
 
-    EXPECT_TRUE(bot.fake.Deeds().empty());
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"move to 1 2 3"}));
     EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
     EXPECT_NE(bot.Think(), "go to a corpse out of reach");
+}
+
+// An enemy came near the place on the way: the Priest stops where it is.
+TEST(Resurrect, ThePriestStopsAndGivesUpWhenThePlaceIsNoLongerSafe)
+{
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+    bot.fake.SetPosition(Healer, {1.0f, 2.0f, 3.0f});
+    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f});
+    bot.Think();
+    bot.fake.ClearDeeds();
+
+    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f}, false);
+    bot.Think();
+
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"move to 1 2 3"}));
+    EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
 }
 
 TEST(Resurrect, ThePriestDoesNotResurrectAMemberThatItGaveUp)
