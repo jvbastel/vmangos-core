@@ -96,3 +96,128 @@ if [ "${1:-}" = "--quick" ]; then
   echo "All checks passed."
   exit 0
 fi
+
+# --- Part 2: two realms ---
+
+kit_out() { "$kit" "$@" 2>&1 | tr -d '\r'; }
+project_of() { echo "wowai-t$1-realm"; }
+containers_of() { docker ps --all --quiet --filter "label=com.docker.compose.project=$(project_of "$1")"; }
+soap_port_of() { echo $((22000 + $1)); }
+
+# A dev install for each realm: a copy of WOWAI_TEST_INSTALL, or one build.
+install_for() {
+  local ticket="$1" from="$2"
+  mkdir -p "$WOWAI_KIT_DIR"
+  [ -n "$from" ] && cp -a "$from" "$WOWAI_KIT_DIR/install-t$ticket"
+}
+
+started=(998 999)
+install_for 998 "${WOWAI_TEST_INSTALL:-}"
+echo "Bringing up the realm of the ticket 998..."
+"$kit" --ticket 998 up
+install_for 999 "$WOWAI_KIT_DIR/install-t998"
+echo "Bringing up the realm of the ticket 999..."
+"$kit" --ticket 999 up
+
+for ticket in 998 999; do
+  check "the realm $ticket is its own Compose project" \
+    bash -c "docker compose ls --all --format json | grep -q '\"$(project_of "$ticket")\"'"
+  check "the realm $ticket answers SOAP on its own port" \
+    bash -c "curl --silent --max-time 5 http://127.0.0.1:$(soap_port_of "$ticket")/ >/dev/null; [ \$? -ne 7 ]"
+  check "wait returns at once on the running realm $ticket" "$kit" --ticket "$ticket" wait 30
+done
+check "the two realms have two database volumes" \
+  test "$(docker volume ls --quiet --filter "label=com.docker.compose.project=$(project_of 998)") $(docker volume ls --quiet --filter "label=com.docker.compose.project=$(project_of 999)")" \
+  = "$(project_of 998)_database $(project_of 999)_database"
+
+# soap and sql. The bot commands need the GM level of the GM account.
+out="$(kit_out --ticket 998 soap 'server info')"
+check "soap runs a GM command" contains "$out" "Players online"
+out="$(kit_out --ticket 998 soap '.wowai bot login Grukk')"
+check "the GM account may run the bot commands" bash -c "! grep -qi 'no such command\|not have permission' <<<'$out'"
+online() { kit_out --ticket "$1" sql characters "SELECT online FROM characters WHERE name = '$2'"; }
+wait_online() {
+  for _ in $(seq 1 20); do [ "$(online "$@")" = 1 ] && return 0; sleep 1; done
+  return 1
+}
+check "sql reads the bot that logged in" wait_online 998 Grukk
+check "the other realm is untouched" test "$(online 999 Grukk)" = 0
+
+# mark and log.
+log998="$WOWAI_KIT_DIR/t998-realm/storage/mangosd/logs/Server.log"
+"$kit" --ticket 998 mark first
+echo "2026-01-01 00:00:00 KIT-TEST before the second mark" >> "$log998"
+"$kit" --ticket 998 mark second
+echo "2026-01-01 00:00:00 KIT-TEST after the second mark" >> "$log998"
+out="$(kit_out --ticket 998 log)"
+check "log prints the lines since the last mark" contains "$out" "KIT-TEST after the second mark"
+check "log leaves out the lines before the last mark" bash -c "! grep -q 'KIT-TEST before' <<<'$out'"
+check "log leaves out the start of mangosd" bash -c "! grep -q 'World initialized' <<<'$out'"
+
+# restart logs the online bots back in.
+"$kit" --ticket 998 restart
+check "after restart the online bot is online again" wait_online 998 Grukk
+check "after restart an offline bot stays offline" test "$(online 998 Hela)" = 0
+out="$(kit_out --ticket 998 soap 'server info')"
+check "after restart mangosd runs GM commands" contains "$out" "Players online"
+
+# check runs a script with the kit's client and keeps a pid file.
+script="$tmp/kit-check.py"
+cat > "$script" <<'PY'
+import sys
+from kit import Realm
+realm = Realm()
+print("PORT", realm.world_port)
+print("ANSWER", realm.soap("server info"))
+print("GUID", realm.guid_of("Grukk"))
+client = realm.login("KITTEST", "Kitplayer")
+print("LOGGED IN", client.guid, client.race)
+if len(sys.argv) > 1:
+    import time
+    time.sleep(600)
+PY
+out="$(kit_out --ticket 998 check "$script")"
+check "check runs the script on the realm of the ticket" contains "$out" "PORT 21998"
+check "the script runs GM commands over the kit" contains "$out" "Players online"
+check "the script logs a player in with the client" grep -q "^LOGGED IN [1-9]" <<<"$out"
+check "check removes its pid file at the end" \
+  bash -c "[ -z \"\$(ls '$WOWAI_KIT_DIR/t998-realm/pids' 2>/dev/null)\" ]"
+"$kit" --ticket 998 check "$script" sleep >/dev/null 2>&1 &
+runner=$!
+for _ in $(seq 1 30); do
+  pidfile="$(find "$WOWAI_KIT_DIR/t998-realm/pids" -name '*.pid' 2>/dev/null | head -n 1 || true)"
+  [ -n "$pidfile" ] && break
+  sleep 1
+done
+sleeper="$(cut -d' ' -f1 "$pidfile" 2>/dev/null || true)"
+check "a running check has a pid file" test -n "$sleeper"
+
+# Before down: no file of another user in the realm folder.
+check "the realm folder has only files of the user" \
+  test -z "$(find "$WOWAI_KIT_DIR/t998-realm" ! -user "$(id -u)" | head -n 1)"
+
+"$kit" --ticket 998 down
+wait "$runner" 2>/dev/null || true
+check "down stops the check of the pid file" bash -c "! kill -0 '$sleeper' 2>/dev/null"
+check "down leaves the shell of the test running" kill -0 $$
+check "down removes the containers" test -z "$(containers_of 998)"
+check "down removes the database volume" \
+  test -z "$(docker volume ls --quiet --filter "label=com.docker.compose.project=$(project_of 998)")"
+check "down removes the realm folder" test ! -e "$WOWAI_KIT_DIR/t998-realm"
+kept="$(find "$WOWAI_KIT_DIR/t998-logs" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -n 1)"
+check "down keeps Server.log" bash -c "[ -n '$kept' ] && grep -q 'KIT-TEST after the second mark' '$kept/mangosd/Server.log'"
+check "the kept logs belong to the user" test -z "$(find "$WOWAI_KIT_DIR/t998-logs" ! -user "$(id -u)" | head -n 1)"
+out="$(kit_out --ticket 999 soap 'server info')"
+check "the other realm still runs" contains "$out" "Players online"
+
+"$kit" --ticket 999 down
+check "down of the second realm removes it" test -z "$(containers_of 999)"
+started=()
+check "nothing in the kit folder belongs to another user" \
+  test -z "$(find "$WOWAI_KIT_DIR" ! -user "$(id -u)" | head -n 1)"
+
+if [ "$failures" -gt 0 ]; then
+  echo "$failures check(s) failed."
+  exit 1
+fi
+echo "All checks passed."

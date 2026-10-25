@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154,SC2016
+# (wowai/dev sets script_dir, src, deploy_dir, and install_dir. The SQL in
+# single quotes quotes its names in backticks.)
+#
 # The test realm commands, and the in-game check kit.
 #
 # Run as a command, this file is the check kit. It needs a ticket number. The
@@ -81,7 +85,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     --ticket) [ "$#" -ge 2 ] || kit_die "--ticket needs a number"; ticket="$2"; shift 2 ;;
     --ticket=*) ticket="${1#--ticket=}"; shift ;;
     --shared) ticket=shared; shift ;;
-    help|-h|--help) sed -n '2,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    help|-h|--help) sed -n '6,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) kit_die "give --ticket <N>, the number of your ticket. The kit never falls back to the shared test realm; --shared names it." ;;
   esac
   [ "$#" -gt 0 ] || kit_die "give a command (see: realm.sh --help)"
@@ -193,6 +197,10 @@ EOF
   # run enters a new instance of the dungeon.
   sed -i -e 's/^Instance.PerHourLimit = .*/Instance.PerHourLimit = 100000/' \
     -e 's/^Instance.UnloadDelay = .*/Instance.UnloadDelay = 120000/' "$realm_dir/config/mangosd.conf"
+  # The kit: the DETAIL lines (the rules that the bots do) in Server.log.
+  if [ -n "${WOWAI_REALM_LOG_FILE_LEVEL:-}" ]; then
+    sed -i "s/^LogLevel.File = .*/LogLevel.File = $WOWAI_REALM_LOG_FILE_LEVEL/" "$realm_dir/config/mangosd.conf"
+  fi
   if [ ! -f "$realm_dir/config/realmd.conf" ]; then
     tr -d '\r' < "$example/realmd.conf.example" > "$realm_dir/config/realmd.conf"
   fi
@@ -251,20 +259,22 @@ cmd_realm_migrate() {
   echo "Migrations: $applied applied, $skipped already applied."
 }
 
-# Wait for "World initialized." in the mangosd log since a time.
-realm_wait_for_world() {
-  local since="$1" container deadline=$((SECONDS + 900))
-  echo "Waiting for mangosd to initialize the world..."
+# Wait until mangosd runs a GM command over SOAP: then the world is ready.
+# The answer goes into a variable first. A pipe into `grep -q` fails under
+# pipefail when grep stops reading early.
+realm_wait_ready() {
+  local deadline=$((SECONDS + ${1:-900})) answer
+  echo "Waiting until mangosd runs GM commands..."
   while [ "$SECONDS" -lt "$deadline" ]; do
-    container="$(realm_compose ps --quiet mangosd)"
-    if [ -n "$container" ] && docker logs --since "$since" "$container" 2>&1 | grep -q 'World initialized\.'; then
-      echo "mangosd is ready."
-      return
-    fi
-    sleep 3
+    [ -n "$(realm_compose ps --all --quiet mangosd)" ] || die "the realm has no mangosd container (run: up)"
+    answer="$(realm_soap 'server info' 2>/dev/null || true)"
+    case "$answer" in
+      *'Players online'*) echo "mangosd is ready."; return 0 ;;
+    esac
+    sleep 2
   done
   realm_compose logs --tail 40 mangosd >&2 || true
-  die "mangosd did not initialize the world in 15 minutes"
+  die "mangosd did not get ready in ${1:-900} seconds"
 }
 
 realm_need_dev_install() {
@@ -277,14 +287,12 @@ realm_need_dev_install() {
 cmd_realm_up() {
   realm_prepare
   realm_need_dev_install
-  local since
-  since="$(date --utc +%Y-%m-%dT%H:%M:%SZ)"
   echo "Starting the database of the test realm $(realm_env COMPOSE_PROJECT_NAME) (a fresh one takes a few minutes)..."
   realm_compose up --detach --wait --wait-timeout 1800 database
   cmd_realm_migrate
   realm_setup_accounts
   realm_compose up --detach "$@"
-  realm_wait_for_world "$since"
+  realm_wait_ready
   realm_setup_bots
   echo "The test realm runs: login port $(realm_env WOWAI_REALM_LOGIN_PORT), world port $(realm_env WOWAI_REALM_WORLD_PORT), SOAP 127.0.0.1:$(realm_env WOWAI_REALM_SOAP_PORT)."
 }
@@ -293,10 +301,8 @@ cmd_realm_build() {
   realm_prepare
   cmd_build
   cmd_realm_migrate
-  local since
-  since="$(date --utc +%Y-%m-%dT%H:%M:%SZ)"
   realm_compose restart mangosd
-  realm_wait_for_world "$since"
+  realm_wait_ready
 }
 
 # The verifier and salt of an account password, as AccountMgr makes them
@@ -361,12 +367,7 @@ realm_bots=(
 )
 
 realm_setup_bots() {
-  local recipe name i
-  # SOAP answers a little after "World initialized.".
-  for i in $(seq 1 30); do
-    realm_soap 'server info' 2>/dev/null | grep -q 'Players online' && break
-    sleep 2
-  done
+  local recipe name
   for recipe in "${realm_bots[@]}"; do
     name="${recipe%% *}"
     if [ -n "$(realm_mariadb characters -e "SELECT 1 FROM \`characters\` WHERE \`name\` = '$name'")" ]; then
@@ -383,13 +384,154 @@ cmd_realm_setup() {
   realm_compose up --detach --wait --wait-timeout 1800 database
   realm_setup_accounts
   if [ -n "$(realm_compose ps --quiet --status running mangosd)" ]; then
-    local since
-    since="$(date --utc +%Y-%m-%dT%H:%M:%SZ)"
     echo "Restarting mangosd, so that it reads the accounts again..."
     realm_compose restart mangosd
-    realm_wait_for_world "$since"
+    realm_wait_ready
     realm_setup_bots
   fi
+}
+
+# mangosd restarts with no bots online: log the bots back in that were online.
+cmd_realm_restart() {
+  local bots name
+  bots="$(realm_mariadb characters -e 'SELECT c.`name` FROM `characters` c JOIN `bot_character` b ON b.`guid` = c.`guid` WHERE c.`online` = 1' | tr -d '\r')"
+  realm_compose restart mangosd
+  realm_wait_ready
+  for name in $bots; do
+    echo "Bot $name: $(realm_soap ".wowai bot login $name")"
+  done
+}
+
+# A player account for the Python client, which skips realmd: GM level 6,
+# and a new session key that mangosd checks against the client's. Prints the
+# key as hex (big-endian, as BigNumber::SetHexStr reads it).
+cmd_realm_key() {
+  [ "$#" -eq 1 ] || die "usage: realm key <account>"
+  local account key gateway
+  account="$(tr '[:lower:]' '[:upper:]' <<<"$1")"
+  [[ "$account" =~ ^[A-Z0-9]+$ ]] || die "the account name must have only letters and digits"
+  key="$(python3 -I -c 'import os; k = bytearray(os.urandom(40)); k[0] |= 0x80; print(k.hex().upper())')"
+  # mangosd sees the client at the gateway of the realm network.
+  gateway="$(docker network inspect "$(realm_env COMPOSE_PROJECT_NAME)_default" --format '{{(index .IPAM.Config 0).Gateway}}')"
+  realm_mariadb realmd <<SQL
+INSERT IGNORE INTO \`account\` (\`username\`, \`v\`, \`s\`, \`joindate\`) VALUES ('$account', '00', '00', NOW());
+REPLACE INTO \`account_access\` (\`id\`, \`gmlevel\`, \`RealmID\`)
+  SELECT \`id\`, 6, -1 FROM \`account\` WHERE \`username\` = '$account';
+INSERT IGNORE INTO \`realmcharacters\` (\`realmid\`, \`acctid\`, \`numchars\`)
+  SELECT r.\`id\`, a.\`id\`, 0 FROM \`realmlist\` r, \`account\` a WHERE a.\`username\` = '$account';
+UPDATE \`account\` SET \`sessionkey\` = '$key', \`last_ip\` = '$gateway', \`last_login\` = NOW(),
+  \`os\` = 'Win', \`platform\` = 'x86' WHERE \`username\` = '$account';
+SQL
+  echo "$key"
+}
+
+realm_marker='==== WOWAI CHECK MARK'
+
+realm_server_log() {
+  local log="$realm_dir/storage/mangosd/logs/Server.log"
+  [ -f "$log" ] || die "no $log yet (run: up)"
+  echo "$log"
+}
+
+# mangosd opens Server.log for appending, so a line from here lands in order.
+cmd_realm_mark() {
+  local log
+  log="$(realm_server_log)"
+  printf '%s %s %s ====\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$realm_marker" "${*:-mark}" >> "$log"
+}
+
+# The lines of Server.log that are known noise for a check.
+realm_log_noise=(
+)
+
+cmd_realm_log() {
+  local log all=0 noise
+  log="$(realm_server_log)"
+  case "${1:-}" in
+    --all) all=1 ;;
+    '') ;;
+    *) die "usage: realm log [--all]" ;;
+  esac
+  noise="$(IFS='|'; echo "${realm_log_noise[*]}")"
+  awk -v marker="$realm_marker" -v all="$all" -v noise="$noise" '
+    index($0, marker) { n = 0 }
+    { lines[n++] = $0 }
+    END { for (i = 0; i < n; i++) if (all || noise == "" || lines[i] !~ noise) print lines[i] }' "$log"
+}
+
+# The start time of a process (field 22 of /proc/<pid>/stat), so that a pid
+# file does not match a later process with the same pid.
+realm_proc_start() {
+  sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f20
+}
+
+# Run a Python check with the kit's client on its path. The realm settings
+# are in the environment, so the script can call the kit back.
+cmd_realm_check() {
+  [ "$#" -ge 1 ] || die "usage: realm check <script> [args]"
+  [ -f "$1" ] || die "no check script $1"
+  local pid_dir="$realm_dir/pids" pid status=0
+  [ -f "$realm_dir/.env" ] || die "no realm in $realm_dir yet (run: up)"
+  mkdir -p "$pid_dir"
+  cmd_realm_mark "check $(basename "$1")"
+  WOWAI_REALM_CLI="$script_dir/dev" PYTHONPATH="$realm_files/check${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 -u "$@" &
+  pid=$!
+  echo "$pid $(realm_proc_start "$pid")" > "$pid_dir/$pid.pid"
+  wait "$pid" || status=$?
+  rm -f "$pid_dir/$pid.pid"
+  return "$status"
+}
+
+# Stop the checks of the pid files: only the kit's own processes.
+realm_stop_checks() {
+  local file pid start
+  for file in "$realm_dir"/pids/*.pid; do
+    [ -e "$file" ] || continue
+    read -r pid start < "$file" || true
+    if [ -n "$pid" ] && [ -n "$start" ] && [ "$(realm_proc_start "$pid")" = "$start" ]; then
+      echo "Stopping the check $pid..."
+      kill "$pid" 2>/dev/null || true
+    fi
+    rm -f "$file"
+  done
+}
+
+# The kit: keep the logs, then remove the realm, its volume, and its folder.
+# The servers write as the user (VMANGOS_UID), so no file needs root.
+cmd_realm_kit_down() {
+  local keep project
+  project="$(realm_setting WOWAI_REALM_PROJECT '')"
+  [ -n "$project" ] && [ "$project" != wowai-test-realm ] || die "down removes only the realm of a ticket"
+  realm_stop_checks
+  keep="${WOWAI_REALM_KEPT_LOGS:?}/$(date '+%Y%m%d-%H%M%S')"
+  if [ -f "$realm_dir/.env" ]; then
+    mkdir -p "$keep"
+    realm_compose logs --no-color > "$keep/compose.log" 2>&1 || true
+    realm_compose down --volumes --remove-orphans
+  else
+    docker compose --project-name "$project" down --volumes --remove-orphans 2>/dev/null || true
+  fi
+  if [ -d "$realm_dir/storage" ]; then
+    mkdir -p "$keep"
+    cp -a "$realm_dir/storage/mangosd/logs" "$keep/mangosd" 2>/dev/null || true
+    cp -a "$realm_dir/storage/realmd/logs" "$keep/realmd" 2>/dev/null || true
+  fi
+  if [ -d "$realm_dir" ] && ! rm -rf "$realm_dir"; then
+    die "could not remove $realm_dir; files of another user: $(find "$realm_dir" ! -user "$(id -u)" | head -n 5 | tr '\n' ' ')"
+  fi
+  if [ -d "$keep" ]; then
+    echo "Removed the realm $project. Kept its logs in $keep."
+  else
+    echo "Removed the realm $project."
+  fi
+}
+
+cmd_realm_down() {
+  case "${WOWAI_REALM_TICKET:-}" in
+    ''|shared) realm_compose down "$@" ;;
+    *) cmd_realm_kit_down ;;
+  esac
 }
 
 # The settings that name the realm.
@@ -413,10 +555,17 @@ cmd_realm() {
     build) cmd_realm_build "$@" ;;
     migrate) cmd_realm_migrate "$@" ;;
     sql) cmd_realm_sql "$@" ;;
-    down) realm_compose down "$@" ;;
+    down) cmd_realm_down "$@" ;;
+    wait) realm_wait_ready "$@" ;;
+    soap) [ "$#" -gt 0 ] || die "usage: realm soap <command>"; realm_soap "$*" ;;
+    restart) cmd_realm_restart ;;
+    key) cmd_realm_key "$@" ;;
+    mark) cmd_realm_mark "$@" ;;
+    log) cmd_realm_log "$@" ;;
+    check) cmd_realm_check "$@" ;;
     compose) realm_compose "$@" ;;
     env) cmd_realm_env ;;
-    help|-h|--help) sed -n '2,/^$/p' "$realm_files/realm.sh" | sed 's/^# \{0,1\}//' ;;
-    *) sed -n '2,/^$/p' "$realm_files/realm.sh" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    help|-h|--help) sed -n '6,/^$/p' "$realm_files/realm.sh" | sed 's/^# \{0,1\}//' ;;
+    *) sed -n '6,/^$/p' "$realm_files/realm.sh" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
   esac
 }
