@@ -34,6 +34,7 @@ namespace Bots
         {
             Guid const self = context.view.GetSelf();
             return context.command == CommandState::Follow
+                && !context.startWaits
                 && !context.view.IsInCombat(self)
                 // The tank on its way to the pull target.
                 && context.group.GetPull().puller != self

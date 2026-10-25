@@ -156,3 +156,13 @@ TEST(ClassModules, AClassAndRoleWithoutAModuleHaveNoClassStrategy)
 
     EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "rest", "group rules", "death"}));
 }
+
+TEST(CommandStrategy, ABotThatWaitsItsStartDelayDoesNotFollowYet)
+{
+    Bot bot;
+    BotContext context{bot.fake, bot.fake, bot.group, CommandState::Follow, Player};
+    context.startWaits = true;
+
+    EXPECT_EQ(bot.stack.Think(context), "");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}

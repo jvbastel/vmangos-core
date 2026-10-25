@@ -32,6 +32,9 @@ namespace Bots
         // The target of the player at the last `attack` of a damage bot, or
         // NoGuid. It comes before the focus target (PickDamageTarget).
         Guid attackTarget;
+        // The bot waits its start delay (StartDelay.h): it does not start to
+        // follow yet.
+        bool startWaits = false;
     };
 
     using Trigger = std::function<bool(BotContext const&)>;

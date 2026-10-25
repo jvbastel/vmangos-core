@@ -99,3 +99,186 @@ TEST(StartDelay, TheSeededSourceGivesNewDelays)
 
     EXPECT_TRUE(changed);
 }
+
+using Bots::CommandState;
+using Bots::StartFacts;
+using Bots::StartGate;
+using Bots::StartReason;
+
+namespace
+{
+    StartDelaySettings const Limits{300, 1500};
+
+    // A bot that follows the player and stands next to it.
+    StartFacts Standing()
+    {
+        StartFacts facts;
+        facts.command = CommandState::Follow;
+        facts.inCombat = false;
+        facts.followsPlayer = true;
+        facts.botStands = true;
+        facts.playerMoves = false;
+        return facts;
+    }
+
+    StartFacts PlayerMoves()
+    {
+        StartFacts facts = Standing();
+        facts.playerMoves = true;
+        return facts;
+    }
+}
+
+TEST(StartGate, AMoveCommandWaitsANewDelayBeforeTheBotStarts)
+{
+    FixedRandom random({400, 900});
+    StartGate gate;
+
+    EXPECT_EQ(gate.OnMoveCommand(Limits, random), 400u);
+    EXPECT_TRUE(gate.Waiting());
+    EXPECT_EQ(gate.Update(399, Standing(), Limits, random).step, StartGate::Step::None);
+    StartGate::Result const done = gate.Update(1, Standing(), Limits, random);
+    EXPECT_EQ(done.step, StartGate::Step::Start);
+    EXPECT_EQ(done.reason, StartReason::Command);
+    EXPECT_FALSE(gate.Waiting());
+
+    EXPECT_EQ(gate.OnMoveCommand(Limits, random), 900u);
+}
+
+TEST(StartGate, ANoWaitCommandEndsTheWaitWithNoStart)
+{
+    FixedRandom random({400});
+    StartGate gate;
+    gate.OnMoveCommand(Limits, random);
+
+    gate.Cancel();
+
+    EXPECT_FALSE(gate.Waiting());
+    EXPECT_EQ(gate.Update(1000, Standing(), Limits, random).step, StartGate::Step::None);
+}
+
+TEST(StartGate, WhenThePlayerStartsToMoveTheStandingBotWaits)
+{
+    FixedRandom random({600});
+    StartGate gate;
+    gate.Update(100, Standing(), Limits, random);
+
+    StartGate::Result const wait = gate.Update(100, PlayerMoves(), Limits, random);
+
+    EXPECT_EQ(wait.step, StartGate::Step::Wait);
+    EXPECT_EQ(wait.reason, StartReason::PlayerMoves);
+    EXPECT_EQ(wait.delayMs, 600u);
+    EXPECT_EQ(gate.Update(599, PlayerMoves(), Limits, random).step, StartGate::Step::None);
+    StartGate::Result const start = gate.Update(1, PlayerMoves(), Limits, random);
+    EXPECT_EQ(start.step, StartGate::Step::Start);
+    EXPECT_EQ(start.reason, StartReason::PlayerMoves);
+}
+
+TEST(StartGate, APlayerWhoKeepsMovingStartsNoNewWait)
+{
+    FixedRandom random({300});
+    StartGate gate;
+    gate.Update(100, Standing(), Limits, random);
+    gate.Update(100, PlayerMoves(), Limits, random);
+    gate.Update(300, PlayerMoves(), Limits, random);
+
+    EXPECT_EQ(gate.Update(100, PlayerMoves(), Limits, random).step, StartGate::Step::None);
+    EXPECT_EQ(gate.Update(100, PlayerMoves(), Limits, random).step, StartGate::Step::None);
+}
+
+TEST(StartGate, EachStartOfThePlayerGivesANewDelay)
+{
+    FixedRandom random({300, 1200});
+    StartGate gate;
+    gate.Update(100, Standing(), Limits, random);
+    EXPECT_EQ(gate.Update(100, PlayerMoves(), Limits, random).delayMs, 300u);
+    gate.Update(300, PlayerMoves(), Limits, random);
+    gate.Update(100, Standing(), Limits, random);
+
+    EXPECT_EQ(gate.Update(100, PlayerMoves(), Limits, random).delayMs, 1200u);
+}
+
+TEST(StartGate, ABotThatStillWalksDoesNotWaitWhenThePlayerStarts)
+{
+    FixedRandom random({300});
+    StartGate gate;
+    StartFacts walks = Standing();
+    walks.botStands = false;
+    gate.Update(100, walks, Limits, random);
+    walks.playerMoves = true;
+
+    EXPECT_EQ(gate.Update(100, walks, Limits, random).step, StartGate::Step::None);
+}
+
+TEST(StartGate, OnlyAFollowingBotWaitsForThePlayer)
+{
+    FixedRandom random({300});
+    for (CommandState command : {CommandState::None, CommandState::Stay, CommandState::Come})
+    {
+        StartGate gate;
+        StartFacts facts = Standing();
+        facts.command = command;
+        gate.Update(100, facts, Limits, random);
+        facts.playerMoves = true;
+
+        EXPECT_EQ(gate.Update(100, facts, Limits, random).step, StartGate::Step::None);
+    }
+}
+
+TEST(StartGate, ABotThatFollowsSomeoneElseDoesNotWaitForThePlayer)
+{
+    FixedRandom random({300});
+    StartGate gate;
+    StartFacts facts = Standing();
+    facts.followsPlayer = false;
+    gate.Update(100, facts, Limits, random);
+    facts.playerMoves = true;
+
+    EXPECT_EQ(gate.Update(100, facts, Limits, random).step, StartGate::Step::None);
+}
+
+TEST(StartGate, AFollowingBotWaitsWhenTheFightEnds)
+{
+    FixedRandom random({800});
+    StartGate gate;
+    StartFacts fight = Standing();
+    fight.inCombat = true;
+    fight.followsPlayer = false;
+    gate.Update(100, fight, Limits, random);
+
+    StartFacts after = fight;
+    after.inCombat = false;
+    StartGate::Result const wait = gate.Update(100, after, Limits, random);
+
+    EXPECT_EQ(wait.step, StartGate::Step::Wait);
+    EXPECT_EQ(wait.reason, StartReason::FightEnds);
+    EXPECT_EQ(wait.delayMs, 800u);
+    EXPECT_TRUE(gate.Waiting());
+    EXPECT_EQ(gate.Update(800, after, Limits, random).step, StartGate::Step::Start);
+}
+
+TEST(StartGate, AStayingBotDoesNotWaitWhenTheFightEnds)
+{
+    FixedRandom random({800});
+    StartGate gate;
+    StartFacts fight = Standing();
+    fight.command = CommandState::Stay;
+    fight.inCombat = true;
+    gate.Update(100, fight, Limits, random);
+    fight.inCombat = false;
+
+    EXPECT_EQ(gate.Update(100, fight, Limits, random).step, StartGate::Step::None);
+}
+
+TEST(StartGate, AMoveCommandDuringAWaitDrawsANewDelay)
+{
+    FixedRandom random({1000, 300});
+    StartGate gate;
+    gate.Update(100, Standing(), Limits, random);
+    gate.Update(100, PlayerMoves(), Limits, random);
+
+    EXPECT_EQ(gate.OnMoveCommand(Limits, random), 300u);
+    StartGate::Result const start = gate.Update(300, PlayerMoves(), Limits, random);
+    EXPECT_EQ(start.step, StartGate::Step::Start);
+    EXPECT_EQ(start.reason, StartReason::Command);
+}
