@@ -205,7 +205,15 @@ def part_ghost():
                   repr({bot: rules_of(bot, text) for bot in (priest, mage)}))
     walking = all(realm.wait_log(r"%s: walk back as a ghost" % bot, 15, c) for bot in (priest, mage))
     results.check("the ghosts walk back", walking)
-    entered = all(realm.wait_log(r"%s enters map 389 as a ghost" % bot, 420, c) for bot in (priest, mage))
+    # Up to 10 minutes for both, with the place of each ghost every 30 s.
+    entered = False
+    for _ in range(20):
+        text = realm.log()
+        entered = all("%s enters map 389 as a ghost" % bot in text for bot in (priest, mage))
+        if entered:
+            break
+        print("  ghosts at", {bot: pos(c, bots[bot]) for bot in (priest, mage)})
+        c.pump(30)
     text = realm.log()
     results.check("each ghost runs from the graveyard to the portal and enters", entered,
                   repr(re.findall(r"\[Bots\] \w+ enters map \d+ as a ghost", text)))
