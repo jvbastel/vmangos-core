@@ -10,6 +10,8 @@ src/game/Bots/**
 bots/**
 wowai/**
 .github/**
+# The coding standards for the reviewer (WOWAI#69).
+CODING_STANDARDS.md
 # cpp-httplib, the HTTP client of the bot chat (WOWAI#47).
 dep/include/httplib/**
 
