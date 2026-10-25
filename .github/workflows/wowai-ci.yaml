@@ -6,6 +6,9 @@
 # The job runs in the base image of the dev container and of the
 # vmangos-deploy build stage, with the same packages as
 # `wowai/dev-container/Dockerfile`. Keep the three in step.
+#
+# The scripts job runs shellcheck on each shell script under wowai/ (see
+# `wowai/shellcheck.sh`) and the script tests that need no Docker.
 name: WOWAI CI
 
 on:
@@ -62,3 +65,50 @@ jobs:
       - name: Build src/bots alone (no game headers) and run its tests
         shell: bash
         run: wowai/bots-test.sh "$PWD/src/bots" "$RUNNER_TEMP/bots"
+
+  scripts:
+    name: Check the wowai scripts and run their tests
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install the script tools
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update
+          apt install -y --no-install-recommends \
+            ca-certificates \
+            git \
+            shellcheck
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      # The checkout belongs to another user than the job container.
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Run shellcheck on the wowai scripts
+        shell: bash
+        run: wowai/shellcheck.sh
+
+      # The tests that need no Docker, or that use the fake-docker helper.
+      # Skipped, because they need a real Docker daemon and the dev container
+      # (run them by hand):
+      #   wowai/tests/bots-test.test.sh   (the bots job runs the same tests)
+      #   wowai/tests/dev-build.test.sh   (a full dev build)
+      #   wowai/tests/test-realm.test.sh  (a full test realm)
+      - name: Run the script tests that need no Docker
+        shell: bash
+        env:
+          GIT_AUTHOR_NAME: ci
+          GIT_AUTHOR_EMAIL: ci@example.invalid
+          GIT_COMMITTER_NAME: ci
+          GIT_COMMITTER_EMAIL: ci@example.invalid
+        run: |
+          set -euo pipefail
+          wowai/release/tests/merge-upstream.test.sh
+          wowai/release/tests/release-core.test.sh
