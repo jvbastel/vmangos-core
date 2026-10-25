@@ -45,6 +45,7 @@ bool GameRouteNav::Path(Bots::Position const& from, Bots::Position const& to, st
     for (int part = 0; part < 8; ++part)
     {
         PathInfo path(m_walker);
+        path.setUseStrightPath(m_straight);
         path.calculate(Vector3(start.x, start.y, start.z), Vector3(to.x, to.y, to.z), false);
         uint32 const type = path.getPathType();
         if (type & (PATHFIND_NOPATH | PATHFIND_SHORTCUT | PATHFIND_NOT_USING_PATH))

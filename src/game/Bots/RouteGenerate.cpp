@@ -295,6 +295,7 @@ bool GenerateGhostRoute(ChatHandler& handler, std::string const& name, uint32 du
     GameRouteNav nav(character);
     if (!nav.Ready())
         return Fail(handler, "Map " + std::to_string(character->GetMapId()) + " has no navmesh. Are the mmaps loaded?");
+    nav.SetStraightPaths(true);
 
     Bots::Position const from{character->GetPositionX(), character->GetPositionY(), character->GetPositionZ()};
     Bots::Position const to{exit->destination.x, exit->destination.y, exit->destination.z};
@@ -308,13 +309,18 @@ bool GenerateGhostRoute(ChatHandler& handler, std::string const& name, uint32 du
     }
     std::vector<Bots::Position> path;
     if (!nav.Path(from, to, path))
-        return Fail(handler, "No walk on the navmesh from here to the portal.");
+    {
+        std::ostringstream line;
+        line << "No walk on the navmesh from here to the portal (" << to.x << " " << to.y << " " << to.z << ")";
+        if (!path.empty())
+            line << ": it ends after " << uint32(PathLength(path)) << " yards at " << path.back().x << " " << path.back().y << " "
+                 << path.back().z;
+        return Fail(handler, line.str() + ".");
+    }
 
     Bots::Route const route = Bots::MakeGhostRoute(dungeon, character->GetMapId(), path, GhostSpacingYards);
     std::string const file = RouteFiles::PathOf(name);
-    std::string const text = "# The ghost route to map " + std::to_string(dungeon) +
-        ": from its graveyard to its portal. The GM command .route generate wrote this file.\n" +
-        Bots::WriteRoute(route, Bots::RouteNames{});
+    std::string const text = Bots::WriteRoute(route, Bots::RouteNames{});
     if (!RouteFiles::Write(file, text))
         return Fail(handler, "Cannot write " + file + ".");
     handler.PSendSysMessage("Ghost route %s: %u points, %.0f yards of path, in %s.", name.c_str(), uint32(route.points.size()),

@@ -28,6 +28,9 @@ class GameRouteNav : public Bots::RouteNav
         explicit GameRouteNav(Player* walker);
 
         bool Ready() const { return m_query != nullptr; }
+        // Paths of corners only: a smooth path of PathInfo has at most 256
+        // steps of 4 yards, so a walk of more than about 1000 yards fails.
+        void SetStraightPaths(bool straight) { m_straight = straight; }
 
         // A walk on the ground, with no step on lava or slime.
         bool Path(Bots::Position const& from, Bots::Position const& to, std::vector<Bots::Position>& out) override;
@@ -44,6 +47,7 @@ class GameRouteNav : public Bots::RouteNav
         dtNavMeshQuery const* m_query = nullptr;
         dtQueryFilter m_ground;
         dtQueryFilter m_lava;
+        bool m_straight = false;
 };
 
 #endif
