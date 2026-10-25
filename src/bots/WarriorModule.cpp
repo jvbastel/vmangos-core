@@ -1,5 +1,6 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
+#include "GroupRules.h"
 
 namespace Bots
 {
@@ -42,28 +43,17 @@ namespace Bots
             }
 
             // The enemy to fight back: a living attacker of the bot first,
-            // else a living attacker of another group member (the bot is
-            // the first member).
+            // else a living attacker of another group member.
             Guid PickFightBackTarget(BotContext const& context)
             {
-                for (Guid member : context.view.GetGroupMembers())
-                    for (Guid attacker : context.view.GetAttackers(member))
-                        if (IsAlive(context.view, attacker))
-                            return attacker;
-                return NoGuid;
+                return PickMemberAttacker(context);
             }
 
             // An enemy that hits another group member and is not the focus
             // target: the tank taunts it off.
             Guid PickLooseEnemy(BotContext const& context)
             {
-                Guid const focus = context.group.GetFocusTarget();
-                for (Guid member : context.view.GetGroupMembers())
-                    if (member != Self(context))
-                        for (Guid attacker : context.view.GetAttackers(member))
-                            if (attacker != focus && IsAlive(context.view, attacker))
-                                return attacker;
-                return NoGuid;
+                return PickMemberAttacker(context, Self(context), context.group.GetFocusTarget());
             }
 
             Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)

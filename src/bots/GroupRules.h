@@ -31,6 +31,11 @@ namespace Bots
     // units that attack a group member.
     std::vector<Guid> EnemiesInFight(BotContext const& context);
 
+    // The first living attacker of a group member, in the order of the group
+    // members (the bot first), or NoGuid. It skips the attackers of member
+    // `skipMember` and the enemy `skipEnemy`.
+    Guid PickMemberAttacker(BotContext const& context, Guid skipMember = NoGuid, Guid skipEnemy = NoGuid);
+
     // A damage bot attacks an enemy only while that enemy is at most this far
     // from the tank.
     float const ChaseLimitYards = 20.0f;
