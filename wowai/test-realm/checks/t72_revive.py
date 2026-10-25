@@ -233,7 +233,13 @@ def part_run():
     # A scripted run: the driver Ezzra and the bots of `up`.
     realm.mark("run")
     print(" ", realm.soap(".wowai run start ragefire_chasm revive"))
-    started = realm.wait_log(r"Run \d+: line \d+: wait 120", 90)
+    # A wait line is not logged: the run status names it.
+    started = False
+    for _ in range(90):
+        if "wait 120" in realm.soap(".wowai run status"):
+            started = True
+            break
+        c.pump(1)
     results.check("the run reaches its wait", started, realm.soap(".wowai run status"))
     run_bots = ["Ezzra", "Grukk", "Hela", "Shanka", "Morzul"]
     guids = {name: realm.guid_of(name) for name in run_bots}
@@ -251,8 +257,12 @@ def part_run():
     results.check("the Priest never walked as a ghost", "Hela enters map" not in text)
 
     realm.mark("run wipe")
+    # The Priest last: while it lives, the dead wait for its resurrect, so
+    # nobody releases and revives before every member is dead.
     for name in run_bots:
-        kill(guids[name])
+        if name != "Hela":
+            kill(guids[name])
+    kill(guids["Hela"])
     wiped = realm.wait_log(r"Run \d+: wipe: everyone revives at the dungeon entrance", 20, c)
     results.check("in a wipe, every member revives at the dungeon entrance", wiped)
     c.gm(".go xyz %f %f %f 389" % RFC_ENTRANCE, select=c.guid, wait=3.0)
