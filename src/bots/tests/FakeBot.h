@@ -98,6 +98,10 @@ namespace Bots
             // A wall along the line x = `x` (or y = `y`), from top to bottom.
             void AddWallAtX(float x) { m_wallsAtX.push_back(x); }
             void AddWallAtY(float y) { m_wallsAtY.push_back(y); }
+            // Lava on each place with x >= `x`.
+            void AddLavaFromX(float x) { m_lavaFromX.push_back(x); }
+            // From each place with x >= `x`, the bot sees no unit.
+            void AddBlindFromX(float x) { m_blindFromX.push_back(x); }
             void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
             void SetGroupLeader(Guid unit) { m_leader = unit; }
             void SetCorpseDistance(Guid unit, float yards) { m_corpseDistance[unit] = yards; }
@@ -230,6 +234,20 @@ namespace Bots
                         nearest = std::min(nearest, (y - from.y) / dy);
                 return nearest;
             }
+            bool IsHarmfulGround(Position const& place) const override
+            {
+                for (float x : m_lavaFromX)
+                    if (place.x >= x)
+                        return true;
+                return false;
+            }
+            bool CanSeeFrom(Position const& place, Guid) const override
+            {
+                for (float x : m_blindFromX)
+                    if (place.x >= x)
+                        return false;
+                return true;
+            }
             LifeState GetLifeState(Guid unit) const override
             {
                 auto found = m_lifeState.find(unit);
@@ -335,6 +353,8 @@ namespace Bots
             std::map<Guid, Position> m_position;
             std::vector<float> m_wallsAtX;
             std::vector<float> m_wallsAtY;
+            std::vector<float> m_lavaFromX;
+            std::vector<float> m_blindFromX;
             std::map<Guid, LifeState> m_lifeState;
             Guid m_leader = NoGuid;
             std::map<Guid, float> m_corpseDistance;
