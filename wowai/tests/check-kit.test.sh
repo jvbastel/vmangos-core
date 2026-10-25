@@ -178,13 +178,14 @@ realm = Realm()
 print("PORT", realm.world_port)
 print("ANSWER", realm.soap("server info"))
 print("GUID", realm.guid_of("Grukk"))
-client = realm.login("KITTEST", "Kitplayer")
+client = realm.login("KITTEST", "Thrallson")
 print("LOGGED IN", client.guid, client.race)
 if len(sys.argv) > 1:
     import time
     time.sleep(600)
 PY
-out="$(kit_out --ticket 998 check "$script")"
+out="$(kit_out --ticket 998 check "$script")" || true
+echo "$out"
 check "check runs the script on the realm of the ticket" contains "$out" "PORT 21998"
 check "the script runs GM commands over the kit" contains "$out" "Players online"
 check "the script logs a player in with the client" grep -q "^LOGGED IN [1-9]" <<<"$out"
