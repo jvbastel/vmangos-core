@@ -3282,7 +3282,8 @@ BattleBot.AutoJoin = 0
 #
 #    Bots.Run.LostMobMs
 #        A scripted run (.wowai run) fails with a lost mob: an enemy hits a group member and no member or
-#        pet attacks it (its melee victim or selected target) for longer than this, in milliseconds.
+#        pet attacks it (its melee victim or selected target) for longer than this, in milliseconds. An enemy
+#        on the tank while the tank fights counts as held, not lost.
 #        Default: 10000
 #
 ###################################################################################################################

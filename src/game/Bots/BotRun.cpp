@@ -588,6 +588,7 @@ void BotRun::WatchThreat(int64 nowMs)
 {
     std::vector<Bots::EnemyOnMember> hitsOnNonTanks, hits;
     std::vector<Bots::Guid> attacked;
+    Bots::Guid holder = Bots::NoGuid;
     for (Player* member : Members())
     {
         if (!IsLivingMember(member))
@@ -603,6 +604,8 @@ void BotRun::WatchThreat(int64 nowMs)
                 attacked.push_back(victim->GetObjectGuid().GetRawValue());
         Bots::BotRole role;
         bool const tank = sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank;
+        if (tank && member->GetVictim())
+            holder = member->GetObjectGuid().GetRawValue();
         for (Unit* attacker : member->GetAttackers())
             if (attacker->IsAlive() && attacker->GetVictim() == member)
             {
@@ -624,7 +627,7 @@ void BotRun::WatchThreat(int64 nowMs)
     }
 
     std::size_t const lostBefore = m_lostMobs.LostMobs().size();
-    m_lostMobs.Update(hits, attacked, nowMs);
+    m_lostMobs.Update(hits, attacked, nowMs, holder);
     for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
     {
         Bots::LostMob const& mob = m_lostMobs.LostMobs()[i];
