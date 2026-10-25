@@ -1,4 +1,5 @@
 #include "ClassModules.h"
+#include "DamageRules.h"
 #include "WarriorModule.h"
 #include "FakeBot.h"
 
@@ -150,6 +151,54 @@ TEST(WarriorTank, TauntsTheFocusTargetOffAnotherGroupMember)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Kobold)}));
 }
 
+TEST(WarriorTank, TauntsAnotherEnemyOffAGroupMember)
+{
+    WarriorTank tank;
+    tank.fake.SetGroupMembers({Healer});
+    tank.InFightWithKobold();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Wolf)}));
+    EXPECT_EQ(tank.group.GetFocusTarget(), Kobold);
+}
+
+TEST(WarriorTank, TauntsNoDeadEnemyOffAGroupMember)
+{
+    WarriorTank tank;
+    tank.fake.SetGroupMembers({Healer});
+    tank.InFightWithKobold();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 0, 300);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::Taunt, Wolf));
+}
+
+TEST(WarriorTank, TauntsNoEnemyOffItself)
+{
+    WarriorTank tank;
+    tank.fake.SetGroupMembers({Healer});
+    tank.InFightWithKobold();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetVictim(Wolf, Tank);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::Taunt, Wolf));
+}
+
 TEST(WarriorTank, SundersTheFocusTargetWithTheHighestKnownRank)
 {
     WarriorTank tank;
@@ -223,4 +272,33 @@ TEST(WarriorTank, FightsBackAnEnemyThatAttacksIt)
     EXPECT_EQ(tank.group.GetFocusTarget(), Wolf);
     EXPECT_EQ(tank.group.GetPull().phase, PullPhase::None);
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000033", "chase 0xf130000302000033"}));
+}
+
+TEST(WarriorTank, TakesTheEnemyOnAMemberAsFocusWhenTheFocusDies)
+{
+    WarriorTank tank;
+    tank.fake.SetGroupMembers({Healer});
+    tank.InFightWithKobold();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetVictim(Wolf, Healer);
+    tank.fake.SetHealth(Kobold, 0, 200);
+    tank.fake.SetVictim(Kobold, NoGuid);
+
+    tank.Think();
+    tank.Think();
+
+    EXPECT_EQ(tank.group.GetFocusTarget(), Wolf);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::None);
+
+    // A damage bot of the group, attacked by nothing, follows the tank.
+    Bots::Guid const Rogue = 0x13;
+    FakeBot rogue{Rogue};
+    rogue.SetGroupMembers({Tank, Healer});
+    rogue.SetHealth(Rogue, 400, 400);
+    rogue.SetHealth(Wolf, 300, 300);
+    rogue.SetVictim(Wolf, Healer);
+    BotContext const context{rogue, rogue, tank.group, Bots::CommandState::Follow, 0x1};
+    EXPECT_EQ(Bots::PickDamageTarget(context), Wolf);
 }

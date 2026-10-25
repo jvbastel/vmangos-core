@@ -1,5 +1,6 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
+#include "GroupRules.h"
 
 namespace Bots
 {
@@ -39,6 +40,20 @@ namespace Bots
             bool FightsFocus(BotContext const& context)
             {
                 return InCombat(context) && IsAlive(context.view, context.group.GetFocusTarget());
+            }
+
+            // The enemy to fight back: a living attacker of the bot first,
+            // else a living attacker of another group member.
+            Guid PickFightBackTarget(BotContext const& context)
+            {
+                return PickMemberAttacker(context);
+            }
+
+            // An enemy that hits another group member and is not the focus
+            // target: the tank taunts it off.
+            Guid PickLooseEnemy(BotContext const& context)
+            {
+                return PickMemberAttacker(context, Self(context), context.group.GetFocusTarget());
             }
 
             Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
@@ -88,17 +103,14 @@ namespace Bots
                     },
                     PickPullTarget),
 
-                // An enemy attacks the bot outside a pull: it becomes the
-                // focus target. This is no pull of its own: the enemy is in
-                // the fight already.
+                // An enemy attacks the bot or another group member outside
+                // a pull: it becomes the focus target. This is no pull of its
+                // own: the enemy is in the fight already.
                 Bookkeeping("fight back", P + 65,
                     [](BotContext const& context) {
-                        return context.group.GetFocusTarget() == NoGuid
-                            && !context.view.GetAttackers(Self(context)).empty();
+                        return context.group.GetFocusTarget() == NoGuid && PickFightBackTarget(context) != NoGuid;
                     },
-                    [](BotContext const& context) {
-                        context.group.SetFocusTarget(context.view.GetAttackers(Self(context)).front());
-                    }),
+                    [](BotContext const& context) { context.group.SetFocusTarget(PickFightBackTarget(context)); }),
 
                 // The fight on the focus target.
                 MeleeRule("attack the focus target", P + 62,
@@ -117,6 +129,9 @@ namespace Bots
                         return FightsFocus(context) && victim != NoGuid && victim != Self(context);
                     },
                     Taunt, PickFocusTarget),
+                CastRule("taunt an enemy off a member", P + 54,
+                    [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
+                    Taunt, PickLooseEnemy),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),

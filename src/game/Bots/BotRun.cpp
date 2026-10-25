@@ -224,6 +224,8 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_startMs = SteadyMs();
     m_result.clear();
     m_bossKills.clear();
+    m_threat = Bots::ThreatWatch();
+    m_threatNames.clear();
     m_groupId = 0;
     m_teleportRest = false;
     m_moving = false;
@@ -277,7 +279,7 @@ void BotRun::Fail(std::string const& reason)
     m_phase = Phase::Failed;
     std::ostringstream line;
     line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": failed after "
-         << (SteadyMs() - m_startMs) / 1000 << " s: " << reason;
+         << (SteadyMs() - m_startMs) / 1000 << " s: " << reason << ThreatLossText();
     m_result = line.str();
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
 }
@@ -411,6 +413,7 @@ void BotRun::Update()
     if (m_teleportRest)
         TeleportRest();
     ReviveTheDead();
+    WatchThreat(SteadyMs() - m_startMs);
     for (;;)
     {
         // The facts again after each command: a teleport changes them.
@@ -428,7 +431,7 @@ void BotRun::Update()
             m_phase = Phase::Passed;
             std::ostringstream line;
             line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": passed after "
-                 << (SteadyMs() - m_startMs) / 1000 << " s";
+                 << (SteadyMs() - m_startMs) / 1000 << " s" << ThreatLossText();
             m_result = line.str();
             sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
             return;
@@ -565,6 +568,50 @@ Bots::RunFacts BotRun::Facts() const
         facts.driverArrived = std::sqrt(dx * dx + dy * dy) <= m_moveRadius + ArriveSlackYards;
     }
     return facts;
+}
+
+void BotRun::WatchThreat(int64 nowMs)
+{
+    std::vector<Bots::EnemyOnMember> hits;
+    for (Player* member : Members())
+    {
+        std::string role;
+        if (!member->IsInWorld() || !member->IsAlive() || (sBotMgr.RoleOfOurBot(member, role) && role == "tank"))
+            continue;
+        for (Unit* attacker : member->GetAttackers())
+            if (attacker->IsAlive() && attacker->GetVictim() == member)
+                hits.push_back({attacker->GetObjectGuid().GetRawValue(), member->GetObjectGuid().GetRawValue()});
+    }
+    std::size_t const known = m_threat.Losses().size();
+    m_threat.Update(hits, nowMs);
+    for (std::size_t i = known; i < m_threat.Losses().size(); ++i)
+    {
+        Bots::ThreatLoss const& loss = m_threat.Losses()[i];
+        std::string enemy = "an enemy", member = "a member";
+        for (Player* player : Members())
+            if (player->GetObjectGuid().GetRawValue() == loss.member)
+            {
+                member = player->GetName();
+                if (Unit* unit = player->GetMap()->GetUnit(ObjectGuid(loss.enemy)))
+                    enemy = unit->GetName();
+            }
+        m_threatNames.push_back(enemy + " on " + member);
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s hits %s for more than %u s", m_number,
+            enemy.c_str(), member.c_str(), uint32(Bots::ThreatLossMs / 1000));
+    }
+}
+
+std::string BotRun::ThreatLossText() const
+{
+    std::vector<Bots::ThreatLoss> const& losses = m_threat.Losses();
+    if (losses.empty())
+        return "";
+    std::ostringstream text;
+    text << ", not clean: " << losses.size() << (losses.size() == 1 ? " threat loss (" : " threat losses (");
+    for (std::size_t i = 0; i < losses.size(); ++i)
+        text << (i ? "; " : "") << m_threatNames[i] << " " << (losses[i].endMs - losses[i].startMs) / 1000 << " s";
+    text << ")";
+    return text.str();
 }
 
 bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)

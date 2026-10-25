@@ -217,6 +217,16 @@ namespace Bots
         return enemies;
     }
 
+    Guid PickMemberAttacker(BotContext const& context, Guid skipMember, Guid skipEnemy)
+    {
+        for (Guid member : context.view.GetGroupMembers())
+            if (member != skipMember)
+                for (Guid attacker : context.view.GetAttackers(member))
+                    if (attacker != skipEnemy && IsAlive(context.view, attacker))
+                        return attacker;
+        return NoGuid;
+    }
+
     bool IsInChaseLimit(BotContext const& context, Guid unit)
     {
         Guid const tank = context.group.GetTank();
