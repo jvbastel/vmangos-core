@@ -1,0 +1,16 @@
+# The fixed gear of the test driver of the scripted runs (spec section 10):
+# a frost Mage at level 16. Hand-made: no draw, each item is worn. The items
+# are the best level 16 items of mage_ranged.txt, with the staff shape.
+template test_driver_mage mage ranged hand
+item shoulders 4698 16-60 0   # Seer's Mantle
+item back 5542 14-60 0        # Pearl-clasped Cloak
+item chest 2981 16-60 0       # Seer's Robe
+item wrists 14366 12-60 0     # Mystic's Bracelets
+item hands 4768 12-60 0       # Adept's Gloves
+item waist 4786 15-60 0       # Wise Man's Belt
+item legs 2970 11-60 0        # Spellbinder Pants
+item feet 14364 13-60 0       # Mystic's Slippers
+item finger 12053 16-60 0     # Volcanic Rock Ring
+item finger 12052 16-60 0     # Ring of the Moon
+item ranged 11288 13-60 0     # Greater Magic Wand
+item twohand 1928 16-60 0     # Defias Mage Staff
