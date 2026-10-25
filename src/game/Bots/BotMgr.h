@@ -154,6 +154,9 @@ class BotMgr
         void SeedRandom(uint32 seed) { m_random.Reseed(seed); }
         // For bot chat: the role of one of our bots that is online, or false.
         bool RoleOfOurBot(Player const* player, std::string& role) const;
+        // The same role, typed: the role of one of our bots that is online
+        // and not the test driver, or false.
+        bool BotRoleOf(Player const* player, Bots::BotRole& role) const;
         // True for a character of the `bot_character` table, online or not.
         bool IsBotCharacter(ObjectGuid guid) const;
         // The characters of our bots that are online.
@@ -176,6 +179,9 @@ class BotMgr
         // group, and bot chat sees it as the player). From any thread.
         void SetTestDriver(ObjectGuid guid) { m_testDriver = guid.GetRawValue(); }
         bool IsTestDriver(ObjectGuid guid) const { return !guid.IsEmpty() && m_testDriver == guid.GetRawValue(); }
+        // The group plays a scripted run: its leader is the test driver.
+        // The run (BotRun) then revives the dead itself. From any thread.
+        bool IsScriptedRunGroup(Group const* group) const;
         // The next GetCoordinator of the group makes a new coordinator.
         void DropCoordinator(uint32 groupId);
 

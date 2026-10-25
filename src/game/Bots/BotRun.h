@@ -52,9 +52,13 @@ class BotRun
             Logout,      // A new login gives each bot a fresh AI.
             Login,
             Script,      // The ScriptRunner runs the scenario.
-            Passed,
+            Passed,      // A clean pass: no threat loss.
+            NotClean,    // The scenario passed, with a threat loss: no clean pass.
             Failed,
         };
+
+        // The run is over: passed, not clean, or failed.
+        bool IsOver() const { return m_phase == Phase::Passed || m_phase == Phase::NotClean || m_phase == Phase::Failed; }
 
         void Fail(std::string const& reason);
         void SetPhase(Phase phase);
@@ -70,7 +74,8 @@ class BotRun
         // Tells the threat watch which enemy hits which member who is not
         // the tank, and logs each new threat loss.
         void WatchThreat(int64 nowMs);
-        // ", not clean: <n> threat losses (...)", or "" with none.
+        // "<n> threat losses (<enemy> on <member> <s> s; ...)", or "" with
+        // none.
         std::string ThreatLossText() const;
         // Does one command of the scenario. False with the reason in `detail`.
         bool Do(Bots::ScriptCommand const& command, std::string& detail);

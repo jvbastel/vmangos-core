@@ -82,6 +82,14 @@ namespace
         return player && player->IsInWorld() && !player->IsBeingTeleported();
     }
 
+    // A member that lives and stands in the world, for the revive of the
+    // dead and the threat watch. A member in a teleport counts as neither
+    // living nor dead.
+    bool IsLivingMember(Player const* player)
+    {
+        return InWorldAndStill(player) && player->IsAlive();
+    }
+
     struct LivingNearCheck
     {
         WorldObject const* source;
@@ -160,14 +168,14 @@ namespace
     char const* PhaseName(int phase)
     {
         static char const* const names[] = {"idle", "reset: login", "reset: out of the dungeon", "reset: logout",
-            "reset: login again", "script", "passed", "failed"};
+            "reset: login again", "script", "passed", "not clean", "failed"};
         return names[phase];
     }
 }
 
 bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, std::string const& scenario, std::string& error)
 {
-    if (m_phase != Phase::Idle && m_phase != Phase::Passed && m_phase != Phase::Failed)
+    if (m_phase != Phase::Idle && !IsOver())
     {
         error = "A run is running: " + Status();
         return false;
@@ -239,7 +247,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
 
 bool BotRun::Stop(std::string& error)
 {
-    if (m_phase == Phase::Idle || m_phase == Phase::Passed || m_phase == Phase::Failed)
+    if (m_phase == Phase::Idle || IsOver())
     {
         error = "No run is running.";
         return false;
@@ -252,7 +260,7 @@ std::string BotRun::Status() const
 {
     if (m_phase == Phase::Idle)
         return "No run yet.";
-    if (m_phase == Phase::Passed || m_phase == Phase::Failed)
+    if (IsOver())
         return m_result;
     std::ostringstream line;
     line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": running, " << PhaseName(int(m_phase));
@@ -279,7 +287,10 @@ void BotRun::Fail(std::string const& reason)
     m_phase = Phase::Failed;
     std::ostringstream line;
     line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": failed after "
-         << (SteadyMs() - m_startMs) / 1000 << " s: " << reason << ThreatLossText();
+         << (SteadyMs() - m_startMs) / 1000 << " s: " << reason;
+    std::string const losses = ThreatLossText();
+    if (!losses.empty())
+        line << ", not clean: " << losses;
     m_result = line.str();
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
 }
@@ -338,6 +349,7 @@ void BotRun::Update()
     {
         case Phase::Idle:
         case Phase::Passed:
+        case Phase::NotClean:
         case Phase::Failed:
             return;
         case Phase::LoginFirst:
@@ -428,10 +440,15 @@ void BotRun::Update()
         }
         if (step.kind == Bots::RunStepKind::Passed)
         {
-            m_phase = Phase::Passed;
+            // A threat loss: the scenario passed, but the run is no clean
+            // pass (spec section 10).
+            std::string const losses = ThreatLossText();
+            m_phase = losses.empty() ? Phase::Passed : Phase::NotClean;
             std::ostringstream line;
-            line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": passed after "
-                 << (SteadyMs() - m_startMs) / 1000 << " s" << ThreatLossText();
+            line << "Run " << m_number << " " << m_script.name << " " << m_scenario
+                 << (losses.empty() ? ": passed after " : ": not clean after ") << (SteadyMs() - m_startMs) / 1000 << " s";
+            if (!losses.empty())
+                line << ": " << losses;
             m_result = line.str();
             sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
             return;
@@ -575,8 +592,8 @@ void BotRun::WatchThreat(int64 nowMs)
     std::vector<Bots::EnemyOnMember> hits;
     for (Player* member : Members())
     {
-        std::string role;
-        if (!member->IsInWorld() || !member->IsAlive() || (sBotMgr.RoleOfOurBot(member, role) && role == "tank"))
+        Bots::BotRole role;
+        if (!IsLivingMember(member) || (sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank))
             continue;
         for (Unit* attacker : member->GetAttackers())
             if (attacker->IsAlive() && attacker->GetVictim() == member)
@@ -607,7 +624,7 @@ std::string BotRun::ThreatLossText() const
     if (losses.empty())
         return "";
     std::ostringstream text;
-    text << ", not clean: " << losses.size() << (losses.size() == 1 ? " threat loss (" : " threat losses (");
+    text << losses.size() << (losses.size() == 1 ? " threat loss (" : " threat losses (");
     for (std::size_t i = 0; i < losses.size(); ++i)
         text << (i ? "; " : "") << m_threatNames[i] << " " << (losses[i].endMs - losses[i].startMs) / 1000 << " s";
     text << ")";
@@ -871,7 +888,7 @@ void BotRun::ReviveTheDead()
     std::vector<Player*> const members = Members();
     std::vector<Player*> living;
     for (Player* member : members)
-        if (InWorldAndStill(member) && member->IsAlive())
+        if (IsLivingMember(member))
             living.push_back(member);
 
     if (!living.empty())
