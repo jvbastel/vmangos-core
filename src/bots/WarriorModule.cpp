@@ -41,6 +41,18 @@ namespace Bots
                 return InCombat(context) && IsAlive(context.view, context.group.GetFocusTarget());
             }
 
+            // The enemy to fight back: a living attacker of the bot first,
+            // else a living attacker of another group member (the bot is
+            // the first member).
+            Guid PickFightBackTarget(BotContext const& context)
+            {
+                for (Guid member : context.view.GetGroupMembers())
+                    for (Guid attacker : context.view.GetAttackers(member))
+                        if (IsAlive(context.view, attacker))
+                            return attacker;
+                return NoGuid;
+            }
+
             Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
             {
                 Rule rule;
@@ -88,17 +100,14 @@ namespace Bots
                     },
                     PickPullTarget),
 
-                // An enemy attacks the bot outside a pull: it becomes the
-                // focus target. This is no pull of its own: the enemy is in
-                // the fight already.
+                // An enemy attacks the bot or another group member outside
+                // a pull: it becomes the focus target. This is no pull of its
+                // own: the enemy is in the fight already.
                 Bookkeeping("fight back", P + 65,
                     [](BotContext const& context) {
-                        return context.group.GetFocusTarget() == NoGuid
-                            && !context.view.GetAttackers(Self(context)).empty();
+                        return context.group.GetFocusTarget() == NoGuid && PickFightBackTarget(context) != NoGuid;
                     },
-                    [](BotContext const& context) {
-                        context.group.SetFocusTarget(context.view.GetAttackers(Self(context)).front());
-                    }),
+                    [](BotContext const& context) { context.group.SetFocusTarget(PickFightBackTarget(context)); }),
 
                 // The fight on the focus target.
                 MeleeRule("attack the focus target", P + 62,
