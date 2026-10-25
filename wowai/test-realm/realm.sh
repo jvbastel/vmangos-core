@@ -22,16 +22,16 @@
 #   wait                 Wait until mangosd runs GM commands over SOAP.
 #   soap <command>       Run a GM command over SOAP. Prints the answer.
 #   sql <db> <query>     Run a query with the MariaDB client.
-#   restart              Restart mangosd, wait, and log the bots that were
-#                        online back in.
+#   restart              Keep a copy of Server.log, restart mangosd, wait,
+#                        and log the bots that were online back in.
 #   key <account>        Make a player account (GM level 6) if it has none,
 #                        write a new session key, and print it (hex), for the
 #                        Python client.
-#   mark [label]         Write a marker line into Server.log.
-#   log [--all]          The Server.log lines since the last marker, without
+#   mark [label]         Mark the end of Server.log now.
+#   log [--all]          The Server.log lines since the last mark, without
 #                        the known noise (--all: with it).
 #   check <script> [args]
-#                        Write a marker, then run a Python check script with
+#                        Mark the log, then run a Python check script with
 #                        the kit's Python client on its path. Keeps a pid file.
 #   env                  Print the settings that the ticket gives.
 #   down                 Kit: stop the processes of the pid files, keep the
@@ -350,7 +350,7 @@ realm_soap() {
   curl --silent --show-error --max-time 30 --user "$account:$password" --header 'Content-Type: text/xml' \
     --data "<?xml version=\"1.0\" encoding=\"utf-8\"?><SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:ns1=\"urn:MaNGOS\"><SOAP-ENV:Body><ns1:executeCommand><command>$1</command></ns1:executeCommand></SOAP-ENV:Body></SOAP-ENV:Envelope>" \
     "http://127.0.0.1:$(realm_env WOWAI_REALM_SOAP_PORT)/" | tr '\n' ' ' |
-    sed -e 's/&#xD;//g' -e 's/.*<result>//' -e 's/<\/result>.*//' -e 's/.*<faultstring>//' -e 's/<\/faultstring>.*//'
+    sed -e 's/&#xD;//g' -e 's/<result\/>/<result><\/result>/' -e 's/.*<result>//' -e 's/<\/result>.*//' -e 's/.*<faultstring>//' -e 's/<\/faultstring>.*//'
   echo
 }
 
@@ -395,6 +395,7 @@ cmd_realm_setup() {
 cmd_realm_restart() {
   local bots name
   bots="$(realm_mariadb characters -e 'SELECT c.`name` FROM `characters` c JOIN `bot_character` b ON b.`guid` = c.`guid` WHERE c.`online` = 1' | tr -d '\r')"
+  realm_keep_server_log
   realm_compose restart mangosd
   realm_wait_ready
   for name in $bots; do
@@ -425,38 +426,58 @@ SQL
   echo "$key"
 }
 
-realm_marker='==== WOWAI CHECK MARK'
-
 realm_server_log() {
   local log="$realm_dir/storage/mangosd/logs/Server.log"
   [ -f "$log" ] || die "no $log yet (run: up)"
   echo "$log"
 }
 
-# mangosd opens Server.log for appending, so a line from here lands in order.
+# The mark is the size of Server.log, in the file log-mark of the realm
+# folder. A line appended to Server.log would not last: mangosd opens it
+# with "w" and writes over it at its own offset. mangosd also empties
+# Server.log at each start, so `restart` keeps a copy first.
 cmd_realm_mark() {
   local log
   log="$(realm_server_log)"
-  printf '%s %s %s ====\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$realm_marker" "${*:-mark}" >> "$log"
+  stat --format %s "$log" > "$realm_dir/log-mark"
+  echo "Mark: ${*:-mark} (Server.log at byte $(cat "$realm_dir/log-mark"))."
 }
 
-# The lines of Server.log that are known noise for a check.
+# The lines of Server.log that are known noise for a check: the waypoint
+# paths of each map grid that loads, each SOAP connection (one for each kit
+# command), and the failed navmesh casts of random moves.
 realm_log_noise=(
+  '^[0-9-]+ [0-9:]+ LoadPath: loading waypoint path '
+  '^[0-9-]+ [0-9:]+ MaNGOSsoap: Accepted connection '
+  '^[0-9-]+ [0-9:]+ WalkHitPos: '
+  '^[0-9-]+ [0-9:]+ Server Population '
 )
 
 cmd_realm_log() {
-  local log all=0 noise
+  local log all=0 noise from=0 size
   log="$(realm_server_log)"
   case "${1:-}" in
     --all) all=1 ;;
     '') ;;
     *) die "usage: realm log [--all]" ;;
   esac
+  [ ! -f "$realm_dir/log-mark" ] || from="$(cat "$realm_dir/log-mark")"
+  size="$(stat --format %s "$log")"
+  # A smaller file: mangosd started again since the mark.
+  [ "$size" -ge "$from" ] || from=0
   noise="$(IFS='|'; echo "${realm_log_noise[*]}")"
-  awk -v marker="$realm_marker" -v all="$all" -v noise="$noise" '
-    index($0, marker) { n = 0 }
-    { lines[n++] = $0 }
-    END { for (i = 0; i < n; i++) if (all || noise == "" || lines[i] !~ noise) print lines[i] }' "$log"
+  tail --bytes "+$((from + 1))" "$log" | tr -d '\r' |
+    awk -v all="$all" -v noise="$noise" 'all || $0 !~ noise'
+}
+
+# Keep a copy of Server.log before mangosd starts again and empties it.
+realm_keep_server_log() {
+  local log="$realm_dir/storage/mangosd/logs/Server.log" keep
+  [ -n "${WOWAI_REALM_KEPT_LOGS:-}" ] && [ -f "$log" ] || return 0
+  keep="$WOWAI_REALM_KEPT_LOGS/$(date '+%Y%m%d-%H%M%S')-restart"
+  mkdir -p "$keep"
+  cp -a "$log" "$keep/Server.log"
+  echo "Kept Server.log in $keep."
 }
 
 # The start time of a process (field 22 of /proc/<pid>/stat), so that a pid

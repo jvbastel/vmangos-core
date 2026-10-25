@@ -133,33 +133,41 @@ check "the two realms have two database volumes" \
 # soap and sql. The bot commands need the GM level of the GM account.
 out="$(kit_out --ticket 998 soap 'server info')"
 check "soap runs a GM command" contains "$out" "Players online"
-out="$(kit_out --ticket 998 soap '.wowai bot login Grukk')"
-check "the GM account may run the bot commands" bash -c "! grep -qi 'no such command\|not have permission' <<<'$out'"
+# `up` logs the bots in.
 online() { kit_out --ticket "$1" sql characters "SELECT online FROM characters WHERE name = '$2'"; }
 wait_online() {
-  for _ in $(seq 1 20); do [ "$(online "$@")" = 1 ] && return 0; sleep 1; done
+  local want="$3"
+  for _ in $(seq 1 20); do [ "$(online "$1" "$2")" = "$want" ] && return 0; sleep 1; done
   return 1
 }
-check "sql reads the bot that logged in" wait_online 998 Grukk
-check "the other realm is untouched" test "$(online 999 Grukk)" = 0
+check "sql reads the bots that up logged in" wait_online 998 Grukk 1
+out="$(kit_out --ticket 998 soap '.wowai bot logout Hela')"
+check "the GM account may run the bot commands" contains "$out" "logs out"
+check "the bot that logged out is offline" wait_online 998 Hela 0
+check "the bot of the same name in the other realm is still online" test "$(online 999 Hela)" = 1
 
 # mark and log.
-log998="$WOWAI_KIT_DIR/t998-realm/storage/mangosd/logs/Server.log"
-"$kit" --ticket 998 mark first
-echo "2026-01-01 00:00:00 KIT-TEST before the second mark" >> "$log998"
-"$kit" --ticket 998 mark second
-echo "2026-01-01 00:00:00 KIT-TEST after the second mark" >> "$log998"
+"$kit" --ticket 998 soap '.wowai bot logout Shanka' >/dev/null
+wait_online 998 Shanka 0 || true
+"$kit" --ticket 998 mark first >/dev/null
+"$kit" --ticket 998 soap '.wowai bot login Shanka' >/dev/null
+wait_online 998 Shanka 1 || true
 out="$(kit_out --ticket 998 log)"
-check "log prints the lines since the last mark" contains "$out" "KIT-TEST after the second mark"
-check "log leaves out the lines before the last mark" bash -c "! grep -q 'KIT-TEST before' <<<'$out'"
-check "log leaves out the start of mangosd" bash -c "! grep -q 'World initialized' <<<'$out'"
+check "log prints the lines since the mark" contains "$out" "[Bots] Shanka logs in"
+check "log leaves out the lines before the mark" bash -c "! grep -q 'Grukk logs in\|World initialized' <<<'$out'"
+check "log leaves out the known noise" bash -c "! grep -q 'MaNGOSsoap: Accepted connection' <<<'$out'"
+check "log --all keeps the noise" contains "$(kit_out --ticket 998 log --all)" "MaNGOSsoap: Accepted connection"
+"$kit" --ticket 998 mark second >/dev/null
+check "a new mark starts the log again" bash -c "! grep -q 'Shanka logs in' <<<'$(kit_out --ticket 998 log)'"
 
-# restart logs the online bots back in.
+# restart keeps Server.log and logs the online bots back in.
 "$kit" --ticket 998 restart
-check "after restart the online bot is online again" wait_online 998 Grukk
+check "after restart an online bot is online again" wait_online 998 Grukk 1
 check "after restart an offline bot stays offline" test "$(online 998 Hela)" = 0
 out="$(kit_out --ticket 998 soap 'server info')"
 check "after restart mangosd runs GM commands" contains "$out" "Players online"
+check "restart keeps the Server.log of before" \
+  bash -c "grep -q 'Shanka logs in' '$WOWAI_KIT_DIR'/t998-logs/*-restart/Server.log"
 
 # check runs a script with the kit's client and keeps a pid file.
 script="$tmp/kit-check.py"
@@ -204,8 +212,8 @@ check "down removes the containers" test -z "$(containers_of 998)"
 check "down removes the database volume" \
   test -z "$(docker volume ls --quiet --filter "label=com.docker.compose.project=$(project_of 998)")"
 check "down removes the realm folder" test ! -e "$WOWAI_KIT_DIR/t998-realm"
-kept="$(find "$WOWAI_KIT_DIR/t998-logs" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -n 1)"
-check "down keeps Server.log" bash -c "[ -n '$kept' ] && grep -q 'KIT-TEST after the second mark' '$kept/mangosd/Server.log'"
+kept="$(find "$WOWAI_KIT_DIR/t998-logs" -mindepth 1 -maxdepth 1 -type d ! -name "*-restart" 2>/dev/null | sort | tail -n 1)"
+check "down keeps Server.log" bash -c "[ -n '$kept' ] && grep -q 'Grukk logs in' '$kept/mangosd/Server.log'"
 check "the kept logs belong to the user" test -z "$(find "$WOWAI_KIT_DIR/t998-logs" ! -user "$(id -u)" | head -n 1)"
 out="$(kit_out --ticket 999 soap 'server info')"
 check "the other realm still runs" contains "$out" "Players online"

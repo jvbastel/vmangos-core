@@ -1,7 +1,7 @@
 """The Python side of the in-game check kit.
 
 A check script runs with `wowai/test-realm/realm.sh --ticket N check <script>`.
-The kit writes a marker into Server.log first and puts this folder on the
+The kit marks the end of Server.log first and puts this folder on the
 Python path. The script then writes only its scenario:
 
     from kit import Realm, Results
@@ -73,15 +73,15 @@ class Realm:
         return {int(guid): name for guid, name in (row.split("\t") for row in rows.splitlines() if row)}
 
     def mark(self, label="mark"):
-        """A marker line in Server.log: log() starts after it."""
+        """Mark the end of Server.log: log() starts there."""
         self.run("mark", label)
 
     def log(self, all_lines=False):
-        """The Server.log lines since the last marker, without the known noise."""
+        """The Server.log lines since the last mark, without the known noise."""
         return self.run("log", "--all") if all_lines else self.run("log")
 
     def wait_log(self, pattern, seconds, client=None):
-        """Wait until a line since the last marker matches. Pumps the client
+        """Wait until a line since the last mark matches. Pumps the client
         meanwhile, so that it acks and echoes."""
         end = time.time() + seconds
         while True:
