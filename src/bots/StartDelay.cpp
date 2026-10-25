@@ -46,7 +46,9 @@ namespace Bots
 
     std::uint32_t StartGate::OnMoveCommand(StartDelaySettings const& settings, RandomSource& random)
     {
-        return Begin(StartReason::Command, settings, random);
+        std::uint32_t const delay = Begin(StartReason::Command, settings, random);
+        m_skipNextDiff = true;
+        return delay;
     }
 
     void StartGate::Cancel()
@@ -60,6 +62,7 @@ namespace Bots
         m_reason = reason;
         m_delayMs = DrawStartDelay(settings, random);
         m_waitedMs = 0;
+        m_skipNextDiff = false;
         return m_delayMs;
     }
 
@@ -75,7 +78,9 @@ namespace Bots
         Result result;
         if (m_waiting)
         {
-            m_waitedMs += diffMs;
+            if (!m_skipNextDiff)
+                m_waitedMs += diffMs;
+            m_skipNextDiff = false;
             if (m_waitedMs < m_delayMs)
                 return result;
             m_waiting = false;

@@ -136,6 +136,7 @@ TEST(StartGate, AMoveCommandWaitsANewDelayBeforeTheBotStarts)
 
     EXPECT_EQ(gate.OnMoveCommand(Limits, random), 400u);
     EXPECT_TRUE(gate.Waiting());
+    gate.Update(100, Standing(), Limits, random); // The update of the command.
     EXPECT_EQ(gate.Update(399, Standing(), Limits, random).step, StartGate::Step::None);
     StartGate::Result const done = gate.Update(1, Standing(), Limits, random);
     EXPECT_EQ(done.step, StartGate::Step::Start);
@@ -278,7 +279,21 @@ TEST(StartGate, AMoveCommandDuringAWaitDrawsANewDelay)
     gate.Update(100, PlayerMoves(), Limits, random);
 
     EXPECT_EQ(gate.OnMoveCommand(Limits, random), 300u);
+    gate.Update(100, PlayerMoves(), Limits, random); // The update of the command.
     StartGate::Result const start = gate.Update(300, PlayerMoves(), Limits, random);
     EXPECT_EQ(start.step, StartGate::Step::Start);
     EXPECT_EQ(start.reason, StartReason::Command);
+}
+
+TEST(StartGate, TheTimeBeforeAMoveCommandDoesNotCount)
+{
+    // The game layer handles the command first, and then adds the time of the
+    // whole update, most of which passed before the command came.
+    FixedRandom random({400});
+    StartGate gate;
+    gate.OnMoveCommand(Limits, random);
+
+    EXPECT_EQ(gate.Update(300, Standing(), Limits, random).step, StartGate::Step::None);
+    EXPECT_EQ(gate.Update(399, Standing(), Limits, random).step, StartGate::Step::None);
+    EXPECT_EQ(gate.Update(1, Standing(), Limits, random).step, StartGate::Step::Start);
 }

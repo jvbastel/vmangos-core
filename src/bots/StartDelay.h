@@ -112,7 +112,8 @@ namespace Bots
         void Cancel();
         bool Waiting() const { return m_waiting; }
 
-        // Adds the time since the last update.
+        // Adds the time since the last update. The first update after
+        // OnMoveCommand adds nothing: that time passed before the command.
         Result Update(std::uint32_t diffMs, StartFacts const& facts, StartDelaySettings const& settings,
             RandomSource& random);
 
@@ -123,6 +124,8 @@ namespace Bots
         StartReason m_reason = StartReason::Command;
         std::uint32_t m_delayMs = 0;
         std::uint32_t m_waitedMs = 0;
+        // The wait began outside Update: its next update does not count.
+        bool m_skipNextDiff = false;
         // The facts of the last update, to see a start of the player and the
         // end of a fight. Unknown before the first update.
         bool m_known = false;
