@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329 # check (lib.sh) runs the functions that the test passes to it.
 # End-to-end test of the code tests command: `wowai/dev test`.
 #
 # It copies only `src/bots/`, `bots/`, `dep/include/`, and `wowai/` of this
@@ -18,10 +19,8 @@ tmp="$(mktemp -d)"
 export WOWAI_SRC="$tmp/src"
 export WOWAI_DEV_INSTALL="$tmp/install"
 
-failures=0
-pass() { echo "PASS: $*"; }
-fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
-check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
+# shellcheck source=lib.sh
+. "$here/lib.sh"
 
 cleanup() {
   "$dev" clean >/dev/null 2>&1 || true
@@ -60,8 +59,4 @@ if "$dev" test > "$tmp/header.log" 2>&1; then status=0; else status=$?; fi
 check "the test command fails when the library includes a game header" test "$status" != 0
 check "the failure names the game header rule" grep -q "game header" "$tmp/header.log"
 
-if [ "$failures" -ne 0 ]; then
-  echo "$failures check(s) failed."
-  exit 1
-fi
-echo "All checks passed."
+finish

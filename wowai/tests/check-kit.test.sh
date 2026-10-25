@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329 # check (lib.sh) runs the functions that the test passes to it.
 # Test of the in-game check kit: `wowai/test-realm/realm.sh --ticket N ...`.
 #
 # The first part runs no container: the ticket guard and the names, folders,
@@ -22,13 +23,18 @@ kit="$here/../test-realm/realm.sh"
 
 tmp="$(mktemp -d)"
 export WOWAI_KIT_DIR="$tmp/kit"
+# The defaults of the shared test realm.
+# shellcheck source=../test-realm/defaults.sh
+. "$here/../test-realm/defaults.sh"
+shared_project="${realm_defaults[WOWAI_REALM_PROJECT]}"
+shared_dir="${realm_defaults[WOWAI_REALM_DIR]}"
+shared_install="${realm_defaults[WOWAI_DEV_INSTALL]}"
+shared_soap="${realm_defaults[WOWAI_REALM_SOAP_PORT]}"
 # The kit must not read these. A check of the guard below sets them.
-unset WOWAI_REALM_DIR WOWAI_REALM_PROJECT WOWAI_REALM_LOGIN_PORT WOWAI_REALM_WORLD_PORT WOWAI_REALM_SOAP_PORT WOWAI_DEV_INSTALL
+unset "${!realm_defaults[@]}"
 
-failures=0
-pass() { echo "PASS: $*"; }
-fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
-check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
+# shellcheck source=lib.sh
+. "$here/lib.sh"
 
 # The output and the exit code of a kit command, without `set -e`.
 out=""
@@ -65,10 +71,11 @@ done
 
 # A realm setting in the environment does not move the kit to another realm.
 code=0
-out="$(WOWAI_REALM_DIR="$HOME/wowai/test-realm" WOWAI_REALM_PROJECT=wowai-test-realm \
-  WOWAI_REALM_SOAP_PORT=7879 WOWAI_DEV_INSTALL="$HOME/wowai/dev-install" "$kit" --ticket 998 env 2>&1)" || code=$?
+out="$(WOWAI_REALM_DIR="$shared_dir" WOWAI_REALM_PROJECT="$shared_project" \
+  WOWAI_REALM_SOAP_PORT="$shared_soap" WOWAI_DEV_INSTALL="$shared_install" "$kit" --ticket 998 env 2>&1)" || code=$?
 check "the kit ignores the realm settings of the environment" \
-  bash -c "[ $code -eq 0 ] && ! grep -q 'wowai-test-realm\$\|/wowai/test-realm\$\|dev-install\|=7879\$' <<<'$out'"
+  bash -c "[ $code -eq 0 ] && ! grep -qxF -e 'WOWAI_REALM_PROJECT=$shared_project' -e 'WOWAI_REALM_DIR=$shared_dir' \
+    -e 'WOWAI_DEV_INSTALL=$shared_install' -e 'WOWAI_REALM_SOAP_PORT=$shared_soap' <<<'$out'"
 
 run_kit --ticket 998 env
 env998="$out"
@@ -84,17 +91,15 @@ for name in WOWAI_REALM_PROJECT WOWAI_REALM_DIR WOWAI_DEV_INSTALL WOWAI_REALM_LO
 done
 ports() { printf '%s\n' "$(value "$1" WOWAI_REALM_LOGIN_PORT)" "$(value "$1" WOWAI_REALM_WORLD_PORT)" "$(value "$1" WOWAI_REALM_SOAP_PORT)"; }
 check "the ports of two tickets do not overlap" \
-  test "$( (ports "$env998"; ports "$env999"; printf '%s\n' 3725 8086 7879) | sort -u | wc -l)" = 9
+  test "$( (ports "$env998"; ports "$env999"; printf '%s\n' "${realm_defaults[WOWAI_REALM_LOGIN_PORT]}" "${realm_defaults[WOWAI_REALM_WORLD_PORT]}" "$shared_soap") | sort -u | wc -l)" = 9
 
 run_kit --shared env
-check "--shared names the shared realm" bash -c "[ $code -eq 0 ] && grep -q '^WOWAI_REALM_PROJECT=wowai-test-realm$' <<<'$out'"
+check "--shared names the shared realm" bash -c "[ $code -eq 0 ] && grep -qxF 'WOWAI_REALM_PROJECT=$shared_project' <<<'$out'"
 run_kit --shared down
 check "--shared does not remove the shared realm" bash -c "[ $code -ne 0 ] && grep -q 'shared' <<<'$out'"
 
 if [ "${1:-}" = "--quick" ]; then
-  [ "$failures" -eq 0 ] || { echo "$failures check(s) failed."; exit 1; }
-  echo "All checks passed."
-  exit 0
+  finish
 fi
 
 # --- Part 2: two realms ---
@@ -225,8 +230,4 @@ started=()
 check "nothing in the kit folder belongs to another user" \
   test -z "$(find "$WOWAI_KIT_DIR" ! -user "$(id -u)" | head -n 1)"
 
-if [ "$failures" -gt 0 ]; then
-  echo "$failures check(s) failed."
-  exit 1
-fi
-echo "All checks passed."
+finish

@@ -14,10 +14,8 @@ merge="$here/../merge-upstream"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-failures=0
-pass() { echo "PASS: $*"; }
-fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
-check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
+# shellcheck source=../../tests/lib.sh
+. "$here/../../tests/lib.sh"
 
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 g() { git -c core.autocrlf=false "$@" >/dev/null 2>&1; }
@@ -94,4 +92,4 @@ check "nothing was pushed to upstream" test "$(git -C "$tmp/upstream.git" for-ea
 check "it refuses to start while a merge is in progress" bash -c '! "$0" >/dev/null 2>&1' "$merge"
 
 echo
-if [ "$failures" -eq 0 ]; then echo "All checks passed."; else echo "$failures check(s) failed."; exit 1; fi
+finish

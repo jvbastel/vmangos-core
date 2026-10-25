@@ -62,7 +62,7 @@ namespace
 #endif
 
     // "result 62 (SPELL_FAILED_NOT_STANDING)", for the bot log.
-    std::string CastResultText(SpellCastResult result)
+    std::string CastResultLogText(SpellCastResult result)
     {
 #if SUPPORTED_CLIENT_BUILD == CLIENT_BUILD_1_12_1
         return Bots::CastResultText(uint32(result));
@@ -441,7 +441,7 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         me->StopMoving();
     if (result != SPELL_CAST_OK)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: %s", me->GetName(), spell,
-            CastResultText(result).c_str());
+            CastResultLogText(result).c_str());
 }
 
 void BotAdapter::MoveTo(Bots::Position const& destination)

@@ -35,10 +35,10 @@ case "${1:-}" in
   *) echo "usage: $0 [--realm <ticket>]" >&2; exit 2 ;;
 esac
 
-failures=0
-checked=0
-pass() { checked=$((checked + 1)); }
-fail() { checked=$((checked + 1)); echo "FAIL: $*"; failures=$((failures + 1)); }
+# shellcheck source=lib.sh
+. "$here/lib.sh"
+# The map has hundreds of checks: print only the failures.
+quiet_pass=1
 
 [ -f "$doc" ] || { echo "FAIL: no map at $doc"; exit 1; }
 

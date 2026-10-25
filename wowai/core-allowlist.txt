@@ -28,18 +28,16 @@ src/CMakeLists.txt
 src/game/CMakeLists.txt
 # Spec hook 5: the migration of the bot_character table.
 sql/migrations/20261024124046_characters.sql
-
-# Hooks that the spec does not name yet (WOWAI#66 lists them).
-# The .wowai and .route GM commands: the command tables and handler names.
+# Spec hook 6: the .wowai and .route GM commands: the command tables and handler names.
 src/game/Chat/Chat.cpp
 src/game/Chat/Chat.h
-# The Bots.* settings, documented in the config template.
+# Spec hook 7: the Bots.* settings, documented in the config template.
 src/mangosd/mangosd.conf.dist.in
-# PlayerBotEntry::allowSaving, so the core saves the WOWAI bots.
+# Spec hook 8: PlayerBotEntry::allowSaving, so the core saves the WOWAI bots.
 src/game/PlayerBots/PlayerBotMgr.h
 src/game/Handlers/CharacterHandler.cpp
 src/game/Server/WorldSession.cpp
-# A read-only GetAngle() getter for BotAdapter::GetChase (WOWAI#36). The
+# Spec hook 9: a read-only GetAngle() getter for BotAdapter::GetChase (WOWAI#36). The
 # adapter lives for one think, so it cannot remember the chase angle itself,
 # and the chase generator is the only true source of it.
 src/game/Movement/TargetedMovementGenerator.h
