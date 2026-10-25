@@ -743,10 +743,9 @@ bool BotAdapter::FindSafeCastPlace(Bots::Guid unit, float yards, Bots::Position&
     std::vector<Bots::Position> path;
     for (Bots::Position const& spot : spots)
     {
-        if (pulls(spot, false) || nav.OnLava(spot) || !nav.OnMesh(spot) ||
-            !target->IsWithinLOS(spot.x, spot.y, spot.z + BodyHeightYards))
+        if (pulls(spot, false) || IsHarmfulGround(spot) || !nav.OnMesh(spot) || !CanSeeFrom(spot, unit))
             continue;
-        // Path leaves out lava and slime.
+        // The navmesh path leaves out lava and slime polygons too.
         if (!nav.Path(from, spot, path))
             continue;
         bool safe = true;
@@ -757,8 +756,9 @@ bool BotAdapter::FindSafeCastPlace(Bots::Guid unit, float yards, Bots::Position&
             for (int k = 0; k <= steps && safe; ++k)
             {
                 float const t = float(k) / float(steps);
-                safe = !pulls({path[i - 1].x + (path[i].x - path[i - 1].x) * t, path[i - 1].y + (path[i].y - path[i - 1].y) * t,
-                    path[i - 1].z + (path[i].z - path[i - 1].z) * t}, true);
+                Bots::Position const step{path[i - 1].x + (path[i].x - path[i - 1].x) * t,
+                    path[i - 1].y + (path[i].y - path[i - 1].y) * t, path[i - 1].z + (path[i].z - path[i - 1].z) * t};
+                safe = !pulls(step, true) && !IsHarmfulGround(step);
             }
         }
         if (safe)

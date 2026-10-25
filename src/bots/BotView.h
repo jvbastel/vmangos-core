@@ -147,7 +147,8 @@ namespace Bots
         // spell on it, for example the resurrect of a corpse. The bot walks
         // there on the ground on a path that pulls no enemy (the path and
         // the place keep out of the aggro distance of every living enemy)
-        // and crosses no harmful ground such as lava. The place nearest to
+        // and crosses no harmful ground such as lava (IsHarmfulGround), and
+        // the unit is in sight from the place (CanSeeFrom). The place nearest to
         // the bot. False when there is none, and for a unit too far away to
         // know the enemies on the way (about 80 yards).
         virtual bool FindSafeCastPlace(Guid unit, float yards, Position& place) const = 0;
