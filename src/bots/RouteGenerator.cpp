@@ -1,0 +1,687 @@
+#include "RouteGenerator.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <map>
+#include <numeric>
+#include <set>
+
+namespace Bots
+{
+    namespace
+    {
+        float Distance(Position const& a, Position const& b)
+        {
+            float const dx = a.x - b.x;
+            float const dy = a.y - b.y;
+            float const dz = a.z - b.z;
+            return std::sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        float Distance2d(Position const& a, Position const& b)
+        {
+            return std::hypot(a.x - b.x, a.y - b.y);
+        }
+
+        float DistanceToSegment(Position const& p, Position const& a, Position const& b)
+        {
+            float const vx = b.x - a.x;
+            float const vy = b.y - a.y;
+            float const vz = b.z - a.z;
+            float const length2 = vx * vx + vy * vy + vz * vz;
+            float t = 0.0f;
+            if (length2 > 0.0f)
+                t = std::max(0.0f, std::min(1.0f, ((p.x - a.x) * vx + (p.y - a.y) * vy + (p.z - a.z) * vz) / length2));
+            return Distance(p, {a.x + vx * t, a.y + vy * t, a.z + vz * t});
+        }
+
+        std::string Format(Position const& p)
+        {
+            char text[96];
+            std::snprintf(text, sizeof(text), "%.2f %.2f %.2f", p.x, p.y, p.z);
+            return text;
+        }
+
+        // A path as a line with the distance along it.
+        class Line
+        {
+        public:
+            explicit Line(std::vector<Position> points) : m_points(std::move(points))
+            {
+                m_arc.push_back(0.0f);
+                for (std::size_t i = 1; i < m_points.size(); ++i)
+                    m_arc.push_back(m_arc.back() + Distance(m_points[i - 1], m_points[i]));
+            }
+
+            float Length() const { return m_arc.empty() ? 0.0f : m_arc.back(); }
+
+            Position At(float s) const
+            {
+                if (m_points.size() == 1 || s <= 0.0f)
+                    return m_points.front();
+                std::size_t const i = Segment(s);
+                if (i + 1 >= m_points.size())
+                    return m_points.back();
+                float const length = m_arc[i + 1] - m_arc[i];
+                float const t = length > 0.0f ? (s - m_arc[i]) / length : 0.0f;
+                Position const& a = m_points[i];
+                Position const& b = m_points[i + 1];
+                return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t};
+            }
+
+            // The flat direction of the line at s, normalized. (1, 0) on a line
+            // with no length.
+            void Direction(float s, float& dx, float& dy) const
+            {
+                Position const a = At(std::max(0.0f, s - 1.0f));
+                Position const b = At(std::min(Length(), s + 1.0f));
+                dx = b.x - a.x;
+                dy = b.y - a.y;
+                float const norm = std::hypot(dx, dy);
+                if (norm < 1e-4f)
+                {
+                    dx = 1.0f;
+                    dy = 0.0f;
+                    return;
+                }
+                dx /= norm;
+                dy /= norm;
+            }
+
+            // The distances at 1 yard steps, and the end.
+            std::vector<float> Samples() const
+            {
+                std::vector<float> samples;
+                for (float s = 0.0f; s < Length(); s += 1.0f)
+                    samples.push_back(s);
+                samples.push_back(Length());
+                return samples;
+            }
+
+        private:
+            std::size_t Segment(float s) const
+            {
+                auto it = std::upper_bound(m_arc.begin(), m_arc.end(), s);
+                return it == m_arc.begin() ? 0 : std::size_t(it - m_arc.begin()) - 1;
+            }
+
+            std::vector<Position> m_points;
+            std::vector<float> m_arc;
+        };
+
+        enum class EventKind
+        {
+            Point, // A point along the center line or a detour.
+            Pull,  // The pull point of a pack.
+            Pack,
+            Visit,
+        };
+
+        // A step of the route before it has its places and its name.
+        struct Event
+        {
+            float s;   // The distance along the center line.
+            int order; // At the same s: points, pulls, packs, visits, detours.
+            int sub;   // The order inside a detour.
+            EventKind kind;
+            Position center;
+            float dx = 1.0f; // The flat direction of the line there.
+            float dy = 0.0f;
+            std::size_t pack = 0; // For Pull and Pack.
+            std::uint32_t quest = 0;
+            std::string name; // For Visit.
+        };
+
+        struct Detour
+        {
+            std::size_t pack;
+            std::uint32_t quest;
+        };
+
+        std::string UniqueName(std::set<std::string>& used, std::string const& name)
+        {
+            std::string candidate = name;
+            for (unsigned number = 2; used.count(candidate); ++number)
+                candidate = name + "_" + std::to_string(number);
+            used.insert(candidate);
+            return candidate;
+        }
+    }
+
+    float RouteRandom::Uniform(float low, float high)
+    {
+        // The raw output of mt19937 is the same on each library, which the
+        // distributions of <random> are not.
+        double const unit = double(m_engine() >> 8) / double(1u << 24);
+        return float(low + (high - low) * unit);
+    }
+
+    std::vector<GeneratorPack> BuildPacks(std::vector<GeneratorSpawn> const& spawns, float clusterDistance)
+    {
+        std::vector<std::size_t> root(spawns.size());
+        std::iota(root.begin(), root.end(), 0);
+        std::function<std::size_t(std::size_t)> find = [&](std::size_t i) {
+            return root[i] == i ? i : root[i] = find(root[i]);
+        };
+        auto join = [&](std::size_t a, std::size_t b) {
+            std::size_t const ra = find(a);
+            std::size_t const rb = find(b);
+            if (ra != rb)
+                root[std::max(ra, rb)] = std::min(ra, rb);
+        };
+
+        std::map<std::uint32_t, std::size_t> byGuid;
+        for (std::size_t i = 0; i < spawns.size(); ++i)
+            if (spawns[i].hostile)
+                byGuid[spawns[i].guid] = i;
+        std::set<std::uint32_t> leaders;
+        for (std::size_t i = 0; i < spawns.size(); ++i)
+        {
+            if (!spawns[i].hostile)
+                continue;
+            auto leader = byGuid.find(spawns[i].groupLeader);
+            if (spawns[i].groupLeader && leader != byGuid.end())
+            {
+                join(i, leader->second);
+                leaders.insert(spawns[i].groupLeader);
+            }
+            for (std::size_t j = 0; j < i; ++j)
+                if (spawns[j].hostile && Distance(spawns[i].position, spawns[j].position) <= clusterDistance)
+                    join(i, j);
+        }
+
+        std::vector<GeneratorPack> packs;
+        std::map<std::size_t, std::size_t> packOfRoot;
+        for (std::size_t i = 0; i < spawns.size(); ++i)
+        {
+            if (!spawns[i].hostile)
+                continue;
+            std::size_t const r = find(i);
+            auto it = packOfRoot.find(r);
+            if (it == packOfRoot.end())
+            {
+                it = packOfRoot.emplace(r, packs.size()).first;
+                packs.emplace_back();
+            }
+            packs[it->second].members.push_back(i);
+        }
+        for (GeneratorPack& pack : packs)
+        {
+            auto leader = std::find_if(pack.members.begin(), pack.members.end(),
+                [&](std::size_t i) { return leaders.count(spawns[i].guid) != 0; });
+            if (leader != pack.members.end())
+                std::rotate(pack.members.begin(), leader, leader + 1);
+        }
+        return packs;
+    }
+
+    float DistanceToPack(Position const& position, GeneratorPack const& pack,
+        std::vector<GeneratorSpawn> const& spawns)
+    {
+        float best = -1.0f;
+        for (std::size_t member : pack.members)
+        {
+            GeneratorSpawn const& spawn = spawns[member];
+            float distance = std::max(0.0f, Distance(position, spawn.position) - spawn.wanderDistance);
+            Position previous = spawn.position;
+            for (Position const& waypoint : spawn.patrol)
+            {
+                distance = std::min(distance, DistanceToSegment(position, previous, waypoint));
+                previous = waypoint;
+            }
+            if (best < 0.0f || distance < best)
+                best = distance;
+        }
+        return best < 0.0f ? 1e9f : best;
+    }
+
+    float FirstApproach(std::vector<Position> const& points, GeneratorPack const& pack,
+        std::vector<GeneratorSpawn> const& spawns, float range)
+    {
+        Line const line(points);
+        for (float s : line.Samples())
+            if (DistanceToPack(line.At(s), pack, spawns) <= range)
+                return s;
+        return -1.0f;
+    }
+
+    float SidewaysOffset(float leftRoom, float rightRoom, float limit, RouteRandom& random)
+    {
+        float const low = -std::min(std::max(0.0f, rightRoom), limit);
+        float const high = std::min(std::max(0.0f, leftRoom), limit);
+        float const offset = random.Uniform(low, high);
+        return high > low ? offset : 0.0f;
+    }
+
+    std::vector<float> AlternativeOffsets(float leftRoom, float rightRoom, float firstOffset,
+        GeneratorSettings const& settings, RouteRandom& random)
+    {
+        std::vector<float> offsets;
+        if (leftRoom + rightRoom < settings.wideRoom)
+            return offsets;
+        float const left = std::min(leftRoom, settings.alternativeLimit);
+        float const right = -std::min(rightRoom, settings.alternativeLimit);
+        if (left >= firstOffset + settings.alternativeGap)
+            offsets.push_back(random.Uniform(firstOffset + settings.alternativeGap, left));
+        if (right <= firstOffset - settings.alternativeGap)
+            offsets.push_back(random.Uniform(right, firstOffset - settings.alternativeGap));
+        return offsets;
+    }
+
+    PackFill FillCount(std::vector<GeneratorPack> const& packs, std::vector<bool> const& onRoute,
+        std::vector<float> const& distanceToRoute, std::vector<GeneratorSpawn> const& spawns,
+        std::vector<std::uint32_t> const& entries, std::uint32_t count)
+    {
+        auto countIn = [&](GeneratorPack const& pack) {
+            std::uint32_t n = 0;
+            for (std::size_t member : pack.members)
+                if (std::find(entries.begin(), entries.end(), spawns[member].entry) != entries.end())
+                    ++n;
+            return n;
+        };
+
+        PackFill fill{{}, 0};
+        std::vector<std::size_t> candidates;
+        for (std::size_t i = 0; i < packs.size(); ++i)
+        {
+            std::uint32_t const n = countIn(packs[i]);
+            if (onRoute[i])
+                fill.have += n;
+            else if (n)
+                candidates.push_back(i);
+        }
+        std::stable_sort(candidates.begin(), candidates.end(),
+            [&](std::size_t a, std::size_t b) { return distanceToRoute[a] < distanceToRoute[b]; });
+        for (std::size_t candidate : candidates)
+        {
+            if (fill.have >= count)
+                break;
+            fill.added.push_back(candidate);
+            fill.have += countIn(packs[candidate]);
+        }
+        return fill;
+    }
+
+    std::string StepNameOf(std::string const& text)
+    {
+        std::string name;
+        for (char c : text)
+        {
+            if (c >= 'A' && c <= 'Z')
+                name += char(c - 'A' + 'a');
+            else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+                name += c;
+            else if ((c == ' ' || c == '_' || c == '-') && !name.empty() && name.back() != '_')
+                name += '_';
+        }
+        while (!name.empty() && name.back() == '_')
+            name.pop_back();
+        return name;
+    }
+
+    GeneratedRoute GenerateRoute(GeneratorInput const& input, RouteNav& nav)
+    {
+        GeneratorSettings const& settings = input.settings;
+        std::vector<GeneratorSpawn> const& spawns = input.spawns;
+        GeneratedRoute result;
+        float const range = settings.aggroRange + settings.margin;
+
+        // The center line: the entrance, then each boss.
+        std::vector<Position> centerPoints{input.entrance};
+        std::vector<std::size_t> bossSpawns;
+        for (std::uint32_t boss : input.bosses)
+        {
+            auto spawn = std::find_if(spawns.begin(), spawns.end(),
+                [boss](GeneratorSpawn const& s) { return s.entry == boss; });
+            if (spawn == spawns.end())
+            {
+                result.error = "the map has no spawn of the boss " + std::to_string(boss);
+                return result;
+            }
+            bossSpawns.push_back(std::size_t(spawn - spawns.begin()));
+            std::vector<Position> leg;
+            if (!nav.Path(centerPoints.back(), spawn->position, leg) || leg.empty())
+            {
+                result.error = "no navmesh path to the boss " + std::to_string(boss) + " at " +
+                    Format(spawn->position) + " from " + Format(centerPoints.back());
+                return result;
+            }
+            centerPoints.insert(centerPoints.end(), leg.begin() + 1, leg.end());
+            if (leg.size() == 1)
+                centerPoints.push_back(leg[0]);
+        }
+        Line const line(centerPoints);
+        std::vector<float> const samples = line.Samples();
+
+        // The packs, and where the line first comes near each one.
+        std::vector<GeneratorPack> const packs = BuildPacks(spawns, settings.clusterDistance);
+        std::vector<float> approach(packs.size(), -1.0f);
+        std::vector<bool> onRoute(packs.size(), false);
+        std::vector<float> distanceToRoute(packs.size(), 1e9f);
+        std::vector<float> nearestS(packs.size(), 0.0f);
+        std::vector<std::uint32_t> questOf(packs.size(), 0);
+        std::vector<std::uint32_t> bossOf(packs.size(), 0);
+        for (std::size_t p = 0; p < packs.size(); ++p)
+        {
+            for (float s : samples)
+            {
+                float const distance = DistanceToPack(line.At(s), packs[p], spawns);
+                if (approach[p] < 0.0f && distance <= range)
+                    approach[p] = s;
+                if (distance < distanceToRoute[p])
+                {
+                    distanceToRoute[p] = distance;
+                    nearestS[p] = s;
+                }
+            }
+            onRoute[p] = approach[p] >= 0.0f;
+            for (std::size_t b = 0; b < bossSpawns.size(); ++b)
+                if (std::find(packs[p].members.begin(), packs[p].members.end(), bossSpawns[b]) !=
+                    packs[p].members.end())
+                    bossOf[p] = input.bosses[b];
+        }
+
+        std::vector<Event> events;
+        std::vector<Detour> detours;
+        std::set<std::string> visitNames;
+
+        // The quests: visit points, and packs for the kill counts and items.
+        for (GeneratorQuest const& quest : input.quests)
+        {
+            RouteQuest routeQuest{quest.id, {}};
+            for (GeneratorVisit const& visit : quest.visits)
+            {
+                std::string const name = "q" + std::to_string(quest.id) + "_" + StepNameOf(visit.name);
+                // Two quests at one corpse share the point of the first quest.
+                std::string pointName;
+                for (Event const& event : events)
+                    if (event.kind == EventKind::Visit && Distance(event.center, visit.position) < 0.5f)
+                        pointName = event.name;
+                if (pointName.empty())
+                {
+                    float bestS = 0.0f;
+                    float best = 1e9f;
+                    for (float s : samples)
+                        if (Distance(line.At(s), visit.position) < best)
+                        {
+                            best = Distance(line.At(s), visit.position);
+                            bestS = s;
+                        }
+                    Event event{bestS, 3, 0, EventKind::Visit, visit.position};
+                    event.quest = quest.id;
+                    event.name = pointName = UniqueName(visitNames, name);
+                    events.push_back(event);
+                }
+                QuestObjective objective{QuestObjectiveKind::Visit};
+                objective.point = pointName;
+                routeQuest.objectives.push_back(objective);
+                result.objectives.push_back({quest.id, objective, 1});
+            }
+            for (QuestObjective const& objective : quest.objectives)
+            {
+                std::vector<std::uint32_t> entries;
+                std::uint32_t need = 1; // An item needs a dropper on the route.
+                if (objective.kind == QuestObjectiveKind::Kill)
+                {
+                    entries.push_back(objective.entry);
+                    need = objective.count;
+                }
+                else if (objective.kind == QuestObjectiveKind::Item)
+                    entries = objective.entries;
+                else
+                    continue;
+                PackFill const fill = FillCount(packs, onRoute, distanceToRoute, spawns, entries, need);
+                for (std::size_t p : fill.added)
+                {
+                    onRoute[p] = true;
+                    questOf[p] = quest.id;
+                    detours.push_back({p, quest.id});
+                }
+                routeQuest.objectives.push_back(objective);
+                result.objectives.push_back({quest.id, objective, fill.have});
+                if (fill.have < need)
+                    result.warnings.push_back("quest " + std::to_string(quest.id) + ": the dungeon has only " +
+                        std::to_string(fill.have) + " of " + std::to_string(need) + " spawns for an objective");
+            }
+            result.route.quests.push_back(routeQuest);
+        }
+
+        // The packs of the line, with their pull points.
+        std::vector<float> pullS;
+        for (std::size_t p = 0; p < packs.size(); ++p)
+        {
+            if (approach[p] < 0.0f)
+                continue;
+            float dx, dy;
+            line.Direction(approach[p], dx, dy);
+            Event pull{approach[p], 1, 0, EventKind::Pull, line.At(approach[p])};
+            pull.dx = dx;
+            pull.dy = dy;
+            pull.pack = p;
+            events.push_back(pull);
+            Event fight{approach[p], 2, 0, EventKind::Pack, spawns[packs[p].members[0]].position};
+            fight.pack = p;
+            events.push_back(fight);
+            pullS.push_back(approach[p]);
+        }
+
+        // The detours to the quest packs off the line.
+        for (Detour const& detour : detours)
+        {
+            std::size_t const p = detour.pack;
+            Position const start = line.At(nearestS[p]);
+            Position const target = spawns[packs[p].members[0]].position;
+            std::vector<Position> path;
+            if (!nav.Path(start, target, path) || path.size() < 1)
+            {
+                result.warnings.push_back("quest " + std::to_string(detour.quest) + ": no navmesh path to the pack of " +
+                    std::to_string(spawns[packs[p].members[0]].guid) + " at " + Format(target));
+                onRoute[p] = false;
+                continue;
+            }
+            Line const way(path);
+            float pullAt = FirstApproach(path, packs[p], spawns, range);
+            if (pullAt < 0.0f)
+                pullAt = way.Length();
+            int sub = 0;
+            for (float s = settings.pointSpacing; s < pullAt - settings.pointSpacing / 2.0f; s += settings.pointSpacing)
+            {
+                Event point{nearestS[p], 4, sub++, EventKind::Point, way.At(s)};
+                way.Direction(s, point.dx, point.dy);
+                point.quest = detour.quest;
+                events.push_back(point);
+            }
+            Event pull{nearestS[p], 4, sub++, EventKind::Pull, way.At(pullAt)};
+            way.Direction(pullAt, pull.dx, pull.dy);
+            pull.pack = p;
+            pull.quest = detour.quest;
+            events.push_back(pull);
+            Event fight{nearestS[p], 4, sub++, EventKind::Pack, target};
+            fight.pack = p;
+            fight.quest = detour.quest;
+            events.push_back(fight);
+        }
+
+        // The points along the line, away from the pull and visit points.
+        for (float s = 0.0f; s <= line.Length(); s += settings.pointSpacing)
+        {
+            bool nearOther = false;
+            for (Event const& event : events)
+                if ((event.kind == EventKind::Pull && event.order == 1) || event.kind == EventKind::Visit)
+                    nearOther = nearOther || std::fabs(event.s - s) < settings.pointSpacing / 2.0f;
+            if (nearOther)
+                continue;
+            Event point{s, 0, 0, EventKind::Point, line.At(s)};
+            line.Direction(s, point.dx, point.dy);
+            events.push_back(point);
+        }
+
+        std::stable_sort(events.begin(), events.end(), [](Event const& a, Event const& b) {
+            if (a.s != b.s)
+                return a.s < b.s;
+            if (a.order != b.order)
+                return a.order < b.order;
+            return a.sub < b.sub;
+        });
+
+        // The order of the fights, for the aggro check of each place.
+        std::vector<std::size_t> foughtAt(packs.size(), events.size());
+        for (std::size_t e = 0; e < events.size(); ++e)
+            if (events[e].kind == EventKind::Pack)
+                foughtAt[events[e].pack] = e;
+
+        // The names of the packs, in route order: bosses by name.
+        Route& route = result.route;
+        route.name = input.name;
+        route.mapId = input.mapId;
+        route.hasSeed = true;
+        route.seed = settings.seed;
+        route.bosses = input.bosses;
+        std::vector<std::string> packName(packs.size());
+        {
+            std::set<std::string> used = visitNames;
+            unsigned number = 0;
+            for (Event const& event : events)
+            {
+                if (event.kind != EventKind::Pack)
+                    continue;
+                std::size_t const p = event.pack;
+                std::string const boss = bossOf[p] && input.entryName ? StepNameOf(input.entryName(bossOf[p])) : "";
+                if (!boss.empty() && !used.count(boss))
+                    packName[p] = boss;
+                else
+                {
+                    do
+                        packName[p] = "pack" + std::to_string(++number);
+                    while (used.count(packName[p]));
+                }
+                used.insert(packName[p]);
+            }
+        }
+
+        // A place must not pull a pack that the route fights later, nor a
+        // pack off the route. A pull point keeps outside its own pack too.
+        auto allowed = [&](Position const& place, std::size_t e) {
+            for (std::size_t p = 0; p < packs.size(); ++p)
+                if (foughtAt[p] > e && DistanceToPack(place, packs[p], spawns) < settings.aggroRange)
+                    return false;
+            return true;
+        };
+
+        RouteRandom random(settings.seed);
+        for (std::size_t e = 0; e < events.size(); ++e)
+        {
+            Event const& event = events[e];
+            if (event.kind == EventKind::Pack)
+            {
+                std::vector<RouteMob> mobs;
+                for (std::size_t member : packs[event.pack].members)
+                    mobs.push_back({spawns[member].guid, spawns[member].entry});
+                AddPack(route, packName[event.pack], event.center, mobs);
+                route.packs.back().quest = event.quest;
+                continue;
+            }
+            if (event.kind == EventKind::Visit)
+            {
+                AddPoint(route, event.name, {event.center, settings.pointRadius});
+                route.points.back().quest = event.quest;
+                continue;
+            }
+
+            // A point or pull point: off the line by a random distance.
+            float const nx = -event.dy;
+            float const ny = event.dx;
+            float const probe = std::max(settings.alternativeLimit, settings.sideLimit) + settings.wallClearance;
+            float const leftRoom = std::max(0.0f,
+                Distance2d(event.center, nav.Reach(event.center, nx, ny, probe)) - settings.wallClearance);
+            float const rightRoom = std::max(0.0f,
+                Distance2d(event.center, nav.Reach(event.center, -nx, -ny, probe)) - settings.wallClearance);
+            auto placeAt = [&](float offset) {
+                if (std::fabs(offset) < 1e-3f)
+                    return event.center;
+                float const sign = offset > 0.0f ? 1.0f : -1.0f;
+                return nav.Reach(event.center, nx * sign, ny * sign, std::fabs(offset));
+            };
+
+            float offset = SidewaysOffset(leftRoom, rightRoom, settings.sideLimit, random);
+            Position first = placeAt(offset);
+            for (int retry = 0; retry < 3 && !allowed(first, e); ++retry)
+            {
+                offset /= 2.0f;
+                first = placeAt(offset);
+            }
+            if (!allowed(first, e))
+            {
+                offset = 0.0f;
+                first = event.center;
+                if (!allowed(first, e))
+                    result.warnings.push_back("a point at " + Format(first) + " is within aggro range of a pack");
+            }
+
+            std::string const name = event.kind == EventKind::Pull ? "pull_" + packName[event.pack] : "";
+            AddPoint(route, name, {first, settings.pointRadius});
+            route.points.back().quest = event.quest;
+            for (float alternative : AlternativeOffsets(leftRoom, rightRoom, offset, settings, random))
+            {
+                Position const place = placeAt(alternative);
+                if (allowed(place, e) && Distance2d(place, first) >= settings.alternativeGap * 0.5f)
+                    AddAlternative(route, {place, settings.pointRadius});
+            }
+            if (event.kind == EventKind::Pull &&
+                DistanceToPack(first, packs[event.pack], spawns) < settings.aggroRange)
+                result.warnings.push_back("the pull point of " + packName[event.pack] + " is within aggro range");
+        }
+
+        // Each alternative has its own path to the next point.
+        RoutePoint* previous = nullptr;
+        for (RouteStep const& step : route.steps)
+        {
+            if (step.kind != RouteStepKind::Point)
+                continue;
+            RoutePoint& point = route.points[step.index];
+            if (previous)
+            {
+                std::vector<Position> path;
+                std::vector<RoutePlace> kept{previous->places[0]};
+                for (std::size_t k = 1; k < previous->places.size(); ++k)
+                    if (nav.Path(previous->places[k].position, point.places[0].position, path))
+                        kept.push_back(previous->places[k]);
+                previous->places = kept;
+            }
+            previous = &point;
+        }
+
+        result.ok = true;
+        return result;
+    }
+
+    std::vector<std::string> CheckRouteWalk(Route const& route, RouteNav& nav)
+    {
+        std::vector<std::string> problems;
+        std::vector<RoutePoint const*> points;
+        for (RouteStep const& step : route.steps)
+            if (step.kind == RouteStepKind::Point)
+                points.push_back(&route.points[step.index]);
+
+        for (RoutePoint const* point : points)
+            for (std::size_t k = 0; k < point->places.size(); ++k)
+                if (!nav.OnMesh(point->places[k].position))
+                    problems.push_back("point " + point->name + ": the place " + std::to_string(k + 1) + " at " +
+                        Format(point->places[k].position) + " is not on the navmesh");
+
+        for (std::size_t i = 0; i + 1 < points.size(); ++i)
+        {
+            RoutePoint const& point = *points[i];
+            RoutePoint const& next = *points[i + 1];
+            for (std::size_t k = 0; k < point.places.size(); ++k)
+            {
+                std::vector<Position> path;
+                if (!nav.Path(point.places[k].position, next.places[0].position, path))
+                    problems.push_back("point " + point.name + ": no path from the place " + std::to_string(k + 1) +
+                        " to the point " + next.name);
+            }
+        }
+        return problems;
+    }
+}

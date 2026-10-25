@@ -29,6 +29,7 @@ add_executable(bots_tests
   MageFrostTest.cpp
   PriestHealerTest.cpp
   RogueTest.cpp
+  RouteGeneratorTest.cpp
   RouteTest.cpp
   SpellBookTest.cpp
   SpellDataTest.cpp
