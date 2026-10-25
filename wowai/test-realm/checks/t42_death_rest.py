@@ -219,9 +219,11 @@ def part_wipe():
     c.chat(CHAT_MSG_PARTY, "stay")
     c.pump(2)
     realm.mark("wipe")
-    for guid in (tank_guid, priest_guid, mage_guid):
-        print("  kill:", kill(guid))
+    # The Priest last: while a resurrect can come, the dead wait, so that
+    # nobody releases before the wipe (#72).
     print("  kill player:", kill(c.guid))
+    for guid in (tank_guid, mage_guid, priest_guid):
+        print("  kill:", kill(guid))
     wiped = realm.wait_log(r"Group \d+ wipes", 5, c)
     results.check("the coordinator sees the wipe", wiped)
     c.pump(6)
