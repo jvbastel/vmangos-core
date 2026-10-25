@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
-"""A minimal headless 1.12.1 (build 5875) world client for checks in a throwaway realm.
+"""A minimal headless 1.12.1 (build 5875) world client for in-game checks.
 
-It skips realmd: the caller writes the session key into the `account` row first
-(see `session_key_sql`). Then this client connects to mangosd, logs in a
-character (it makes one if the account has none), and runs a list of steps.
+It skips realmd: `realm.sh --ticket N key <account>` writes a session key into
+the `account` row and prints it. Then this client connects to mangosd, logs
+in a character (it makes one if the account has none), and runs the steps of
+a check. kit.py does the key and the login for a check script.
 
-Made for ticket #26 (bot commands). Usage as a module:
-
-    c = WorldClient("127.0.0.1", 8096, "PLAYER1", K)
+    c = WorldClient("127.0.0.1", 21062, "PLAYER1", key_bytes(key_hex))
     c.login("Thrallson", race=2, cls=1)
     c.chat(CHAT_MSG_WHISPER, "follow", target="Grukk")
     c.gm(".gps", select=bot_guid)  # returns the system lines
+
+The client prints each chat line of another unit as it arrives (`echo`),
+so that the output of a check shows what the bots answer to each command.
+It acks near and far teleports like a real client. It says and whispers in
+the language of its character's race.
 """
 import hashlib
 import os
 import socket
 import struct
+import sys
 import time
 
 SMSG_AUTH_CHALLENGE = 492
@@ -43,9 +48,33 @@ MOVEFLAG_FORWARD = 0x1
 CHAT_MSG_SAY = 0x00
 CHAT_MSG_PARTY = 0x01
 CHAT_MSG_WHISPER = 0x06
+CHAT_MSG_RAID = 0x02
+CHAT_MSG_GUILD = 0x03
+CHAT_MSG_YELL = 0x05
 CHAT_MSG_SYSTEM = 0x0A
+CHAT_MSG_MONSTER_SAY = 0x0B
+CHAT_MSG_MONSTER_YELL = 0x0C
+CHAT_MSG_MONSTER_EMOTE = 0x0D
+CHAT_MSG_CHANNEL = 0x0E
+CHAT_MSG_MONSTER_WHISPER = 0x1A
+CHAT_NAMES = {0x00: "say", 0x01: "party", 0x02: "raid", 0x03: "guild", 0x05: "yell", 0x06: "whisper",
+              0x08: "emote", 0x0B: "monster say", 0x0C: "monster yell", 0x0D: "monster emote",
+              0x0E: "channel", 0x1A: "monster whisper"}
 LANG_UNIVERSAL = 0
 LANG_ORCISH = 1
+LANG_COMMON = 7
+HORDE_RACES = (2, 5, 6, 8)  # orc, undead, tauren, troll
+
+
+def language_of_race(race):
+    """The language that a character of the race says and whispers in. mangosd
+    refuses LANG_UNIVERSAL for a say, and a language that the race does not know."""
+    return LANG_ORCISH if race in HORDE_RACES else LANG_COMMON
+
+
+def key_bytes(key_hex):
+    """The session key for the client, from the hex of `realm.sh key`."""
+    return bytes(reversed(bytes.fromhex(key_hex)))
 
 
 def new_session_key():
@@ -54,11 +83,6 @@ def new_session_key():
     k = bytearray(os.urandom(40))
     k[-1] |= 0x80
     return bytes(k), bytes(reversed(k)).hex().upper()
-
-
-def session_key_sql(account, key_hex, ip):
-    return ("UPDATE account SET sessionkey='%s', last_ip='%s', last_login=NOW(), os='Win', platform='x86' "
-            "WHERE username='%s';" % (key_hex, ip, account.upper()))
 
 
 class Crypt:
@@ -92,12 +116,18 @@ def cstr(data, pos):
 
 
 class WorldClient:
-    def __init__(self, host, port, account, key):
+    """names: guid -> name, for the echo. echo: where the chat of other units
+    goes (None: nowhere). sock: a connected socket instead of host and port."""
+
+    def __init__(self, host, port, account, key, names=None, echo=sys.stdout, sock=None):
         self.account = account.upper()
         self.key = key
-        self.sock = socket.create_connection((host, port), timeout=10)
+        self.sock = sock or socket.create_connection((host, port), timeout=10)
         self.crypt = None
         self.guid = 0
+        self.race = 2
+        self.names = dict(names or {})
+        self.echo = echo
         self.chat_log = []  # (type, sender guid, text)
         self.move_log = []  # (time.time(), unit guid, spline type, duration ms): SMSG_MONSTER_MOVE, type 1 = stop
 
@@ -145,7 +175,9 @@ class WorldClient:
 
     def _observe(self, opcode, body):
         if opcode == SMSG_MESSAGECHAT:
-            self.chat_log.append(parse_chat(body))
+            line = parse_chat(body)
+            self.chat_log.append(line)
+            self._echo(*line)
         elif opcode == SMSG_MONSTER_MOVE:
             guid, pos = unpack_guid(body, 0)
             # Position (3 floats), spline id, the type, its facing data,
@@ -171,6 +203,13 @@ class WorldClient:
                 pass
             self.send(MSG_MOVE_TELEPORT_ACK, struct.pack("<QII", guid, counter, int(time.time() * 1000) & 0xFFFFFFFF))
 
+    def _echo(self, chat_type, sender, text):
+        if self.echo is None or chat_type == CHAT_MSG_SYSTEM or (sender and sender == self.guid):
+            return
+        name = self.names.get(sender, "0x%x" % sender)
+        print("  chat %s %s: %s" % (CHAT_NAMES.get(chat_type, "type %d" % chat_type), name, text), file=self.echo)
+        self.echo.flush()
+
     # --- login ---
     def login(self, name, race=2, cls=1):
         body = self.wait_for(SMSG_AUTH_CHALLENGE)
@@ -184,34 +223,39 @@ class WorldClient:
         if body[0] != 0x0C:
             raise RuntimeError("auth response %d" % body[0])
 
-        self.guid = self._find_char(name)
+        self.guid, self.race = self._find_char(name)
         if not self.guid:
             self.send(CMSG_CHAR_CREATE, name.encode() + b"\0" + bytes([race, cls, 0, 0, 0, 0, 0, 0, 0]))
             code = self.wait_for(SMSG_CHAR_CREATE)[0]
-            self.guid = self._find_char(name)
+            self.guid, self.race = self._find_char(name)
             if not self.guid:
                 raise RuntimeError("char create %d" % code)
+        self.names.setdefault(self.guid, name)
         self.send(CMSG_PLAYER_LOGIN, struct.pack("<Q", self.guid))
         self.wait_for(SMSG_LOGIN_VERIFY_WORLD, 30)
         self.pump(2)
 
     def _find_char(self, name):
+        """(guid, race) of the character of the account with the name, or (0, 0)."""
         self.send(CMSG_CHAR_ENUM)
         body = self.wait_for(SMSG_CHAR_ENUM)
         count, pos = body[0], 1
         for _ in range(count):
             guid = struct.unpack_from("<Q", body, pos)[0]
-            cname, _ = cstr(body, pos + 8)
+            cname, after = cstr(body, pos + 8)
             if cname.lower() == name.lower():
-                return guid
+                return guid, body[after]
             # Skip the rest of the record: name, 9 bytes race..facialhair, zone u32, map u32,
             # xyz, guild u32, flags u32, first login u8, pet 3x u32, 20 items x 5 bytes.
             _, pos = cstr(body, pos + 8)
             pos += 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 4 + 4 + 12 + 4 + 4 + 1 + 12 + 20 * 5
-        return 0
+        return 0, 0
 
     # --- actions ---
-    def chat(self, chat_type, text, target=None, lang=LANG_ORCISH):
+    def chat(self, chat_type, text, target=None, lang=None):
+        """Say, party, or whisper (target: the name) a line. A GM command is a say."""
+        if lang is None:
+            lang = language_of_race(self.race)
         body = struct.pack("<II", chat_type, lang)
         if target:
             body += target.encode() + b"\0"
@@ -256,14 +300,28 @@ def unpack_guid(data, pos):
 
 
 def parse_chat(body):
-    """(type, sender guid, text) of an SMSG_MESSAGECHAT of 1.12 (player and
-    system types; see ChatHandler::BuildChatPacket)."""
+    """(type, sender guid, text) of an SMSG_MESSAGECHAT of 1.12, in the layouts
+    of ChatHandler::BuildChatPacket. A monster whisper or emote has no sender
+    guid (0)."""
     chat_type = body[0]
     pos = 1 + 4  # type, language
-    sender = struct.unpack_from("<Q", body, pos)[0]
-    pos += 8
-    if chat_type in (CHAT_MSG_SAY, CHAT_MSG_PARTY, 0x05):  # say, party, yell: the guid twice
+    sender = 0
+    if chat_type in (CHAT_MSG_MONSTER_WHISPER, CHAT_MSG_MONSTER_EMOTE):
+        name_length = struct.unpack_from("<I", body, pos)[0]
+        pos += 4 + name_length + 8  # name, target guid
+    elif chat_type in (CHAT_MSG_MONSTER_SAY, CHAT_MSG_MONSTER_YELL):
+        sender = struct.unpack_from("<Q", body, pos)[0]
+        name_length = struct.unpack_from("<I", body, pos + 8)[0]
+        pos += 8 + 4 + name_length + 8  # guid, name, target guid
+    elif chat_type == CHAT_MSG_CHANNEL:
+        _, pos = cstr(body, pos)  # channel name
+        sender = struct.unpack_from("<Q", body, pos + 4)[0]  # after the player rank
+        pos += 4 + 8
+    else:
+        sender = struct.unpack_from("<Q", body, pos)[0]
         pos += 8
+        if chat_type in (CHAT_MSG_SAY, CHAT_MSG_PARTY, CHAT_MSG_YELL):  # the guid twice
+            pos += 8
     length = struct.unpack_from("<I", body, pos)[0]
     text = body[pos + 4:pos + 4 + length].rstrip(b"\0").decode("utf-8", "replace")
     return chat_type, sender, text
