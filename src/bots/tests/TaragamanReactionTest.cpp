@@ -93,6 +93,39 @@ TEST(TaragamanReaction, ARangedBotWithAWallBehindItMovesOutToTheSide)
     EXPECT_EQ(mage.fake.Deeds(), Moves("move to 8 13.86 0"));
 }
 
+TEST(TaragamanReaction, ARangedBotDoesNotMoveOutIntoLava)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+    // Straight away from him and 30 degrees off, the place 16 yards out is
+    // in the lava; 60 degrees off, it is not.
+    mage.fake.AddLavaFromX(10);
+
+    EXPECT_EQ(mage.Think(), "stay out of fire nova");
+    EXPECT_EQ(mage.fake.Deeds(), Moves("move to 8 13.86 0"));
+}
+
+TEST(TaragamanReaction, ARangedBotMovesOutOnlyToAPlaceInSightOfHim)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+    // A slope down: from the places 16 yards straight out and 30 degrees
+    // off, the bot would not see him, and could not cast or heal.
+    mage.fake.AddBlindFromX(10);
+
+    EXPECT_EQ(mage.Think(), "stay out of fire nova");
+    EXPECT_EQ(mage.fake.Deeds(), Moves("move to 8 13.86 0"));
+}
+
+TEST(TaragamanReaction, ARangedBotWithOnlyLavaAroundStays)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+    // Fire Nova hurts less than the lava: the bot stays, and its class
+    // rules go on.
+    mage.fake.AddLavaFromX(-100);
+
+    EXPECT_EQ(mage.Think(), "");
+    EXPECT_TRUE(mage.fake.Deeds().empty());
+}
+
 TEST(TaragamanReaction, ARangedBotHasTheReactionOnTopOfItsClassRules)
 {
     InFight mage(Mage, BotRole::Ranged, {5, 0, 0});

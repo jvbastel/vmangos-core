@@ -56,13 +56,15 @@ namespace Bots
             // A place `SafeYards` from the boss, as straight away from him as
             // the walls allow: first the line from him through the bot, then
             // 30, 60, ... degrees off it. With walls all around, the most open
-            // direction, short of its wall.
-            Position SafePlace(BotContext const& context)
+            // direction, short of its wall. A place in lava, or with no line of
+            // sight to him (no cast and no heal from there), does not count.
+            // False when no place is left.
+            bool FindSafePlace(BotContext const& context, Position& found)
             {
                 Position const boss = context.view.GetPosition(Boss(context));
                 Position const self = Self(context);
                 float const away = AngleTo(boss, self);
-                float bestAngle = away;
+                bool any = false;
                 float bestYards = -1.0f;
                 for (int step = 0; step <= 6; ++step)
                     for (int side : {1, -1})
@@ -71,20 +73,35 @@ namespace Bots
                             continue;
                         float const angle = away + side * step * 30.0f * Degree;
                         float const open = context.view.GetWallDistance(boss, angle, SafeYards);
+                        Position place = Step(boss, angle, open >= SafeYards ? SafeYards : std::max(0.0f, open - WallGapYards));
+                        place.z = self.z;
+                        if (context.view.IsHarmfulGround(place) || !context.view.CanSeeFrom(place, Boss(context)))
+                            continue;
                         if (open >= SafeYards)
                         {
-                            Position place = Step(boss, angle, SafeYards);
-                            place.z = self.z;
-                            return place;
+                            found = place;
+                            return true;
                         }
                         if (open > bestYards)
                         {
                             bestYards = open;
-                            bestAngle = angle;
+                            found = place;
+                            any = true;
                         }
                     }
-                Position place = Step(boss, bestAngle, std::max(0.0f, bestYards - WallGapYards));
-                place.z = self.z;
+                return any;
+            }
+
+            bool ShouldLeaveFireNova(BotContext const& context)
+            {
+                Position place;
+                return InFireNova(context) && FindSafePlace(context, place);
+            }
+
+            Position SafePlace(BotContext const& context)
+            {
+                Position place = Self(context);
+                FindSafePlace(context, place);
                 return place;
             }
 
@@ -148,7 +165,7 @@ namespace Bots
             int const P = Priority::Boss;
             std::vector<Rule> rules;
             if (role == BotRole::Ranged || role == BotRole::Healer)
-                rules.push_back(MoveRule("stay out of fire nova", P + 50, InFireNova, &SafePlace));
+                rules.push_back(MoveRule("stay out of fire nova", P + 50, ShouldLeaveFireNova, &SafePlace));
             if (role == BotRole::Tank)
                 rules.push_back(MoveRule("back to the wall", P + 50, ShouldGoToWall, &WallPlace));
             return std::make_shared<Strategy const>(Strategy{"taragaman the hungerer", std::move(rules)});

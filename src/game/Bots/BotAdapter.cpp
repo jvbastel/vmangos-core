@@ -11,6 +11,7 @@
 #include "Bag.h"
 #include "Corpse.h"
 #include "Group.h"
+#include "GridMap.h"
 #include "Log.h"
 #include "MotionMaster.h"
 #include "spline/MoveSpline.h"
@@ -564,6 +565,33 @@ float BotAdapter::GetWallDistance(Bots::Position const& from, float angle, float
     if (!me->GetMap()->GetLosHitPosition(from.x, from.y, z, x, y, hitZ, 0.0f))
         return maxYards;
     return std::min(maxYards, std::hypot(x - from.x, y - from.y));
+}
+
+bool BotAdapter::IsHarmfulGround(Bots::Position const& place) const
+{
+    // The ground under the place (as MoveTo puts it), and the liquid from a
+    // bit above the higher of the two heights: a ground deep under the lava
+    // is not found from the ground itself.
+    float ground = place.z;
+    me->UpdateAllowedPositionZ(place.x, place.y, ground);
+    float const top = std::max(place.z, ground) + BodyHeightYards;
+    GridMapLiquidData liquid;
+    GridMapLiquidStatus const status = me->GetTerrain()->getLiquidStatus(place.x, place.y, top,
+        MAP_LIQUID_TYPE_MAGMA | MAP_LIQUID_TYPE_SLIME, &liquid);
+    return status != LIQUID_MAP_NO_WATER && liquid.level > ground;
+}
+
+bool BotAdapter::CanSeeFrom(Bots::Position const& place, Bots::Guid unit) const
+{
+    // Like the line of sight check of CanCast, from the ground at the place.
+    Unit const* target = Find(unit);
+    if (!target)
+        return false;
+    float ground = place.z;
+    me->UpdateAllowedPositionZ(place.x, place.y, ground);
+    float x, y, z;
+    target->GetLosCheckPosition(x, y, z);
+    return me->IsWithinLOSAtPosition(place.x, place.y, ground, x, y, z, true, 0.0f);
 }
 
 Unit const* BotAdapter::FindAnywhere(Bots::Guid unit) const
