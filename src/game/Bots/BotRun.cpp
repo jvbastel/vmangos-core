@@ -90,10 +90,10 @@ namespace
         }
     };
 
-    // The creature of a spawn of the route on the map of `near`, or null.
-    Creature* SpawnOf(Player const* near, Bots::RouteMob const& mob)
+    // The creature of a spawn of the route on the map of `player`, or null.
+    Creature* SpawnOf(Player const* player, Bots::RouteMob const& mob)
     {
-        return near->GetMap()->GetCreature(ObjectGuid(HIGHGUID_UNIT, mob.entry, mob.spawnGuid));
+        return player->GetMap()->GetCreature(ObjectGuid(HIGHGUID_UNIT, mob.entry, mob.spawnGuid));
     }
 
     void FullHealthAndPower(Unit* unit)
