@@ -12,9 +12,9 @@ resurrect, nobody, wipe).
    refills silently; the tank does not pull while the group rests.
 2. Resurrect: the Priest resurrects the dead mage after the fight; the mage accepts.
 3. Nobody can resurrect: with the Priest dead, and with no Priest, a dead bot
-   revives at its corpse at once.
+   releases to run back as a ghost (#72). It does not revive at its corpse.
 4. Wipe: every member dies; the bots wait; the player releases and the bots release;
-   the player revives near the corpses and the bots revive there, with no ghost run.
+   the player revives near the corpses, and the ghosts still do not revive there (#72).
 """
 import math
 import re
@@ -181,25 +181,32 @@ def part_nobody():
     # The mage first: while the Priest lives, the mage waits for its resurrect.
     print("  kill mage:", kill(mage_guid))
     print("  kill priest:", kill(priest_guid))
-    ok = realm.wait_log(r"%s: revive when nobody can resurrect" % mage, 8, c)
-    ok_priest = realm.wait_log(r"%s: revive when nobody can resurrect" % priest, 4, c)
+    ok = realm.wait_log(r"%s: release when no resurrect comes" % mage, 8, c)
+    ok_priest = realm.wait_log(r"%s: release when no resurrect comes" % priest, 4, c)
     text = realm.log()
-    results.check("with the Priest dead, the mage revives at its corpse at once", ok, repr(rules_of(mage, text)))
-    results.check("the dead Priest revives at its corpse at once too", ok_priest, repr(rules_of(priest, text)))
-    results.check("the coordinator sees the revive", re.search(r"rests: %s revives at its corpse" % mage, text) is not None)
+    results.check("with the Priest dead, the mage releases to run back", ok, repr(rules_of(mage, text)))
+    results.check("the dead Priest releases to run back too", ok_priest, repr(rules_of(priest, text)))
+    results.check("the coordinator sees the release",
+          re.search(r"rests: %s releases to run back" % mage, text) is not None)
+    c.pump(4)
+    text = realm.log()
+    results.check("no bot revives at its corpse", all("%s: revive" % bot not in text for bot in bots))
+    results.check("the mage is still dead (a ghost)", stat(c, mage_guid)[0] <= 1)
+    results.check("the Priest is still dead (a ghost)", stat(c, priest_guid)[0] <= 1)
+    revive_all()
     c.pump(2)
-    results.check("the mage is alive", stat(c, mage_guid)[0] > 0)
-    results.check("the Priest is alive", stat(c, priest_guid)[0] > 0)
 
     # No Priest in the group (logged out).
     realm.soap(".wowai bot logout %s" % priest)
     c.pump(4)
     realm.mark("nobody, no priest")
     print("  kill mage:", kill(mage_guid))
-    ok = realm.wait_log(r"%s: revive when nobody can resurrect" % mage, 8, c)
-    results.check("with no Priest, the mage revives at its corpse at once", ok, repr(rules_of(mage, realm.log())))
-    c.pump(2)
-    results.check("the mage is alive (no Priest)", stat(c, mage_guid)[0] > 0)
+    ok = realm.wait_log(r"%s: release when no resurrect comes" % mage, 8, c)
+    results.check("with no Priest, the mage releases to run back", ok, repr(rules_of(mage, realm.log())))
+    c.pump(4)
+    results.check("the mage does not revive at its corpse (no Priest)", "%s: revive" % mage not in realm.log())
+    results.check("the mage is still dead (no Priest)", stat(c, mage_guid)[0] <= 1)
+    revive_all()
     realm.soap(".wowai bot login %s" % priest)
     c.pump(6)
     c.gm(".namego %s" % priest, wait=2.0)
@@ -243,18 +250,12 @@ def part_wipe():
     results.check("the ghosts wait while the leader is a ghost near their corpses",
           all("%s: revive" % bot not in text for bot in bots))
     print("  player revive:", c.gm(".revive", select=c.guid, wait=1.0))
-    revived = all(realm.wait_log(r"%s: revive at the corpse" % bot, 8, c) for bot in bots)
+    c.pump(8)
     text = realm.log()
-    results.check("with the leader alive near the corpses, the bots revive there", revived,
-          repr({bot: rules_of(bot, text) for bot in bots}))
-    results.check("the coordinator sees each revive",
-          all(re.search(r"rests: %s revives at its corpse" % bot, text) for bot in bots))
-    c.pump(4)
+    results.check("with the leader alive near the corpses, no bot revives at its corpse",
+          all("%s: revive" % bot not in text for bot in bots), repr({bot: rules_of(bot, text) for bot in bots}))
     for bot, guid in bots.items():
-        at = pos(c, guid)
-        health = stat(c, guid)[0]
-        results.check("%s is alive at its corpse, with no ghost run" % bot,
-              at is not None and dist(at, here) < 15 and health > 0, "at %r health %d" % (at, health))
+        results.check("%s is still a ghost" % bot, stat(c, guid)[0] <= 1)
 
 
 parts = {"rest": part_rest, "resurrect": part_resurrect, "nobody": part_nobody, "wipe": part_wipe}
