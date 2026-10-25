@@ -151,6 +151,27 @@ TEST(WarriorTank, TauntsTheFocusTargetOffAnotherGroupMember)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Kobold)}));
 }
 
+// The focus died while a second enemy hits the healer: the tank takes it as
+// its new focus and taunts it off at once, before it walks to it. The walk
+// first left the healer under the hits for seconds more (WOWAI#73 review).
+TEST(WarriorTank, TauntsANewFocusOffAMemberBeforeItWalksToIt)
+{
+    WarriorTank tank;
+    tank.fake.SetGroupMembers({Healer});
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetVictim(Wolf, Healer);
+    tank.group.SetFocusTarget(Wolf);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Wolf)}));
+}
+
 TEST(WarriorTank, TauntsAnotherEnemyOffAGroupMember)
 {
     WarriorTank tank;

@@ -123,7 +123,10 @@ namespace Bots
                         return FightsFocus(context) && !context.view.HasAura(Self(context), DefensiveStance);
                     },
                     DefensiveStance, PickSelf),
-                CastRule("taunt", P + 55,
+                // Over the attack: a new focus that hits another member is
+                // taunted off at once, from up to 20 yards, before the walk
+                // to it.
+                CastRule("taunt", P + 63,
                     [](BotContext const& context) {
                         Guid const victim = context.view.GetVictim(PickFocusTarget(context));
                         return FightsFocus(context) && victim != NoGuid && victim != Self(context);
