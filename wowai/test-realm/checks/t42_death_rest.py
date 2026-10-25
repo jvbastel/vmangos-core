@@ -201,7 +201,9 @@ def part_nobody():
     c.pump(4)
     realm.mark("nobody, no priest")
     print("  kill mage:", kill(mage_guid))
-    ok = realm.wait_log(r"%s: release when no resurrect comes" % mage, 8, c)
+    # .die deals the damage from the player, so the group stays in combat
+    # for some seconds: the mage releases only after that (~9 s).
+    ok = realm.wait_log(r"%s: release when no resurrect comes" % mage, 15, c)
     results.check("with no Priest, the mage releases to run back", ok, repr(rules_of(mage, realm.log())))
     c.pump(4)
     results.check("the mage does not revive at its corpse (no Priest)", "%s: revive" % mage not in realm.log())
