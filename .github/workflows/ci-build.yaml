@@ -29,6 +29,12 @@ on:
       - 'README.md'
       - 'sql/**'
 
+# A newer commit on the same branch cancels the older run. The push run and
+# the pull request run of one branch share the group, so a commit is built once.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build on ${{ matrix.config.job_name }} (client build ${{ matrix.client_build }})
