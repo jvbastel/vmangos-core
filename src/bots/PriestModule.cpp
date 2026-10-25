@@ -1,5 +1,6 @@
 #include "PriestModule.h"
 #include "CommonRules.h"
+#include "SafePlace.h"
 #include "SpellBook.h"
 
 namespace Bots
@@ -130,8 +131,8 @@ namespace Bots
             {
                 Guid const member = DeadMemberOutOfReach(context);
                 Position place;
-                if (context.view.FindSafeCastPlace(member, ResurrectCastYards, place))
-                    context.actions.MoveTo(place);
+                if (FindSafeCastPlace(context.view, member, ResurrectCastYards, place))
+                    context.actions.KeepMovingTo(place);
                 else
                 {
                     context.group.GiveUpResurrect(member);

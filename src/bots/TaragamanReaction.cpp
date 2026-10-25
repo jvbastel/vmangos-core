@@ -1,8 +1,12 @@
 #include "TaragamanReaction.h"
 #include "CommonRules.h"
+#include "BotGeometry.h"
+#include "SafePlace.h"
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
+#include <vector>
 
 namespace Bots
 {
@@ -21,11 +25,6 @@ namespace Bots
             Position Self(BotContext const& context)
             {
                 return context.view.GetPosition(context.view.GetSelf());
-            }
-
-            float Distance2d(Position const& a, Position const& b)
-            {
-                return std::hypot(b.x - a.x, b.y - a.y);
             }
 
             // The direction from `from` to `to`, in radians.
@@ -56,40 +55,41 @@ namespace Bots
             // A place `SafeYards` from the boss, as straight away from him as
             // the walls allow: first the line from him through the bot, then
             // 30, 60, ... degrees off it. With walls all around, the most open
-            // direction, short of its wall. A place in lava, or with no line of
-            // sight to him (no cast and no heal from there), does not count.
-            // False when no place is left.
+            // direction, short of its wall. The place must be safe
+            // (SafePlace.h): no lava on it or on the way, and in his sight
+            // (no cast and no heal from elsewhere). False when no place is
+            // left.
             bool FindSafePlace(BotContext const& context, Position& found)
             {
                 Position const boss = context.view.GetPosition(Boss(context));
                 Position const self = Self(context);
                 float const away = AngleTo(boss, self);
-                bool any = false;
-                float bestYards = -1.0f;
+                // The open directions in their order, then the others, the
+                // most open first.
+                std::vector<Position> open;
+                std::vector<std::pair<float, Position>> shortOfWall;
                 for (int step = 0; step <= 6; ++step)
                     for (int side : {1, -1})
                     {
                         if (step == 0 && side == -1)
                             continue;
                         float const angle = away + side * step * 30.0f * Degree;
-                        float const open = context.view.GetWallDistance(boss, angle, SafeYards);
-                        Position place = Step(boss, angle, open >= SafeYards ? SafeYards : std::max(0.0f, open - WallGapYards));
+                        float const yards = context.view.GetWallDistance(boss, angle, SafeYards);
+                        Position place = Step(boss, angle, yards >= SafeYards ? SafeYards : std::max(0.0f, yards - WallGapYards));
                         place.z = self.z;
-                        if (context.view.IsHarmfulGround(place) || !context.view.CanSeeFrom(place, Boss(context)))
-                            continue;
-                        if (open >= SafeYards)
-                        {
-                            found = place;
-                            return true;
-                        }
-                        if (open > bestYards)
-                        {
-                            bestYards = open;
-                            found = place;
-                            any = true;
-                        }
+                        place = context.view.GetGround(place);
+                        if (yards >= SafeYards)
+                            open.push_back(place);
+                        else
+                            shortOfWall.push_back({yards, place});
                     }
-                return any;
+                std::stable_sort(shortOfWall.begin(), shortOfWall.end(),
+                    [](std::pair<float, Position> const& a, std::pair<float, Position> const& b) { return a.first > b.first; });
+                for (auto const& wall : shortOfWall)
+                    open.push_back(wall.second);
+                SafeMoveRules rules;
+                rules.inSightOf = Boss(context);
+                return FirstSafePlace(context.view, open, rules, found);
             }
 
             bool ShouldLeaveFireNova(BotContext const& context)

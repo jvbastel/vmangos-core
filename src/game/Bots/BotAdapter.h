@@ -63,11 +63,15 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::Power GetMana(Bots::Guid unit) const override;
         bool IsEating() const override;
         bool IsDrinking() const override;
-        bool FindSafeCastPlace(Bots::Guid unit, float yards, Bots::Position& place) const override;
+        Bots::Position GetGround(Bots::Position const& place) const override;
+        bool FindGroundPath(Bots::Position const& from, Bots::Position const& to,
+            std::vector<Bots::Position>& path) const override;
+        std::vector<Bots::NearEnemy> GetEnemiesNear(float yards) const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;
         void MoveTo(Bots::Position const& destination) override;
+        void KeepMovingTo(Bots::Position const& destination) override;
         void Attack(Bots::Guid target) override;
         void Chase(Bots::Guid target) override;
         void ChaseBehind(Bots::Guid target) override;

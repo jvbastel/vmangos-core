@@ -100,6 +100,23 @@ namespace Bots
             void AddWallAtY(float y) { m_wallsAtY.push_back(y); }
             // Lava on each place with x >= `x`.
             void AddLavaFromX(float x) { m_lavaFromX.push_back(x); }
+            // Lava on each place in the box from x `minX` to `maxX` and y
+            // `minY` to `maxY`.
+            void AddLavaArea(float minX, float maxX, float minY, float maxY)
+            {
+                m_lavaAreas.push_back({minX, maxX, minY, maxY});
+            }
+            // The ground is at height `z` on each place with x >= `x`. Else
+            // a place is on the ground at its own height.
+            void AddGroundFromX(float x, float z) { m_groundFromX.push_back({x, z}); }
+            // No ground path leads to a place with x >= `x`. Else a path is
+            // the straight line.
+            void AddNoPathFromX(float x) { m_noPathFromX.push_back(x); }
+            // A living hostile creature at `position` (GetEnemiesNear).
+            void AddEnemy(Position position, float aggroYards, float radiusYards = 0.0f)
+            {
+                m_enemies.push_back({position, aggroYards, radiusYards});
+            }
             // From each place with x >= `x`, the bot sees no unit.
             void AddBlindFromX(float x) { m_blindFromX.push_back(x); }
             void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
@@ -119,16 +136,6 @@ namespace Bots
             // The bot cannot cast spell `spell` on unit `target` now, for
             // example out of range.
             void SetCannotCastOn(SpellId spell, Guid target) { m_cannotCastOn.insert({spell, target}); }
-            // The safe place to cast on unit `unit` from (FindSafeCastPlace).
-            // Unset: there is none.
-            void SetSafeCastPlace(Guid unit, Position place, bool has = true)
-            {
-                if (has)
-                    m_safeCastPlaces[unit] = place;
-                else
-                    m_safeCastPlaces.erase(unit);
-            }
-
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -247,6 +254,9 @@ namespace Bots
                 for (float x : m_lavaFromX)
                     if (place.x >= x)
                         return true;
+                for (Area const& area : m_lavaAreas)
+                    if (place.x >= area.minX && place.x <= area.maxX && place.y >= area.minY && place.y <= area.maxY)
+                        return true;
                 return false;
             }
             bool CanSeeFrom(Position const& place, Guid) const override
@@ -273,13 +283,31 @@ namespace Bots
             }
             bool IsEating() const override { return m_eating; }
             bool IsDrinking() const override { return m_drinking; }
-            bool FindSafeCastPlace(Guid unit, float, Position& place) const override
+            Position GetGround(Position const& place) const override
             {
-                auto found = m_safeCastPlaces.find(unit);
-                if (found == m_safeCastPlaces.end())
-                    return false;
-                place = found->second;
+                Position ground = place;
+                for (auto const& step : m_groundFromX)
+                    if (place.x >= step.first)
+                        ground.z = step.second;
+                return ground;
+            }
+            bool FindGroundPath(Position const& from, Position const& to, std::vector<Position>& path) const override
+            {
+                path.clear();
+                for (float x : m_noPathFromX)
+                    if (to.x >= x)
+                        return false;
+                path = {from, to};
                 return true;
+            }
+            std::vector<NearEnemy> GetEnemiesNear(float yards) const override
+            {
+                Position const self = GetPosition(m_self);
+                std::vector<NearEnemy> near;
+                for (NearEnemy const& enemy : m_enemies)
+                    if (std::hypot(enemy.position.x - self.x, enemy.position.y - self.y) <= yards)
+                        near.push_back(enemy);
+                return near;
             }
 
             // BotActions
@@ -288,6 +316,11 @@ namespace Bots
                 std::ostringstream deed;
                 deed << "cast " << spell << " on 0x" << std::hex << std::setw(16) << std::setfill('0') << target;
                 m_deeds.push_back(deed.str());
+            }
+            void KeepMovingTo(Position const& destination) override
+            {
+                MoveTo(destination);
+                m_deeds.back() = "keep " + m_deeds.back();
             }
             void MoveTo(Position const& destination) override
             {
@@ -364,6 +397,14 @@ namespace Bots
             std::vector<float> m_wallsAtX;
             std::vector<float> m_wallsAtY;
             std::vector<float> m_lavaFromX;
+            struct Area
+            {
+                float minX, maxX, minY, maxY;
+            };
+            std::vector<Area> m_lavaAreas;
+            std::vector<std::pair<float, float>> m_groundFromX;
+            std::vector<float> m_noPathFromX;
+            std::vector<NearEnemy> m_enemies;
             std::vector<float> m_blindFromX;
             std::map<Guid, LifeState> m_lifeState;
             Guid m_leader = NoGuid;
@@ -373,7 +414,6 @@ namespace Bots
             bool m_drinking = false;
             std::set<SpellId> m_castsOnDead;
             std::set<std::pair<SpellId, Guid>> m_cannotCastOn;
-            std::map<Guid, Position> m_safeCastPlaces;
             std::vector<std::string> m_deeds;
         };
     }
