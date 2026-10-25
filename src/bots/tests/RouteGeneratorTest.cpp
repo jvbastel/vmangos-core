@@ -465,3 +465,52 @@ TEST(RouteWalkCheck, FindsAPlaceOffTheMeshAndAPathThroughLava)
         "point a: no path from the place 1 to the point b",
     }));
 }
+
+TEST(RouteGenerator, TwoPacksAtOneSpotEachGetTheirPullPointRightBeforeThem)
+{
+    FakeNav nav = Dungeon();
+    Bots::GeneratorInput input = DungeonInput(1);
+    // Both sides of the corridor, as far from the line: the line reaches
+    // both at one spot.
+    input.spawns.push_back(Spawn(7, 11318, 70, 9));
+    input.spawns.push_back(Spawn(8, 11318, 70, -9));
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+    Bots::Route const& route = generated.route;
+
+    for (std::size_t i = 0; i < route.steps.size(); ++i)
+        if (route.steps[i].kind == Bots::RouteStepKind::Pack)
+        {
+            ASSERT_EQ(route.steps[i - 1].kind, Bots::RouteStepKind::Point);
+            EXPECT_EQ(route.points[route.steps[i - 1].index].name, "pull_" + route.packs[route.steps[i].index].name);
+        }
+}
+
+TEST(RouteGenerator, AQuestVisitComesAfterThePacksThatGuardTheSpot)
+{
+    FakeNav nav = Dungeon();
+    Bots::GeneratorInput input = DungeonInput(1);
+    // A pack off the line, but within aggro range of the spot to visit.
+    input.spawns.push_back(Spawn(9, 11319, 120, 40));
+    input.quests[0].visits[0].position = {120, 22, 0};
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+    Bots::Route const& route = generated.route;
+
+    std::size_t guard = route.steps.size();
+    std::size_t visit = route.steps.size();
+    for (std::size_t i = 0; i < route.steps.size(); ++i)
+    {
+        Bots::RouteStep const& step = route.steps[i];
+        if (step.kind == Bots::RouteStepKind::Pack && route.packs[step.index].mobs[0].spawnGuid == 9)
+        {
+            guard = i;
+            EXPECT_EQ(route.packs[step.index].quest, 5722u);
+        }
+        if (step.kind == Bots::RouteStepKind::Point && route.points[step.index].name == "q5722_corpse")
+            visit = i;
+    }
+    ASSERT_LT(guard, route.steps.size());
+    ASSERT_LT(visit, route.steps.size());
+    EXPECT_LT(guard, visit);
+}

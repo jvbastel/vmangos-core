@@ -122,7 +122,7 @@ namespace Bots
         struct Event
         {
             float s;   // The distance along the center line.
-            int order; // At the same s: points, pulls, packs, visits, detours.
+            int order; // At the same s: points, pulls and packs, detours, visits.
             int sub;   // The order inside a detour.
             EventKind kind;
             Position center;
@@ -408,7 +408,23 @@ namespace Bots
                             best = Distance(line.At(s), visit.position);
                             bestS = s;
                         }
-                    Event event{bestS, 3, 0, EventKind::Visit, visit.position};
+                    // The packs that guard the spot come first. A guard off the
+                    // line becomes a pack of the quest.
+                    for (std::size_t p = 0; p < packs.size(); ++p)
+                    {
+                        if (DistanceToPack(visit.position, packs[p], spawns) >= settings.aggroRange)
+                            continue;
+                        if (!onRoute[p])
+                        {
+                            onRoute[p] = true;
+                            questOf[p] = quest.id;
+                            detours.push_back({p, quest.id});
+                            bestS = std::max(bestS, nearestS[p]);
+                        }
+                        else if (approach[p] >= 0.0f)
+                            bestS = std::max(bestS, approach[p]);
+                    }
+                    Event event{bestS, 5, 0, EventKind::Visit, visit.position};
                     event.quest = quest.id;
                     event.name = pointName = UniqueName(visitNames, name);
                     events.push_back(event);
@@ -455,12 +471,14 @@ namespace Bots
                 continue;
             float dx, dy;
             line.Direction(approach[p], dx, dy);
-            Event pull{approach[p], 1, 0, EventKind::Pull, line.At(approach[p])};
+            // Two packs that the line reaches at one spot: each pull point
+            // comes right before its own pack.
+            Event pull{approach[p], 1, int(2 * p), EventKind::Pull, line.At(approach[p])};
             pull.dx = dx;
             pull.dy = dy;
             pull.pack = p;
             events.push_back(pull);
-            Event fight{approach[p], 2, 0, EventKind::Pack, spawns[packs[p].members[0]].position};
+            Event fight{approach[p], 1, int(2 * p + 1), EventKind::Pack, spawns[packs[p].members[0]].position};
             fight.pack = p;
             events.push_back(fight);
             pullS.push_back(approach[p]);
