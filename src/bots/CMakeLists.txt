@@ -43,6 +43,7 @@ add_library(bots STATIC
   RogueModule.cpp
   Route.cpp
   RunScript.cpp
+  ScriptRunner.cpp
   SpellBook.cpp
   SpellFile.cpp
   Strategy.cpp
