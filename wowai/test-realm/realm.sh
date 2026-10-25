@@ -17,6 +17,7 @@
 #
 # `up` (with no dev build yet) and `build` build into WOWAI_DEV_INSTALL. For
 # the shared test realm in ~/wowai/dev-install, set WOWAI_DEV_SHARED_INSTALL=1.
+# Both hold the lock of the dev container until they end.
 #
 # The realm folder holds the settings (.env), the configuration, and the logs.
 # The Compose files stay in the fork. In the realm folder, `docker compose`
@@ -209,6 +210,7 @@ realm_need_dev_install() {
 }
 
 cmd_realm_up() {
+  lock_container
   realm_prepare
   realm_need_dev_install
   local since
@@ -224,6 +226,8 @@ cmd_realm_up() {
 }
 
 cmd_realm_build() {
+  guard_shared_install
+  lock_container
   realm_prepare
   cmd_build
   cmd_realm_migrate

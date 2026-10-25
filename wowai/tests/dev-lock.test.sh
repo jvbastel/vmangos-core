@@ -58,7 +58,7 @@ check "the container now mounts the second install folder" \
 
 echo "A call with another install folder while a command without the lock runs..."
 docker exec --detach "$(dev_container)" sleep 300
-wait_for_process "sleep 300" || fail "the command without the lock started"
+wait_for_process "sleep 300" || fail "the command without the lock did not start"
 if WOWAI_DEV_INSTALL="$tmp/install-c" "$dev" shell true > "$tmp/busy.log" 2>&1; then busy_status=0; else busy_status=$?; fi
 cat "$tmp/busy.log"
 check "the call stops with an error (exit $busy_status)" test "$busy_status" != 0
