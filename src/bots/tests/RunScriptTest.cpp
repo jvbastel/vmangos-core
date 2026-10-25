@@ -3,6 +3,9 @@
 
 #include <gtest/gtest.h>
 
+#include <fstream>
+#include <sstream>
+
 using Bots::ParseRunScript;
 using Bots::RunScript;
 using Bots::RunScriptResult;
@@ -178,4 +181,29 @@ TEST(RunScript, ChecksTheNamesAgainstTheRoute)
 
     RunScriptResult const pack = ParseRunScript(Head + "expect pack_dead shaman_pull\n");
     EXPECT_EQ(Bots::CheckRunScript(pack.script, route.route), "line 6: the route ragefire_chasm has no pack named shaman_pull");
+}
+
+namespace
+{
+    std::string ReadDataFile(std::string const& path)
+    {
+        std::ifstream in(std::string(BOT_DATA_DIR) + "/" + path, std::ios::binary);
+        std::ostringstream text;
+        text << in.rdbuf();
+        EXPECT_TRUE(in.good() || in.eof()) << path;
+        return text.str();
+    }
+}
+
+TEST(RunScriptData, TheRagefireChasmScriptFitsItsRouteFile)
+{
+    RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/ragefire_chasm.txt"));
+    ASSERT_TRUE(script.ok) << script.error;
+    Bots::RouteResult const route = Bots::ParseRoute(ReadDataFile("routes/" + script.script.route + ".txt"));
+    ASSERT_TRUE(route.ok) << route.error;
+
+    EXPECT_EQ(Bots::CheckRunScript(script.script, route.route), "");
+    EXPECT_NE(Bots::FindScenario(script.script, "taragaman"), nullptr);
+    EXPECT_NE(Bots::FindScenario(script.script, "enforcers"), nullptr);
+    EXPECT_EQ(route.route.bosses, (std::vector<std::uint32_t>{11517, 11520, 11518, 11519}));
 }
