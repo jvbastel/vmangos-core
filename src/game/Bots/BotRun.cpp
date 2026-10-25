@@ -12,6 +12,7 @@
 #include "BotRecipe.h"
 #include "CellImpl.h"
 #include "Chat.h"
+#include "Corpse.h"
 #include "Creature.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
@@ -38,6 +39,9 @@ namespace
 {
     // The fixed gear template of the test driver.
     char const* const DriverGear = "test_driver_mage";
+    // In a wipe, the members lie dead this long before they revive at the
+    // dungeon entrance.
+    int64 const WipeReviveDelayMs = 5000;
     // The longest time of one reset phase: the logins, the logouts, and the
     // teleport out of the dungeon.
     int64 const ResetPhaseLimitMs = 60000;
@@ -406,6 +410,7 @@ void BotRun::Update()
 
     if (m_teleportRest)
         TeleportRest();
+    ReviveTheDead();
     for (;;)
     {
         // The facts again after each command: a teleport changes them.
@@ -800,4 +805,59 @@ bool BotRun::ExpectAlive(std::string& detail)
             return false;
         }
     return true;
+}
+
+void BotRun::ReviveAt(Player* member, uint32 mapId, float x, float y, float z, float o)
+{
+    member->ResurrectPlayer(0.5f);
+    member->SpawnCorpseBones();
+    member->TeleportTo(mapId, x, y, z, o);
+}
+
+void BotRun::ReviveTheDead()
+{
+    std::vector<Player*> const members = Members();
+    std::vector<Player*> living;
+    for (Player* member : members)
+        if (InWorldAndStill(member) && member->IsAlive())
+            living.push_back(member);
+
+    if (!living.empty())
+        m_wipeMs = 0;
+    else if (members.size() == m_script.group.size() + 1)
+    {
+        int64 const now = SteadyMs();
+        if (!m_wipeMs)
+            m_wipeMs = now;
+        AreaTriggerTeleport const* entrance = sObjectMgr.GetMapEntranceTrigger(m_route.mapId);
+        if (now - m_wipeMs < WipeReviveDelayMs || !entrance)
+            return;
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: wipe: everyone revives at the dungeon entrance", m_number);
+        for (Player* member : members)
+            if (InWorldAndStill(member))
+                ReviveAt(member, entrance->destination.mapId, entrance->destination.x + frand(-2.0f, 2.0f),
+                    entrance->destination.y + frand(-2.0f, 2.0f), entrance->destination.z, entrance->destination.o);
+        m_wipeMs = 0;
+        return;
+    }
+    if (living.empty() || Facts().groupInCombat)
+        return;
+
+    // Only a released member: a dead body waits for the Priest's resurrect.
+    for (Player* member : members)
+    {
+        Corpse const* corpse = member->GetCorpse();
+        if (!InWorldAndStill(member) || member->IsAlive() || !member->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST) || !corpse)
+            continue;
+        Player* nearest = nullptr;
+        for (Player* other : living)
+            if (other->GetMapId() == corpse->GetMapId() && (!nearest ||
+                other->GetDistance(corpse) < nearest->GetDistance(corpse)))
+                nearest = other;
+        if (!nearest)
+            nearest = living.front();
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s revives at %s", m_number, member->GetName(), nearest->GetName());
+        ReviveAt(member, nearest->GetMapId(), nearest->GetPositionX(), nearest->GetPositionY(), nearest->GetPositionZ(),
+            nearest->GetOrientation());
+    }
 }

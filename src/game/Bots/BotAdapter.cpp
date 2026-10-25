@@ -7,12 +7,16 @@
 
 #include "BotAdapter.h"
 #include "BotLoot.h"
+#include "BotMgr.h"
+#include "GameRouteNav.h"
+#include "GhostWalk.h"
 #include "CastResult.h"
 #include "Bag.h"
 #include "Corpse.h"
 #include "Group.h"
 #include "Log.h"
 #include "MotionMaster.h"
+#include "ObjectMgr.h"
 #include "spline/MoveSpline.h"
 #include "CellImpl.h"
 #include "Creature.h"
@@ -71,12 +75,22 @@ namespace
 #endif
     }
 
-    // IsFightNear: how far it looks for a fight, and the margin around the
-    // aggro distance of a creature that goes home from a fight.
-    float const FightSearchYards = 100.0f;
-    float const HomeMarginYards = 5.0f;
+    // FindSafeCastPlace: the spots on rings around the target, as parts of
+    // the cast range, and their most height over or under the target. A
+    // spot, and each step of the path to it, keeps this margin out of the
+    // aggro distance of each enemy. How far it looks for enemies: the walk
+    // and the cast range, and this margin.
+    float const SafeRings[] = {0.9f, 0.6f, 0.3f};
+    int const SafeSpotsPerRing = 16;
+    float const SafeSpotHeightYards = 8.0f;
+    float const AggroMarginYards = 5.0f;
+    float const SafePathStepYards = 1.0f;
+    float const SafeSearchMarginYards = 40.0f;
+    float const MaxSafeSearchYards = 150.0f;
+    // MoveTo: a bot that walks to a spot this near keeps its path.
+    float const SameDestinationYards = 1.0f;
 
-    // The living creatures within `range` of `source`, for IsFightNear.
+    // The living creatures within `range` of `source`, for FindSafeCastPlace.
     struct LivingCreatureCheck
     {
         WorldObject const* source;
@@ -449,6 +463,14 @@ void BotAdapter::MoveTo(Bots::Position const& destination)
     // The library keeps the height of the bot: put the place on the ground.
     float z = destination.z;
     me->UpdateAllowedPositionZ(destination.x, destination.y, z);
+    // A bot that walks there already keeps its path: a new one each think
+    // would start the walk again.
+    if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE && !me->movespline->Finalized())
+    {
+        Vector3 const end = me->movespline->FinalDestination();
+        if (std::hypot(end.x - destination.x, end.y - destination.y) < SameDestinationYards)
+            return;
+    }
     me->GetMotionMaster()->MovePoint(0, destination.x, destination.y, z, MOVE_PATHFINDING | MOVE_RUN_MODE);
 }
 
@@ -593,15 +615,6 @@ Bots::Guid BotAdapter::GetGroupLeader() const
     return group ? group->GetLeaderGuid().GetRawValue() : Bots::NoGuid;
 }
 
-float BotAdapter::GetCorpseDistance(Bots::Guid unit) const
-{
-    Corpse const* corpse = me->GetCorpse();
-    Unit const* found = FindAnywhere(unit);
-    if (!corpse || !found || found->GetMapId() != corpse->GetMapId() || found->GetInstanceId() != corpse->GetInstanceId())
-        return std::numeric_limits<float>::max();
-    return found->GetDistance(corpse->GetPositionX(), corpse->GetPositionY(), corpse->GetPositionZ());
-}
-
 bool BotAdapter::CanResurrect(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
@@ -638,34 +651,89 @@ bool BotAdapter::IsDrinking() const
     return me->HasAuraType(SPELL_AURA_MOD_POWER_REGEN);
 }
 
-bool BotAdapter::IsFightNear(float yards) const
+bool BotAdapter::FindSafeCastPlace(Bots::Guid unit, float yards, Bots::Position& place) const
 {
-    // All living creatures in range, seen or not: a dead bot does not see
-    // every unit around its corpse. A fight can move far from the corpse (a
-    // boss chases the last fighter), so the search goes wider than `yards`.
-    float const searchYards = std::max(yards, FightSearchYards);
+    Unit const* target = Find(unit);
+    GameRouteNav nav(me);
+    if (!target || !nav.Ready())
+        return false;
+
+    // The enemies that a walk could pull: every living hostile creature
+    // around the bot and the target, seen or not, with its aggro distance.
+    struct Enemy
+    {
+        Creature const* creature;
+        float aggroYards;
+        float fromYards; // From the bot now.
+    };
+    std::vector<Enemy> enemies;
+    float const searchYards = std::min(me->GetDistance(target) + yards + SafeSearchMarginYards, MaxSafeSearchYards);
     std::list<Creature*> creatures;
     LivingCreatureCheck check = {me, searchYards};
     MaNGOS::CreatureListSearcher<LivingCreatureCheck> searcher(creatures, check);
     Cell::VisitGridObjects(me, searcher, searchYards);
     for (Creature const* creature : creatures)
-    {
-        if (creature->IsPet() || creature->IsFriendlyTo(me))
-            continue;
-        float const aggroYards = creature->IsHostileTo(me) ? creature->GetAttackDistance(me) : 0.0f;
-        // A creature in evade mode runs home from a fight and stays out of
-        // combat until it is there.
-        if (creature->IsInCombat() || creature->IsInEvadeMode())
+        if (!creature->IsPet() && creature->IsHostileTo(me))
+            enemies.push_back({creature, creature->GetAttackDistance(me), me->GetDistance(creature)});
+    // A spot pulls an enemy within its aggro distance and the margin. On
+    // the path, a step that goes no nearer to an enemy than the bot is now
+    // is fine outside its aggro distance: the bot may stand that near.
+    auto pulls = [&enemies](Bots::Position const& at, bool onPath) {
+        for (Enemy const& enemy : enemies)
         {
-            if (me->IsWithinDistInMap(creature, yards))
+            float const distance = enemy.creature->GetDistance(at.x, at.y, at.z);
+            if (distance < enemy.aggroYards)
                 return true;
-            Position const& home = creature->GetHomePosition();
-            if (aggroYards > 0.0f && me->IsWithinDist3d(home.x, home.y, home.z, aggroYards + HomeMarginYards))
+            if (distance < enemy.aggroYards + AggroMarginYards && (!onPath || distance < enemy.fromYards - 0.5f))
                 return true;
-            continue;
         }
-        if (aggroYards > 0.0f && me->IsWithinDistInMap(creature, aggroYards))
+        return false;
+    };
+
+    // The spots on rings around the target, nearest to the bot first.
+    Bots::Position const from{me->GetPositionX(), me->GetPositionY(), me->GetPositionZ()};
+    std::vector<Bots::Position> spots;
+    for (float ring : SafeRings)
+        for (int i = 0; i < SafeSpotsPerRing; ++i)
+        {
+            float const angle = float(i) * 2.0f * float(M_PI) / float(SafeSpotsPerRing);
+            float x = target->GetPositionX() + std::cos(angle) * ring * yards;
+            float y = target->GetPositionY() + std::sin(angle) * ring * yards;
+            float z = target->GetPositionZ();
+            me->UpdateAllowedPositionZ(x, y, z);
+            if (std::fabs(z - target->GetPositionZ()) <= SafeSpotHeightYards)
+                spots.push_back({x, y, z});
+        }
+    std::sort(spots.begin(), spots.end(), [&from](Bots::Position const& a, Bots::Position const& b) {
+        return std::hypot(a.x - from.x, a.y - from.y) < std::hypot(b.x - from.x, b.y - from.y);
+    });
+
+    std::vector<Bots::Position> path;
+    for (Bots::Position const& spot : spots)
+    {
+        if (pulls(spot, false) || nav.OnLava(spot) || !nav.OnMesh(spot) ||
+            !target->IsWithinLOS(spot.x, spot.y, spot.z + BodyHeightYards))
+            continue;
+        // Path leaves out lava and slime.
+        if (!nav.Path(from, spot, path))
+            continue;
+        bool safe = true;
+        for (std::size_t i = 1; i < path.size() && safe; ++i)
+        {
+            float const length = std::hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+            int const steps = std::max(1, int(length / SafePathStepYards));
+            for (int k = 0; k <= steps && safe; ++k)
+            {
+                float const t = float(k) / float(steps);
+                safe = !pulls({path[i - 1].x + (path[i].x - path[i - 1].x) * t, path[i - 1].y + (path[i].y - path[i - 1].y) * t,
+                    path[i - 1].z + (path[i].z - path[i - 1].z) * t}, true);
+            }
+        }
+        if (safe)
+        {
+            place = spot;
             return true;
+        }
     }
     return false;
 }
@@ -676,29 +744,36 @@ void BotAdapter::Release()
     me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(CMSG_REPOP_REQUEST));
 }
 
-void BotAdapter::ReviveAtCorpse()
+void BotAdapter::WalkAsGhost()
 {
-    if (me->IsAlive())
+    if (me->IsAlive() || !me->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST) || me->IsBeingTeleported())
         return;
-    if (!me->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
-        me->BuildPlayerRepop();
+    // A scripted run revives its ghosts itself (BotRun::ReviveTheDead).
+    Group const* group = me->GetGroup();
+    if (group && sBotMgr.IsTestDriver(group->GetLeaderGuid()))
+        return;
     Corpse const* corpse = me->GetCorpse();
     if (!corpse)
         return;
-    uint32 const mapId = corpse->GetMapId();
-    float const x = corpse->GetPositionX();
-    float const y = corpse->GetPositionY();
-    float const z = corpse->GetPositionZ();
-    float const o = corpse->GetOrientation();
-    bool const atCorpse = me->GetMapId() == mapId && me->GetDistance(x, y, z) < CORPSE_RECLAIM_RADIUS;
+    uint32 const dungeon = corpse->GetMapId();
+    Bots::Route const* route = sBotMgr.GhostRoute(dungeon);
+    if (!route || route->mapId != me->GetMapId())
+        return;
 
-    // Like the reclaim of a client at its corpse, with no 30 second wait.
-    me->ResurrectPlayer(0.5f);
-    me->SpawnCorpseBones();
-    // A ghost at the graveyard goes to where its corpse was.
-    if (!atCorpse)
-        me->TeleportTo(mapId, x, y, z, o);
-    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s revives at its corpse", me->GetName());
+    Bots::GhostStep const step = Bots::NextGhostStep(*route, GetPosition(GetSelf()));
+    if (!step.atPortal)
+    {
+        MoveTo(step.next);
+        return;
+    }
+    // Into the portal, like the area trigger of a client: a ghost whose
+    // corpse is in the dungeon is alive again at its entrance.
+    AreaTriggerTeleport const* entrance = sObjectMgr.GetMapEntranceTrigger(dungeon);
+    if (!entrance)
+        return;
+    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s enters map %u as a ghost", me->GetName(), dungeon);
+    me->TeleportTo(entrance->destination.mapId, entrance->destination.x, entrance->destination.y,
+        entrance->destination.z, entrance->destination.o);
 }
 
 void BotAdapter::UseRestItem(uint32 entry)
