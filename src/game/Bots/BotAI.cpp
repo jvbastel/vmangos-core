@@ -204,6 +204,8 @@ void BotAI::HandleCommand(BotCommandMessage const& message)
         // A bot that is no tank ignores `pull` without a line.
         if (!*outcome.line)
             return;
+        sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s refuses %s: %s", me->GetName(),
+            Bots::BotCommandWord(message.kind), outcome.line);
         // The bot manager sends the line on the world thread.
         sBotMgr.QueueLine({me->GetObjectGuid(), message.chatType, message.player, outcome.line});
         return;
@@ -463,7 +465,8 @@ bool BotAI::IsNearPlayer() const
     for (auto const& ref : me->GetMap()->GetPlayers())
     {
         Player const* player = ref.getSource();
-        if (player && player != me && !player->IsBot() && player->IsWithinDist(me, NearPlayerYards))
+        if (player && player != me && (!player->IsBot() || sBotMgr.IsTestDriver(player->GetObjectGuid())) &&
+            player->IsWithinDist(me, NearPlayerYards))
             return true;
     }
     return false;

@@ -10,6 +10,9 @@
 //   .wowai bot login <name>
 //   .wowai bot logout <name>
 //   .wowai gear equip <character> [template]
+//   .wowai run start <script> <scenario>   (a scripted run, see BotRun.h)
+//   .wowai run status
+//   .wowai run stop
 // They work in the game and on the console and SOAP.
 
 #include "BotMgr.h"
@@ -85,6 +88,39 @@ bool ChatHandler::HandleWowaiGearEquipCommand(char* args)
         sBotMgr.EquipCharacter(words[0], words.size() == 2 ? words[1] : "", report, error))
     {
         SendSysMessage(report.c_str());
+        return true;
+    }
+    SendSysMessage(error.c_str());
+    SetSentErrorMessage(true);
+    return false;
+}
+
+bool ChatHandler::HandleWowaiRunStartCommand(char* args)
+{
+    std::vector<std::string> words = Words(args);
+    std::string error = "Usage: .wowai run start <script> <scenario>";
+    if (words.size() == 2 && sBotMgr.Run().Start(sBotMgr.GetSettings().dataDir, words[0], words[1], error))
+    {
+        SendSysMessage(sBotMgr.Run().Status().c_str());
+        return true;
+    }
+    SendSysMessage(error.c_str());
+    SetSentErrorMessage(true);
+    return false;
+}
+
+bool ChatHandler::HandleWowaiRunStatusCommand(char* /*args*/)
+{
+    SendSysMessage(sBotMgr.Run().Status().c_str());
+    return true;
+}
+
+bool ChatHandler::HandleWowaiRunStopCommand(char* /*args*/)
+{
+    std::string error;
+    if (sBotMgr.Run().Stop(error))
+    {
+        SendSysMessage(sBotMgr.Run().Status().c_str());
         return true;
     }
     SendSysMessage(error.c_str());

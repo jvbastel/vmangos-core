@@ -42,6 +42,10 @@ add_library(bots STATIC
   PriestModule.cpp
   RogueModule.cpp
   Route.cpp
+  RouteGenerator.cpp
+  RouteQuests.cpp
+  RunScript.cpp
+  ScriptRunner.cpp
   SpellBook.cpp
   SpellFile.cpp
   StartDelay.cpp

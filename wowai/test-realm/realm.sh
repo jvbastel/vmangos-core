@@ -6,7 +6,8 @@
 #                                    migrations, and start the test realm.
 #                                    Waits for "World initialized.".
 #   wowai/dev realm setup            Create the GM account again (`up` does it
-#                                    too) and restart a running mangosd.
+#                                    too) and restart a running mangosd. Then
+#                                    create the bots of the scripted runs.
 #   wowai/dev realm build            Dev build, apply the new migrations, and
 #                                    `docker compose restart mangosd`.
 #   wowai/dev realm migrate          Apply each new file of sql/migrations/ once.
@@ -119,6 +120,10 @@ EOF
       -e 's/^SOAP.Enabled = .*/SOAP.Enabled = 1/' \
       > "$realm_dir/config/mangosd.conf"
   fi
+  # The settings that the scripted runs need, also in an older file: each
+  # run enters a new instance of the dungeon.
+  sed -i -e 's/^Instance.PerHourLimit = .*/Instance.PerHourLimit = 100000/' \
+    -e 's/^Instance.UnloadDelay = .*/Instance.UnloadDelay = 120000/' "$realm_dir/config/mangosd.conf"
   if [ ! -f "$realm_dir/config/realmd.conf" ]; then
     tr -d '\r' < "$example/realmd.conf.example" > "$realm_dir/config/realmd.conf"
   fi
@@ -211,6 +216,7 @@ cmd_realm_up() {
   realm_setup_accounts
   realm_compose up --detach "$@"
   realm_wait_for_world "$since"
+  realm_setup_bots
   echo "The test realm runs: login port $(realm_env WOWAI_REALM_LOGIN_PORT), world port $(realm_env WOWAI_REALM_WORLD_PORT), SOAP 127.0.0.1:$(realm_env WOWAI_REALM_SOAP_PORT)."
 }
 
@@ -261,6 +267,48 @@ SQL
   echo "GM account: $account, password: $password (in $realm_dir/.env)."
 }
 
+# A GM command over SOAP. Prints the answer of mangosd.
+realm_soap() {
+  local account password
+  account="$(realm_env WOWAI_REALM_GM_ACCOUNT)"
+  password="$(realm_env WOWAI_REALM_GM_PASSWORD)"
+  curl --silent --show-error --max-time 30 --user "$account:$password" --header 'Content-Type: text/xml' \
+    --data "<?xml version=\"1.0\" encoding=\"utf-8\"?><SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:ns1=\"urn:MaNGOS\"><SOAP-ENV:Body><ns1:executeCommand><command>$1</command></ns1:executeCommand></SOAP-ENV:Body></SOAP-ENV:Envelope>" \
+    "http://127.0.0.1:$(realm_env WOWAI_REALM_SOAP_PORT)/" | tr '\n' ' ' |
+    sed -e 's/&#xD;//g' -e 's/.*<result>//' -e 's/<\/result>.*//' -e 's/.*<faultstring>//' -e 's/<\/faultstring>.*//'
+  echo
+}
+
+# The bots of the scripted runs (bots/data/bottests/*.txt name them): the
+# four version 1 bots and the test driver, a frost Mage with a fixed gear
+# template. `.wowai bot create` makes the bot accounts too. A bot that
+# exists already stays as it is.
+realm_bots=(
+  "Grukk warrior tank"
+  "Hela priest healer"
+  "Shanka rogue melee"
+  "Morzul warlock ranged"
+  "Ezzra mage ranged troll gear test_driver_mage"
+)
+
+realm_setup_bots() {
+  local recipe name i
+  # SOAP answers a little after "World initialized.".
+  for i in $(seq 1 30); do
+    realm_soap 'server info' 2>/dev/null | grep -q 'Players online' && break
+    sleep 2
+  done
+  for recipe in "${realm_bots[@]}"; do
+    name="${recipe%% *}"
+    if [ -n "$(realm_mariadb characters -e "SELECT 1 FROM \`characters\` WHERE \`name\` = '$name'")" ]; then
+      echo "Bot $name: exists."
+      continue
+    fi
+    echo "Bot $name: $(realm_soap ".wowai bot create $recipe")"
+    sleep 1
+  done
+}
+
 # mangosd reads the GM levels of the accounts only at startup.
 cmd_realm_setup() {
   realm_compose up --detach --wait --wait-timeout 1800 database
@@ -271,6 +319,7 @@ cmd_realm_setup() {
     echo "Restarting mangosd, so that it reads the accounts again..."
     realm_compose restart mangosd
     realm_wait_for_world "$since"
+    realm_setup_bots
   fi
 }
 

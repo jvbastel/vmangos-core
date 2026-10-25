@@ -303,6 +303,9 @@ class ChatHandler
         bool HandleWowaiBotLoginCommand(char* args);
         bool HandleWowaiBotLogoutCommand(char* args);
         bool HandleWowaiGearEquipCommand(char* args);
+        bool HandleWowaiRunStartCommand(char* args);
+        bool HandleWowaiRunStatusCommand(char* args);
+        bool HandleWowaiRunStopCommand(char* args);
         // WOWAI route recorder (src/game/Bots/RouteCommands.cpp)
         bool HandleRouteStartCommand(char* args);
         bool HandleRouteAddPointCommand(char* args);
@@ -313,6 +316,12 @@ class ChatHandler
         bool HandleRouteUndoCommand(char* args);
         bool HandleRouteShowCommand(char* args);
         bool HandleRouteStopCommand(char* args);
+        bool HandleRouteRemoveMobCommand(char* args);
+        bool HandleRouteGenerateCommand(char* args);
+        bool HandleRouteWalkCommand(char* args);
+        bool HandleRouteNextCommand(char* args);
+        bool HandleRouteBackCommand(char* args);
+        bool HandleRouteGoCommand(char* args);
         bool HandleBattleBotAddAlteracCommand(char* args);
         bool HandleBattleBotAddArathiCommand(char* args);
         bool HandleBattleBotAddWarsongCommand(char* args);

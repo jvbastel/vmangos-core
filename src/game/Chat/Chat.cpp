@@ -105,10 +105,19 @@ ChatCommand * ChatHandler::getCommandTable()
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 
+    static ChatCommand wowaiRunCommandTable[] =
+    {
+        { "start",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiRunStartCommand,       "", nullptr },
+        { "status",     SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiRunStatusCommand,      "", nullptr },
+        { "stop",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiRunStopCommand,        "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
     static ChatCommand wowaiCommandTable[] =
     {
         { "bot",        SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiBotCommandTable },
         { "gear",       SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiGearCommandTable },
+        { "run",        SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiRunCommandTable },
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 
@@ -122,6 +131,12 @@ ChatCommand * ChatHandler::getCommandTable()
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 
+    static ChatCommand routeRemoveCommandTable[] =
+    {
+        { "mob",        SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteRemoveMobCommand,      "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
     static ChatCommand routeCommandTable[] =
     {
         { "start",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteStartCommand,          "", nullptr },
@@ -129,6 +144,12 @@ ChatCommand * ChatHandler::getCommandTable()
         { "undo",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteUndoCommand,           "", nullptr },
         { "show",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteShowCommand,           "", nullptr },
         { "stop",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteStopCommand,           "", nullptr },
+        { "remove",     SEC_ADMINISTRATOR,      true,  nullptr,                                        "", routeRemoveCommandTable },
+        { "generate",   SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteGenerateCommand,       "", nullptr },
+        { "walk",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteWalkCommand,           "", nullptr },
+        { "next",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteNextCommand,           "", nullptr },
+        { "back",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteBackCommand,           "", nullptr },
+        { "go",         SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteGoCommand,             "", nullptr },
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 
@@ -1262,7 +1283,7 @@ ChatCommand * ChatHandler::getCommandTable()
         { "partybot",       SEC_ADMINISTRATOR,  false, nullptr,                       "Manage party bots", partyBotCommandTable },
         { "battlebot",      SEC_ADMINISTRATOR,  true, nullptr,                      "Manage battle bots", battleBotCommandTable},
         { "wowai",          SEC_ADMINISTRATOR,  true, nullptr,                          "Manage WOWAI bots", wowaiCommandTable    },
-        { "route",          SEC_ADMINISTRATOR,  true, nullptr,                "Record WOWAI dungeon routes", routeCommandTable    },
+        { "route",          SEC_ADMINISTRATOR,  true, nullptr,                "Record, generate, and walk WOWAI dungeon routes", routeCommandTable    },
         { "world",          SEC_ADMINISTRATOR,  false, nullptr,                                        "", worldCommandTable    },
         { "possess",        SEC_GAMEMASTER,     false, &ChatHandler::HandlePossessCommand,             "", nullptr              },
         { "cinematic",      SEC_DEVELOPER,      false, nullptr,                                        "", cinematicCommandTable},
