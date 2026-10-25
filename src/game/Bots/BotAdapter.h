@@ -55,6 +55,8 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         uint32 GetEntry(Bots::Guid unit) const override;
         Bots::Position GetPosition(Bots::Guid unit) const override;
         float GetWallDistance(Bots::Position const& from, float angle, float maxYards) const override;
+        bool IsHarmfulGround(Bots::Position const& place) const override;
+        bool CanSeeFrom(Bots::Position const& place, Bots::Guid unit) const override;
         Bots::LifeState GetLifeState(Bots::Guid unit) const override;
         Bots::Guid GetGroupLeader() const override;
         bool CanResurrect(Bots::Guid unit) const override;

@@ -121,6 +121,12 @@ namespace Bots
         // `angle` (radians, as the orientation of a unit: 0 is +x, pi/2 is
         // +y), at the height of a body. `maxYards` when no wall is nearer.
         virtual float GetWallDistance(Position const& from, float angle, float maxYards) const = 0;
+        // The ground at `place` (x and y; z is a height near it) lies in
+        // harmful liquid, such as lava or slime.
+        virtual bool IsHarmfulGround(Position const& place) const = 0;
+        // A bot on the ground at `place` would see unit `unit` (line of
+        // sight, as for a cast). False for a unit that the bot cannot see.
+        virtual bool CanSeeFrom(Position const& place, Guid unit) const = 0;
 
         // Death and rest.
         // The life state of unit `unit`. Alive for a unit that the bot
