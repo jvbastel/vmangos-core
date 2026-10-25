@@ -47,6 +47,15 @@ namespace Bots
         Poison,
     };
 
+    // A living hostile creature near the bot, which a walk could pull
+    // (SafePlace.h).
+    struct NearEnemy
+    {
+        Position position;
+        float aggroYards;  // Its aggro distance for this bot.
+        float radiusYards; // Its body: distances to it end at its edge.
+    };
+
     class BotView
     {
     public:
@@ -122,7 +131,10 @@ namespace Bots
         // +y), at the height of a body. `maxYards` when no wall is nearer.
         virtual float GetWallDistance(Position const& from, float angle, float maxYards) const = 0;
         // The ground at `place` (x and y; z is a height near it) lies in
-        // harmful liquid, such as lava or slime.
+        // harmful liquid, such as lava or slime. The one lava check of the
+        // bots' safe places (SafePlace.h): the liquid of the map grid, from
+        // which the game deals the lava damage. The lava polygons of the
+        // navmesh only steer FindGroundPath round the lava.
         virtual bool IsHarmfulGround(Position const& place) const = 0;
         // A bot on the ground at `place` would see unit `unit` (line of
         // sight, as for a cast). False for a unit that the bot cannot see.
@@ -143,15 +155,17 @@ namespace Bots
         virtual bool IsEating() const = 0;
         // True when the bot drinks now: it has the aura of its drink.
         virtual bool IsDrinking() const = 0;
-        // A place within `yards` of unit `unit`, in its line of sight, for a
-        // spell on it, for example the resurrect of a corpse. The bot walks
-        // there on the ground on a path that pulls no enemy (the path and
-        // the place keep out of the aggro distance of every living enemy)
-        // and crosses no harmful ground such as lava (IsHarmfulGround), and
-        // the unit is in sight from the place (CanSeeFrom). The place nearest to
-        // the bot. False when there is none, and for a unit too far away to
-        // know the enemies on the way (about 80 yards).
-        virtual bool FindSafeCastPlace(Guid unit, float yards, Position& place) const = 0;
+        // Places to move to, for the safe places of SafePlace.h.
+        // `place` on the ground near its height z, as MoveTo puts it.
+        virtual Position GetGround(Position const& place) const = 0;
+        // A walk on the ground from `from` to `to`, as corners, from the
+        // navmesh. The navmesh leaves out lava and slime polygons, so the
+        // path goes round them where it can. False when `to` is off the
+        // navmesh or has no path, and with no navmesh at all.
+        virtual bool FindGroundPath(Position const& from, Position const& to, std::vector<Position>& path) const = 0;
+        // Every living hostile creature within `yards` of the bot, seen or
+        // not, but no pet.
+        virtual std::vector<NearEnemy> GetEnemiesNear(float yards) const = 0;
     };
 }
 

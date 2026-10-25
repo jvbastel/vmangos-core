@@ -104,6 +104,26 @@ TEST(TaragamanReaction, ARangedBotDoesNotMoveOutIntoLava)
     EXPECT_EQ(mage.fake.Deeds(), Moves("move to 8 13.86 0"));
 }
 
+TEST(TaragamanReaction, ARangedBotDoesNotWalkThroughLavaToASafePlace)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+    // The place 16 yards straight out is safe, but the way to it crosses a
+    // lava strip. 30 degrees off, the way passes beside the strip.
+    mage.fake.AddLavaArea(8, 10, -1, 1);
+
+    EXPECT_EQ(mage.Think(), "stay out of fire nova");
+    EXPECT_EQ(mage.fake.Deeds(), Moves("move to 13.86 8 0"));
+}
+
+TEST(TaragamanReaction, ARangedBotDoesNotMoveOutWithNoGroundPath)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+    mage.fake.AddNoPathFromX(10);
+
+    EXPECT_EQ(mage.Think(), "stay out of fire nova");
+    EXPECT_EQ(mage.fake.Deeds(), Moves("move to 8 13.86 0"));
+}
+
 TEST(TaragamanReaction, ARangedBotMovesOutOnlyToAPlaceInSightOfHim)
 {
     InFight mage(Mage, BotRole::Ranged, {5, 0, 0});

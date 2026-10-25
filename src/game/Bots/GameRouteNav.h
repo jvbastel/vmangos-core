@@ -17,7 +17,7 @@
 class Player;
 
 // The navmesh of the map of a walker, for the route generator and for the
-// safe cast place of a bot (BotAdapter::FindSafeCastPlace). Paths come from
+// safe cast place of a bot (BotAdapter::FindGroundPath). Paths come from
 // PathInfo with the walker, so they leave out lava like the path of a
 // walking player.
 //

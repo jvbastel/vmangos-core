@@ -70,6 +70,36 @@ TEST(DamageTarget, TheFocusTargetWhenTheTankFightsBackOutsideAPull)
     EXPECT_EQ(bot.Target(), Wolf);
 }
 
+// Outside a pull, the focus that still hits another member is not the
+// tank's yet: the damage of the others would add to their threat on it, and
+// the tank's taunt only evens the threat (WOWAI#73 review).
+TEST(DamageTarget, WaitsWhileTheFocusOutsideAPullHitsAnotherMember)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(bot.Target(), NoGuid);
+
+    bot.fake.SetVictim(Wolf, Tank);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
+TEST(DamageTarget, TheFocusOnAnotherMemberWhenTheTankIsDead)
+{
+    DamageBot bot;
+    bot.fake.SetHealth(Tank, 0, 600);
+    bot.group.SetTank(Tank);
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, 0x12);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
 TEST(DamageTarget, TheAttackTargetOfThePlayerComesFirst)
 {
     DamageBot bot;

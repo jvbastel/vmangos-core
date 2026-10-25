@@ -257,11 +257,13 @@ namespace
             fake.SetAura(Healer, Priest::InnerFire);
         }
 
-        // Member `member` died out of the reach of the resurrect.
+        // Member `member` died out of the reach of the resurrect, 50
+        // yards east of the Priest at the origin.
         void DieOutOfReach(Bots::Guid member)
         {
             Die(member);
             fake.SetDistance(member, 50.0f);
+            fake.SetPosition(member, {50.0f, 0.0f, 0.0f});
             fake.SetCannotCastOn(Priest::Resurrection, member);
         }
     };
@@ -283,10 +285,11 @@ TEST(Resurrect, AfterTheFightThePriestWalksToASafePlaceNearACorpseOutOfReach)
 {
     GroupPriest bot;
     bot.DieOutOfReach(Mage);
-    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f});
 
     EXPECT_EQ(bot.Think(), "go to a corpse out of reach");
-    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"move to 12 -3.5 7"}));
+    // The safe place nearest to the Priest (SafePlace.h), 0.9 of the 26
+    // yards of the cast from the corpse.
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"keep move to 26.6 0 0"}));
     EXPECT_FALSE(bot.group.IsResurrectGivenUp(Mage));
 }
 
@@ -298,18 +301,20 @@ TEST(Resurrect, ThePriestWalksToACorpseInReachButOutOfSight)
     GroupPriest bot;
     bot.Die(Mage);
     bot.fake.SetCannotCastOn(Priest::Resurrection, Mage);
-    bot.fake.AddBlindFromX(-1000.0f);
-    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f});
+    // The Priest 60 yards east of the corpse, where the corpse is out of
+    // sight from x = 50 on.
+    bot.fake.SetPosition(Healer, {60.0f, 0.0f, 0.0f});
+    bot.fake.SetPosition(Mage, {0.0f, 0.0f, 0.0f});
+    bot.fake.AddBlindFromX(50.0f);
 
     EXPECT_EQ(bot.Think(), "go to a corpse out of reach");
-    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"move to 12 -3.5 7"}));
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"keep move to 23.4 0 0"}));
 }
 
 TEST(Resurrect, ThePriestDoesNotWalkToACorpseInAFight)
 {
     GroupPriest bot;
     bot.DieOutOfReach(Mage);
-    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f});
     bot.fake.SetInCombat(Tank);
 
     EXPECT_NE(bot.Think(), "go to a corpse out of reach");
@@ -321,8 +326,8 @@ TEST(Resurrect, WithNoSafePlaceInCastRangeThePriestGivesUpTheResurrect)
 {
     GroupPriest bot;
     bot.DieOutOfReach(Mage);
-
     bot.fake.SetPosition(Healer, {1.0f, 2.0f, 3.0f});
+    bot.fake.AddLavaFromX(-1000.0f);
 
     bot.Think();
 
@@ -337,11 +342,11 @@ TEST(Resurrect, ThePriestStopsAndGivesUpWhenThePlaceIsNoLongerSafe)
     GroupPriest bot;
     bot.DieOutOfReach(Mage);
     bot.fake.SetPosition(Healer, {1.0f, 2.0f, 3.0f});
-    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f});
     bot.Think();
     bot.fake.ClearDeeds();
 
-    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f}, false);
+    // A pack with a long aggro distance came to the corpse.
+    bot.fake.AddEnemy({50.0f, 0.0f, 0.0f}, 30.0f);
     bot.Think();
 
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"move to 1 2 3"}));

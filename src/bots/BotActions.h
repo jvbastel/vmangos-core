@@ -14,8 +14,13 @@ namespace Bots
 
         // Cast spell `spell` on unit `target`.
         virtual void CastSpell(SpellId spell, Guid target) = 0;
-        // Move to `destination`.
+        // Move to `destination`, on a new path.
         virtual void MoveTo(Position const& destination) = 0;
+        // Move to `destination`, but a bot that already walks to about that
+        // spot keeps its path: for a long walk that a rule repeats each
+        // think, such as the walk to a corpse. A new path each think would
+        // start the walk again.
+        virtual void KeepMovingTo(Position const& destination) = 0;
         // Start the melee attack of unit `target`.
         virtual void Attack(Guid target) = 0;
         // Run to unit `target` and stay in melee range of it.

@@ -3280,6 +3280,12 @@ BattleBot.AutoJoin = 0
 #        Folder of the bot data files: gear templates, talent builds, and spell files.
 #        Default: "bots"
 #
+#    Bots.Run.LostMobMs
+#        A scripted run (.wowai run) fails with a lost mob: an enemy hits a group member and no member or
+#        pet attacks it (its melee victim or selected target) for longer than this, in milliseconds. An enemy
+#        on the tank while the tank fights counts as held, not lost.
+#        Default: 10000
+#
 ###################################################################################################################
 
 Bots.Enable = 1
@@ -3290,6 +3296,7 @@ Bots.ThinkMs.Far = 3000
 Bots.StartDelayMs.Min = 300
 Bots.StartDelayMs.Max = 1500
 Bots.DataDir = "bots"
+Bots.Run.LostMobMs = 10000
 
 ###################################################################################################################
 # WOWAI BOT CHAT

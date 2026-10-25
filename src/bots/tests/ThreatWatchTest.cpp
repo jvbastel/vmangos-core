@@ -79,3 +79,126 @@ TEST(ThreatWatch, EachEnemyAndMemberCountsApart)
     ASSERT_EQ(watch.Losses().size(), 1u);
     EXPECT_EQ(watch.Losses()[0].enemy, Other);
 }
+
+// A lost mob: an enemy hits a group member (the tank too), and no bot
+// attacks it, for more than the limit (10 seconds by default). It fails the
+// scripted run.
+namespace
+{
+    Bots::Guid const Tank = 0x11;
+}
+
+TEST(LostMobWatch, NoLostMobWithoutHits)
+{
+    Bots::LostMobWatch watch;
+    watch.Update({}, {}, 0);
+    watch.Update({}, {}, 20000);
+
+    EXPECT_TRUE(watch.LostMobs().empty());
+}
+
+TEST(LostMobWatch, AnEnemyThatHitsAMemberUnattackedForTenSecondsIsLost)
+{
+    Bots::LostMobWatch watch;
+    watch.Update({{Enforcer, Healer}}, {}, 0);
+    watch.Update({{Enforcer, Healer}}, {}, 10000);
+    EXPECT_TRUE(watch.LostMobs().empty());
+
+    watch.Update({{Enforcer, Healer}}, {}, 10500);
+
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].enemy, Enforcer);
+    EXPECT_EQ(watch.LostMobs()[0].member, Healer);
+    EXPECT_EQ(watch.LostMobs()[0].startMs, 0);
+    EXPECT_EQ(watch.LostMobs()[0].endMs, 10500);
+}
+
+TEST(LostMobWatch, AnEnemyThatABotAttacksIsNotLost)
+{
+    Bots::LostMobWatch watch;
+    for (std::int64_t now = 0; now <= 30000; now += 1000)
+        watch.Update({{Enforcer, Healer}}, {Enforcer}, now);
+
+    EXPECT_TRUE(watch.LostMobs().empty());
+}
+
+TEST(LostMobWatch, AnAttackStartsTheTimeAgain)
+{
+    Bots::LostMobWatch watch;
+    watch.Update({{Enforcer, Healer}}, {}, 0);
+    watch.Update({{Enforcer, Healer}}, {Enforcer}, 8000);
+    watch.Update({{Enforcer, Healer}}, {}, 9000);
+    watch.Update({{Enforcer, Healer}}, {}, 18000);
+
+    EXPECT_TRUE(watch.LostMobs().empty());
+}
+
+TEST(LostMobWatch, TheEnemyCountsOnAnyMemberItHits)
+{
+    Bots::LostMobWatch watch;
+    // It goes from the healer to the tank, and nobody attacks it. The tank
+    // does not fight: it holds nothing.
+    watch.Update({{Enforcer, Healer}}, {}, 0);
+    watch.Update({{Enforcer, Tank}}, {}, 6000);
+    watch.Update({{Enforcer, Tank}}, {}, 11000);
+
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].member, Tank);
+}
+
+TEST(LostMobWatch, AnEnemyThatStopsItsHitsStartsTheTimeAgain)
+{
+    Bots::LostMobWatch watch;
+    watch.Update({{Enforcer, Healer}}, {}, 0);
+    watch.Update({}, {}, 5000);
+    watch.Update({{Enforcer, Healer}}, {}, 6000);
+    watch.Update({{Enforcer, Healer}}, {}, 15000);
+
+    EXPECT_TRUE(watch.LostMobs().empty());
+}
+
+TEST(LostMobWatch, OneEnemyIsLostOnce)
+{
+    Bots::LostMobWatch watch;
+    watch.Update({{Enforcer, Healer}, {Other, Rogue}}, {}, 0);
+    watch.Update({{Enforcer, Healer}, {Other, Rogue}}, {Other}, 11000);
+    watch.Update({{Enforcer, Healer}}, {}, 12000);
+
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].enemy, Enforcer);
+    EXPECT_EQ(watch.LostMobs()[0].endMs, 12000);
+}
+
+TEST(LostMobWatch, TheLimitIsASetting)
+{
+    Bots::LostMobWatch watch(3000);
+    watch.Update({{Enforcer, Healer}}, {}, 0);
+    watch.Update({{Enforcer, Healer}}, {}, 3500);
+
+    EXPECT_EQ(watch.LostMobs().size(), 1u);
+}
+
+// The tank holds an add on itself while the group kills the focus: the add
+// is in the fight, not lost.
+TEST(LostMobWatch, AnEnemyOnTheTankThatFightsIsHeld)
+{
+    Bots::LostMobWatch watch;
+    for (std::int64_t now = 0; now <= 20000; now += 1000)
+        watch.Update({{Enforcer, Tank}}, {Other}, now, Tank);
+
+    EXPECT_TRUE(watch.LostMobs().empty());
+}
+
+TEST(LostMobWatch, AHeldEnemyThatTurnsToTheHealerStartsItsTime)
+{
+    Bots::LostMobWatch watch;
+    watch.Update({{Enforcer, Tank}}, {}, 0, Tank);
+    watch.Update({{Enforcer, Healer}}, {}, 5000, Tank);
+    watch.Update({{Enforcer, Healer}}, {}, 14000, Tank);
+    EXPECT_TRUE(watch.LostMobs().empty());
+
+    watch.Update({{Enforcer, Healer}}, {}, 15500, Tank);
+
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].startMs, 5000);
+}

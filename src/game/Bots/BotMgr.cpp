@@ -167,6 +167,7 @@ void BotMgr::LoadConfig()
     m_settings.startDelay.minMs = sConfig.GetIntDefault("Bots.StartDelayMs.Min", 300);
     m_settings.startDelay.maxMs = sConfig.GetIntDefault("Bots.StartDelayMs.Max", 1500);
     m_settings.dataDir = sConfig.GetStringDefault("Bots.DataDir", "bots");
+    m_settings.lostMobMs = std::max(1000, sConfig.GetIntDefault("Bots.Run.LostMobMs", int(Bots::LostMobMs)));
     AccountMgr::normalizeString(m_settings.accountPrefix);
     m_chat.LoadConfig();
 
@@ -381,6 +382,17 @@ bool BotMgr::RoleOfOurBot(Player const* player, std::string& role) const
         return false;
     role = m_bots.find(player->GetGUIDLow())->second.role;
     return true;
+}
+
+bool BotMgr::IsScriptedRunGroup(Group const* group) const
+{
+    return group && IsTestDriver(group->GetLeaderGuid());
+}
+
+bool BotMgr::BotRoleOf(Player const* player, Bots::BotRole& role) const
+{
+    std::string name;
+    return RoleOfOurBot(player, name) && Bots::ParseRoleName(name, role);
 }
 
 bool BotMgr::IsBotCharacter(ObjectGuid guid) const

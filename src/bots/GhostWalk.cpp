@@ -1,4 +1,5 @@
 #include "GhostWalk.h"
+#include "BotGeometry.h"
 
 #include <cmath>
 #include <limits>
@@ -10,11 +11,6 @@ namespace Bots
         Position PointAt(Route const& route, std::size_t index)
         {
             return route.points[index].places.front().position;
-        }
-
-        float Distance2d(Position const& a, Position const& b)
-        {
-            return std::hypot(a.x - b.x, a.y - b.y);
         }
 
         // The path turns at `at` by more than about 20 degrees.

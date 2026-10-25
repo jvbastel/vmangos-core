@@ -1,3 +1,4 @@
+#include "BotGeometry.h"
 #include "RouteGenerator.h"
 
 #include <gtest/gtest.h>
@@ -5,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
+using Bots::Distance2d;
 using Bots::GeneratorPack;
 using Bots::GeneratorSpawn;
 using Bots::Position;
@@ -102,11 +104,6 @@ namespace
             return last;
         }
     };
-
-    float Distance2d(Position const& a, Position const& b)
-    {
-        return std::hypot(a.x - b.x, a.y - b.y);
-    }
 }
 
 TEST(RoutePacks, CreatureGroupsAndCloseSpawnsMakeOnePack)
