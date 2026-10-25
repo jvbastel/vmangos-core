@@ -32,6 +32,8 @@ namespace
     float const NearPlayerYards = 100.0f;
     // A bot follows or comes to a player within this distance on its map.
     float const CommandReachYards = 100.0f;
+    // A spline this short is a turn on the spot, not a walk.
+    int32 const MaxTurnSplineMs = 50;
 
     // The clock of the group events of the coordinator.
     int64 SteadyMs()
@@ -251,7 +253,9 @@ void BotAI::UpdateStartDelay(uint32 diff)
     facts.command = m_commandState;
     facts.inCombat = me->IsInCombat();
     facts.followsPlayer = player && BotAdapter(me).GetFollowTarget() == player->GetObjectGuid().GetRawValue();
-    facts.botStands = me->movespline->Finalized();
+    // A turn to face a spell target is a spline of about 1 ms: the bot
+    // still stands.
+    facts.botStands = me->movespline->Finalized() || me->movespline->Duration() <= MaxTurnSplineMs;
     facts.playerMoves = player && player->IsMoving();
     Bots::StartGate::Result const result = m_startGate.Update(diff, facts, m_startDelay, sBotMgr.Random());
     switch (result.step)
@@ -281,8 +285,15 @@ void BotAI::UpdateStartDelay(uint32 diff)
             StartCommand(player);
         return;
     }
-    // Back to follow: the follow rule decides now, so the bot does not wait
-    // for its next think too.
+    if (result.reason == Bots::StartReason::PlayerMoves)
+    {
+        // The bot followed before its wait: it follows again.
+        if (player && IsInReach(player) && m_commandState == Bots::CommandState::Follow)
+            BotAdapter(me).Follow(player->GetObjectGuid().GetRawValue());
+        return;
+    }
+    // Back to follow after a fight: the follow rule decides now, so the bot
+    // does not wait for its next think too.
     if (me->IsAlive())
         Think();
 }
