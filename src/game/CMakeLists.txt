@@ -195,19 +195,6 @@ set (game_SRCS
     PlayerBots/BattleBotWaypoints.cpp
     PlayerBots/PlayerBotAI.cpp
     PlayerBots/PlayerBotMgr.cpp
-    Bots/BotAdapter.cpp
-    Bots/BotAI.cpp
-    Bots/BotChat.cpp
-    Bots/BotCommands.cpp
-    Bots/BotGear.cpp
-    Bots/BotHooks.cpp
-    Bots/BotLoot.cpp
-    Bots/BotLevelRoutine.cpp
-    Bots/BotMgr.cpp
-    Bots/BotRun.cpp
-    Bots/RouteCommands.cpp
-    Bots/RouteGenerate.cpp
-    Bots/RouteWalk.cpp
     Server/Protocol/Opcodes.cpp
     Server/Packets/Battleground.cpp
     Server/Packets/AuctionHouse.cpp
@@ -461,16 +448,6 @@ set (game_SRCS
     PlayerBots/BattleBotWaypoints.h
     PlayerBots/PlayerBotAI.h
     PlayerBots/PlayerBotMgr.h
-    Bots/BotAdapter.h
-    Bots/BotAI.h
-    Bots/BotChat.h
-    Bots/BotGear.h
-    Bots/BotHooks.h
-    Bots/BotLoot.h
-    Bots/BotLevelRoutine.h
-    Bots/BotMgr.h
-    Bots/RouteFiles.h
-    Bots/BotRun.h
     Server/Protocol/Opcodes.h
     Server/Protocol/Opcodes_active.h
     Server/Packet.h
@@ -536,6 +513,14 @@ set (game_SRCS
     vmap/WorldModel.h
 
 )
+
+# The fork's own folder Bots is a glob, so that a new file needs no CMake edit
+# (jvbastel/WOWAI#63). The upstream lists above stay written by hand.
+file(GLOB game_BOT_SRCS CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/Bots/*.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Bots/*.h"
+)
+list(APPEND game_SRCS ${game_BOT_SRCS})
 
 if((${CMAKE_VERSION} VERSION_LESS "3.16") OR USE_PCH_OLD)
   list(APPEND game_SRCS

@@ -17,46 +17,11 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   endif()
 endif()
 
-add_library(bots STATIC
-  BotAccounts.cpp
-  BotCommand.cpp
-  BossReactions.cpp
-  BotRecipe.cpp
-  CastResult.cpp
-  ChatClient.cpp
-  ChatContract.cpp
-  ChatHttp.cpp
-  ChatSessions.cpp
-  ClassModules.cpp
-  CommandState.cpp
-  CommonRules.cpp
-  DamageRules.cpp
-  DataTokenizer.cpp
-  DeathAndRest.cpp
-  GearDraw.cpp
-  GearTemplate.cpp
-  GroupCommand.cpp
-  GroupCoordinator.cpp
-  GroupRules.cpp
-  Loot.cpp
-  MageModule.cpp
-  PriestModule.cpp
-  RogueModule.cpp
-  Route.cpp
-  RouteGenerator.cpp
-  RouteQuests.cpp
-  RunScript.cpp
-  ScriptRunner.cpp
-  SpellBook.cpp
-  SpellFile.cpp
-  StartDelay.cpp
-  Strategy.cpp
-  TaragamanReaction.cpp
-  TalentBuild.cpp
-  ThinkTimer.cpp
-  WarlockModule.cpp
-  WarriorModule.cpp
-)
+# The source lists of the fork's own folders are globs, so that a new file
+# needs no CMake edit (jvbastel/WOWAI#63). CONFIGURE_DEPENDS makes the build
+# run CMake again when a file is added or removed.
+file(GLOB BOT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+add_library(bots STATIC ${BOT_SOURCES})
 target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # The header-only libraries of dep/include: nlohmann/json for the chat
