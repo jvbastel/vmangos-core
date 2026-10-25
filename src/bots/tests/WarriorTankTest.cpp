@@ -151,6 +151,22 @@ TEST(WarriorTank, TauntsTheFocusTargetOffAnotherGroupMember)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Kobold)}));
 }
 
+TEST(WarriorTank, TauntsAnotherEnemyOffAGroupMember)
+{
+    WarriorTank tank;
+    tank.fake.SetGroupMembers({Healer});
+    tank.InFightWithKobold();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Wolf)}));
+    EXPECT_EQ(tank.group.GetFocusTarget(), Kobold);
+}
+
 TEST(WarriorTank, SundersTheFocusTargetWithTheHighestKnownRank)
 {
     WarriorTank tank;

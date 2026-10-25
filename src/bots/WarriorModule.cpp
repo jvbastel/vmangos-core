@@ -53,6 +53,19 @@ namespace Bots
                 return NoGuid;
             }
 
+            // An enemy that hits another group member and is not the focus
+            // target: the tank taunts it off.
+            Guid PickLooseEnemy(BotContext const& context)
+            {
+                Guid const focus = context.group.GetFocusTarget();
+                for (Guid member : context.view.GetGroupMembers())
+                    if (member != Self(context))
+                        for (Guid attacker : context.view.GetAttackers(member))
+                            if (attacker != focus && IsAlive(context.view, attacker))
+                                return attacker;
+                return NoGuid;
+            }
+
             Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
             {
                 Rule rule;
@@ -126,6 +139,9 @@ namespace Bots
                         return FightsFocus(context) && victim != NoGuid && victim != Self(context);
                     },
                     Taunt, PickFocusTarget),
+                CastRule("taunt an enemy off a member", P + 54,
+                    [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
+                    Taunt, PickLooseEnemy),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
