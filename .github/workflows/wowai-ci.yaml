@@ -1,9 +1,11 @@
 # The CI of the WOWAI fork. On each push it builds the fork with the code
 # tests of the bot decision library (src/bots), runs them with ctest, and
 # makes sure that src/bots builds alone, without game headers (ADR 0002 of
-# WOWAI). `wowai/dev test` runs the same `wowai/bots-test.sh` locally.
+# WOWAI). `wowai/dev test` runs the same `wowai/bots-test.sh` locally. The
+# fork-rules job runs `wowai/fork-check.sh`: changed core files must be on
+# `wowai/core-allowlist.txt`, and the bot code has no DEBUG lines.
 #
-# The job runs in the base image of the dev container and of the
+# The bots job runs in the base image of the dev container and of the
 # vmangos-deploy build stage, with the same packages as
 # `wowai/dev-container/Dockerfile`. Keep the three in step.
 name: WOWAI CI
@@ -12,6 +14,29 @@ on:
   push:
 
 jobs:
+  fork-rules:
+    name: Check the core file allowlist and DEBUG lines
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository with its full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch upstream development
+        run: >-
+          git fetch --no-tags https://github.com/vmangos/core.git
+          +development:refs/remotes/upstream/development
+
+      - name: Test the fork rules check
+        run: wowai/tests/fork-check.test.sh
+
+      - name: Check the fork rules (wowai/core-allowlist.txt, no DEBUG lines)
+        run: wowai/fork-check.sh upstream/development
+
   bots:
     name: Build the fork and run the bot code tests
     runs-on: ubuntu-24.04
