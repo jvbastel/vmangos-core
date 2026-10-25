@@ -290,6 +290,21 @@ TEST(Resurrect, AfterTheFightThePriestWalksToASafePlaceNearACorpseOutOfReach)
     EXPECT_FALSE(bot.group.IsResurrectGivenUp(Mage));
 }
 
+// A corpse in reach but out of sight: CanCast fails, so the resurrect rule
+// skips it. The Priest walks to a place that sees it, or gives it up, so the
+// dead member never waits for a resurrect that cannot come.
+TEST(Resurrect, ThePriestWalksToACorpseInReachButOutOfSight)
+{
+    GroupPriest bot;
+    bot.Die(Mage);
+    bot.fake.SetCannotCastOn(Priest::Resurrection, Mage);
+    bot.fake.AddBlindFromX(-1000.0f);
+    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f});
+
+    EXPECT_EQ(bot.Think(), "go to a corpse out of reach");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"move to 12 -3.5 7"}));
+}
+
 TEST(Resurrect, ThePriestDoesNotWalkToACorpseInAFight)
 {
     GroupPriest bot;

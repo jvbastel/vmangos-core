@@ -799,7 +799,10 @@ void BotAdapter::WalkAsGhost()
         return;
     }
     // Into the portal, like the area trigger of a client: a ghost whose
-    // corpse is in the dungeon is alive again at its entrance.
+    // corpse is in the dungeon is alive again at its entrance. Database:
+    // TeleportTo resurrects the ghost in memory (Player::TeleportTo), and the
+    // normal player save writes it. Client: a bot has no client; BotAI answers
+    // the SMSG_NEW_WORLD of a far teleport with the worldport ack itself.
     AreaTriggerTeleport const* entrance = sObjectMgr.GetMapEntranceTrigger(dungeon);
     if (!entrance)
         return;

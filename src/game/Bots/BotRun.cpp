@@ -854,6 +854,11 @@ bool BotRun::ExpectAlive(std::string& detail)
     return true;
 }
 
+// Database: ResurrectPlayer and the teleport change only the in-memory
+// player; the next autosave or the logout at the end of the run writes them
+// (a bot runs with the normal player save). SpawnCorpseBones deletes the
+// corpse row at once. Client: a bot has no client; real players near the
+// member see the resurrect and the move through the normal update packets.
 void BotRun::ReviveAt(Player* member, uint32 mapId, float x, float y, float z, float o)
 {
     member->ResurrectPlayer(0.5f);

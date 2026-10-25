@@ -105,14 +105,18 @@ namespace Bots
                 return NoGuid;
             }
 
-            // The first dead member beyond the reach of the resurrect, or
-            // NoGuid.
+            // The first dead member beyond the reach of the resurrect, or out
+            // of the bot's sight (a wall, a step), or NoGuid. A corpse in
+            // reach but out of sight counts too: else no rule would take it,
+            // and the dead member would wait for a resurrect that never comes.
             Guid DeadMemberOutOfReach(BotContext const& context)
             {
                 if (!context.view.KnowsSpell(Resurrection))
                     return NoGuid;
+                Position const here = context.view.GetPosition(PickSelf(context));
                 for (Guid member : context.view.GetGroupMembers())
-                    if (MayResurrect(context, member) && context.view.GetDistance(member) > ResurrectReachYards)
+                    if (MayResurrect(context, member) && (context.view.GetDistance(member) > ResurrectReachYards
+                        || !context.view.CanSeeFrom(here, member)))
                         return member;
                 return NoGuid;
             }
@@ -120,7 +124,8 @@ namespace Bots
             // The bot walks to a safe place in cast range of the corpse. With
             // none, it does not go: it gives the resurrect up, and the dead
             // member runs back as a ghost. An enemy that came near the place
-            // on the way: the bot stops where it stands.
+            // on the way: the bot stops where it stands, and gives the
+            // resurrect up too.
             void GoToCorpse(BotContext const& context)
             {
                 Guid const member = DeadMemberOutOfReach(context);
