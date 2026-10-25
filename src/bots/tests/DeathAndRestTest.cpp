@@ -116,56 +116,45 @@ TEST(Death, ADeadBotDoesNothingElse)
     EXPECT_TRUE(bot.fake.Deeds().empty());
 }
 
-TEST(Death, AGhostRevivesAtItsCorpseWhenTheLeaderIsAliveNearIt)
+// No bot revives at its corpse on its own. A ghost runs back from the
+// graveyard to the dungeon, as a player does.
+TEST(Death, AGhostWalksBackToTheDungeon)
 {
     DeadMage bot;
     bot.fake.SetLifeState(Mage, LifeState::Ghost);
-    bot.fake.SetCorpseDistance(Player, 25.0f);
 
-    EXPECT_EQ(bot.Think(), "revive at the corpse");
-    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"revive at the corpse"}));
-    std::vector<GroupEvent> const events = bot.group.TakeEvents();
-    ASSERT_EQ(events.size(), 1u);
-    EXPECT_TRUE(IsRest(events[0], Mage, RestReason::Revive));
+    EXPECT_EQ(bot.Think(), "walk back as a ghost");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"walk as a ghost"}));
 }
 
-TEST(Death, AGhostWaitsWhileTheLeaderIsFarFromItsCorpse)
+TEST(Death, AGhostNearTheLivingLeaderDoesNotReviveAtItsCorpse)
 {
     DeadMage bot;
     bot.fake.SetLifeState(Mage, LifeState::Ghost);
-    bot.fake.SetCorpseDistance(Player, 45.0f);
+    bot.fake.SetDistance(Player, 5.0f);
 
-    EXPECT_EQ(bot.Think(), "wait dead");
+    EXPECT_EQ(bot.Think(), "walk back as a ghost");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"walk as a ghost"}));
 }
 
-TEST(Death, AGhostWaitsWhileTheLeaderIsAGhostNearItsCorpse)
-{
-    DeadMage bot;
-    bot.fake.SetLifeState(Mage, LifeState::Ghost);
-    bot.Die(Player, LifeState::Ghost);
-    bot.fake.SetCorpseDistance(Player, 5.0f);
-
-    EXPECT_EQ(bot.Think(), "wait dead");
-}
-
-TEST(Death, WithNobodyToResurrectADeadBotRevivesAtItsCorpseAtOnceAfterTheFight)
+TEST(Death, WithNobodyToResurrectADeadBotReleasesAfterTheFight)
 {
     DeadMage bot;
     bot.Die(Healer);
 
-    EXPECT_EQ(bot.Think(), "revive when nobody can resurrect");
-    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"revive at the corpse"}));
+    EXPECT_EQ(bot.Think(), "release when no resurrect comes");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"release"}));
     std::vector<GroupEvent> const events = bot.group.TakeEvents();
     ASSERT_EQ(events.size(), 1u);
     EXPECT_TRUE(IsRest(events[0], Mage, RestReason::Revive));
 }
 
-TEST(Death, WithoutAPriestADeadBotRevivesAtOnce)
+TEST(Death, WithoutAPriestADeadBotReleasesAfterTheFight)
 {
     DeadMage bot;
     bot.fake.SetCanResurrect(Healer, false);
 
-    EXPECT_EQ(bot.Think(), "revive when nobody can resurrect");
+    EXPECT_EQ(bot.Think(), "release when no resurrect comes");
 }
 
 TEST(Death, WithNobodyToResurrectADeadBotWaitsForTheEndOfTheFight)
@@ -177,27 +166,27 @@ TEST(Death, WithNobodyToResurrectADeadBotWaitsForTheEndOfTheFight)
     EXPECT_EQ(bot.Think(), "wait dead");
 }
 
-// The last bot that fought died: only the player lives, out of combat, but
-// the enemy still fights or runs home next to the corpse. That is no end of
-// the fight, so the dead bots wait. (A tank revived next to the boss in #40.)
-TEST(Death, ADeadBotWaitsWhileAnEnemyFightsNearIt)
+// The Priest finds no safe place to cast from: the resurrect never comes,
+// so the dead bot does not keep the others waiting.
+TEST(Death, ADeadBotReleasesWhenThePriestGivesUpItsResurrect)
 {
     DeadMage bot;
-    bot.Die(Healer);
-    bot.Die(Tank);
-    bot.fake.SetFightNear(20.0f);
+    bot.group.GiveUpResurrect(Mage);
 
-    EXPECT_EQ(bot.Think(), "wait dead");
-    EXPECT_TRUE(bot.fake.Deeds().empty());
+    EXPECT_EQ(bot.Think(), "release when no resurrect comes");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"release"}));
 }
 
-TEST(Death, ADeadBotRevivesWhenTheNearestFightIsFarAway)
+TEST(Death, ABotThatLivesAgainCanBeResurrectedAgainLater)
 {
     DeadMage bot;
-    bot.Die(Healer);
-    bot.fake.SetFightNear(Bots::ReviveClearOfFightYards + 5.0f);
+    bot.group.GiveUpResurrect(Mage);
+    bot.fake.SetHealth(Mage, 300, 600);
+    bot.fake.SetLifeState(Mage, LifeState::Alive);
+    bot.Watch();
 
-    EXPECT_EQ(bot.Think(), "revive when nobody can resurrect");
+    bot.Die(Mage);
+    EXPECT_EQ(bot.Think(), "wait dead");
 }
 
 TEST(Death, InAWipeTheBotsWaitForTheLeaderToRelease)
@@ -251,6 +240,85 @@ TEST(Resurrect, ThePriestDoesNotResurrectAGhost)
     bot.fake.SetCastsOnDead(Priest::Resurrection);
     bot.fake.SetAura(Healer, Priest::InnerFire);
     bot.Die(Mage, LifeState::Ghost);
+
+    EXPECT_NE(bot.Think(), "resurrect a member");
+}
+
+namespace
+{
+    // The Priest of the group, out of combat with its buffs, which knows
+    // Resurrection.
+    struct GroupPriest : GroupBot
+    {
+        GroupPriest() : GroupBot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer)
+        {
+            fake.SetKnownSpell(Priest::Resurrection);
+            fake.SetCastsOnDead(Priest::Resurrection);
+            fake.SetAura(Healer, Priest::InnerFire);
+        }
+
+        // Member `member` died out of the reach of the resurrect.
+        void DieOutOfReach(Bots::Guid member)
+        {
+            Die(member);
+            fake.SetDistance(member, 50.0f);
+            fake.SetCannotCastOn(Priest::Resurrection, member);
+        }
+    };
+}
+
+// Today's DeadMember picked the first dead member only: a member in reach
+// behind one out of reach was never resurrected.
+TEST(Resurrect, ThePriestResurrectsADeadMemberInReachBehindOneOutOfReach)
+{
+    GroupPriest bot;
+    bot.DieOutOfReach(Tank);
+    bot.Die(Mage);
+
+    EXPECT_EQ(bot.Think(), "resurrect a member");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"cast 2006 on 0x0000000000000013"}));
+}
+
+TEST(Resurrect, AfterTheFightThePriestWalksToASafePlaceNearACorpseOutOfReach)
+{
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f});
+
+    EXPECT_EQ(bot.Think(), "go to a corpse out of reach");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"move to 12 -3.5 7"}));
+    EXPECT_FALSE(bot.group.IsResurrectGivenUp(Mage));
+}
+
+TEST(Resurrect, ThePriestDoesNotWalkToACorpseInAFight)
+{
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+    bot.fake.SetSafeCastPlace(Mage, {12.0f, -3.5f, 7.0f});
+    bot.fake.SetInCombat(Tank);
+
+    EXPECT_NE(bot.Think(), "go to a corpse out of reach");
+}
+
+// A corpse next to a living pack, or in lava: the Priest does not go, and
+// the dead member runs back as a ghost instead.
+TEST(Resurrect, WithNoSafePlaceInCastRangeThePriestGivesUpTheResurrect)
+{
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+
+    bot.Think();
+
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+    EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+    EXPECT_NE(bot.Think(), "go to a corpse out of reach");
+}
+
+TEST(Resurrect, ThePriestDoesNotResurrectAMemberThatItGaveUp)
+{
+    GroupPriest bot;
+    bot.Die(Mage);
+    bot.group.GiveUpResurrect(Mage);
 
     EXPECT_NE(bot.Think(), "resurrect a member");
 }

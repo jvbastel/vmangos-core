@@ -179,6 +179,24 @@ namespace Bots
         m_events.push_back({GroupEventKind::Rest, bot, RestReason::Revive});
     }
 
+    void GroupCoordinator::GiveUpResurrect(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_givenUpResurrects.insert(bot);
+    }
+
+    bool GroupCoordinator::IsResurrectGivenUp(Guid bot) const
+    {
+        Lock lock(m_mutex);
+        return m_givenUpResurrects.count(bot) != 0;
+    }
+
+    void GroupCoordinator::ClearGivenUpResurrect(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_givenUpResurrects.erase(bot);
+    }
+
     bool GroupCoordinator::FirstNote(std::pair<Guid, std::int64_t> key, std::int64_t nowMs)
     {
         for (auto it = m_seen.begin(); it != m_seen.end();)

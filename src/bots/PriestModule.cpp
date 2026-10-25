@@ -1,5 +1,6 @@
 #include "PriestModule.h"
 #include "CommonRules.h"
+#include "SpellBook.h"
 
 namespace Bots
 {
@@ -16,6 +17,10 @@ namespace Bots
             // The heals reach 40 yards. The bot goes nearer to a hurt member
             // beyond this distance.
             float const HealReachYards = 36.0f;
+            // Resurrection reaches 30 yards. A corpse beyond this distance is
+            // out of reach, and the bot casts from this near.
+            float const ResurrectReachYards = 29.0f;
+            float const ResurrectCastYards = 26.0f;
 
             using MemberFilter = bool (*)(BotView const& view, Guid member);
 
@@ -80,13 +85,49 @@ namespace Bots
                 return NoGuid;
             }
 
-            // The first dead member that has not released, or NoGuid.
-            Guid DeadMember(BotContext const& context)
+            // A dead member that has not released, and whose resurrect the
+            // bot has not given up.
+            bool MayResurrect(BotContext const& context, Guid member)
             {
+                return context.view.GetLifeState(member) == LifeState::Dead
+                    && !context.group.IsResurrectGivenUp(member);
+            }
+
+            // The first dead member that the bot can resurrect now, or NoGuid.
+            Guid DeadMemberInReach(BotContext const& context)
+            {
+                SpellId const rank = HighestKnownRank(context.view, Resurrection);
+                if (rank == NoSpell)
+                    return NoGuid;
                 for (Guid member : context.view.GetGroupMembers())
-                    if (context.view.GetLifeState(member) == LifeState::Dead)
+                    if (MayResurrect(context, member) && context.view.CanCast(rank, member))
                         return member;
                 return NoGuid;
+            }
+
+            // The first dead member beyond the reach of the resurrect, or
+            // NoGuid.
+            Guid DeadMemberOutOfReach(BotContext const& context)
+            {
+                if (!context.view.KnowsSpell(Resurrection))
+                    return NoGuid;
+                for (Guid member : context.view.GetGroupMembers())
+                    if (MayResurrect(context, member) && context.view.GetDistance(member) > ResurrectReachYards)
+                        return member;
+                return NoGuid;
+            }
+
+            // The bot walks to a safe place in cast range of the corpse. With
+            // none, it does not go: it gives the resurrect up, and the dead
+            // member runs back as a ghost.
+            void GoToCorpse(BotContext const& context)
+            {
+                Guid const member = DeadMemberOutOfReach(context);
+                Position place;
+                if (context.view.FindSafeCastPlace(member, ResurrectCastYards, place))
+                    context.actions.MoveTo(place);
+                else
+                    context.group.GiveUpResurrect(member);
             }
 
             // The most hurt member that needs a heal and is beyond the heal
@@ -144,12 +185,18 @@ namespace Bots
                     BotAction{[](BotContext const&) { return true; },
                         [](BotContext const& context) { context.actions.Follow(HurtMemberOutOfReach(context)); }}},
 
-                // After the fight, under the heals: the living first.
+                // After the fight, under the heals: the living first. Any
+                // dead member in reach, then a corpse out of reach.
                 CastRule("resurrect a member", P + 45,
                     [](BotContext const& context) {
-                        return !IsGroupInCombat(context.view) && DeadMember(context) != NoGuid;
+                        return !IsGroupInCombat(context.view) && DeadMemberInReach(context) != NoGuid;
                     },
-                    Resurrection, DeadMember),
+                    Resurrection, DeadMemberInReach),
+                Rule{"go to a corpse out of reach", P + 44,
+                    [](BotContext const& context) {
+                        return !IsGroupInCombat(context.view) && DeadMemberOutOfReach(context) != NoGuid;
+                    },
+                    BotAction{[](BotContext const&) { return true; }, GoToCorpse}},
 
                 // The buffs, out of combat only: in a fight the mana is for
                 // the heals.

@@ -8,22 +8,18 @@
 // Death, release, revive, and rest (step 8 of the version 1 build spec).
 namespace Bots
 {
-    // A bot revives at its corpse when the leader is alive within this
-    // distance of the corpse.
-    float const ReviveNearLeaderYards = 30.0f;
-
-    // A dead bot does not revive at its corpse at once while an enemy within
-    // this distance fights or evades, or would attack it (BotView::IsFightNear).
-    float const ReviveClearOfFightYards = 30.0f;
-
     // The strategy of a dead bot, in the Death band: it outranks every other
-    // rule, so a dead bot does nothing else. The player picks the moment of
-    // release: when the leader becomes a ghost, the bot releases. A ghost
-    // revives at its corpse when the leader is alive near the corpse. After
-    // a fight that no living member can resurrect from, the bot revives at
-    // its corpse at once. The fight is over when no living member fights and
-    // no enemy near the corpse fights, evades, or would attack the bot. Otherwise the bot waits, for example for the
-    // Priest's resurrect.
+    // rule, so a dead bot does nothing else. No bot ever revives at its
+    // corpse on its own. A dead bot comes back as a player does: a party
+    // member resurrects it (the Priest's resurrect, at the corpse), or it
+    // releases and runs back as a ghost from the graveyard to the dungeon
+    // portal (BotActions::WalkAsGhost), and is alive again at the entrance.
+    // The player picks the moment of release: when the leader becomes a
+    // ghost, the bot releases. Else a dead bot waits for the Priest's
+    // resurrect. It releases after the fight when that resurrect cannot
+    // come: no living member that it sees can resurrect, or the Priest gave
+    // it up (GroupCoordinator::GiveUpResurrect). In a wipe it waits for the
+    // leader. A scripted run cuts the ghost run short (spec section 10).
     std::shared_ptr<Strategy const> MakeDeathStrategy();
 
     // The rest after a fight, in the Command band over the corpse loot: a
@@ -39,7 +35,8 @@ namespace Bots
 
     // The group watch of one bot, before each think: it tells the
     // coordinator whether every member that the bot sees is dead (the wipe)
-    // and whether the bot rests now.
+    // and whether the bot rests now. A bot that lives again clears its
+    // given-up resurrect.
     void WatchGroup(BotView const& view, GroupCoordinator& group);
 }
 

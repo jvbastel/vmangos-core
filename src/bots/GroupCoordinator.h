@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -146,8 +147,16 @@ namespace Bots
         // the bot does not rest (any more).
         void SetResting(Guid bot, RestReason reason);
         std::vector<Guid> GetResting() const;
-        // A bot revives at its corpse: adds a rest event.
+        // A dead bot releases to run back, because no resurrect comes:
+        // adds a rest event.
         void NoteRevive(Guid bot);
+
+        // The resurrect of dead bot `bot` does not come: the Priest found
+        // no safe place to cast it from. The bot releases instead. A bot
+        // that lives again clears it (ClearGivenUpResurrect).
+        void GiveUpResurrect(Guid bot);
+        bool IsResurrectGivenUp(Guid bot) const;
+        void ClearGivenUpResurrect(Guid bot);
 
         // A bot saw SMSG_PARTYKILLLOG with a victim of the boss list. The
         // first note of a kill adds a boss kill event. `nowMs`: any steady
@@ -168,6 +177,7 @@ namespace Bots
         mutable std::mutex m_mutex;
         bool m_wiped = false;
         std::map<Guid, RestReason> m_resting;
+        std::set<Guid> m_givenUpResurrects;
         std::vector<GroupEvent> m_events;
         // The kills and rolls that made an event, with the time of the event.
         std::map<std::pair<Guid, std::int64_t>, std::int64_t> m_seen;
