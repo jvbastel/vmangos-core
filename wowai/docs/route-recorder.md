@@ -14,12 +14,14 @@ The route file of a dungeon is `bots/data/routes/<route>.txt` in the fork, for e
 Record on the test realm, never on the play realm. In WSL, in the fork:
 
 ```
-wowai/dev realm up
+WOWAI_DEV_SHARED_INSTALL=1 wowai/dev realm up
 ```
+
+The shared test realm runs the build in the shared install folder `~/wowai/dev-install`. `WOWAI_DEV_SHARED_INSTALL=1` lets `wowai/dev` build into that folder. Without it, a build into the shared folder stops with an error.
 
 `realm up` makes the folder `bots/data/routes/` of the fork and lets mangosd write into `bots/data/`. The recorder therefore writes the route file straight into your fork tree.
 
-If the test realm already runs from another fork tree, run `wowai/dev realm build` in this tree. The realm then uses this tree's build and this tree's `bots/data/`.
+If the test realm already runs from another fork tree, run `WOWAI_DEV_SHARED_INSTALL=1 wowai/dev realm build` in this tree. The realm then uses this tree's build and this tree's `bots/data/`.
 
 The GM account and its password are in `~/wowai/test-realm/.env` (`WOWAI_REALM_GM_ACCOUNT` and `WOWAI_REALM_GM_PASSWORD`).
 

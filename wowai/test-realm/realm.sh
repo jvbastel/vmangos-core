@@ -15,6 +15,9 @@
 #   wowai/dev realm down [args]      `docker compose down` of the test realm.
 #   wowai/dev realm compose <args>   Any other `docker compose` command.
 #
+# `up` (with no dev build yet) and `build` build into WOWAI_DEV_INSTALL. For
+# the shared test realm in ~/wowai/dev-install, set WOWAI_DEV_SHARED_INSTALL=1.
+#
 # The realm folder holds the settings (.env), the configuration, and the logs.
 # The Compose files stay in the fork. In the realm folder, `docker compose`
 # also works by hand, because .env names the Compose files.

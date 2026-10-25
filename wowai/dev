@@ -22,14 +22,22 @@
 #   WOWAI_DEPLOY_DIR   vmangos-deploy folder with docker/patches/ and
 #                      docker/server/Dockerfile. Default: /mnt/c/Games/vmangos-deploy
 #   WOWAI_DEV_INSTALL  Dev install folder (the CMake install prefix, mounted at
-#                      /opt/vmangos). Default: ~/wowai/dev-install
+#                      /opt/vmangos). Default: ~/wowai/dev-install, the shared
+#                      install folder of the shared test realm. `build` refuses
+#                      the shared folder unless WOWAI_DEV_SHARED_INSTALL=1.
+#   WOWAI_DEV_SHARED_INSTALL
+#                      Set it to 1 to build into the shared install folder on
+#                      purpose.
+#
+# A command waits while another command uses the same dev container.
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 src="$(cd "${WOWAI_SRC:-$(git -C "$script_dir" rev-parse --show-toplevel)}" && pwd)"
 deploy_dir="${WOWAI_DEPLOY_DIR:-/mnt/c/Games/vmangos-deploy}"
-install_dir="${WOWAI_DEV_INSTALL:-$HOME/wowai/dev-install}"
+shared_install_dir="$HOME/wowai/dev-install"
+install_dir="${WOWAI_DEV_INSTALL:-$shared_install_dir}"
 
 tree_id="$(basename "$src" | tr -c 'a-zA-Z0-9_.\n-' '-')-$(printf '%s' "$src" | sha1sum | cut -c1-8)"
 container="wowai-dev-$tree_id"
@@ -69,6 +77,28 @@ ensure_image() {
     "$script_dir/dev-container" >/dev/null
 }
 
+# Hold the lock of the dev container for the whole command, so that a second
+# call never removes the container while a build runs in it. The second call
+# waits. A wowai/dev call that a command of the first call runs (on the host)
+# has the lock already.
+lock_container() {
+  [ "${WOWAI_DEV_LOCKED:-}" != "$container" ] || return 0
+  local dir="$HOME/.cache/wowai-dev"
+  mkdir -p "$dir"
+  exec 9>"$dir/$container.lock"
+  if ! flock --nonblock 9; then
+    echo "wowai/dev: Waiting for the other wowai/dev command on the dev container $container to end..." >&2
+    flock 9
+  fi
+  export WOWAI_DEV_LOCKED="$container"
+}
+
+# True when a process other than the main one runs in the dev container.
+container_busy() {
+  [ "$(docker container inspect --format '{{.State.Running}}' "$container")" = "true" ] || return 1
+  docker top "$container" | tail -n +3 | grep -q .
+}
+
 # Start the dev container. Make it again if its image or mounts changed.
 ensure_container() {
   [ -d "$deploy_dir/docker/patches" ] || die "no patch folder at $deploy_dir/docker/patches (set WOWAI_DEPLOY_DIR)"
@@ -82,7 +112,10 @@ ensure_container() {
   current="$(docker container inspect --format '{{index .Config.Labels "wowai.dev.config"}}' "$container" 2>/dev/null || true)"
 
   if [ "$current" != "$config" ]; then
-    [ -z "$current" ] || docker rm --force "$container" >/dev/null
+    if [ -n "$current" ]; then
+      ! container_busy || die "a command that does not hold the lock of wowai/dev runs in the dev container $container (see \`docker top $container\`). Wait for it to end, or stop it with \`wowai/dev stop\`."
+      docker rm --force "$container" >/dev/null
+    fi
     docker run --detach --name "$container" \
       --label "wowai.dev.config=$config" \
       --label "wowai.dev.src=$src" \
@@ -164,10 +197,21 @@ if [ ! -f CMakeCache.txt ] || [ "$(cat .wowai-cmake-options 2>/dev/null)" != "$o
   cmake "$@" "$core"
   echo "$options" > .wowai-cmake-options
 fi
+# A killed build leaves empty object files, which make takes as up to date.
+find /build/out -name '*.o' -size 0 -print -delete | sed 's/^/Deleted the empty object file /'
 make -j"$(nproc)" install
 SCRIPT
 
+# A build into the shared install folder replaces the build that the shared
+# test realm runs, so it must be on purpose.
+guard_shared_install() {
+  [ "$(realpath -m "$install_dir")" = "$(realpath -m "$shared_install_dir")" ] || return 0
+  [ "${WOWAI_DEV_SHARED_INSTALL:-}" = 1 ] && return 0
+  die "the build would install into $shared_install_dir, the shared install folder of the shared test realm. Set WOWAI_DEV_INSTALL to a folder of your own, or set WOWAI_DEV_SHARED_INSTALL=1 to build into the shared folder on purpose."
+}
+
 cmd_build() {
+  guard_shared_install
   ensure_container
   local start=$SECONDS
   in_container bash -c "$build_in_container" build "${cmake_options[@]}"
@@ -200,6 +244,9 @@ usage() {
 }
 
 # Later commands (the code tests and the test realm) go in this table.
+case "${1:-help}" in
+  build|shell|stop|clean|test|realm) lock_container ;;
+esac
 case "${1:-help}" in
   build) shift; cmd_build "$@" ;;
   shell) shift; cmd_shell "$@" ;;
