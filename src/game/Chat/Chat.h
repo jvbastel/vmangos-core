@@ -316,6 +316,12 @@ class ChatHandler
         bool HandleRouteUndoCommand(char* args);
         bool HandleRouteShowCommand(char* args);
         bool HandleRouteStopCommand(char* args);
+        bool HandleRouteRemoveMobCommand(char* args);
+        bool HandleRouteGenerateCommand(char* args);
+        bool HandleRouteWalkCommand(char* args);
+        bool HandleRouteNextCommand(char* args);
+        bool HandleRouteBackCommand(char* args);
+        bool HandleRouteGoCommand(char* args);
         bool HandleBattleBotAddAlteracCommand(char* args);
         bool HandleBattleBotAddArathiCommand(char* args);
         bool HandleBattleBotAddWarsongCommand(char* args);
