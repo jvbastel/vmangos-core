@@ -13,7 +13,8 @@ namespace Bots
     // 1. the attack target of the player (`attack`), at once;
     // 2. an enemy healer in the fight (GroupRules.h), until it dies;
     // 3. the focus target, once the tank holds threat on it, while it is in
-    //    the chase limit (GroupRules.h);
+    //    the chase limit (GroupRules.h). Outside a pull, not while it hits
+    //    another member and the tank lives: the bot waits for the taunt;
     // 4. an enemy that attacks the bot itself, in the chase limit.
     Guid PickDamageTarget(BotContext const& context);
 
