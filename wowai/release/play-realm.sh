@@ -4,6 +4,9 @@
 # The chat service repository has a copy of this file in scripts/. Change
 # both together.
 
+# shellcheck shell=bash
+# The sourcing script sets play_realm, records, and services.
+# shellcheck disable=SC2154
 revision_label=org.opencontainers.image.revision
 
 # The docker command for the play realm. The user runs that Compose project
@@ -135,6 +138,7 @@ latest_record() {
 # lists one, or "unknown"), it first stops the services in RESTORE_STOP and
 # restores the backup made before the release. It prints "restored" then.
 # The caller starts the services.
+# shellcheck disable=SC2153 # The record sets COMMIT, MIGRATIONS, and BACKUP.
 rollback_record() {
   local record="$1" service image_var policy_var
   # shellcheck disable=SC1090

@@ -4,6 +4,8 @@
 # It takes a few seconds. Run it from any folder:
 #
 #   wowai/release/tests/release-core.test.sh
+# The checks run `bash -c '... "$0" "$1"' <args>`, so the single quotes are meant.
+# shellcheck disable=SC2016
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
