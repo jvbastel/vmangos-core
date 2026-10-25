@@ -168,7 +168,7 @@ namespace
     char const* PhaseName(int phase)
     {
         static char const* const names[] = {"idle", "reset: login", "reset: out of the dungeon", "reset: logout",
-            "reset: login again", "script", "passed", "not clean", "failed"};
+            "reset: login again", "script", "passed", "failed"};
         return names[phase];
     }
 }
@@ -234,6 +234,8 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_bossKills.clear();
     m_threat = Bots::ThreatWatch();
     m_threatNames.clear();
+    m_lostMobs = Bots::LostMobWatch(sBotMgr.GetSettings().lostMobMs);
+    m_lostMobNames.clear();
     m_groupId = 0;
     m_teleportRest = false;
     m_moving = false;
@@ -287,10 +289,7 @@ void BotRun::Fail(std::string const& reason)
     m_phase = Phase::Failed;
     std::ostringstream line;
     line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": failed after "
-         << (SteadyMs() - m_startMs) / 1000 << " s: " << reason;
-    std::string const losses = ThreatLossText();
-    if (!losses.empty())
-        line << ", not clean: " << losses;
+         << (SteadyMs() - m_startMs) / 1000 << " s: " << reason << WatchText();
     m_result = line.str();
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
 }
@@ -349,7 +348,6 @@ void BotRun::Update()
     {
         case Phase::Idle:
         case Phase::Passed:
-        case Phase::NotClean:
         case Phase::Failed:
             return;
         case Phase::LoginFirst:
@@ -426,6 +424,8 @@ void BotRun::Update()
         TeleportRest();
     ReviveTheDead();
     WatchThreat(SteadyMs() - m_startMs);
+    if (m_phase == Phase::Failed)
+        return;
     for (;;)
     {
         // The facts again after each command: a teleport changes them.
@@ -440,15 +440,12 @@ void BotRun::Update()
         }
         if (step.kind == Bots::RunStepKind::Passed)
         {
-            // A threat loss: the scenario passed, but the run is no clean
-            // pass (spec section 10).
-            std::string const losses = ThreatLossText();
-            m_phase = losses.empty() ? Phase::Passed : Phase::NotClean;
+            // A threat loss does not fail the run: the spec allows some
+            // (spec section 10). The result counts them.
+            m_phase = Phase::Passed;
             std::ostringstream line;
-            line << "Run " << m_number << " " << m_script.name << " " << m_scenario
-                 << (losses.empty() ? ": passed after " : ": not clean after ") << (SteadyMs() - m_startMs) / 1000 << " s";
-            if (!losses.empty())
-                line << ": " << losses;
+            line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": passed after "
+                 << (SteadyMs() - m_startMs) / 1000 << " s" << WatchText();
             m_result = line.str();
             sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
             return;
@@ -589,45 +586,85 @@ Bots::RunFacts BotRun::Facts() const
 
 void BotRun::WatchThreat(int64 nowMs)
 {
-    std::vector<Bots::EnemyOnMember> hits;
+    std::vector<Bots::EnemyOnMember> hitsOnNonTanks, hits;
+    std::vector<Bots::Guid> attacked;
     for (Player* member : Members())
     {
-        Bots::BotRole role;
-        if (!IsLivingMember(member) || (sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank))
+        if (!IsLivingMember(member))
             continue;
+        // A member attacks its melee victim and its selected target (a
+        // caster's target).
+        if (Unit const* victim = member->GetVictim())
+            attacked.push_back(victim->GetObjectGuid().GetRawValue());
+        if (!member->GetTargetGuid().IsEmpty())
+            attacked.push_back(member->GetTargetGuid().GetRawValue());
+        if (Pet const* pet = member->GetPet())
+            if (Unit const* victim = pet->IsAlive() ? pet->GetVictim() : nullptr)
+                attacked.push_back(victim->GetObjectGuid().GetRawValue());
+        Bots::BotRole role;
+        bool const tank = sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank;
         for (Unit* attacker : member->GetAttackers())
             if (attacker->IsAlive() && attacker->GetVictim() == member)
-                hits.push_back({attacker->GetObjectGuid().GetRawValue(), member->GetObjectGuid().GetRawValue()});
+            {
+                Bots::EnemyOnMember const hit{attacker->GetObjectGuid().GetRawValue(), member->GetObjectGuid().GetRawValue()};
+                hits.push_back(hit);
+                if (!tank)
+                    hitsOnNonTanks.push_back(hit);
+            }
     }
+
     std::size_t const known = m_threat.Losses().size();
-    m_threat.Update(hits, nowMs);
+    m_threat.Update(hitsOnNonTanks, nowMs);
     for (std::size_t i = known; i < m_threat.Losses().size(); ++i)
     {
         Bots::ThreatLoss const& loss = m_threat.Losses()[i];
-        std::string enemy = "an enemy", member = "a member";
-        for (Player* player : Members())
-            if (player->GetObjectGuid().GetRawValue() == loss.member)
-            {
-                member = player->GetName();
-                if (Unit* unit = player->GetMap()->GetUnit(ObjectGuid(loss.enemy)))
-                    enemy = unit->GetName();
-            }
-        m_threatNames.push_back(enemy + " on " + member);
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s hits %s for more than %u s", m_number,
-            enemy.c_str(), member.c_str(), uint32(Bots::ThreatLossMs / 1000));
+        m_threatNames.push_back(HitName(loss.enemy, loss.member));
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s for more than %u s", m_number,
+            m_threatNames.back().c_str(), uint32(Bots::ThreatLossMs / 1000));
+    }
+
+    std::size_t const lostBefore = m_lostMobs.LostMobs().size();
+    m_lostMobs.Update(hits, attacked, nowMs);
+    for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
+    {
+        Bots::LostMob const& mob = m_lostMobs.LostMobs()[i];
+        if (i >= m_lostMobNames.size())
+            m_lostMobNames.push_back(HitName(mob.enemy, mob.member));
+    }
+    if (m_lostMobs.LostMobs().size() > lostBefore)
+    {
+        Bots::LostMob const& mob = m_lostMobs.LostMobs()[lostBefore];
+        Fail("lost mob: " + m_lostMobNames[lostBefore] + ", and no bot attacks it for more than "
+            + std::to_string((mob.endMs - mob.startMs) / 1000) + " s");
     }
 }
 
-std::string BotRun::ThreatLossText() const
+std::string BotRun::HitName(Bots::Guid enemy, Bots::Guid member) const
 {
-    std::vector<Bots::ThreatLoss> const& losses = m_threat.Losses();
-    if (losses.empty())
-        return "";
+    std::string enemyName = "an enemy", memberName = "a member";
+    for (Player* player : Members())
+        if (player->GetObjectGuid().GetRawValue() == member)
+        {
+            memberName = player->GetName();
+            if (Unit* unit = player->GetMap()->GetUnit(ObjectGuid(enemy)))
+                enemyName = unit->GetName();
+        }
+    return enemyName + " on " + memberName;
+}
+
+std::string BotRun::WatchText() const
+{
     std::ostringstream text;
-    text << losses.size() << (losses.size() == 1 ? " threat loss (" : " threat losses (");
+    std::vector<Bots::ThreatLoss> const& losses = m_threat.Losses();
+    text << ", threat losses " << losses.size();
     for (std::size_t i = 0; i < losses.size(); ++i)
-        text << (i ? "; " : "") << m_threatNames[i] << " " << (losses[i].endMs - losses[i].startMs) / 1000 << " s";
-    text << ")";
+        text << (i ? "; " : " (") << m_threatNames[i] << " " << (losses[i].endMs - losses[i].startMs) / 1000 << " s"
+             << (i + 1 == losses.size() ? ")" : "");
+    std::vector<Bots::LostMob> const& lost = m_lostMobs.LostMobs();
+    text << ", lost mobs " << lost.size();
+    for (std::size_t i = 0; i < lost.size(); ++i)
+        text << (i ? "; " : " (") << m_lostMobNames[i] << " " << (lost[i].endMs - lost[i].startMs) / 1000 << " s"
+             << (i + 1 == lost.size() ? ")" : "");
     return text.str();
 }
 

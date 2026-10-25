@@ -31,4 +31,31 @@ namespace Bots
         }
         m_hits = std::move(next);
     }
+
+    void LostMobWatch::Update(std::vector<EnemyOnMember> const& hits, std::vector<Guid> const& attacked, std::int64_t nowMs)
+    {
+        std::vector<Unattacked> next;
+        for (EnemyOnMember const& hit : hits)
+        {
+            if (std::find(attacked.begin(), attacked.end(), hit.enemy) != attacked.end()
+                || std::any_of(next.begin(), next.end(), [&](Unattacked const& kept) { return kept.enemy == hit.enemy; }))
+                continue;
+            auto found = std::find_if(m_unattacked.begin(), m_unattacked.end(),
+                [&](Unattacked const& old) { return old.enemy == hit.enemy; });
+            Unattacked const now = found != m_unattacked.end() ? *found : Unattacked{hit.enemy, nowMs};
+            next.push_back(now);
+            auto lost = std::find_if(m_lost.begin(), m_lost.end(), [&](LostMob const& mob) { return mob.enemy == hit.enemy; });
+            if (lost != m_lost.end())
+            {
+                if (lost->startMs == now.startMs)
+                {
+                    lost->member = hit.member;
+                    lost->endMs = nowMs;
+                }
+            }
+            else if (nowMs - now.startMs > m_limitMs)
+                m_lost.push_back({hit.enemy, hit.member, now.startMs, nowMs});
+        }
+        m_unattacked = std::move(next);
+    }
 }

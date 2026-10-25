@@ -167,6 +167,7 @@ void BotMgr::LoadConfig()
     m_settings.startDelay.minMs = sConfig.GetIntDefault("Bots.StartDelayMs.Min", 300);
     m_settings.startDelay.maxMs = sConfig.GetIntDefault("Bots.StartDelayMs.Max", 1500);
     m_settings.dataDir = sConfig.GetStringDefault("Bots.DataDir", "bots");
+    m_settings.lostMobMs = std::max(1000, sConfig.GetIntDefault("Bots.Run.LostMobMs", int(Bots::LostMobMs)));
     AccountMgr::normalizeString(m_settings.accountPrefix);
     m_chat.LoadConfig();
 

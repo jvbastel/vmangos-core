@@ -41,6 +41,9 @@ struct BotSettings
     Bots::ThinkSettings think;
     Bots::StartDelaySettings startDelay;
     std::string dataDir = "bots";
+    // A scripted run fails when an enemy hits a member and no bot attacks
+    // it for longer than this (a lost mob, bots/ThreatWatch.h).
+    int64 lostMobMs = Bots::LostMobMs;
 };
 
 // One persistent bot, from a row of the `bot_character` table.

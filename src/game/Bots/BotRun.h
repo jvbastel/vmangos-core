@@ -52,13 +52,12 @@ class BotRun
             Logout,      // A new login gives each bot a fresh AI.
             Login,
             Script,      // The ScriptRunner runs the scenario.
-            Passed,      // A clean pass: no threat loss.
-            NotClean,    // The scenario passed, with a threat loss: no clean pass.
+            Passed,
             Failed,
         };
 
-        // The run is over: passed, not clean, or failed.
-        bool IsOver() const { return m_phase == Phase::Passed || m_phase == Phase::NotClean || m_phase == Phase::Failed; }
+        // The run is over: passed or failed.
+        bool IsOver() const { return m_phase == Phase::Passed || m_phase == Phase::Failed; }
 
         void Fail(std::string const& reason);
         void SetPhase(Phase phase);
@@ -72,11 +71,15 @@ class BotRun
         void ResetMember(Player* member);
         Bots::RunFacts Facts() const;
         // Tells the threat watch which enemy hits which member who is not
-        // the tank, and logs each new threat loss.
+        // the tank, and logs each new threat loss. Tells the lost mob watch
+        // which enemy hits which member and which enemies the group attacks,
+        // and fails the run at a lost mob.
         void WatchThreat(int64 nowMs);
-        // "<n> threat losses (<enemy> on <member> <s> s; ...)", or "" with
-        // none.
-        std::string ThreatLossText() const;
+        // "<enemy> on <member>", for the log and the result.
+        std::string HitName(Bots::Guid enemy, Bots::Guid member) const;
+        // ", threat losses <n> (<enemy> on <member> <s> s; ...), lost mobs
+        // <m> (...)": both counts, for the result line (spec section 10).
+        std::string WatchText() const;
         // Does one command of the scenario. False with the reason in `detail`.
         bool Do(Bots::ScriptCommand const& command, std::string& detail);
         bool Teleport(Bots::RoutePoint const& point, std::string& detail);
@@ -111,6 +114,8 @@ class BotRun
         std::set<uint32> m_bossKills;
         Bots::ThreatWatch m_threat;
         std::vector<std::string> m_threatNames; // "<enemy> on <member>" of each loss.
+        Bots::LostMobWatch m_lostMobs;
+        std::vector<std::string> m_lostMobNames; // "<enemy> on <member>" of each lost mob.
         // A teleport of the bots that waits for the driver on the new map.
         bool m_teleportRest = false;
         Bots::RoutePoint m_teleportPoint;
