@@ -22,6 +22,7 @@ add_library(bots STATIC
   BotCommand.cpp
   BossReactions.cpp
   BotRecipe.cpp
+  CastResult.cpp
   ChatClient.cpp
   ChatContract.cpp
   ChatHttp.cpp
