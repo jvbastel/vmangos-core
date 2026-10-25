@@ -220,7 +220,7 @@ namespace Bots
     Guid PickMemberAttacker(BotContext const& context, Guid skipMember, Guid skipEnemy)
     {
         for (Guid member : context.view.GetGroupMembers())
-            if (member != skipMember)
+            if (member != skipMember && IsAlive(context.view, member))
                 for (Guid attacker : context.view.GetAttackers(member))
                     if (attacker != skipEnemy && IsAlive(context.view, attacker))
                         return attacker;

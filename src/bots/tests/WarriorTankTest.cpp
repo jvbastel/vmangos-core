@@ -183,6 +183,24 @@ TEST(WarriorTank, TauntsNoDeadEnemyOffAGroupMember)
         EXPECT_NE(deed, CastOn(Warrior::Taunt, Wolf));
 }
 
+// A dead member keeps its attackers until the core clears them: the tank
+// takes no enemy off a dead member.
+TEST(WarriorTank, TauntsNoEnemyOffADeadMember)
+{
+    WarriorTank tank;
+    tank.fake.SetGroupMembers({Healer});
+    tank.InFightWithKobold();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetHealth(Healer, 0, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::Taunt, Wolf));
+}
+
 TEST(WarriorTank, TauntsNoEnemyOffItself)
 {
     WarriorTank tank;
