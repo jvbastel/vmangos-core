@@ -20,7 +20,7 @@ import math
 import re
 import sys
 
-from kit import Realm, Results
+from kit import Realm, Results, pos, stat
 from wowclient import CHAT_MSG_PARTY, CHAT_MSG_WHISPER, WorldClient
 
 CMSG_REPOP_REQUEST = 0x15A
@@ -55,39 +55,17 @@ class Client(WorldClient):
 c = realm.login(ACCOUNT, PLAYER, client_class=Client)
 
 
-def pos(guid):
-    for line in c.gm(".gps", select=guid):
-        m = re.search(r"X: (-?[\d.]+) Y: (-?[\d.]+) Z: (-?[\d.]+)", line)
-        if m:
-            return tuple(float(v) for v in m.groups())
-    return None
-
-
 def dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
 def go_ground(x, y):
-    z = pos(c.guid)[2]
+    z = pos(c, c.guid)[2]
     c.gm(".go xyz %f %f %f" % (x, y, z + 1.0), select=c.guid, wait=1.5)
     for line in c.gm(".gps", select=c.guid):
         m = re.search(r"GroundZ: (-?[\d.]+)", line)
         if m:
             c.gm(".go xyz %f %f %f" % (x, y, float(m.group(1)) + 0.1), select=c.guid, wait=1.5)
-
-
-def stat(guid):
-    """(health, max health, mana, max mana) of a unit."""
-    values = {}
-    for line in c.gm(".unit statinfo", select=guid, wait=1.0):
-        m = re.match(r"(Health|Max Health|Mana|Max Mana): (\d+)", line)
-        if m:
-            values[m.group(1)] = int(m.group(2))
-    return values.get("Health", -1), values.get("Max Health", -1), values.get("Mana", -1), values.get("Max Mana", -1)
-
-
-def wait_log(pattern, seconds):
-    return realm.wait_log(pattern, seconds, c)
 
 
 def revive_all():
@@ -140,12 +118,12 @@ def part_rest():
 
     realm.mark("rest")
     pushes_before = c.seen.count(SMSG_ITEM_PUSH_RESULT)
-    health, max_health, _, _ = stat(tank_guid)
+    health, max_health, _, _ = stat(c, tank_guid)
     print("  tank hp:", c.gm(".modify hp %d %d" % (int(max_health * 0.4), max_health), select=tank_guid))
-    _, _, mana, max_mana = stat(mage_guid)
+    _, _, mana, max_mana = stat(c, mage_guid)
     print("  mage mana:", c.gm(".modify mana %d %d" % (int(max_mana * 0.3), max_mana), select=mage_guid))
-    ate = wait_log(r"%s: eat" % tank, 6)
-    drank = wait_log(r"%s: drink" % mage, 6)
+    ate = realm.wait_log(r"%s: eat" % tank, 6, c)
+    drank = realm.wait_log(r"%s: drink" % mage, 6, c)
     text = realm.log()
     results.check("the tank below half health eats after the fight", ate, repr(rules_of(tank, text)))
     results.check("the mage below half mana drinks after the fight", drank, repr(rules_of(mage, text)))
@@ -168,8 +146,8 @@ def part_rest():
     h1 = int(max_health * 0.4)
     m1 = int(max_mana * 0.3)
     c.pump(4)
-    h2 = stat(tank_guid)[0]
-    m2 = stat(mage_guid)[2]
+    h2 = stat(c, tank_guid)[0]
+    m2 = stat(c, mage_guid)[2]
     results.check("the tank's health rises (its food, or the heals of the Priest)", h2 > h1, "%d -> %d" % (h1, h2))
     results.check("the mage keeps drinking: its mana rises", m2 > m1, "%d -> %d" % (m1, m2))
     text = realm.log()
@@ -179,19 +157,19 @@ def part_rest():
     results.check("no item push result reaches the player", c.seen.count(SMSG_ITEM_PUSH_RESULT) == pushes_before)
     # The rest ends.
     c.pump(20)
-    print("  after the rest: tank", stat(tank_guid), "mage", stat(mage_guid))
+    print("  after the rest: tank", stat(c, tank_guid), "mage", stat(c, mage_guid))
     c.gm(".npc spawn delete", select=mob, wait=2.0)
 
 
 def part_resurrect():
     realm.mark("resurrect")
     print("  kill mage:", kill(mage_guid))
-    ok = wait_log(r"%s: resurrect a member" % priest, 10)
+    ok = realm.wait_log(r"%s: resurrect a member" % priest, 10, c)
     results.check("the Priest resurrects the mage after the fight", ok, repr(rules_of(priest, realm.log())))
-    accepted = wait_log(r"%s accepts the resurrect" % mage, 20)
+    accepted = realm.wait_log(r"%s accepts the resurrect" % mage, 20, c)
     results.check("the mage accepts SMSG_RESURRECT_REQUEST", accepted)
     c.pump(3)
-    health = stat(mage_guid)[0]
+    health = stat(c, mage_guid)[0]
     results.check("the mage is alive again", health > 0, "health %d" % health)
     text = realm.log()
     results.check("the mage did not revive on its own", "%s: revive" % mage not in text, repr(rules_of(mage, text)))
@@ -203,25 +181,25 @@ def part_nobody():
     # The mage first: while the Priest lives, the mage waits for its resurrect.
     print("  kill mage:", kill(mage_guid))
     print("  kill priest:", kill(priest_guid))
-    ok = wait_log(r"%s: revive when nobody can resurrect" % mage, 8)
-    ok_priest = wait_log(r"%s: revive when nobody can resurrect" % priest, 4)
+    ok = realm.wait_log(r"%s: revive when nobody can resurrect" % mage, 8, c)
+    ok_priest = realm.wait_log(r"%s: revive when nobody can resurrect" % priest, 4, c)
     text = realm.log()
     results.check("with the Priest dead, the mage revives at its corpse at once", ok, repr(rules_of(mage, text)))
     results.check("the dead Priest revives at its corpse at once too", ok_priest, repr(rules_of(priest, text)))
     results.check("the coordinator sees the revive", re.search(r"rests: %s revives at its corpse" % mage, text) is not None)
     c.pump(2)
-    results.check("the mage is alive", stat(mage_guid)[0] > 0)
-    results.check("the Priest is alive", stat(priest_guid)[0] > 0)
+    results.check("the mage is alive", stat(c, mage_guid)[0] > 0)
+    results.check("the Priest is alive", stat(c, priest_guid)[0] > 0)
 
     # No Priest in the group (logged out).
     realm.soap(".wowai bot logout %s" % priest)
     c.pump(4)
     realm.mark("nobody, no priest")
     print("  kill mage:", kill(mage_guid))
-    ok = wait_log(r"%s: revive when nobody can resurrect" % mage, 8)
+    ok = realm.wait_log(r"%s: revive when nobody can resurrect" % mage, 8, c)
     results.check("with no Priest, the mage revives at its corpse at once", ok, repr(rules_of(mage, realm.log())))
     c.pump(2)
-    results.check("the mage is alive (no Priest)", stat(mage_guid)[0] > 0)
+    results.check("the mage is alive (no Priest)", stat(c, mage_guid)[0] > 0)
     realm.soap(".wowai bot login %s" % priest)
     c.pump(6)
     c.gm(".namego %s" % priest, wait=2.0)
@@ -230,14 +208,14 @@ def part_nobody():
 
 
 def part_wipe():
-    here = pos(c.guid)
+    here = pos(c, c.guid)
     c.chat(CHAT_MSG_PARTY, "stay")
     c.pump(2)
     realm.mark("wipe")
     for guid in (tank_guid, priest_guid, mage_guid):
         print("  kill:", kill(guid))
     print("  kill player:", kill(c.guid))
-    wiped = wait_log(r"Group \d+ wipes", 5)
+    wiped = realm.wait_log(r"Group \d+ wipes", 5, c)
     results.check("the coordinator sees the wipe", wiped)
     c.pump(6)
     text = realm.log()
@@ -246,14 +224,14 @@ def part_wipe():
           repr({bot: rules_of(bot, text) for bot in bots}))
 
     c.send(CMSG_REPOP_REQUEST)
-    released = all(wait_log(r"%s: release with the leader" % bot, 6) for bot in bots)
+    released = all(realm.wait_log(r"%s: release with the leader" % bot, 6, c) for bot in bots)
     text = realm.log()
     results.check("when the leader becomes a ghost, the bots release", released, repr({bot: rules_of(bot, text) for bot in bots}))
     c.pump(4)
-    ghost_at = pos(c.guid)
+    ghost_at = pos(c, c.guid)
     print("  player ghost at", ghost_at)
     for bot, guid in bots.items():
-        at = pos(guid)
+        at = pos(c, guid)
         results.check("%s is a ghost away from its corpse" % bot, at is not None and dist(at, here) > 50, "at %r" % (at,))
     text = realm.log()
     results.check("the ghosts do not revive while the leader is a ghost", all("%s: revive" % bot not in text for bot in bots))
@@ -265,7 +243,7 @@ def part_wipe():
     results.check("the ghosts wait while the leader is a ghost near their corpses",
           all("%s: revive" % bot not in text for bot in bots))
     print("  player revive:", c.gm(".revive", select=c.guid, wait=1.0))
-    revived = all(wait_log(r"%s: revive at the corpse" % bot, 8) for bot in bots)
+    revived = all(realm.wait_log(r"%s: revive at the corpse" % bot, 8, c) for bot in bots)
     text = realm.log()
     results.check("with the leader alive near the corpses, the bots revive there", revived,
           repr({bot: rules_of(bot, text) for bot in bots}))
@@ -273,8 +251,8 @@ def part_wipe():
           all(re.search(r"rests: %s revives at its corpse" % bot, text) for bot in bots))
     c.pump(4)
     for bot, guid in bots.items():
-        at = pos(guid)
-        health = stat(guid)[0]
+        at = pos(c, guid)
+        health = stat(c, guid)[0]
         results.check("%s is alive at its corpse, with no ghost run" % bot,
               at is not None and dist(at, here) < 15 and health > 0, "at %r health %d" % (at, health))
 

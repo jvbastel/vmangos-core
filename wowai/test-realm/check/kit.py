@@ -15,6 +15,7 @@ Python path. The script then writes only its scenario:
     results.check("the tank pulls", realm.wait_log(r"Grukk: pull", 10, client))
     results.finish()
 
+pos(client, guid) and stat(client, guid) read a unit with GM commands.
 Realm(62) works outside the check command too.
 """
 import os
@@ -102,6 +103,26 @@ class Realm:
         client = client_class(self.host, self.world_port, account, wowclient.key_bytes(key), names=self.bot_names())
         client.login(character, race=race, cls=cls)
         return client
+
+
+def pos(client, guid):
+    """(x, y, z) of a unit from `.gps`, or None."""
+    for line in client.gm(".gps", select=guid):
+        m = re.search(r"X: (-?[\d.]+) Y: (-?[\d.]+) Z: (-?[\d.]+)", line)
+        if m:
+            return tuple(float(v) for v in m.groups())
+    return None
+
+
+def stat(client, guid):
+    """(health, max health, mana, max mana) of a unit from `.unit statinfo`;
+    -1 for a value that the answer does not have."""
+    values = {}
+    for line in client.gm(".unit statinfo", select=guid, wait=1.0):
+        m = re.match(r"(Health|Max Health|Mana|Max Mana): (\d+)", line)
+        if m:
+            values[m.group(1)] = int(m.group(2))
+    return values.get("Health", -1), values.get("Max Health", -1), values.get("Mana", -1), values.get("Max Mana", -1)
 
 
 class Results:
