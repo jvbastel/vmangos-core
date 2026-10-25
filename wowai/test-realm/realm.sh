@@ -39,6 +39,7 @@
 #                           or `realm build`
 
 realm_dir="$(realpath -m "${WOWAI_REALM_DIR:-$HOME/wowai/test-realm}")"
+# shellcheck disable=SC2154 # wowai/dev sets script_dir and sources this file.
 realm_files="$script_dir/test-realm"
 
 # A setting: the environment first, then the .env of the realm folder, then
@@ -74,6 +75,7 @@ realm_prepare() {
   mkdir -p "$bots_data/routes"
 
   local data
+  # shellcheck disable=SC2154 # wowai/dev sets deploy_dir.
   data="$(realm_setting WOWAI_REALM_DATA "$deploy_dir/storage/mangosd/extracted-data")"
   [ -d "$data/5875" ] || die "no extracted client data in $data (set WOWAI_REALM_DATA)"
   local botchat
@@ -141,6 +143,7 @@ realm_compose() {
 # '<query>'). Standard input goes to the client.
 realm_mariadb() {
   local db="$1"; shift
+  # shellcheck disable=SC2016 # The container shell expands these.
   realm_compose exec -T database sh -c \
     'db="$1"; shift; exec mariadb -u root -p"$MARIADB_ROOT_PASSWORD" --batch --skip-column-names "$db" "$@"' \
     mariadb "$db" "$@"
@@ -159,6 +162,7 @@ cmd_realm_migrate() {
   local -A done_ids=()
   local kind id file name applied=0 skipped=0
   for kind in "${!db_of[@]}"; do
+    # shellcheck disable=SC2016 # SQL quotes, not a shell expression.
     while read -r id; do
       done_ids["$kind:$id"]=1
     done < <(realm_mariadb "${db_of[$kind]}" -e 'SELECT `id` FROM `migrations`' | tr -d '\r')
@@ -292,9 +296,9 @@ realm_bots=(
 )
 
 realm_setup_bots() {
-  local recipe name i
+  local recipe name
   # SOAP answers a little after "World initialized.".
-  for i in $(seq 1 30); do
+  for _ in $(seq 1 30); do
     realm_soap 'server info' 2>/dev/null | grep -q 'Players online' && break
     sleep 2
   done

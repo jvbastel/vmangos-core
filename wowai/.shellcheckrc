@@ -1,0 +1,5 @@
+# Settings of shellcheck for the scripts under wowai/. See wowai/shellcheck.sh.
+# Follow the files that a script sources, from the folder of the script, so
+# the helpers that a script sources are checked with it.
+external-sources=true
+source-path=SCRIPTDIR

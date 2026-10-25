@@ -95,6 +95,7 @@ check "the database service creates the botchat database with botchat.sql" \
 check "the botchat service applies its migrations at start" \
   test "$(realm_sql botchat "SELECT COUNT(*) FROM botchat_migrations")" = 1
 botchat_user_sql() {
+  # shellcheck disable=SC2016 # The container shell expands these.
   "$dev" realm compose exec -T database sh -c \
     'mariadb -u botchat -p"$BOTCHAT_DB_PASSWORD" --batch --skip-column-names -e "$1"' sh "$1" 2>&1 | tr -d '\r'
 }

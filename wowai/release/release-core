@@ -166,7 +166,7 @@ own_new_migrations() {
 
 cmd_up() {
   [ $# -eq 1 ] || die "usage: release-core up <commit>"
-  local commit="$1" image service
+  local commit="$1" service
   [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "'$commit' is not a full commit"
   declare -A new=([database]="$(database_image "$commit")" [realmd]="$(server_image "$commit")" [mangosd]="$(server_image "$commit")")
   for service in "${services[@]}"; do
