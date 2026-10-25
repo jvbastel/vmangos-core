@@ -2,50 +2,9 @@
 # Install GoogleTest with the `libgtest-dev` package.
 find_package(GTest REQUIRED)
 
-add_executable(bots_tests
-  BotAccountsTest.cpp
-  BotCommandTest.cpp
-  BossReactionTest.cpp
-  BotRecipeTest.cpp
-  ChatClientTest.cpp
-  ChatContractTest.cpp
-  ChatHttpTest.cpp
-  ChatSessionsTest.cpp
-  CommandStateTest.cpp
-  CommandStrategyTest.cpp
-  DamageTargetTest.cpp
-  DataTokenizerTest.cpp
-  DeathAndRestTest.cpp
-  FakeBotTest.cpp
-  GearDataTest.cpp
-  GearDrawTest.cpp
-  GearTemplateTest.cpp
-  GroupCommandTest.cpp
-  GroupCoordinatorTest.cpp
-  GroupRulesTest.cpp
-  InterruptClaimTest.cpp
-  InboxTest.cpp
-  LootTest.cpp
-  MageFrostTest.cpp
-  PriestHealerTest.cpp
-  RogueTest.cpp
-  RouteGeneratorTest.cpp
-  RouteQuestsTest.cpp
-  RouteTest.cpp
-  RunScriptTest.cpp
-  ScriptRunnerTest.cpp
-  SpellBookTest.cpp
-  StartDelayTest.cpp
-  SpellDataTest.cpp
-  SpellFileTest.cpp
-  StrategyTest.cpp
-  TaragamanReactionTest.cpp
-  TalentBuildTest.cpp
-  TalentDataTest.cpp
-  ThinkTimerTest.cpp
-  WarlockTest.cpp
-  WarriorTankTest.cpp
-)
+# A glob, so that a new test file needs no CMake edit (jvbastel/WOWAI#63).
+file(GLOB BOT_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+add_executable(bots_tests ${BOT_TEST_SOURCES})
 # GoogleTest 1.17 needs C++17. The library itself stays C++14, like the core.
 set_target_properties(bots_tests PROPERTIES CXX_STANDARD 17)
 target_link_libraries(bots_tests PRIVATE bots GTest::gtest GTest::gtest_main)

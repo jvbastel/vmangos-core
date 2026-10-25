@@ -1,17 +1,51 @@
 # The CI of the WOWAI fork. On each push it builds the fork with the code
 # tests of the bot decision library (src/bots), runs them with ctest, and
 # makes sure that src/bots builds alone, without game headers (ADR 0002 of
-# WOWAI). `wowai/dev test` runs the same `wowai/bots-test.sh` locally.
+# WOWAI). `wowai/dev test` runs the same `wowai/bots-test.sh` locally. The
+# fork-rules job runs `wowai/fork-check.sh`: changed core files must be on
+# `wowai/core-allowlist.txt`, and the bot code has no DEBUG lines.
 #
-# The job runs in the base image of the dev container and of the
+# The bots job runs in the base image of the dev container and of the
 # vmangos-deploy build stage, with the same packages as
 # `wowai/dev-container/Dockerfile`. Keep the three in step.
+#
+# The scripts job runs shellcheck on each shell script under wowai/ (see
+# `wowai/shellcheck.sh`) and the script tests that need no Docker.
 name: WOWAI CI
 
 on:
   push:
 
+# A newer commit on the same branch cancels the older run. The push run and
+# the pull request run of one branch share the group, so a commit is built once.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
+  fork-rules:
+    name: Check the core file allowlist and DEBUG lines
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository with its full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch upstream development
+        run: >-
+          git fetch --no-tags https://github.com/vmangos/core.git
+          +development:refs/remotes/upstream/development
+
+      - name: Test the fork rules check
+        run: wowai/tests/fork-check.test.sh
+
+      - name: Check the fork rules (wowai/core-allowlist.txt, no DEBUG lines)
+        run: wowai/fork-check.sh upstream/development
+
   bots:
     name: Build the fork and run the bot code tests
     runs-on: ubuntu-24.04
@@ -62,3 +96,50 @@ jobs:
       - name: Build src/bots alone (no game headers) and run its tests
         shell: bash
         run: wowai/bots-test.sh "$PWD/src/bots" "$RUNNER_TEMP/bots"
+
+  scripts:
+    name: Check the wowai scripts and run their tests
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install the script tools
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update
+          apt install -y --no-install-recommends \
+            ca-certificates \
+            git \
+            shellcheck
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      # The checkout belongs to another user than the job container.
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Run shellcheck on the wowai scripts
+        shell: bash
+        run: wowai/shellcheck.sh
+
+      # The tests that need no Docker, or that use the fake-docker helper.
+      # Skipped, because they need a real Docker daemon and the dev container
+      # (run them by hand):
+      #   wowai/tests/bots-test.test.sh   (the bots job runs the same tests)
+      #   wowai/tests/dev-build.test.sh   (a full dev build)
+      #   wowai/tests/test-realm.test.sh  (a full test realm)
+      - name: Run the script tests that need no Docker
+        shell: bash
+        env:
+          GIT_AUTHOR_NAME: ci
+          GIT_AUTHOR_EMAIL: ci@example.invalid
+          GIT_COMMITTER_NAME: ci
+          GIT_COMMITTER_EMAIL: ci@example.invalid
+        run: |
+          set -euo pipefail
+          wowai/release/tests/merge-upstream.test.sh
+          wowai/release/tests/release-core.test.sh

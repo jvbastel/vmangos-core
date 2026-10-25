@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # End-to-end test of the code tests command: `wowai/dev test`.
 #
-# It copies only `src/bots/`, `bots/`, and `wowai/` of this working tree into a
-# temporary tree, so the rest of the core is not there. It runs the code tests
-# in their own dev container and volume, and removes them again at the end.
+# It copies only `src/bots/`, `bots/`, `dep/include/`, and `wowai/` of this
+# working tree into a temporary tree, so the rest of the core is not there. It
+# runs the code tests in their own dev container and volume, and removes them
+# again at the end.
 # Run it from any folder:
 #
 #   wowai/tests/bots-test.test.sh
@@ -32,6 +33,9 @@ mkdir -p "$WOWAI_SRC/src"
 cp -a "$repo/src/bots" "$WOWAI_SRC/src/bots"
 cp -a "$repo/wowai" "$WOWAI_SRC/wowai"
 cp -a "$repo/bots" "$WOWAI_SRC/bots"
+# The header-only libraries that src/bots uses.
+mkdir -p "$WOWAI_SRC/dep"
+cp -a "$repo/dep/include" "$WOWAI_SRC/dep/include"
 
 echo "Code tests in a tree with only src/bots..."
 if "$dev" test > "$tmp/test.log" 2>&1; then status=0; else status=$?; fi

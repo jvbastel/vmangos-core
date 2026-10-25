@@ -81,6 +81,15 @@ check "the second build compiles only the changed file (compiled $compiled)" \
 check "the second build reconfigures nothing" \
   bash -c "! grep -q 'Configuring done' '$tmp/second-build.log'"
 
+echo "Dev build after an interrupted build..."
+# A killed compiler leaves an empty object file that is newer than its source.
+object="$("$dev" shell find /build/out -name 'PlayerBotMgr.cpp.o' | tr -d '\r')"
+"$dev" shell truncate --size 0 "$object"
+if "$dev" build > "$tmp/third-build.log" 2>&1; then status=0; else status=$?; fi
+check "the build after an interrupted build links (exit $status)" test "$status" = 0
+check "the build compiles the empty object file again" \
+  bash -c "grep -q 'PlayerBotMgr.cpp.o' '$tmp/third-build.log' && '$dev' shell test -s '$object'"
+
 if [ "$failures" -ne 0 ]; then
   echo "$failures check(s) failed."
   exit 1

@@ -51,6 +51,11 @@
 # The kit raises LogLevel.File to 3, so the rules of the bots are in
 # Server.log.
 #
+# `up` (with no dev build yet) and `build` build into WOWAI_DEV_INSTALL (the
+# kit: install-t<N>). For the shared test realm in ~/wowai/dev-install, set
+# WOWAI_DEV_SHARED_INSTALL=1. Both hold the lock of the dev container until
+# they end.
+#
 # The realm folder holds the settings (.env), the configuration, and the logs.
 # The Compose files stay in the fork. In the realm folder, `docker compose`
 # also works by hand, because .env names the Compose files.
@@ -112,6 +117,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 fi
 
 realm_dir="$(realpath -m "${WOWAI_REALM_DIR:-$HOME/wowai/test-realm}")"
+# shellcheck disable=SC2154 # wowai/dev sets script_dir and sources this file.
 realm_files="$script_dir/test-realm"
 
 # A setting: the environment first, then the .env of the realm folder, then
@@ -147,6 +153,7 @@ realm_prepare() {
   mkdir -p "$bots_data/routes"
 
   local data
+  # shellcheck disable=SC2154 # wowai/dev sets deploy_dir.
   data="$(realm_setting WOWAI_REALM_DATA "$deploy_dir/storage/mangosd/extracted-data")"
   [ -d "$data/5875" ] || die "no extracted client data in $data (set WOWAI_REALM_DATA)"
   local botchat
@@ -218,6 +225,7 @@ realm_compose() {
 # '<query>'). Standard input goes to the client.
 realm_mariadb() {
   local db="$1"; shift
+  # shellcheck disable=SC2016 # The container shell expands these.
   realm_compose exec -T database sh -c \
     'db="$1"; shift; exec mariadb -u root -p"$MARIADB_ROOT_PASSWORD" --batch --skip-column-names "$db" "$@"' \
     mariadb "$db" "$@"
@@ -236,6 +244,7 @@ cmd_realm_migrate() {
   local -A done_ids=()
   local kind id file name applied=0 skipped=0
   for kind in "${!db_of[@]}"; do
+    # shellcheck disable=SC2016 # SQL quotes, not a shell expression.
     while read -r id; do
       done_ids["$kind:$id"]=1
     done < <(realm_mariadb "${db_of[$kind]}" -e 'SELECT `id` FROM `migrations`' | tr -d '\r')
@@ -285,6 +294,7 @@ realm_need_dev_install() {
 }
 
 cmd_realm_up() {
+  lock_container
   realm_prepare
   realm_need_dev_install
   echo "Starting the database of the test realm $(realm_env COMPOSE_PROJECT_NAME) (a fresh one takes a few minutes)..."
@@ -298,6 +308,8 @@ cmd_realm_up() {
 }
 
 cmd_realm_build() {
+  guard_shared_install
+  lock_container
   realm_prepare
   cmd_build
   cmd_realm_migrate
