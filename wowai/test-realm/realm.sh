@@ -3,82 +3,93 @@
 # (wowai/dev sets script_dir, src, deploy_dir, and install_dir. The SQL in
 # single quotes quotes its names in backticks.)
 #
-# The test realm commands, and the in-game check kit.
-#
-# Run as a command, this file is the check kit. It needs a ticket number. The
-# ticket gives the realm its own Compose project, realm folder, dev install
-# folder, and ports, so that two tickets never collide. It never falls back to
-# the shared test realm: that needs --shared.
-#
-#   wowai/test-realm/realm.sh --ticket <N> <command> [args]
-#   wowai/test-realm/realm.sh --shared <command> [args]   (no `down`)
-#
-# `wowai/dev realm <command>` sources this file and runs the same commands on
-# the shared test realm (or on the realm that the WOWAI_REALM_* settings name).
-#
-#   up                   Make the realm folder, apply the new migrations, and
-#                        start the realm. Builds the dev install if it has
-#                        none. Waits until the world is ready.
-#   wait                 Wait until mangosd runs GM commands over SOAP.
-#   soap <command>       Run a GM command over SOAP. Prints the answer.
-#   sql <db> <query>     Run a query with the MariaDB client.
-#   restart              Keep a copy of Server.log, restart mangosd, wait,
-#                        and log the bots that were online back in.
-#   key <account>        Make a player account (GM level 6) if it has none,
-#                        write a new session key, and print it (hex), for the
-#                        Python client.
-#   mark [label]         Mark the end of Server.log now.
-#   log [--all]          The Server.log lines since the last mark, without
-#                        the known noise (--all: with it).
-#   check <script> [args]
-#                        Mark the log, then run a Python check script with
-#                        the kit's Python client on its path. Keeps a pid file.
-#   env                  Print the settings that the ticket gives.
-#   down                 Kit: stop the processes of the pid files, keep the
-#                        logs, and remove the realm, its volume, and its
-#                        folder. Shared: `docker compose down [args]`.
-#   setup                Create the GM account again (`up` does it too) and
-#                        restart a running mangosd. Then create the bots of
-#                        the scripted runs.
-#   build                Dev build, apply the new migrations, and restart
-#                        mangosd.
-#   migrate              Apply each new file of sql/migrations/ once.
-#   compose <args>       Any other `docker compose` command.
-#
-# Kit folders (WOWAI_KIT_DIR, default ~/wowai/wt): the realm in
-# t<N>-realm, the dev install in install-t<N>, and the logs that `down` keeps
-# in t<N>-logs/<time>/. Ports: login 20000+N, world 21000+N, SOAP 22000+N.
-# The kit raises LogLevel.File to 3, so the rules of the bots are in
-# Server.log.
-#
-# `up` (with no dev build yet) and `build` build into WOWAI_DEV_INSTALL (the
-# kit: install-t<N>). For the shared test realm in ~/wowai/dev-install, set
-# WOWAI_DEV_SHARED_INSTALL=1. Both hold the lock of the dev container until
-# they end.
-#
-# The realm folder holds the settings (.env), the configuration, and the logs.
-# The Compose files stay in the fork. In the realm folder, `docker compose`
-# also works by hand, because .env names the Compose files.
-#
-# Settings of `wowai/dev realm` (environment variables, kept in .env after
-# the first `up`). The kit sets the first five itself:
-#   WOWAI_REALM_DIR         Realm folder. Default: ~/wowai/test-realm
-#   WOWAI_REALM_PROJECT     Compose project name. Default: wowai-test-realm
-#   WOWAI_REALM_LOGIN_PORT  realmd host port. Default: 3725
-#   WOWAI_REALM_WORLD_PORT  mangosd host port. Default: 8086
-#   WOWAI_REALM_SOAP_PORT   SOAP host port, on 127.0.0.1 only. Default: 7879
-#   WOWAI_SERVER_IMAGE      Default: the newest local wowai/vmangos-server
-#                           image, else ghcr.io/mserajnik/vmangos-server:5875
-#   WOWAI_DATABASE_IMAGE    Default: the newest local wowai/vmangos-database
-#                           image, else ghcr.io/mserajnik/vmangos-database:latest
-#   WOWAI_REALM_DATA        Extracted client data (read-only).
-#                           Default: <WOWAI_DEPLOY_DIR>/storage/mangosd/extracted-data
-#   WOWAI_BOTCHAT_SRC       A clone of the chat service repository, which the
-#                           botchat service runs. Default: ~/wowai/botchat
-#   WOWAI_BOTS_DATA         The bot data files (gear templates, route files,
-#                           ...), read and written by mangosd. Default:
-#                           bots/data of the fork tree that runs `realm up`
-#                           or `realm build`
+# The test realm commands, and the in-game check kit. realm_usage below
+# holds the help (realm.sh --help, wowai/dev realm help).
+
+# shellcheck source=defaults.sh
+. "$(dirname "${BASH_SOURCE[0]}")/defaults.sh"
+
+realm_usage() {
+  cat <<'EOF'
+The test realm commands, and the in-game check kit.
+
+Run as a command, this file is the check kit. It needs a ticket number. The
+ticket gives the realm its own Compose project, realm folder, dev install
+folder, and ports, so that two tickets never collide. It never falls back to
+the shared test realm: that needs --shared.
+
+  wowai/test-realm/realm.sh --ticket <N> <command> [args]
+  wowai/test-realm/realm.sh --shared <command> [args]   (no `down`)
+
+`wowai/dev realm <command>` sources this file and runs the same commands on
+the shared test realm (or on the realm that the WOWAI_REALM_* settings name).
+
+  up                   Make the realm folder, apply the new migrations, and
+                       start the realm. Builds the dev install if it has
+                       none. Waits until the world is ready.
+  wait                 Wait until mangosd runs GM commands over SOAP.
+  soap <command>       Run a GM command over SOAP. Prints the answer.
+  sql <db> <query>     Run a query with the MariaDB client.
+  restart              Keep a copy of Server.log, restart mangosd, wait,
+                       and log the bots that were online back in.
+  key <account>        Make a player account (GM level 6) if it has none,
+                       write a new session key, and print it (hex), for the
+                       Python client.
+  mark [label]         Mark the end of Server.log now.
+  log [--all]          The Server.log lines since the last mark, without
+                       the known noise (--all: with it).
+  check <script> [args]
+                       Mark the log, then run a Python check script with
+                       the kit's Python client on its path. Keeps a pid file.
+  env                  Print the settings that the ticket gives.
+  down                 Kit: stop the processes of the pid files, keep the
+                       logs, and remove the realm, its volume, and its
+                       folder. Shared: `docker compose down [args]`.
+  setup                Create the GM account again (`up` does it too) and
+                       restart a running mangosd. Then create the bots of
+                       the scripted runs.
+  build                Dev build, apply the new migrations, and restart
+                       mangosd.
+  migrate              Apply each new file of sql/migrations/ once.
+  compose <args>       Any other `docker compose` command.
+
+Kit folders (WOWAI_KIT_DIR, default ~/wowai/wt): the realm in
+t<N>-realm, the dev install in install-t<N>, and the logs that `down` keeps
+in t<N>-logs/<time>/. Ports: login 20000+N, world 21000+N, SOAP 22000+N.
+The kit raises LogLevel.File to 3, so the rules of the bots are in
+Server.log.
+
+`up` (with no dev build yet) and `build` build into WOWAI_DEV_INSTALL (the
+kit: install-t<N>). For the shared test realm in ~/wowai/dev-install, set
+WOWAI_DEV_SHARED_INSTALL=1. Both hold the lock of the dev container until
+they end.
+
+The realm folder holds the settings (.env), the configuration, and the logs.
+The Compose files stay in the fork. In the realm folder, `docker compose`
+also works by hand, because .env names the Compose files.
+
+Settings of `wowai/dev realm` (environment variables, kept in .env after
+the first `up`). The kit sets the first five itself:
+  WOWAI_REALM_DIR         Realm folder. Default: ~/wowai/test-realm
+  WOWAI_REALM_PROJECT     Compose project name. Default: wowai-test-realm
+  WOWAI_REALM_LOGIN_PORT  realmd host port. Default: 3725
+  WOWAI_REALM_WORLD_PORT  mangosd host port. Default: 8086
+  WOWAI_REALM_SOAP_PORT   SOAP host port, on 127.0.0.1 only. Default: 7879
+  WOWAI_SERVER_IMAGE      Default: the newest local wowai/vmangos-server
+                          image, else ghcr.io/mserajnik/vmangos-server:5875
+  WOWAI_DATABASE_IMAGE    Default: the newest local wowai/vmangos-database
+                          image, else ghcr.io/mserajnik/vmangos-database:latest
+  WOWAI_REALM_DATA        Extracted client data (read-only).
+                          Default: <WOWAI_DEPLOY_DIR>/storage/mangosd/extracted-data
+  WOWAI_BOTCHAT_SRC       A clone of the chat service repository, which the
+                          botchat service runs. Default: ~/wowai/botchat
+  WOWAI_BOTS_DATA         The bot data files (gear templates, route files,
+                          ...), read and written by mangosd. Default:
+                          bots/data of the fork tree that runs `realm up`
+                          or `realm build`
+
+EOF
+}
 
 # Run as a command: the check kit. Take the realm from the ticket number,
 # then run the command through the dev script, which sources this file.
@@ -90,13 +101,12 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     --ticket) [ "$#" -ge 2 ] || kit_die "--ticket needs a number"; ticket="$2"; shift 2 ;;
     --ticket=*) ticket="${1#--ticket=}"; shift ;;
     --shared) ticket=shared; shift ;;
-    help|-h|--help) sed -n '6,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    help|-h|--help) realm_usage; exit 0 ;;
     *) kit_die "give --ticket <N>, the number of your ticket. The kit never falls back to the shared test realm; --shared names it." ;;
   esac
   [ "$#" -gt 0 ] || kit_die "give a command (see: realm.sh --help)"
   # Only the ticket names the realm.
-  unset WOWAI_REALM_DIR WOWAI_REALM_PROJECT WOWAI_REALM_LOGIN_PORT WOWAI_REALM_WORLD_PORT \
-    WOWAI_REALM_SOAP_PORT WOWAI_DEV_INSTALL WOWAI_REALM_KEPT_LOGS WOWAI_REALM_LOG_FILE_LEVEL
+  unset "${!realm_defaults[@]}" WOWAI_REALM_KEPT_LOGS WOWAI_REALM_LOG_FILE_LEVEL
   if [ "$ticket" = shared ]; then
     [ "$1" != down ] || kit_die "the kit does not remove the shared test realm (wowai/dev realm down stops it)"
     export WOWAI_REALM_TICKET=shared
@@ -116,7 +126,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/dev" realm "$@"
 fi
 
-realm_dir="$(realpath -m "${WOWAI_REALM_DIR:-$HOME/wowai/test-realm}")"
+realm_dir="$(realpath -m "${WOWAI_REALM_DIR:-${realm_defaults[WOWAI_REALM_DIR]}}")"
 # shellcheck disable=SC2154 # wowai/dev sets script_dir and sources this file.
 realm_files="$script_dir/test-realm"
 
@@ -131,6 +141,9 @@ realm_setting() {
   saved="$(sed -n "s/^$name=//p" "$realm_dir/.env" 2>/dev/null | tail -n 1)"
   echo "${saved:-$default}"
 }
+
+# A setting with its default from the table of defaults.sh.
+realm_default_setting() { realm_setting "$1" "${realm_defaults[$1]}"; }
 
 newest_image() {
   local repository="$1" fallback="$2" newest
@@ -164,17 +177,17 @@ realm_prepare() {
   env="$(cat <<EOF
 # Written by \`wowai/dev realm\`. Change a value here or set it in the
 # environment. The passwords stay for the life of the database volume.
-COMPOSE_PROJECT_NAME=$(realm_setting WOWAI_REALM_PROJECT wowai-test-realm)
+COMPOSE_PROJECT_NAME=$(realm_default_setting WOWAI_REALM_PROJECT)
 COMPOSE_FILE=$realm_files/compose.yaml:$realm_files/compose.dev.yaml
-WOWAI_REALM_PROJECT=$(realm_setting WOWAI_REALM_PROJECT wowai-test-realm)
+WOWAI_REALM_PROJECT=$(realm_default_setting WOWAI_REALM_PROJECT)
 WOWAI_REALM_DIR=$realm_dir
 WOWAI_DEV_INSTALL=$install_dir
 WOWAI_REALM_DATA=$data
 WOWAI_BOTCHAT_SRC=$botchat
 WOWAI_BOTS_DATA=$bots_data
-WOWAI_REALM_LOGIN_PORT=$(realm_setting WOWAI_REALM_LOGIN_PORT 3725)
-WOWAI_REALM_WORLD_PORT=$(realm_setting WOWAI_REALM_WORLD_PORT 8086)
-WOWAI_REALM_SOAP_PORT=$(realm_setting WOWAI_REALM_SOAP_PORT 7879)
+WOWAI_REALM_LOGIN_PORT=$(realm_default_setting WOWAI_REALM_LOGIN_PORT)
+WOWAI_REALM_WORLD_PORT=$(realm_default_setting WOWAI_REALM_WORLD_PORT)
+WOWAI_REALM_SOAP_PORT=$(realm_default_setting WOWAI_REALM_SOAP_PORT)
 WOWAI_SERVER_IMAGE=${WOWAI_SERVER_IMAGE:-$(newest_image wowai/vmangos-server ghcr.io/mserajnik/vmangos-server:5875)}
 WOWAI_DATABASE_IMAGE=$(realm_setting WOWAI_DATABASE_IMAGE "$(newest_image wowai/vmangos-database ghcr.io/mserajnik/vmangos-database:latest)")
 WOWAI_REALM_TZ=$(realm_setting WOWAI_REALM_TZ "$(cat /etc/timezone 2>/dev/null || echo Etc/UTC)")
@@ -484,8 +497,8 @@ cmd_realm_log() {
 
 # Keep a copy of Server.log before mangosd starts again and empties it.
 realm_keep_server_log() {
-  local log="$realm_dir/storage/mangosd/logs/Server.log" keep
-  [ -n "${WOWAI_REALM_KEPT_LOGS:-}" ] && [ -f "$log" ] || return 0
+  local log keep
+  [ -n "${WOWAI_REALM_KEPT_LOGS:-}" ] && log="$(realm_server_log 2>/dev/null)" || return 0
   keep="$WOWAI_REALM_KEPT_LOGS/$(date '+%Y%m%d-%H%M%S')-restart"
   mkdir -p "$keep"
   cp -a "$log" "$keep/Server.log"
@@ -535,7 +548,7 @@ realm_stop_checks() {
 cmd_realm_kit_down() {
   local keep project
   project="$(realm_setting WOWAI_REALM_PROJECT '')"
-  [ -n "$project" ] && [ "$project" != wowai-test-realm ] || die "down removes only the realm of a ticket"
+  [ -n "$project" ] && [ "$project" != "${realm_defaults[WOWAI_REALM_PROJECT]}" ] || die "down removes only the realm of a ticket"
   realm_stop_checks
   keep="${WOWAI_REALM_KEPT_LOGS:?}/$(date '+%Y%m%d-%H%M%S')"
   if [ -f "$realm_dir/.env" ]; then
@@ -572,9 +585,9 @@ cmd_realm_env() {
   local name
   echo "WOWAI_REALM_TICKET=${WOWAI_REALM_TICKET:-}"
   echo "WOWAI_REALM_DIR=$realm_dir"
-  echo "WOWAI_REALM_PROJECT=$(realm_setting WOWAI_REALM_PROJECT wowai-test-realm)"
-  for name in LOGIN:3725 WORLD:8086 SOAP:7879; do
-    echo "WOWAI_REALM_${name%%:*}_PORT=$(realm_setting "WOWAI_REALM_${name%%:*}_PORT" "${name#*:}")"
+  echo "WOWAI_REALM_PROJECT=$(realm_default_setting WOWAI_REALM_PROJECT)"
+  for name in WOWAI_REALM_LOGIN_PORT WOWAI_REALM_WORLD_PORT WOWAI_REALM_SOAP_PORT; do
+    echo "$name=$(realm_default_setting "$name")"
   done
   echo "WOWAI_DEV_INSTALL=$(realpath -m "$install_dir")"
 }
@@ -598,7 +611,7 @@ cmd_realm() {
     check) cmd_realm_check "$@" ;;
     compose) realm_compose "$@" ;;
     env) cmd_realm_env ;;
-    help|-h|--help) sed -n '6,/^$/p' "$realm_files/realm.sh" | sed 's/^# \{0,1\}//' ;;
-    *) sed -n '6,/^$/p' "$realm_files/realm.sh" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    help|-h|--help) realm_usage ;;
+    *) realm_usage >&2; exit 2 ;;
   esac
 }

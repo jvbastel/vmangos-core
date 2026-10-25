@@ -1,42 +1,14 @@
 #!/usr/bin/env bash
-# The dev script of the fork.
-#
-#   wowai/dev build          Copy the source tree into the build volume, apply
-#                            the vmangos-deploy patches to the copy, and run
-#                            `make install` into the dev install folder.
-#   wowai/dev shell [cmd]    Run a command (default: bash) in the dev container.
-#   wowai/dev stop           Stop the dev container. The build volume stays.
-#   wowai/dev clean          Remove the dev container and its build volume.
-#   wowai/dev test           Build only the bot decision library (src/bots) and
-#                            its GoogleTest tests, and run ctest. No realm.
-#   wowai/dev realm <cmd>    The test realm: up, setup, build, migrate, sql,
-#                            down, compose. See `wowai/dev realm help`.
-#
-# The dev container is long-lived. It uses the same base image as the build
-# stage of vmangos-deploy, bind-mounts the source tree read-only, and keeps
-# the build folder in a named Docker volume, so that a one-file change builds
-# in seconds. Each source tree gets its own container and volume.
-#
-# Settings (environment variables):
-#   WOWAI_SRC          Source tree to build. Default: the tree of this script.
-#   WOWAI_DEPLOY_DIR   vmangos-deploy folder with docker/patches/ and
-#                      docker/server/Dockerfile. Default: /mnt/c/Games/vmangos-deploy
-#   WOWAI_DEV_INSTALL  Dev install folder (the CMake install prefix, mounted at
-#                      /opt/vmangos). Default: ~/wowai/dev-install, the shared
-#                      install folder of the shared test realm. `build` refuses
-#                      the shared folder unless WOWAI_DEV_SHARED_INSTALL=1.
-#   WOWAI_DEV_SHARED_INSTALL
-#                      Set it to 1 to build into the shared install folder on
-#                      purpose.
-#
-# A command waits while another command uses the same dev container.
+# The dev script of the fork. usage below holds the help (wowai/dev help).
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 src="$(cd "${WOWAI_SRC:-$(git -C "$script_dir" rev-parse --show-toplevel)}" && pwd)"
 deploy_dir="${WOWAI_DEPLOY_DIR:-/mnt/c/Games/vmangos-deploy}"
-shared_install_dir="$HOME/wowai/dev-install"
+# shellcheck source=test-realm/defaults.sh
+. "$script_dir/test-realm/defaults.sh"
+shared_install_dir="${realm_defaults[WOWAI_DEV_INSTALL]}"
 install_dir="${WOWAI_DEV_INSTALL:-$shared_install_dir}"
 
 tree_id="$(basename "$src" | tr -c 'a-zA-Z0-9_.\n-' '-')-$(printf '%s' "$src" | sha1sum | cut -c1-8)"
@@ -246,7 +218,39 @@ cmd_test() {
 }
 
 usage() {
-  sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d' | sed 's/^# \{0,1\}//'
+  cat <<'EOF'
+The dev script of the fork.
+
+  wowai/dev build          Copy the source tree into the build volume, apply
+                           the vmangos-deploy patches to the copy, and run
+                           `make install` into the dev install folder.
+  wowai/dev shell [cmd]    Run a command (default: bash) in the dev container.
+  wowai/dev stop           Stop the dev container. The build volume stays.
+  wowai/dev clean          Remove the dev container and its build volume.
+  wowai/dev test           Build only the bot decision library (src/bots) and
+                           its GoogleTest tests, and run ctest. No realm.
+  wowai/dev realm <cmd>    The test realm: up, setup, build, migrate, sql,
+                           down, compose. See `wowai/dev realm help`.
+
+The dev container is long-lived. It uses the same base image as the build
+stage of vmangos-deploy, bind-mounts the source tree read-only, and keeps
+the build folder in a named Docker volume, so that a one-file change builds
+in seconds. Each source tree gets its own container and volume.
+
+Settings (environment variables):
+  WOWAI_SRC          Source tree to build. Default: the tree of this script.
+  WOWAI_DEPLOY_DIR   vmangos-deploy folder with docker/patches/ and
+                     docker/server/Dockerfile. Default: /mnt/c/Games/vmangos-deploy
+  WOWAI_DEV_INSTALL  Dev install folder (the CMake install prefix, mounted at
+                     /opt/vmangos). Default: ~/wowai/dev-install, the shared
+                     install folder of the shared test realm. `build` refuses
+                     the shared folder unless WOWAI_DEV_SHARED_INSTALL=1.
+  WOWAI_DEV_SHARED_INSTALL
+                     Set it to 1 to build into the shared install folder on
+                     purpose.
+
+A command waits while another command uses the same dev container.
+EOF
 }
 
 # Later commands (the code tests and the test realm) go in this table.
