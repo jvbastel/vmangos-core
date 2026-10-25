@@ -1,4 +1,5 @@
 #include "RouteGenerator.h"
+#include "BotGeometry.h"
 
 #include <algorithm>
 #include <cmath>
@@ -17,11 +18,6 @@ namespace Bots
             float const dy = a.y - b.y;
             float const dz = a.z - b.z;
             return std::sqrt(dx * dx + dy * dy + dz * dz);
-        }
-
-        float Distance2d(Position const& a, Position const& b)
-        {
-            return std::hypot(a.x - b.x, a.y - b.y);
         }
 
         float DistanceToSegment(Position const& p, Position const& a, Position const& b)
