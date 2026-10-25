@@ -104,7 +104,6 @@ namespace Bots
             void AddBlindFromX(float x) { m_blindFromX.push_back(x); }
             void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
             void SetGroupLeader(Guid unit) { m_leader = unit; }
-            void SetCorpseDistance(Guid unit, float yards) { m_corpseDistance[unit] = yards; }
             void SetCanResurrect(Guid unit, bool can = true)
             {
                 if (can)
@@ -115,11 +114,20 @@ namespace Bots
             void SetMana(Guid unit, std::uint32_t current, std::uint32_t max) { m_mana[unit] = Power{current, max}; }
             void SetEating(bool eating = true) { m_eating = eating; }
             void SetDrinking(bool drinking = true) { m_drinking = drinking; }
-            // A fight within `yards` of the bot (IsFightNear): any distance
-            // up to `yards` counts as near.
-            void SetFightNear(float yards) { m_fightNearYards = yards; }
             // Spell `spell` targets dead units, for example a resurrect.
             void SetCastsOnDead(SpellId spell) { m_castsOnDead.insert(spell); }
+            // The bot cannot cast spell `spell` on unit `target` now, for
+            // example out of range.
+            void SetCannotCastOn(SpellId spell, Guid target) { m_cannotCastOn.insert({spell, target}); }
+            // The safe place to cast on unit `unit` from (FindSafeCastPlace).
+            // Unset: there is none.
+            void SetSafeCastPlace(Guid unit, Position place, bool has = true)
+            {
+                if (has)
+                    m_safeCastPlaces[unit] = place;
+                else
+                    m_safeCastPlaces.erase(unit);
+            }
 
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
@@ -191,7 +199,7 @@ namespace Bots
             bool HasLootWork(bool mayMove) const override { return m_lootWork && (mayMove || !m_lootOnlyWithMove); }
             bool CanCast(SpellId spell, Guid target) const override
             {
-                if (!KnowsSpell(spell) || m_cannotCast.count(spell))
+                if (!KnowsSpell(spell) || m_cannotCast.count(spell) || m_cannotCastOn.count({spell, target}))
                     return false;
                 if (m_castsOnDead.count(spell))
                     return GetLifeState(target) == LifeState::Dead;
@@ -254,11 +262,6 @@ namespace Bots
                 return found == m_lifeState.end() ? LifeState::Alive : found->second;
             }
             Guid GetGroupLeader() const override { return m_leader; }
-            float GetCorpseDistance(Guid unit) const override
-            {
-                auto found = m_corpseDistance.find(unit);
-                return found == m_corpseDistance.end() ? 100000.0f : found->second;
-            }
             bool CanResurrect(Guid unit) const override
             {
                 return m_resurrecters.count(unit) != 0 && GetLifeState(unit) == LifeState::Alive;
@@ -270,7 +273,14 @@ namespace Bots
             }
             bool IsEating() const override { return m_eating; }
             bool IsDrinking() const override { return m_drinking; }
-            bool IsFightNear(float yards) const override { return m_fightNearYards >= 0.0f && m_fightNearYards <= yards; }
+            bool FindSafeCastPlace(Guid unit, float, Position& place) const override
+            {
+                auto found = m_safeCastPlaces.find(unit);
+                if (found == m_safeCastPlaces.end())
+                    return false;
+                place = found->second;
+                return true;
+            }
 
             // BotActions
             void CastSpell(SpellId spell, Guid target) override
@@ -316,7 +326,7 @@ namespace Bots
             }
             void Loot(bool mayMove) override { m_deeds.push_back(mayMove ? "loot" : "loot in place"); }
             void Release() override { m_deeds.push_back("release"); }
-            void ReviveAtCorpse() override { m_deeds.push_back("revive at the corpse"); }
+            void WalkAsGhost() override { m_deeds.push_back("walk as a ghost"); }
             void Eat() override { m_deeds.push_back("eat"); }
             void Drink() override { m_deeds.push_back("drink"); }
 
@@ -357,13 +367,13 @@ namespace Bots
             std::vector<float> m_blindFromX;
             std::map<Guid, LifeState> m_lifeState;
             Guid m_leader = NoGuid;
-            std::map<Guid, float> m_corpseDistance;
             std::set<Guid> m_resurrecters;
             std::map<Guid, Power> m_mana;
             bool m_eating = false;
             bool m_drinking = false;
-            float m_fightNearYards = -1.0f;
             std::set<SpellId> m_castsOnDead;
+            std::set<std::pair<SpellId, Guid>> m_cannotCastOn;
+            std::map<Guid, Position> m_safeCastPlaces;
             std::vector<std::string> m_deeds;
         };
     }

@@ -59,12 +59,11 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool CanSeeFrom(Bots::Position const& place, Bots::Guid unit) const override;
         Bots::LifeState GetLifeState(Bots::Guid unit) const override;
         Bots::Guid GetGroupLeader() const override;
-        float GetCorpseDistance(Bots::Guid unit) const override;
         bool CanResurrect(Bots::Guid unit) const override;
         Bots::Power GetMana(Bots::Guid unit) const override;
         bool IsEating() const override;
         bool IsDrinking() const override;
-        bool IsFightNear(float yards) const override;
+        bool FindSafeCastPlace(Bots::Guid unit, float yards, Bots::Position& place) const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;
@@ -77,7 +76,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void Follow(Bots::Guid unit) override;
         void Loot(bool mayMove) override;
         void Release() override;
-        void ReviveAtCorpse() override;
+        void WalkAsGhost() override;
         void Eat() override;
         void Drink() override;
 

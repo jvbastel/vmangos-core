@@ -13,19 +13,20 @@
 // gap, wide, wall, and bosses (entries split by commas, in run order). With
 // no bosses setting, the boss list of the existing route file is used. See
 // RouteGenerator.h of the bot library for what each one does.
+// A ghost route name, for example ghost_389, makes the ghost route of that
+// dungeon instead (bots/GhostWalk.h): stand at the graveyard of the dungeon.
 
 #include "BotMgr.h"
 #include "Chat.h"
 #include "Database/DatabaseEnv.h"
+#include "GameRouteNav.h"
+#include "GhostWalk.h"
 #include "Log.h"
 #include "Map.h"
-#include "MoveMap.h"
-#include "MoveMapSharedDefines.h"
 #include "Movement/MotionMaster.h"
 #include "Movement/WaypointManager.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
-#include "PathFinder.h"
 #include "Player.h"
 #include "QuestDef.h"
 #include "Route.h"
@@ -42,142 +43,18 @@
 
 namespace
 {
-    float Distance(Bots::Position const& a, Bots::Position const& b)
+    // A ghost route has a point at most this far after the last one, and it
+    // loads the terrain this often along the straight line.
+    float const GhostSpacingYards = 15.0f;
+    float const GhostTileStepYards = 30.0f;
+
+    float PathLength(std::vector<Bots::Position> const& path)
     {
-        return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
+        float length = 0.0f;
+        for (std::size_t i = 1; i < path.size(); ++i)
+            length += std::hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+        return length;
     }
-
-    // The navmesh of the map, for the route generator. Paths come from
-    // PathInfo with the character as the walker, so they leave out lava like
-    // the path of a walking player.
-    class GameRouteNav : public Bots::RouteNav
-    {
-    public:
-        explicit GameRouteNav(Player* walker) : m_walker(walker)
-        {
-            m_query = MMAP::MMapFactory::createOrGetMMapManager()->GetNavMeshQuery(walker->GetMapId());
-            m_ground.setIncludeFlags(NAV_GROUND);
-            m_ground.setExcludeFlags(NAV_MAGMA | NAV_SLIME);
-            m_lava.setIncludeFlags(NAV_MAGMA | NAV_SLIME);
-        }
-
-        bool Ready() const { return m_query != nullptr; }
-
-        bool Path(Bots::Position const& from, Bots::Position const& to, std::vector<Bots::Position>& out) override
-        {
-            out.clear();
-            // PathInfo finds no path between two spots this close: its
-            // smooth path needs two steps.
-            if (Distance(from, to) < 2.0f && OnMesh(from) && OnMesh(to) && !OnLava(from) && !OnLava(to))
-            {
-                out = {from, to};
-                return true;
-            }
-            Bots::Position start = from;
-            // A long path comes in parts: PathInfo stops at its point limit.
-            for (int part = 0; part < 8; ++part)
-            {
-                PathInfo path(m_walker);
-                path.calculate(Vector3(start.x, start.y, start.z), Vector3(to.x, to.y, to.z), false);
-                uint32 const type = path.getPathType();
-                if (type & (PATHFIND_NOPATH | PATHFIND_SHORTCUT | PATHFIND_NOT_USING_PATH))
-                    return false;
-                PointsArray const& points = path.getPath();
-                if (points.empty())
-                    return false;
-                for (Vector3 const& point : points)
-                {
-                    Bots::Position const position{point.x, point.y, point.z};
-                    if (out.empty() || Distance(out.back(), position) > 0.01f)
-                        out.push_back(position);
-                }
-                if (!(type & PATHFIND_INCOMPLETE))
-                    break;
-                if (Distance(out.back(), start) < 1.0f)
-                    return false;
-                start = out.back();
-            }
-            Bots::Position const& end = out.back();
-            if (std::hypot(end.x - to.x, end.y - to.y) > 3.0f || std::fabs(end.z - to.z) > 5.0f)
-                return false;
-            // No step of the path on lava.
-            for (std::size_t i = 1; i < out.size(); ++i)
-            {
-                float const length = Distance(out[i - 1], out[i]);
-                int const steps = std::max(1, int(length / 0.5f));
-                for (int k = 0; k <= steps; ++k)
-                {
-                    float const t = float(k) / float(steps);
-                    Bots::Position const p{out[i - 1].x + (out[i].x - out[i - 1].x) * t,
-                        out[i - 1].y + (out[i].y - out[i - 1].y) * t, out[i - 1].z + (out[i].z - out[i - 1].z) * t};
-                    if (OnLava(p))
-                        return false;
-                }
-            }
-            return true;
-        }
-
-        Bots::Position Reach(Bots::Position const& from, float dx, float dy, float distance) override
-        {
-            float const norm = std::hypot(dx, dy);
-            if (!m_query || norm < 1e-4f || distance <= 0.0f)
-                return from;
-            float start[3] = {from.y, from.z, from.x};
-            float extents[3] = {2.0f, 5.0f, 2.0f};
-            float nearest[3];
-            dtPolyRef startRef = 0;
-            if (dtStatusFailed(m_query->findNearestPoly(start, extents, &m_ground, &startRef, nearest)) || !startRef)
-                return from;
-            float end[3] = {nearest[0] + dy / norm * distance, nearest[1], nearest[2] + dx / norm * distance};
-            float t = 0.0f;
-            float normal[3];
-            dtPolyRef polys[128];
-            int count = 0;
-            if (dtStatusFailed(m_query->raycast(startRef, nearest, end, &m_ground, &t, normal, polys, &count, 128)))
-                return from;
-            float const along = t > 1.0f ? 1.0f : std::max(0.0f, t - 0.05f / distance);
-            float hit[3] = {nearest[0] + (end[0] - nearest[0]) * along, nearest[1], nearest[2] + (end[2] - nearest[2]) * along};
-            float height = from.z;
-            if (count > 0)
-            {
-                for (int i = count - 1; i >= 0; --i)
-                    if (dtStatusSucceed(m_query->getPolyHeight(polys[i], hit, &height)))
-                        break;
-            }
-            return {hit[2], hit[0], height};
-        }
-
-        bool OnMesh(Bots::Position const& position) override
-        {
-            return Inside(position, m_ground);
-        }
-
-        bool OnLava(Bots::Position const& position)
-        {
-            return Inside(position, m_lava) && !Inside(position, m_ground);
-        }
-
-    private:
-        // True when the position lies on a polygon that the filter takes.
-        bool Inside(Bots::Position const& position, dtQueryFilter const& filter)
-        {
-            if (!m_query)
-                return false;
-            float point[3] = {position.y, position.z, position.x};
-            float extents[3] = {0.5f, 3.0f, 0.5f};
-            float closest[3];
-            dtPolyRef ref = 0;
-            if (dtStatusFailed(m_query->findNearestPoly(point, extents, &filter, &ref, closest)) || !ref)
-                return false;
-            return std::hypot(closest[0] - point[0], closest[2] - point[2]) < 0.1f &&
-                std::fabs(closest[1] - point[1]) < 3.0f;
-        }
-
-        Player* m_walker;
-        dtNavMeshQuery const* m_query = nullptr;
-        dtQueryFilter m_ground;
-        dtQueryFilter m_lava;
-    };
 
     std::vector<std::string> Words(char const* args)
     {
@@ -407,6 +284,50 @@ namespace
 
 namespace
 {
+// A ghost route (bots/GhostWalk.h): from the character, who stands at the
+// graveyard of the dungeon, along the navmesh to the spot in front of the
+// dungeon portal, where the exit of the dungeon puts a player.
+bool GenerateGhostRoute(ChatHandler& handler, std::string const& name, uint32 dungeon, Player* character)
+{
+    AreaTriggerTeleport const* exit = sObjectMgr.GetGoBackTrigger(dungeon);
+    if (!exit || exit->destination.mapId != character->GetMapId())
+        return Fail(handler, "Stand on the map of the portal of map " + std::to_string(dungeon) + ", at its graveyard.");
+    GameRouteNav nav(character);
+    if (!nav.Ready())
+        return Fail(handler, "Map " + std::to_string(character->GetMapId()) + " has no navmesh. Are the mmaps loaded?");
+    nav.SetStraightPaths(true);
+
+    Bots::Position const from{character->GetPositionX(), character->GetPositionY(), character->GetPositionZ()};
+    Bots::Position const to{exit->destination.x, exit->destination.y, exit->destination.z};
+    // The navmesh tiles load with the terrain of their grid.
+    TerrainInfo const* terrain = character->GetTerrain();
+    float const length = std::hypot(to.x - from.x, to.y - from.y);
+    for (float along = 0.0f; along <= length + GhostTileStepYards; along += GhostTileStepYards)
+    {
+        float const t = length > 0.0f ? std::min(1.0f, along / length) : 1.0f;
+        terrain->GetHeightStatic(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, from.z + (to.z - from.z) * t);
+    }
+    std::vector<Bots::Position> path;
+    if (!nav.Path(from, to, path))
+    {
+        std::ostringstream line;
+        line << "No walk on the navmesh from here to the portal (" << to.x << " " << to.y << " " << to.z << ")";
+        if (!path.empty())
+            line << ": it ends after " << uint32(PathLength(path)) << " yards at " << path.back().x << " " << path.back().y << " "
+                 << path.back().z;
+        return Fail(handler, line.str() + ".");
+    }
+
+    Bots::Route const route = Bots::MakeGhostRoute(dungeon, character->GetMapId(), path, GhostSpacingYards);
+    std::string const file = RouteFiles::PathOf(name);
+    std::string const text = Bots::WriteRoute(route, Bots::RouteNames{});
+    if (!RouteFiles::Write(file, text))
+        return Fail(handler, "Cannot write " + file + ".");
+    handler.PSendSysMessage("Ghost route %s: %u points, %.0f yards of path, in %s.", name.c_str(), uint32(route.points.size()),
+        PathLength(path), file.c_str());
+    return true;
+}
+
 bool RunGenerate(ChatHandler& handler, char* args)
 {
     std::vector<std::string> names;
@@ -443,6 +364,10 @@ bool RunGenerate(ChatHandler& handler, char* args)
         return Fail(handler, "On the console, name an online character: .route generate <route> <character>");
     if (character->CanFly())
         return Fail(handler, "Turn off flying first: the navmesh paths are for a walking character.");
+
+    uint32 dungeon = 0;
+    if (Bots::IsGhostRouteName(names[0], dungeon))
+        return GenerateGhostRoute(handler, names[0], dungeon, character);
 
     uint32 const mapId = character->GetMapId();
     std::string const path = RouteFiles::PathOf(names[0]);

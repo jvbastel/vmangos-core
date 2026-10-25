@@ -6,6 +6,7 @@
 */
 
 #include "BotMgr.h"
+#include "GhostWalk.h"
 #include "BotAI.h"
 #include "BotAccounts.h"
 #include "Chat.h"
@@ -305,6 +306,7 @@ void BotMgr::LoadBossList()
     std::string const dir = m_settings.dataDir + "/routes";
     std::string const extension = ".txt";
     m_bosses = Bots::BossList();
+    m_ghostRoutes.clear();
     uint32 routes = 0;
     for (std::string const& file : IO::Filesystem::GetAllFilesInFolder(dir, IO::Filesystem::OutputFilePath::JustFileName))
     {
@@ -321,9 +323,19 @@ void BotMgr::LoadBossList()
             continue;
         }
         m_bosses.Add(result.route);
+        uint32 dungeon = 0;
+        if (Bots::IsGhostRouteName(result.route.name, dungeon) && !result.route.points.empty())
+            m_ghostRoutes[dungeon] = result.route;
         ++routes;
     }
-    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %u route files loaded for the boss lists", routes);
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %u route files loaded for the boss lists, %u ghost routes", routes,
+        uint32(m_ghostRoutes.size()));
+}
+
+Bots::Route const* BotMgr::GhostRoute(uint32 dungeonMap) const
+{
+    auto const found = m_ghostRoutes.find(dungeonMap);
+    return found == m_ghostRoutes.end() ? nullptr : &found->second;
 }
 
 void BotMgr::OnGroupEvent(uint32 groupId, Bots::GroupEvent const& event)
@@ -346,7 +358,7 @@ void BotMgr::OnGroupEvent(uint32 groupId, Bots::GroupEvent const& event)
             ObjectGuid(event.winner).GetString().c_str(), event.entry);
         return;
     }
-    char const* reason = "revives at its corpse";
+    char const* reason = "releases to run back";
     if (event.reason == Bots::RestReason::Eat)
         reason = "eats";
     else if (event.reason == Bots::RestReason::Drink)

@@ -163,6 +163,10 @@ class BotMgr
         // files at startup only, so the bots can read the list without a
         // lock: a boss added with the route recorder counts after a restart.
         bool IsBoss(uint32 mapId, uint32 entry) const { return m_bosses.IsBoss(mapId, entry); }
+        // From any map thread: the ghost route to the dungeon map
+        // (bots/GhostWalk.h), or null. Read at startup only, like the boss
+        // lists.
+        Bots::Route const* GhostRoute(uint32 dungeonMap) const;
 
         BotOnlineState OnlineStateOf(std::string const& name);
         // The scripted runs.
@@ -187,7 +191,8 @@ class BotMgr
         // The group has a member that is no WOWAI bot, online or not.
         bool HasPlayerMember(Group const& group) const;
         void PutOnPendingGear(BotRecord& record);
-        // The boss lists of the route files in <DataDir>/routes.
+        // The boss lists and the ghost routes of the route files in
+        // <DataDir>/routes.
         void LoadBossList();
         void DropOldCoordinators();
         // The wipe and rest moments that the coordinators saw since the last
@@ -208,6 +213,7 @@ class BotMgr
         std::map<uint32 /*group id*/, std::shared_ptr<Bots::GroupCoordinator>> m_coordinators;
         BotChat m_chat;
         Bots::BossList m_bosses;
+        std::map<uint32 /*dungeon map*/, Bots::Route> m_ghostRoutes;
         BotRun m_run;
         std::atomic<uint64> m_testDriver{0};
         Bots::SeededRandom m_random{std::random_device()()};

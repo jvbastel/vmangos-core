@@ -28,7 +28,10 @@ namespace Bots
         // The healer: it keeps the members of its group alive and only heals.
         // It never attacks, not even an enemy that attacks it. At level 16 it
         // knows no dispel, so it heals through every debuff. After a fight
-        // it resurrects the dead members that have not released.
+        // it resurrects each dead member in reach that has not released.
+        // Then it walks to a corpse out of reach, to a safe place in cast
+        // range (BotView::FindSafeCastPlace). With no safe place it does
+        // not go: it gives the resurrect up, and the dead member runs back.
         std::shared_ptr<Strategy const> MakeHealerStrategy();
     }
 }

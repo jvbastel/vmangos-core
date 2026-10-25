@@ -134,10 +134,6 @@ namespace Bots
         virtual LifeState GetLifeState(Guid unit) const = 0;
         // The leader of the bot's group, or NoGuid without a group.
         virtual Guid GetGroupLeader() const = 0;
-        // The distance in yards from unit `unit` to the corpse of the bot. A
-        // large number when the bot has no corpse, or when the unit is on
-        // another map than the corpse. The leader is found on any map.
-        virtual float GetCorpseDistance(Guid unit) const = 0;
         // True when unit `unit` is alive and knows a spell that resurrects a
         // dead player.
         virtual bool CanResurrect(Guid unit) const = 0;
@@ -147,11 +143,15 @@ namespace Bots
         virtual bool IsEating() const = 0;
         // True when the bot drinks now: it has the aura of its drink.
         virtual bool IsDrinking() const = 0;
-        // True when a living enemy fights, or runs home from a fight
-        // (evades), within `yards` of the bot or with its home within its
-        // aggro distance of the bot; or when an enemy would attack the bot
-        // where it stands (the bot is within its aggro distance).
-        virtual bool IsFightNear(float yards) const = 0;
+        // A place within `yards` of unit `unit`, in its line of sight, for a
+        // spell on it, for example the resurrect of a corpse. The bot walks
+        // there on the ground on a path that pulls no enemy (the path and
+        // the place keep out of the aggro distance of every living enemy)
+        // and crosses no harmful ground such as lava (IsHarmfulGround), and
+        // the unit is in sight from the place (CanSeeFrom). The place nearest to
+        // the bot. False when there is none, and for a unit too far away to
+        // know the enemies on the way (about 80 yards).
+        virtual bool FindSafeCastPlace(Guid unit, float yards, Position& place) const = 0;
     };
 }
 

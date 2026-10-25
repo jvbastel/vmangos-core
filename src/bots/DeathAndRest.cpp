@@ -15,11 +15,15 @@ namespace Bots
             return !IsAlive(context.view, context.view.GetSelf());
         }
 
-        // True when a living member that the bot sees can resurrect.
-        bool SomeoneCanResurrect(BotView const& view)
+        // True while a resurrect can still come to the dead bot: a living
+        // member that it sees can resurrect, and has not given up its
+        // resurrect (no safe place to cast it from).
+        bool ResurrectCanCome(BotContext const& context)
         {
-            for (Guid member : view.GetGroupMembers())
-                if (view.CanResurrect(member))
+            if (context.group.IsResurrectGivenUp(context.view.GetSelf()))
+                return false;
+            for (Guid member : context.view.GetGroupMembers())
+                if (context.view.CanResurrect(member))
                     return true;
             return false;
         }
@@ -82,29 +86,22 @@ namespace Bots
                 },
                 Always([](BotContext const& context) { context.actions.Release(); })},
 
-            Rule{"revive at the corpse", P + 20,
+            // Not in a wipe: then the bots wait for the leader to release.
+            // After the fight, so that a Priest that lives can still come.
+            Rule{"release when no resurrect comes", P + 20,
                 [](BotContext const& context) {
-                    Guid const leader = context.view.GetGroupLeader();
-                    return SelfState(context) == LifeState::Ghost && leader != NoGuid
-                        && context.view.GetLifeState(leader) == LifeState::Alive
-                        && context.view.GetCorpseDistance(leader) <= ReviveNearLeaderYards;
+                    return SelfState(context) == LifeState::Dead && SomeoneLives(context.view)
+                        && !IsGroupInCombat(context.view) && !ResurrectCanCome(context);
                 },
                 Always([](BotContext const& context) {
-                    context.actions.ReviveAtCorpse();
+                    context.actions.Release();
                     context.group.NoteRevive(context.view.GetSelf());
                 })},
 
-            // Not in a wipe: then the bots wait for the leader to release.
-            Rule{"revive when nobody can resurrect", P + 10,
-                [](BotContext const& context) {
-                    return SelfState(context) == LifeState::Dead && SomeoneLives(context.view)
-                        && !IsGroupInCombat(context.view) && !context.view.IsFightNear(ReviveClearOfFightYards)
-                        && !SomeoneCanResurrect(context.view);
-                },
-                Always([](BotContext const& context) {
-                    context.actions.ReviveAtCorpse();
-                    context.group.NoteRevive(context.view.GetSelf());
-                })},
+            // No bot revives at its corpse on its own: a ghost runs back.
+            Rule{"walk back as a ghost", P + 10,
+                [](BotContext const& context) { return SelfState(context) == LifeState::Ghost; },
+                Always([](BotContext const& context) { context.actions.WalkAsGhost(); })},
 
             // A dead bot does nothing else.
             Rule{"wait dead", P, IsDead, Always(Nothing)},
@@ -140,6 +137,8 @@ namespace Bots
     void WatchGroup(BotView const& view, GroupCoordinator& group)
     {
         group.SetWiped(!SomeoneLives(view));
+        if (IsAlive(view, view.GetSelf()))
+            group.ClearGivenUpResurrect(view.GetSelf());
 
         group.SetResting(view.GetSelf(), RestReasonOf(view));
     }
