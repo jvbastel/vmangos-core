@@ -67,12 +67,13 @@ find_package(Threads REQUIRED)
 target_link_libraries(bots PUBLIC Threads::Threads)
 
 # cpp-httplib stops with an #error below Windows 10, and MinGW sets a lower
-# _WIN32_WINNT. So the code that includes cpp-httplib builds for Windows 10.
-# The rest of the core keeps its own Windows target. MinGW ignores the
-# `#pragma comment(lib, "ws2_32.lib")` of cpp-httplib, so link ws2_32 here.
+# _WIN32_WINNT. So on Windows (MinGW and MSVC) the code that includes
+# cpp-httplib builds for Windows 10. The rest of the core keeps its own target.
+# MinGW ignores the `#pragma comment(lib, "ws2_32.lib")` of cpp-httplib, so
+# link ws2_32 here.
 if(WIN32)
-  set(BOT_WIN32_WINNT _WIN32_WINNT=0x0A00)
-  target_compile_definitions(bots PRIVATE ${BOT_WIN32_WINNT})
+  set(BOT_HTTPLIB_WINNT_DEFINE _WIN32_WINNT=0x0A00)
+  target_compile_definitions(bots PRIVATE ${BOT_HTTPLIB_WINNT_DEFINE})
   target_link_libraries(bots PUBLIC ws2_32)
 endif()
 

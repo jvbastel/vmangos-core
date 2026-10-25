@@ -52,7 +52,7 @@ target_link_libraries(bots_tests PRIVATE bots GTest::gtest GTest::gtest_main)
 # cpp-httplib for the test chat service of the chat client tests.
 target_include_directories(bots_tests PRIVATE ${BOT_DEP_INCLUDE_DIR})
 if(WIN32)
-  target_compile_definitions(bots_tests PRIVATE ${BOT_WIN32_WINNT})
+  target_compile_definitions(bots_tests PRIVATE ${BOT_HTTPLIB_WINNT_DEFINE})
 endif()
 
 # The data files of the bots (bots/data in the repository), and the test data
