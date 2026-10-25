@@ -13,6 +13,7 @@
 #include "Route.h"
 #include "RunScript.h"
 #include "ScriptRunner.h"
+#include "ThreatWatch.h"
 
 #include <memory>
 #include <set>
@@ -66,6 +67,11 @@ class BotRun
         bool FormGroup(std::string& error);
         void ResetMember(Player* member);
         Bots::RunFacts Facts() const;
+        // Tells the threat watch which enemy hits which member who is not
+        // the tank, and logs each new threat loss.
+        void WatchThreat(int64 nowMs);
+        // ", not clean: <n> threat losses (...)", or "" with none.
+        std::string ThreatLossText() const;
         // Does one command of the scenario. False with the reason in `detail`.
         bool Do(Bots::ScriptCommand const& command, std::string& detail);
         bool Teleport(Bots::RoutePoint const& point, std::string& detail);
@@ -92,6 +98,8 @@ class BotRun
         std::string m_result;
         uint32 m_groupId = 0;
         std::set<uint32> m_bossKills;
+        Bots::ThreatWatch m_threat;
+        std::vector<std::string> m_threatNames; // "<enemy> on <member>" of each loss.
         // A teleport of the bots that waits for the driver on the new map.
         bool m_teleportRest = false;
         Bots::RoutePoint m_teleportPoint;
