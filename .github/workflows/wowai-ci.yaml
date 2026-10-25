@@ -113,6 +113,7 @@ jobs:
           apt install -y --no-install-recommends \
             ca-certificates \
             git \
+            python3 \
             shellcheck
 
       - name: Check out repository
@@ -132,6 +133,7 @@ jobs:
       #   wowai/tests/bots-test.test.sh   (the bots job runs the same tests)
       #   wowai/tests/dev-build.test.sh   (a full dev build)
       #   wowai/tests/test-realm.test.sh  (a full test realm)
+      #   wowai/tests/check-kit.test.sh   (two check realms; --quick runs here)
       - name: Run the script tests that need no Docker
         shell: bash
         env:
@@ -143,3 +145,5 @@ jobs:
           set -euo pipefail
           wowai/release/tests/merge-upstream.test.sh
           wowai/release/tests/release-core.test.sh
+          wowai/tests/check-kit.test.sh --quick
+          python3 wowai/tests/test_wowclient.py
