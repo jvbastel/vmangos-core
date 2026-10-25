@@ -31,8 +31,8 @@ dev_container() { docker ps --all --quiet --filter "label=wowai.dev.src=$WOWAI_S
 
 # Wait until a process with this command line runs in the dev container.
 wait_for_process() {
-  local pattern="$1" i
-  for i in $(seq 1 120); do
+  local pattern="$1" _
+  for _ in $(seq 1 120); do
     if [ -n "$(dev_container)" ] && docker top "$(dev_container)" 2>/dev/null | grep -q -- "$pattern"; then
       return 0
     fi
