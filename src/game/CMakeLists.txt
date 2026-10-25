@@ -204,6 +204,7 @@ set (game_SRCS
     Bots/BotLoot.cpp
     Bots/BotLevelRoutine.cpp
     Bots/BotMgr.cpp
+    Bots/BotRun.cpp
     Bots/RouteCommands.cpp
     Server/Protocol/Opcodes.cpp
     Server/Packets/Battleground.cpp
@@ -466,6 +467,7 @@ set (game_SRCS
     Bots/BotLoot.h
     Bots/BotLevelRoutine.h
     Bots/BotMgr.h
+    Bots/BotRun.h
     Server/Protocol/Opcodes.h
     Server/Protocol/Opcodes_active.h
     Server/Packet.h

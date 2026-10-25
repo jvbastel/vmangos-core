@@ -15,6 +15,7 @@
 #include "BotGear.h"
 #include "BotLevelRoutine.h"
 #include "BotRecipe.h"
+#include "BotRun.h"
 #include "GroupCoordinator.h"
 #include "GroupCommand.h"
 #include "Route.h"
@@ -22,6 +23,7 @@
 #include "ObjectGuid.h"
 #include "ThinkTimer.h"
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -75,6 +77,15 @@ struct BotLine
     uint32 chatType;     // CHAT_MSG_PARTY: to the party of the bot. CHAT_MSG_WHISPER: to `receiver`.
     ObjectGuid receiver; // Only for a whisper.
     std::string text;
+};
+
+// Whether a bot is in the game, as the script controller needs it.
+enum class BotOnlineState
+{
+    Unknown, // No bot has the name.
+    Offline, // Logged out, with no session left.
+    Busy,    // Logs in or out.
+    Online,  // In the game.
 };
 
 // The bot manager of the WOWAI bots. It sits next to PlayerBotMgr and shares
@@ -146,6 +157,17 @@ class BotMgr
         // lock: a boss added with the route recorder counts after a restart.
         bool IsBoss(uint32 mapId, uint32 entry) const { return m_bosses.IsBoss(mapId, entry); }
 
+        BotOnlineState OnlineStateOf(std::string const& name);
+        // The scripted runs.
+        BotRun& Run() { return m_run; }
+        // The test driver of the scripted runs: a bot in the player's seat.
+        // It counts as the player of its group (it keeps the bots in the
+        // group, and bot chat sees it as the player). From any thread.
+        void SetTestDriver(ObjectGuid guid) { m_testDriver = guid.GetRawValue(); }
+        bool IsTestDriver(ObjectGuid guid) const { return !guid.IsEmpty() && m_testDriver == guid.GetRawValue(); }
+        // The next GetCoordinator of the group makes a new coordinator.
+        void DropCoordinator(uint32 groupId);
+
     private:
         BotRecord* FindByName(std::string const& name);
         uint32 ChooseAccount(std::string& error);
@@ -179,6 +201,8 @@ class BotMgr
         std::map<uint32 /*group id*/, std::shared_ptr<Bots::GroupCoordinator>> m_coordinators;
         BotChat m_chat;
         Bots::BossList m_bosses;
+        BotRun m_run;
+        std::atomic<uint64> m_testDriver{0};
 };
 
 // The class of the library for a class of the game. False for an unknown class.

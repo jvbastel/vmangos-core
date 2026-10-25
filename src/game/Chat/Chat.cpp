@@ -105,10 +105,19 @@ ChatCommand * ChatHandler::getCommandTable()
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 
+    static ChatCommand wowaiRunCommandTable[] =
+    {
+        { "start",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiRunStartCommand,       "", nullptr },
+        { "status",     SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiRunStatusCommand,      "", nullptr },
+        { "stop",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiRunStopCommand,        "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
     static ChatCommand wowaiCommandTable[] =
     {
         { "bot",        SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiBotCommandTable },
         { "gear",       SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiGearCommandTable },
+        { "run",        SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiRunCommandTable },
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 

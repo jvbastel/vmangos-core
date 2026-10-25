@@ -104,7 +104,8 @@ namespace
     }
 
     // The group as bot chat sees it. The player is the leader, or else the
-    // first member that is no bot (of ours or of PlayerBotMgr).
+    // first member that is no bot (of ours or of PlayerBotMgr). The test driver
+    // of the scripted runs counts as a player.
     Bots::ChatGroupView ViewOf(Group* group)
     {
         Bots::ChatGroupView view;
@@ -117,7 +118,7 @@ namespace
             Bots::ChatEventBot bot;
             if (ChatBotOf(member, bot))
                 view.bots.push_back(bot);
-            else if (!sBotMgr.IsBotCharacter(slot.guid) && !(member && member->IsBot()))
+            else if (sBotMgr.IsTestDriver(slot.guid) || (!sBotMgr.IsBotCharacter(slot.guid) && !(member && member->IsBot())))
                 players.push_back(&slot);
         }
         auto leader = std::find_if(players.begin(), players.end(),

@@ -207,6 +207,7 @@ void BotMgr::Update(uint32 /*diff*/)
     TakeGroupEvents();
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
+    m_run.Update();
     for (auto& pair : m_bots)
     {
         PlayerBotEntry& entry = *pair.second.entry;
@@ -249,6 +250,24 @@ std::shared_ptr<Bots::GroupCoordinator> BotMgr::GetCoordinator(uint32 groupId)
     if (!coordinator)
         coordinator = std::make_shared<Bots::GroupCoordinator>();
     return coordinator;
+}
+
+void BotMgr::DropCoordinator(uint32 groupId)
+{
+    std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
+    m_coordinators.erase(groupId);
+}
+
+BotOnlineState BotMgr::OnlineStateOf(std::string const& name)
+{
+    BotRecord* record = FindByName(name);
+    if (!record)
+        return BotOnlineState::Unknown;
+    PlayerBotEntry const& entry = *record->entry;
+    if (entry.state == PB_STATE_OFFLINE)
+        return sWorld.FindSession(entry.accountId) ? BotOnlineState::Busy : BotOnlineState::Offline;
+    Player* player = BotPlayer(*record);
+    return entry.state == PB_STATE_ONLINE && player && player->IsInWorld() ? BotOnlineState::Online : BotOnlineState::Busy;
 }
 
 void BotMgr::DropOldCoordinators()
@@ -315,6 +334,7 @@ void BotMgr::OnGroupEvent(uint32 groupId, Bots::GroupEvent const& event)
     if (event.kind == Bots::GroupEventKind::BossKill)
     {
         sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] Group %u kills the boss %u", groupId, event.entry);
+        m_run.NoteBossKill(groupId, event.entry);
         return;
     }
     if (event.kind == Bots::GroupEventKind::LootRoll)
@@ -341,7 +361,8 @@ bool BotMgr::IsOurBot(Player const* player) const
 
 bool BotMgr::RoleOfOurBot(Player const* player, std::string& role) const
 {
-    if (!IsOurBot(player))
+    // Bot chat sees the test driver as the player.
+    if (!IsOurBot(player) || IsTestDriver(player->GetObjectGuid()))
         return false;
     role = m_bots.find(player->GetGUIDLow())->second.role;
     return true;
@@ -727,8 +748,9 @@ void BotMgr::UpdateGroupOf(BotRecord& record)
 
 bool BotMgr::HasPlayerMember(Group const& group) const
 {
+    // The test driver of the scripted runs sits in the player's seat.
     for (Group::MemberSlot const& slot : group.GetMemberSlots())
-        if (m_bots.find(slot.guid.GetCounter()) == m_bots.end())
+        if (m_bots.find(slot.guid.GetCounter()) == m_bots.end() || IsTestDriver(slot.guid))
             return true;
     return false;
 }
