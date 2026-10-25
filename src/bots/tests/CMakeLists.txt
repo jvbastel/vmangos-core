@@ -31,6 +31,7 @@ add_executable(bots_tests
   RogueTest.cpp
   RouteTest.cpp
   SpellBookTest.cpp
+  StartDelayTest.cpp
   SpellDataTest.cpp
   SpellFileTest.cpp
   StrategyTest.cpp

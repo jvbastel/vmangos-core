@@ -44,6 +44,7 @@ add_library(bots STATIC
   Route.cpp
   SpellBook.cpp
   SpellFile.cpp
+  StartDelay.cpp
   Strategy.cpp
   TaragamanReaction.cpp
   TalentBuild.cpp
