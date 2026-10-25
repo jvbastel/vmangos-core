@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329 # check (lib.sh) runs the functions that the test passes to it.
 # End-to-end test of the dev build: `wowai/dev build`.
 #
 # It clones the fork into a temporary tree, builds it in its own dev
@@ -16,10 +17,8 @@ tmp="$(mktemp -d)"
 export WOWAI_SRC="$tmp/src"
 export WOWAI_DEV_INSTALL="$tmp/install"
 
-failures=0
-pass() { echo "PASS: $*"; }
-fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
-check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
+# shellcheck source=lib.sh
+. "$here/lib.sh"
 
 cleanup() {
   "$dev" clean >/dev/null 2>&1 || true
@@ -90,8 +89,4 @@ check "the build after an interrupted build links (exit $status)" test "$status"
 check "the build compiles the empty object file again" \
   bash -c "grep -q 'PlayerBotMgr.cpp.o' '$tmp/third-build.log' && '$dev' shell test -s '$object'"
 
-if [ "$failures" -ne 0 ]; then
-  echo "$failures check(s) failed."
-  exit 1
-fi
-echo "All checks passed."
+finish

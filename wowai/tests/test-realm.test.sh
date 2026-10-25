@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329 # check (lib.sh) runs the functions that the test passes to it.
 # End-to-end test of the test realm: `wowai/dev realm ...`.
 #
 # It clones the fork into a temporary tree and brings up a test realm from
@@ -25,10 +26,8 @@ export WOWAI_REALM_LOGIN_PORT=3736
 export WOWAI_REALM_WORLD_PORT=8096
 export WOWAI_REALM_SOAP_PORT=7889
 
-failures=0
-pass() { echo "PASS: $*"; }
-fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
-check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
+# shellcheck source=lib.sh
+. "$here/lib.sh"
 
 cleanup() {
   if [ "${WOWAI_TEST_KEEP:-0}" = "1" ]; then
@@ -145,8 +144,4 @@ check "the restarted mangosd logs the change" \
 check "the restarted mangosd initializes the world" \
   bash -c "docker logs --since '$since' '$(mangosd_container)' 2>&1 | grep -q 'World initialized.'"
 
-if [ "$failures" -gt 0 ]; then
-  echo "$failures check(s) failed."
-  exit 1
-fi
-echo "All checks passed."
+finish

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329 # check (lib.sh) runs the functions that the test passes to it.
 # Tests of `wowai/release/release-core`, with a fake `docker` and local
 # repositories in place of GitHub. It builds no image and touches no realm.
 # It takes a few seconds. Run it from any folder:
@@ -14,10 +15,8 @@ release="$here/../release-core"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-failures=0
-pass() { echo "PASS: $*"; }
-fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
-check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
+# shellcheck source=../../tests/lib.sh
+. "$here/../../tests/lib.sh"
 logged() { grep -qF -- "$1" "$FAKE_DOCKER_LOG"; }
 not_logged() { ! grep -qF -- "$1" "$FAKE_DOCKER_LOG"; }
 
@@ -210,4 +209,4 @@ check "rollback removes no image" bash -c '! grep -E " (rmi|image rm|image prune
 check "a rollback with no release left fails" bash -c '! "$0" rollback >/dev/null 2>&1' "$release"
 
 echo
-if [ "$failures" -eq 0 ]; then echo "All checks passed."; else echo "$failures check(s) failed."; exit 1; fi
+finish

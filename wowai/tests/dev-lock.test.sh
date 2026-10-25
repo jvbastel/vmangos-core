@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329 # check (lib.sh) runs the functions that the test passes to it.
 # End-to-end test of the dev container lock and the shared install guard of
 # `wowai/dev`.
 #
@@ -16,10 +17,8 @@ export WOWAI_SRC="$tmp/src"
 export WOWAI_DEV_INSTALL="$tmp/install-a"
 mkdir -p "$WOWAI_SRC"
 
-failures=0
-pass() { echo "PASS: $*"; }
-fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
-check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
+# shellcheck source=lib.sh
+. "$here/lib.sh"
 
 cleanup() {
   "$dev" clean >/dev/null 2>&1 || true
@@ -86,8 +85,4 @@ check "WOWAI_DEV_SHARED_INSTALL=1 lets the build use the shared folder" \
   bash -c "! grep -q WOWAI_DEV_SHARED_INSTALL '$tmp/shared-on.log' && [ -d '$tmp/home/wowai/dev-install' ]"
 "${shared_env[@]}" "$dev" clean >/dev/null 2>&1 || true
 
-if [ "$failures" -ne 0 ]; then
-  echo "$failures check(s) failed."
-  exit 1
-fi
-echo "All checks passed."
+finish

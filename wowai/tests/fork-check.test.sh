@@ -13,10 +13,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
-failures=0
-pass() { echo "PASS: $*"; }
-fail() { echo "FAIL: $*"; failures=$((failures + 1)); }
-check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
+# shellcheck source=lib.sh
+. "$here/lib.sh"
 
 repo="$tmp/repo"
 g() { git -C "$repo" "$@"; }
@@ -69,8 +67,4 @@ for dir in src/bots src/game/Bots; do
   g checkout -q fork
 done
 
-if [ "$failures" -ne 0 ]; then
-  echo "$failures check(s) failed."
-  exit 1
-fi
-echo "All checks passed."
+finish
