@@ -134,6 +134,7 @@ jobs:
       #   wowai/tests/dev-build.test.sh   (a full dev build)
       #   wowai/tests/test-realm.test.sh  (a full test realm)
       #   wowai/tests/check-kit.test.sh   (two check realms; --quick runs here)
+      #   wowai/tests/game-layer-map.test.sh --realm <N>  (columns, GM commands; the paths run here)
       - name: Run the script tests that need no Docker
         shell: bash
         env:
@@ -146,4 +147,5 @@ jobs:
           wowai/release/tests/merge-upstream.test.sh
           wowai/release/tests/release-core.test.sh
           wowai/tests/check-kit.test.sh --quick
+          wowai/tests/game-layer-map.test.sh
           python3 wowai/tests/test_wowclient.py
