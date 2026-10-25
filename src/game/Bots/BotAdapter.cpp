@@ -7,6 +7,7 @@
 
 #include "BotAdapter.h"
 #include "BotLoot.h"
+#include "CastResult.h"
 #include "Bag.h"
 #include "Corpse.h"
 #include "Group.h"
@@ -33,9 +34,43 @@
 #include <cmath>
 #include <limits>
 #include <list>
+#include <string>
 
 namespace
 {
+    // The bot library keeps its own copy of the SpellCastResult names
+    // (bots/CastResult.h), for client build 1.12.1. Check the copy against the
+    // real enum here. Older client builds have fewer results: they log only
+    // the number.
+#if SUPPORTED_CLIENT_BUILD == CLIENT_BUILD_1_12_1
+#define WOWAI_CAST_RESULT_VALUE(name) name,
+    constexpr SpellCastResult CopiedFailedResults[] = { WOWAI_SPELL_FAILED_RESULTS(WOWAI_CAST_RESULT_VALUE) };
+#undef WOWAI_CAST_RESULT_VALUE
+
+    constexpr bool CopyIsInEnumOrder()
+    {
+        for (std::size_t i = 0; i < sizeof(CopiedFailedResults) / sizeof(CopiedFailedResults[0]); ++i)
+            if (uint32(CopiedFailedResults[i]) != i)
+                return false;
+        return true;
+    }
+
+    static_assert(CopyIsInEnumOrder(), "bots/CastResult.h lists the SpellCastResult names out of enum order");
+    static_assert(sizeof(CopiedFailedResults) / sizeof(CopiedFailedResults[0]) == SPELL_FAILED_UNKNOWN + 1,
+        "bots/CastResult.h does not list every SpellCastResult failure");
+    static_assert(SPELL_CAST_OK == Bots::SpellCastOk, "bots/CastResult.h has a wrong SPELL_CAST_OK");
+#endif
+
+    // "result 62 (SPELL_FAILED_NOT_STANDING)", for the bot log.
+    std::string CastResultText(SpellCastResult result)
+    {
+#if SUPPORTED_CLIENT_BUILD == CLIENT_BUILD_1_12_1
+        return Bots::CastResultText(uint32(result));
+#else
+        return "result " + std::to_string(uint32(result));
+#endif
+    }
+
     // IsFightNear: how far it looks for a fight, and the margin around the
     // aggro distance of a creature that goes home from a fight.
     float const FightSearchYards = 100.0f;
@@ -405,7 +440,8 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
     if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
         me->StopMoving();
     if (result != SPELL_CAST_OK)
-        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: result %u", me->GetName(), spell, uint32(result));
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: %s", me->GetName(), spell,
+            CastResultText(result).c_str());
 }
 
 void BotAdapter::MoveTo(Bots::Position const& destination)

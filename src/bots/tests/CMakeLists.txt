@@ -7,6 +7,7 @@ add_executable(bots_tests
   BotCommandTest.cpp
   BossReactionTest.cpp
   BotRecipeTest.cpp
+  CastResultTest.cpp
   ChatClientTest.cpp
   ChatContractTest.cpp
   ChatHttpTest.cpp
