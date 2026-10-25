@@ -70,11 +70,21 @@ namespace Bots
             if (keyword == "boss")
                 return "use: boss <entry>";
             if (keyword == "point")
-                return "use: point <name> <x> <y> <z> <radius>";
+                return "use: point <name> <x> <y> <z> <radius> [quest <id>]";
             if (keyword == "alt")
                 return "use: alt <x> <y> <z> <radius>";
             if (keyword == "pack")
-                return "use: pack <name> <x> <y> <z>";
+                return "use: pack <name> <x> <y> <z> [quest <id>]";
+            if (keyword == "seed")
+                return "use: seed <number>";
+            if (keyword == "quest")
+                return "use: quest <id>";
+            if (keyword == "visit")
+                return "use: visit <point>";
+            if (keyword == "kill")
+                return "use: kill <entry> <count>";
+            if (keyword == "item")
+                return "use: item <item> <count> <entry> [<entry>...]";
             return "use: mob <spawn guid> <entry>";
         }
 
@@ -122,6 +132,29 @@ namespace Bots
             std::string const name = entryName ? entryName(entry) : "";
             return name.empty() ? "" : std::string(" ") + CommentMarker + " " + name;
         }
+
+        std::string QuestTag(std::uint32_t quest)
+        {
+            return quest ? " quest " + std::to_string(quest) : "";
+        }
+
+        // Reads the optional `quest <id>` at `first` of a point or pack line.
+        // False when the words do not fit.
+        bool ReadQuestTag(std::vector<std::string> const& words, std::size_t first, std::uint32_t& quest)
+        {
+            quest = 0;
+            if (words.size() == first)
+                return true;
+            return words.size() == first + 2 && words[first] == "quest" && ReadNumber(words[first + 1], quest) &&
+                quest != 0;
+        }
+
+        std::string CheckQuestTag(Route const& route, std::uint32_t quest)
+        {
+            if (quest && !FindQuest(route, quest))
+                return "the quest " + std::to_string(quest) + " is not in the quest list";
+            return "";
+        }
     }
 
     bool IsValidRouteName(std::string const& name)
@@ -147,6 +180,14 @@ namespace Bots
         for (RoutePack const& pack : route.packs)
             if (pack.name == name)
                 return &pack;
+        return nullptr;
+    }
+
+    RouteQuest const* FindQuest(Route const& route, std::uint32_t id)
+    {
+        for (RouteQuest const& quest : route.quests)
+            if (quest.id == id)
+                return &quest;
         return nullptr;
     }
 
@@ -209,6 +250,34 @@ namespace Bots
         return "";
     }
 
+    std::string AddMobTo(Route& route, std::string const& packName, RouteMob const& mob)
+    {
+        RoutePack* target = nullptr;
+        for (RoutePack& pack : route.packs)
+            if (pack.name == packName)
+                target = &pack;
+        if (!target)
+            return "the route has no pack " + packName;
+        for (RoutePack const& pack : route.packs)
+            for (RouteMob const& other : pack.mobs)
+                if (other.spawnGuid == mob.spawnGuid)
+                    return "the mob " + std::to_string(mob.spawnGuid) + " is already in the pack " + pack.name;
+        target->mobs.push_back(mob);
+        return "";
+    }
+
+    std::string RemoveMob(Route& route, std::uint32_t spawnGuid)
+    {
+        for (RoutePack& pack : route.packs)
+            for (auto it = pack.mobs.begin(); it != pack.mobs.end(); ++it)
+                if (it->spawnGuid == spawnGuid)
+                {
+                    pack.mobs.erase(it);
+                    return "";
+                }
+        return "the mob " + std::to_string(spawnGuid) + " is in no pack";
+    }
+
     std::string AddBoss(Route& route, std::uint32_t entry)
     {
         for (std::uint32_t boss : route.bosses)
@@ -238,6 +307,15 @@ namespace Bots
         result.ok = false;
         Route& route = result.route;
         bool haveHeader = false;
+        bool haveSeed = false;
+        // The visit objectives, checked at the end: a point can come later.
+        std::vector<std::pair<std::size_t, std::string>> visits;
+
+        auto fail = [&result](std::size_t lineNumber, std::string const& error) {
+            result.route = Route();
+            result.error = "line " + std::to_string(lineNumber) + ": " + error;
+            return result;
+        };
 
         for (DataLine const& line : TokenizeLines(text))
         {
@@ -248,6 +326,14 @@ namespace Bots
                 if (words.size() != count)
                     error = Usage(keyword);
                 return error.empty();
+            };
+            auto currentQuest = [&]() -> RouteQuest* {
+                if (route.quests.empty())
+                {
+                    error = "an objective needs a quest before it";
+                    return nullptr;
+                }
+                return &route.quests.back();
             };
 
             if (keyword == "route")
@@ -266,18 +352,99 @@ namespace Bots
             }
             else if (!haveHeader)
                 error = "the file must start with: route <name> <map>";
+            else if (keyword == "seed")
+            {
+                if (haveSeed)
+                    error = "the file has more than one seed line";
+                else if (wordCountIs(2))
+                {
+                    if (ReadNumber(words[1], route.seed))
+                        route.hasSeed = haveSeed = true;
+                    else
+                        error = Usage(keyword);
+                }
+            }
             else if (keyword == "boss")
             {
                 std::uint32_t entry = 0;
                 if (wordCountIs(2))
                     error = ReadNumber(words[1], entry) ? AddBoss(route, entry) : Usage(keyword);
             }
+            else if (keyword == "quest")
+            {
+                std::uint32_t id = 0;
+                if (wordCountIs(2))
+                {
+                    if (!ReadNumber(words[1], id) || id == 0)
+                        error = Usage(keyword);
+                    else if (FindQuest(route, id))
+                        error = "the quest " + words[1] + " is already in the quest list";
+                    else
+                        route.quests.push_back({id, {}});
+                }
+            }
+            else if (keyword == "visit")
+            {
+                RouteQuest* quest = currentQuest();
+                if (quest && wordCountIs(2))
+                {
+                    QuestObjective objective{QuestObjectiveKind::Visit};
+                    objective.point = words[1];
+                    quest->objectives.push_back(objective);
+                    visits.emplace_back(line.number, words[1]);
+                }
+            }
+            else if (keyword == "kill")
+            {
+                RouteQuest* quest = currentQuest();
+                QuestObjective objective{QuestObjectiveKind::Kill};
+                if (quest && wordCountIs(3))
+                {
+                    if (!ReadNumber(words[1], objective.entry) || !ReadNumber(words[2], objective.count))
+                        error = Usage(keyword);
+                    else if (objective.count == 0)
+                        error = "the count must be more than 0";
+                    else
+                        quest->objectives.push_back(objective);
+                }
+            }
+            else if (keyword == "item")
+            {
+                RouteQuest* quest = currentQuest();
+                QuestObjective objective{QuestObjectiveKind::Item};
+                if (quest)
+                {
+                    bool ok = words.size() >= 4 && ReadNumber(words[1], objective.item) &&
+                        ReadNumber(words[2], objective.count);
+                    for (std::size_t i = 3; ok && i < words.size(); ++i)
+                    {
+                        std::uint32_t entry = 0;
+                        ok = ReadNumber(words[i], entry);
+                        objective.entries.push_back(entry);
+                    }
+                    if (!ok)
+                        error = Usage(keyword);
+                    else if (objective.count == 0)
+                        error = "the count must be more than 0";
+                    else
+                        quest->objectives.push_back(objective);
+                }
+            }
             else if (keyword == "point")
             {
                 RoutePlace place{};
-                if (wordCountIs(6))
-                    error = ReadPosition(words, 2, place.position) && ReadFloat(words[5], place.radius)
-                        ? AddPoint(route, words[1], place) : Usage(keyword);
+                std::uint32_t quest = 0;
+                if (words.size() >= 6 && ReadPosition(words, 2, place.position) && ReadFloat(words[5], place.radius) &&
+                    ReadQuestTag(words, 6, quest))
+                {
+                    error = CheckQuestTag(route, quest);
+                    if (error.empty())
+                        error = AddPoint(route, words[1], place);
+                    if (error.empty())
+                        route.points.back().quest = quest;
+                }
+                else
+                    error = Usage(keyword);
             }
             else if (keyword == "alt")
             {
@@ -289,8 +456,17 @@ namespace Bots
             else if (keyword == "pack")
             {
                 Position position{};
-                if (wordCountIs(5))
-                    error = ReadPosition(words, 2, position) ? AddPack(route, words[1], position, {}) : Usage(keyword);
+                std::uint32_t quest = 0;
+                if (words.size() >= 5 && ReadPosition(words, 2, position) && ReadQuestTag(words, 5, quest))
+                {
+                    error = CheckQuestTag(route, quest);
+                    if (error.empty())
+                        error = AddPack(route, words[1], position, {});
+                    if (error.empty())
+                        route.packs.back().quest = quest;
+                }
+                else
+                    error = Usage(keyword);
             }
             else if (keyword == "mob")
             {
@@ -300,14 +476,11 @@ namespace Bots
                         ? AddMob(route, mob) : Usage(keyword);
             }
             else
-                error = "unknown word '" + keyword + "'. Use route, boss, point, alt, pack, or mob";
+                error = "unknown word '" + keyword +
+                    "'. Use route, seed, boss, quest, visit, kill, item, point, alt, pack, or mob";
 
             if (!error.empty())
-            {
-                result.route = Route();
-                result.error = "line " + std::to_string(line.number) + ": " + error;
-                return result;
-            }
+                return fail(line.number, error);
         }
 
         if (!haveHeader)
@@ -315,6 +488,9 @@ namespace Bots
             result.error = "the file has no route line";
             return result;
         }
+        for (auto const& visit : visits)
+            if (!FindPoint(route, visit.second))
+                return fail(visit.first, "the route has no point " + visit.second);
         result.ok = true;
         return result;
     }
@@ -322,11 +498,43 @@ namespace Bots
     std::string WriteRoute(Route const& route,
         std::function<std::string(std::uint32_t entry)> const& entryName)
     {
+        RouteNames names;
+        names.entry = entryName;
+        return WriteRoute(route, names);
+    }
+
+    std::string WriteRoute(Route const& route, RouteNames const& names)
+    {
         std::ostringstream out;
         out << CommentMarker << " The route of " << route.name << ". The GM command .route wrote this file.\n";
         out << "route " << route.name << " " << route.mapId << "\n";
+        if (route.hasSeed)
+            out << "seed " << route.seed << "\n";
         for (std::uint32_t boss : route.bosses)
-            out << "boss " << boss << Comment(entryName, boss) << "\n";
+            out << "boss " << boss << Comment(names.entry, boss) << "\n";
+        for (RouteQuest const& quest : route.quests)
+        {
+            out << "quest " << quest.id << Comment(names.quest, quest.id) << "\n";
+            for (QuestObjective const& objective : quest.objectives)
+            {
+                switch (objective.kind)
+                {
+                    case QuestObjectiveKind::Visit:
+                        out << "visit " << objective.point << "\n";
+                        break;
+                    case QuestObjectiveKind::Kill:
+                        out << "kill " << objective.entry << " " << objective.count
+                            << Comment(names.entry, objective.entry) << "\n";
+                        break;
+                    case QuestObjectiveKind::Item:
+                        out << "item " << objective.item << " " << objective.count;
+                        for (std::uint32_t entry : objective.entries)
+                            out << " " << entry;
+                        out << Comment(names.item, objective.item) << "\n";
+                        break;
+                }
+            }
+        }
         for (RouteStep const& step : route.steps)
         {
             if (step.kind == RouteStepKind::Point)
@@ -339,15 +547,18 @@ namespace Bots
                         out << "point " << point.name << " ";
                     else
                         out << "alt ";
-                    out << FormatPosition(place.position) << " " << FormatFloat(place.radius) << "\n";
+                    out << FormatPosition(place.position) << " " << FormatFloat(place.radius);
+                    if (i == 0)
+                        out << QuestTag(point.quest);
+                    out << "\n";
                 }
             }
             else
             {
                 RoutePack const& pack = route.packs[step.index];
-                out << "pack " << pack.name << " " << FormatPosition(pack.position) << "\n";
+                out << "pack " << pack.name << " " << FormatPosition(pack.position) << QuestTag(pack.quest) << "\n";
                 for (RouteMob const& mob : pack.mobs)
-                    out << "mob " << mob.spawnGuid << " " << mob.entry << Comment(entryName, mob.entry) << "\n";
+                    out << "mob " << mob.spawnGuid << " " << mob.entry << Comment(names.entry, mob.entry) << "\n";
             }
         }
         return out.str();
