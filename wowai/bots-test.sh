@@ -25,6 +25,8 @@ rsync -a --delete "$bots_src/" "$work/src/"
 
 cd "$work/out"
 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_BOT_TESTS=1 -DBOT_DATA_DIR="$data" -DBOT_DEP_INCLUDE_DIR="$dep_include" "$work/src" >/dev/null
+# A killed build leaves empty object files, which make takes as up to date.
+find "$work/out" -name '*.o' -size 0 -delete
 if ! make -j"$(nproc)"; then
   echo "The bot decision library failed to build alone. src/bots must build" >&2
   echo "without the rest of the core: it includes no game header (ADR 0002)." >&2
