@@ -40,11 +40,25 @@
 #include <cmath>
 #include <limits>
 #include <list>
+#include <mutex>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
 {
+    // True the first time that bot `bot` is a ghost of `dungeon` with no
+    // ghost route, since the start of mangosd: WalkAsGhost logs it once.
+    // The bots think on the map threads, so a lock guards the memory.
+    bool FirstGhostWithoutRoute(Bots::Guid bot, uint32 dungeon)
+    {
+        static std::mutex mutex;
+        static std::set<std::pair<Bots::Guid, uint32>> logged;
+        std::lock_guard<std::mutex> lock(mutex);
+        return logged.emplace(bot, dungeon).second;
+    }
+
     // The bot library keeps its own copy of the SpellCastResult names
     // (bots/CastResult.h), for client build 1.12.1. Check the copy against the
     // real enum here. Older client builds have fewer results: they log only
@@ -783,7 +797,14 @@ void BotAdapter::WalkAsGhost()
         return;
     uint32 const dungeon = corpse->GetMapId();
     Bots::Route const* route = sBotMgr.GhostRoute(dungeon);
-    if (!route || route->mapId != me->GetMapId())
+    if (!route)
+    {
+        if (FirstGhostWithoutRoute(GetSelf(), dungeon))
+            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s is a ghost of map %u, which has no ghost route: it stays at the graveyard",
+                me->GetName(), dungeon);
+        return;
+    }
+    if (route->mapId != me->GetMapId())
         return;
 
     Bots::GhostStep const step = Bots::NextGhostStep(*route, GetPosition(GetSelf()));
