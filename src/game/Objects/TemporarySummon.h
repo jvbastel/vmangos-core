@@ -38,6 +38,8 @@ class TemporarySummon : public Creature
         ObjectGuid const& GetSummonerGuid() const { return m_summoner ; }
         Unit* GetSummoner() const;
         TempSummonType GetDespawnType() const { return m_type; }
+        // WOWAI: a moved route walk wisp starts its lifetime again (WOWAI#90).
+        void ResetLifetime() { m_timer = m_lifetime; }
     private:
         TempSummonType m_type;
         uint32 m_timer;

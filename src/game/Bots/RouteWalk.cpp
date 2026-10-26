@@ -7,7 +7,9 @@
 
 // The route walk: a GM walks a route file step by step, to check it in the
 // game. Each command shows the current step, the next point, and the next
-// pack, and puts waypoint markers on the places of the point.
+// pack, and puts waypoint markers (wisps) on the places of the point. The walk
+// keeps a trail of up to 100 wisps: when it is full, the oldest wisp moves to
+// the new place (WOWAI#90).
 //   .route walk <route> [character]  Loads the route file, at its first step.
 //   .route next                      Goes to the next step and shows it.
 //   .route back                      Goes to the step before and shows it.
@@ -15,6 +17,7 @@
 // A wrong pack is fixed with the recorder: .route start <route>, then
 // .route add mob <pack> and .route remove mob.
 
+#include "CellImpl.h"
 #include "Chat.h"
 #include "Map.h"
 #include "Movement/MotionMaster.h"
@@ -23,6 +26,8 @@
 #include "Player.h"
 #include "Route.h"
 #include "RouteFiles.h"
+#include "TemporarySummon.h"
+#include "WispTrail.h"
 #include "WorldSession.h"
 
 #include <cmath>
@@ -33,6 +38,10 @@ namespace
 {
     // How long the waypoint markers of a step stay.
     uint32 const MarkerMs = 120 * IN_MILLISECONDS;
+    // The most wisps of a walk. A character may have only so many summons
+    // (MaxCreatureSummonLimit, 100), and a walk passes 100 points in less
+    // than MarkerMs.
+    std::size_t const MarkerTrailSize = Bots::WispTrailSize;
 
     struct Walk
     {
@@ -40,6 +49,8 @@ namespace
         std::string path;
         ObjectGuid character;
         std::size_t step = 0;
+        // The wisps of the walk, on the map of `character`, oldest first.
+        Bots::WispTrail trail;
     };
 
     // By account id of the GM. 0 is the console.
@@ -117,17 +128,72 @@ namespace
         return walk.route.steps.size();
     }
 
-    void Mark(Player* character, Walk const& walk, std::size_t step)
+    // A wisp of the trail that is still on the map of the character.
+    TemporarySummon* FindWisp(Player* character, Bots::Guid guid)
+    {
+        Creature* creature = character->GetMap()->GetCreature(ObjectGuid(guid));
+        if (!creature || !creature->IsInWorld() || !creature->IsTemporarySummon())
+            return nullptr;
+        return static_cast<TemporarySummon*>(creature);
+    }
+
+    // Removes the wisps of the walk.
+    void RemoveWisps(Walk& walk)
+    {
+        std::vector<Bots::Guid> const wisps = walk.trail.Clear();
+        Player* character = ObjectAccessor::FindPlayer(walk.character);
+        if (!character || !character->IsInWorld())
+            return;
+        for (Bots::Guid guid : wisps)
+            if (TemporarySummon* wisp = FindWisp(character, guid))
+                wisp->UnSummon();
+    }
+
+    // Puts a wisp on a place: a new one, or the oldest of a full trail, moved.
+    // Counts it in `summoned` or `moved`.
+    void PlaceWisp(Player* character, Walk& walk, Bots::Position const& place, uint32& summoned, uint32& moved)
+    {
+        uint32 const limit = character->GetCreatureSummonLimit();
+        uint32 const count = character->GetCreatureSummonCount();
+        std::size_t const free = count < limit ? limit - count : 0;
+        Bots::WispTrail::Choice const choice =
+            walk.trail.Next([character](Bots::Guid guid) { return FindWisp(character, guid) != nullptr; }, free);
+        if (choice.action == Bots::WispTrail::Action::Summon)
+        {
+            if (Creature* wisp = character->SummonCreature(VISUAL_WAYPOINT, place.x, place.y, place.z, 0.0f,
+                    TEMPSUMMON_TIMED_DESPAWN, MarkerMs))
+            {
+                walk.trail.Summoned(wisp->GetObjectGuid().GetRawValue());
+                wisp->SetFly(true);
+                wisp->SendHeartBeat();
+                ++summoned;
+            }
+        }
+        else if (choice.action == Bots::WispTrail::Action::Move)
+        {
+            TemporarySummon* wisp = FindWisp(character, choice.guid);
+            Map* map = character->GetMap();
+            // A wisp that moves into a grid that is not loaded goes to its
+            // spawn place instead.
+            map->LoadGrid(Cell(MaNGOS::ComputeCellPair(place.x, place.y)));
+            map->CreatureRelocation(wisp, place.x, place.y, place.z, 0.0f);
+            wisp->ResetLifetime();
+            wisp->SendHeartBeat();
+            ++moved;
+        }
+    }
+
+    void Mark(ChatHandler& handler, Player* character, Walk& walk, std::size_t step)
     {
         if (step >= walk.route.steps.size() || walk.route.steps[step].kind != Bots::RouteStepKind::Point)
             return;
+        uint32 summoned = 0;
+        uint32 moved = 0;
         for (Bots::RoutePlace const& place : walk.route.points[walk.route.steps[step].index].places)
-            if (Creature* marker = character->SummonCreature(VISUAL_WAYPOINT, place.position.x, place.position.y,
-                    place.position.z, 0.0f, TEMPSUMMON_TIMED_DESPAWN, MarkerMs))
-            {
-                marker->SetFly(true);
-                marker->SendHeartBeat();
-            }
+            PlaceWisp(character, walk, place.position, summoned, moved);
+        handler.PSendSysMessage("Wisps: %u new, %u moved, %u in the trail (at most %u); %s has %u of %u summons.",
+            summoned, moved, uint32(walk.trail.Wisps().size()), uint32(MarkerTrailSize), character->GetName(),
+            character->GetCreatureSummonCount(), character->GetCreatureSummonLimit());
     }
 
     // Shows the current step, the next point, and the next pack.
@@ -157,7 +223,7 @@ namespace
             ShowPack(handler, character, walk, pack, pack == walk.step ? "Now" : "Next pack");
         else
             handler.SendSysMessage("Next pack: none.");
-        Mark(character, walk, point);
+        Mark(handler, character, walk, point);
         return true;
     }
 
@@ -214,6 +280,9 @@ bool RunWalk(ChatHandler& handler, char* args)
     if (!parsed.ok)
         return Fail(handler, walk.path + ": " + parsed.error);
     walk.route = parsed.route;
+    auto last = walks.find(Owner(handler));
+    if (last != walks.end())
+        RemoveWisps(last->second);
     walks[Owner(handler)] = walk;
     return Show(handler, walks[Owner(handler)]);
 }
