@@ -20,14 +20,15 @@ The GM Wispwarden walks bots/data/routes/ragefire_chasm.txt (the route of #79,
 The check does not change the route file.
 """
 import math
+import os
 import re
 import time
 
 from kit import Realm, Results, pos
 from wowclient import CHAT_MSG_SAY, CHAT_MSG_SYSTEM
 
-ACCOUNT = "PLAYER90"
-PLAYER = "Wispwarden"
+ACCOUNT = os.environ.get("T90_ACCOUNT", "PLAYER90")
+PLAYER = os.environ.get("T90_PLAYER", "Wispwarden")
 ROUTE = "ragefire_chasm"
 RFC_ENTRANCE = (0.80, -8.23, -15.53)  # areatrigger_teleport 2230
 LIFETIME = 120.0
@@ -114,12 +115,14 @@ c.gm(".route walk %s" % ROUTE, wait=2)
 
 
 def burst(n):
-    """n steps between steps 1 and 2. The answers."""
-    out = []
+    """n steps between steps 1 and 2. The wisp answers, read at the end."""
+    start = len(c.chat_log)
     for k in range(n):
-        w, _ = step(".route next" if k % 2 == 0 else ".route back", wait=0.4)
-        out.append(w)
-    return out
+        c.chat(CHAT_MSG_SAY, ".route next" if k % 2 == 0 else ".route back")
+        c.pump(0.3)
+    c.pump(2)
+    got = [w for _, w in answers([text for (t, _, text) in c.chat_log[start:] if t == CHAT_MSG_SYSTEM])]
+    return got + [None] * (n - len(got))
 
 
 t0 = time.time()
@@ -132,7 +135,7 @@ results.check("near the GM, the trail summons 100 wisps, then moves each one",
               all(w is not None for w in first_burst + second_burst)
               and max(w[4] for w in first_burst) == 100 and all(w[0] == 0 for w in second_burst)
               and sum(w[1] for w in second_burst) >= 100,
-              "%s ... %s" % (first_burst[-1], second_burst[-1]))
+              "%s ... %s, %d moved" % (first_burst[-1], second_burst[-1], sum(w[1] for w in second_burst if w)))
 # All summons are now more than 2 minutes old; each move is less.
 c.pump(max(0.0, summon_end + LIFETIME + 5 - time.time()))
 w, _ = step(".route next")
