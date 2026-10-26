@@ -187,8 +187,11 @@ std::vector<BotLine> BotChat::Update()
     for (Bots::DueChatLine const& due : m_client->TakeDue(now))
     {
         BotLine line;
-        if (MaySay(due, line))
-            lines.push_back(line);
+        if (!MaySay(due, line))
+            continue;
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[BotChat] %s says (group %u): %s", OnlinePlayer(line.bot)->GetName(),
+            due.groupId, line.text.c_str());
+        lines.push_back(line);
     }
     return lines;
 }
@@ -300,9 +303,15 @@ bool BotChat::MaySay(Bots::DueChatLine const& due, BotLine& line) const
     Player* bot = OnlinePlayer(ObjectGuid(due.line.botGuid));
     Bots::ChatEventBot chatBot;
     if (!ChatBotOf(bot, chatBot))
-        return false; // The bot logged out.
+    {
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[BotChat] dropped a line of bot %u: it logged out", uint32(due.line.botGuid));
+        return false;
+    }
     if (due.groupId != 0 && (!bot->GetGroup() || bot->GetGroup()->GetId() != due.groupId))
-        return false; // The bot left the group.
+    {
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[BotChat] dropped a line of %s: it left the group %u", bot->GetName(), due.groupId);
+        return false;
+    }
 
     line.bot = bot->GetObjectGuid();
     line.text = due.line.text;
