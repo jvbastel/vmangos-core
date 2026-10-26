@@ -8,7 +8,7 @@ The player Thrallson (a GM) invites the Warrior tank Grukk, the Priest healer
 Hela, and the Mage Ezzra. `part`: run one part only (noroute, away).
 
 1. noroute: in Wailing Caverns (map 43, no ghost route) the Priest and the
-   mage die and release. Each ghost logs one line that names map 43, once.
+   mage die and release. Each ghost logs one line that names map 43 (Wailing Caverns), once.
 2. away (a scripted run): Shanka logs out, then the other members die. The
    members in the world revive at the dungeon entrance without Shanka.
 """
@@ -65,14 +65,14 @@ def part_noroute():
     kill(bots[mage])
     released = all(realm.wait_log(r"%s: release when no resurrect comes" % bot, 15, c) for bot in (priest, mage))
     results.check("the Priest and the mage release", released)
-    logged = all(realm.wait_log(r"\[Bots\] %s is a ghost of map 43, which has no ghost route" % bot, 20, c)
+    logged = all(realm.wait_log(r"\[Bots\] %s is a ghost of map 43 \(Wailing Caverns\), which has no ghost route" % bot, 20, c)
                  for bot in (priest, mage))
     # The ghosts think a few more times: the line stays one line.
     c.pump(10)
     text = realm.log()
-    lines = re.findall(r"\[Bots\] \w+ is a ghost of map \d+, which has no ghost route.*", text)
+    lines = re.findall(r"\[Bots\] \w+ is a ghost of map \d+ \([^)]*\), which has no ghost route.*", text)
     print("  lines:", lines)
-    results.check("each ghost with no ghost route logs a line that names map 43", logged)
+    results.check("each ghost with no ghost route logs a line that names map 43 (Wailing Caverns)", logged)
     results.check("each ghost logs it once", all(sum(bot in line for line in lines) == 1 for bot in (priest, mage)),
                   repr(lines))
     revive_all()
