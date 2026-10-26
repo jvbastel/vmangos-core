@@ -169,7 +169,8 @@ namespace
     char const* PhaseName(int phase)
     {
         static char const* const names[] = {"idle", "reset: login", "reset: out of the dungeon", "reset: logout",
-            "reset: login again", "script", "passed", "failed"};
+            "reset: login again", "script",
+            "closing: the group waits for the chat of the run", "passed", "failed"};
         return names[phase];
     }
 }
@@ -255,6 +256,11 @@ bool BotRun::Stop(std::string& error)
         error = "No run is running.";
         return false;
     }
+    if (m_phase == Phase::Closing)
+    {
+        error = "The run has its result. Its group waits for the chat of the run: " + Status();
+        return false;
+    }
     Fail("stopped by a GM");
     return true;
 }
@@ -287,16 +293,28 @@ void BotRun::SetPhase(Phase phase)
 
 void BotRun::Fail(std::string const& reason)
 {
-    m_phase = Phase::Failed;
-    std::ostringstream line;
-    line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": failed after "
-         << (SteadyMs() - m_startMs) / 1000 << " s: " << reason << WatchText();
-    m_result = line.str();
-    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
-    LeaveGroup();
+    Finish(false, reason);
 }
 
-void BotRun::LeaveGroup()
+void BotRun::Finish(bool passed, std::string const& reason)
+{
+    // 1. The result. A threat loss does not fail the run: the spec allows
+    // some (spec section 10). The result counts them.
+    m_passed = passed;
+    std::ostringstream line;
+    line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": "
+         << (passed ? "passed" : "failed") << " after " << (SteadyMs() - m_startMs) / 1000 << " s";
+    if (!passed)
+        line << ": " << reason;
+    line << WatchText();
+    m_result = line.str();
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
+    // 2. The writers of the run end come here, before the group ends.
+    // 3. The group waits for the chat of the run (Update, Phase::Closing).
+    SetPhase(Phase::Closing);
+}
+
+void BotRun::EndRunGroup()
 {
     // The test driver is a normal bot again.
     sBotMgr.SetTestDriver(ObjectGuid());
@@ -440,13 +458,19 @@ void BotRun::Update()
             return;
         case Phase::Script:
             break;
+        case Phase::Closing:
+            if (Bots::RunEndWaitsForChat(SteadyMs() - m_phaseMs, m_groupId && sBotMgr.Chat().HasPendingChat(m_groupId)))
+                return;
+            EndRunGroup();
+            m_phase = m_passed ? Phase::Passed : Phase::Failed;
+            return;
     }
 
     if (m_teleportRest)
         TeleportRest();
     ReviveTheDead();
     WatchThreat(SteadyMs() - m_startMs);
-    if (m_phase == Phase::Failed)
+    if (m_phase != Phase::Script)
         return;
     for (;;)
     {
@@ -462,15 +486,7 @@ void BotRun::Update()
         }
         if (step.kind == Bots::RunStepKind::Passed)
         {
-            // A threat loss does not fail the run: the spec allows some
-            // (spec section 10). The result counts them.
-            m_phase = Phase::Passed;
-            std::ostringstream line;
-            line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": passed after "
-                 << (SteadyMs() - m_startMs) / 1000 << " s" << WatchText();
-            m_result = line.str();
-            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
-            LeaveGroup();
+            Finish(true, std::string());
             return;
         }
         std::string detail;

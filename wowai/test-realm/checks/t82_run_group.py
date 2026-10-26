@@ -45,7 +45,8 @@ def group_rows():
 
 
 def check_group_gone(when):
-    left = realm.wait_log(r"Run \d+: the members leave the run group", 10, c)
+    # The group waits for the chat of the run first: at most 20 s.
+    left = realm.wait_log(r"Run \d+: the members leave the run group", 30, c)
     results.check("%s: the log says the members leave the run group" % when, left)
     out = realm.wait_log(r"Grukk is out of its group and logs out", 10, c)
     results.check("%s: in the game, the bots are out of the group (they log out)" % when, out)

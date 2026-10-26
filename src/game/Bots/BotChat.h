@@ -59,6 +59,10 @@ class BotChat
 
         Bots::ChatClientSettings const& GetSettings() const { return m_settings; }
 
+        // A chat event of the group waits for its answer, or a line of the
+        // group waits for its delay (Bots::ChatClient::HasPendingChat).
+        bool HasPendingChat(uint32 groupId) const { return m_client && m_client->HasPendingChat(groupId); }
+
     private:
         void PostPlayerMessage(PlayerChatMessage const& message);
         void UpdateSessions();
