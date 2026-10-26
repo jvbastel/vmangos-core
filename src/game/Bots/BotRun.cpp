@@ -984,14 +984,17 @@ void BotRun::ReviveTheDead()
     int away = 0;
     for (std::string const& name : names)
     {
-        Player const* member = FindByName(name);
-        if (!member || !member->IsInWorld())
+        // A far teleport takes the member out of the world until it lands:
+        // look it up out of the world too, and check the teleport first.
+        std::string wanted = name;
+        Player const* member = normalizePlayerName(wanted) ? ObjectAccessor::FindPlayerByNameNotInWorld(wanted.c_str()) : nullptr;
+        if (member && member->IsBeingTeleported())
+            states.push_back(Bots::RunMember::InTeleport);
+        else if (!member || !member->IsInWorld())
         {
             states.push_back(Bots::RunMember::Away);
             ++away;
         }
-        else if (member->IsBeingTeleported())
-            states.push_back(Bots::RunMember::InTeleport);
         else
             states.push_back(member->IsAlive() ? Bots::RunMember::Living : Bots::RunMember::Dead);
     }

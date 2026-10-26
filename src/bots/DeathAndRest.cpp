@@ -139,10 +139,14 @@ namespace Bots
         group.SetWiped(!SomeoneLives(view));
         if (IsAlive(view, view.GetSelf()))
             group.ClearGivenUpResurrect(view.GetSelf());
-        // The bot that resurrects judges the blockers: it stands where they
-        // are. A bot far away, or a ghost, would see each of them as dead.
+        // The bot that resurrects judges the blockers. A blocker counts as
+        // dead only when the bot sees its dead body: a bot on another map
+        // finds no unit (no health), and that does not end the give-up.
         if (view.CanResurrect(view.GetSelf()))
-            group.RetryResurrects([&view](Guid enemy) { return IsAlive(view, enemy); });
+            group.RetryResurrects([&view](Guid enemy) {
+                Health const health = view.GetHealth(enemy);
+                return health.max == 0 || health.current > 0;
+            });
 
         group.SetResting(view.GetSelf(), RestReasonOf(view));
     }

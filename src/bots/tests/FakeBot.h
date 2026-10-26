@@ -150,6 +150,7 @@ namespace Bots
             // The bot cannot cast spell `spell` on unit `target` now, for
             // example out of range.
             void SetCannotCastOn(SpellId spell, Guid target) { m_cannotCastOn.insert({spell, target}); }
+            // Undoes SetCannotCastOn: the bot can cast it again.
             void SetCanCastOn(SpellId spell, Guid target) { m_cannotCastOn.erase({spell, target}); }
             // A stun, or a silence, keeps the bot from casting any spell
             // (BotView::IsCastLocked).

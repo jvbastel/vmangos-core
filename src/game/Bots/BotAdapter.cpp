@@ -32,6 +32,7 @@
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "SpellMgr.h"
+#include "SQLStorages.h"
 #include "TargetedMovementGenerator.h"
 #include "WorldSession.h"
 #include "Utilities/Random.h"
@@ -800,8 +801,11 @@ void BotAdapter::WalkAsGhost()
     if (!route)
     {
         if (FirstGhostWithoutRoute(GetSelf(), dungeon))
-            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s is a ghost of map %u, which has no ghost route: it stays at the graveyard",
-                me->GetName(), dungeon);
+        {
+            MapEntry const* entry = sMapStorage.LookupEntry<MapEntry>(dungeon);
+            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s is a ghost of map %u (%s), which has no ghost route: it stays at the graveyard",
+                me->GetName(), dungeon, entry && entry->name ? entry->name : "?");
+        }
         return;
     }
     if (route->mapId != me->GetMapId())
