@@ -152,3 +152,4 @@ jobs:
           wowai/tests/game-layer-map.test.sh
           python3 wowai/tests/test_wowclient.py
           python3 wowai/tests/test_runs.py
+          python3 wowai/tests/test_watch.py

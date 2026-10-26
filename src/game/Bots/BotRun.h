@@ -11,6 +11,7 @@
 #include "BotChat.h"
 #include "ChaseWatch.h"
 #include "Common.h"
+#include "FightWatch.h"
 #include "Inbox.h"
 #include "InterruptWatch.h"
 #include "ObjectGuid.h"
@@ -155,6 +156,16 @@ class BotRun
         // progress, and a kill counts for the quests.
         void WatchEnemies(int64 nowMs);
         void TraceMembers(int64 nowMs);
+        // Who takes part in the fight of the last pull (Bots::FightWatch):
+        // what each member attacks and casts at, and the enemies of the
+        // group. At the end of the fight, EndFight.
+        void WatchFight(int64 nowMs);
+        // The fight summary into the result, the trace, and the log.
+        void EndFight(int64 nowMs);
+        // The new lines of the trace, appended to the live trace file
+        // (LiveTraceFile in Bots.Run.ResultDir), so that the watch script
+        // (wowai/test-realm/watch.py) follows the run as it goes.
+        void WriteLiveTrace();
         // The interrupts, the chases beyond the limit, and the Fire Nova
         // hits (spec section 10, Results): the combat notes of the members,
         // the casts of the enemies that the group fights, and the chase of
@@ -236,6 +247,7 @@ class BotRun
         std::map<ObjectGuid, std::string> m_unitNames;
         std::map<uint64, std::size_t> m_chatEvents; // By event id: the index in m_record.chatEvents.
         Bots::RunTrace m_trace;
+        Bots::FightWatch m_fight;
         Bots::RunResult m_record; // The result file.
         std::unique_ptr<Bots::QuestProgress> m_quests;
         // `release`: in a wipe, the test driver releases this long after the

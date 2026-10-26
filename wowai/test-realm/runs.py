@@ -14,6 +14,11 @@ Options:
                         the current folder.
     --runs-dir <folder> The host folder of Bots.Run.ResultDir, when the realm
                         sets one. Default: <realm folder>/storage/mangosd/logs/runs.
+    --watch [<port>]    Also start the watch script (watch.py) on the port
+                        (default 8098), to follow the runs on a phone. It
+                        prints the address to open, and stops 10 minutes
+                        after the last run (Ctrl+C stops it at once).
+    --ntfy <topic>      With --watch: push the main events to ntfy.sh.
 
 The realm must be up (`realm.sh --ticket <N> acquire`). For each run, the
 script starts it with `.wowai run start`, asks `.wowai run status` every 10 s
@@ -30,6 +35,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 
@@ -40,6 +46,8 @@ POLL_SECONDS = 10
 # and the wait for the chat of the run. A scenario has its own limits.
 FULL_RUN_SECONDS = 50 * 60
 SCENARIO_SECONDS = 15 * 60
+# The watch page stays this long after the last run, for its end line.
+WATCH_LINGER_SECONDS = 10 * 60
 
 OVER = re.compile(r"^Run \d+ \S+ \S+: (passed|failed|aborted) after ", re.M)
 RESULT = re.compile(r"Result: (\S+\.json)")
@@ -217,6 +225,27 @@ def collect(runs, status, out):
     return result
 
 
+def watch_command(realm_args, port, count, runs_dir, ntfy):
+    """The command line of the watch script for the realm of `realm_args`
+    (["--ticket", N] or ["--shared"])."""
+    command = [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "watch.py")] + realm_args
+    command += ["--port", str(port), "--count", str(count), "--runs-dir", runs_dir, "--status"]
+    if ntfy:
+        command += ["--ntfy", ntfy]
+    return command
+
+
+def stop_watch(watcher):
+    """Keeps the watch page up for a while after the last run, then stops it."""
+    print("The watch page stays up for %d minutes. Ctrl+C stops it." % (WATCH_LINGER_SECONDS // 60), flush=True)
+    try:
+        watcher.wait(WATCH_LINGER_SECONDS)
+    except (subprocess.TimeoutExpired, KeyboardInterrupt):
+        pass
+    watcher.terminate()
+    watcher.wait()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Start scripted runs over SOAP and collect their result files.")
     realm_choice = parser.add_mutually_exclusive_group(required=True)
@@ -226,6 +255,8 @@ def main():
     parser.add_argument("--noquests", action="store_true")
     parser.add_argument("--out")
     parser.add_argument("--runs-dir")
+    parser.add_argument("--watch", nargs="?", type=int, const=8098, metavar="PORT")
+    parser.add_argument("--ntfy")
     parser.add_argument("kind", choices=["full", "scenario"])
     parser.add_argument("arg", nargs="?")
     args = parser.parse_args()
@@ -244,6 +275,10 @@ def main():
     out = args.out or "runs-" + time.strftime("%Y%m%d-%H%M%S")
     os.makedirs(out, exist_ok=True)
     runs_dir = args.runs_dir or os.path.join(realm.dir, "storage", "mangosd", "logs", "runs")
+    watcher = None
+    if args.watch:
+        realm_args = ["--shared"] if args.shared else ["--ticket", args.ticket]
+        watcher = subprocess.Popen(watch_command(realm_args, args.watch, count, runs_dir, args.ntfy))
 
     passed = 0
     for n in range(1, count + 1):
@@ -263,6 +298,8 @@ def main():
         passed += result["result"] == "passed" and not failures
 
     print("%d of %d runs passed. The result files are in %s." % (passed, count, os.path.abspath(out)), flush=True)
+    if watcher:
+        stop_watch(watcher)
     return 0 if passed == count else 1
 
 
