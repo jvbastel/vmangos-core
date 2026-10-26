@@ -137,9 +137,7 @@ class BotRun
         uint32 m_groupId = 0; // The run group, from FormGroup to the end of the run.
         std::set<uint32> m_bossKills;
         Bots::ThreatWatch m_threat;
-        std::vector<std::string> m_threatNames; // "<enemy> on <member>" of each loss.
         Bots::LostMobWatch m_lostMobs;
-        std::vector<std::string> m_lostMobNames; // "<enemy> on <member>" of each lost mob.
         // A teleport of the bots that waits for the driver on the new map.
         bool m_teleportRest = false;
         Bots::RoutePoint m_teleportPoint;

@@ -531,9 +531,8 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
 void BotAdapter::MoveTo(Bots::Position const& destination)
 {
     // The library keeps the height of the bot: put the place on the ground.
-    float z = destination.z;
-    me->UpdateAllowedPositionZ(destination.x, destination.y, z);
-    me->GetMotionMaster()->MovePoint(0, destination.x, destination.y, z, MOVE_PATHFINDING | MOVE_RUN_MODE);
+    Bots::Position const ground = GetGround(destination);
+    me->GetMotionMaster()->MovePoint(0, ground.x, ground.y, ground.z, MOVE_PATHFINDING | MOVE_RUN_MODE);
 }
 
 void BotAdapter::KeepMovingTo(Bots::Position const& destination)
@@ -666,8 +665,7 @@ bool BotAdapter::IsHarmfulGround(Bots::Position const& place) const
     // The ground under the place (as MoveTo puts it), and the liquid from a
     // bit above the higher of the two heights: a ground deep under the lava
     // is not found from the ground itself.
-    float ground = place.z;
-    me->UpdateAllowedPositionZ(place.x, place.y, ground);
+    float const ground = GetGround(place).z;
     float const top = std::max(place.z, ground) + BodyHeightYards;
     GridMapLiquidData liquid;
     GridMapLiquidStatus const status = me->GetTerrain()->getLiquidStatus(place.x, place.y, top,
@@ -681,8 +679,7 @@ bool BotAdapter::CanSeeFrom(Bots::Position const& place, Bots::Guid unit) const
     Unit const* target = Find(unit);
     if (!target)
         return false;
-    float ground = place.z;
-    me->UpdateAllowedPositionZ(place.x, place.y, ground);
+    float const ground = GetGround(place).z;
     float x, y, z;
     target->GetLosCheckPosition(x, y, z);
     return me->IsWithinLOSAtPosition(place.x, place.y, ground, x, y, z, true, 0.0f);

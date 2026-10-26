@@ -6,6 +6,7 @@
 */
 
 #include "GameRouteNav.h"
+#include "BotGeometry.h"
 #include "MoveMap.h"
 #include "MoveMapSharedDefines.h"
 #include "PathFinder.h"
@@ -13,14 +14,6 @@
 
 #include <algorithm>
 #include <cmath>
-
-namespace
-{
-    float Distance(Bots::Position const& a, Bots::Position const& b)
-    {
-        return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
-    }
-}
 
 GameRouteNav::GameRouteNav(Player* walker) : m_walker(walker)
 {
@@ -35,7 +28,7 @@ bool GameRouteNav::Path(Bots::Position const& from, Bots::Position const& to, st
     out.clear();
     // PathInfo finds no path between two spots this close: its
     // smooth path needs two steps.
-    if (Distance(from, to) < 2.0f && OnMesh(from) && OnMesh(to) && !OnLava(from) && !OnLava(to))
+    if (Bots::Distance3d(from, to) < 2.0f && OnMesh(from) && OnMesh(to) && !OnLava(from) && !OnLava(to))
     {
         out = {from, to};
         return true;
@@ -56,22 +49,22 @@ bool GameRouteNav::Path(Bots::Position const& from, Bots::Position const& to, st
         for (Vector3 const& point : points)
         {
             Bots::Position const position{point.x, point.y, point.z};
-            if (out.empty() || Distance(out.back(), position) > 0.01f)
+            if (out.empty() || Bots::Distance3d(out.back(), position) > 0.01f)
                 out.push_back(position);
         }
         if (!(type & PATHFIND_INCOMPLETE))
             break;
-        if (Distance(out.back(), start) < 1.0f)
+        if (Bots::Distance3d(out.back(), start) < 1.0f)
             return false;
         start = out.back();
     }
     Bots::Position const& end = out.back();
-    if (std::hypot(end.x - to.x, end.y - to.y) > 3.0f || std::fabs(end.z - to.z) > 5.0f)
+    if (Bots::Distance2d(end, to) > 3.0f || std::fabs(end.z - to.z) > 5.0f)
         return false;
     // No step of the path on lava.
     for (std::size_t i = 1; i < out.size(); ++i)
     {
-        float const length = Distance(out[i - 1], out[i]);
+        float const length = Bots::Distance3d(out[i - 1], out[i]);
         int const steps = std::max(1, int(length / 0.5f));
         for (int k = 0; k <= steps; ++k)
         {
@@ -135,6 +128,7 @@ bool GameRouteNav::Inside(Bots::Position const& position, dtQueryFilter const& f
     dtPolyRef ref = 0;
     if (dtStatusFailed(m_query->findNearestPoly(point, extents, &filter, &ref, closest)) || !ref)
         return false;
-    return std::hypot(closest[0] - point[0], closest[2] - point[2]) < 0.1f &&
+    // Detour keeps a point as (y, z, x).
+    return Bots::Distance2d({closest[2], closest[0], 0.0f}, position) < 0.1f &&
         std::fabs(closest[1] - point[1]) < 3.0f;
 }
