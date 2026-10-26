@@ -8,6 +8,7 @@
 #include "BotRun.h"
 #include "Bag.h"
 #include "BotAdapter.h"
+#include "BotGeometry.h"
 #include "BotHooks.h"
 #include "BotMgr.h"
 #include "BotRecipe.h"
@@ -29,6 +30,7 @@
 #include "SharedDefines.h"
 #include "Spell.h"
 #include "SpellAuras.h"
+#include "WipeRevive.h"
 #include "Utilities/Random.h"
 #include "WorldSession.h"
 
@@ -42,9 +44,6 @@ namespace
 {
     // The fixed gear template of the test driver.
     char const* const DriverGear = "test_driver_mage";
-    // In a wipe, the members lie dead this long before they revive at the
-    // dungeon entrance.
-    int64 const WipeReviveDelayMs = 5000;
     // The longest time of one reset phase: the logins, the logouts, and the
     // teleport out of the dungeon.
     int64 const ResetPhaseLimitMs = 60000;
@@ -239,9 +238,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_result.clear();
     m_bossKills.clear();
     m_threat = Bots::ThreatWatch();
-    m_threatNames.clear();
     m_lostMobs = Bots::LostMobWatch(sBotMgr.GetSettings().lostMobMs);
-    m_lostMobNames.clear();
     m_groupId = 0;
     m_teleportRest = false;
     m_moving = false;
@@ -633,8 +630,8 @@ Bots::RunFacts BotRun::Facts() const
     }
     if (m_moving && driver && driver->IsInWorld())
     {
-        float const dx = driver->GetPositionX() - m_moveX, dy = driver->GetPositionY() - m_moveY;
-        facts.driverArrived = std::sqrt(dx * dx + dy * dy) <= m_moveRadius + ArriveSlackYards;
+        Bots::Position const at{driver->GetPositionX(), driver->GetPositionY(), 0.0f};
+        facts.driverArrived = Bots::Distance2d(at, {m_moveX, m_moveY, 0.0f}) <= m_moveRadius + ArriveSlackYards;
     }
     return facts;
 }
@@ -664,29 +661,19 @@ void BotRun::WatchThreat(int64 nowMs)
             }
     }
 
+    Bots::HitNamer const name = [this](Bots::EnemyOnMember const& hit) { return HitName(hit.enemy, hit.member); };
     std::size_t const known = m_threat.Losses().size();
-    m_threat.Update(hitsOnNonTanks, nowMs);
+    m_threat.Update(hitsOnNonTanks, nowMs, name);
     for (std::size_t i = known; i < m_threat.Losses().size(); ++i)
-    {
-        Bots::ThreatLoss const& loss = m_threat.Losses()[i];
-        m_threatNames.push_back(HitName(loss.enemy, loss.member));
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s for more than %u s", m_number,
-            m_threatNames.back().c_str(), uint32(Bots::ThreatLossMs / 1000));
-    }
+            m_threat.Losses()[i].name.c_str(), uint32(Bots::ThreatLossMs / 1000));
 
     std::size_t const lostBefore = m_lostMobs.LostMobs().size();
-    m_lostMobs.Update(hits, Bots::AttackedEnemies(attacks), nowMs, holder);
-    for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
-    {
-        Bots::LostMob const& mob = m_lostMobs.LostMobs()[i];
-        if (i >= m_lostMobNames.size())
-            m_lostMobNames.push_back(HitName(mob.enemy, mob.member));
-    }
+    m_lostMobs.Update(hits, Bots::AttackedEnemies(attacks), nowMs, holder, name);
     if (m_lostMobs.LostMobs().size() > lostBefore)
     {
         Bots::LostMob const& mob = m_lostMobs.LostMobs()[lostBefore];
-        Fail("lost mob: " + m_lostMobNames[lostBefore] + ", and no bot attacks it for more than "
-            + std::to_string((mob.endMs - mob.startMs) / 1000) + " s");
+        Fail("lost mob: " + mob.name + ", and no bot attacks it for more than " + std::to_string(Bots::HitSeconds(mob)) + " s");
     }
 }
 
@@ -705,18 +692,7 @@ std::string BotRun::HitName(Bots::Guid enemy, Bots::Guid member) const
 
 std::string BotRun::WatchText() const
 {
-    std::ostringstream text;
-    std::vector<Bots::ThreatLoss> const& losses = m_threat.Losses();
-    text << ", threat losses " << losses.size();
-    for (std::size_t i = 0; i < losses.size(); ++i)
-        text << (i ? "; " : " (") << m_threatNames[i] << " " << (losses[i].endMs - losses[i].startMs) / 1000 << " s"
-             << (i + 1 == losses.size() ? ")" : "");
-    std::vector<Bots::LostMob> const& lost = m_lostMobs.LostMobs();
-    text << ", lost mobs " << lost.size();
-    for (std::size_t i = 0; i < lost.size(); ++i)
-        text << (i ? "; " : " (") << m_lostMobNames[i] << " " << (lost[i].endMs - lost[i].startMs) / 1000 << " s"
-             << (i + 1 == lost.size() ? ")" : "");
-    return text.str();
+    return Bots::HitListText("threat losses", m_threat.Losses()) + Bots::HitListText("lost mobs", m_lostMobs.LostMobs());
 }
 
 bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
@@ -979,22 +955,38 @@ void BotRun::ReviveTheDead()
         if (IsLivingMember(member))
             living.push_back(member);
 
-    if (!living.empty())
-        m_wipeMs = 0;
-    else if (members.size() == m_script.group.size() + 1)
+    // The wipe rule for a member away or in a teleport: WipeRevive.h.
+    std::vector<std::string> names = m_script.group;
+    names.insert(names.begin(), m_script.driver);
+    std::vector<Bots::RunMember> states;
+    int away = 0;
+    for (std::string const& name : names)
     {
-        int64 const now = SteadyMs();
-        if (!m_wipeMs)
-            m_wipeMs = now;
+        // A far teleport takes the member out of the world until it lands:
+        // look it up out of the world too, and check the teleport first.
+        std::string wanted = name;
+        Player const* member = normalizePlayerName(wanted) ? ObjectAccessor::FindPlayerByNameNotInWorld(wanted.c_str()) : nullptr;
+        if (member && member->IsBeingTeleported())
+            states.push_back(Bots::RunMember::InTeleport);
+        else if (!member || !member->IsInWorld())
+        {
+            states.push_back(Bots::RunMember::Away);
+            ++away;
+        }
+        else
+            states.push_back(member->IsAlive() ? Bots::RunMember::Living : Bots::RunMember::Dead);
+    }
+    if (m_wipeWatch.Update(states, SteadyMs()))
+    {
         AreaTriggerTeleport const* entrance = sObjectMgr.GetMapEntranceTrigger(m_route.mapId);
-        if (now - m_wipeMs < WipeReviveDelayMs || !entrance)
+        if (!entrance)
             return;
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: wipe: everyone revives at the dungeon entrance", m_number);
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL,
+            "[Bots] Run %u: wipe: everyone revives at the dungeon entrance (%d not in the world)", m_number, away);
         for (Player* member : members)
             if (InWorldAndStill(member))
                 ReviveAt(member, entrance->destination.mapId, entrance->destination.x + frand(-2.0f, 2.0f),
                     entrance->destination.y + frand(-2.0f, 2.0f), entrance->destination.z, entrance->destination.o);
-        m_wipeMs = 0;
         return;
     }
     if (living.empty() || Facts().groupInCombat)

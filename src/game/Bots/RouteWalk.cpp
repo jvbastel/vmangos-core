@@ -17,6 +17,7 @@
 // A wrong pack is fixed with the recorder: .route start <route>, then
 // .route add mob <pack> and .route remove mob.
 
+#include "BotGeometry.h"
 #include "CellImpl.h"
 #include "Chat.h"
 #include "Map.h"
@@ -69,10 +70,7 @@ namespace
 
     float DistanceTo(Player const* character, Bots::Position const& p)
     {
-        float const dx = character->GetPositionX() - p.x;
-        float const dy = character->GetPositionY() - p.y;
-        float const dz = character->GetPositionZ() - p.z;
-        return std::sqrt(dx * dx + dy * dy + dz * dz);
+        return Bots::Distance3d({character->GetPositionX(), character->GetPositionY(), character->GetPositionZ()}, p);
     }
 
     std::string QuestNote(uint32 quest)
