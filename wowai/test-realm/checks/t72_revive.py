@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """In-game check of ticket #72 (the revive rule, the ghost run, and the safe Priest resurrect), on the check kit.
 
-    wowai/test-realm/realm.sh --ticket N up
+    wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t72_revive.py [part]
 
 The player Thrallson (a GM) invites the Warrior tank Grukk, the Priest healer
@@ -232,7 +232,7 @@ def part_ghost():
 
 
 def part_run():
-    # A scripted run: the driver Ezzra and the bots of `up`.
+    # A scripted run: the driver Ezzra and the bots of `acquire`.
     realm.mark("run")
     print(" ", realm.soap(".wowai run start ragefire_chasm revive"))
     # A wait line is not logged: the run status names it.
