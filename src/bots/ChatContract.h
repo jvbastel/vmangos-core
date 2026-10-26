@@ -106,6 +106,9 @@ namespace Bots
         std::vector<ChatLine> lines;
     };
 
+    // The name of the event in the contract, for example "boss_kill".
+    char const* ChatEventName(ChatEventKind kind);
+
     // The body of POST /v1/events, with ChatContractVersion.
     std::string EncodeChatEvent(ChatEvent const& event);
 

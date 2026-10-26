@@ -4,23 +4,9 @@
 
 namespace
 {
-    char const* EventName(Bots::ChatEventKind kind)
-    {
-        switch (kind)
-        {
-            case Bots::ChatEventKind::PlayerMessage: return "player_message";
-            case Bots::ChatEventKind::BossKill: return "boss_kill";
-            case Bots::ChatEventKind::Wipe: return "wipe";
-            case Bots::ChatEventKind::LootRoll: return "loot_roll";
-            case Bots::ChatEventKind::Rest: return "rest";
-            case Bots::ChatEventKind::SessionEnd: break;
-        }
-        return "session_end";
-    }
-
     std::string Describe(Bots::ChatEvent const& event)
     {
-        return std::string(EventName(event.kind)) + " of group " + std::to_string(event.groupId);
+        return std::string(Bots::ChatEventName(event.kind)) + " of group " + std::to_string(event.groupId);
     }
 }
 
@@ -46,23 +32,35 @@ Bots::ChatClient::~ChatClient()
         worker.join();
 }
 
-void Bots::ChatClient::Post(ChatEvent const& event)
+std::uint64_t Bots::ChatClient::Post(ChatEvent const& event)
 {
     std::string dropped;
+    std::uint64_t id = 0;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
+        id = m_nextEventId++;
         if (m_stopping)
-            return;
+            return id;
         if (m_requests.size() >= std::max<std::size_t>(1, m_settings.queueSize))
         {
             dropped = Describe(m_requests.front().event);
+            m_outcomes.push_back({m_requests.front().id, false});
             m_requests.pop_front();
         }
-        m_requests.push_back({event, m_clock()});
+        m_requests.push_back({event, m_clock(), id});
     }
     m_wake.notify_one();
     if (!dropped.empty())
         Log("the request queue is full: dropped the oldest event, " + dropped);
+    return id;
+}
+
+std::vector<Bots::ChatEventOutcome> Bots::ChatClient::TakeOutcomes()
+{
+    std::vector<ChatEventOutcome> outcomes;
+    std::lock_guard<std::mutex> lock(m_mutex);
+    outcomes.swap(m_outcomes);
+    return outcomes;
 }
 
 std::vector<Bots::DueChatLine> Bots::ChatClient::TakeDue(std::int64_t nowMs)
@@ -135,31 +133,33 @@ void Bots::ChatClient::Handle(ChatConnection& connection, Request const& request
     ChatPostResult const result = connection.Post(EncodeChatEvent(request.event));
     std::int64_t const arrivedAt = m_clock();
 
-    if (!result.answered)
-    {
-        Log("no answer to " + Describe(request.event) + ": " + result.error);
-        return;
-    }
-    if (result.status != 200)
-    {
-        Log(DescribeChatServiceError(result.status, result.body) + ", to " + Describe(request.event));
-        return;
-    }
     ChatResponse response;
     std::string error;
-    if (!DecodeChatResponse(result.body, response, error))
+    std::string problem;
+    if (!result.answered)
+        problem = "no answer to " + Describe(request.event) + ": " + result.error;
+    else if (result.status != 200)
+        problem = DescribeChatServiceError(result.status, result.body) + ", to " + Describe(request.event);
+    else if (!DecodeChatResponse(result.body, response, error))
+        problem = "a bad answer to " + Describe(request.event) + ": " + error;
+    if (!problem.empty())
     {
-        Log("a bad answer to " + Describe(request.event) + ": " + error);
+        Log(problem);
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_outcomes.push_back({request.id, false});
         return;
     }
 
     std::lock_guard<std::mutex> lock(m_mutex);
+    m_outcomes.push_back({request.id, true});
     for (ChatLine const& line : response.lines)
     {
         HeldLine held;
         held.due.line = line;
         held.due.groupId = request.event.groupId;
         held.due.playerGuid = request.event.player.guid;
+        held.due.eventId = request.id;
+        held.due.eventKind = request.event.kind;
         held.dueAt = arrivedAt + line.delayMs;
         held.earliestAt = request.postedAt + line.delayMs;
         held.order = m_nextOrder++;
