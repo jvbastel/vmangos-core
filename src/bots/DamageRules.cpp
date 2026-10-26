@@ -22,7 +22,8 @@ namespace Bots
         }
 
         // The living enemies in the chase limit that hit a living group
-        // member other than the living tank, the bot first. It skips the
+        // member other than the living tank, the bot included, in the
+        // order of the group members. It skips the
         // enemy `skip`. The tank holds its own attackers.
         std::vector<Guid> LooseEnemies(BotContext const& context, Guid skip)
         {
@@ -38,12 +39,16 @@ namespace Bots
             return enemies;
         }
 
+        // Which other members count in AnotherMemberAttacks.
+        enum class Members { All, LowerGuid };
+
         // True when a group member other than the bot and the player
-        // attacks enemy `enemy`; with `lowerGuidOnly`, only a member whose
+        // attacks enemy `enemy`; with Members::LowerGuid, only a member whose
         // guid is lower than the bot's counts. The attacks of the player do
         // not count: in a scripted run, the test driver holds no enemy.
-        bool AnotherMemberAttacks(BotContext const& context, Guid enemy, bool lowerGuidOnly = false)
+        bool AnotherMemberAttacks(BotContext const& context, Guid enemy, Members members = Members::All)
         {
+            bool const lowerGuidOnly = members == Members::LowerGuid;
             Guid const self = context.view.GetSelf();
             for (Guid member : context.view.GetGroupMembers())
                 if (member != self && member != context.commandPlayer && (!lowerGuidOnly || member < self)
@@ -64,7 +69,7 @@ namespace Bots
                 return NoGuid;
             Guid const own = context.view.GetVictim(context.view.GetSelf());
             bool const ownIsLoose = std::find(enemies.begin(), enemies.end(), own) != enemies.end();
-            if (ownIsLoose && !AnotherMemberAttacks(context, own, true))
+            if (ownIsLoose && !AnotherMemberAttacks(context, own, Members::LowerGuid))
                 return own;
             for (Guid enemy : enemies)
                 if (!AnotherMemberAttacks(context, enemy))
