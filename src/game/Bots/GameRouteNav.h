@@ -36,6 +36,7 @@ class GameRouteNav : public Bots::RouteNav
         bool Path(Bots::Position const& from, Bots::Position const& to, std::vector<Bots::Position>& out) override;
         Bots::Position Reach(Bots::Position const& from, float dx, float dy, float distance) override;
         bool OnMesh(Bots::Position const& position) override;
+        bool LineOfSight(Bots::Position const& from, Bots::Position const& to) override;
         // The position lies on lava or slime, and on no ground.
         bool OnLava(Bots::Position const& position);
 
