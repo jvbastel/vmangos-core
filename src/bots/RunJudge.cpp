@@ -39,4 +39,12 @@ namespace Bots
                 " min: no kill, no damage dealt, and no movement along the route"};
         return {RunVerdictKind::Running, ""};
     }
+
+    RunVerdict RunJudge::AtScriptEnd() const
+    {
+        if (m_killed.size() == m_bosses.size())
+            return {RunVerdictKind::Passed, ""};
+        return {RunVerdictKind::Failed, "the route ended with " + std::to_string(m_killed.size()) + " of " +
+            std::to_string(m_bosses.size()) + " bosses dead"};
+    }
 }

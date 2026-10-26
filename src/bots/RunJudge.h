@@ -50,6 +50,9 @@ namespace Bots
 
         // The last boss kill wins over a limit of the same update.
         RunVerdict Judge(std::int64_t nowMs) const;
+        // The verdict when each command of the scenario worked: a scenario
+        // passes, a full run only when every boss of the route died.
+        RunVerdict AtScriptEnd() const;
 
         std::uint32_t Wipes() const { return m_wipes; }
 

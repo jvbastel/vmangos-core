@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+class Creature;
 class Player;
 
 // The script controller of the scripted runs (spec section 10). It runs one
@@ -119,7 +120,8 @@ class BotRun
         void TraceMembers(int64 nowMs);
         // A living bot of the group eats or drinks.
         bool GroupResting() const;
-        bool PackLives(std::string const& pack) const;
+        // A living mob of the pack near the test driver, or null.
+        Creature* LivingMobOf(std::string const& pack) const;
         bool Fight(Bots::ScriptCommand const& command, std::string& detail);
         // Writes the result file, and the trace when the run did not pass.
         void WriteResultFiles();

@@ -90,6 +90,25 @@ TEST(RunJudge, TheStartAndABossKillCountAsProgress)
     EXPECT_EQ(judge.Judge(10 * Minute).kind, RunVerdictKind::Failed);
 }
 
+TEST(RunJudge, AFullRunFailsWhenItsRouteEndsWithABossAlive)
+{
+    // A wipe on the last pack ends its fight too: the route ends, but the
+    // fourth boss lives.
+    RunJudge judge(RfcBosses, 0);
+    judge.NoteBossKill(11517, Minute);
+    judge.NoteBossKill(11520, 2 * Minute);
+    judge.NoteBossKill(11518, 3 * Minute);
+
+    RunVerdict const verdict = judge.AtScriptEnd();
+    EXPECT_EQ(verdict.kind, RunVerdictKind::Failed);
+    EXPECT_EQ(verdict.reason, "the route ended with 3 of 4 bosses dead");
+}
+
+TEST(RunJudge, AScenarioPassesAtTheEndOfItsScript)
+{
+    EXPECT_EQ(RunJudge({}, 0).AtScriptEnd().kind, RunVerdictKind::Passed);
+}
+
 TEST(RunJudge, TheLastBossKillWinsOverALimitOfTheSameUpdate)
 {
     RunJudge judge(RfcBosses, 0);

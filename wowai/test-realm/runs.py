@@ -12,6 +12,8 @@ Options:
                         full_noquests).
     --out <folder>      Where the result files go. Default: runs-<time>/ in
                         the current folder.
+    --runs-dir <folder> The host folder of Bots.Run.ResultDir, when the realm
+                        sets one. Default: <realm folder>/storage/mangosd/logs/runs.
 
 The realm must be up (`realm.sh --ticket <N> acquire`). For each run, the
 script starts it with `.wowai run start`, asks `.wowai run status` every 10 s
@@ -81,13 +83,12 @@ def wait_for_end(realm, limit_seconds):
             stopped = True
 
 
-def collect(realm_dir, status, out):
-    """Copies the result file of the status line, and its trace, to `out`.
-    The result as a dict, or None."""
+def collect(runs, status, out):
+    """Copies the result file of the status line, and its trace, from the
+    folder `runs` to `out`. The result as a dict, or None."""
     name = result_file(status)
     if not name:
         return None
-    runs = os.path.join(realm_dir, "storage", "mangosd", "logs", "runs")
     with open(os.path.join(runs, name)) as f:
         result = json.load(f)
     shutil.copy(os.path.join(runs, name), out)
@@ -104,6 +105,7 @@ def main():
     parser.add_argument("--script", default="ragefire_chasm")
     parser.add_argument("--noquests", action="store_true")
     parser.add_argument("--out")
+    parser.add_argument("--runs-dir")
     parser.add_argument("kind", choices=["full", "scenario"])
     parser.add_argument("arg", nargs="?")
     args = parser.parse_args()
@@ -121,6 +123,7 @@ def main():
     realm = Realm("shared" if args.shared else args.ticket)
     out = args.out or "runs-" + time.strftime("%Y%m%d-%H%M%S")
     os.makedirs(out, exist_ok=True)
+    runs_dir = args.runs_dir or os.path.join(realm.dir, "storage", "mangosd", "logs", "runs")
 
     passed = 0
     for n in range(1, count + 1):
@@ -129,7 +132,7 @@ def main():
         if "running" not in answer:
             break
         status = wait_for_end(realm, limit)
-        result = collect(realm.dir, status, out)
+        result = collect(runs_dir, status, out)
         if result is None:
             print("No result file: " + status, flush=True)
             continue

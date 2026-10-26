@@ -575,14 +575,18 @@ void BotRun::Update()
         }
         if (step.kind == Bots::RunStepKind::Passed)
         {
-            Finish(true, std::string());
+            // A full run passes only at its last boss: a wipe on the last
+            // pack ends the fight too.
+            Bots::RunVerdict const verdict = m_judge->AtScriptEnd();
+            Finish(verdict.kind == Bots::RunVerdictKind::Passed, verdict.reason);
             return;
         }
         std::string detail;
         std::string const what = "line " + std::to_string(step.command.line) + ": " + step.command.source;
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, what.c_str());
         m_trace.Add(now, what);
-        if (step.command.kind == Bots::ScriptCommandKind::Fight && !PackLives(step.command.name))
+        if (step.command.kind == Bots::ScriptCommandKind::Fight && InWorldAndStill(Driver()) &&
+            !LivingMobOf(step.command.name))
         {
             // The pack died in an earlier fight.
             sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s is dead already", m_number, step.command.name.c_str());
@@ -1056,15 +1060,22 @@ bool BotRun::ExpectBossDead(uint32 entry, std::string& detail)
 
 bool BotRun::ExpectPackDead(std::string const& pack, std::string& detail)
 {
+    if (Creature const* creature = LivingMobOf(pack))
+    {
+        detail = std::string(creature->GetName()) + " " + std::to_string(creature->GetDBTableGUIDLow()) + " lives";
+        return false;
+    }
+    return true;
+}
+
+Creature* BotRun::LivingMobOf(std::string const& pack) const
+{
     Player* driver = Driver();
     for (Bots::RouteMob const& mob : Bots::FindPack(m_route, pack)->mobs)
         if (Creature* creature = SpawnOf(driver, mob))
             if (creature->IsAlive())
-            {
-                detail = std::string(creature->GetName()) + " " + std::to_string(mob.spawnGuid) + " lives";
-                return false;
-            }
-    return true;
+                return creature;
+    return nullptr;
 }
 
 bool BotRun::ExpectAlive(std::string& detail)
@@ -1098,9 +1109,14 @@ void BotRun::ReviveTheDead()
         if (IsLivingMember(member))
             living.push_back(member);
 
+    // A wipe: every member stands in the world, dead. Right after the
+    // revive at the entrance, the members are in a teleport: no new wipe.
+    bool wipe = members.size() == m_script.group.size() + 1;
+    for (Player* member : members)
+        wipe = wipe && InWorldAndStill(member) && !member->IsAlive();
     if (!living.empty())
         m_wipeMs = 0;
-    else if (members.size() == m_script.group.size() + 1)
+    else if (wipe)
     {
         int64 const now = SteadyMs();
         if (!m_wipeMs)
@@ -1172,13 +1188,14 @@ void BotRun::WatchRun(int64 nowMs)
 
     WatchEnemies(nowMs);
 
-    // Movement along the route: the test driver walks it, and the bots follow.
+    // Movement along the route: the test driver walks to the point of its
+    // `move`, and the bots follow. A teleport is no walk.
     Player* driver = Driver();
     if (InWorldAndStill(driver))
     {
         if (!m_driverSeen || !driver->IsWithinDist3d(m_driverX, m_driverY, m_driverZ, ProgressYards))
         {
-            if (m_driverSeen)
+            if (m_driverSeen && m_moving && !m_visited)
                 m_judge->NoteProgress(nowMs);
             m_driverSeen = true;
             m_driverX = driver->GetPositionX();
@@ -1290,18 +1307,6 @@ bool BotRun::GroupResting() const
             player->GetGroup()->GetId() == m_groupId)
             return true;
     }
-    return false;
-}
-
-bool BotRun::PackLives(std::string const& pack) const
-{
-    Player* driver = Driver();
-    if (!InWorldAndStill(driver))
-        return true; // Do fails with the reason.
-    for (Bots::RouteMob const& mob : Bots::FindPack(m_route, pack)->mobs)
-        if (Creature* creature = SpawnOf(driver, mob))
-            if (creature->IsAlive())
-                return true;
     return false;
 }
 
