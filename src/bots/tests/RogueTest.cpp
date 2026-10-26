@@ -160,6 +160,19 @@ TEST(Rogue, KeepsComboPointsBelowFiveForSinisterStrike)
     EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{CastOn(Rogue::SinisterStrike, Kobold)}));
 }
 
+TEST(Rogue, EviscerateWithFewerComboPointsOnADyingTarget)
+{
+    RogueBot rogue;
+    rogue.FightsKoboldFromBehind();
+    rogue.fake.SetAura(Self, Rogue::SliceAndDice);
+    rogue.fake.SetHealth(Kobold, 30, 200);
+    rogue.fake.SetComboPoints(2);
+
+    rogue.Think();
+
+    EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{CastOn(Rogue::Eviscerate, Kobold)}));
+}
+
 TEST(Rogue, SwitchesToTheAttackTargetOfThePlayer)
 {
     RogueBot rogue;
