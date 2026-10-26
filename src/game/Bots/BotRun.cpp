@@ -179,6 +179,8 @@ namespace
 
 bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, std::string const& scenario, std::string& error)
 {
+    // A new run does not wait for the chat of the last run.
+    EndClosing("a new run starts");
     if (m_phase != Phase::Idle && !IsOver())
     {
         error = "A run is running: " + Status();
@@ -258,11 +260,9 @@ bool BotRun::Stop(std::string& error)
         error = "No run is running.";
         return false;
     }
-    if (m_phase == Phase::Closing)
-    {
-        error = "The run has its result. Its group waits for the chat of the run: " + Status();
-        return false;
-    }
+    // The run has its result: a stop only ends the wait for its chat.
+    if (EndClosing("stopped by a GM"))
+        return true;
     Fail("stopped by a GM");
     return true;
 }
@@ -314,6 +314,17 @@ void BotRun::Finish(bool passed, std::string const& reason)
     // 2. The writers of the run end come here, before the group ends.
     // 3. The group waits for the chat of the run (Update, Phase::Closing).
     SetPhase(Phase::Closing);
+}
+
+bool BotRun::EndClosing(char const* cutBy)
+{
+    if (m_phase != Phase::Closing)
+        return false;
+    if (cutBy)
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: the wait for the chat of the run ends early: %s", m_number, cutBy);
+    EndRunGroup();
+    m_phase = m_passed ? Phase::Passed : Phase::Failed;
+    return true;
 }
 
 void BotRun::EndRunGroup()
@@ -463,8 +474,7 @@ void BotRun::Update()
         case Phase::Closing:
             if (Bots::RunEndWaitsForChat(SteadyMs() - m_phaseMs, m_groupId && sBotMgr.Chat().HasPendingChat(m_groupId)))
                 return;
-            EndRunGroup();
-            m_phase = m_passed ? Phase::Passed : Phase::Failed;
+            EndClosing(nullptr);
             return;
     }
 

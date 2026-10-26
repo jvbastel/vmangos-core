@@ -69,8 +69,13 @@ class BotRun
         //    section 10).
         // 3. The phase Closing: the group stays until the chat of the run is
         //    said or dropped (Bots::RunEndWaitsForChat), so that the last
-        //    boss_kill, wipe, or loot_roll gets its line. Then EndRunGroup.
+        //    boss_kill, wipe, or loot_roll gets its line. Then EndClosing.
         void Finish(bool passed, std::string const& reason);
+        // In Closing: ends the wait now (EndRunGroup) and sets Passed or
+        // Failed. A run start or a run stop cuts the wait short, so the wait
+        // never blocks them; `cutBy` names the cause for the log (nullptr
+        // when the wait ends by itself). False when the run is not in Closing.
+        bool EndClosing(char const* cutBy);
         // After Closing: the test driver is a normal bot again, and the
         // members leave the run group, so that a later run, check, or
         // player invite starts from a clean state (jvbastel/WOWAI#82). A bot
