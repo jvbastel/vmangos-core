@@ -331,6 +331,11 @@ namespace Bots
                 step.source = source;
                 expanded.push_back(step);
             };
+            auto say = [&](std::string const& text)
+            {
+                add(ScriptCommandKind::Command, "", 0, "command " + text);
+                expanded.back().text = text;
+            };
             for (RouteStep const& step : RunSteps(route, c.quests))
                 if (step.kind == RouteStepKind::Point)
                 {
@@ -342,7 +347,9 @@ namespace Bots
                 {
                     std::string const& pack = route.packs[step.index].name;
                     add(ScriptCommandKind::WaitRested, "", DefaultRestedSeconds, "wait rested");
+                    say("stay");
                     add(ScriptCommandKind::Fight, pack, DefaultCombatEndSeconds, "fight " + pack);
+                    say("follow");
                 }
         }
         return expanded;

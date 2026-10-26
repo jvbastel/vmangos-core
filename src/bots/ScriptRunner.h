@@ -48,6 +48,8 @@ namespace Bots
         bool driverArrived = false;
         // A living bot of the group eats or drinks.
         bool groupResting = false;
+        // A member in the world is dead.
+        bool memberDead = false;
     };
 
     enum class RunStepKind

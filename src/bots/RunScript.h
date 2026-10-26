@@ -47,8 +47,8 @@
 //   combat; the run fails after the seconds).
 // - `expect boss_dead <entry>`, `expect pack_dead <pack>`, `expect alive`
 //   (each group member lives). A failed expect ends the run as failed.
-// - `wait rested [<seconds>]`: no bot of the group eats or drinks any more;
-//   the run fails after the seconds.
+// - `wait rested [<seconds>]`: each member lives, and no bot of the group
+//   eats or drinks any more; the run fails after the seconds.
 // - `fight <pack> [<seconds>]`: the test driver selects a living mob of the
 //   pack and says `pull` in party chat, then the run waits for the end of
 //   the fight, as `wait combat_end`. A pack that is dead already is no fight:
@@ -57,8 +57,9 @@
 //   releases this long after the last member died (default 5 s), and the
 //   group revives at the dungeon entrance. `never`: nobody releases.
 // - `route [noquests]`: the whole route, step by step (a full run). Each
-//   point is `move <point>` and `wait arrive`, each pack `wait rested` and
-//   `fight <pack>`. `noquests` leaves out the steps that are only there for a
+//   point is `move <point>` and `wait arrive`. Each pack is `wait rested`,
+//   `command stay`, `fight <pack>`, and `command follow`: the group holds
+//   its place while the tank pulls, as in the scenarios. `noquests` leaves out the steps that are only there for a
 //   quest. A scenario with a `route` line passes when the last boss of the
 //   route dies.
 namespace Bots

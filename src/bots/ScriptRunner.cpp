@@ -95,10 +95,11 @@ namespace Bots
                                 return Fail("the test driver did not arrive in " + Seconds(ArriveLimitMs));
                             break;
                         case ScriptCommandKind::WaitRested:
-                            if (!facts.groupResting)
+                            if (!facts.groupResting && !facts.memberDead)
                                 done = true;
                             else if (waited >= std::int64_t(c.seconds) * 1000)
-                                return Fail("the group still rests after " + Seconds(std::int64_t(c.seconds) * 1000));
+                                return Fail((facts.memberDead ? "a member is still dead after " : "the group still rests after ") +
+                                    Seconds(std::int64_t(c.seconds) * 1000));
                             break;
                         case ScriptCommandKind::WaitCombatEnd:
                         case ScriptCommandKind::Fight:

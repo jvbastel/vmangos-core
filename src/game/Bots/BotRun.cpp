@@ -736,6 +736,9 @@ Bots::RunFacts BotRun::Facts() const
                 facts.groupInCombat = true;
     }
     facts.groupResting = GroupResting();
+    for (Player* member : members)
+        if (InWorldAndStill(member) && !member->IsAlive())
+            facts.memberDead = true;
     if (m_moving && driver && driver->IsInWorld())
     {
         float const dx = driver->GetPositionX() - m_moveX, dy = driver->GetPositionY() - m_moveY;

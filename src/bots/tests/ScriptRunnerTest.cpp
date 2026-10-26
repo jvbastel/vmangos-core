@@ -220,6 +220,24 @@ TEST(ScriptRunner, WaitRestedWaitsUntilNoBotRests)
     EXPECT_EQ(runner.Update(Idle(), 31000).command.kind, ScriptCommandKind::Refill);
 }
 
+TEST(ScriptRunner, WaitRestedWaitsUntilNoMemberIsDead)
+{
+    // The tank died in the last fight: no pull until it lives again.
+    ScriptRunner runner(Commands("wait rested 60\nrefill\n"));
+    RunFacts dead;
+    dead.memberDead = true;
+
+    EXPECT_EQ(runner.Update(dead, 0).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(dead, 20000).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(Idle(), 21000).command.kind, ScriptCommandKind::Refill);
+
+    ScriptRunner stuck(Commands("wait rested 60\n"));
+    stuck.Update(dead, 0);
+    RunStep const step = stuck.Update(dead, 60000);
+    EXPECT_EQ(step.kind, RunStepKind::Failed);
+    EXPECT_EQ(step.reason, "line 6: wait rested 60: a member is still dead after 60 s");
+}
+
 TEST(ScriptRunner, WaitRestedFailsAfterItsSeconds)
 {
     ScriptRunner runner(Commands("wait rested 60\n"));
