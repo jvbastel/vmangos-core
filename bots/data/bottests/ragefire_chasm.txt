@@ -46,3 +46,11 @@ teleport pull_pack39
 clear 50
 command follow
 wait 120
+
+# A short run that passes, for the check t82_run_group.py: after it, the
+# members are out of the run group (jvbastel/WOWAI#82).
+scenario short
+teleport pull_pack39
+clear 50
+wait 2
+expect alive

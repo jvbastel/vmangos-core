@@ -82,7 +82,9 @@ def gather():
             c.gm(".namego %s" % bot, wait=2.0)
         c.chat(CHAT_MSG_PARTY, "follow")
         c.pump(6)
-        far = [bot for bot, guid in bots.items() if not unit_pos(guid) or dist(unit_pos(guid), here) > 15]
+        # One position read per bot: a second read can find none (a bot in a teleport).
+        at = {bot: unit_pos(guid) for bot, guid in bots.items()}
+        far = [bot for bot in bots if not at[bot] or dist(at[bot], here) > 15]
         if not far:
             return
         print("  not near yet:", far)

@@ -59,7 +59,13 @@ class BotRun
         // The run is over: passed or failed.
         bool IsOver() const { return m_phase == Phase::Passed || m_phase == Phase::Failed; }
 
+        // Ends the run as failed, and leaves the run group.
         void Fail(std::string const& reason);
+        // The end of a run, passed or failed: the members leave the run
+        // group, so that a later run, check, or player invite starts from
+        // a clean state (jvbastel/WOWAI#82). A bot out of its group logs
+        // out (BotMgr::UpdateGroupOf).
+        void LeaveGroup();
         void SetPhase(Phase phase);
         bool PhaseTimedOut(std::string const& what);
         std::vector<Player*> Members() const;
@@ -110,7 +116,7 @@ class BotRun
         int64 m_startMs = 0;
         int64 m_phaseMs = 0;
         std::string m_result;
-        uint32 m_groupId = 0;
+        uint32 m_groupId = 0; // The run group, from FormGroup to the end of the run.
         std::set<uint32> m_bossKills;
         Bots::ThreatWatch m_threat;
         std::vector<std::string> m_threatNames; // "<enemy> on <member>" of each loss.
