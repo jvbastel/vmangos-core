@@ -19,8 +19,8 @@
 #   - GM commands: each row of a table with the header | Command | Example
 #     | Answer has |. The test runs the example over SOAP, in the order of the
 #     map, and the answer must contain the text of the third cell.
-# Use a newly acquired slot (`realm.sh --ticket <N> acquire`): the examples use the five
-# bots that `acquire` makes.
+# Use a newly acquired slot (`realm.sh --ticket <N> acquire`): the examples
+# use the five bots that `acquire` makes.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

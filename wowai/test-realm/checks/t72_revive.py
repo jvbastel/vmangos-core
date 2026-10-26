@@ -232,7 +232,7 @@ def part_ghost():
 
 
 def part_run():
-    # A scripted run: the driver Ezzra and the bots of `up`.
+    # A scripted run: the driver Ezzra and the bots of `acquire`.
     realm.mark("run")
     print(" ", realm.soap(".wowai run start ragefire_chasm revive"))
     # A wait line is not logged: the run status names it.

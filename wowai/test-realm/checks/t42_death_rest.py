@@ -4,7 +4,7 @@
     wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t42_death_rest.py [part]
 
-The player Thrallson invites the bots of `up`: the Warrior tank Grukk, the
+The player Thrallson invites the bots of `acquire`: the Warrior tank Grukk, the
 Priest healer Hela, and the Mage Ezzra. `part`: run one part only (rest,
 resurrect, nobody, wipe).
 

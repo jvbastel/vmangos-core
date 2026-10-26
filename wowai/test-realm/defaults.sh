@@ -1,7 +1,8 @@
 # shellcheck shell=bash
 # The defaults of the shared test realm: the one table that realm.sh and the
-# tests read. A ticket realm of the check kit sets each of these settings
-# itself, from the ticket number.
+# tests read. The check kit sets each of these settings itself, from the
+# test realm slot that the ticket leases. newest_image picks the default
+# images.
 # shellcheck disable=SC2034 # realm.sh, wowai/dev, and the tests read it.
 declare -gA realm_defaults=(
   [WOWAI_REALM_DIR]="$HOME/wowai/test-realm"

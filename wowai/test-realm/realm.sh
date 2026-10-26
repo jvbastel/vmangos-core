@@ -81,9 +81,9 @@ login 3730+S, world 8090+S, and SOAP 7880+S. The kit raises LogLevel.File
 to 3, so the rules of the bots are in Server.log.
 
 `acquire`, `up` (with no dev build yet), and `build` build into
-WOWAI_DEV_INSTALL (the kit: the slot's install folder). For the shared test realm in ~/wowai/dev-install, set
-WOWAI_DEV_SHARED_INSTALL=1. Both hold the lock of the dev container until
-they end.
+WOWAI_DEV_INSTALL (the kit: the slot's install folder). For the shared test
+realm in ~/wowai/dev-install, set WOWAI_DEV_SHARED_INSTALL=1. These
+commands hold the lock of the dev container until they end.
 
 The realm folder holds the settings (.env), the configuration, and the logs.
 The Compose files stay in the fork. In the realm folder, `docker compose`
@@ -120,6 +120,9 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   kit_dev="${WOWAI_KIT_DEV:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/dev}"
   pool_dir="$(realpath -m "${WOWAI_POOL_DIR:-$HOME/wowai/slots}")"
 
+  # A field of a lease file: ticket, worktree, branch, or started.
+  kit_lease_field() { sed -n "s/^$2=//p" "$1"; }
+
   # The slot that the ticket leases, or nothing.
   kit_slot_of() {
     local lease
@@ -146,8 +149,8 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
       for n in $(seq 1 "$pool_slots"); do
         [ -e "$pool_dir/$n.lease" ] || { slot="$n"; break; }
         holders+="$(printf '\n  slot %s: ticket %s, worktree %s, branch %s, since %s' "$n" \
-          "$(sed -n 's/^ticket=//p' "$pool_dir/$n.lease")" "$(sed -n 's/^worktree=//p' "$pool_dir/$n.lease")" \
-          "$(sed -n 's/^branch=//p' "$pool_dir/$n.lease")" "$(sed -n 's/^started=//p' "$pool_dir/$n.lease")")"
+          "$(kit_lease_field "$pool_dir/$n.lease" ticket)" "$(kit_lease_field "$pool_dir/$n.lease" worktree)" \
+          "$(kit_lease_field "$pool_dir/$n.lease" branch)" "$(kit_lease_field "$pool_dir/$n.lease" started)")"
       done
       [ -n "$slot" ] || kit_die "all $pool_slots test realm slots have a lease:$holders
 Release one (realm.sh --ticket <N> release), or free the slots of deleted worktrees (realm.sh gc)."
@@ -182,23 +185,25 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
   # export its volume, image, and passwords. The baseline lock makes a
   # second acquire wait for the first one's baseline.
   kit_baseline() {
-    local image tag env_file
+    local image tag volume env_file
     image="${WOWAI_DATABASE_IMAGE:-$(newest_image wowai/vmangos-database ghcr.io/mserajnik/vmangos-database:latest)}"
     tag="$(printf '%s' "${image##*:}" | tr -c 'a-zA-Z0-9_.-' '-')"
+    volume="wowai-test-baseline-$tag"
     env_file="$pool_dir/baseline-$tag.env"
     mkdir -p "$pool_dir"
     exec 7>"$pool_dir/baseline.lock"
     flock 7
-    if [ ! -f "$env_file" ] || ! docker volume inspect "wowai-test-baseline-$tag" >/dev/null 2>&1; then
+    if [ ! -f "$env_file" ] || ! docker volume inspect "$volume" >/dev/null 2>&1; then
       env WOWAI_REALM_DIR="$pool_dir/baseline" WOWAI_REALM_PROJECT=wowai-test-baseline \
         WOWAI_REALM_LOGIN_PORT=3730 WOWAI_REALM_WORLD_PORT=8090 WOWAI_REALM_SOAP_PORT=7880 \
         WOWAI_DEV_INSTALL="$pool_dir/baseline/install" WOWAI_DATABASE_IMAGE="$image" \
-        WOWAI_REALM_BASELINE="wowai-test-baseline-$tag" WOWAI_REALM_BASELINE_ENV="$env_file" \
+        WOWAI_REALM_BASELINE="$volume" WOWAI_REALM_BASELINE_ENV="$env_file" \
         WOWAI_BOTCHAT_SRC="${WOWAI_BOTCHAT_SRC:-$HOME/wowai/botchat}" \
         "$kit_dev" realm baseline
     fi
     exec 7>&-
-    export WOWAI_REALM_BASELINE="wowai-test-baseline-$tag"
+    [ -f "$env_file" ] || kit_die "making the baseline left no $env_file"
+    export WOWAI_REALM_BASELINE="$volume"
     set -a
     # shellcheck source=/dev/null
     . "$env_file"
@@ -210,10 +215,10 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
     local lease slot ticket worktree freed=0
     for lease in "$pool_dir"/*.lease; do
       [ -e "$lease" ] || continue
-      worktree="$(sed -n 's/^worktree=//p' "$lease")"
+      worktree="$(kit_lease_field "$lease" worktree)"
       [ ! -d "$worktree" ] || continue
       slot="$(basename "$lease" .lease)"
-      ticket="$(sed -n 's/^ticket=//p' "$lease")"
+      ticket="$(kit_lease_field "$lease" ticket)"
       echo "Slot $slot: the worktree $worktree of the ticket $ticket is gone. Releasing it..."
       (kit_slot_env "$slot" "$ticket"; "$kit_dev" realm release)
       freed=$((freed + 1))
@@ -252,7 +257,9 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
         kit_lease "$ticket"
         echo "Ticket $ticket: slot $slot ($lease_state lease)."
         kit_slot_env "$slot" "$ticket"
-        kit_baseline
+        # A held lease keeps its database, and so the image and the
+        # passwords in the slot's .env.
+        [ "$lease_state" != new ] || kit_baseline
         shift
         exec "$kit_dev" realm acquire "$lease_state" "$@"
         ;;
@@ -492,18 +499,23 @@ cmd_realm_acquire() {
   realm_start "$@"
 }
 
-# Copy the baseline volume over the database volume of the slot, with a
-# throwaway container of the database image. The slot is stopped, and its
-# volume exists (`compose create`).
+# Copy the baseline volume over the database volume of the slot. The slot is
+# stopped, and its volume exists (`compose create`).
 realm_reset_database() {
   local baseline="${WOWAI_REALM_BASELINE:?}" volume start=$SECONDS
   volume="$(realm_env COMPOSE_PROJECT_NAME)_database"
   docker volume inspect "$baseline" >/dev/null || die "no baseline volume $baseline (run: realm.sh baseline)"
-  docker run --rm --user 0 --entrypoint sh \
-    --mount "type=volume,source=$baseline,target=/from,readonly" \
-    --mount "type=volume,source=$volume,target=/to" \
-    "$(realm_env WOWAI_DATABASE_IMAGE)" -c 'find /to -mindepth 1 -delete && cp -a /from/. /to/'
+  realm_copy_volume "$baseline" "$volume"
   echo "Reset the database of $(realm_env COMPOSE_PROJECT_NAME) to $baseline in $((SECONDS - start)) seconds."
+}
+
+# Copy a volume over another one (its old files go), with a throwaway
+# container of the database image. Arguments: the source and the target.
+realm_copy_volume() {
+  docker run --rm --user 0 --entrypoint sh \
+    --mount "type=volume,source=$1,target=/from,readonly" \
+    --mount "type=volume,source=$2,target=/to" \
+    "$(realm_env WOWAI_DATABASE_IMAGE)" -c 'find /to -mindepth 1 -delete && cp -a /from/. /to/'
 }
 
 # The kit: make the baseline volume of a database image tag. A fresh database
@@ -524,10 +536,7 @@ cmd_realm_baseline() {
   realm_compose stop
   docker volume rm "$baseline" >/dev/null 2>&1 || true
   docker volume create --label "wowai.baseline.image=$(realm_env WOWAI_DATABASE_IMAGE)" "$baseline" >/dev/null
-  docker run --rm --user 0 --entrypoint sh \
-    --mount "type=volume,source=$(realm_env COMPOSE_PROJECT_NAME)_database,target=/from,readonly" \
-    --mount "type=volume,source=$baseline,target=/to" \
-    "$(realm_env WOWAI_DATABASE_IMAGE)" -c 'cp -a /from/. /to/'
+  realm_copy_volume "$(realm_env COMPOSE_PROJECT_NAME)_database" "$baseline"
   (umask 077 && grep -E '^(WOWAI_DATABASE_IMAGE|WOWAI_REALM_DB_PASSWORD|WOWAI_REALM_DB_ROOT_PASSWORD|WOWAI_REALM_BOTCHAT_DB_PASSWORD|WOWAI_REALM_GM_ACCOUNT|WOWAI_REALM_GM_PASSWORD)=' \
     "$realm_dir/.env" > "$env_file")
   realm_compose down --volumes --remove-orphans
@@ -773,12 +782,14 @@ cmd_realm_release() {
     cp -a "$realm_dir/storage/mangosd/logs" "$keep/mangosd" 2>/dev/null || true
     cp -a "$realm_dir/storage/realmd/logs" "$keep/realmd" 2>/dev/null || true
   fi
+  # By the project name only: gc releases the slots of deleted worktrees,
+  # whose .env can name folders that are gone.
   docker compose --project-name "$project" stop
   rm -f "$WOWAI_REALM_LEASE"
   if [ -d "$keep" ]; then
-    echo "Released the slot $project. Kept its logs in $keep."
+    echo "Released the slot ${WOWAI_REALM_SLOT:-} ($project). Kept its logs in $keep."
   else
-    echo "Released the slot $project."
+    echo "Released the slot ${WOWAI_REALM_SLOT:-} ($project)."
   fi
 }
 

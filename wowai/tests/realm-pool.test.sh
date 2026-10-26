@@ -36,6 +36,10 @@ cat > "$tmp/fake-dev" <<'SH'
 #!/usr/bin/env bash
 echo "dev: $*"
 env | grep '^WOWAI_' | sort
+# A baseline: its passwords file.
+if [ "$*" = "realm baseline" ]; then
+  sed -e "s/:t1$/:${WOWAI_DATABASE_IMAGE##*:}/" -e 's/basegm/newgm/' "$WOWAI_POOL_DIR/baseline-t1.env" > "$WOWAI_REALM_BASELINE_ENV"
+fi
 SH
 chmod +x "$tmp/fake-dev"
 export WOWAI_KIT_DEV="$tmp/fake-dev"
@@ -84,9 +88,10 @@ run_kit --ticket 11 acquire
 check "a ticket that acquires twice gets the same slot" test "$(value "$out" WOWAI_REALM_SLOT)" = "$s11"
 check "a second acquire does not reset the slot" contains "$out" "dev: realm acquire held"
 check "the ticket still has one lease" test "$(grep -lx "ticket=11" "$WOWAI_POOL_DIR"/*.lease | wc -l)" = 1
-check "acquire uses the passwords of the baseline" test "$(value "$out" WOWAI_REALM_GM_PASSWORD)" = basegm
-check "acquire uses the baseline volume of the image tag" test "$(value "$out" WOWAI_REALM_BASELINE)" = wowai-test-baseline-t1
 check "acquire uses the chat service of the caller" test "$(value "$out" WOWAI_BOTCHAT_SRC)" = "$WOWAI_BOTCHAT_SRC"
+check "a new lease uses the passwords of the baseline" test "$(value "$(cat "$tmp/a11")" WOWAI_REALM_GM_PASSWORD)" = basegm
+check "a new lease uses the baseline volume of the image tag" \
+  test "$(value "$(cat "$tmp/a11")" WOWAI_REALM_BASELINE)" = wowai-test-baseline-t1
 
 # The other commands find the slot from the lease.
 run_kit --ticket 11 soap 'server info'
@@ -104,8 +109,18 @@ check "the realm settings of the environment do not move the kit" \
   bash -c "[ '$(value "$out" WOWAI_REALM_PROJECT)' = 'wowai-test-$s11' ] && [ '$(value "$out" WOWAI_REALM_SOAP_PORT)' = $((7880 + s11)) ] &&
     [ '$(value "$out" WOWAI_DEV_INSTALL)' = '$WOWAI_POOL_DIR/$s11/install' ]"
 
+# A new database image: a new lease gets its baseline, and a held lease keeps
+# the passwords of its database volume.
+WOWAI_DATABASE_IMAGE=wowai/vmangos-database:t2 run_kit --ticket 13 acquire
+check "with no baseline of the image tag, a new lease makes it" contains "$out" "dev: realm baseline"
+check "the baseline is its own Compose project" grep -qx "WOWAI_REALM_PROJECT=wowai-test-baseline" <<<"$out"
+check "the new lease uses the new baseline" test "$(value "$out" WOWAI_REALM_GM_PASSWORD)" = newgm
+WOWAI_DATABASE_IMAGE=wowai/vmangos-database:t2 run_kit --ticket 11 acquire
+check "a held lease makes no baseline" bash -c "! grep -q 'dev: realm baseline' <<<'$out'"
+check "a held lease keeps the passwords of its volume" test -z "$(value "$out" WOWAI_REALM_GM_PASSWORD)"
+
 # A full pool.
-for ticket in 13 14 15; do
+for ticket in 14 15; do
   "$kit" --ticket "$ticket" acquire >/dev/null 2>&1
 done
 run_kit --ticket 16 acquire
@@ -114,13 +129,6 @@ for ticket in 11 12 13 14 15; do
   check "the full-pool error names the holder $ticket" grep -q "ticket $ticket, worktree $repo, branch $branch" <<<"$out"
 done
 check "the sixth ticket gets no lease" test -z "$(slot_of 16)"
-
-# A missing baseline is made first.
-run_kit --ticket 11 acquire
-check "with the baseline there, acquire makes none" bash -c "! grep -q 'dev: realm baseline' <<<'$out'"
-WOWAI_DATABASE_IMAGE=wowai/vmangos-database:t2 run_kit --ticket 11 acquire
-check "with no baseline of the image tag, acquire makes it" contains "$out" "dev: realm baseline"
-check "the baseline is its own Compose project" grep -qx "WOWAI_REALM_PROJECT=wowai-test-baseline" <<<"$out"
 
 run_kit --shared acquire
 check "--shared does not lease a slot" test "$code" -ne 0
