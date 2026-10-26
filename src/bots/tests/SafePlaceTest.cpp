@@ -195,3 +195,20 @@ TEST(FirstSafePlace, WithNoSafeSpotThereIsNoPlace)
 
     EXPECT_FALSE(FirstSafePlace(fake, {{10.0f, 0.0f, 0.0f}}, SafeMoveRules{}, place));
 }
+
+// The one aggro rule: the game pulls a creature when a player comes within
+// its aggro distance of its center (BasicAI::MoveInLineOfSight, no body
+// size), so a safe place keeps the aggro distance and the margin from the
+// enemy's center. The bot's body and the enemy's body do not count.
+TEST(FirstSafePlace, TheAggroMarginIsMeasuredFromTheEnemysCenter)
+{
+    FakeBot fake(Self);
+    fake.SetPosition(Self, {0.0f, 0.0f, 0.0f});
+    // Aggro 5 and the margin of 5: 10 yards from its center.
+    SafeMoveRules rules;
+    rules.enemies = {{{20.0f, 0.0f, 0.0f}, 5.0f}};
+    Position place{};
+
+    ASSERT_TRUE(FirstSafePlace(fake, {{10.5f, 0.0f, 0.0f}, {9.5f, 0.0f, 0.0f}}, rules, place));
+    ExpectAt(place, 9.5f, 0.0f);
+}

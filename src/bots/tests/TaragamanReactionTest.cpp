@@ -74,6 +74,15 @@ TEST(TaragamanReaction, TheHealerInFireNovaRangeMovesOut)
     EXPECT_EQ(healer.fake.Deeds(), Moves("move to 0 -16 2"));
 }
 
+TEST(TaragamanReaction, TheMoveOutSearchesForThePlaceOncePerThink)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+
+    EXPECT_EQ(mage.Think(), "stay out of fire nova");
+    // The first place is safe: one ground path for the whole think.
+    EXPECT_EQ(mage.fake.GroundPaths(), 1);
+}
+
 TEST(TaragamanReaction, ARangedBotMoreThanTenYardsAwayStays)
 {
     InFight mage(Mage, BotRole::Ranged, {0, 13, 0});
@@ -133,6 +142,28 @@ TEST(TaragamanReaction, ARangedBotMovesOutOnlyToAPlaceInSightOfHim)
 
     EXPECT_EQ(mage.Think(), "stay out of fire nova");
     EXPECT_EQ(mage.fake.Deeds(), Moves("move to 8 13.86 0"));
+}
+
+TEST(TaragamanReaction, TheHealerMovesOutOnlyToAPlaceInSightOfTheTank)
+{
+    InFight healer(Healer, BotRole::Healer, {5, 0, 0});
+    healer.group.SetTank(Tank);
+    // From the places 16 yards straight out and 30 degrees off, the healer
+    // sees him but not the tank, and could not heal it.
+    healer.fake.AddBlindToFromX(Tank, 10);
+
+    EXPECT_EQ(healer.Think(), "stay out of fire nova");
+    EXPECT_EQ(healer.fake.Deeds(), Moves("move to 8 13.86 0"));
+}
+
+TEST(TaragamanReaction, ARangedBotNeedNotSeeTheTank)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+    mage.group.SetTank(Tank);
+    mage.fake.AddBlindToFromX(Tank, 10);
+
+    EXPECT_EQ(mage.Think(), "stay out of fire nova");
+    EXPECT_EQ(mage.fake.Deeds(), Moves("move to 16 0 0"));
 }
 
 TEST(TaragamanReaction, ARangedBotWithOnlyLavaAroundStays)
