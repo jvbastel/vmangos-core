@@ -111,8 +111,8 @@ TEST(FollowTank, AnotherPackNearTheTankStillCounts)
 TEST(FollowTank, ABotNearTheTankDoesNotMove)
 {
     Bot bot;
-    // A short pull: the tank stays near the group.
-    bot.fake.SetPosition(Tank, {0.0f, 18.0f, 0.0f});
+    // A short pull: the tank stays in casting range of the group.
+    bot.fake.SetPosition(Tank, {0.0f, 28.0f, 0.0f});
 
     EXPECT_NE(bot.Think(CommandState::Stay), "follow the tank to the pull");
 }

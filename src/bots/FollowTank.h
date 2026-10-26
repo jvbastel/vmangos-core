@@ -1,6 +1,7 @@
 #ifndef WOWAI_BOTS_FOLLOW_TANK_H
 #define WOWAI_BOTS_FOLLOW_TANK_H
 
+#include "DamageRules.h"
 #include "Strategy.h"
 
 // The walk of the group behind the tank on a pull (WOWAI#92). The tank runs
@@ -18,8 +19,10 @@
 // that first.
 namespace Bots
 {
-    // A bot farther than this from the tank follows it.
-    float const FollowTankYards = 20.0f;
+    // A bot farther than this from the tank follows it: the casting range
+    // of a ranged damage bot (DamageRules.h), so a bot that can reach the
+    // fight from where it stands does not move.
+    float const FollowTankYards = CastingRangeYards;
     // The nearest a following bot goes to the tank, along its path.
     float const FollowTankNearYards = 12.0f;
     // The spots on the path are this far apart.
