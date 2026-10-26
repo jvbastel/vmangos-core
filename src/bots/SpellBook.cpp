@@ -25,6 +25,6 @@ namespace Bots
     SpellId CastableRank(BotView const& view, SpellId firstRank, Guid target)
     {
         SpellId const rank = RankForTarget(view, firstRank, target);
-        return rank != NoSpell && view.CanCast(rank, target) ? rank : NoSpell;
+        return rank != NoSpell && !view.IsCastLocked(rank) && view.CanCast(rank, target) ? rank : NoSpell;
     }
 }

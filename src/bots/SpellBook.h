@@ -19,7 +19,9 @@ namespace Bots
     SpellId RankForTarget(BotView const& view, SpellId firstRank, Guid target);
 
     // The rank of RankForTarget when the bot can cast it on unit `target`
-    // now (BotView::CanCast), else NoSpell.
+    // now, else NoSpell: no stun or silence locks the cast
+    // (BotView::IsCastLocked), and BotView::CanCast allows it. Each rule
+    // that casts asks this before it casts.
     SpellId CastableRank(BotView const& view, SpellId firstRank, Guid target);
 }
 

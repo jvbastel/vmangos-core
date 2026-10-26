@@ -456,6 +456,22 @@ bool BotAdapter::LevelAllowsRank(Bots::SpellId rank, Bots::Guid target) const
     return sSpellMgr.SelectAuraRankForLevel(entry, unit->GetLevel()) == entry;
 }
 
+bool BotAdapter::IsCastLocked(Bots::SpellId spell) const
+{
+    // Like the states of Spell::CheckCasterAuras, without the spells that
+    // grant an immunity to them (the bots cast none).
+    SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
+    if (!entry || entry->IsIgnoringCasterAndTargetRestrictions())
+        return false;
+    if (me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED | UNIT_FLAG_CONFUSED | UNIT_FLAG_FLEEING))
+        return true;
+    if (entry->PreventionType == SPELL_PREVENTION_TYPE_SILENCE)
+        return me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED) || me->CheckLockout(entry->GetSpellSchoolMask());
+    if (entry->PreventionType == SPELL_PREVENTION_TYPE_PACIFY)
+        return me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
+    return false;
+}
+
 std::vector<Bots::Guid> BotAdapter::GetGroupMembers() const
 {
     std::vector<Bots::Guid> members{GetSelf()};

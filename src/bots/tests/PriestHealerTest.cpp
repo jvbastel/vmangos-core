@@ -116,6 +116,33 @@ TEST(PriestHealer, HealsWithLesserHealWhenItCannotCastHeal)
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(LesserHeal3, Tank)}));
 }
 
+TEST(PriestHealer, DoesNotTryToCastWhileStunned)
+{
+    PriestHealer priest;
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 250, 600);
+    priest.fake.SetStunned();
+
+    priest.Think();
+
+    for (std::string const& deed : priest.fake.Deeds())
+        EXPECT_EQ(deed.find("cast"), std::string::npos) << deed;
+}
+
+TEST(PriestHealer, DoesNotTryToCastWhileSilenced)
+{
+    PriestHealer priest;
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 100, 600);
+    priest.fake.SetAura(Tank, Priest::PowerWordFortitude, false);
+    priest.fake.SetSilenced();
+
+    priest.Think();
+
+    for (std::string const& deed : priest.fake.Deeds())
+        EXPECT_EQ(deed.find("cast"), std::string::npos) << deed;
+}
+
 TEST(PriestHealer, ShieldsAMemberNearDeath)
 {
     PriestHealer priest;

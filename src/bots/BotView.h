@@ -118,6 +118,10 @@ namespace Bots
         // A buff rank may be at most 10 levels above the target, else the
         // cast fails with SPELL_FAILED_LOWLEVEL. Each other spell is allowed.
         virtual bool LevelAllowsRank(SpellId rank, Guid target) const = 0;
+        // True when a state of the bot keeps it from casting spell `spell`
+        // now: a stun, a fear, a confuse; a silence or a school lockout for
+        // a magic spell; a pacify for a physical one (Spell::CheckCasterAuras).
+        virtual bool IsCastLocked(SpellId spell) const = 0;
 
         // The members of the bot's group that the bot can see, the bot
         // first. Only the bot when it is in no group.
