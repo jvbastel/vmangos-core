@@ -120,6 +120,8 @@ def chat_failures(result):
     failures = []
     events = result["chat_events"]
     for event in events:
+        if not event["reached"]:
+            failures.append("%s at %.0f s did not reach the chat service" % (event["event"], event["time_s"]))
         if event["event"] in EVENTS_WITH_A_LINE and not event["lines"]:
             failures.append("%s at %.0f s got no line" % (event["event"], event["time_s"]))
     speakers = {line["bot"] for event in events if event["event"] not in NO_GAME_EVENTS for line in event["lines"]}

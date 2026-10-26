@@ -168,6 +168,11 @@ class Thresholds(unittest.TestCase):
         result["chat_events"].append({"event": "wipe", "to": None, "time_s": 600.0, "reached": True, "lines": []})
         self.assertEqual(self.fails(result), ["wipe at 600 s got no line"])
 
+    def test_each_event_reaches_the_chat_service(self):
+        result = a_full_run_that_passes()
+        result["chat_events"][2]["reached"] = False
+        self.assertEqual(self.fails(result), ["rest at 320 s did not reach the chat service"])
+
     def test_each_bot_says_a_line_for_a_game_event(self):
         result = a_full_run_that_passes()
         result["chat_events"][2]["lines"] = []

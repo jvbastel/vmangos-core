@@ -242,6 +242,11 @@ namespace Bots
         return NoGuid;
     }
 
+    bool IsInterruptSpell(SpellId firstRank)
+    {
+        return std::find(std::begin(InterruptSpells), std::end(InterruptSpells), firstRank) != std::end(InterruptSpells);
+    }
+
     std::shared_ptr<Strategy const> MakeGroupStrategy(BotRole role)
     {
         int const P = Priority::Group;

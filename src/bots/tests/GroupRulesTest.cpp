@@ -573,3 +573,10 @@ TEST(GroupRules, NoBotRemovesPoison)
 
     EXPECT_NE(party.priest.Think(), "dispel a debuff");
 }
+
+TEST(GroupRules, KickAndShieldBashAreTheInterruptSpells)
+{
+    EXPECT_TRUE(Bots::IsInterruptSpell(Bots::Rogue::Kick));
+    EXPECT_TRUE(Bots::IsInterruptSpell(Bots::Warrior::ShieldBash));
+    EXPECT_FALSE(Bots::IsInterruptSpell(Bots::Rogue::SinisterStrike));
+}

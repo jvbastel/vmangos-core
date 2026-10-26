@@ -25,13 +25,12 @@
 #include "ObjectMgr.h"
 #include "Pet.h"
 #include "Player.h"
-#include "RogueModule.h"
+#include "GroupRules.h"
 #include "RouteFiles.h"
 #include "SharedDefines.h"
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "SpellMgr.h"
-#include "WarriorModule.h"
 #include "Utilities/Random.h"
 #include "WorldSession.h"
 
@@ -1536,7 +1535,7 @@ bool BotRun::InterrupterFree() const
         for (auto const& known : member->GetSpellMap())
         {
             uint32 const first = sSpellMgr.GetFirstSpellInChain(known.first);
-            if ((first != Bots::Rogue::Kick && first != Bots::Warrior::ShieldBash) || !member->HasSpell(known.first))
+            if (!Bots::IsInterruptSpell(first) || !member->HasSpell(known.first))
                 continue;
             SpellEntry const* entry = sSpellMgr.GetSpellEntry(known.first);
             // Shield Bash needs a shield.

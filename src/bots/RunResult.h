@@ -98,7 +98,7 @@ namespace Bots
     struct RunFireNovaHit
     {
         std::string member;
-        std::string role;    // "tank", "healer", "melee", or "ranged" (the test driver).
+        std::string role;    // "tank", "healer", "melee", or "ranged" (the test driver and the Warlock bot).
         std::uint32_t fight; // 1 for the first fight, one more after each wipe.
         std::uint32_t damage;
         std::int64_t ms;
