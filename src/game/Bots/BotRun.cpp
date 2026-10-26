@@ -292,6 +292,27 @@ void BotRun::Fail(std::string const& reason)
          << (SteadyMs() - m_startMs) / 1000 << " s: " << reason << WatchText();
     m_result = line.str();
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
+    LeaveGroup();
+}
+
+void BotRun::LeaveGroup()
+{
+    // The test driver is a normal bot again.
+    sBotMgr.SetTestDriver(ObjectGuid());
+    uint32 const groupId = m_groupId;
+    m_groupId = 0;
+    Group* group = groupId ? sObjectMgr.GetGroupById(groupId) : nullptr;
+    if (!group)
+        return;
+    std::vector<ObjectGuid> members;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+        members.push_back(slot.guid);
+    // The last but one leave ends the group: the core deletes it, in the
+    // game and in the database.
+    for (ObjectGuid const& member : members)
+        if (Group* left = sObjectMgr.GetGroupById(groupId))
+            Player::RemoveFromGroup(left, member);
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: the members leave the run group %u", m_number, groupId);
 }
 
 bool BotRun::PhaseTimedOut(std::string const& what)
@@ -448,6 +469,7 @@ void BotRun::Update()
                  << (SteadyMs() - m_startMs) / 1000 << " s" << WatchText();
             m_result = line.str();
             sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
+            LeaveGroup();
             return;
         }
         std::string detail;
@@ -478,7 +500,10 @@ bool BotRun::FormGroup(std::string& error)
     for (Player* bot : bots)
         right = right && bot->GetGroup() == group;
     if (right)
+    {
+        m_groupId = group->GetId();
         return true;
+    }
 
     // A new group, with the driver as its leader and only the bots.
     std::vector<Player*> members = bots;
@@ -494,6 +519,8 @@ bool BotRun::FormGroup(std::string& error)
         return false;
     }
     sObjectMgr.AddGroup(group);
+    // From here on, the end of the run ends this group.
+    m_groupId = group->GetId();
     for (Player* bot : bots)
         if (!group->AddMember(bot->GetObjectGuid(), bot->GetName()))
         {
@@ -508,7 +535,6 @@ bool BotRun::FormGroup(std::string& error)
 void BotRun::Prepare()
 {
     Group* group = Driver()->GetGroup();
-    m_groupId = group->GetId();
     // A new instance: no member and no group keeps the old one.
     group->UnbindInstance(m_route.mapId);
     for (Player* member : Members())
