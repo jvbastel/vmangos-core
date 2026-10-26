@@ -20,14 +20,16 @@
 //    other (BuildPacks).
 // 2. The center line: a navmesh path from the entrance to each boss, in the
 //    order of the boss list.
-// 3. A pack is on the route when any member, with its wander distance or its
-//    patrol, comes within aggro range plus a margin of the center line. The
-//    route fights the packs in the order the line reaches them, from a pull
-//    point where the line first comes that close and the navmesh path to
-//    the pack is short (pullPathLimit). A pack with no such spot, for
-//    example on a lower level of a cave, gets a warning. Out of aggro range
-//    of the line, it is not on the route; within it, it gets a detour from
-//    the spot of the line with the shortest path to it.
+// 3. A pack is on the route when a group that walks the center line can
+//    pull it: any member, with its wander distance or its patrol, comes
+//    within aggro range plus a margin of the line, and from that spot the
+//    pack has line of sight and stands on the same level (the navmesh path
+//    is not much longer than the straight distance). A pack on another
+//    level of a cave is thus on the route only where the line goes to that
+//    level. The route fights the packs in the order the line reaches them,
+//    from the first such spot whose path to the pack is short
+//    (pullPathLimit). The packs in range that the line cannot pull get a
+//    warning with the reason.
 // 4. Route points every few yards along the line, moved sideways by a random
 //    distance that stays on the navmesh. Wide rooms give alternative points.
 // 5. The quest objectives: a visit point, and packs added off the line until
@@ -60,6 +62,11 @@ namespace Bots
         float margin = 5.0f;
         // A pull point is at most this far from its pack by navmesh path.
         float pullPathLimit = 35.0f;
+        // A pack is on the level of a spot when the navmesh path from the
+        // spot to it is at most levelPathFactor times the straight distance,
+        // plus levelPathSlack. A longer path goes round to another level.
+        float levelPathFactor = 1.5f;
+        float levelPathSlack = 5.0f;
         // Spawns this close join one pack.
         float clusterDistance = 8.0f;
         // The distance between two route points along the line.
@@ -94,6 +101,9 @@ namespace Bots
         virtual Position Reach(Position const& from, float dx, float dy, float distance) = 0;
         // True when the position is on the walkable navmesh, not lava.
         virtual bool OnMesh(Position const& position) = 0;
+        // True when nothing of the world (vmaps) stands between the two
+        // positions, at the eye height of a player.
+        virtual bool LineOfSight(Position const& from, Position const& to) = 0;
     };
 
     // The same seed gives the same numbers on each build.
@@ -125,8 +135,8 @@ namespace Bots
         std::vector<GeneratorSpawn> const& spawns);
 
     // The distance along the line where it first comes within `range` of the
-    // pack, or a negative number when it never does. That is the "on the
-    // route" rule, with range = aggroRange + margin.
+    // pack, or a negative number when it never does. The route trace uses it
+    // as its "on the route" rule; the generator adds sight and level (#96).
     float FirstApproach(std::vector<Position> const& line, GeneratorPack const& pack,
         std::vector<GeneratorSpawn> const& spawns, float range);
 

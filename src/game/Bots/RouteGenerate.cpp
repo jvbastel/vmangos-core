@@ -9,8 +9,8 @@
 // map from the data that the server loaded: the spawns, the creature groups,
 // the patrols, the quests and their drops, and the navmesh.
 //   .route generate <route> [character] [setting=value ...]
-// The settings are seed, aggro, margin, pull, cluster, spacing, radius, side,
-// alt, gap, wide, wall, and bosses (entries split by commas, in run order). With
+// The settings are seed, aggro, margin, pull, level, levelslack, cluster,
+// spacing, radius, side, alt, gap, wide, wall, and bosses (entries split by commas, in run order). With
 // no bosses setting, the boss list of the existing route file is used. See
 // RouteGenerator.h of the bot library for what each one does.
 // A ghost route name, for example ghost_389, makes the ghost route of that
@@ -119,14 +119,15 @@ namespace
         }
         std::map<std::string, float*> const floats = {
             {"aggro", &settings.aggroRange}, {"margin", &settings.margin}, {"pull", &settings.pullPathLimit},
+            {"level", &settings.levelPathFactor}, {"levelslack", &settings.levelPathSlack},
             {"cluster", &settings.clusterDistance}, {"spacing", &settings.pointSpacing}, {"radius", &settings.pointRadius}, {"side", &settings.sideLimit},
             {"alt", &settings.alternativeLimit}, {"gap", &settings.alternativeGap}, {"wide", &settings.wideRoom},
             {"wall", &settings.wallClearance},
         };
         auto it = floats.find(key);
         if (it == floats.end())
-            return "Unknown setting " + key + ". Use seed, aggro, margin, pull, cluster, spacing, radius, side, alt, "
-                "gap, wide, wall, or bosses.";
+            return "Unknown setting " + key + ". Use seed, aggro, margin, pull, level, levelslack, cluster, spacing, "
+                "radius, side, alt, gap, wide, wall, or bosses.";
         if (!ReadFloat(value, *it->second))
             return "The setting " + key + " needs a number of 0 or more.";
         if (key == "spacing" && *it->second < 1.0f)

@@ -9,6 +9,9 @@
 #include "WarlockModule.h"
 #include "WarriorModule.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace Bots
 {
     namespace
@@ -31,6 +34,19 @@ namespace Bots
             {BotClass::Warlock, BotRole::Ranged, &Warlock::MakeRangedStrategy},
         };
 
+        // True when the bot follows a living group member other than the
+        // player while the group fights: the healer on its way to a hurt
+        // member. It stays with it until the fight ends.
+        bool FollowsAMemberInTheFight(BotContext const& context)
+        {
+            Guid const target = context.view.GetFollowTarget();
+            if (target == NoGuid || target == context.commandPlayer || !IsAlive(context.view, target))
+                return false;
+            std::vector<Guid> const members = context.view.GetGroupMembers();
+            return std::find(members.begin(), members.end(), target) != members.end()
+                && IsGroupInCombat(context.view);
+        }
+
         bool ShouldFollow(BotContext const& context)
         {
             Guid const self = context.view.GetSelf();
@@ -41,6 +57,7 @@ namespace Bots
                 && context.group.GetPull().puller != self
                 // A damage bot on its way to its target.
                 && !IsAlive(context.view, context.view.GetChase().target)
+                && !FollowsAMemberInTheFight(context)
                 && context.view.GetFollowTarget() != context.commandPlayer;
         }
 

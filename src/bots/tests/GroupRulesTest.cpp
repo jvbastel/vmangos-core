@@ -574,6 +574,40 @@ TEST(GroupRules, NoBotRemovesPoison)
     EXPECT_NE(party.priest.Think(), "dispel a debuff");
 }
 
+// An enemy that hits the healer far from the tank is in the chase limit
+// while it stays near the healer: the healer does not come to the tank, so
+// the damage bots go to it (WOWAI#93, a Ragefire Trogg on Hela 100 yd from
+// the tank).
+TEST(GroupRules, AMeleeBotFightsAnEnemyOnTheHealerFarFromTheTank)
+{
+    Party party;
+    party.World([](FakeBot& fake) {
+        fake.SetVictim(Shaman, Healer);
+        fake.SetDistanceBetween(Shaman, Tank, 60.0f);
+        fake.SetDistanceBetween(Shaman, Healer, 3.0f);
+    });
+    party.rogue.fake.ChaseBehind(Shaman);
+    party.rogue.fake.ClearDeeds();
+
+    EXPECT_NE(party.rogue.Think(), "come back to the tank");
+}
+
+// A fleeing enemy can keep the healer as its victim: once it is farther than
+// the limit from the healer, the bot comes back to the tank.
+TEST(GroupRules, AMeleeBotComesBackFromAnEnemyThatFleesFromTheHealer)
+{
+    Party party;
+    party.World([](FakeBot& fake) {
+        fake.SetVictim(Shaman, Healer);
+        fake.SetDistanceBetween(Shaman, Tank, 60.0f);
+        fake.SetDistanceBetween(Shaman, Healer, Bots::ChaseLimitYards + 5.0f);
+    });
+    party.rogue.fake.ChaseBehind(Shaman);
+    party.rogue.fake.ClearDeeds();
+
+    EXPECT_EQ(party.rogue.Think(), "come back to the tank");
+}
+
 TEST(GroupRules, KickAndShieldBashAreTheInterruptSpells)
 {
     EXPECT_TRUE(Bots::IsInterruptSpell(Bots::Rogue::Kick));
