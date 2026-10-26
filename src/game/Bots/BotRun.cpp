@@ -1114,6 +1114,10 @@ void BotRun::ReviveAt(Player* member, uint32 mapId, float x, float y, float z, f
 {
     member->ResurrectPlayer(0.5f);
     member->SpawnCorpseBones();
+    // Half health and mana is no reason to rest for a bot: it rests until
+    // full before the next pull (`wait rested`).
+    if (member->IsBot() && m_groupId)
+        sBotMgr.GetCoordinator(m_groupId)->SetRestUntilFull(member->GetObjectGuid().GetRawValue());
     member->TeleportTo(mapId, x, y, z, o);
 }
 
