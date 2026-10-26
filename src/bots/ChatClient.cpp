@@ -97,7 +97,17 @@ std::vector<Bots::DueChatLine> Bots::ChatClient::TakeDue(std::int64_t nowMs)
 std::size_t Bots::ChatClient::Pending() const
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    return m_requests.size() + m_inFlight;
+    return m_requests.size() + m_inFlight.size();
+}
+
+bool Bots::ChatClient::HasPendingChat(std::uint32_t groupId) const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return std::any_of(m_requests.begin(), m_requests.end(),
+               [groupId](Request const& request) { return request.event.groupId == groupId; }) ||
+        std::find(m_inFlight.begin(), m_inFlight.end(), groupId) != m_inFlight.end() ||
+        std::any_of(m_lines.begin(), m_lines.end(),
+            [groupId](HeldLine const& line) { return line.due.groupId == groupId; });
 }
 
 void Bots::ChatClient::Work(std::unique_ptr<ChatConnection> connection)
@@ -112,11 +122,11 @@ void Bots::ChatClient::Work(std::unique_ptr<ChatConnection> connection)
                 return;
             request = std::move(m_requests.front());
             m_requests.pop_front();
-            ++m_inFlight;
+            m_inFlight.push_back(request.event.groupId);
         }
         Handle(*connection, request);
         std::lock_guard<std::mutex> lock(m_mutex);
-        --m_inFlight;
+        m_inFlight.erase(std::find(m_inFlight.begin(), m_inFlight.end(), request.event.groupId));
     }
 }
 

@@ -170,3 +170,21 @@ TEST(ScriptRunner, TellsTheLineThatRuns)
     runner.Update(Idle(), 5000);
     EXPECT_EQ(runner.Current(), "the end");
 }
+
+TEST(RunEnd, TheGroupWaitsForThePendingChatOfTheRun)
+{
+    // Spec section 10: the last boss_kill, wipe, or loot_roll gets its line
+    // before the run group ends.
+    EXPECT_TRUE(Bots::RunEndWaitsForChat(0, true));
+    EXPECT_TRUE(Bots::RunEndWaitsForChat(19999, true));
+    EXPECT_FALSE(Bots::RunEndWaitsForChat(0, false));
+    EXPECT_FALSE(Bots::RunEndWaitsForChat(5000, false));
+}
+
+TEST(RunEnd, TheWaitForChatEndsAfterTwentySeconds)
+{
+    // A slow service answers in 5 s, a line comes about 7 s later, and a
+    // line more than 10 s late drops: 20 s is past each of them.
+    EXPECT_FALSE(Bots::RunEndWaitsForChat(20000, true));
+    EXPECT_FALSE(Bots::RunEndWaitsForChat(60000, true));
+}
