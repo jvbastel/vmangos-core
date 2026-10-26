@@ -108,9 +108,11 @@ The build writes the route file again from the trace. A fix that you made with t
 | Command | What it does |
 |---|---|
 | `.route walk ragefire_chasm` | Loads the route file at its first step. |
-| `.route next` | Goes to the next step. It shows the next point and the next pack, with the distance and state of each mob, and puts waypoint markers on the places of the point for 2 minutes. |
-| `.route back` | Goes to the step before. |
+| `.route next` | Goes to the next step. It shows the next point and the next pack, with the distance and state of each mob, and puts waypoint markers (wisps) on the places of the point for 2 minutes. |
+| `.route back` | Goes to the step before, and puts wisps on its point in the same way. |
 | `.route go` | Teleports you to the current step. |
+
+The walk shows a trail of up to 100 wisps. A character may have only 100 summons, and a walk passes 100 points in less than 2 minutes. So when the trail is full, the oldest wisp moves to the new place, and its 2 minutes start again. A wisp that timed out leaves the trail, and the walk summons a new one. A new `.route walk` removes the wisps of your last walk. Each step answers with a line such as `Wisps: 0 new, 1 moved, 100 in the trail (at most 100); Thrallson has 100 of 100 summons.`
 
 Check that the route follows your trace and has the right packs. When a pack is wrong, fix it with the recorder: `.route start ragefire_chasm`, then select a creature and use `.route add mob <pack>` or `.route remove mob`. Then `.route stop`.
 
