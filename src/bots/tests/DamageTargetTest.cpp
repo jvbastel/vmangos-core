@@ -181,6 +181,8 @@ TEST(DamageTarget, AttacksAnEnemyOnAGroupMemberWhileTheTankPulls)
     EXPECT_EQ(bot.Target(), Wolf);
 }
 
+// A fleeing enemy keeps its victim: far from the tank and from the member,
+// it is out of the chase limit.
 TEST(DamageTarget, LeavesAnEnemyOnAGroupMemberOutsideTheChaseLimit)
 {
     DamageBot bot;
@@ -190,6 +192,7 @@ TEST(DamageTarget, LeavesAnEnemyOnAGroupMemberOutsideTheChaseLimit)
     bot.fake.SetGroupMembers({Tank, Healer});
     bot.group.SetTank(Tank);
     bot.fake.SetDistanceBetween(Wolf, Tank, Bots::ChaseLimitYards + 5.0f);
+    bot.fake.SetDistanceBetween(Wolf, Healer, Bots::ChaseLimitYards + 5.0f);
     bot.fake.SetVictim(Wolf, Healer);
 
     EXPECT_EQ(bot.Target(), NoGuid);
