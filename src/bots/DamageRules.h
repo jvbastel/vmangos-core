@@ -22,9 +22,10 @@ namespace Bots
     bool HasDamageTarget(BotContext const& context);
 
     // The casting range of a ranged damage bot, and its distance from the
-    // damage target when it runs closer. Both count by
+    // damage target when it runs closer. The casting range counts by
     // BotView::GetSpellDistance, as the range of a cast does: else, at the
-    // edge, Frostbolt (30 yards) fails and Fireball (35) goes instead.
+    // edge, Frostbolt (30 yards) fails and Fireball (35) goes instead. The
+    // stand distance is the chase distance of the movement, well inside it.
     float const CastingRangeYards = 30.0f;
     float const RangedStandYards = 25.0f;
 

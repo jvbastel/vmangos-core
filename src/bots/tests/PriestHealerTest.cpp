@@ -121,6 +121,9 @@ TEST(PriestHealer, DoesNotTryToCastWhileStunned)
     PriestHealer priest;
     priest.InFight();
     priest.fake.SetHealth(Tank, 250, 600);
+    priest.Think();
+    ASSERT_FALSE(priest.fake.Deeds().empty()) << "without the lock the priest casts";
+    priest.fake.ClearDeeds();
     priest.fake.SetStunned();
 
     priest.Think();
@@ -135,6 +138,9 @@ TEST(PriestHealer, DoesNotTryToCastWhileSilenced)
     priest.InFight();
     priest.fake.SetHealth(Tank, 100, 600);
     priest.fake.SetAura(Tank, Priest::PowerWordFortitude, false);
+    priest.Think();
+    ASSERT_FALSE(priest.fake.Deeds().empty()) << "without the lock the priest casts";
+    priest.fake.ClearDeeds();
     priest.fake.SetSilenced();
 
     priest.Think();

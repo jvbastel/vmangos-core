@@ -141,12 +141,12 @@ namespace Bots
             // The bot cannot cast spell `spell` on unit `target` now, for
             // example out of range.
             void SetCannotCastOn(SpellId spell, Guid target) { m_cannotCastOn.insert({spell, target}); }
-            // The level of unit `target` is too low for rank `rank` of a
-            // buff (BotView::LevelAllowsRank).
             // A stun, or a silence, keeps the bot from casting any spell
             // (BotView::IsCastLocked).
             void SetStunned(bool stunned = true) { m_stunned = stunned; }
             void SetSilenced(bool silenced = true) { m_silenced = silenced; }
+            // The level of unit `target` is too low for rank `rank` of a
+            // buff (BotView::LevelAllowsRank).
             void SetLevelTooLowFor(SpellId rank, Guid target) { m_levelTooLow.insert({rank, target}); }
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
