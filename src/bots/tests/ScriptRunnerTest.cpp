@@ -268,3 +268,92 @@ TEST(RunEnd, TheWaitForChatEndsAfterTwentySeconds)
     EXPECT_FALSE(Bots::RunEndWaitsForChat(20000, true));
     EXPECT_FALSE(Bots::RunEndWaitsForChat(60000, true));
 }
+
+namespace
+{
+    RunFacts PackAlive()
+    {
+        RunFacts facts;
+        facts.fightPackAlive = true;
+        return facts;
+    }
+
+    // Runs the fight that the runner just handed out: a pull, a fight, and
+    // the quiet end. `after` are the facts at the end of the fight.
+    RunStep FightToItsEnd(ScriptRunner& runner, std::int64_t& now, RunFacts const& after)
+    {
+        runner.Done(true, "", now);
+        runner.Update(InCombat(), now += 1000);
+        runner.Update(after, now += 1000);
+        return runner.Update(after, now += Bots::CombatEndQuietMs);
+    }
+}
+
+TEST(ScriptRunner, APackAliveAfterItsFightIsFoughtAgainAfterTheRest)
+{
+    // The tank died, and the pack reset: the group rests, then pulls again.
+    ScriptRunner runner(Commands("fight pack1 100\nrefill\n"));
+    std::int64_t now = 0;
+    ASSERT_EQ(runner.Update(Idle(), now).command.kind, ScriptCommandKind::Fight);
+
+    RunFacts restingAndAlive = PackAlive();
+    restingAndAlive.groupResting = true;
+    EXPECT_EQ(FightToItsEnd(runner, now, restingAndAlive).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(restingAndAlive, now += 20000).kind, RunStepKind::Wait);
+
+    RunStep const again = runner.Update(PackAlive(), now += 1000);
+    ASSERT_EQ(again.kind, RunStepKind::Do);
+    EXPECT_EQ(again.command.kind, ScriptCommandKind::Fight);
+    EXPECT_EQ(again.command.name, "pack1");
+
+    // The second fight kills the pack: the run goes on.
+    EXPECT_EQ(FightToItsEnd(runner, now, Idle()).command.kind, ScriptCommandKind::Refill);
+}
+
+TEST(ScriptRunner, APackThatLivesAfterThreeFightsFailsTheRunWithItsName)
+{
+    ScriptRunner runner(Commands("fight pack1 100\nrefill\n"));
+    std::int64_t now = 0;
+    runner.Update(Idle(), now);
+
+    // Nobody rests: each fight again pulls at once.
+    for (int fight = 1; fight < 3; ++fight)
+    {
+        RunStep const again = FightToItsEnd(runner, now, PackAlive());
+        ASSERT_EQ(again.kind, RunStepKind::Do) << fight;
+        ASSERT_EQ(again.command.kind, ScriptCommandKind::Fight) << fight;
+    }
+    RunStep const step = FightToItsEnd(runner, now, PackAlive());
+    EXPECT_EQ(step.kind, RunStepKind::Failed);
+    EXPECT_EQ(step.reason, "line 6: fight pack1 100: pack1 still lives after 3 fights");
+}
+
+TEST(ScriptRunner, AFightAgainWalksBackToThePointOfThePull)
+{
+    // After a wipe the group stands at the dungeon entrance: it follows the
+    // driver back to the last point, rests, holds its place, and pulls.
+    ScriptRunner runner(Commands("move p3\nwait arrive\nwait rested\ncommand stay\nfight pack8\ncommand follow\n"));
+    std::int64_t now = 0;
+    RunFacts arrived;
+    arrived.driverArrived = true;
+    runner.Update(arrived, now);
+    runner.Done(true, "", now);
+    runner.Update(arrived, now);
+    runner.Done(true, "", now);
+    ASSERT_EQ(runner.Update(arrived, now).command.kind, ScriptCommandKind::Fight);
+    RunFacts aliveAway = PackAlive();
+    aliveAway.driverArrived = false;
+    RunStep step = FightToItsEnd(runner, now, aliveAway);
+
+    std::vector<std::string> again;
+    for (int i = 0; i < 4; ++i)
+    {
+        if (i > 0)
+            step = runner.Update(arrived, now += 1000);
+        ASSERT_EQ(step.kind, RunStepKind::Do) << i;
+        again.push_back(step.command.source);
+        if (step.command.kind != ScriptCommandKind::Fight)
+            runner.Done(true, "", now);
+    }
+    EXPECT_EQ(again, (std::vector<std::string>{"command follow", "move p3", "command stay", "fight pack8"}));
+}
