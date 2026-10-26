@@ -39,22 +39,24 @@ namespace Bots
         }
 
         // True when a group member other than the bot and the player
-        // attacks enemy `enemy`. The attacks of the player do not count: in
-        // a scripted run, the test driver holds no enemy.
-        bool AnotherMemberAttacks(BotContext const& context, Guid enemy)
+        // attacks enemy `enemy`; with `lowerGuidOnly`, only a member whose
+        // guid is lower than the bot's counts. The attacks of the player do
+        // not count: in a scripted run, the test driver holds no enemy.
+        bool AnotherMemberAttacks(BotContext const& context, Guid enemy, bool lowerGuidOnly = false)
         {
+            Guid const self = context.view.GetSelf();
             for (Guid member : context.view.GetGroupMembers())
-                if (member != context.view.GetSelf() && member != context.commandPlayer
-                    && IsAlive(context.view, member)
-                    && context.view.GetVictim(member) == enemy)
+                if (member != self && member != context.commandPlayer && (!lowerGuidOnly || member < self)
+                    && IsAlive(context.view, member) && context.view.GetVictim(member) == enemy)
                     return true;
             return false;
         }
 
-        // The loose enemy of the bot, or NoGuid: the one that only the bot
-        // attacks, else the first that no member attacks, else the bot's
-        // own victim, else the first. So the damage bots spread over the
-        // loose enemies, and no enemy stays lost.
+        // The loose enemy of the bot, or NoGuid: the one that the bot
+        // attacks, when no member with a lower guid attacks it too; else the
+        // first that no member attacks; else the bot's own victim; else the
+        // first. So the damage bots spread over the loose enemies, no enemy
+        // stays lost, and two bots on one enemy do not swap back and forth.
         Guid PickLooseEnemy(BotContext const& context, Guid skip)
         {
             std::vector<Guid> const enemies = LooseEnemies(context, skip);
@@ -62,7 +64,7 @@ namespace Bots
                 return NoGuid;
             Guid const own = context.view.GetVictim(context.view.GetSelf());
             bool const ownIsLoose = std::find(enemies.begin(), enemies.end(), own) != enemies.end();
-            if (ownIsLoose && !AnotherMemberAttacks(context, own))
+            if (ownIsLoose && !AnotherMemberAttacks(context, own, true))
                 return own;
             for (Guid enemy : enemies)
                 if (!AnotherMemberAttacks(context, enemy))

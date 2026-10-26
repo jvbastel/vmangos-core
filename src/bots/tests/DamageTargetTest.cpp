@@ -291,9 +291,36 @@ TEST(DamageTarget, ALooseEnemyThatThePlayerAttacksIsStillLoose)
     bot.group.SetTank(Tank);
     bot.fake.SetVictim(Wolf, Healer);
     bot.fake.SetVictim(Trogg, Healer);
-    bot.fake.SetVictim(Player, Wolf);
-    bot.fake.SetVictim(Rogue, Trogg);
-    bot.fake.SetVictim(Mage, Trogg);
+    bot.fake.SetVictim(Player, Trogg);
+    bot.fake.SetVictim(Mage, Wolf);
 
-    EXPECT_EQ(bot.Target(), Wolf);
+    EXPECT_EQ(bot.Target(), Trogg);
+}
+
+// Two bots on one loose enemy, and another loose enemy that nobody attacks:
+// only one of them moves on, so that they do not swap back and forth. The
+// bot with the lower guid keeps the enemy.
+TEST(DamageTarget, OfTwoBotsOnOneLooseEnemyTheLowerGuidKeepsIt)
+{
+    Bots::Guid const Healer = 0x12;
+    Bots::Guid const Mage = 0x14;
+    Bots::Guid const Trogg = 0xF130000302000044;
+    // The same fight, seen by the rogue (0x13) and by the mage (0x14).
+    DamageBot rogue;
+    DamageBot mage;
+    mage.fake = FakeBot{Mage};
+    for (DamageBot* bot : {&rogue, &mage})
+    {
+        bot->fake.SetGroupMembers({Tank, Healer, bot == &rogue ? Mage : Rogue});
+        for (Bots::Guid unit : {Tank, Healer, Mage, Rogue, Wolf, Trogg})
+            bot->fake.SetHealth(unit, 300, 300);
+        bot->group.SetTank(Tank);
+        bot->fake.SetVictim(Wolf, Healer);
+        bot->fake.SetVictim(Trogg, Healer);
+        bot->fake.SetVictim(Rogue, Trogg);
+        bot->fake.SetVictim(Mage, Trogg);
+    }
+
+    EXPECT_EQ(rogue.Target(), Trogg);
+    EXPECT_EQ(mage.Target(), Wolf);
 }
