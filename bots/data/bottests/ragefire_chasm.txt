@@ -84,3 +84,19 @@ teleport pull_pack39
 clear 50
 wait 2
 expect alive
+
+# A trash scenario with an enemy healer: one Ragefire Shaman, who casts
+# Healing Wave and Lightning Bolt. The result shows the interrupts
+# (jvbastel/WOWAI#95).
+scenario shaman
+teleport pull_pack16
+clear 80 pack16         # only the pack stays
+command follow
+wait 20
+command stay
+refill
+wait 3
+target pack16
+command pull
+wait combat_end 300
+expect pack_dead pack16
