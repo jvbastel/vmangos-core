@@ -12,4 +12,19 @@ namespace Bots
                 highest = rank;
         return highest;
     }
+
+    SpellId RankForTarget(BotView const& view, SpellId firstRank, Guid target)
+    {
+        SpellId highest = NoSpell;
+        for (SpellId rank = firstRank; rank != NoSpell; rank = view.GetNextRank(rank))
+            if (view.KnowsSpell(rank) && view.LevelAllowsRank(rank, target))
+                highest = rank;
+        return highest;
+    }
+
+    SpellId CastableRank(BotView const& view, SpellId firstRank, Guid target)
+    {
+        SpellId const rank = RankForTarget(view, firstRank, target);
+        return rank != NoSpell && view.CanCast(rank, target) ? rank : NoSpell;
+    }
 }

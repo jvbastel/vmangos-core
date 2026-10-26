@@ -283,6 +283,39 @@ TEST(PriestHealer, BuffsTheGroupWithFortitudeOutOfCombat)
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordFortitude, Mage)}));
 }
 
+TEST(PriestHealer, BuffsALowLevelMemberWithTheHighestRankItsLevelAllows)
+{
+    // Fortitude rank 2 (1244) and rank 3 (1245) are too high for a level 1
+    // player: the game refuses them with SPELL_FAILED_LOWLEVEL.
+    Bots::SpellId const Rank2 = 1244;
+    Bots::SpellId const Rank3 = 1245;
+    PriestHealer priest;
+    priest.fake.SetSpellChain({Priest::PowerWordFortitude, Rank2, Rank3});
+    priest.fake.SetKnownSpell(Rank2);
+    priest.fake.SetKnownSpell(Rank3);
+    priest.fake.SetLevelTooLowFor(Rank2, Mage);
+    priest.fake.SetLevelTooLowFor(Rank3, Mage);
+    priest.fake.SetAura(Mage, Priest::PowerWordFortitude, false);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordFortitude, Mage)}));
+}
+
+TEST(PriestHealer, BuffsAMemberOfHighEnoughLevelWithTheHighestKnownRank)
+{
+    Bots::SpellId const Rank2 = 1244;
+    PriestHealer priest;
+    priest.fake.SetSpellChain({Priest::PowerWordFortitude, Rank2});
+    priest.fake.SetKnownSpell(Rank2);
+    priest.fake.SetLevelTooLowFor(Rank2, Tank);
+    priest.fake.SetAura(Mage, Priest::PowerWordFortitude, false);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Rank2, Mage)}));
+}
+
 TEST(PriestHealer, PutsOnInnerFireOutOfCombat)
 {
     PriestHealer priest;

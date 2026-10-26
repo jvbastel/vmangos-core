@@ -38,12 +38,12 @@ namespace Bots
         rule.priority = priority;
         rule.trigger = std::move(trigger);
         rule.action.canDo = [firstRank, target](BotContext const& context) {
-            SpellId const rank = HighestKnownRank(context.view, firstRank);
             Guid const unit = target(context);
-            return rank != NoSpell && unit != NoGuid && context.view.CanCast(rank, unit);
+            return unit != NoGuid && CastableRank(context.view, firstRank, unit) != NoSpell;
         };
         rule.action.run = [firstRank, target](BotContext const& context) {
-            context.actions.CastSpell(HighestKnownRank(context.view, firstRank), target(context));
+            Guid const unit = target(context);
+            context.actions.CastSpell(RankForTarget(context.view, firstRank, unit), unit);
         };
         return rule;
     }

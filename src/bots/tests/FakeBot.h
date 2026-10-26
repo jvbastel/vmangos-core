@@ -136,6 +136,9 @@ namespace Bots
             // The bot cannot cast spell `spell` on unit `target` now, for
             // example out of range.
             void SetCannotCastOn(SpellId spell, Guid target) { m_cannotCastOn.insert({spell, target}); }
+            // The level of unit `target` is too low for rank `rank` of a
+            // buff (BotView::LevelAllowsRank).
+            void SetLevelTooLowFor(SpellId rank, Guid target) { m_levelTooLow.insert({rank, target}); }
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -213,6 +216,10 @@ namespace Bots
                 return GetHealth(target).current > 0 && GetLifeState(target) == LifeState::Alive;
             }
             bool KnowsSpell(SpellId spell) const override { return m_known.count(spell) != 0; }
+            bool LevelAllowsRank(SpellId rank, Guid target) const override
+            {
+                return m_levelTooLow.count({rank, target}) == 0;
+            }
             SpellId GetNextRank(SpellId spell) const override
             {
                 auto found = m_nextRank.find(spell);
@@ -414,6 +421,7 @@ namespace Bots
             bool m_drinking = false;
             std::set<SpellId> m_castsOnDead;
             std::set<std::pair<SpellId, Guid>> m_cannotCastOn;
+            std::set<std::pair<SpellId, Guid>> m_levelTooLow;
             std::vector<std::string> m_deeds;
         };
     }

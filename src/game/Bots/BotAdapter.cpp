@@ -445,6 +445,17 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     return true;
 }
 
+bool BotAdapter::LevelAllowsRank(Bots::SpellId rank, Bots::Guid target) const
+{
+    // Like the SPELL_FAILED_LOWLEVEL check of Spell::CheckTarget. A player
+    // gets a lower rank from WorldSession::HandleCastSpellOpcode, a bot not.
+    SpellEntry const* entry = sSpellMgr.GetSpellEntry(rank);
+    Unit const* unit = Find(target);
+    if (!entry || !unit || unit == me || entry->HasAttribute(SPELL_ATTR_EX2_ALLOW_LOW_LEVEL_BUFF))
+        return true;
+    return sSpellMgr.SelectAuraRankForLevel(entry, unit->GetLevel()) == entry;
+}
+
 std::vector<Bots::Guid> BotAdapter::GetGroupMembers() const
 {
     std::vector<Bots::Guid> members{GetSelf()};
