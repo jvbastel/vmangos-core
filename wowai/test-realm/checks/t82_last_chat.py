@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """In-game check: the last boss_kill of a run gets its bot chat line (spec section 10), on the check kit.
 
-    wowai/test-realm/realm.sh --ticket N up
+    wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t82_last_chat.py
 
 The scenario `taragaman` ends at the kill of its boss. The run then holds

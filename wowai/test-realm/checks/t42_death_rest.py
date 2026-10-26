@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """In-game check of ticket #42 (death, release, resurrect, and rest), on the check kit.
 
-    wowai/test-realm/realm.sh --ticket N up
+    wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t42_death_rest.py [part]
 
 The player Thrallson invites the bots of `up`: the Warrior tank Grukk, the

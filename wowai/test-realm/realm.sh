@@ -287,6 +287,17 @@ realm_default_setting() { realm_setting "$1" "${realm_defaults[$1]}"; }
 
 random_secret() { tr -dc 'A-Z0-9' < /dev/urandom | head -c "${1:-20}" || true; }
 
+# Edit a configuration file with sed expressions, in place: the file keeps
+# its inode. `sed -i` writes a new file, and Docker Desktop then fails to
+# start a container that bind-mounts the old one ("error mounting ...
+# mangosd.conf: no such file or directory"), for example a reused slot.
+realm_edit_config() {
+  local file="$1" edited
+  shift
+  edited="$(sed "$@" "$file")"
+  [ "$edited" = "$(cat "$file")" ] || printf '%s\n' "$edited" > "$file"
+}
+
 # Write the .env of the realm folder and the configuration files.
 realm_prepare() {
   mkdir -p "$realm_dir/config" "$realm_dir/storage/mangosd/logs" \
@@ -349,11 +360,13 @@ EOF
   fi
   # The settings that the scripted runs need, also in an older file: each
   # run enters a new instance of the dungeon.
-  sed -i -e 's/^Instance.PerHourLimit = .*/Instance.PerHourLimit = 100000/' \
-    -e 's/^Instance.UnloadDelay = .*/Instance.UnloadDelay = 120000/' "$realm_dir/config/mangosd.conf"
+  realm_edit_config "$realm_dir/config/mangosd.conf" \
+    -e 's/^Instance.PerHourLimit = .*/Instance.PerHourLimit = 100000/' \
+    -e 's/^Instance.UnloadDelay = .*/Instance.UnloadDelay = 120000/'
   # The kit: the DETAIL lines (the rules that the bots do) in Server.log.
   if [ -n "${WOWAI_REALM_LOG_FILE_LEVEL:-}" ]; then
-    sed -i "s/^LogLevel.File = .*/LogLevel.File = $WOWAI_REALM_LOG_FILE_LEVEL/" "$realm_dir/config/mangosd.conf"
+    realm_edit_config "$realm_dir/config/mangosd.conf" \
+      -e "s/^LogLevel.File = .*/LogLevel.File = $WOWAI_REALM_LOG_FILE_LEVEL/"
   fi
   if [ ! -f "$realm_dir/config/realmd.conf" ]; then
     tr -d '\r' < "$example/realmd.conf.example" > "$realm_dir/config/realmd.conf"
@@ -464,26 +477,28 @@ realm_start() {
 # slot) or held. A new lease resets the database of the slot to the baseline,
 # so the characters and the migrations of the last ticket go. Each acquire
 # builds the worktree into the slot's dev install, so the slot never runs the
-# build of the last ticket.
+# build of the last ticket. It makes the containers again (the volume
+# stays): a container of an earlier lease can hold a bind mount that Docker
+# Desktop no longer finds.
 cmd_realm_acquire() {
   local state="${1:?}"; shift
   lock_container
   realm_prepare
   rm -rf "$realm_dir/pids" "$realm_dir/log-mark"
   cmd_build
+  realm_compose stop
+  realm_compose create --force-recreate
   [ "$state" != new ] || realm_reset_database
   realm_start "$@"
 }
 
 # Copy the baseline volume over the database volume of the slot, with a
-# throwaway container of the database image.
+# throwaway container of the database image. The slot is stopped, and its
+# volume exists (`compose create`).
 realm_reset_database() {
   local baseline="${WOWAI_REALM_BASELINE:?}" volume start=$SECONDS
   volume="$(realm_env COMPOSE_PROJECT_NAME)_database"
   docker volume inspect "$baseline" >/dev/null || die "no baseline volume $baseline (run: realm.sh baseline)"
-  realm_compose stop
-  # Makes the volume (and the container) of a slot that has none yet.
-  realm_compose create database
   docker run --rm --user 0 --entrypoint sh \
     --mount "type=volume,source=$baseline,target=/from,readonly" \
     --mount "type=volume,source=$volume,target=/to" \

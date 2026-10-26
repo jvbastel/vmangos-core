@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """In-game check of ticket #72 (the revive rule, the ghost run, and the safe Priest resurrect), on the check kit.
 
-    wowai/test-realm/realm.sh --ticket N up
+    wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t72_revive.py [part]
 
 The player Thrallson (a GM) invites the Warrior tank Grukk, the Priest healer

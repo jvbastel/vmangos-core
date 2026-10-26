@@ -98,6 +98,12 @@ check "the login port is 3730 + the slot" test "$(value "$out" WOWAI_REALM_LOGIN
 check "the world port is 8090 + the slot" test "$(value "$out" WOWAI_REALM_WORLD_PORT)" = $((8090 + s11))
 check "the SOAP port is 7880 + the slot" test "$(value "$out" WOWAI_REALM_SOAP_PORT)" = $((7880 + s11))
 
+out="$(WOWAI_REALM_DIR="$tmp/shared" WOWAI_REALM_PROJECT=wowai-test-realm WOWAI_REALM_SOAP_PORT=7879 \
+  WOWAI_DEV_INSTALL="$tmp/shared-install" "$kit" --ticket 11 env 2>&1)"
+check "the realm settings of the environment do not move the kit" \
+  bash -c "[ '$(value "$out" WOWAI_REALM_PROJECT)' = 'wowai-test-$s11' ] && [ '$(value "$out" WOWAI_REALM_SOAP_PORT)' = $((7880 + s11)) ] &&
+    [ '$(value "$out" WOWAI_DEV_INSTALL)' = '$WOWAI_POOL_DIR/$s11/install' ]"
+
 # A full pool.
 for ticket in 13 14 15; do
   "$kit" --ticket "$ticket" acquire >/dev/null 2>&1

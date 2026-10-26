@@ -6,9 +6,9 @@ Each fact was checked against the tree and a fresh check realm. The test `wowai/
 
 ```
 wowai/tests/game-layer-map.test.sh               # the paths (no Docker)
-wowai/test-realm/realm.sh --ticket <N> up        # a fresh check realm
+wowai/test-realm/realm.sh --ticket <N> acquire   # a check realm slot, from the baseline
 wowai/tests/game-layer-map.test.sh --realm <N>   # also the columns and the GM commands
-wowai/test-realm/realm.sh --ticket <N> down
+wowai/test-realm/realm.sh --ticket <N> release
 ```
 
 If you change a path, a column, or a command row here, run the test. The test reads the tables below by their header rows, so keep the headers as they are.
@@ -191,8 +191,8 @@ Notes on these: `.die` with `GM.CreditOnDie = 1` makes the GM the killer. `.revi
 
 ## 4. Logs and data paths
 
-- The realm folder: `~/wowai/wt/t<N>-realm` for a check realm, `~/wowai/test-realm` for the shared test realm. Its `.env` holds the settings, the ports, and the GM account (`WOWAI_REALM_GM_ACCOUNT`, `WOWAI_REALM_GM_PASSWORD`).
-- The server log: `<realm folder>/storage/mangosd/logs/Server.log`. Each mangosd start empties it. The same folder has `DBErrors.log`, `Chat.log`, `LevelUp.log`, `Loot.log`, and more. The realmd log: `<realm folder>/storage/realmd/logs/Realmd.log`. Use `realm.sh --ticket <N> mark` and `realm.sh --ticket <N> log` to read only the new lines. `down` keeps the logs in `~/wowai/wt/t<N>-logs/<time>/`.
+- The realm folder: `~/wowai/slots/<S>` for test realm slot S of the check kit, `~/wowai/test-realm` for the shared test realm. Its `.env` holds the settings, the ports, and the GM account (`WOWAI_REALM_GM_ACCOUNT`, `WOWAI_REALM_GM_PASSWORD`).
+- The server log: `<realm folder>/storage/mangosd/logs/Server.log`. Each mangosd start empties it. The same folder has `DBErrors.log`, `Chat.log`, `LevelUp.log`, `Loot.log`, and more. The realmd log: `<realm folder>/storage/realmd/logs/Realmd.log`. Use `realm.sh --ticket <N> mark` and `realm.sh --ticket <N> log` to read only the new lines. `release` keeps the logs in `~/wowai/slots/logs/t<N>/<time>/`.
 - The kit sets `LogLevel.File = 3`, so the `[Bots]` DETAIL lines are in Server.log.
 - The game data (DBC files, maps, vmaps, mmaps): the folder that `WOWAI_REALM_DATA` names in the realm `.env`. Print it with `realm.sh --ticket <N> env`. Today it is `/mnt/c/Games/vmangos-deploy/storage/mangosd/extracted-data`. Inside the mangosd container it is `/opt/vmangos/storage/data`. Do not search for it with `find /`: that scans `/mnt/c` and times out.
 - The bot data files: the folder that `WOWAI_BOTS_DATA` names (default: `bots/data` of the fork tree that ran `realm up`).
