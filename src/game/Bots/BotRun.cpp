@@ -601,8 +601,11 @@ namespace
         attacks.victim = GuidOf(member->GetVictim());
         for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL, CURRENT_AUTOREPEAT_SPELL})
             if (Spell const* spell = member->GetCurrentSpell(type))
-                if (!spell->m_targets.getUnitTargetGuid().IsEmpty())
-                    attacks.spellTarget = spell->m_targets.getUnitTargetGuid().GetRawValue();
+            {
+                ObjectGuid const target = spell->m_targets.getUnitTargetGuid();
+                if (!target.IsEmpty())
+                    attacks.spellTargets.push_back(target.GetRawValue());
+            }
         if (Pet const* pet = member->GetPet())
             if (pet->IsAlive())
                 attacks.petVictim = GuidOf(pet->GetVictim());

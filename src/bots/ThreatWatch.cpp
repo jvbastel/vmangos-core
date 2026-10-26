@@ -36,10 +36,16 @@ namespace Bots
     {
         std::vector<Guid> attacked;
         for (MemberAttacks const& member : members)
-            if (member.bot)
-                for (Guid enemy : {member.victim, member.spellTarget, member.petVictim})
-                    if (enemy != NoGuid)
-                        attacked.push_back(enemy);
+        {
+            if (!member.bot)
+                continue;
+            for (Guid enemy : {member.victim, member.petVictim})
+                if (enemy != NoGuid)
+                    attacked.push_back(enemy);
+            for (Guid enemy : member.spellTargets)
+                if (enemy != NoGuid)
+                    attacked.push_back(enemy);
+        }
         return attacked;
     }
 

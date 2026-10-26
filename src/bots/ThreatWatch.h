@@ -68,12 +68,14 @@ namespace Bots
     // chases to range), the unit target of the spell it casts or channels,
     // or its pet's victim. Its selection alone is no attack. The test driver
     // is no bot (`bot` false): it is a member that enemies can hit, but its
-    // attacks do not hold an enemy, so a lost mob shows the bots' fight.
+    // attacks (and its pet's) do not hold an enemy, so a lost mob shows the
+    // bots' fight. A member can cast and auto-repeat at once (a hunter's
+    // Aimed Shot and Auto Shot), so it keeps each spell's unit target.
     struct MemberAttacks
     {
         bool bot = true;
         Guid victim = NoGuid;
-        Guid spellTarget = NoGuid;
+        std::vector<Guid> spellTargets;
         Guid petVictim = NoGuid;
         Guid selection = NoGuid; // Not an attack.
     };

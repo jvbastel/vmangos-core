@@ -224,18 +224,28 @@ TEST(AttackedEnemies, ASelectionIsNoAttack)
 TEST(LostMobWatch, AnEnemyThatABotOnlySelectsIsLost)
 {
     Bots::LostMobWatch watch;
-    for (std::int64_t now = 0; now <= 11000; now += 1000)
+    for (std::int64_t now = 0; now <= Bots::LostMobMs; now += 1000)
         watch.Update({{Enforcer, Healer}}, Bots::AttackedEnemies({Selects(Enforcer)}), now);
+    EXPECT_TRUE(watch.LostMobs().empty());
 
+    watch.Update({{Enforcer, Healer}}, Bots::AttackedEnemies({Selects(Enforcer)}), Bots::LostMobMs + 1000);
     ASSERT_EQ(watch.LostMobs().size(), 1u);
     EXPECT_EQ(watch.LostMobs()[0].enemy, Enforcer);
+}
+
+TEST(AttackedEnemies, ABotKeepsTheTargetOfEachSpellItCasts)
+{
+    Bots::MemberAttacks hunter;
+    hunter.spellTargets = {Enforcer, Other};
+
+    EXPECT_EQ(Bots::AttackedEnemies({hunter}), (std::vector<Bots::Guid>{Enforcer, Other}));
 }
 
 TEST(AttackedEnemies, ABotAttacksTheEnemyItHitsOrCastsAt)
 {
     Bots::MemberAttacks hits, casts, pet;
     hits.victim = Enforcer;
-    casts.spellTarget = Other;
+    casts.spellTargets = {Other};
     casts.selection = Other;
     pet.petVictim = Enforcer;
 
@@ -249,7 +259,8 @@ TEST(LostMobWatch, TheTestDriverDoesNotHoldAnEnemy)
     Bots::MemberAttacks driver;
     driver.bot = false;
     driver.victim = Enforcer;
-    driver.spellTarget = Enforcer;
+    driver.spellTargets = {Enforcer};
+    driver.petVictim = Enforcer;
     driver.selection = Enforcer;
     Bots::LostMobWatch watch;
     for (std::int64_t now = 0; now <= 11000; now += 1000)
