@@ -356,7 +356,7 @@ TEST(Resurrect, ThePriestStopsAndGivesUpWhenThePlaceIsNoLongerSafe)
     bot.fake.ClearDeeds();
 
     // A pack with a long aggro distance came to the corpse.
-    bot.fake.AddEnemy({50.0f, 0.0f, 0.0f}, 30.0f);
+    bot.fake.AddEnemy(0x900, {50.0f, 0.0f, 0.0f}, 30.0f);
     bot.Think();
 
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"move to 1 2 3"}));
