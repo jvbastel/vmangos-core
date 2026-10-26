@@ -16,6 +16,10 @@ namespace Bots
     // True when the bot can see unit `unit` and the unit is alive: not dead
     // and no ghost.
     bool IsAlive(BotView const& view, Guid unit);
+    // True when the bot sees the dead body of unit `unit`. Not the opposite
+    // of IsAlive: a unit that the bot does not find (on another map, so with
+    // no health) is neither alive nor seen dead.
+    bool SeenDead(BotView const& view, Guid unit);
 
     // True when a living member of the bot's group that the bot can see is
     // in combat, the bot too. False after the fight.
