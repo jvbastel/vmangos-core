@@ -94,21 +94,22 @@ namespace Bots
                 return FirstSafePlace(context.view, open, rules, found);
             }
 
+            // The trigger finds the safe place and the action moves to it:
+            // one search per think. The action runs in the same think as its
+            // trigger (StrategyStack::Think), so the place it reads is the
+            // one found now. Each bot has its own reaction, so no other bot
+            // shares the place.
             Rule FireNovaRule(int priority, BotRole role)
             {
+                auto const place = std::make_shared<Position>();
                 Rule rule;
                 rule.name = "stay out of fire nova";
                 rule.priority = priority;
-                rule.trigger = [role](BotContext const& context) {
-                    Position place;
-                    return InFireNova(context) && FindSafePlace(context, role, place);
+                rule.trigger = [role, place](BotContext const& context) {
+                    return InFireNova(context) && FindSafePlace(context, role, *place);
                 };
                 rule.action.canDo = [](BotContext const&) { return true; };
-                rule.action.run = [role](BotContext const& context) {
-                    Position place = Self(context);
-                    FindSafePlace(context, role, place);
-                    context.actions.MoveTo(place);
-                };
+                rule.action.run = [place](BotContext const& context) { context.actions.MoveTo(*place); };
                 return rule;
             }
 

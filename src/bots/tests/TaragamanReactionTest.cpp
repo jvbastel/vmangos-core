@@ -74,6 +74,15 @@ TEST(TaragamanReaction, TheHealerInFireNovaRangeMovesOut)
     EXPECT_EQ(healer.fake.Deeds(), Moves("move to 0 -16 2"));
 }
 
+TEST(TaragamanReaction, TheMoveOutSearchesForThePlaceOncePerThink)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+
+    EXPECT_EQ(mage.Think(), "stay out of fire nova");
+    // The first place is safe: one ground path for the whole think.
+    EXPECT_EQ(mage.fake.GroundPaths(), 1);
+}
+
 TEST(TaragamanReaction, ARangedBotMoreThanTenYardsAwayStays)
 {
     InFight mage(Mage, BotRole::Ranged, {0, 13, 0});
