@@ -362,6 +362,7 @@ namespace Bots
         // line with the shortest path to it.
         std::vector<Detour> detours;
         std::vector<float> detourPath(packs.size(), -1.0f); // >= 0: a pack of the line on a detour.
+        std::vector<std::size_t> offLine; // Packs of the line taken off the route.
         for (std::size_t p = 0; p < packs.size(); ++p)
         {
             // With no path at all, the pull point stays where the line comes
@@ -370,13 +371,7 @@ namespace Bots
                 continue;
             if (distanceToRoute[p] >= settings.aggroRange)
             {
-                char text[160];
-                std::snprintf(text, sizeof(text),
-                    "the pack of spawn %u at %s is off the route: the line passes it at %.0f yards, but no spot "
-                    "of the line is within %.0f yards of it by path",
-                    unsigned(spawns[packs[p].members[0]].guid), Format(spawns[packs[p].members[0]].position).c_str(),
-                    distanceToRoute[p], settings.pullPathLimit);
-                result.warnings.push_back(text);
+                offLine.push_back(p);
                 approach[p] = -1.0f;
                 onRoute[p] = false;
                 continue;
@@ -588,6 +583,20 @@ namespace Bots
                 events.push_back(point);
             }
             addFights(way.Length() + 1.0f);
+        }
+
+        // A pack taken off the line that no detour fights.
+        for (std::size_t p : offLine)
+        {
+            if (onRoute[p])
+                continue;
+            char text[200];
+            std::snprintf(text, sizeof(text),
+                "the pack of spawn %u at %s is off the route: the line passes it at %.0f yards, but no spot "
+                "of the line is within %.0f yards of it by path",
+                unsigned(spawns[packs[p].members[0]].guid), Format(spawns[packs[p].members[0]].position).c_str(),
+                distanceToRoute[p], settings.pullPathLimit);
+            result.warnings.push_back(text);
         }
 
         // The points along the line, away from the pull and visit points.

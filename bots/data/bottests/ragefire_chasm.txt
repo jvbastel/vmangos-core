@@ -44,22 +44,22 @@ expect boss_dead 11520
 # Trash scenario: the group runs one fixed pack, two Searing Blade
 # Enforcers.
 scenario enforcers
-teleport pull_pack39
-clear 50 pack39         # only the pack stays
+teleport pull_pack48
+clear 50 pack48         # only the pack stays
 command follow
 wait 20
 command stay
 refill
 wait 3
-target pack39
+target pack48
 command pull
 wait combat_end 300
-expect pack_dead pack39
+expect pack_dead pack48
 
 # The revive rule of jvbastel/WOWAI#72: the check t72_revive.py kills
 # members during the wait.
 scenario revive
-teleport pull_pack39
+teleport pull_pack48
 clear 50
 command follow
 wait 120
@@ -67,7 +67,7 @@ wait 120
 # A short run that passes, for the check t82_run_group.py: after it, the
 # members are out of the run group (jvbastel/WOWAI#82).
 scenario short
-teleport pull_pack39
+teleport pull_pack48
 clear 50
 wait 2
 expect alive
