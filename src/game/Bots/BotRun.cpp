@@ -25,6 +25,7 @@
 #include "Pet.h"
 #include "Player.h"
 #include "SharedDefines.h"
+#include "Spell.h"
 #include "SpellAuras.h"
 #include "Utilities/Random.h"
 #include "WorldSession.h"
@@ -610,24 +611,46 @@ Bots::RunFacts BotRun::Facts() const
     return facts;
 }
 
+namespace
+{
+    Bots::Guid GuidOf(Unit const* unit)
+    {
+        return unit ? unit->GetObjectGuid().GetRawValue() : Bots::NoGuid;
+    }
+
+    // What a member does to enemies now, for the lost-mob watch
+    // (Bots::MemberAttacks has the rule).
+    Bots::MemberAttacks AttacksOf(Player const* member, bool bot)
+    {
+        Bots::MemberAttacks attacks;
+        attacks.bot = bot;
+        attacks.victim = GuidOf(member->GetVictim());
+        for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL, CURRENT_AUTOREPEAT_SPELL})
+            if (Spell const* spell = member->GetCurrentSpell(type))
+            {
+                ObjectGuid const target = spell->m_targets.getUnitTargetGuid();
+                if (!target.IsEmpty())
+                    attacks.spellTargets.push_back(target.GetRawValue());
+            }
+        if (Pet const* pet = member->GetPet())
+            if (pet->IsAlive())
+                attacks.petVictim = GuidOf(pet->GetVictim());
+        attacks.selection = member->GetTargetGuid().GetRawValue();
+        return attacks;
+    }
+}
+
 void BotRun::WatchThreat(int64 nowMs)
 {
     std::vector<Bots::EnemyOnMember> hitsOnNonTanks, hits;
-    std::vector<Bots::Guid> attacked;
+    std::vector<Bots::MemberAttacks> attacks;
     Bots::Guid holder = Bots::NoGuid;
+    Player const* driver = Driver();
     for (Player* member : Members())
     {
         if (!IsLivingMember(member))
             continue;
-        // A member attacks its melee victim and its selected target (a
-        // caster's target).
-        if (Unit const* victim = member->GetVictim())
-            attacked.push_back(victim->GetObjectGuid().GetRawValue());
-        if (!member->GetTargetGuid().IsEmpty())
-            attacked.push_back(member->GetTargetGuid().GetRawValue());
-        if (Pet const* pet = member->GetPet())
-            if (Unit const* victim = pet->IsAlive() ? pet->GetVictim() : nullptr)
-                attacked.push_back(victim->GetObjectGuid().GetRawValue());
+        attacks.push_back(AttacksOf(member, member != driver));
         Bots::BotRole role;
         bool const tank = sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank;
         if (tank && member->GetVictim())
@@ -653,7 +676,7 @@ void BotRun::WatchThreat(int64 nowMs)
     }
 
     std::size_t const lostBefore = m_lostMobs.LostMobs().size();
-    m_lostMobs.Update(hits, attacked, nowMs, holder);
+    m_lostMobs.Update(hits, Bots::AttackedEnemies(attacks), nowMs, holder);
     for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
     {
         Bots::LostMob const& mob = m_lostMobs.LostMobs()[i];
