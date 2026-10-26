@@ -64,12 +64,14 @@ def go_ground(x, y):
 
 
 def bots_away(yards=10.0):
-    """The bots that stand more than `yards` from the player."""
+    """The bots that stand more than `yards` from the player. A bot that the
+    GM cannot select (a bot in a teleport) counts as away: then `.gps`
+    answers with the position of the GM."""
     here = pos(c, c.guid)
     away = []
     for bot, guid in bots.items():
         at = pos(c, guid)
-        if at is None or dist(at, here) > yards:
+        if at is None or here is None or at == here or dist(at, here) > yards:
             away.append(bot)
     return away
 
@@ -84,8 +86,10 @@ def gather():
             c.gm(".namego %s" % bot, wait=2.0)
         c.chat(CHAT_MSG_PARTY, "follow")
         c.pump(6)
-        if not bots_away():
+        away = bots_away()
+        if not away:
             return
+        print("  not near yet:", away)
 
 
 def spawn_mob_here(entry=3098):
