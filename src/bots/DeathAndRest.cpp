@@ -116,13 +116,15 @@ namespace Bots
             Rule{"eat", P + 32,
                 [](BotContext const& context) {
                     Health const health = context.view.GetHealth(context.view.GetSelf());
-                    return AfterFight(context) && !context.view.IsEating() && Below(health.current, health.max);
+                    return AfterFight(context) && !context.view.IsEating() && (Below(health.current, health.max) ||
+                        (context.group.RestsUntilFull(context.view.GetSelf()) && health.current < health.max));
                 },
                 Always([](BotContext const& context) { context.actions.Eat(); })},
             Rule{"drink", P + 31,
                 [](BotContext const& context) {
                     Power const mana = context.view.GetMana(context.view.GetSelf());
-                    return AfterFight(context) && !context.view.IsDrinking() && Below(mana.current, mana.max);
+                    return AfterFight(context) && !context.view.IsDrinking() && (Below(mana.current, mana.max) ||
+                        (context.group.RestsUntilFull(context.view.GetSelf()) && mana.current < mana.max));
                 },
                 Always([](BotContext const& context) { context.actions.Drink(); })},
             // Over the corpse loot and the follow rule: a move stands the
@@ -140,7 +142,17 @@ namespace Bots
         if (IsAlive(view, view.GetSelf()))
             group.ClearGivenUpResurrect(view.GetSelf());
 
+        WatchRest(view, group);
+    }
+
+    void WatchRest(BotView const& view, GroupCoordinator& group)
+    {
         group.SetResting(view.GetSelf(), RestReasonOf(view));
+        Guid const self = view.GetSelf();
+        Health const health = view.GetHealth(self);
+        Power const mana = view.GetMana(self);
+        if (IsAlive(view, self) && health.current >= health.max && mana.current >= mana.max)
+            group.ClearRestUntilFull(self);
     }
 
     bool RestsNow(BotView const& view)

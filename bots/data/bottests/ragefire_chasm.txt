@@ -71,3 +71,19 @@ teleport pull_pack47
 clear 50
 wait 2
 expect alive
+
+# Full-run pacing of jvbastel/WOWAI#94: the check t94_pacing.py kills the
+# whole group in the fight. The pack lives after it: the group revives at
+# the entrance, walks back, rests until full, and fights the pack again.
+scenario refight
+teleport p2
+clear 40 pack1          # only the pack stays
+command follow
+wait 20
+move pull_pack1
+wait arrive
+refill
+wait rested             # no settle: the coordinator sees a rest at once
+command stay
+fight pack1
+command follow

@@ -4,6 +4,7 @@
 #include "RunScript.h"
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,9 @@ namespace Bots
     // The group must be out of combat this long before a fight counts as
     // ended: a short gap between two enemies is no end.
     std::int64_t const CombatEndQuietMs = 3000;
+    // A pack that lives after its `fight` (the tank died, the pack reset)
+    // is fought again at most this many times. Then the run fails.
+    int const RefightLimit = 2;
     // At its end, a run holds its group at most this long for the chat of
     // the run: the HTTP timeout (5 s), the delays of the lines (about 7 s),
     // and the drop of a line that is more than 10 s late are each shorter.
@@ -50,6 +54,8 @@ namespace Bots
         bool groupResting = false;
         // A member in the world is dead.
         bool memberDead = false;
+        // A mob of the pack of the running `fight` lives (FightPack).
+        bool fightPackAlive = false;
     };
 
     enum class RunStepKind
@@ -83,6 +89,10 @@ namespace Bots
         // "the end".
         std::string Current() const;
 
+        // The pack of the `fight` whose end the runner waits for, else empty.
+        // The game layer tells whether it lives in RunFacts::fightPackAlive.
+        std::string FightPack() const;
+
     private:
         enum class State
         {
@@ -95,6 +105,9 @@ namespace Bots
 
         RunStep Fail(std::string const& why);
         void Start(std::int64_t nowMs);
+        // After the current `fight`: the group walks back to the point of
+        // its last `move`, rests, and pulls the same pack again.
+        void FightAgain();
 
         std::vector<ScriptCommand> m_commands;
         std::size_t m_index = 0;
@@ -103,6 +116,8 @@ namespace Bots
         bool m_fightSeen = false;      // wait combat_end: a fight started.
         std::int64_t m_quietSince = -1; // wait combat_end: out of combat since.
         std::string m_reason;
+        // The fights again of each pack.
+        std::map<std::string, int> m_refights;
     };
 }
 
