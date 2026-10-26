@@ -144,9 +144,16 @@ namespace Bots
 
         // The bots that eat or drink now, after a fight: the group waits for
         // them. A bot that starts to rest adds a rest event. RestReason::None:
-        // the bot does not rest (any more).
+        // the bot does not rest (any more). GetResting also holds each bot
+        // that must rest until full.
         void SetResting(Guid bot, RestReason reason);
         std::vector<Guid> GetResting() const;
+        // A bot that a scripted run revived, at half health and mana: it
+        // eats and drinks until full, and the group waits for it from now
+        // on. WatchGroup clears it when the bot is full.
+        void SetRestUntilFull(Guid bot);
+        bool RestsUntilFull(Guid bot) const;
+        void ClearRestUntilFull(Guid bot);
         // A dead bot releases to run back, because no resurrect comes:
         // adds a rest event.
         void NoteRevive(Guid bot);
@@ -177,6 +184,7 @@ namespace Bots
         mutable std::mutex m_mutex;
         bool m_wiped = false;
         std::map<Guid, RestReason> m_resting;
+        std::set<Guid> m_restUntilFull;
         std::set<Guid> m_givenUpResurrects;
         std::vector<GroupEvent> m_events;
         // The kills and rolls that made an event, with the time of the event.

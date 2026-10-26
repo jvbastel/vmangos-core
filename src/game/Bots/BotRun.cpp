@@ -746,6 +746,12 @@ Bots::RunFacts BotRun::Facts() const
     for (Player* member : members)
         if (InWorldAndStill(member) && !member->IsAlive())
             facts.memberDead = true;
+    // A pack whose fight ended but lives: the tank died and the pack reset.
+    // A driver in a teleport cannot look: the runner fights again, and that
+    // fight finds the pack dead (Update, NothingToDo).
+    std::string const pack = m_runner ? m_runner->FightPack() : std::string();
+    if (!pack.empty())
+        facts.fightPackAlive = !InWorldAndStill(driver) || LivingMobOf(pack);
     if (m_moving && driver && driver->IsInWorld())
     {
         float const dx = driver->GetPositionX() - m_moveX, dy = driver->GetPositionY() - m_moveY;
@@ -1108,6 +1114,18 @@ void BotRun::ReviveAt(Player* member, uint32 mapId, float x, float y, float z, f
 {
     member->ResurrectPlayer(0.5f);
     member->SpawnCorpseBones();
+    // Half health and mana is no reason to rest for a bot: it rests until
+    // full before the next pull (`wait rested`).
+    if (member->IsBot() && m_groupId)
+    {
+        std::shared_ptr<Bots::GroupCoordinator> coordinator = sBotMgr.GetCoordinator(m_groupId);
+        Bots::Guid const guid = member->GetObjectGuid().GetRawValue();
+        coordinator->SetRestUntilFull(guid);
+        // A tank that died in its pull: the pull is over, else the puller
+        // does not rest (it is on its way to a fight).
+        if (coordinator->GetPull().puller == guid)
+            coordinator->EndPull();
+    }
     member->TeleportTo(mapId, x, y, z, o);
 }
 

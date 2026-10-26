@@ -20,8 +20,16 @@ data="$(cd "${3:-$bots_src/../../bots/data}" 2>/dev/null && pwd)" || data="${3:-
 dep_include="$(cd "$bots_src/../../dep/include" && pwd)"
 mkdir -p "$work/src" "$work/out"
 
-# Keep the file times, so that only changed files build again.
-rsync -a --delete "$bots_src/" "$work/src/"
+# Keep the file times, so that only changed files build again. After another
+# tree (WOWAI_DEV_TREE, set by wowai/dev: a slot's volume builds many trees),
+# copy by content and give each changed file the time of now.
+tree="${WOWAI_DEV_TREE:-$(cd "$bots_src" && pwd)}"
+if [ "$(cat "$work/tree" 2>/dev/null)" = "$tree" ]; then
+  rsync -a --delete "$bots_src/" "$work/src/"
+else
+  rsync -a --no-times --checksum --delete "$bots_src/" "$work/src/"
+fi
+printf '%s\n' "$tree" > "$work/tree"
 
 cd "$work/out"
 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_BOT_TESTS=1 -DBOT_DATA_DIR="$data" -DBOT_DEP_INCLUDE_DIR="$dep_include" "$work/src" >/dev/null

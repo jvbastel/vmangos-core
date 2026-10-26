@@ -129,6 +129,14 @@ namespace Bots
                     }
                     if (!done)
                         return wait;
+                    if (c.kind == ScriptCommandKind::Fight && facts.fightPackAlive)
+                    {
+                        int& refights = m_refights[c.name];
+                        if (refights >= RefightLimit)
+                            return Fail(c.name + " still lives after " + std::to_string(RefightLimit + 1) + " fights");
+                        ++refights;
+                        FightAgain();
+                    }
                     ++m_index;
                     m_state = State::Next;
                     continue;
@@ -157,6 +165,57 @@ namespace Bots
         }
         ++m_index;
         m_state = State::Next;
+    }
+
+    std::string ScriptRunner::FightPack() const
+    {
+        if (m_state != State::Waiting || m_index >= m_commands.size() ||
+            m_commands[m_index].kind != ScriptCommandKind::Fight)
+            return "";
+        return m_commands[m_index].name;
+    }
+
+    void ScriptRunner::FightAgain()
+    {
+        ScriptCommand const fight = m_commands[m_index];
+        std::vector<ScriptCommand> again;
+        auto add = [&](ScriptCommand step)
+        {
+            step.line = fight.line;
+            again.push_back(step);
+        };
+        auto command = [&](ScriptCommandKind kind, std::string const& source)
+        {
+            ScriptCommand step;
+            step.kind = kind;
+            step.source = source;
+            return step;
+        };
+
+        ScriptCommand rested = command(ScriptCommandKind::WaitRested, "wait rested");
+        rested.seconds = DefaultRestedSeconds;
+        // A wipe ends the fight before the release: the group lives again
+        // at the dungeon entrance, rests, and follows the driver back to
+        // the point of the last move.
+        add(rested);
+        for (std::size_t i = m_index; i-- > 0;)
+            if (m_commands[i].kind == ScriptCommandKind::Move)
+            {
+                ScriptCommand follow = command(ScriptCommandKind::Command, "command follow");
+                follow.text = "follow";
+                add(follow);
+                add(m_commands[i]);
+                add(command(ScriptCommandKind::WaitArrive, "wait arrive"));
+                break;
+            }
+        // A member that died on the way back.
+        add(rested);
+        // The group held its place for the pull: it does so again.
+        if (m_index > 0 && m_commands[m_index - 1].kind == ScriptCommandKind::Command &&
+            m_commands[m_index - 1].text == "stay")
+            add(m_commands[m_index - 1]);
+        add(fight);
+        m_commands.insert(m_commands.begin() + m_index + 1, again.begin(), again.end());
     }
 
     void ScriptRunner::NothingToDo()
