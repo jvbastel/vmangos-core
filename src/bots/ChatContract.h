@@ -8,8 +8,8 @@
 #include <vector>
 
 // The bot chat event contract: the C++ mirror of the JSON schema of the chat
-// service (botchat repository, src/botchat/schema/event.v1.json and
-// response.v1.json). The core sends one event with plain facts only, never
+// service (botchat repository, src/botchat/schema/event.v1.json,
+// response.v1.json, and roster.v1.json). The core sends one event with plain facts only, never
 // prompt text, and gets the lines of the speakers back.
 //
 // A schema change raises ChatContractVersion. This header and the service
@@ -106,8 +106,21 @@ namespace Bots
         std::vector<ChatLine> lines;
     };
 
+    // The routes of the chat service.
+    char const* const ChatEventsPath = "/v1/events";
+    char const* const ChatRosterPath = "/v1/roster";
+
     // The body of POST /v1/events, with ChatContractVersion.
     std::string EncodeChatEvent(ChatEvent const& event);
+
+    // The body of POST /v1/roster: the GUIDs of all bot characters. The
+    // service deletes the memory (persona, log, summaries, chat sessions) of
+    // every other bot GUID that it holds. An empty roster deletes nothing.
+    std::string EncodeChatRoster(std::vector<Guid> const& botGuids);
+
+    // The body of a 200 answer to a roster: the GUIDs whose memory the
+    // service deleted. False with a short reason in `error` otherwise.
+    bool DecodeChatRosterAnswer(std::string const& body, std::vector<Guid>& deleted, std::string& error);
 
     // The body of a 200 answer. False with a short reason in `error` when the
     // body does not match the schema or has another contract version.

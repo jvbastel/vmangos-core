@@ -190,6 +190,8 @@ class BotMgr
 
     private:
         BotRecord* FindByName(std::string const& name);
+        // The GUIDs of all our bot characters, for the roster of bot chat.
+        std::vector<Bots::Guid> BotGuids() const;
         uint32 ChooseAccount(std::string& error);
         uint32 CreateAccount(std::string const& name, std::string& error);
         void StartLogin(BotRecord& record, WorldSession* session);
