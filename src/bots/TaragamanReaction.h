@@ -21,6 +21,7 @@ namespace Bots
     namespace Taragaman
     {
         std::uint32_t const Entry = 11520;
+        std::uint32_t const FireNova = 11970; // His spell.
 
         // Distances in yards, from the center of the bot to his center.
         float const FireNovaYards = 12.0f; // The 10 yards of Fire Nova, and a margin.

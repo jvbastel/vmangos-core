@@ -25,10 +25,12 @@
 #include "ObjectMgr.h"
 #include "Pet.h"
 #include "Player.h"
+#include "GroupRules.h"
 #include "RouteFiles.h"
 #include "SharedDefines.h"
 #include "Spell.h"
 #include "SpellAuras.h"
+#include "SpellMgr.h"
 #include "Utilities/Random.h"
 #include "WorldSession.h"
 
@@ -280,6 +282,11 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_threatNames.clear();
     m_lostMobs = Bots::LostMobWatch(sBotMgr.GetSettings().lostMobMs);
     m_lostMobNames.clear();
+    m_interrupts = Bots::InterruptWatch();
+    m_chases = Bots::ChaseWatch();
+    m_combatNotes.Drain();
+    m_unitNames.clear();
+    m_chatEvents.clear();
     m_groupId = 0;
     m_teleportRest = false;
     m_moving = false;
@@ -401,6 +408,10 @@ bool BotRun::EndClosing(char const* cutBy)
         return false;
     if (cutBy)
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: the wait for the chat of the run ends early: %s", m_number, cutBy);
+    // The result file again, with the chat lines that came while the group
+    // waited for them.
+    if (!WriteResultJson())
+        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Run %u: cannot write the result file again", m_number);
     EndRunGroup();
     m_phase = m_passed ? Phase::Passed : Phase::Failed;
     return true;
@@ -473,6 +484,9 @@ bool BotRun::AllOffline() const
 
 void BotRun::Update()
 {
+    // The combat notes count only in the script phase (WatchCombat).
+    if (m_phase != Phase::Script)
+        m_combatNotes.Drain();
     std::vector<std::string> names = m_script.group;
     names.push_back(m_script.driver);
     std::string error;
@@ -860,6 +874,12 @@ bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
         case Bots::ScriptCommandKind::Move:
             return Move(*Bots::FindPoint(m_route, command.name), detail);
         case Bots::ScriptCommandKind::Command:
+            // A `command pull` is a pull of the result, like a `fight`.
+            if (command.text == "pull")
+            {
+                Unit const* target = driver->GetMap()->GetUnit(driver->GetTargetGuid());
+                m_record.pulls.push_back({"", target ? target->GetName() : "", RunMs()});
+            }
             return Say(CHAT_MSG_PARTY, nullptr, command.text);
         case Bots::ScriptCommandKind::Whisper:
         {
@@ -1215,6 +1235,7 @@ void BotRun::WatchRun(int64 nowMs)
     }
 
     WatchEnemies(nowMs);
+    WatchCombat(nowMs);
 
     // Movement along the route: the test driver walks to the point of its
     // `move`, and the bots follow. A teleport is no walk.
@@ -1344,7 +1365,9 @@ bool BotRun::Fight(Bots::ScriptCommand const& command, std::string& detail)
     // does. The bots that follow it come to the fight.
     if (!Target(command, detail))
         return false;
-    m_record.pulls.push_back({command.name, RunMs()});
+    Player const* driver = Driver();
+    Unit const* target = driver->GetMap()->GetUnit(driver->GetTargetGuid());
+    m_record.pulls.push_back({command.name, target ? target->GetName() : "", RunMs()});
     return Say(CHAT_MSG_PARTY, nullptr, "pull");
 }
 
@@ -1360,6 +1383,7 @@ void BotRun::WriteResultFiles()
     for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
         m_record.lostMobs.push_back({m_lostMobNames[i].first, m_lostMobNames[i].second, m_lostMobs.LostMobs()[i].startMs,
             m_lostMobs.LostMobs()[i].endMs});
+    RecordCombat();
 
     std::string const dir = sBotMgr.GetSettings().runDir;
 #if PLATFORM == PLATFORM_WINDOWS
@@ -1377,7 +1401,7 @@ void BotRun::WriteResultFiles()
         else
             sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Run %u: cannot write %s.trace.txt", m_number, path.c_str());
     }
-    if (!WriteFile(path + ".json", Bots::RunResultJson(m_record)))
+    if (!WriteResultJson())
     {
         sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Run %u: cannot write %s.json", m_number, path.c_str());
         return;
@@ -1385,4 +1409,207 @@ void BotRun::WriteResultFiles()
     m_result += ". Result: " + stem + ".json";
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: result %s.json%s", m_number, path.c_str(),
         m_record.traceFile.empty() ? "" : (", trace " + m_record.traceFile).c_str());
+}
+
+bool BotRun::WriteResultJson() const
+{
+    return WriteFile(sBotMgr.GetSettings().runDir + "/" + Bots::RunFileStem(m_record) + ".json", Bots::RunResultJson(m_record));
+}
+
+void BotRun::RecordCombat()
+{
+    auto const spellName = [](uint32 spell) {
+        SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
+        return entry ? std::string(entry->SpellName[0]) : std::string();
+    };
+    m_record.interrupts.clear();
+    for (Bots::InterruptDone const& done : m_interrupts.Done())
+        m_record.interrupts.push_back({NameOf(ObjectGuid(done.member)), NameOf(ObjectGuid(done.enemy)), done.spell,
+            spellName(done.spell), done.kind, done.ms});
+    m_record.missedCasts.clear();
+    for (Bots::MissedCast const& missed : m_interrupts.Missed())
+        m_record.missedCasts.push_back({NameOf(ObjectGuid(missed.enemy)), missed.spell, spellName(missed.spell),
+            missed.kind, missed.ms});
+    m_record.doubleInterrupts.clear();
+    for (Bots::DoubleInterrupt const& twice : m_interrupts.Doubles())
+        m_record.doubleInterrupts.push_back({NameOf(ObjectGuid(twice.enemy)), twice.spell, spellName(twice.spell),
+            NameOf(ObjectGuid(twice.first)), NameOf(ObjectGuid(twice.second)), twice.ms});
+    m_record.chases.clear();
+    for (Bots::FarChase const& chase : m_chases.Chases())
+        m_record.chases.push_back({NameOf(ObjectGuid(chase.member)), NameOf(ObjectGuid(chase.enemy)), chase.startMs,
+            chase.endMs, chase.maxYards});
+}
+
+void BotRun::WatchCombat(int64 nowMs)
+{
+    TakeCombatNotes(nowMs);
+    Player* driver = Driver();
+    if (!InWorldAndStill(driver))
+        return;
+    Map* map = driver->GetMap();
+
+    // The casts of the enemies that the group fights (WatchEnemies keeps
+    // only the living ones).
+    std::vector<Bots::EnemyCastSeen> casts;
+    for (auto const& pair : m_enemyHealth)
+    {
+        Creature* enemy = map->GetCreature(pair.first);
+        if (!enemy)
+            continue;
+        RememberName(enemy);
+        Bots::CastInfo const cast = BotAdapter::CastOf(enemy);
+        casts.push_back({enemy->GetObjectGuid().GetRawValue(), enemy->IsAlive(),
+            cast.interruptible ? cast.spell : Bots::NoSpell, cast.kind});
+    }
+    m_interrupts.Observe(casts, InterrupterFree(), nowMs);
+
+    // The chase of each bot that is not the tank, and how far it is from the
+    // living tank.
+    Player* tank = nullptr;
+    for (Player* member : Members())
+    {
+        Bots::BotRole role;
+        if (IsLivingMember(member) && sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank)
+            tank = member;
+    }
+    std::vector<Bots::MemberChase> chases;
+    for (Player* member : Members())
+    {
+        if (!tank || member == tank || member == driver || !IsLivingMember(member) || member->GetMap() != tank->GetMap())
+            continue;
+        Unit* target = BotAdapter::ChaseTargetOf(member);
+        if (!target)
+            continue;
+        RememberName(member);
+        RememberName(target);
+        float const dx = member->GetPositionX() - tank->GetPositionX();
+        float const dy = member->GetPositionY() - tank->GetPositionY();
+        float const dz = member->GetPositionZ() - tank->GetPositionZ();
+        float const yards = std::sqrt(dx * dx + dy * dy + dz * dz);
+        chases.push_back({member->GetObjectGuid().GetRawValue(), target->GetObjectGuid().GetRawValue(), yards});
+    }
+    std::size_t const known = m_chases.Chases().size();
+    m_chases.Update(chases, nowMs);
+    for (std::size_t i = known; i < m_chases.Chases().size(); ++i)
+    {
+        Bots::FarChase const& chase = m_chases.Chases()[i];
+        std::string const text = NameOf(ObjectGuid(chase.member)) + " chases " + NameOf(ObjectGuid(chase.enemy))
+            + " more than " + std::to_string(int(Bots::ChaseRecordYards)) + " yards from the tank";
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
+        m_trace.Add(nowMs, text);
+    }
+}
+
+void BotRun::TakeCombatNotes(int64 nowMs)
+{
+    for (RunCombatNote const& note : m_combatNotes.Drain())
+    {
+        Player* member = ObjectAccessor::FindPlayer(note.member);
+        if (!member || !member->GetGroup() || member->GetGroup()->GetId() != m_groupId)
+            continue;
+        RememberName(member);
+        if (Unit* enemy = member->IsInWorld() ? member->GetMap()->GetUnit(note.enemy) : nullptr)
+            RememberName(enemy);
+        Bots::Guid const who = note.member.GetRawValue(), enemy = note.enemy.GetRawValue();
+        switch (note.kind)
+        {
+            case RunCombatNote::Kind::InterruptAttempt:
+                m_interrupts.NoteAttempt(who, enemy, note.spell, nowMs);
+                break;
+            case RunCombatNote::Kind::InterruptMissed:
+                m_interrupts.NoteMissed(who, enemy, nowMs);
+                break;
+            case RunCombatNote::Kind::CastStopped:
+            {
+                SpellEntry const* entry = sSpellMgr.GetSpellEntry(note.spell);
+                Bots::CastKind const kind = !entry ? Bots::CastKind::Other : entry->IsHealSpell() ? Bots::CastKind::Heal
+                    : entry->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+                std::size_t const done = m_interrupts.Done().size();
+                m_interrupts.NoteStopped(enemy, note.spell, kind, nowMs);
+                if (m_interrupts.Done().size() > done)
+                    m_trace.Add(nowMs, NameOf(ObjectGuid(m_interrupts.Done().back().member)) + " interrupts "
+                        + NameOf(note.enemy) + " " + std::to_string(note.spell));
+                break;
+            }
+            case RunCombatNote::Kind::FireNovaHit:
+            {
+                uint32 const fight = uint32(m_record.wipes.size()) + 1;
+                m_record.fireNovaHits.push_back({member->GetName(), RoleText(member), fight, note.damage, nowMs});
+                sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: Fire Nova hits %s for %u", m_number,
+                    member->GetName(), note.damage);
+                m_trace.Add(nowMs, "Fire Nova hits " + std::string(member->GetName()) + " for " + std::to_string(note.damage));
+                break;
+            }
+        }
+    }
+}
+
+bool BotRun::InterrupterFree() const
+{
+    for (Player* member : Members())
+    {
+        if (!IsLivingMember(member))
+            continue;
+        for (auto const& known : member->GetSpellMap())
+        {
+            uint32 const first = sSpellMgr.GetFirstSpellInChain(known.first);
+            if (!Bots::IsInterruptSpell(first) || !member->HasSpell(known.first))
+                continue;
+            SpellEntry const* entry = sSpellMgr.GetSpellEntry(known.first);
+            // Shield Bash needs a shield.
+            if (entry && member->IsSpellReady(entry) && member->HasItemFitToSpellReqirements(entry)
+                && member->GetPower(Powers(entry->powerType)) >= entry->manaCost)
+                return true;
+        }
+    }
+    return false;
+}
+
+std::string BotRun::NameOf(ObjectGuid guid) const
+{
+    auto const found = m_unitNames.find(guid);
+    return found != m_unitNames.end() ? found->second : guid.GetString();
+}
+
+void BotRun::RememberName(Unit const* unit)
+{
+    m_unitNames[unit->GetObjectGuid()] = unit->GetName();
+}
+
+std::string BotRun::RoleText(Player const* member) const
+{
+    Bots::BotRole role;
+    return sBotMgr.BotRoleOf(member, role) ? Bots::RoleName(role) : "ranged";
+}
+
+Bots::RunChatEvent* BotRun::ChatEventOf(uint64 id)
+{
+    auto const found = m_chatEvents.find(id);
+    return found != m_chatEvents.end() ? &m_record.chatEvents[found->second] : nullptr;
+}
+
+void BotRun::NoteChatSent(SentChatEvent const& sent)
+{
+    if ((m_phase != Phase::Script && m_phase != Phase::Closing) || !m_groupId || sent.groupId != m_groupId)
+        return;
+    Player const* to = sent.toBot.IsEmpty() ? nullptr : ObjectAccessor::FindPlayer(sent.toBot);
+    m_chatEvents[sent.id] = m_record.chatEvents.size();
+    m_record.chatEvents.push_back({Bots::ChatEventName(sent.kind), to ? to->GetName() : "", RunMs(), false, {}});
+}
+
+void BotRun::NoteChatOutcome(Bots::ChatEventOutcome const& outcome)
+{
+    if (Bots::RunChatEvent* event = ChatEventOf(outcome.eventId))
+        event->reached = outcome.reached;
+}
+
+void BotRun::NoteChatLine(BotLine const& line, Player const* bot)
+{
+    if (m_phase != Phase::Script && m_phase != Phase::Closing)
+        return;
+    Bots::RunChatEvent* event = line.eventId ? ChatEventOf(line.eventId) : nullptr;
+    if (!event)
+        return;
+    event->lines.push_back({bot->GetName(), RunMs()});
+    m_trace.Add(RunMs(), std::string(bot->GetName()) + " says a line for " + event->event);
 }
