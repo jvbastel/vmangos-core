@@ -661,22 +661,23 @@ namespace Bots
         for (LeftOut const& out : leftOut)
         {
             GeneratorSpawn const& leader = spawns[packs[out.pack].members[0]];
-            char text[300];
-            int length = std::snprintf(text, sizeof(text), "the pack of spawn %u at %s is off the route: ",
+            char head[120];
+            std::snprintf(head, sizeof(head), "the pack of spawn %u at %s is off the route: ",
                 unsigned(leader.guid), Format(leader.position).c_str());
+            char reason[200];
             if (!out.seen)
-                length += std::snprintf(text + length, sizeof(text) - length,
+                std::snprintf(reason, sizeof(reason),
                     "no line of sight from the line, which passes it at %.0f yards", out.distance);
             else if (out.shortestPath < 0.0f)
-                length += std::snprintf(text + length, sizeof(text) - length,
+                std::snprintf(reason, sizeof(reason),
                     "it is on another level (the line passes it at %.0f yards, with no navmesh path to it)",
                     out.distance);
             else
-                length += std::snprintf(text + length, sizeof(text) - length,
+                std::snprintf(reason, sizeof(reason),
                     "it is on another level (the line passes it at %.0f yards, but the shortest path from the line "
                     "to it is %.0f yards)",
                     out.distance, out.shortestPath);
-            std::string warning = text;
+            std::string warning = std::string(head) + reason;
             if (onRoute[out.pack])
                 warning += questOf[out.pack] ? "; a detour for quest " + std::to_string(questOf[out.pack]) +
                         " fights it" : "; a detour fights it";

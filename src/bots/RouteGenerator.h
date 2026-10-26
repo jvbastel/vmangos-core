@@ -135,8 +135,8 @@ namespace Bots
         std::vector<GeneratorSpawn> const& spawns);
 
     // The distance along the line where it first comes within `range` of the
-    // pack, or a negative number when it never does. That is the "on the
-    // route" rule, with range = aggroRange + margin.
+    // pack, or a negative number when it never does. The route trace uses it
+    // as its "on the route" rule; the generator adds sight and level (#96).
     float FirstApproach(std::vector<Position> const& line, GeneratorPack const& pack,
         std::vector<GeneratorSpawn> const& spawns, float range);
 
