@@ -170,7 +170,28 @@ namespace Bots
         std::vector<Guid> bots;
         for (auto const& pair : m_resting)
             bots.push_back(pair.first);
+        for (Guid bot : m_restUntilFull)
+            if (!m_resting.count(bot))
+                bots.push_back(bot);
         return bots;
+    }
+
+    void GroupCoordinator::SetRestUntilFull(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_restUntilFull.insert(bot);
+    }
+
+    bool GroupCoordinator::RestsUntilFull(Guid bot) const
+    {
+        Lock lock(m_mutex);
+        return m_restUntilFull.count(bot) != 0;
+    }
+
+    void GroupCoordinator::ClearRestUntilFull(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_restUntilFull.erase(bot);
     }
 
     void GroupCoordinator::NoteRevive(Guid bot)
