@@ -29,6 +29,7 @@
 #include "SharedDefines.h"
 #include "Spell.h"
 #include "SpellAuras.h"
+#include "WipeRevive.h"
 #include "Utilities/Random.h"
 #include "WorldSession.h"
 
@@ -42,9 +43,6 @@ namespace
 {
     // The fixed gear template of the test driver.
     char const* const DriverGear = "test_driver_mage";
-    // In a wipe, the members lie dead this long before they revive at the
-    // dungeon entrance.
-    int64 const WipeReviveDelayMs = 5000;
     // The longest time of one reset phase: the logins, the logouts, and the
     // teleport out of the dungeon.
     int64 const ResetPhaseLimitMs = 60000;
@@ -979,22 +977,38 @@ void BotRun::ReviveTheDead()
         if (IsLivingMember(member))
             living.push_back(member);
 
-    if (!living.empty())
-        m_wipeMs = 0;
-    else if (members.size() == m_script.group.size() + 1)
+    // The wipe rule for a member away or in a teleport: WipeRevive.h.
+    std::vector<std::string> names = m_script.group;
+    names.insert(names.begin(), m_script.driver);
+    std::vector<Bots::RunMember> states;
+    int away = 0;
+    for (std::string const& name : names)
     {
-        int64 const now = SteadyMs();
-        if (!m_wipeMs)
-            m_wipeMs = now;
+        // A far teleport takes the member out of the world until it lands:
+        // look it up out of the world too, and check the teleport first.
+        std::string wanted = name;
+        Player const* member = normalizePlayerName(wanted) ? ObjectAccessor::FindPlayerByNameNotInWorld(wanted.c_str()) : nullptr;
+        if (member && member->IsBeingTeleported())
+            states.push_back(Bots::RunMember::InTeleport);
+        else if (!member || !member->IsInWorld())
+        {
+            states.push_back(Bots::RunMember::Away);
+            ++away;
+        }
+        else
+            states.push_back(member->IsAlive() ? Bots::RunMember::Living : Bots::RunMember::Dead);
+    }
+    if (m_wipeWatch.Update(states, SteadyMs()))
+    {
         AreaTriggerTeleport const* entrance = sObjectMgr.GetMapEntranceTrigger(m_route.mapId);
-        if (now - m_wipeMs < WipeReviveDelayMs || !entrance)
+        if (!entrance)
             return;
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: wipe: everyone revives at the dungeon entrance", m_number);
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL,
+            "[Bots] Run %u: wipe: everyone revives at the dungeon entrance (%d not in the world)", m_number, away);
         for (Player* member : members)
             if (InWorldAndStill(member))
                 ReviveAt(member, entrance->destination.mapId, entrance->destination.x + frand(-2.0f, 2.0f),
                     entrance->destination.y + frand(-2.0f, 2.0f), entrance->destination.z, entrance->destination.o);
-        m_wipeMs = 0;
         return;
     }
     if (living.empty() || Facts().groupInCombat)

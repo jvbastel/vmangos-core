@@ -123,16 +123,22 @@ namespace Bots
             // none, it does not go: it gives the resurrect up, and the dead
             // member runs back as a ghost. An enemy that came near the place
             // on the way: the bot stops where it stands, and gives the
-            // resurrect up too.
+            // resurrect up too. The enemies of the search block it: when one
+            // of them dies, the bot tries again (WatchGroup).
             void GoToCorpse(BotContext const& context)
             {
                 Guid const member = DeadMemberOutOfReach(context);
                 Position place;
-                if (FindSafeCastPlace(context.view, member, ResurrectCastYards, place))
+                std::vector<NearEnemy> enemies;
+                if (FindSafeCastPlace(context.view, member, ResurrectCastYards, place, &enemies))
                     context.actions.KeepMovingTo(place);
                 else
                 {
-                    context.group.GiveUpResurrect(member);
+                    std::vector<Guid> blockers;
+                    for (NearEnemy const& enemy : enemies)
+                        if (enemy.guid != NoGuid)
+                            blockers.push_back(enemy.guid);
+                    context.group.GiveUpResurrect(member, blockers);
                     context.actions.MoveTo(context.view.GetPosition(PickSelf(context)));
                 }
             }

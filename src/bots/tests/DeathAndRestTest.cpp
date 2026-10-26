@@ -353,6 +353,69 @@ TEST(Resurrect, ThePriestStopsAndGivesUpWhenThePlaceIsNoLongerSafe)
     EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
 }
 
+// The pack that kept the Priest from the corpse dies: the give-up ends, and
+// the Priest walks to the corpse and resurrects the member.
+TEST(Resurrect, ThePriestTriesAgainWhenTheEnemiesThatBlockedItDie)
+{
+    Bots::Guid const Pack = 0x900;
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+    bot.fake.SetHealth(Pack, 800, 800);
+    bot.fake.AddEnemy(Pack, {50.0f, 0.0f, 0.0f}, 30.0f);
+    bot.Watch();
+    bot.Think();
+    ASSERT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+
+    bot.fake.SetHealth(Pack, 0, 800);
+    bot.Watch();
+    EXPECT_FALSE(bot.group.IsResurrectGivenUp(Mage));
+    EXPECT_EQ(bot.Think(), "go to a corpse out of reach");
+
+    // At the cast place, the corpse is in reach.
+    bot.fake.SetDistance(Mage, 23.4f);
+    bot.fake.SetCanCastOn(Priest::Resurrection, Mage);
+    bot.fake.ClearDeeds();
+    EXPECT_EQ(bot.Think(), "resurrect a member");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"cast 2006 on 0x0000000000000013"}));
+}
+
+// Another enemy dies: the give-up stays.
+TEST(Resurrect, TheGiveUpStaysWhileTheEnemiesThatBlockedItLive)
+{
+    Bots::Guid const Pack = 0x900;
+    Bots::Guid const Other = 0x901;
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+    bot.fake.SetHealth(Pack, 800, 800);
+    bot.fake.AddEnemy(Pack, {50.0f, 0.0f, 0.0f}, 30.0f);
+    bot.Think();
+    ASSERT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+
+    // An enemy far away, outside the search, dies.
+    bot.fake.SetHealth(Other, 800, 800);
+    bot.fake.AddEnemy(Other, {400.0f, 0.0f, 0.0f}, 30.0f);
+    bot.fake.SetHealth(Other, 0, 800);
+    bot.Watch();
+    EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+}
+
+// A bot that does not find the blockers (on another map, so with no health
+// for them) does not take them for dead: the give-up stays.
+TEST(Resurrect, TheGiveUpStaysWhenTheBlockersAreNotFound)
+{
+    Bots::Guid const Pack = 0x900;
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+    bot.fake.SetHealth(Pack, 800, 800);
+    bot.fake.AddEnemy(Pack, {50.0f, 0.0f, 0.0f}, 30.0f);
+    bot.Think();
+    ASSERT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+
+    bot.fake.SetHealth(Pack, 0, 0);
+    bot.Watch();
+    EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+}
+
 TEST(Resurrect, ThePriestDoesNotResurrectAMemberThatItGaveUp)
 {
     GroupPriest bot;
