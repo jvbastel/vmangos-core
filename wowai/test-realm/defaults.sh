@@ -11,3 +11,10 @@ declare -gA realm_defaults=(
   [WOWAI_REALM_SOAP_PORT]=7879
   [WOWAI_DEV_INSTALL]="$HOME/wowai/dev-install"
 )
+
+# The newest local image of a repository, else the fallback image.
+newest_image() {
+  local repository="$1" fallback="$2" newest
+  newest="$(docker images --format '{{.Repository}}:{{.Tag}}' "$repository" | grep -v ':<none>$' | head -n 1 || true)"
+  echo "${newest:-$fallback}"
+}
