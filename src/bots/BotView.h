@@ -53,6 +53,7 @@ namespace Bots
     {
         Position position;
         float aggroYards; // Its aggro distance for this bot, from its center.
+        Guid guid = NoGuid;
     };
 
     class BotView

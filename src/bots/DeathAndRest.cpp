@@ -95,7 +95,7 @@ namespace Bots
                 },
                 Always([](BotContext const& context) {
                     context.actions.Release();
-                    context.group.NoteRevive(context.view.GetSelf());
+                    context.group.NoteReleaseToRunBack(context.view.GetSelf());
                 })},
 
             // No bot revives at its corpse on its own: a ghost runs back.
@@ -139,6 +139,10 @@ namespace Bots
         group.SetWiped(!SomeoneLives(view));
         if (IsAlive(view, view.GetSelf()))
             group.ClearGivenUpResurrect(view.GetSelf());
+        // The bot that resurrects judges the blockers: it stands where they
+        // are. A bot far away, or a ghost, would see each of them as dead.
+        if (view.CanResurrect(view.GetSelf()))
+            group.RetryResurrects([&view](Guid enemy) { return IsAlive(view, enemy); });
 
         group.SetResting(view.GetSelf(), RestReasonOf(view));
     }

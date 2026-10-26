@@ -4,9 +4,9 @@
 #include "BotTypes.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <mutex>
-#include <set>
 #include <utility>
 #include <vector>
 
@@ -149,14 +149,18 @@ namespace Bots
         std::vector<Guid> GetResting() const;
         // A dead bot releases to run back, because no resurrect comes:
         // adds a rest event.
-        void NoteRevive(Guid bot);
+        void NoteReleaseToRunBack(Guid bot);
 
         // The resurrect of dead bot `bot` does not come: the Priest found
         // no safe place to cast it from. The bot releases instead. A bot
-        // that lives again clears it (ClearGivenUpResurrect).
-        void GiveUpResurrect(Guid bot);
+        // that lives again clears it (ClearGivenUpResurrect). `blockers`:
+        // the enemies that kept the Priest away. The give-up ends when one
+        // of them dies (RetryResurrects); with none, it lasts.
+        void GiveUpResurrect(Guid bot, std::vector<Guid> const& blockers = {});
         bool IsResurrectGivenUp(Guid bot) const;
         void ClearGivenUpResurrect(Guid bot);
+        // Ends each give-up with a blocker for which `lives` is false.
+        void RetryResurrects(std::function<bool(Guid)> const& lives);
 
         // A bot saw SMSG_PARTYKILLLOG with a victim of the boss list. The
         // first note of a kill adds a boss kill event. `nowMs`: any steady
@@ -177,7 +181,7 @@ namespace Bots
         mutable std::mutex m_mutex;
         bool m_wiped = false;
         std::map<Guid, RestReason> m_resting;
-        std::set<Guid> m_givenUpResurrects;
+        std::map<Guid, std::vector<Guid>> m_givenUpResurrects; // Bot: blockers.
         std::vector<GroupEvent> m_events;
         // The kills and rolls that made an event, with the time of the event.
         std::map<std::pair<Guid, std::int64_t>, std::int64_t> m_seen;

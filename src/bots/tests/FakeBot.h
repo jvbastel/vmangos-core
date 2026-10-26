@@ -122,6 +122,11 @@ namespace Bots
             {
                 m_enemies.push_back({position, aggroYards});
             }
+            // Enemy `enemy` at `position`: listed while it lives (SetHealth).
+            void AddEnemy(Guid enemy, Position position, float aggroYards)
+            {
+                m_enemies.push_back({position, aggroYards, enemy});
+            }
             // From each place with x >= `x`, the bot sees no unit.
             void AddBlindFromX(float x) { m_blindFromX.push_back(x); }
             // How many ground paths the bot asked for (FindGroundPath).
@@ -145,6 +150,7 @@ namespace Bots
             // The bot cannot cast spell `spell` on unit `target` now, for
             // example out of range.
             void SetCannotCastOn(SpellId spell, Guid target) { m_cannotCastOn.insert({spell, target}); }
+            void SetCanCastOn(SpellId spell, Guid target) { m_cannotCastOn.erase({spell, target}); }
             // A stun, or a silence, keeps the bot from casting any spell
             // (BotView::IsCastLocked).
             void SetStunned(bool stunned = true) { m_stunned = stunned; }
@@ -338,7 +344,7 @@ namespace Bots
                 Position const self = GetPosition(m_self);
                 std::vector<NearEnemy> near;
                 for (NearEnemy const& enemy : m_enemies)
-                    if (std::hypot(enemy.position.x - self.x, enemy.position.y - self.y) <= yards)
+                    if ((enemy.guid == NoGuid || GetHealth(enemy.guid).current > 0) && std::hypot(enemy.position.x - self.x, enemy.position.y - self.y) <= yards)
                         near.push_back(enemy);
                 return near;
             }

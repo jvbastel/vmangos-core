@@ -761,7 +761,7 @@ std::vector<Bots::NearEnemy> BotAdapter::GetEnemiesNear(float yards) const
     for (Creature const* creature : creatures)
         if (!creature->IsPet() && creature->IsHostileTo(me))
             enemies.push_back({{creature->GetPositionX(), creature->GetPositionY(), creature->GetPositionZ()},
-                creature->GetAttackDistance(me)});
+                creature->GetAttackDistance(me), creature->GetObjectGuid().GetRawValue()});
     return enemies;
 }
 
