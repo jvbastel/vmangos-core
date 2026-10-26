@@ -1,0 +1,48 @@
+# The decision library of the bots. See ADR 0002 of WOWAI: it includes no
+# game header and sees the game only through BotView and BotActions.
+#
+# This file works in two ways:
+# - In the core build, as `add_subdirectory(bots)` from src/CMakeLists.txt.
+# - Alone, as its own project: `cmake -S src/bots -B <dir>`. `wowai/bots-test.sh`
+#   builds a copy of this folder alone, so that a game header cannot be found.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  cmake_minimum_required(VERSION 3.14)
+  project(WowaiBots CXX)
+  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+  option(BUILD_BOT_TESTS "Build the GoogleTest tests of the bot decision library" ON)
+  if(BUILD_BOT_TESTS)
+    enable_testing()
+  endif()
+endif()
+
+# The source lists of the fork's own folders are globs, so that a new file
+# needs no CMake edit (jvbastel/WOWAI#63). CONFIGURE_DEPENDS makes the build
+# run CMake again when a file is added or removed.
+file(GLOB BOT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+add_library(bots STATIC ${BOT_SOURCES})
+target_include_directories(bots PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# The header-only libraries of dep/include: nlohmann/json for the chat
+# contract and cpp-httplib for the chat client. `wowai/bots-test.sh` passes the
+# folder, because it builds a copy of this folder alone.
+set(BOT_DEP_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../dep/include" CACHE PATH "The dep/include folder of the core")
+target_include_directories(bots PRIVATE ${BOT_DEP_INCLUDE_DIR})
+find_package(Threads REQUIRED)
+target_link_libraries(bots PUBLIC Threads::Threads)
+
+# cpp-httplib stops with an #error below Windows 10, and MinGW sets a lower
+# _WIN32_WINNT. So on Windows (MinGW and MSVC) the code that includes
+# cpp-httplib builds for Windows 10. The rest of the core keeps its own target.
+# MinGW ignores the `#pragma comment(lib, "ws2_32.lib")` of cpp-httplib, so
+# link ws2_32 here.
+if(WIN32)
+  set(BOT_HTTPLIB_WINNT_DEFINE _WIN32_WINNT=0x0A00)
+  target_compile_definitions(bots PRIVATE ${BOT_HTTPLIB_WINNT_DEFINE})
+  target_link_libraries(bots PUBLIC ws2_32)
+endif()
+
+if(BUILD_BOT_TESTS)
+  add_subdirectory(tests)
+endif()

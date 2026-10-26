@@ -27,6 +27,7 @@
 #include "Opcodes.h"
 #include "ObjectMgr.h"
 #include "Chat.h"
+#include "BotHooks.h"
 #include "Database/DatabaseEnv.h"
 #include "ChannelMgr.h"
 #include "Group.h"
@@ -408,6 +409,8 @@ void WorldSession::HandleChatMessageOpcode(WorldPackets::Chat::ChatMessage const
             MasterPlayer* player = ObjectAccessor::FindMasterPlayer(packet.whisperTargetOrChannel.c_str());
             uint32 tSecurity = GetSecurity();
             uint32 pSecurity = player ? player->GetSession()->GetSecurity() : SEC_PLAYER;
+            if (!player && packet.lang != LANG_ADDON && BotHooks::OnWhisperToOffline(_player, packet.whisperTargetOrChannel, packet.message))
+                return;
             if (!player || (tSecurity == SEC_PLAYER && pSecurity > SEC_PLAYER && !player->AcceptsWhispersFrom(masterPlr->GetObjectGuid())))
             {
                 SendPlayerNotFoundNotice(packet.whisperTargetOrChannel);
@@ -457,6 +460,9 @@ void WorldSession::HandleChatMessageOpcode(WorldPackets::Chat::ChatMessage const
                 if (masterPlr->IsGameMaster() || allowSendWhisper)
                     masterPlr->Whisper(packet.message.c_str(), packet.lang, player);
 
+                if (packet.lang != LANG_ADDON && (masterPlr->IsGameMaster() || allowSendWhisper))
+                    BotHooks::OnPlayerChat(_player, packet.type, toPlayer, packet.message);
+
                 if (packet.lang != LANG_ADDON)
                 {
                     sWorld.LogChat(this, "Whisp", packet.message.c_str(), PlayerPointer(new PlayerWrapper<MasterPlayer>(player)));
@@ -489,6 +495,8 @@ void WorldSession::HandleChatMessageOpcode(WorldPackets::Chat::ChatMessage const
             group->BroadcastPacket(&data, false, group->GetMemberGroup(GetPlayer()->GetObjectGuid()));
             if (packet.lang != LANG_ADDON)
                 sWorld.LogChat(this, "Group", packet.message.c_str(), nullptr, group->GetId());
+            if (packet.lang != LANG_ADDON)
+                BotHooks::OnPlayerChat(_player, packet.type, nullptr, packet.message);
         }
         break;
         case CHAT_MSG_GUILD: // Master side

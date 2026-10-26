@@ -1,0 +1,77 @@
+build warrior_tank warrior tank
+# Warrior tank: a Protection leveling build, so the bot can tank dungeons
+# from level 16 (Shield Specialization first, Shield Slam at level 40).
+# Source: Icy Veins, "WoW Classic Protection Warrior Leveling Guide 1-60",
+# https://www.icy-veins.com/wow-classic/protection-warrior-leveling-guide-1-60
+# (read on 2026-10-24 from the Wayback Machine copy of 2025-12-14). Copied in
+# the same order, with no changes. The talents are those of 1.12.
+# Points at level 60: 36 protection, 11 arms, 4 fury
+
+# Levels 10-14: Shield Specialization 5/5 (protection tier 1)
+pick 1601 1     # Shield Specialization
+pick 1601 2     # Shield Specialization
+pick 1601 3     # Shield Specialization
+pick 1601 4     # Shield Specialization
+pick 1601 5     # Shield Specialization
+# Levels 15-19: Toughness 5/5 (protection tier 2)
+pick 140 1      # Toughness
+pick 140 2      # Toughness
+pick 140 3      # Toughness
+pick 140 4      # Toughness
+pick 140 5      # Toughness
+# Level 20: Improved Shield Block 1/3 (protection tier 3)
+pick 145 1      # Improved Shield Block
+# Levels 21-22: Improved Bloodrage 2/2 (protection tier 2)
+pick 142 1      # Improved Bloodrage
+pick 142 2      # Improved Bloodrage
+# Level 23: Last Stand 1/1 (protection tier 3)
+pick 153 1      # Last Stand
+# Level 24: Improved Revenge 1/3 (protection tier 3)
+pick 147 1      # Improved Revenge
+# Levels 25-29: Defiance 5/5 (protection tier 3)
+pick 144 1      # Defiance
+pick 144 2      # Defiance
+pick 144 3      # Defiance
+pick 144 4      # Defiance
+pick 144 5      # Defiance
+# Level 30: Concussion Blow 1/1 (protection tier 5)
+pick 152 1      # Concussion Blow
+# Levels 31-32: Improved Revenge 3/3 (protection tier 3)
+pick 147 2      # Improved Revenge
+pick 147 3      # Improved Revenge
+# Levels 33-34: Improved Taunt 2/2 (protection tier 4)
+pick 143 1      # Improved Taunt
+pick 143 2      # Improved Taunt
+# Levels 35-39: One-Handed Weapon Specialization 5/5 (protection tier 6)
+pick 702 1      # One-Handed Weapon Specialization
+pick 702 2      # One-Handed Weapon Specialization
+pick 702 3      # One-Handed Weapon Specialization
+pick 702 4      # One-Handed Weapon Specialization
+pick 702 5      # One-Handed Weapon Specialization
+# Level 40: Shield Slam 1/1 (protection tier 7)
+pick 148 1      # Shield Slam
+# Levels 41-45: Deflection 5/5 (arms tier 1)
+pick 130 1      # Deflection
+pick 130 2      # Deflection
+pick 130 3      # Deflection
+pick 130 4      # Deflection
+pick 130 5      # Deflection
+# Levels 46-50: Anticipation 5/5 (protection tier 1)
+pick 138 1      # Anticipation
+pick 138 2      # Anticipation
+pick 138 3      # Anticipation
+pick 138 4      # Anticipation
+pick 138 5      # Anticipation
+# Levels 51-55: Tactical Mastery 5/5 (arms tier 2)
+pick 641 1      # Tactical Mastery
+pick 641 2      # Tactical Mastery
+pick 641 3      # Tactical Mastery
+pick 641 4      # Tactical Mastery
+pick 641 5      # Tactical Mastery
+# Level 56: Anger Management 1/1 (arms tier 3)
+pick 137 1      # Anger Management
+# Levels 57-60: Cruelty 4/5 (fury tier 1)
+pick 157 1      # Cruelty
+pick 157 2      # Cruelty
+pick 157 3      # Cruelty
+pick 157 4      # Cruelty

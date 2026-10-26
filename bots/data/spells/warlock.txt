@@ -1,0 +1,31 @@
+# Warlock spells that no trainer teaches. Format: see src/bots/SpellFile.h.
+# The level of a quest spell is the minimum level of the class quest.
+quest-spell 1 688     # Summon Imp
+quest-spell 10 697    # Summon Voidwalker
+quest-spell 20 712    # Summon Succubus
+quest-spell 30 691    # Summon Felhunter
+quest-spell 40 5784   # Summon Felsteed
+quest-spell 50 1122   # Inferno
+quest-spell 60 18540  # Ritual of Doom
+quest-spell 60 23161  # Summon Dreadsteed
+
+# The spells of the Imp. The level is the required level of the grimoire.
+# The Imp knows Firebolt (Rank 1) when it is first summoned.
+pet-spell 1 3110      # Firebolt (Rank 1)
+pet-spell 8 7799      # Firebolt (Rank 2)
+pet-spell 18 7800     # Firebolt (Rank 3)
+pet-spell 28 7801     # Firebolt (Rank 4)
+pet-spell 38 7802     # Firebolt (Rank 5)
+pet-spell 48 11762    # Firebolt (Rank 6)
+pet-spell 58 11763    # Firebolt (Rank 7)
+pet-spell 4 6307      # Blood Pact (Rank 1)
+pet-spell 14 7804     # Blood Pact (Rank 2)
+pet-spell 26 7805     # Blood Pact (Rank 3)
+pet-spell 38 11766    # Blood Pact (Rank 4)
+pet-spell 50 11767    # Blood Pact (Rank 5)
+pet-spell 14 2947     # Fire Shield (Rank 1)
+pet-spell 24 8316     # Fire Shield (Rank 2)
+pet-spell 34 8317     # Fire Shield (Rank 3)
+pet-spell 44 11770    # Fire Shield (Rank 4)
+pet-spell 54 11771    # Fire Shield (Rank 5)
+pet-spell 12 4511     # Phase Shift

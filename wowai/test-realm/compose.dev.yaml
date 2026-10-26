@@ -1,0 +1,20 @@
+# The dev override of the test realm: mangosd and realmd run the binaries of
+# the dev install folder (`wowai/dev build`) instead of the image's, and
+# mangosd reads and writes the bot data files of the fork tree
+# (`bots/data`: gear templates, route files, ...) at its default
+# `Bots.DataDir`, so that the GM route recorder writes route files straight
+# into the fork.
+
+services:
+  realmd:
+    volumes:
+      - ${WOWAI_DEV_INSTALL:?}/bin:/opt/vmangos/bin:ro
+
+  mangosd:
+    volumes:
+      - ${WOWAI_DEV_INSTALL:?}/bin:/opt/vmangos/bin:ro
+      # The working folder of mangosd is /home/vmangos, so the default
+      # `Bots.DataDir = "bots"` is /home/vmangos/bots.
+      # An older .env has no WOWAI_BOTS_DATA until the next `realm up` or
+      # `realm build`; then the folder bots/ of the realm folder serves.
+      - ${WOWAI_BOTS_DATA:-./bots}:/home/vmangos/bots

@@ -1,0 +1,4 @@
+# Mage spells that no trainer teaches. Format: see src/bots/SpellFile.h.
+# The level is the minimum level of the class quest.
+quest-spell 60 10140  # Conjure Water (Rank 7)
+quest-spell 60 28272  # Polymorph: Pig

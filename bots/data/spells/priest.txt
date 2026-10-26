@@ -1,0 +1,12 @@
+# Priest spells that no trainer teaches. Format: see src/bots/SpellFile.h.
+# The level is the minimum level of the class quest. These are racial priest
+# spells: the level routine teaches only the spells of the bot's race.
+quest-spell 10 9035   # Hex of Weakness (Rank 1)
+quest-spell 10 2652   # Touch of Weakness (Rank 1)
+quest-spell 10 13908  # Desperate Prayer (Rank 1)
+quest-spell 10 10797  # Starshards (Rank 1)
+quest-spell 20 18137  # Shadowguard (Rank 1)
+quest-spell 20 2944   # Devouring Plague (Rank 1)
+quest-spell 20 6346   # Fear Ward
+quest-spell 20 2651   # Elune's Grace (Rank 1)
+quest-spell 20 13896  # Feedback (Rank 1)

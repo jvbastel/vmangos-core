@@ -1,0 +1,127 @@
+# The test realm. Use it through `wowai/dev realm ...`, which writes the
+# settings to the .env file of the realm folder (default ~/wowai/test-realm)
+# and always adds compose.dev.yaml, the dev override.
+#
+# It is its own Compose project, apart from the play realm in
+# vmangos-deploy: its own project name, database volume, and ports. The
+# database starts fresh from the database image. The play realm's
+# characters are not copied.
+
+name: ${WOWAI_REALM_PROJECT:?}
+
+services:
+  database:
+    image: ${WOWAI_DATABASE_IMAGE:?}
+    pull_policy: never
+    restart: unless-stopped
+    stop_grace_period: 2m
+    healthcheck:
+      test: ['CMD', 'vmangos-healthcheck']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 24h
+    volumes:
+      - database:/var/lib/mysql
+      # botchat.sql of the chat service: the botchat database and user. The
+      # play realm has the same file in storage/database/custom-sql/.
+      - ${WOWAI_BOTCHAT_SRC:?}/custom-sql:/sql/custom:ro
+    environment:
+      - VMANGOS_DEPLOY_VERSION=1
+      - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
+      - MARIADB_USER=mangos
+      - MARIADB_PASSWORD=${WOWAI_REALM_DB_PASSWORD:?}
+      - MARIADB_ROOT_PASSWORD=${WOWAI_REALM_DB_ROOT_PASSWORD:?}
+      - VMANGOS_REALMLIST_NAME=WOWAI Test
+      - VMANGOS_REALMLIST_ADDRESS=127.0.0.1
+      - VMANGOS_REALMLIST_PORT=${WOWAI_REALM_WORLD_PORT:?}
+      - VMANGOS_REALMLIST_ICON=0
+      - VMANGOS_REALMLIST_TIMEZONE=2
+      - VMANGOS_REALMLIST_ALLOWED_SECURITY_LEVEL=0
+      - VMANGOS_ENABLE_AUTOMATIC_WORLD_DB_CORRECTIONS=1
+      - VMANGOS_HALT_ON_MIGRATION_EDITS=1
+      - VMANGOS_PROCESS_CUSTOM_SQL=1
+      - BOTCHAT_DB_PASSWORD=${WOWAI_REALM_BOTCHAT_DB_PASSWORD:?}
+
+  realmd:
+    image: ${WOWAI_SERVER_IMAGE:?}
+    pull_policy: never
+    command: realmd
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - ${WOWAI_REALM_LOGIN_PORT:?}:3724
+    volumes:
+      - ${WOWAI_REALM_DIR:?}/config/realmd.conf:/opt/vmangos/config/realmd.conf:ro
+      - ${WOWAI_REALM_DIR:?}/storage/realmd/logs:/opt/vmangos/storage/logs
+    environment:
+      - VMANGOS_DEPLOY_VERSION=1
+      - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
+      - VMANGOS_UID=${WOWAI_REALM_UID:?}
+      - VMANGOS_GID=${WOWAI_REALM_GID:?}
+      - VMANGOS_DATABASE_USER=mangos
+      - VMANGOS_DATABASE_PASSWORD=${WOWAI_REALM_DB_PASSWORD:?}
+
+  mangosd:
+    image: ${WOWAI_SERVER_IMAGE:?}
+    pull_policy: never
+    command: mangosd
+    tty: true
+    stdin_open: true
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 2m
+    ports:
+      - ${WOWAI_REALM_WORLD_PORT:?}:8085
+      # SOAP on localhost only. The image pins SOAP.Port to 7878.
+      - 127.0.0.1:${WOWAI_REALM_SOAP_PORT:?}:7878
+    volumes:
+      - ${WOWAI_REALM_DIR:?}/config/mangosd.conf:/opt/vmangos/config/mangosd.conf:ro
+      - ${WOWAI_REALM_DATA:?}:/opt/vmangos/storage/data:ro
+      - ${WOWAI_REALM_DIR:?}/storage/mangosd/logs:/opt/vmangos/storage/logs
+      - ${WOWAI_REALM_DIR:?}/storage/mangosd/honor:/opt/vmangos/storage/honor
+    environment:
+      - VMANGOS_DEPLOY_VERSION=1
+      - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
+      - VMANGOS_UID=${WOWAI_REALM_UID:?}
+      - VMANGOS_GID=${WOWAI_REALM_GID:?}
+      - VMANGOS_DATABASE_USER=mangos
+      - VMANGOS_DATABASE_PASSWORD=${WOWAI_REALM_DB_PASSWORD:?}
+
+  # The chat service, with the fake LLM backend. It runs the source of the
+  # chat service repository (WOWAI_BOTCHAT_SRC) from a bind mount with
+  # `uvicorn --reload`, so a Python edit takes effect at once. The image holds
+  # only Python and the dependencies. The core reaches it at
+  # http://botchat:8000.
+  botchat:
+    image: wowai-botchat:dev
+    build: ${WOWAI_BOTCHAT_SRC:?}
+    pull_policy: build
+    command: >-
+      uvicorn --factory botchat.app:create_app --app-dir src
+      --host 0.0.0.0 --port 8000 --reload --reload-dir src
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=2)']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ${WOWAI_BOTCHAT_SRC:?}:/app:ro
+    environment:
+      - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
+      - BOTCHAT_LLM=fake
+      - BOTCHAT_DB_PASSWORD=${WOWAI_REALM_BOTCHAT_DB_PASSWORD:?}
+
+volumes:
+  database:

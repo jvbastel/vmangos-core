@@ -3241,6 +3241,101 @@ BattleBot.AutoEquip = 1
 BattleBot.AutoJoin = 0
 
 ###################################################################################################################
+# WOWAI BOTS
+#
+#    The own bot system of the WOWAI fork (src/game/Bots). It shares no setting with the PlayerBot, PartyBot, and
+#    BattleBot settings above. A GM makes each bot once with `.wowai bot create`.
+#
+#    Bots.Enable
+#        Enables the WOWAI bots.
+#        Default: 1 - on
+#                 0 - off
+#
+#    Bots.AccountPrefix
+#        Name prefix of the realmd accounts of the bots, for example BOT001. The bots make these accounts
+#        themselves, with random passwords and no GM rights.
+#        Default: "BOT"
+#
+#    Bots.ThinkMs.Combat
+#        Time in milliseconds between two decisions of a bot in combat.
+#        Default: 100
+#
+#    Bots.ThinkMs.NearPlayer
+#        Time in milliseconds between two decisions of a bot out of combat and near a player.
+#        Default: 500
+#
+#    Bots.ThinkMs.Far
+#        Time in milliseconds between two decisions of a bot far from any player.
+#        Default: 3000
+#
+#    Bots.StartDelayMs.Min
+#    Bots.StartDelayMs.Max
+#        Before a bot starts to move, it waits a random time from Min to Max milliseconds: at a `follow` or
+#        `come` command, when the player that it follows starts to move, and when it goes back to follow
+#        after a fight. Each bot draws a new time each time, so the bots of a group do not all start at
+#        the same moment. `stop` and `stay` act at once. A bot reads these settings when it logs in.
+#        Default: 300 (Min), 1500 (Max)
+#
+#    Bots.DataDir
+#        Folder of the bot data files: gear templates, talent builds, and spell files.
+#        Default: "bots"
+#
+#    Bots.Run.LostMobMs
+#        A scripted run (.wowai run) fails with a lost mob: an enemy hits a group member and no member or
+#        pet attacks it (its melee victim or selected target) for longer than this, in milliseconds. An enemy
+#        on the tank while the tank fights counts as held, not lost.
+#        Default: 10000
+#
+###################################################################################################################
+
+Bots.Enable = 1
+Bots.AccountPrefix = "BOT"
+Bots.ThinkMs.Combat = 100
+Bots.ThinkMs.NearPlayer = 500
+Bots.ThinkMs.Far = 3000
+Bots.StartDelayMs.Min = 300
+Bots.StartDelayMs.Max = 1500
+Bots.DataDir = "bots"
+Bots.Run.LostMobMs = 10000
+
+###################################################################################################################
+# WOWAI BOT CHAT
+#
+#    The chat client of the WOWAI bots. It sends bot chat events to the chat service (the botchat
+#    repository) and the bots say the lines that come back. If the service is slow or down, the bots
+#    say nothing and the core writes a log line. The realm works fully without the service.
+#    The core reads these settings at startup only.
+#
+#    BotChat.Enable
+#        Enables bot chat.
+#        Default: 1 - on
+#                 0 - off
+#
+#    BotChat.Url
+#        Base URL of the chat service. The core calls POST <url>/v1/events.
+#        Default: "http://botchat:8000" (the botchat service of the realm's Docker Compose stack)
+#
+#    BotChat.Workers
+#        Number of worker threads that call the chat service at the same time.
+#        Default: 4 (the 4 parallel slots of llama-server)
+#
+#    BotChat.QueueSize
+#        Number of events that wait for a worker. When the queue is full, the oldest event drops.
+#        Default: 64
+#
+#    BotChat.TimeoutMs
+#        Time in milliseconds after which one call to the chat service fails.
+#        Default: 5000
+#
+###################################################################################################################
+
+BotChat.Enable = 1
+BotChat.Url = "http://botchat:8000"
+BotChat.Workers = 4
+BotChat.QueueSize = 64
+BotChat.TimeoutMs = 5000
+
+###################################################################################################################
 # MAIL FLOODING MITIGATION
 #
 #    MailSpam.ExpireSecs

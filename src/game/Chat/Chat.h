@@ -298,6 +298,38 @@ class ChatHandler
         bool HandlePartyBotUnequipCommand(char * args);
         bool HandlePartyBotRemoveCommand(char * args);
         bool HandleBattleBotAddCommand(char* args, uint8 bg);
+        // WOWAI bots (src/game/Bots/BotCommands.cpp)
+        bool HandleWowaiBotCreateCommand(char* args);
+        bool HandleWowaiBotLoginCommand(char* args);
+        bool HandleWowaiBotLogoutCommand(char* args);
+        bool HandleWowaiGearEquipCommand(char* args);
+        bool HandleWowaiRunStartCommand(char* args);
+        bool HandleWowaiRunStatusCommand(char* args);
+        bool HandleWowaiRunStopCommand(char* args);
+        // WOWAI route recorder (src/game/Bots/RouteCommands.cpp)
+        bool HandleRouteStartCommand(char* args);
+        bool HandleRouteAddPointCommand(char* args);
+        bool HandleRouteAddAltCommand(char* args);
+        bool HandleRouteAddPackCommand(char* args);
+        bool HandleRouteAddMobCommand(char* args);
+        bool HandleRouteAddBossCommand(char* args);
+        bool HandleRouteUndoCommand(char* args);
+        bool HandleRouteShowCommand(char* args);
+        bool HandleRouteStopCommand(char* args);
+        bool HandleRouteRemoveMobCommand(char* args);
+        bool HandleRouteGenerateCommand(char* args);
+        bool HandleRouteWalkCommand(char* args);
+        bool HandleRouteNextCommand(char* args);
+        bool HandleRouteBackCommand(char* args);
+        bool HandleRouteGoCommand(char* args);
+        bool HandleRouteTraceStartCommand(char* args);
+        bool HandleRouteTraceStopCommand(char* args);
+        bool HandleRouteTraceUndoCommand(char* args);
+        bool HandleRouteTraceShowCommand(char* args);
+        bool HandleRouteTraceMarkCommand(char* args);
+        bool HandleRouteTracePauseCommand(char* args);
+        bool HandleRouteTraceResumeCommand(char* args);
+        bool HandleRouteBuildCommand(char* args);
         bool HandleBattleBotAddAlteracCommand(char* args);
         bool HandleBattleBotAddArathiCommand(char* args);
         bool HandleBattleBotAddWarsongCommand(char* args);

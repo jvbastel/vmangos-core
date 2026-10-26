@@ -1,0 +1,267 @@
+#!/usr/bin/env bash
+# The dev script of the fork. usage below holds the help (wowai/dev help).
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+src="$(cd "${WOWAI_SRC:-$(git -C "$script_dir" rev-parse --show-toplevel)}" && pwd)"
+deploy_dir="${WOWAI_DEPLOY_DIR:-/mnt/c/Games/vmangos-deploy}"
+# shellcheck source=test-realm/defaults.sh
+. "$script_dir/test-realm/defaults.sh"
+shared_install_dir="${realm_defaults[WOWAI_DEV_INSTALL]}"
+install_dir="${WOWAI_DEV_INSTALL:-$shared_install_dir}"
+
+tree_id="$(basename "$src" | tr -c 'a-zA-Z0-9_.\n-' '-')-$(printf '%s' "$src" | sha1sum | cut -c1-8)"
+container="wowai-dev-$tree_id"
+volume="wowai-dev-build-$tree_id"
+image="wowai/dev-build:latest"
+
+# Dev build options. The release build keeps the vmangos-deploy options.
+# DEBUG_SYMBOLS does not add -g on Linux in upstream CMake, so the build type
+# RelWithDebInfo gives the debug symbols.
+cmake_options=(
+  -DCMAKE_INSTALL_PREFIX=/opt/vmangos
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo
+  -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
+  -DDEBUG_SYMBOLS=1
+  -DBUILD_EXTRACTORS=0
+  -DBUILD_BOT_TESTS=1
+  -DBUILD_FOR_HOST_CPU=0
+  -DENABLE_MAILSENDER=1
+  -DENABLE_CPPTRACE=0
+  -DSUPPORTED_CLIENT_BUILD=5875
+)
+
+die() { echo "wowai/dev: $*" >&2; exit 1; }
+
+# The base image of the vmangos-deploy build stage, for example ubuntu:26.04.
+build_base() {
+  local dockerfile="$deploy_dir/docker/server/Dockerfile" base
+  [ -f "$dockerfile" ] || die "no vmangos-deploy Dockerfile at $dockerfile (set WOWAI_DEPLOY_DIR)"
+  base="$(tr -d '\r' < "$dockerfile" | sed -n 's/^FROM \([^ ]*\) AS build$/\1/p')"
+  [ -n "$base" ] || die "found no 'FROM <image> AS build' line in $dockerfile"
+  echo "$base"
+}
+
+ensure_image() {
+  docker build --quiet --tag "$image" \
+    --build-arg BUILD_BASE="$(build_base)" \
+    "$script_dir/dev-container" >/dev/null
+}
+
+# Hold the lock of the dev container until the command ends, so that a second
+# call never removes the container while a build runs in it. The second call
+# waits. A wowai/dev call that a command of the first call runs (on the host)
+# has the lock already.
+lock_container() {
+  [ "${WOWAI_DEV_LOCKED:-}" != "$container" ] || return 0
+  local dir="$HOME/.cache/wowai-dev"
+  mkdir -p "$dir"
+  exec 9>"$dir/$container.lock"
+  if ! flock --nonblock 9; then
+    echo "wowai/dev: Waiting for the other wowai/dev command on the dev container $container to end..." >&2
+    flock 9
+  fi
+  export WOWAI_DEV_LOCKED="$container"
+}
+
+# True when a process other than the main one runs in the dev container.
+# `docker top` prints a header and then the main process (sleep infinity).
+container_busy() {
+  [ "$(docker container inspect --format '{{.State.Running}}' "$container")" = "true" ] || return 1
+  [ -n "$(docker top "$container" | tail -n +3)" ]
+}
+
+# Start the dev container. Make it again if its image or mounts changed.
+ensure_container() {
+  [ -d "$deploy_dir/docker/patches" ] || die "no patch folder at $deploy_dir/docker/patches (set WOWAI_DEPLOY_DIR)"
+  ensure_image
+  mkdir -p "$install_dir"
+  install_dir="$(cd "$install_dir" && pwd)"
+
+  local config current
+  config="$(printf '%s\n' "$(docker image inspect --format '{{.Id}}' "$image")" \
+    "$src" "$deploy_dir" "$install_dir" | sha1sum | cut -c1-16)"
+  current="$(docker container inspect --format '{{index .Config.Labels "wowai.dev.config"}}' "$container" 2>/dev/null || true)"
+
+  if [ "$current" != "$config" ]; then
+    if [ -n "$current" ]; then
+      ! container_busy || die "a command that does not hold the lock of wowai/dev runs in the dev container $container (see \`docker top $container\`). Wait for it to end, or stop it with \`wowai/dev stop\`."
+      docker rm --force "$container" >/dev/null
+    fi
+    docker run --detach --name "$container" \
+      --label "wowai.dev.config=$config" \
+      --label "wowai.dev.src=$src" \
+      --mount "type=bind,source=$src,target=/src,readonly" \
+      --mount "type=bind,source=$deploy_dir/docker/patches,target=/patches,readonly" \
+      --mount "type=volume,source=$volume,target=/build" \
+      --mount "type=bind,source=$install_dir,target=/opt/vmangos" \
+      "$image" >/dev/null
+  elif [ "$(docker container inspect --format '{{.State.Running}}' "$container")" != "true" ]; then
+    docker start "$container" >/dev/null
+  fi
+
+  # The build runs as the calling user, so that the install folder is theirs.
+  docker exec --user 0 "$container" chown "$(id -u):$(id -g)" /build
+}
+
+in_container() {
+  local tty=()
+  [ -t 0 ] && [ -t 1 ] && tty=(--interactive --tty)
+  docker exec "${tty[@]}" --user "$(id -u):$(id -g)" --env HOME=/tmp \
+    --workdir /build "$container" "$@"
+}
+
+# Runs in the dev container. Arguments: the CMake options.
+# /src is the source tree (read-only), /patches the vmangos-deploy patches,
+# /build the build volume, and /opt/vmangos the dev install folder.
+read -r -d '' build_in_container <<'SCRIPT' || true
+set -euo pipefail
+core=/build/core
+work=/build/patch-work
+mkdir -p "$core" /build/out
+
+# The files that the patches change. The patch files can have CRLF endings.
+patches=(/patches/*.patch)
+[ -e "${patches[0]}" ] || { echo "No patches in /patches." >&2; exit 1; }
+mapfile -t patched < <(cat "${patches[@]}" | tr -d '\r' | sed -n 's|^diff --git a/\([^ ]*\) b/.*|\1|p' | sort -u)
+
+# Copy the tree without .git and keep the file times. The patched files are
+# handled below. Files that Git ignores are not copied and not deleted: CMake
+# writes some of them into the copy, for example revision.h, Progression.h,
+# and migrations_list.h.
+excludes=(--exclude=/.git --filter=':- .gitignore')
+for f in "${patched[@]}"; do excludes+=("--exclude=/$f"); done
+rsync -a --delete "${excludes[@]}" /src/ "$core/"
+
+# Apply the patches to fresh copies of the patched files. Replace a file in
+# the build copy only when its content changed, so that it does not build again.
+rm -rf "$work"
+for f in "${patched[@]}"; do
+  [ -f "/src/$f" ] || { echo "Patched file $f is not in the source tree." >&2; exit 1; }
+  mkdir -p "$work/$(dirname "$f")"
+  cp -p "/src/$f" "$work/$f"
+done
+for p in "${patches[@]}"; do
+  echo "Applying the patch $(basename "$p")..."
+  tr -d '\r' < "$p" | (cd "$work" && git apply -) || { echo "Failed to apply the patch $p." >&2; exit 1; }
+done
+for f in "${patched[@]}"; do
+  if ! cmp -s "$work/$f" "$core/$f"; then
+    cp "$work/$f" "$core/$f"
+  fi
+done
+
+# A file that a patch no longer changes gets the source version back.
+if [ -f /build/patched-files ]; then
+  while read -r f; do
+    if [[ " ${patched[*]} " != *" $f "* ]] && [ -f "/src/$f" ]; then
+      cp -p "/src/$f" "$core/$f"
+    fi
+  done < /build/patched-files
+fi
+printf '%s\n' "${patched[@]}" > /build/patched-files
+
+# Configure once, and again when the options change. CMake runs itself again
+# when a CMakeLists.txt changes.
+cd /build/out
+options="$*"
+if [ ! -f CMakeCache.txt ] || [ "$(cat .wowai-cmake-options 2>/dev/null)" != "$options" ]; then
+  cmake "$@" "$core"
+  echo "$options" > .wowai-cmake-options
+fi
+# A killed build leaves empty object files, which make takes as up to date.
+find /build/out -name '*.o' -size 0 -print -delete | sed 's/^/Deleted the empty object file /'
+make -j"$(nproc)" install
+SCRIPT
+
+# A build into the shared install folder replaces the build that the shared
+# test realm runs, so it must be on purpose.
+guard_shared_install() {
+  [ "$(realpath -m "$install_dir")" = "$(realpath -m "$shared_install_dir")" ] || return 0
+  [ "${WOWAI_DEV_SHARED_INSTALL:-}" = 1 ] && return 0
+  die "the build would install into $shared_install_dir, the shared install folder of the shared test realm. Set WOWAI_DEV_INSTALL to a folder of your own, or set WOWAI_DEV_SHARED_INSTALL=1 to build into the shared folder on purpose."
+}
+
+cmd_build() {
+  guard_shared_install
+  lock_container
+  ensure_container
+  local start=$SECONDS
+  in_container bash -c "$build_in_container" build "${cmake_options[@]}"
+  echo "Dev build of $src installed in $install_dir in $((SECONDS - start)) seconds."
+}
+
+cmd_shell() {
+  lock_container
+  ensure_container
+  if [ "$#" -eq 0 ]; then set -- bash; fi
+  in_container "$@"
+}
+
+cmd_stop() {
+  lock_container
+  docker stop "$container" >/dev/null 2>&1 || true
+}
+
+cmd_clean() {
+  lock_container
+  docker rm --force "$container" >/dev/null 2>&1 || true
+  docker volume rm "$volume" >/dev/null 2>&1 || true
+}
+
+# Code tests. The copy of src/bots and its build stay in /build/bots.
+cmd_test() {
+  lock_container
+  ensure_container
+  in_container bash /src/wowai/bots-test.sh /src/src/bots /build/bots
+}
+
+usage() {
+  cat <<'EOF'
+The dev script of the fork.
+
+  wowai/dev build          Copy the source tree into the build volume, apply
+                           the vmangos-deploy patches to the copy, and run
+                           `make install` into the dev install folder.
+  wowai/dev shell [cmd]    Run a command (default: bash) in the dev container.
+  wowai/dev stop           Stop the dev container. The build volume stays.
+  wowai/dev clean          Remove the dev container and its build volume.
+  wowai/dev test           Build only the bot decision library (src/bots) and
+                           its GoogleTest tests, and run ctest. No realm.
+  wowai/dev realm <cmd>    The test realm: up, setup, build, migrate, sql,
+                           down, compose. See `wowai/dev realm help`.
+
+The dev container is long-lived. It uses the same base image as the build
+stage of vmangos-deploy, bind-mounts the source tree read-only, and keeps
+the build folder in a named Docker volume, so that a one-file change builds
+in seconds. Each source tree gets its own container and volume.
+
+Settings (environment variables):
+  WOWAI_SRC          Source tree to build. Default: the tree of this script.
+  WOWAI_DEPLOY_DIR   vmangos-deploy folder with docker/patches/ and
+                     docker/server/Dockerfile. Default: /mnt/c/Games/vmangos-deploy
+  WOWAI_DEV_INSTALL  Dev install folder (the CMake install prefix, mounted at
+                     /opt/vmangos). Default: ~/wowai/dev-install, the shared
+                     install folder of the shared test realm. `build` refuses
+                     the shared folder unless WOWAI_DEV_SHARED_INSTALL=1.
+  WOWAI_DEV_SHARED_INSTALL
+                     Set it to 1 to build into the shared install folder on
+                     purpose.
+
+A command waits while another command uses the same dev container.
+EOF
+}
+
+# Later commands (the code tests and the test realm) go in this table.
+case "${1:-help}" in
+  build) shift; cmd_build "$@" ;;
+  shell) shift; cmd_shell "$@" ;;
+  stop) shift; cmd_stop "$@" ;;
+  clean) shift; cmd_clean "$@" ;;
+  test) shift; cmd_test "$@" ;;
+  # The test realm (wowai/test-realm/realm.sh).
+  realm) shift; source "$script_dir/test-realm/realm.sh"; cmd_realm "$@" ;;
+  help|-h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

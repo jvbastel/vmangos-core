@@ -1,0 +1,346 @@
+#include "ChatClient.h"
+
+#include <gtest/gtest.h>
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
+using namespace Bots;
+
+namespace
+{
+    // A chat service in memory. Each test sets the answer. With `hold`, a
+    // request waits until the test calls Release().
+    struct FakeService
+    {
+        std::mutex mutex;
+        std::condition_variable changed;
+        std::vector<std::string> bodies;
+        ChatPostResult answer;
+        bool hold = false;
+        int inFlight = 0;
+        int connections = 0;
+        // The clock jumps to this time when a request ends (a slow service).
+        std::int64_t answerAt = -1;
+        std::atomic<std::int64_t>* clock = nullptr;
+
+        ChatPostResult Post(std::string const& body)
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            bodies.push_back(body);
+            ++inFlight;
+            changed.notify_all();
+            changed.wait(lock, [this]() { return !hold; });
+            --inFlight;
+            if (answerAt >= 0)
+                *clock = answerAt;
+            return answer;
+        }
+
+        void Release()
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            hold = false;
+            changed.notify_all();
+        }
+
+        // Waits (at most 5 s) until the service got `count` requests.
+        bool WaitForRequests(std::size_t count)
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            return changed.wait_for(lock, std::chrono::seconds(5), [&]() { return bodies.size() >= count; });
+        }
+
+        bool WaitInFlight(int count)
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            return changed.wait_for(lock, std::chrono::seconds(5), [&]() { return inFlight >= count; });
+        }
+    };
+
+    class FakeConnection : public ChatConnection
+    {
+    public:
+        explicit FakeConnection(FakeService& service) : m_service(service) {}
+        ChatPostResult Post(std::string const& body) override { return m_service.Post(body); }
+
+    private:
+        FakeService& m_service;
+    };
+
+    ChatPostResult Answer(std::string const& body, int status = 200)
+    {
+        ChatPostResult result;
+        result.answered = true;
+        result.status = status;
+        result.body = body;
+        return result;
+    }
+
+    std::string const TwoLines =
+        R"({"contract_version":1,"lines":[)"
+        R"({"bot_guid":101,"channel":"party","text":"hi","delay_ms":1000},)"
+        R"({"bot_guid":102,"channel":"party","text":"yo","delay_ms":2500}]})";
+
+    ChatEvent PartyMessage(std::string const& text = "hello")
+    {
+        ChatEvent event;
+        event.kind = ChatEventKind::PlayerMessage;
+        event.groupId = 42;
+        event.player = {7, "Jvb"};
+        event.bots = {{101, "Grumbar", "orc", "warrior", "tank"}, {102, "Lirael", "troll", "priest", "healer"}};
+        event.zone = "Durotar";
+        event.message = {ChatChannel::Party, text, 0};
+        return event;
+    }
+
+    struct ClientTest : ::testing::Test
+    {
+        FakeService service;
+        std::atomic<std::int64_t> now{0};
+        std::mutex logMutex;
+        std::vector<std::string> log;
+        std::unique_ptr<ChatClient> client;
+
+        void Start(unsigned workers = 1, std::size_t queueSize = 8)
+        {
+            service.clock = &now;
+            ChatClientSettings settings;
+            settings.workers = workers;
+            settings.queueSize = queueSize;
+            client.reset(new ChatClient(settings,
+                [this]() { return now.load(); },
+                [this](std::string const& line) {
+                    std::lock_guard<std::mutex> lock(logMutex);
+                    log.push_back(line);
+                },
+                [this]() {
+                    std::lock_guard<std::mutex> lock(service.mutex);
+                    ++service.connections;
+                    return std::unique_ptr<ChatConnection>(new FakeConnection(service));
+                }));
+        }
+
+        // Waits until the client has no request left.
+        void WaitIdle()
+        {
+            for (int i = 0; i < 500 && client->Pending() > 0; ++i)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            ASSERT_EQ(client->Pending(), 0u);
+        }
+
+        std::vector<std::string> Log()
+        {
+            std::lock_guard<std::mutex> lock(logMutex);
+            return log;
+        }
+    };
+}
+
+TEST_F(ClientTest, PostSendsTheEventAsJson)
+{
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    Start();
+
+    client->Post(PartyMessage("hello there"));
+
+    ASSERT_TRUE(service.WaitForRequests(1));
+    EXPECT_EQ(service.bodies[0], EncodeChatEvent(PartyMessage("hello there")));
+}
+
+TEST_F(ClientTest, ALineIsDueAfterItsDelayFromTheAnswer)
+{
+    service.answer = Answer(TwoLines);
+    service.answerAt = 5000;
+    Start();
+
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    EXPECT_TRUE(client->TakeDue(5999).empty());
+    std::vector<DueChatLine> due = client->TakeDue(6000);
+    ASSERT_EQ(due.size(), 1u);
+    EXPECT_EQ(due[0].line.botGuid, 101u);
+    EXPECT_EQ(due[0].line.text, "hi");
+    EXPECT_EQ(due[0].line.channel, ChatChannel::Party);
+    EXPECT_EQ(due[0].groupId, 42u);
+    EXPECT_EQ(due[0].playerGuid, 7u);
+    EXPECT_TRUE(client->TakeDue(6000).empty());
+
+    due = client->TakeDue(7500);
+    ASSERT_EQ(due.size(), 1u);
+    EXPECT_EQ(due[0].line.botGuid, 102u);
+}
+
+TEST_F(ClientTest, LinesThatAreDueTogetherComeInSpeakingOrder)
+{
+    service.answer = Answer(TwoLines);
+    Start();
+
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    std::vector<DueChatLine> due = client->TakeDue(3000);
+    ASSERT_EQ(due.size(), 2u);
+    EXPECT_EQ(due[0].line.text, "hi");
+    EXPECT_EQ(due[1].line.text, "yo");
+}
+
+TEST_F(ClientTest, ALineMoreThanTenSecondsLateDrops)
+{
+    // The player spoke at 0 and the service answered at 9500: the first line
+    // could have come at 1000 and is 9.5 s late at 10500.
+    service.answer = Answer(TwoLines);
+    service.answerAt = 9500;
+    Start();
+
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    std::vector<DueChatLine> due = client->TakeDue(10500);
+    ASSERT_EQ(due.size(), 1u);
+    EXPECT_EQ(due[0].line.text, "hi");
+    // The second line could have come at 2500: at 12501 it is 10.001 s late.
+    EXPECT_TRUE(client->TakeDue(12501).empty());
+    EXPECT_TRUE(client->TakeDue(100000).empty());
+}
+
+TEST_F(ClientTest, AFullQueueDropsTheOldestRequest)
+{
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    service.hold = true;
+    Start(1, 2);
+
+    client->Post(PartyMessage("first"));
+    ASSERT_TRUE(service.WaitForRequests(1));
+    client->Post(PartyMessage("second"));
+    client->Post(PartyMessage("third"));
+    client->Post(PartyMessage("fourth"));
+    service.Release();
+    WaitIdle();
+
+    ASSERT_EQ(service.bodies.size(), 3u);
+    EXPECT_EQ(service.bodies[1], EncodeChatEvent(PartyMessage("third")));
+    EXPECT_EQ(service.bodies[2], EncodeChatEvent(PartyMessage("fourth")));
+    std::vector<std::string> const lines = Log();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_NE(lines[0].find("queue is full"), std::string::npos) << lines[0];
+}
+
+TEST_F(ClientTest, AFixedPoolOfWorkersSendsAtTheSameTime)
+{
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    service.hold = true;
+    Start(3, 8);
+
+    for (int i = 0; i < 5; ++i)
+        client->Post(PartyMessage());
+
+    ASSERT_TRUE(service.WaitInFlight(3));
+    EXPECT_EQ(client->Pending(), 5u);
+    service.Release();
+    WaitIdle();
+    EXPECT_EQ(service.bodies.size(), 5u);
+    // One kept connection for each worker.
+    EXPECT_EQ(service.connections, 3);
+}
+
+TEST_F(ClientTest, AServiceThatIsDownGivesOneLogLineAndNoLine)
+{
+    service.answer.answered = false;
+    service.answer.error = "Could not establish connection";
+    Start();
+
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    EXPECT_TRUE(client->TakeDue(100000).empty());
+    std::vector<std::string> const lines = Log();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_NE(lines[0].find("player_message"), std::string::npos) << lines[0];
+    EXPECT_NE(lines[0].find("Could not establish connection"), std::string::npos) << lines[0];
+}
+
+TEST_F(ClientTest, ARejectedContractVersionGivesOneLogLineAndNoLine)
+{
+    service.answer = Answer(R"({"error":"unsupported_contract_version","accepted":[2,3]})", 400);
+    Start();
+
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    EXPECT_TRUE(client->TakeDue(100000).empty());
+    std::vector<std::string> const lines = Log();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_NE(lines[0].find("rejects contract version 1 (it accepts 2, 3)"), std::string::npos) << lines[0];
+}
+
+TEST_F(ClientTest, ABrokenAnswerGivesOneLogLineAndNoLine)
+{
+    service.answer = Answer("<html>bad gateway</html>");
+    Start();
+
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    EXPECT_TRUE(client->TakeDue(100000).empty());
+    EXPECT_EQ(Log().size(), 1u);
+}
+
+TEST_F(ClientTest, AGroupHasChatPendingUntilItsLastLineIsTaken)
+{
+    // The end of a scripted run waits for this (jvbastel/WOWAI#82, spec
+    // section 10): the line of the last boss_kill must still find the bots
+    // in the group.
+    service.answer = Answer(TwoLines);
+    service.hold = true;
+    Start();
+    ChatEvent other = PartyMessage("other group");
+    other.groupId = 43;
+
+    EXPECT_FALSE(client->HasPendingChat(42));
+    client->Post(PartyMessage());
+    EXPECT_TRUE(client->HasPendingChat(42)); // The request waits or is sent.
+    ASSERT_TRUE(service.WaitInFlight(1));
+    EXPECT_TRUE(client->HasPendingChat(42));
+    EXPECT_FALSE(client->HasPendingChat(43));
+    service.Release();
+    WaitIdle();
+
+    EXPECT_TRUE(client->HasPendingChat(42)); // Two lines are held.
+    EXPECT_EQ(client->TakeDue(1000).size(), 1u);
+    EXPECT_TRUE(client->HasPendingChat(42)); // One line is held.
+    EXPECT_EQ(client->TakeDue(2500).size(), 1u);
+    EXPECT_FALSE(client->HasPendingChat(42));
+
+    client->Post(other);
+    WaitIdle();
+    EXPECT_FALSE(client->HasPendingChat(42));
+    EXPECT_TRUE(client->HasPendingChat(43));
+    // A line that drops (too late) ends the wait too.
+    EXPECT_TRUE(client->TakeDue(100000).empty());
+    EXPECT_FALSE(client->HasPendingChat(43));
+}
+
+TEST_F(ClientTest, TheClientStopsWhileARequestWaits)
+{
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    service.hold = true;
+    Start();
+    client->Post(PartyMessage());
+    client->Post(PartyMessage());
+    ASSERT_TRUE(service.WaitForRequests(1));
+
+    std::thread release([this]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        service.Release();
+    });
+    client.reset();
+    release.join();
+
+    // The queued request is not sent after the stop.
+    EXPECT_EQ(service.bodies.size(), 1u);
+}

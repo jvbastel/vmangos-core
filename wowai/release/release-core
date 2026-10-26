@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+# The release script of the core.
+#
+#   release-core build [--migration-edits <value>] <commit>
+#       Build the server image and the database image of a pushed full commit
+#       of the fork, with the stock vmangos-deploy Dockerfiles of a separate
+#       clone pinned to a known commit. The tags are
+#       wowai/vmangos-server:5875-<commit> and wowai/vmangos-database:<commit>.
+#       The server image is the stock one (tag
+#       wowai/vmangos-server-stock:5875-<commit>) plus bots/data of the
+#       commit in /home/vmangos/bots (bots-data.Dockerfile).
+#       --migration-edits passes the VMANGOS_MIGRATION_EDITS value that
+#       `merge-upstream` printed to the database build.
+#
+#   release-core up <commit>
+#       Release the images of <commit> to the play realm. It makes a backup
+#       with the backup-now command, sets the images of `database`, `realmd`,
+#       and `mangosd` in the play realm's compose.yaml with
+#       `pull_policy: never`, and runs `docker compose up -d`. It writes a
+#       release record for `rollback`. The configuration, the storage, the
+#       database volume, and the previous images stay.
+#
+#   release-core rollback
+#       Undo the newest release that was not rolled back: set the previous
+#       images back and run `docker compose up -d`. If that release ran a
+#       migration of our own, it first stops the servers and restores the
+#       backup made before the release.
+#
+# Settings (environment variables):
+#   WOWAI_SRC               The fork tree. It checks that the commit is on
+#                           origin. Default: the tree of this script.
+#   WOWAI_FORK_URL          The URL the Dockerfiles clone the core from.
+#                           Default: https://github.com/jvbastel/vmangos-core.git
+#   WOWAI_DEPLOY_URL        Default: https://github.com/mserajnik/vmangos-deploy.git
+#   WOWAI_DEPLOY_PIN        The vmangos-deploy commit to build with.
+#   WOWAI_DEPLOY_BUILD_DIR  The separate vmangos-deploy clone for builds, with
+#                           core.autocrlf=false. Default: ~/wowai/vmangos-deploy-build
+#   WOWAI_PLAY_REALM        The play realm folder. Default: /mnt/c/Games/vmangos-deploy
+#   WOWAI_PLAY_DOCKER       The docker command for the play realm's Compose
+#                           project. Default: docker.exe for a folder on a
+#                           Windows drive (the user runs that project from
+#                           Windows, so its paths stay the same), else docker.
+#   WOWAI_RELEASE_RECORDS   Default: <play realm>/storage/wowai-releases
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+src="$(cd "${WOWAI_SRC:-$(git -C "$script_dir" rev-parse --show-toplevel)}" && pwd)"
+fork_url="${WOWAI_FORK_URL:-https://github.com/jvbastel/vmangos-core.git}"
+deploy_url="${WOWAI_DEPLOY_URL:-https://github.com/mserajnik/vmangos-deploy.git}"
+# The vmangos-deploy commit of the play realm's images on 2026-10-24. Bump it
+# by hand after reading the vmangos-deploy changes.
+deploy_pin="${WOWAI_DEPLOY_PIN:-dab80cea5d0b7c161d5846715c265a4c4a1a9a5c}"
+deploy_build_dir="${WOWAI_DEPLOY_BUILD_DIR:-$HOME/wowai/vmangos-deploy-build}"
+play_realm="${WOWAI_PLAY_REALM:-/mnt/c/Games/vmangos-deploy}"
+records="${WOWAI_RELEASE_RECORDS:-$play_realm/storage/wowai-releases}"
+
+client_version=5875
+server_repository=wowai/vmangos-server
+database_repository=wowai/vmangos-database
+
+die() { echo "release-core: $*" >&2; exit 1; }
+
+services=(database realmd mangosd)
+# shellcheck source=play-realm.sh
+. "$script_dir/play-realm.sh"
+
+server_image() { echo "$server_repository:$client_version-$1"; }
+stock_server_image() { echo "$server_repository-stock:$client_version-$1"; }
+database_image() { echo "$database_repository:$1"; }
+
+# Checks that $1 is a full commit of the fork that origin has.
+check_pushed_commit() {
+  local commit="$1"
+  [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "'$commit' is not a full commit (40 hex digits). A branch name or a short commit can give a stale build."
+  git -C "$src" fetch --quiet origin || die "cannot fetch origin in $src"
+  git -C "$src" cat-file -e "$commit^{commit}" 2>/dev/null || die "commit $commit is not in $src"
+  [ -n "$(git -C "$src" for-each-ref --contains "$commit" refs/remotes/origin)" ] ||
+    die "commit $commit is not on any branch of origin. Push it first: the Dockerfiles clone it from $fork_url."
+}
+
+# Makes the separate vmangos-deploy clone and puts it at the pinned commit.
+ensure_deploy_clone() {
+  if [ ! -d "$deploy_build_dir/.git" ]; then
+    git -c core.autocrlf=false clone --quiet "$deploy_url" "$deploy_build_dir"
+  fi
+  git -C "$deploy_build_dir" config core.autocrlf false
+  [ -z "$(git -C "$deploy_build_dir" status --porcelain)" ] ||
+    die "the vmangos-deploy clone $deploy_build_dir has local changes"
+  if [ "$(git -C "$deploy_build_dir" rev-parse HEAD)" != "$deploy_pin" ]; then
+    git -C "$deploy_build_dir" cat-file -e "$deploy_pin^{commit}" 2>/dev/null ||
+      git -C "$deploy_build_dir" fetch --quiet origin
+    git -C "$deploy_build_dir" checkout --quiet --detach "$deploy_pin"
+  fi
+  if grep -rlq $'\r' "$deploy_build_dir/docker"; then
+    die "files under $deploy_build_dir/docker have CRLF line endings. Clone it again with core.autocrlf=false."
+  fi
+}
+
+# Builds the server image: the stock server image plus bots/data of the
+# commit. The context holds only bots/data, read from Git, not the work tree.
+build_bots_data() {
+  local commit="$1" context
+  git -C "$src" cat-file -e "$commit:bots/data" 2>/dev/null || die "commit $commit has no bots/data folder"
+  context="$(mktemp -d)"
+  git -C "$src" archive "$commit" bots/data | tar -x -C "$context"
+  cp "$script_dir/bots-data.Dockerfile" "$context/Dockerfile"
+  echo "Building $(server_image "$commit") with bots/data..."
+  local status=0
+  docker build --file "$context/Dockerfile" \
+    --build-arg "BASE_IMAGE=$(stock_server_image "$commit")" \
+    --label "$revision_label=$commit" --label "org.opencontainers.image.source=$fork_url" \
+    --tag "$(server_image "$commit")" "$context" || status=$?
+  rm -rf "$context"
+  [ "$status" -eq 0 ] || die "the build of $(server_image "$commit") failed"
+}
+
+cmd_build() {
+  local migration_edits=""
+  while [ $# -gt 1 ]; do
+    case "$1" in
+      --migration-edits) migration_edits="$2"; shift 2 ;;
+      *) die "unknown option $1" ;;
+    esac
+  done
+  [ $# -eq 1 ] || die "usage: release-core build [--migration-edits <value>] <commit>"
+  local commit="$1"
+  check_pushed_commit "$commit"
+  ensure_deploy_clone
+
+  local common=(
+    --build-arg "VMANGOS_REPOSITORY_URL=$fork_url"
+    --build-arg "VMANGOS_REVISION=$commit"
+    --build-arg "VMANGOS_FAIL_ON_PATCH_ERROR=1"
+    --label "$revision_label=$commit"
+    --label "org.opencontainers.image.source=$fork_url"
+  )
+  cd "$deploy_build_dir"
+  echo "Building $(stock_server_image "$commit")..."
+  docker build --file docker/server/Dockerfile \
+    --build-arg "VMANGOS_CLIENT_VERSION=$client_version" "${common[@]}" \
+    --tag "$(stock_server_image "$commit")" .
+  build_bots_data "$commit"
+  cd "$deploy_build_dir"
+  echo "Building $(database_image "$commit")..."
+  docker build --file docker/database/Dockerfile \
+    --build-arg "VMANGOS_MIGRATION_EDITS=$migration_edits" "${common[@]}" \
+    --tag "$(database_image "$commit")" .
+  echo "Built $(server_image "$commit") and $(database_image "$commit")."
+}
+
+# The migration files of our own that <new> has and <previous> has not: not
+# on upstream/development. "unknown" if <previous> is not known.
+own_new_migrations() {
+  local previous="$1" new="$2" file
+  if [ -z "$previous" ] || ! git -C "$src" cat-file -e "$previous^{commit}" 2>/dev/null; then
+    echo unknown
+    return
+  fi
+  git -C "$src" fetch --quiet upstream 2>/dev/null || true
+  git -C "$src" diff --name-only --diff-filter=A "$previous" "$new" -- sql/migrations/ |
+    while read -r file; do
+      git -C "$src" cat-file -e "upstream/development:$file" 2>/dev/null || echo "$file"
+    done
+}
+
+cmd_up() {
+  [ $# -eq 1 ] || die "usage: release-core up <commit>"
+  local commit="$1" service
+  [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || die "'$commit' is not a full commit"
+  declare -A new=([database]="$(database_image "$commit")" [realmd]="$(server_image "$commit")" [mangosd]="$(server_image "$commit")")
+  for service in "${services[@]}"; do
+    docker image inspect --format '{{.Id}}' "${new[$service]}" >/dev/null 2>&1 ||
+      die "there is no image ${new[$service]}. Run 'release-core build $commit' first."
+  done
+
+  local previous_commit
+  previous_commit="$(image_revision "$(compose_image database)")"
+  local migrations
+  migrations="$(own_new_migrations "$previous_commit" "$commit" | tr '\n' ' ')"
+
+  local backup
+  backup="$(backup_now)"
+  echo "Backup: $backup"
+
+  write_record core "$commit" "$previous_commit" "$backup" "$migrations" new
+  for service in "${services[@]}"; do
+    set_compose_image "$service" "${new[$service]}" never
+  done
+  play_compose up -d
+  echo "Released $commit to $play_realm."
+}
+
+cmd_rollback() {
+  [ $# -eq 0 ] || die "usage: release-core rollback"
+  local record
+  record="$(latest_record core)"
+  [ -n "$record" ] || die "there is no core release to roll back in $records"
+  RESTORE_STOP=(realmd mangosd)
+  rollback_record "$record" >/dev/null
+  # A new database image restarts the database service, which applies the
+  # migrations that the backup lacks.
+  play_compose up -d
+  echo "Rolled back. The play realm runs $(compose_image mangosd)."
+}
+
+usage() { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; }
+
+case "${1:-help}" in
+  build) shift; cmd_build "$@" ;;
+  up) shift; cmd_up "$@" ;;
+  rollback) shift; cmd_rollback "$@" ;;
+  help | -h | --help) usage ;;
+  *) usage >&2; exit 1 ;;
+esac

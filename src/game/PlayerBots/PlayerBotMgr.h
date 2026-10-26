@@ -39,11 +39,12 @@ struct PlayerBotEntry
     bool isChatBot; // bot des joueurs en discussion via le site.
     bool customBot; // Enabled even if PlayerBot system disabled (AutoTesting system for example)
     bool requestRemoval;
+    bool allowSaving; // WOWAI: the core saves the character even when PlayerBot.AllowSaving is 0.
     std::unique_ptr<PlayerBotAI> ai;
 
-    PlayerBotEntry(uint64 guid, uint32 account, uint32 chance_): playerGUID(guid), accountId(account), chance(chance_), state(PB_STATE_OFFLINE), isChatBot(false), customBot(false), requestRemoval(false), ai(nullptr)
+    PlayerBotEntry(uint64 guid, uint32 account, uint32 chance_): playerGUID(guid), accountId(account), chance(chance_), state(PB_STATE_OFFLINE), isChatBot(false), customBot(false), requestRemoval(false), allowSaving(false), ai(nullptr)
     {}
-    PlayerBotEntry(): playerGUID(0), accountId(0), chance(100.0f), state(PB_STATE_OFFLINE), isChatBot(false), customBot(false), requestRemoval(false), ai(nullptr)
+    PlayerBotEntry(): playerGUID(0), accountId(0), chance(100.0f), state(PB_STATE_OFFLINE), isChatBot(false), customBot(false), requestRemoval(false), allowSaving(false), ai(nullptr)
     {}
 };
 

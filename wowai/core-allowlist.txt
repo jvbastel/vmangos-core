@@ -1,0 +1,43 @@
+# The files that the WOWAI fork may change, compared with upstream vmangos.
+# `wowai/fork-check.sh` fails CI on a changed file that matches no line here.
+# One shell pattern per line; `**` matches a whole folder. Keep the core hooks
+# short (WOWAI spec "Hooks in core files"). A new hook is one line, with its
+# reason.
+
+# The fork's own code, data, and tools: folders that upstream does not have.
+src/bots/**
+src/game/Bots/**
+bots/**
+wowai/**
+.github/**
+# The coding standards for the reviewer (WOWAI#69).
+CODING_STANDARDS.md
+# cpp-httplib, the HTTP client of the bot chat (WOWAI#47).
+dep/include/httplib/**
+
+# Spec hook 1: World::Update and startup update and load the bot manager.
+src/game/World.cpp
+# Spec hook 2: WorldSession::HandleChatMessageOpcode calls BotHooks::OnPlayerChat.
+src/game/Handlers/ChatHandler.cpp
+# Spec hook 3: Player::GiveLevel calls BotHooks::OnLevelUp.
+src/game/Objects/Player.cpp
+# Spec hook 4: CMake builds the bot library, the game files, and BUILD_BOT_TESTS.
+CMakeLists.txt
+cmake/options.cmake
+src/CMakeLists.txt
+src/game/CMakeLists.txt
+# Spec hook 5: the migration of the bot_character table.
+sql/migrations/20261024124046_characters.sql
+# Spec hook 6: the .wowai and .route GM commands: the command tables and handler names.
+src/game/Chat/Chat.cpp
+src/game/Chat/Chat.h
+# Spec hook 7: the Bots.* settings, documented in the config template.
+src/mangosd/mangosd.conf.dist.in
+# Spec hook 8: PlayerBotEntry::allowSaving, so the core saves the WOWAI bots.
+src/game/PlayerBots/PlayerBotMgr.h
+src/game/Handlers/CharacterHandler.cpp
+src/game/Server/WorldSession.cpp
+# Spec hook 9: a read-only GetAngle() getter for BotAdapter::GetChase (WOWAI#36). The
+# adapter lives for one think, so it cannot remember the chase angle itself,
+# and the chase generator is the only true source of it.
+src/game/Movement/TargetedMovementGenerator.h

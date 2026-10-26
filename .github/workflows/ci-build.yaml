@@ -16,18 +16,12 @@ on:
       - 'README.md'
       - 'sql/**'
 
-  pull_request:
-    paths-ignore:
-      - '.github/ISSUE_TEMPLATE.md'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/PULL_REQUEST_TEMPLATE.md'
-      - '.github/workflows/development-db-dump.yaml'
-      - '.github/workflows/pr-sql-check.yaml'
-      - '.gitignore'
-      - 'CONTRIBUTING.md'
-      - 'LICENSE'
-      - 'README.md'
-      - 'sql/**'
+# Only a push starts this workflow, so a commit is built once, also on a branch
+# with an open pull request: the pull request shows the checks of its head commit.
+# A newer commit on the same branch cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -36,6 +30,12 @@ jobs:
     permissions:
       contents: read
     strategy:
+      # Run every job to its end, so one failing job does not hide the results
+      # of the others.
+      fail-fast: false
+      # The fork keeps the Windows jobs of upstream: it follows upstream, which
+      # supports Windows. cpp-httplib (the bots' chat client) needs Windows 10,
+      # so src/bots/CMakeLists.txt builds the bots with _WIN32_WINNT=0x0A00.
       matrix:
         # Every supported client build is verified against Ubuntu GCC; the
         # latest (1.12.1.5875) additionally runs against Ubuntu Clang, Windows

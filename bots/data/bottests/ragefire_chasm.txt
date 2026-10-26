@@ -1,0 +1,56 @@
+# The scripted runs of Ragefire Chasm (spec section 10). The format is in
+# src/bots/RunScript.h. Start a run over SOAP:
+#   .wowai run start ragefire_chasm <scenario>
+#   .wowai run status
+# Each run starts from a full reset of the test driver and the four bots.
+# The points and packs are those of routes/ragefire_chasm.txt.
+script ragefire_chasm ragefire_chasm
+driver Ezzra
+group Grukk Hela Shanka Morzul
+outside 1 1811.78 -4410.50 -18.47   # the entrance in Orgrimmar (game_tele 46)
+
+# Boss scenario: the group starts at Taragaman the Hungerer and runs only
+# that fight.
+scenario taragaman
+teleport pull_taragaman_the_hungerer
+clear 60                # the trash of his room goes away
+command follow
+wait 20                 # the buffs: Fortitude, Inner Fire, Demon Skin, Imp
+command stay
+refill                  # full health and mana after the buffs
+wait 3                  # a bot that drank stands up: the group rests no more
+target 11520
+command pull
+wait combat_end 300
+expect boss_dead 11520
+
+# Trash scenario: the group runs one fixed pack, two Searing Blade
+# Enforcers.
+scenario enforcers
+teleport pull_pack39
+clear 50 pack39         # only the pack stays
+command follow
+wait 20
+command stay
+refill
+wait 3
+target pack39
+command pull
+wait combat_end 300
+expect pack_dead pack39
+
+# The revive rule of jvbastel/WOWAI#72: the check t72_revive.py kills
+# members during the wait.
+scenario revive
+teleport pull_pack39
+clear 50
+command follow
+wait 120
+
+# A short run that passes, for the check t82_run_group.py: after it, the
+# members are out of the run group (jvbastel/WOWAI#82).
+scenario short
+teleport pull_pack39
+clear 50
+wait 2
+expect alive

@@ -91,6 +91,82 @@ ChatCommand * ChatHandler::getCommandTable()
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 
+    static ChatCommand wowaiBotCommandTable[] =
+    {
+        { "create",     SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiBotCreateCommand,      "", nullptr },
+        { "login",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiBotLoginCommand,       "", nullptr },
+        { "logout",     SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiBotLogoutCommand,      "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
+    static ChatCommand wowaiGearCommandTable[] =
+    {
+        { "equip",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiGearEquipCommand,      "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
+    static ChatCommand wowaiRunCommandTable[] =
+    {
+        { "start",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiRunStartCommand,       "", nullptr },
+        { "status",     SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiRunStatusCommand,      "", nullptr },
+        { "stop",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleWowaiRunStopCommand,        "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
+    static ChatCommand wowaiCommandTable[] =
+    {
+        { "bot",        SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiBotCommandTable },
+        { "gear",       SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiGearCommandTable },
+        { "run",        SEC_ADMINISTRATOR,      true,  nullptr,                                        "", wowaiRunCommandTable },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
+    static ChatCommand routeAddCommandTable[] =
+    {
+        { "point",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddPointCommand,       "", nullptr },
+        { "alt",        SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddAltCommand,         "", nullptr },
+        { "pack",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddPackCommand,        "", nullptr },
+        { "mob",        SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddMobCommand,         "", nullptr },
+        { "boss",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteAddBossCommand,        "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
+    static ChatCommand routeRemoveCommandTable[] =
+    {
+        { "mob",        SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteRemoveMobCommand,      "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
+    static ChatCommand routeTraceCommandTable[] =
+    {
+        { "start",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceStartCommand,     "", nullptr },
+        { "stop",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceStopCommand,      "", nullptr },
+        { "undo",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceUndoCommand,      "", nullptr },
+        { "show",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceShowCommand,      "", nullptr },
+        { "mark",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceMarkCommand,      "", nullptr },
+        { "pause",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTracePauseCommand,     "", nullptr },
+        { "resume",     SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceResumeCommand,    "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
+    static ChatCommand routeCommandTable[] =
+    {
+        { "start",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteStartCommand,          "", nullptr },
+        { "add",        SEC_ADMINISTRATOR,      true,  nullptr,                                        "", routeAddCommandTable },
+        { "undo",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteUndoCommand,           "", nullptr },
+        { "show",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteShowCommand,           "", nullptr },
+        { "stop",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteStopCommand,           "", nullptr },
+        { "remove",     SEC_ADMINISTRATOR,      true,  nullptr,                                        "", routeRemoveCommandTable },
+        { "generate",   SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteGenerateCommand,       "", nullptr },
+        { "walk",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteWalkCommand,           "", nullptr },
+        { "next",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteNextCommand,           "", nullptr },
+        { "back",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteBackCommand,           "", nullptr },
+        { "go",         SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteGoCommand,             "", nullptr },
+        { "trace",      SEC_ADMINISTRATOR,      true,  nullptr,                                        "", routeTraceCommandTable },
+        { "build",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteBuildCommand,          "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
     static ChatCommand partyBotCommandTable[] =
     {
         { "add",        SEC_ADMINISTRATOR,      false, &ChatHandler::HandlePartyBotAddCommand,         "", nullptr },
@@ -1220,6 +1296,8 @@ ChatCommand * ChatHandler::getCommandTable()
         { "ahbot",          SEC_ADMINISTRATOR,  true, nullptr,                            "Manage AH bot", ahbotCommandTable    },
         { "partybot",       SEC_ADMINISTRATOR,  false, nullptr,                       "Manage party bots", partyBotCommandTable },
         { "battlebot",      SEC_ADMINISTRATOR,  true, nullptr,                      "Manage battle bots", battleBotCommandTable},
+        { "wowai",          SEC_ADMINISTRATOR,  true, nullptr,                          "Manage WOWAI bots", wowaiCommandTable    },
+        { "route",          SEC_ADMINISTRATOR,  true, nullptr,                "Record, generate, and walk WOWAI dungeon routes", routeCommandTable    },
         { "world",          SEC_ADMINISTRATOR,  false, nullptr,                                        "", worldCommandTable    },
         { "possess",        SEC_GAMEMASTER,     false, &ChatHandler::HandlePossessCommand,             "", nullptr              },
         { "cinematic",      SEC_DEVELOPER,      false, nullptr,                                        "", cinematicCommandTable},

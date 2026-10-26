@@ -514,6 +514,14 @@ set (game_SRCS
 
 )
 
+# The fork's own folder Bots is a glob, so that a new file needs no CMake edit
+# (jvbastel/WOWAI#63). The upstream lists above stay written by hand.
+file(GLOB game_BOT_SRCS CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/Bots/*.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Bots/*.h"
+)
+list(APPEND game_SRCS ${game_BOT_SRCS})
+
 if((${CMAKE_VERSION} VERSION_LESS "3.16") OR USE_PCH_OLD)
   list(APPEND game_SRCS
       pchdef.cpp
@@ -548,6 +556,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/Anticheat
   ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouse
   ${CMAKE_CURRENT_SOURCE_DIR}/Battlegrounds
+  ${CMAKE_CURRENT_SOURCE_DIR}/Bots
   ${CMAKE_CURRENT_SOURCE_DIR}/Chat
   ${CMAKE_CURRENT_SOURCE_DIR}/Commands
   ${CMAKE_CURRENT_SOURCE_DIR}/Database
@@ -632,6 +641,7 @@ SET_TARGET_PROPERTIES (game PROPERTIES FOLDER "Game Libs")
 
 target_link_libraries(game
   shared
+  bots
   Detour
   g3dlite
 )
