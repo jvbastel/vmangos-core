@@ -1,5 +1,6 @@
 #include "DamageRules.h"
 #include "FakeBot.h"
+#include "GroupRules.h"
 
 #include <gtest/gtest.h>
 
@@ -134,4 +135,82 @@ TEST(DamageTarget, FightsBackAnEnemyThatAttacksTheBot)
     bot.fake.SetVictim(Wolf, Rogue);
 
     EXPECT_EQ(bot.Target(), Wolf);
+}
+
+// A damage bot that stays or follows does not see the tank's fight start: it
+// joins when an enemy hits a group member (WOWAI#93).
+TEST(DamageTarget, AttacksAnEnemyThatHitsAGroupMember)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetGroupMembers({Tank, Healer});
+    bot.group.SetTank(Tank);
+    bot.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
+// The tank died in its fight: its focus is gone, and its pack beats the
+// healer (WOWAI#93, Ragefire Chasm pack 9).
+TEST(DamageTarget, AttacksAnEnemyOnAGroupMemberWhenTheTankIsDead)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 0, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetGroupMembers({Tank, Healer});
+    bot.group.SetTank(Tank);
+    bot.fake.SetDistance(Wolf, 60.0f);
+    bot.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
+TEST(DamageTarget, AttacksAnEnemyOnAGroupMemberWhileTheTankPulls)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetGroupMembers({Tank, Healer});
+    bot.group.StartPull(Tank, Kobold);
+    bot.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
+TEST(DamageTarget, LeavesAnEnemyOnAGroupMemberOutsideTheChaseLimit)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetGroupMembers({Tank, Healer});
+    bot.group.SetTank(Tank);
+    bot.fake.SetDistanceBetween(Wolf, Tank, Bots::ChaseLimitYards + 5.0f);
+    bot.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(bot.Target(), NoGuid);
+}
+
+// The bot waits for the taunt on the focus, but not on another enemy that
+// hits a member.
+TEST(DamageTarget, AttacksAnotherEnemyOnAMemberWhileItWaitsForTheTaunt)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetGroupMembers({Tank, Healer});
+    bot.group.SetTank(Tank);
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(bot.Target(), NoGuid);
+
+    bot.fake.SetVictim(Kobold, Healer);
+
+    EXPECT_EQ(bot.Target(), Kobold);
 }

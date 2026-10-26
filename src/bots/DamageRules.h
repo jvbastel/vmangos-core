@@ -15,7 +15,9 @@ namespace Bots
     // 3. the focus target, once the tank holds threat on it, while it is in
     //    the chase limit (GroupRules.h). Outside a pull, not while it hits
     //    another member and the tank lives: the bot waits for the taunt;
-    // 4. an enemy that attacks the bot itself, in the chase limit.
+    // 4. an enemy that attacks a group member, the bot itself first, in the
+    //    chase limit: the bot joins a fight that it did not see start, also
+    //    when it stays or follows. Not the focus that the bot waits for.
     Guid PickDamageTarget(BotContext const& context);
 
     // True when the bot has a damage target now.

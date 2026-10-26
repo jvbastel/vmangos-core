@@ -17,6 +17,18 @@ namespace Bots
             return IsAlive(context.view, tank) && victim != NoGuid && victim != tank
                 && victim != context.view.GetSelf();
         }
+
+        // The first living enemy in the chase limit that hits a living group
+        // member, the bot first. It skips the enemy `skip`.
+        Guid PickMemberAttackerInLimit(BotContext const& context, Guid skip)
+        {
+            for (Guid member : context.view.GetGroupMembers())
+                if (IsAlive(context.view, member))
+                    for (Guid attacker : context.view.GetAttackers(member))
+                        if (attacker != skip && IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker))
+                            return attacker;
+            return NoGuid;
+        }
     }
 
     Guid PickDamageTarget(BotContext const& context)
@@ -27,13 +39,11 @@ namespace Bots
         if (healer != NoGuid)
             return healer;
         Guid const focus = context.group.GetFocusTarget();
-        if (IsAlive(context.view, focus) && context.group.TankHoldsThreat() && !FocusHitsAnotherMember(context, focus)
+        bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
+        if (IsAlive(context.view, focus) && context.group.TankHoldsThreat() && !waitForTaunt
             && IsInChaseLimit(context, focus))
             return focus;
-        for (Guid attacker : context.view.GetAttackers(context.view.GetSelf()))
-            if (IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker))
-                return attacker;
-        return NoGuid;
+        return PickMemberAttackerInLimit(context, waitForTaunt ? focus : NoGuid);
     }
 
     bool HasDamageTarget(BotContext const& context)
