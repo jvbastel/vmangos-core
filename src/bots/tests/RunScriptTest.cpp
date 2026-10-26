@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <fstream>
+#include <set>
 #include <sstream>
 
 using Bots::ParseRunScript;
@@ -328,4 +329,26 @@ TEST(RunScriptData, TheRagefireChasmScriptFitsItsRouteFile)
     EXPECT_NE(Bots::FindScenario(script.script, "taragaman"), nullptr);
     EXPECT_NE(Bots::FindScenario(script.script, "enforcers"), nullptr);
     EXPECT_EQ(route.route.bosses, (std::vector<std::uint32_t>{11517, 11520, 11518, 11519}));
+}
+
+TEST(RunScriptData, TheFullRunsOfRagefireChasmFightEachBoss)
+{
+    RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/ragefire_chasm.txt"));
+    ASSERT_TRUE(script.ok) << script.error;
+    Bots::RouteResult const route = Bots::ParseRoute(ReadDataFile("routes/" + script.script.route + ".txt"));
+    ASSERT_TRUE(route.ok) << route.error;
+
+    for (char const* name : {"full", "full_noquests"})
+    {
+        Bots::ScriptScenario const* full = Bots::FindScenario(script.script, name);
+        ASSERT_NE(full, nullptr) << name;
+        EXPECT_TRUE(Bots::IsFullRun(*full)) << name;
+        std::set<std::uint32_t> fought;
+        for (ScriptCommand const& c : Bots::ExpandRoute(full->commands, route.route))
+            if (c.kind == ScriptCommandKind::Fight)
+                for (Bots::RouteMob const& mob : Bots::FindPack(route.route, c.name)->mobs)
+                    fought.insert(mob.entry);
+        for (std::uint32_t boss : {11517u, 11520u, 11518u, 11519u})
+            EXPECT_EQ(fought.count(boss), 1u) << name << " fights no pack with the boss " << boss;
+    }
 }

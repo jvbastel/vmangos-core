@@ -34,17 +34,22 @@
 
 #include <chrono>
 #include <cmath>
+#include <ctime>
 #include <fstream>
 #include <list>
 #include <sstream>
+#include <sys/stat.h>
 
 namespace
 {
     // The fixed gear template of the test driver.
     char const* const DriverGear = "test_driver_mage";
-    // In a wipe, the members lie dead this long before they revive at the
-    // dungeon entrance.
-    int64 const WipeReviveDelayMs = 5000;
+    // In a wipe, the test driver releases this long after the last member
+    // died, and the members revive at the dungeon entrance. A `release`
+    // line of the script changes it.
+    int64 const WipeReleaseDelayMs = 5000;
+    // A move of the test driver shorter than this is no progress.
+    float const ProgressYards = 1.0f;
     // The longest time of one reset phase: the logins, the logouts, and the
     // teleport out of the dungeon.
     int64 const ResetPhaseLimitMs = 60000;
@@ -168,6 +173,30 @@ namespace
         return destroyed;
     }
 
+    // The UTC time in a strftime format.
+    std::string UtcNow(char const* format)
+    {
+        std::time_t const now = std::time(nullptr);
+        std::tm utc;
+        gmtime_r(&now, &utc);
+        char text[32];
+        std::strftime(text, sizeof(text), format, &utc);
+        return text;
+    }
+
+    bool WriteFile(std::string const& path, std::string const& text)
+    {
+        std::ofstream out(path, std::ios::binary | std::ios::trunc);
+        out << text;
+        return bool(out);
+    }
+
+    // "<name> <guid counter>" of a unit, for the trace.
+    std::string UnitText(Unit const* unit)
+    {
+        return std::string(unit->GetName()) + " " + std::to_string(unit->GetGUIDLow());
+    }
+
     char const* PhaseName(int phase)
     {
         static char const* const names[] = {"idle", "reset: login", "reset: out of the dungeon", "reset: logout",
@@ -234,7 +263,9 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_script = script.script;
     m_route = route.route;
     m_scenario = scenario;
-    m_runner.reset(new Bots::ScriptRunner(Bots::FindScenario(m_script, scenario)->commands));
+    Bots::ScriptScenario const& commands = *Bots::FindScenario(m_script, scenario);
+    bool const fullRun = Bots::IsFullRun(commands);
+    m_runner.reset(new Bots::ScriptRunner(Bots::ExpandRoute(commands.commands, m_route)));
     m_startMs = SteadyMs();
     m_result.clear();
     m_bossKills.clear();
@@ -245,7 +276,31 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_groupId = 0;
     m_teleportRest = false;
     m_moving = false;
+    m_visited = false;
+    m_aborted = false;
+    m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0));
+    m_trace = Bots::RunTrace();
+    m_quests.reset(new Bots::QuestProgress(m_route));
+    m_releaseMs = WipeReleaseDelayMs;
+    m_releaseNever = false;
+    m_wipeMs = 0;
+    m_alive.clear();
+    m_enemyHealth.clear();
+    m_driverSeen = false;
     ++m_number;
+
+    m_record = Bots::RunResult();
+    m_record.number = m_number;
+    m_record.script = m_script.name;
+    m_record.scenario = m_scenario;
+    m_record.fullRun = fullRun;
+    for (Bots::ScriptCommand const& command : commands.commands)
+        if (command.kind == Bots::ScriptCommandKind::Route)
+            m_record.quests = command.quests;
+    m_record.startedAt = UtcNow("%Y-%m-%dT%H:%M:%SZ");
+    m_record.stamp = UtcNow("%Y%m%d-%H%M%S");
+    m_record.driver = m_script.driver;
+    m_record.group = m_script.group;
     sBotMgr.SetTestDriver(sObjectMgr.GetPlayerGuidByName(m_script.driver));
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s %s starts, test driver %s", m_number, m_script.name.c_str(),
         m_scenario.c_str(), m_script.driver.c_str());
@@ -263,6 +318,7 @@ bool BotRun::Stop(std::string& error)
     // The run has its result: a stop only ends the wait for its chat.
     if (EndClosing("stopped by a GM"))
         return true;
+    m_aborted = true;
     Fail("stopped by a GM");
     return true;
 }
@@ -283,8 +339,18 @@ std::string BotRun::Status() const
 
 void BotRun::NoteBossKill(uint32 groupId, uint32 entry)
 {
-    if (m_phase == Phase::Script && groupId == m_groupId)
-        m_bossKills.insert(entry);
+    if (m_phase != Phase::Script || groupId != m_groupId || !m_bossKills.insert(entry).second)
+        return;
+    int64 const now = RunMs();
+    m_judge->NoteBossKill(entry, now);
+    CreatureInfo const* info = sObjectMgr.GetCreatureTemplate(entry);
+    m_record.bossKills.push_back({entry, info ? info->name : "", now});
+    m_trace.Add(now, "boss_kill " + std::to_string(entry) + (info ? std::string(" ") + info->name : ""));
+}
+
+int64 BotRun::RunMs() const
+{
+    return SteadyMs() - m_startMs;
 }
 
 void BotRun::SetPhase(Phase phase)
@@ -305,13 +371,19 @@ void BotRun::Finish(bool passed, std::string const& reason)
     m_passed = passed;
     std::ostringstream line;
     line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": "
-         << (passed ? "passed" : "failed") << " after " << (SteadyMs() - m_startMs) / 1000 << " s";
+         << (passed ? "passed" : m_aborted ? "aborted" : "failed") << " after " << RunMs() / 1000 << " s";
     if (!passed)
         line << ": " << reason;
-    line << WatchText();
+    line << ", bosses " << m_record.bossKills.size() << ", wipes " << m_record.wipes.size()
+         << ", deaths " << m_record.deaths.size() << WatchText();
     m_result = line.str();
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
-    // 2. The writers of the run end come here, before the group ends.
+    m_trace.Add(RunMs(), m_result);
+    // 2. The result file, and the trace of a run that did not pass.
+    m_record.durationMs = RunMs();
+    m_record.outcome = passed ? Bots::RunOutcome::Passed : m_aborted ? Bots::RunOutcome::Aborted : Bots::RunOutcome::Failed;
+    m_record.reason = passed ? "" : reason;
+    WriteResultFiles();
     // 3. The group waits for the chat of the run (Update, Phase::Closing).
     SetPhase(Phase::Closing);
 }
@@ -468,6 +540,8 @@ void BotRun::Update()
             }
             Prepare();
             SetPhase(Phase::Script);
+            // The reset is no part of the time without progress.
+            m_judge->NoteProgress(RunMs());
             return;
         case Phase::Script:
             break;
@@ -481,13 +555,16 @@ void BotRun::Update()
     if (m_teleportRest)
         TeleportRest();
     ReviveTheDead();
-    WatchThreat(SteadyMs() - m_startMs);
+    WatchThreat(RunMs());
+    if (m_phase != Phase::Script)
+        return;
+    WatchRun(RunMs());
     if (m_phase != Phase::Script)
         return;
     for (;;)
     {
         // The facts again after each command: a teleport changes them.
-        int64 const now = SteadyMs() - m_startMs;
+        int64 const now = RunMs();
         Bots::RunStep const step = m_runner->Update(Facts(), now);
         if (step.kind == Bots::RunStepKind::Wait)
             return;
@@ -502,11 +579,22 @@ void BotRun::Update()
             return;
         }
         std::string detail;
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: line %u: %s", m_number, uint32(step.command.line),
-            step.command.source.c_str());
+        std::string const what = "line " + std::to_string(step.command.line) + ": " + step.command.source;
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, what.c_str());
+        m_trace.Add(now, what);
+        if (step.command.kind == Bots::ScriptCommandKind::Fight && !PackLives(step.command.name))
+        {
+            // The pack died in an earlier fight.
+            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s is dead already", m_number, step.command.name.c_str());
+            m_runner->NothingToDo();
+            continue;
+        }
         bool const ok = Do(step.command, detail);
         if (ok && !detail.empty())
+        {
             sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, detail.c_str());
+            m_trace.Add(now, detail);
+        }
         m_runner->Done(ok, detail, now);
     }
 }
@@ -596,8 +684,20 @@ void BotRun::ResetMember(Player* member)
 
     bool const driver = member == Driver();
     std::string report, error;
-    if (!sBotMgr.EquipCharacter(member->GetName(), driver ? DriverGear : "", report, error))
+    EquipReport equipped;
+    if (!sBotMgr.EquipCharacter(member->GetName(), driver ? DriverGear : "", report, error, &equipped))
         sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Run %u: %s", m_number, error.c_str());
+    else
+    {
+        // A random choice of the run: the gear draw.
+        Bots::RunGearDraw draw = {member->GetName(), equipped.gearTemplate, equipped.draw.shape, {}};
+        for (Bots::GearPick const& pick : equipped.draw.picks)
+        {
+            ItemPrototype const* proto = sObjectMgr.GetItemPrototype(pick.entry);
+            draw.items.push_back({Bots::GearPositionName(pick.position), pick.entry, proto ? proto->Name1 : ""});
+        }
+        m_record.gearDraws.push_back(draw);
+    }
     sBotMgr.ApplyLevelRoutine(member);
     member->DurabilityRepairAll(false, 0.0f);
     member->RemoveAllCooldowns();
@@ -631,6 +731,7 @@ Bots::RunFacts BotRun::Facts() const
             if (pet->IsAlive() && pet->IsInCombat())
                 facts.groupInCombat = true;
     }
+    facts.groupResting = GroupResting();
     if (m_moving && driver && driver->IsInWorld())
     {
         float const dx = driver->GetPositionX() - m_moveX, dy = driver->GetPositionY() - m_moveY;
@@ -669,9 +770,11 @@ void BotRun::WatchThreat(int64 nowMs)
     for (std::size_t i = known; i < m_threat.Losses().size(); ++i)
     {
         Bots::ThreatLoss const& loss = m_threat.Losses()[i];
-        m_threatNames.push_back(HitName(loss.enemy, loss.member));
+        m_threatNames.push_back(HitNames(loss.enemy, loss.member));
+        std::string const text = m_threatNames.back().first + " on " + m_threatNames.back().second;
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s for more than %u s", m_number,
-            m_threatNames.back().c_str(), uint32(Bots::ThreatLossMs / 1000));
+            text.c_str(), uint32(Bots::ThreatLossMs / 1000));
+        m_trace.Add(nowMs, "threat loss: " + text);
     }
 
     std::size_t const lostBefore = m_lostMobs.LostMobs().size();
@@ -680,17 +783,18 @@ void BotRun::WatchThreat(int64 nowMs)
     {
         Bots::LostMob const& mob = m_lostMobs.LostMobs()[i];
         if (i >= m_lostMobNames.size())
-            m_lostMobNames.push_back(HitName(mob.enemy, mob.member));
+            m_lostMobNames.push_back(HitNames(mob.enemy, mob.member));
     }
     if (m_lostMobs.LostMobs().size() > lostBefore)
     {
         Bots::LostMob const& mob = m_lostMobs.LostMobs()[lostBefore];
-        Fail("lost mob: " + m_lostMobNames[lostBefore] + ", and no bot attacks it for more than "
+        Fail("lost mob: " + m_lostMobNames[lostBefore].first + " on " + m_lostMobNames[lostBefore].second +
+            ", and no bot attacks it for more than "
             + std::to_string((mob.endMs - mob.startMs) / 1000) + " s");
     }
 }
 
-std::string BotRun::HitName(Bots::Guid enemy, Bots::Guid member) const
+std::pair<std::string, std::string> BotRun::HitNames(Bots::Guid enemy, Bots::Guid member) const
 {
     std::string enemyName = "an enemy", memberName = "a member";
     for (Player* player : Members())
@@ -700,7 +804,7 @@ std::string BotRun::HitName(Bots::Guid enemy, Bots::Guid member) const
             if (Unit* unit = player->GetMap()->GetUnit(ObjectGuid(enemy)))
                 enemyName = unit->GetName();
         }
-    return enemyName + " on " + memberName;
+    return {enemyName, memberName};
 }
 
 std::string BotRun::WatchText() const
@@ -709,12 +813,14 @@ std::string BotRun::WatchText() const
     std::vector<Bots::ThreatLoss> const& losses = m_threat.Losses();
     text << ", threat losses " << losses.size();
     for (std::size_t i = 0; i < losses.size(); ++i)
-        text << (i ? "; " : " (") << m_threatNames[i] << " " << (losses[i].endMs - losses[i].startMs) / 1000 << " s"
+        text << (i ? "; " : " (") << m_threatNames[i].first << " on " << m_threatNames[i].second << " "
+             << (losses[i].endMs - losses[i].startMs) / 1000 << " s"
              << (i + 1 == losses.size() ? ")" : "");
     std::vector<Bots::LostMob> const& lost = m_lostMobs.LostMobs();
     text << ", lost mobs " << lost.size();
     for (std::size_t i = 0; i < lost.size(); ++i)
-        text << (i ? "; " : " (") << m_lostMobNames[i] << " " << (lost[i].endMs - lost[i].startMs) / 1000 << " s"
+        text << (i ? "; " : " (") << m_lostMobNames[i].first << " on " << m_lostMobNames[i].second << " "
+             << (lost[i].endMs - lost[i].startMs) / 1000 << " s"
              << (i + 1 == lost.size() ? ")" : "");
     return text.str();
 }
@@ -758,6 +864,14 @@ bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
             return ExpectPackDead(command.name, detail);
         case Bots::ScriptCommandKind::ExpectAlive:
             return ExpectAlive(detail);
+        case Bots::ScriptCommandKind::Fight:
+            return Fight(command, detail);
+        case Bots::ScriptCommandKind::Release:
+            m_releaseNever = command.never;
+            m_releaseMs = int64(command.seconds) * 1000;
+            detail = command.never ? "in a wipe, nobody releases"
+                                   : "in a wipe, the test driver releases after " + std::to_string(command.seconds) + " s";
+            return true;
         default:
             detail = "the runner waits for this command";
             return false;
@@ -775,6 +889,7 @@ Bots::RoutePlace BotRun::PickPlace(Bots::RoutePoint const& point, std::string co
     // A random choice of the run.
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s goes to %s, place %u of %u, at %.2f %.2f", m_number,
         who.c_str(), point.name.c_str(), uint32(choice + 1), uint32(point.places.size()), x, y);
+    m_record.choices.push_back({who, point.name, uint32(choice + 1), uint32(point.places.size()), x, y, RunMs()});
     return place;
 }
 
@@ -829,6 +944,8 @@ bool BotRun::Move(Bots::RoutePoint const& point, std::string& detail)
     m_moveX = x;
     m_moveY = y;
     m_moveRadius = place.radius;
+    m_movePoint = point.name;
+    m_visited = false;
     return true;
 }
 
@@ -838,6 +955,8 @@ bool BotRun::Say(uint32 chatType, Player* receiver, std::string const& text)
     // hook of the player's chat: parsing, routing, and chat events are the
     // same code as for the player.
     Player* driver = Driver();
+    m_trace.Add(RunMs(), std::string(driver->GetName()) + (chatType == CHAT_MSG_PARTY ? " says in party: " :
+        " whispers to " + std::string(receiver ? receiver->GetName() : "nobody") + ": ") + text);
     WorldPacket data;
     ChatHandler::BuildChatPacket(data, ChatMsg(chatType), text.c_str(), LANG_UNIVERSAL, driver->GetChatTag(),
         driver->GetObjectGuid(), driver->GetName());
@@ -985,11 +1104,16 @@ void BotRun::ReviveTheDead()
     {
         int64 const now = SteadyMs();
         if (!m_wipeMs)
+        {
             m_wipeMs = now;
+            NoteWipe();
+        }
         AreaTriggerTeleport const* entrance = sObjectMgr.GetMapEntranceTrigger(m_route.mapId);
-        if (now - m_wipeMs < WipeReviveDelayMs || !entrance)
+        if (m_releaseNever || now - m_wipeMs < m_releaseMs || !entrance)
             return;
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: wipe: everyone revives at the dungeon entrance", m_number);
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: wipe: the test driver releases, and everyone revives at the dungeon entrance",
+            m_number);
+        m_trace.Add(RunMs(), "the test driver releases, and everyone revives at the dungeon entrance");
         for (Player* member : members)
             if (InWorldAndStill(member))
                 ReviveAt(member, entrance->destination.mapId, entrance->destination.x + frand(-2.0f, 2.0f),
@@ -1014,7 +1138,208 @@ void BotRun::ReviveTheDead()
         if (!nearest)
             nearest = living.front();
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s revives at %s", m_number, member->GetName(), nearest->GetName());
+        m_trace.Add(RunMs(), std::string(member->GetName()) + " revives at " + nearest->GetName());
         ReviveAt(member, nearest->GetMapId(), nearest->GetPositionX(), nearest->GetPositionY(), nearest->GetPositionZ(),
             nearest->GetOrientation());
     }
+}
+
+void BotRun::NoteWipe()
+{
+    int64 const now = RunMs();
+    m_judge->NoteWipe();
+    m_record.wipes.push_back(now);
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: wipe %u", m_number, uint32(m_record.wipes.size()));
+    m_trace.Add(now, "wipe " + std::to_string(m_record.wipes.size()));
+}
+
+void BotRun::WatchRun(int64 nowMs)
+{
+    for (Player* member : Members())
+    {
+        // A member in a teleport counts as neither living nor dead.
+        if (!InWorldAndStill(member))
+            continue;
+        bool& alive = m_alive.emplace(member->GetName(), true).first->second;
+        if (alive && !member->IsAlive())
+        {
+            m_record.deaths.push_back({member->GetName(), nowMs});
+            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s dies", m_number, member->GetName());
+            m_trace.Add(nowMs, std::string(member->GetName()) + " dies");
+        }
+        alive = member->IsAlive();
+    }
+
+    WatchEnemies(nowMs);
+
+    // Movement along the route: the test driver walks it, and the bots follow.
+    Player* driver = Driver();
+    if (InWorldAndStill(driver))
+    {
+        if (!m_driverSeen || !driver->IsWithinDist3d(m_driverX, m_driverY, m_driverZ, ProgressYards))
+        {
+            if (m_driverSeen)
+                m_judge->NoteProgress(nowMs);
+            m_driverSeen = true;
+            m_driverX = driver->GetPositionX();
+            m_driverY = driver->GetPositionY();
+            m_driverZ = driver->GetPositionZ();
+        }
+        if (m_moving && !m_visited && Facts().driverArrived)
+        {
+            m_visited = true;
+            m_quests->OnVisit(m_movePoint);
+        }
+    }
+
+    TraceMembers(nowMs);
+
+    Bots::RunVerdict const verdict = m_judge->Judge(nowMs);
+    if (verdict.kind == Bots::RunVerdictKind::Passed)
+        Finish(true, std::string());
+    else if (verdict.kind == Bots::RunVerdictKind::Failed)
+        Fail(verdict.reason);
+}
+
+void BotRun::WatchEnemies(int64 nowMs)
+{
+    Player* driver = Driver();
+    if (!InWorldAndStill(driver))
+        return;
+    Map* map = driver->GetMap();
+    // The enemies that the group fights now.
+    for (Player* member : Members())
+    {
+        if (!IsLivingMember(member) || member->GetMap() != map)
+            continue;
+        std::vector<Unit*> enemies(member->GetAttackers().begin(), member->GetAttackers().end());
+        enemies.push_back(member->GetVictim());
+        if (Pet* pet = member->GetPet())
+            enemies.push_back(pet->GetVictim());
+        for (Unit* enemy : enemies)
+            if (enemy && enemy->IsAlive() && enemy->GetTypeId() == TYPEID_UNIT && !enemy->IsPet())
+                m_enemyHealth.emplace(enemy->GetObjectGuid(), enemy->GetHealth());
+    }
+    for (auto it = m_enemyHealth.begin(); it != m_enemyHealth.end();)
+    {
+        Creature* enemy = map->GetCreature(it->first);
+        if (!enemy)
+        {
+            // It went away, or the group left the map.
+            it = m_enemyHealth.erase(it);
+            continue;
+        }
+        if (!enemy->IsAlive())
+        {
+            m_judge->NoteProgress(nowMs);
+            m_quests->OnKill(enemy->GetEntry());
+            m_trace.Add(nowMs, UnitText(enemy) + " dies");
+            it = m_enemyHealth.erase(it);
+            continue;
+        }
+        // Damage dealt.
+        if (enemy->GetHealth() < it->second)
+            m_judge->NoteProgress(nowMs);
+        it->second = enemy->GetHealth();
+        ++it;
+    }
+}
+
+void BotRun::TraceMembers(int64 nowMs)
+{
+    for (Player* member : Members())
+    {
+        if (!InWorldAndStill(member))
+            continue;
+        Bots::MemberState state;
+        state.name = member->GetName();
+        state.position = {member->GetPositionX(), member->GetPositionY(), member->GetPositionZ()};
+        Unit const* target = member->GetMap()->GetUnit(member->GetTargetGuid());
+        if (!target)
+            target = member->GetVictim();
+        if (target)
+            state.target = UnitText(target);
+        state.spell = 0;
+        for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL})
+            if (Spell const* spell = member->GetCurrentSpell(type))
+            {
+                state.spell = spell->m_spellInfo->Id;
+                state.spellName = spell->m_spellInfo->SpellName[0];
+                break;
+            }
+        m_trace.Observe(nowMs, state);
+    }
+}
+
+bool BotRun::GroupResting() const
+{
+    if (!m_groupId)
+        return false;
+    for (Bots::Guid bot : sBotMgr.GetCoordinator(m_groupId)->GetResting())
+    {
+        // Only a bot that is still here: a bot that logged out while it ate
+        // stays in the list of the coordinator.
+        Player const* player = ObjectAccessor::FindPlayer(ObjectGuid(bot));
+        if (player && player->IsInWorld() && player->IsAlive() && player->GetGroup() &&
+            player->GetGroup()->GetId() == m_groupId)
+            return true;
+    }
+    return false;
+}
+
+bool BotRun::PackLives(std::string const& pack) const
+{
+    Player* driver = Driver();
+    if (!InWorldAndStill(driver))
+        return true; // Do fails with the reason.
+    for (Bots::RouteMob const& mob : Bots::FindPack(m_route, pack)->mobs)
+        if (Creature* creature = SpawnOf(driver, mob))
+            if (creature->IsAlive())
+                return true;
+    return false;
+}
+
+bool BotRun::Fight(Bots::ScriptCommand const& command, std::string& detail)
+{
+    // The driver selects a mob of the pack and calls the pull, as the player
+    // does. The bots that follow it come to the fight.
+    if (!Target(command, detail))
+        return false;
+    m_record.pulls.push_back({command.name, RunMs()});
+    return Say(CHAT_MSG_PARTY, nullptr, "pull");
+}
+
+void BotRun::WriteResultFiles()
+{
+    if (m_quests)
+        m_record.questProgress = m_quests->Objectives();
+    m_record.threatLosses.clear();
+    for (std::size_t i = 0; i < m_threat.Losses().size(); ++i)
+        m_record.threatLosses.push_back({m_threatNames[i].first, m_threatNames[i].second, m_threat.Losses()[i].startMs,
+            m_threat.Losses()[i].endMs});
+    m_record.lostMobs.clear();
+    for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
+        m_record.lostMobs.push_back({m_lostMobNames[i].first, m_lostMobNames[i].second, m_lostMobs.LostMobs()[i].startMs,
+            m_lostMobs.LostMobs()[i].endMs});
+
+    std::string const dir = sBotMgr.GetSettings().runDir;
+    mkdir(dir.c_str(), 0775);
+    std::string const stem = Bots::RunFileStem(m_record);
+    std::string const path = dir + "/" + stem;
+    m_record.traceFile.clear();
+    if (m_record.outcome != Bots::RunOutcome::Passed)
+    {
+        if (WriteFile(path + ".trace.txt", m_trace.Text()))
+            m_record.traceFile = stem + ".trace.txt";
+        else
+            sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Run %u: cannot write %s.trace.txt", m_number, path.c_str());
+    }
+    if (!WriteFile(path + ".json", Bots::RunResultJson(m_record)))
+    {
+        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Run %u: cannot write %s.json", m_number, path.c_str());
+        return;
+    }
+    m_result += ". Result: " + stem + ".json";
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: result %s.json%s", m_number, path.c_str(),
+        m_record.traceFile.empty() ? "" : (", trace " + m_record.traceFile).c_str());
 }

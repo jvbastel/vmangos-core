@@ -44,6 +44,9 @@ struct BotSettings
     // A scripted run fails when an enemy hits a member and no bot attacks
     // it for longer than this (a lost mob, bots/ThreatWatch.h).
     int64 lostMobMs = Bots::LostMobMs;
+    // The folder of the result files and traces of the scripted runs.
+    // Default: the folder runs/ of LogsDir.
+    std::string runDir;
 };
 
 // One persistent bot, from a row of the `bot_character` table.
@@ -64,6 +67,13 @@ struct BotRecord
     // The bot was in a group at its last update. A bot whose group goes away
     // (a removal by the player, or the end of the group) logs out.
     bool wasInGroup = false;
+};
+
+// The gear that EquipCharacter put on, for the result file of a run.
+struct EquipReport
+{
+    std::string gearTemplate;
+    Bots::GearDraw draw;
 };
 
 // An `invite` or `dismiss` from the chat of a player.
@@ -124,8 +134,10 @@ class BotMgr
 
         // Equips a character in the world from a gear template, by name. With
         // no template name, a bot wears the generated template of its class
-        // and role. Fills `report` with the picks.
-        bool EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error);
+        // and role. Fills `report` with the picks, and `equipped` (if given)
+        // with the template and the draw.
+        bool EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error,
+            EquipReport* equipped = nullptr);
 
         BotGear const& GetGear() const { return m_gear; }
         // The scores of the generated gear template of a bot's class and

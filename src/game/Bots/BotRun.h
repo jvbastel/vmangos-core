@@ -11,13 +11,19 @@
 #include "Common.h"
 #include "ObjectGuid.h"
 #include "Route.h"
+#include "RouteQuests.h"
+#include "RunJudge.h"
+#include "RunResult.h"
 #include "RunScript.h"
+#include "RunTrace.h"
 #include "ScriptRunner.h"
 #include "ThreatWatch.h"
 
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 class Player;
@@ -28,13 +34,18 @@ class Player;
 // ScriptRunner. The test driver is a normal bot in the player's seat: its
 // command lines go through BotHooks::OnPlayerChat with the driver as the
 // sender. It runs on the world thread, in BotMgr::Update.
+//
+// A scenario with a `route` line is a full run: it passes when the last boss
+// of the route dies. Each run ends at the rules of Bots::RunJudge, and
+// writes one result file (Bots::RunResult) to Bots.Run.ResultDir; a failed
+// or stopped run also writes the trace of its last 3 minutes there.
 class BotRun
 {
     public:
         // Starts a run of `<DataDir>/bottests/<script>.txt`. False with a
         // short line for the GM.
         bool Start(std::string const& dataDir, std::string const& scriptName, std::string const& scenario, std::string& error);
-        // Ends a running run as failed.
+        // Ends a running run as aborted.
         bool Stop(std::string& error);
         void Update();
         // A line for the GM: the running step, or the result of the last run.
@@ -64,9 +75,8 @@ class BotRun
         void Fail(std::string const& reason);
         // The one end of a run, passed or failed. In this order:
         // 1. The result line, for the GM and the log.
-        // 2. Each writer of the run end, while the group still is (a later
-        //    trace of the last 3 minutes of a failed run goes here, spec
-        //    section 10).
+        // 2. The result file, and the trace of the last 3 minutes of a run
+        //    that did not pass (spec section 10), while the group still is.
         // 3. The phase Closing: the group stays until the chat of the run is
         //    said or dropped (Bots::RunEndWaitsForChat), so that the last
         //    boss_kill, wipe, or loot_roll gets its line. Then EndClosing.
@@ -96,8 +106,24 @@ class BotRun
         // which enemy hits which member and which enemies the group attacks,
         // and fails the run at a lost mob.
         void WatchThreat(int64 nowMs);
-        // "<enemy> on <member>", for the log and the result.
-        std::string HitName(Bots::Guid enemy, Bots::Guid member) const;
+        // The names of the enemy and the member, for the log and the result.
+        std::pair<std::string, std::string> HitNames(Bots::Guid enemy, Bots::Guid member) const;
+        // The facts of the run for the judge, the result, and the trace: the
+        // deaths, the kills, the damage dealt, the moves of the test driver,
+        // the quest visits, and what each member does. Then the verdict of
+        // the judge.
+        void WatchRun(int64 nowMs);
+        // The enemies that the group fights: a kill or damage dealt is
+        // progress, and a kill counts for the quests.
+        void WatchEnemies(int64 nowMs);
+        void TraceMembers(int64 nowMs);
+        // A living bot of the group eats or drinks.
+        bool GroupResting() const;
+        bool PackLives(std::string const& pack) const;
+        bool Fight(Bots::ScriptCommand const& command, std::string& detail);
+        // Writes the result file, and the trace when the run did not pass.
+        void WriteResultFiles();
+        int64 RunMs() const;
         // ", threat losses <n> (<enemy> on <member> <s> s; ...), lost mobs
         // <m> (...)": both counts, for the result line (spec section 10).
         std::string WatchText() const;
@@ -119,6 +145,7 @@ class BotRun
         // wipe, every member revives at the dungeon entrance.
         void ReviveTheDead();
         void ReviveAt(Player* member, uint32 mapId, float x, float y, float z, float o);
+        void NoteWipe();
         // A random spot of a random place of the point. The run logs it.
         Bots::RoutePlace PickPlace(Bots::RoutePoint const& point, std::string const& who, float& x, float& y);
 
@@ -135,15 +162,33 @@ class BotRun
         uint32 m_groupId = 0; // The run group, from FormGroup to the end of the run.
         std::set<uint32> m_bossKills;
         Bots::ThreatWatch m_threat;
-        std::vector<std::string> m_threatNames; // "<enemy> on <member>" of each loss.
+        std::vector<std::pair<std::string, std::string>> m_threatNames; // The enemy and the member of each loss.
         Bots::LostMobWatch m_lostMobs;
-        std::vector<std::string> m_lostMobNames; // "<enemy> on <member>" of each lost mob.
+        std::vector<std::pair<std::string, std::string>> m_lostMobNames; // The enemy and the member of each lost mob.
+        bool m_aborted = false; // A GM stopped the run.
+        std::unique_ptr<Bots::RunJudge> m_judge;
+        Bots::RunTrace m_trace;
+        Bots::RunResult m_record; // The result file.
+        std::unique_ptr<Bots::QuestProgress> m_quests;
+        // `release`: in a wipe, the test driver releases this long after the
+        // last member died, or never.
+        int64 m_releaseMs = 0;
+        bool m_releaseNever = false;
+        // The members that lived at the last update, by name.
+        std::map<std::string, bool> m_alive;
+        // The health of each enemy that the group fights.
+        std::map<ObjectGuid, uint32> m_enemyHealth;
+        // Where the test driver stood at its last move along the route.
+        bool m_driverSeen = false;
+        float m_driverX = 0.0f, m_driverY = 0.0f, m_driverZ = 0.0f;
         // A teleport of the bots that waits for the driver on the new map.
         bool m_teleportRest = false;
         Bots::RoutePoint m_teleportPoint;
         // The end of the last `move` of the driver.
         bool m_moving = false;
         float m_moveX = 0.0f, m_moveY = 0.0f, m_moveRadius = 0.0f;
+        std::string m_movePoint;
+        bool m_visited = false; // The quests know that the driver reached m_movePoint.
         // The start of the wipe, or 0 while a member lives.
         int64 m_wipeMs = 0;
 };

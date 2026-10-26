@@ -3,11 +3,28 @@
 #   .wowai run start ragefire_chasm <scenario>
 #   .wowai run status
 # Each run starts from a full reset of the test driver and the four bots.
-# The points and packs are those of routes/ragefire_chasm.txt.
+# The points and packs are those of routes/ragefire_chasm.txt. Each run
+# writes a result file (and a trace when it fails) to the folder runs/ of
+# the mangosd logs. wowai/test-realm/runs.py starts runs and collects them.
 script ragefire_chasm ragefire_chasm
 driver Ezzra
 group Grukk Hela Shanka Morzul
 outside 1 1811.78 -4410.50 -18.47   # the entrance in Orgrimmar (game_tele 46)
+
+# Full run: the whole dungeon, step by step along the route. It passes when
+# the fourth boss dies (spec section 10).
+scenario full
+teleport p1
+command follow
+wait 20                 # the buffs
+route
+
+# A full run without the steps that are only there for a quest.
+scenario full_noquests
+teleport p1
+command follow
+wait 20
+route noquests
 
 # Boss scenario: the group starts at Taragaman the Hungerer and runs only
 # that fight.
