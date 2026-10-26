@@ -21,6 +21,9 @@ namespace Bots
     // in combat, the bot too. False after the fight.
     bool IsGroupInCombat(BotView const& view);
 
+    // `current` as a percent of `max`, rounded down. 0 when `max` is 0.
+    std::uint32_t Percent(std::uint32_t current, std::uint32_t max);
+
     // A rule that casts the highest known rank of the spell whose first rank
     // is `firstRank` on the picked unit. The bot can do it when it knows a
     // rank and BotView::CanCast allows it.

@@ -47,11 +47,6 @@ namespace Bots
             {
                 return context.view.HasAura(Self(context), FrostArmor) || context.view.HasAura(Self(context), IceArmor);
             }
-
-            std::uint32_t Percent(std::uint32_t current, std::uint32_t max)
-            {
-                return max == 0 ? 0 : current * 100 / max;
-            }
         }
 
         std::shared_ptr<Strategy const> MakeFrostStrategy()

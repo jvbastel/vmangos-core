@@ -18,6 +18,11 @@ namespace Bots
         return context.group.GetPull().target;
     }
 
+    std::uint32_t Percent(std::uint32_t current, std::uint32_t max)
+    {
+        return max == 0 ? 0 : current * 100 / max;
+    }
+
     bool IsAlive(BotView const& view, Guid unit)
     {
         return unit != NoGuid && view.GetHealth(unit).current > 0 && view.GetLifeState(unit) == LifeState::Alive;
