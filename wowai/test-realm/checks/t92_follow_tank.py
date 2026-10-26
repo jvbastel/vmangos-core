@@ -16,6 +16,7 @@ Ragefire Trogg. `part`: run one part only (far, short).
    it, and the others do not follow, as before #92.
 """
 import math
+import pathlib
 import re
 import sys
 import time
@@ -24,11 +25,25 @@ from kit import Realm, Results, pos, stat
 from wowclient import CHAT_MSG_PARTY, CHAT_MSG_WHISPER
 
 ACCOUNT = "PLAYER92"
-PLAYER = "Thrallson"
+PLAYER = "Followson"  # its own name: another check of the slot has Thrallson
 TROGG = 11318  # Ragefire Trogg, level 13-14
 # Less than the aggro distance of a trogg for a level 16 bot: a member this
 # near before the tank fights could pull it.
 NEAR_TROGG = 10.0
+
+
+def follow_tank_yards():
+    """FollowTankYards of src/bots/FollowTank.h: the casting range of a
+    ranged damage bot, CastingRangeYards in src/bots/DamageRules.h. A bot
+    within it of the tank does not follow."""
+    header = pathlib.Path(__file__).resolve().parents[3] / "src" / "bots" / "DamageRules.h"
+    m = re.search(r"CastingRangeYards = ([\d.]+)f;", header.read_text())
+    if not m:
+        sys.exit("No CastingRangeYards in %s" % header)
+    return float(m.group(1))
+
+
+FOLLOW_YARDS = follow_tank_yards()
 
 realm = Realm()
 results = Results()
@@ -208,8 +223,8 @@ def part_far(camp):
     later = [s for s in samples[i:] if s["t"] - samples[i]["t"] >= 4]
     gaps = {o: round(min((dist(s[o], s[tank]) for s in later if s[o] and s[tank]), default=999), 1)
             for o in others}
-    results.check("in the fight each member gets within 30 yards of the tank",
-                  all(d <= 30 for d in gaps.values()), repr(gaps))
+    results.check("in the fight each member gets within %d yards of the tank" % FOLLOW_YARDS,
+                  all(d <= FOLLOW_YARDS for d in gaps.values()), repr(gaps))
     # The healer may walk to the tank as to a hurt member (#93) instead.
     results.check("the members use the follow rule",
                   all("%s: follow the tank to the pull" % o in text

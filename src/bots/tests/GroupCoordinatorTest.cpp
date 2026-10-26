@@ -197,3 +197,19 @@ TEST(GroupCoordinator, EachBotThatSeesARollEndAddsOneEvent)
     EXPECT_EQ(events[1].entry, 3196u);
     EXPECT_EQ(events[1].winner, Tank);
 }
+
+// A bot that died, left the group, or logged out while it rested: the run
+// tells the coordinator, so that `wait rested` does not wait for it for good
+// (WOWAI#94 review).
+TEST(GroupCoordinator, AForgottenMemberRestsNoMore)
+{
+    GroupCoordinator group;
+    group.SetResting(Tank, Bots::RestReason::Eat);
+    group.SetRestUntilFull(0x12);
+
+    group.ForgetRest(Tank);
+    group.ForgetRest(0x12);
+
+    EXPECT_TRUE(group.GetResting().empty());
+    EXPECT_FALSE(group.RestsUntilFull(0x12));
+}

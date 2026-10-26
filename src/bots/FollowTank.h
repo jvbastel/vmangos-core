@@ -5,7 +5,9 @@
 #include "Strategy.h"
 
 // The walk of the group behind the tank on a pull (WOWAI#92). The tank runs
-// to the pack and fights it where it stands. While it does, each other bot
+// to the pack and fights it where it stands. The fight goes on after the
+// focus of the pull dies, while the tank fights the next mob of the pack (a
+// living focus target, the tank in combat). While it does, each other bot
 // that is far from it follows it at a distance, whatever its command
 // (`follow`, `stay`, or none; not `come`):
 // - the bot goes along its ground path to the tank, to the spot nearest to

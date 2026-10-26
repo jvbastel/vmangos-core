@@ -74,7 +74,7 @@ def a_full_run_that_passes():
                           for i, e in enumerate([11517, 11518, 11519, 11520])],
         "wipes": [],
         "deaths": {"Ezzra": [], "Grukk": [], "Hela": [500.0], "Shanka": [], "Morzul": []},
-        "pulls": [{"pack": "pack%d" % i, "target": "", "time_s": 100.0 * i} for i in range(1, 11)],
+        "pulls": [{"pack": "pack%d" % i, "target": "", "time_s": 100.0 * i, "again": False} for i in range(1, 11)],
         "threat_losses": [{"enemy": "Earthborer", "member": "Hela", "time_s": 105.0, "seconds": 5.0}],
         "lost_mobs": [],
         "interrupts": [{"member": "Shanka", "enemy": "Cultist", "spell": 332, "spell_name": "Healing Wave",
@@ -83,6 +83,7 @@ def a_full_run_that_passes():
                                "time_s": 210.0}] * 3,
         "double_interrupts": [],
         "chases": [],
+        "chase_limit_yards": 25.0,
         "fire_nova_hits": [{"member": "Hela", "role": "healer", "fight": 1, "damage": 80, "time_s": 1200.0},
                            {"member": "Grukk", "role": "tank", "fight": 1, "damage": 80, "time_s": 1201.0}],
         "chat_events": chat,
@@ -122,6 +123,15 @@ class Thresholds(unittest.TestCase):
         result["threat_losses"].append({"enemy": "Earthborer", "member": "Hela", "time_s": 350.0, "seconds": 5.0})
         self.assertEqual(self.fails(result), ["pulls with no threat loss 70%, at least 80%"])
 
+    def test_only_first_pulls_count_for_the_clean_pull_share(self):
+        result = a_full_run_that_passes()
+        # Pulls 1 and 2 lose threat: 8 of 10 first pulls are clean.
+        result["threat_losses"].append({"enemy": "Earthborer", "member": "Hela", "time_s": 250.0, "seconds": 5.0})
+        # A fight again of pack 5 that loses threat: no first pull, it does not count.
+        result["pulls"].append({"pack": "pack5", "target": "", "time_s": 550.0, "again": True})
+        result["threat_losses"].append({"enemy": "Earthborer", "member": "Hela", "time_s": 555.0, "seconds": 5.0})
+        self.assertEqual(self.fails(result), [])
+
     def test_at_most_two_bots_die_outside_the_one_allowed_wipe(self):
         result = a_full_run_that_passes()
         # The wipe at 600: each member's last death up to it is part of the wipe.
@@ -154,6 +164,9 @@ class Thresholds(unittest.TestCase):
         result["chases"] = [{"member": "Shanka", "enemy": "Earthborer", "time_s": 80.0, "seconds": 2.5,
                              "max_yards": 31.2}]
         self.assertEqual(self.fails(result), ["chases more than 25 yards from the tank 1 (Shanka 31 yd)"])
+        # The limit comes from the result file, the one of the bots.
+        result["chase_limit_yards"] = 30.0
+        self.assertEqual(self.fails(result), ["chases more than 30 yards from the tank 1 (Shanka 31 yd)"])
 
     def test_at_most_one_fire_nova_hit_on_ranged_and_healer_per_fight(self):
         result = a_full_run_that_passes()

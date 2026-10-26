@@ -115,7 +115,8 @@ namespace Bots
 
         Json pulls = Json::array();
         for (RunPull const& pull : r.pulls)
-            pulls.push_back({{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)}});
+            pulls.push_back({{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)},
+                {"again", pull.again}});
         j["pulls"] = pulls;
         j["threat_losses"] = Hits(r.threatLosses);
         j["lost_mobs"] = Hits(r.lostMobs);
@@ -141,9 +142,10 @@ namespace Bots
             chases.push_back({{"member", c.member}, {"enemy", c.enemy}, {"time_s", Seconds(c.startMs)},
                 {"seconds", Seconds(c.endMs - c.startMs)}, {"max_yards", c.maxYards}});
         j["chases"] = chases;
+        j["chase_limit_yards"] = r.chaseLimitYards;
         Json novas = Json::array();
         for (RunFireNovaHit const& hit : r.fireNovaHits)
-            novas.push_back({{"member", hit.member}, {"role", hit.role}, {"fight", hit.fight},
+            novas.push_back({{"member", hit.member}, {"role", RoleName(hit.role)}, {"fight", hit.fight},
                 {"damage", hit.damage}, {"time_s", Seconds(hit.ms)}});
         j["fire_nova_hits"] = novas;
 
@@ -182,5 +184,13 @@ namespace Bots
 
         j["trace"] = TextOrNull(r.traceFile);
         return j.dump(2, ' ', false, Json::error_handler_t::replace) + "\n";
+    }
+
+    std::uint32_t FightNumber(std::vector<RunPull> const& pulls)
+    {
+        std::uint32_t fight = 1;
+        for (std::size_t i = pulls.size(); i-- > 1 && pulls[i].again;)
+            ++fight;
+        return fight;
     }
 }

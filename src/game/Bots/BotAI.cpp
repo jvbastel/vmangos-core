@@ -466,7 +466,8 @@ bool BotAI::GroupRests()
     for (Bots::Guid bot : Coordinator()->GetResting())
     {
         // Only a bot that is still here: a bot that logged out while it ate
-        // stays in the list of the coordinator.
+        // stays in the list of the coordinator until the run forgets it
+        // (BotRun::GroupResting).
         Player const* player = me->GetMap()->GetPlayer(ObjectGuid(bot));
         if (player && player->IsAlive() && player->GetGroup() == me->GetGroup())
             return true;

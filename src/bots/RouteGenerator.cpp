@@ -49,14 +49,6 @@ namespace Bots
             std::uint32_t quest;
         };
 
-        float PathLength(std::vector<Position> const& path)
-        {
-            float length = 0.0f;
-            for (std::size_t i = 1; i < path.size(); ++i)
-                length += Distance3d(path[i - 1], path[i]);
-            return length;
-        }
-
         // The member of the pack whose spawn point is nearest to `at`.
         Position NearestMember(Position const& at, GeneratorPack const& pack, std::vector<GeneratorSpawn> const& spawns)
         {
@@ -423,6 +415,9 @@ namespace Bots
         // route as the shortest navmesh path from a spot of the line: a
         // quest takes the nearest packs, and its detour starts at that spot.
         // So a quest pack on another level is reached on its own level.
+        // That detour to another level is wanted, unlike the left-out packs
+        // of the main line (WOWAI#96): a quest is a goal of the route, so its
+        // pack is fought where it stands (lead decision, #91-#96 review).
         std::set<std::uint32_t> questEntries;
         for (GeneratorQuest const& quest : input.quests)
             for (QuestObjective const& objective : quest.objectives)

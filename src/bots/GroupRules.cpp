@@ -230,15 +230,13 @@ namespace Bots
     bool IsInChaseLimit(BotContext const& context, Guid unit)
     {
         Guid const tank = context.group.GetTank();
-        if (!IsAlive(context.view, tank) || context.view.GetDistanceBetween(unit, tank) <= ChaseLimitYards)
+        if (!IsAlive(context.view, tank) || context.view.GetDistanceBetween(unit, tank) <= ChaseEnemyYards)
             return true;
         // An enemy that hits another member: that member does not come to
         // the tank, so the bot goes to it, while the enemy stays near it.
         Guid const victim = context.view.GetVictim(unit);
-        std::vector<Guid> const members = context.view.GetGroupMembers();
-        return victim != NoGuid && victim != Self(context) && IsAlive(context.view, victim)
-            && std::find(members.begin(), members.end(), victim) != members.end()
-            && context.view.GetDistanceBetween(unit, victim) <= ChaseLimitYards;
+        return victim != Self(context) && IsAlive(context.view, victim) && IsGroupMember(context.view, victim)
+            && context.view.GetDistanceBetween(unit, victim) <= ChaseEnemyYards;
     }
 
     Guid PickEnemyHealer(BotContext const& context)

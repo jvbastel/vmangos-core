@@ -168,7 +168,7 @@ class BotRun
         std::string NameOf(ObjectGuid guid) const;
         void RememberName(Unit const* unit);
         // The role of a member for the result: the test driver is ranged.
-        std::string RoleText(Player const* member) const;
+        Bots::BotRole RoleOf(Player const* member) const;
         // The chat event of the run with the id, or null.
         Bots::RunChatEvent* ChatEventOf(uint64 id);
         // A living bot of the group eats or drinks.
@@ -176,6 +176,8 @@ class BotRun
         // A living mob of the pack near the test driver, or null.
         Creature* LivingMobOf(std::string const& pack) const;
         bool Fight(Bots::ScriptCommand const& command, std::string& detail);
+        // A pull of the result: a `fight`, or a `command pull`.
+        void RecordPull(Bots::ScriptCommand const& command);
         // Writes the result file, and the trace when the run did not pass.
         void WriteResultFiles();
         // Writes the result file only: at the end of Closing again, with the

@@ -600,7 +600,7 @@ TEST(GroupRules, AMeleeBotComesBackFromAnEnemyThatFleesFromTheHealer)
     party.World([](FakeBot& fake) {
         fake.SetVictim(Shaman, Healer);
         fake.SetDistanceBetween(Shaman, Tank, 60.0f);
-        fake.SetDistanceBetween(Shaman, Healer, Bots::ChaseLimitYards + 5.0f);
+        fake.SetDistanceBetween(Shaman, Healer, Bots::ChaseEnemyYards + 5.0f);
     });
     party.rogue.fake.ChaseBehind(Shaman);
     party.rogue.fake.ClearDeeds();

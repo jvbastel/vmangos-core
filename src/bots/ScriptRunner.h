@@ -1,10 +1,10 @@
 #ifndef WOWAI_BOTS_SCRIPT_RUNNER_H
 #define WOWAI_BOTS_SCRIPT_RUNNER_H
 
+#include "Route.h"
 #include "RunScript.h"
 
 #include <cstdint>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -56,6 +56,8 @@ namespace Bots
         bool memberDead = false;
         // A mob of the pack of the running `fight` lives (FightPack).
         bool fightPackAlive = false;
+        // Where the test driver stands, for the walk back of a fight again.
+        Position driverAt{0.0f, 0.0f, 0.0f};
     };
 
     enum class RunStepKind
@@ -76,7 +78,10 @@ namespace Bots
     class ScriptRunner
     {
     public:
-        explicit ScriptRunner(std::vector<ScriptCommand> commands);
+        // `route`: the route of the script, for the walk back of a fight
+        // again. Without the pack in it, the walk goes to the point of the
+        // last `move` before the fight.
+        explicit ScriptRunner(std::vector<ScriptCommand> commands, Route route = Route());
 
         RunStep Update(RunFacts const& facts, std::int64_t nowMs);
         // The result of the last Do. `detail` says why it did not work.
@@ -105,19 +110,22 @@ namespace Bots
 
         RunStep Fail(std::string const& why);
         void Start(std::int64_t nowMs);
-        // After the current `fight`: the group walks back to the point of
-        // its last `move`, rests, and pulls the same pack again.
+        // After the current `fight`: the group rests, walks back to the
+        // pack (WalkBack), and pulls the same pack again.
         void FightAgain();
+        // Replaces the WalkBack command at m_index with a `move` and a
+        // `wait arrive` for each point of the walk from `from`.
+        void ExpandWalkBack(Position const& from);
 
         std::vector<ScriptCommand> m_commands;
+        Route m_route;
         std::size_t m_index = 0;
         State m_state = State::Next;
         std::int64_t m_since = 0;      // The start of the wait.
         bool m_fightSeen = false;      // wait combat_end: a fight started.
         std::int64_t m_quietSince = -1; // wait combat_end: out of combat since.
         std::string m_reason;
-        // The fights again of each pack.
-        std::map<std::string, int> m_refights;
+
     };
 }
 

@@ -10,10 +10,11 @@ namespace Bots
     namespace
     {
         // Outside a pull, a focus that hits a member other than the living
-        // tank is not the tank's yet: the damage bots wait for the taunt.
+        // tank is not the tank's yet: the damage bots wait for the taunt,
+        // while the taunt can come.
         bool FocusHitsAnotherMember(BotContext const& context, Guid focus)
         {
-            if (context.group.GetPull().phase != PullPhase::None)
+            if (context.group.GetPull().phase != PullPhase::None || context.group.IsTauntGivenUp(focus))
                 return false;
             Guid const tank = context.group.GetTank();
             Guid const victim = context.view.GetVictim(focus);

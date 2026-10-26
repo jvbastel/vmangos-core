@@ -102,6 +102,12 @@ namespace Bots
         // the pull attacks the tank, or the tank fights back an enemy outside
         // a pull. The damage bots wait for it.
         bool TankHoldsThreat() const;
+        // The tank cannot taunt enemy `enemy` off another member now: it
+        // knows no Taunt, or the taunt cannot go out in range (cooldown). The
+        // damage bots stop their wait for the taunt (DamageRules.h). A new
+        // focus target or pull forgets it.
+        void GiveUpTaunt(Guid enemy);
+        bool IsTauntGivenUp(Guid enemy) const;
 
         // The interrupt claims (GroupRules.h): two bots never interrupt the
         // same cast. An enemy casts one spell at a time, so a claim of a
@@ -150,10 +156,14 @@ namespace Bots
         std::vector<Guid> GetResting() const;
         // A bot that a scripted run revived, at half health and mana: it
         // eats and drinks until full, and the group waits for it from now
-        // on. WatchGroup clears it when the bot is full.
+        // on. WatchRest clears it when the bot is full.
         void SetRestUntilFull(Guid bot);
         bool RestsUntilFull(Guid bot) const;
         void ClearRestUntilFull(Guid bot);
+        // Bot `bot` rests no more and is no longer waited for: it died, left
+        // the group, or logged out. The game layer calls it for a bot of
+        // GetResting that is not a living member in the world any more.
+        void ForgetRest(Guid bot);
         // A dead bot releases to run back, because no resurrect comes:
         // adds a rest event.
         void NoteRevive(Guid bot);
@@ -190,6 +200,7 @@ namespace Bots
         // The kills and rolls that made an event, with the time of the event.
         std::map<std::pair<Guid, std::int64_t>, std::int64_t> m_seen;
         Guid m_focusTarget = NoGuid;
+        Guid m_tauntGivenUp = NoGuid;
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;

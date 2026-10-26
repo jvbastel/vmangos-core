@@ -208,6 +208,14 @@ Bots::CastInfo BotAdapter::GetCast(Bots::Guid unit) const
     return CastOf(Find(unit));
 }
 
+Bots::CastKind BotAdapter::CastKindOf(SpellEntry const* spell)
+{
+    if (!spell)
+        return Bots::CastKind::Other;
+    return spell->IsHealSpell() ? Bots::CastKind::Heal
+        : spell->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+}
+
 Bots::CastInfo BotAdapter::CastOf(Unit const* unit)
 {
     std::vector<CurrentSpell> const spells = unit ? CurrentSpellsOf(unit, false) : std::vector<CurrentSpell>();
@@ -216,8 +224,7 @@ Bots::CastInfo BotAdapter::CastOf(Unit const* unit)
     CurrentSpellTypes const type = spells.front().type;
     Spell const* spell = spells.front().spell;
     SpellEntry const* info = spell->m_spellInfo;
-    Bots::CastKind const kind = info->IsHealSpell() ? Bots::CastKind::Heal
-        : info->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+    Bots::CastKind const kind = CastKindOf(info);
     // The test of Spell::EffectInterruptCast, the effect of Kick and
     // Shield Bash.
     bool const casting = spell->getState() == SPELL_STATE_CASTING

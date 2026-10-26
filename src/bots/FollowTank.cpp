@@ -20,27 +20,26 @@ namespace Bots
         // A spot this near to the bot is no move.
         float const NoMoveYards = 2.0f;
 
-        // True when the bot follows a living group member other than the
-        // player, such as the healer on its way to a hurt member
-        // (PriestModule): a second walk would take turns with that one.
-        bool FollowsAMember(BotContext const& context)
-        {
-            Guid const target = context.view.GetFollowTarget();
-            if (target == NoGuid || target == context.commandPlayer || !IsAlive(context.view, target))
-                return false;
-            std::vector<Guid> const members = context.view.GetGroupMembers();
-            return std::find(members.begin(), members.end(), target) != members.end();
-        }
-
         // The tank of a pull that is on, and that another bot can follow.
+        // The focus of the pull can die while the pack still fights: the
+        // tank ends the pull and fights back the next mob. That fight goes
+        // on as long as the tank fights a living focus.
         bool PullToFollow(BotContext const& context, Guid& tank)
         {
             PullState const pull = context.group.GetPull();
             tank = pull.puller;
-            return pull.phase != PullPhase::None && pull.puller != NoGuid && pull.puller != context.view.GetSelf()
-                && context.command != CommandState::Come && IsAlive(context.view, pull.puller);
+            if (pull.phase == PullPhase::None)
+            {
+                tank = context.group.GetTank();
+                if (!IsAlive(context.view, context.group.GetFocusTarget()) || !context.view.IsInCombat(tank))
+                    return false;
+            }
+            return tank != NoGuid && tank != context.view.GetSelf() && context.command != CommandState::Come
+                && IsAlive(context.view, tank);
         }
 
+        // A bot that follows a group member already (FollowsAMember) keeps
+        // that walk: a second walk would take turns with that one.
         bool ShouldFollowTank(BotContext const& context)
         {
             Guid tank = NoGuid;
@@ -97,15 +96,13 @@ namespace Bots
 
         bool FindFollowPlace(BotContext const& context, Position& place)
         {
-            Guid const tank = context.group.GetPull().puller;
+            Guid tank = NoGuid;
+            PullToFollow(context, tank);
             std::vector<Position> path;
             if (!context.view.FindGroundPath(context.view.GetPosition(context.view.GetSelf()),
                     context.view.GetPosition(tank), path) || path.size() < 2)
                 return false;
-            float length = 0.0f;
-            for (std::size_t i = 1; i < path.size(); ++i)
-                length += Distance3d(path[i - 1], path[i]);
-
+            float const length = PathLength(path);
             SafeMoveRules rules;
             rules.inSightOf = tank;
             rules.enemies = EnemiesToKeepOff(context, std::min(length + SearchMarginYards, MaxSearchYards));

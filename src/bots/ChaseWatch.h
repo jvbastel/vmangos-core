@@ -7,18 +7,14 @@
 #include <vector>
 
 // The chases beyond the limit of a scripted run (spec section 10, pass
-// thresholds): no bot chases more than 25 yards from the tank. The game
+// thresholds): no bot chases more than ChaseLimitYards (GroupRules.h) from
+// the tank. The game
 // layer tells the watch, at each update of the run, which bot (not the tank)
 // runs after which enemy, and how far the bot is from the living tank:
 //
 //   watch.Update(chases, nowMs);
-//
-// The bots come back to the tank at ChaseLimitYards (GroupRules.h), the
-// distance of the enemy to the tank; this limit is the distance of the bot.
 namespace Bots
 {
-    float const ChaseRecordYards = 25.0f;
-
     struct MemberChase
     {
         Guid member;

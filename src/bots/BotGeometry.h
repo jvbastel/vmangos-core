@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 // Small geometry helpers that the bot library shares.
 namespace Bots
@@ -35,6 +36,15 @@ namespace Bots
         if (length2 > 0.0f)
             t = std::max(0.0f, std::min(1.0f, ((p.x - a.x) * vx + (p.y - a.y) * vy + (p.z - a.z) * vz) / length2));
         return Distance3d(p, {a.x + vx * t, a.y + vy * t, a.z + vz * t});
+    }
+
+    // The length in yards of the path through `path`, with the height.
+    inline float PathLength(std::vector<Position> const& path)
+    {
+        float length = 0.0f;
+        for (std::size_t i = 1; i < path.size(); ++i)
+            length += Distance3d(path[i - 1], path[i]);
+        return length;
     }
 }
 
