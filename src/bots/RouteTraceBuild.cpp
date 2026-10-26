@@ -192,6 +192,7 @@ namespace Bots
             std::size_t pack = 0;
             std::uint32_t quest = 0;
             std::string name;
+            Position spot{}; // Of a visit: the spot to visit, near the center.
         };
 
         std::string UniqueName(std::set<std::string>& used, std::string const& name)
@@ -282,7 +283,7 @@ namespace Bots
             {
                 std::string pointName;
                 for (Event const& event : events)
-                    if (event.kind == EventKind::Visit && event.quest && Distance3d(event.center, visit.position) < 0.5f)
+                    if (event.kind == EventKind::Visit && Distance3d(event.spot, visit.position) < 0.5f)
                         pointName = event.name;
                 float bestS = 0.0f;
                 float best = 1e9f;
@@ -296,6 +297,7 @@ namespace Bots
                 {
                     Event event{bestS, 2, 0, EventKind::Visit, line.At(bestS)};
                     event.quest = quest.id;
+                    event.spot = visit.position;
                     event.name = pointName =
                         UniqueName(used, "q" + std::to_string(quest.id) + "_" + StepNameOf(visit.name));
                     events.push_back(event);
@@ -480,7 +482,7 @@ namespace Bots
             if (event.kind == EventKind::Pull &&
                 DistanceToPack(event.center, packs[event.pack], spawns) < settings.aggroRange)
                 result.warnings.push_back("the pull point of " + packName[event.pack] +
-                    " is within its aggro range: the trace starts too near it");
+                    " is within its aggro range: the trace first comes near it at its start or after a gap");
         }
 
         result.ok = true;

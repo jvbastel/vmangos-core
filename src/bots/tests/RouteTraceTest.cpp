@@ -494,3 +494,19 @@ TEST(RouteTraceBuild, FailsOnATraceWithNoPoints)
     input.trace = NewTrace();
     EXPECT_FALSE(Bots::BuildTraceRoute(input).ok);
 }
+
+TEST(RouteTraceBuild, TwoQuestsAtOneSpotShareTheVisitPoint)
+{
+    TraceBuildInput input = Corridor();
+    Bots::GeneratorQuest search{5722, {}, {{"Maur Grimtotem", {40.0f, 3.0f, 0.0f}}}};
+    Bots::GeneratorQuest give{5724, {}, {{"Maur Grimtotem", {40.0f, 3.0f, 0.0f}}}};
+    input.quests = {search, give};
+    TraceBuild const built = Bots::BuildTraceRoute(input);
+
+    ASSERT_TRUE(built.ok) << built.error;
+    EXPECT_EQ(Bots::FindPoint(built.route, "q5724_maur_grimtotem"), nullptr);
+    Bots::RouteQuest const* second = Bots::FindQuest(built.route, 5724);
+    ASSERT_NE(second, nullptr);
+    ASSERT_EQ(second->objectives.size(), 1u);
+    EXPECT_EQ(second->objectives[0].point, "q5722_maur_grimtotem");
+}
