@@ -32,6 +32,17 @@ namespace Bots
         m_hits = std::move(next);
     }
 
+    std::vector<Guid> AttackedEnemies(std::vector<MemberAttacks> const& members)
+    {
+        std::vector<Guid> attacked;
+        for (MemberAttacks const& member : members)
+            if (member.bot)
+                for (Guid enemy : {member.victim, member.spellTarget, member.petVictim})
+                    if (enemy != NoGuid)
+                        attacked.push_back(enemy);
+        return attacked;
+    }
+
     void LostMobWatch::Update(std::vector<EnemyOnMember> const& hits, std::vector<Guid> const& attacked, std::int64_t nowMs,
         Guid holder)
     {

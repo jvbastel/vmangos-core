@@ -62,6 +62,25 @@ namespace Bots
     //   watch.Update(hitsOnMembers, attackedEnemies, nowMs, fightingTank);
     std::int64_t const LostMobMs = 10000;
 
+    // What one group member does to enemies at an update of the run
+    // (WOWAI#83). A member attacks an enemy only when it hits it or casts at
+    // it: its victim (a melee swing, or the ranged attack of a caster that
+    // chases to range), the unit target of the spell it casts or channels,
+    // or its pet's victim. Its selection alone is no attack. The test driver
+    // is no bot (`bot` false): it is a member that enemies can hit, but its
+    // attacks do not hold an enemy, so a lost mob shows the bots' fight.
+    struct MemberAttacks
+    {
+        bool bot = true;
+        Guid victim = NoGuid;
+        Guid spellTarget = NoGuid;
+        Guid petVictim = NoGuid;
+        Guid selection = NoGuid; // Not an attack.
+    };
+
+    // The enemies that the bots attack, for LostMobWatch::Update.
+    std::vector<Guid> AttackedEnemies(std::vector<MemberAttacks> const& members);
+
     struct LostMob
     {
         Guid enemy;
