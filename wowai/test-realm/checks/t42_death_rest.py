@@ -63,11 +63,33 @@ def go_ground(x, y):
             c.gm(".go xyz %f %f %f" % (x, y, float(m.group(1)) + 0.1), select=c.guid, wait=1.5)
 
 
+def bots_away(yards=10.0):
+    """The bots that stand more than `yards` from the player. A bot with no
+    position counts as away. (A position equal to the player's is no sign of
+    a failed select: `.namego` puts a bot on the exact spot of the player.)"""
+    here = pos(c, c.guid)
+    away = []
+    for bot, guid in bots.items():
+        at = pos(c, guid)
+        if at is None or here is None or dist(at, here) > yards:
+            away.append(bot)
+    return away
+
+
 def gather():
-    for bot in bots:
-        c.gm(".namego %s" % bot, wait=2.0)
-    c.chat(CHAT_MSG_PARTY, "follow")
-    c.pump(6)
+    # On a fresh realm the bots log in far away. While one is still far, the
+    # Priest that came first goes to it as a hurt member out of reach, and
+    # can stick on ground with no path ("I cannot reach you", #86). So the
+    # bots come again until all stand with the player.
+    for _ in range(3):
+        for bot in bots:
+            c.gm(".namego %s" % bot, wait=2.0)
+        c.chat(CHAT_MSG_PARTY, "follow")
+        c.pump(6)
+        away = bots_away()
+        if not away:
+            return
+        print("  not near yet:", away)
 
 
 def spawn_mob_here(entry=3098):
@@ -206,6 +228,10 @@ def part_wipe():
     c.chat(CHAT_MSG_PARTY, "stay")
     c.pump(2)
     realm.mark("wipe")
+    # Every bot near the corpses: a Priest out of reach of a corpse may give
+    # its resurrect up, and that member releases before the wipe (#86).
+    away = bots_away()
+    results.check("the bots stand with the player before the wipe", not away, "away %r" % away)
     # The Priest last: while a resurrect can come, the dead wait, so that
     # nobody releases before the wipe (#72).
     print("  kill player:", kill(c, c.guid))
