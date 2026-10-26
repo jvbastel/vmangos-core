@@ -33,7 +33,7 @@ TEST(InterruptWatch, ALandedInterruptIsDone)
     InterruptWatch watch;
     watch.Observe({HealOf(Shaman)}, true, 1000);
     watch.NoteAttempt(Rogue, Shaman, HealingWave, 1500);
-    watch.NoteLanded(Rogue, Shaman, HealingWave, CastKind::Heal, 1600);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1600);
     watch.Observe({Idle(Shaman)}, true, 1700);
     watch.Observe({Idle(Shaman)}, true, 9000);
 
@@ -70,11 +70,46 @@ TEST(InterruptWatch, ALateNoteOfALandedInterruptIsNoMiss)
 {
     InterruptWatch watch;
     watch.Observe({HealOf(Shaman)}, true, 1000);
+    watch.NoteAttempt(Rogue, Shaman, HealingWave, 1900);
     watch.Observe({Idle(Shaman)}, true, 2000);
-    watch.NoteLanded(Rogue, Shaman, HealingWave, CastKind::Heal, 2100);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 2100);
     watch.Observe({Idle(Shaman)}, true, 9000);
 
     EXPECT_TRUE(watch.Missed().empty());
+    EXPECT_EQ(watch.Done().size(), 1u);
+}
+
+TEST(InterruptWatch, ACastThatStopsWithNoAttemptIsNeitherDoneNorMissed)
+{
+    // For example a stun, or the caster ran.
+    InterruptWatch watch;
+    watch.Observe({HealOf(Shaman)}, true, 1000);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1500);
+    watch.Observe({Idle(Shaman)}, true, 1600);
+    watch.Observe({Idle(Shaman)}, true, 9000);
+
+    EXPECT_TRUE(watch.Missed().empty());
+    EXPECT_TRUE(watch.Done().empty());
+}
+
+TEST(InterruptWatch, AStopLongAfterTheAttemptIsNoInterrupt)
+{
+    InterruptWatch watch;
+    watch.NoteAttempt(Rogue, Shaman, HealingWave, 1000);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1000 + Bots::InterruptLandsMs + 1);
+
+    EXPECT_TRUE(watch.Done().empty());
+}
+
+TEST(InterruptWatch, EachMemberThatSeesTheStopNotesIt)
+{
+    // Each bot near gets the packet of the stop: one interrupt.
+    InterruptWatch watch;
+    watch.NoteAttempt(Rogue, Shaman, HealingWave, 1000);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1200);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1200);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1250);
+
     EXPECT_EQ(watch.Done().size(), 1u);
 }
 
@@ -138,7 +173,8 @@ TEST(InterruptWatch, EachCasterHasItsOwnCast)
 {
     InterruptWatch watch;
     watch.Observe({HealOf(Shaman), HealOf(Other)}, true, 1000);
-    watch.NoteLanded(Rogue, Shaman, HealingWave, CastKind::Heal, 1500);
+    watch.NoteAttempt(Rogue, Shaman, HealingWave, 1400);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1500);
     watch.Observe({Idle(Shaman), Idle(Other)}, true, 2000);
     watch.Observe({Idle(Shaman), Idle(Other)}, true, 9000);
 
@@ -146,16 +182,18 @@ TEST(InterruptWatch, EachCasterHasItsOwnCast)
     EXPECT_EQ(watch.Missed()[0].enemy, Other);
 }
 
-TEST(InterruptWatch, AnAttemptAfterTheLandedInterruptOfAnotherBotIsADouble)
+TEST(InterruptWatch, TwoAttemptsAtOneCastAreADouble)
 {
     InterruptWatch watch;
     watch.Observe({HealOf(Shaman)}, true, 1000);
     watch.NoteAttempt(Tank, Shaman, HealingWave, 1500);
     watch.NoteAttempt(Rogue, Shaman, HealingWave, 1600);
-    watch.NoteLanded(Tank, Shaman, HealingWave, CastKind::Heal, 1800);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1800);
     watch.Observe({Idle(Shaman)}, true, 2000);
     watch.Observe({Idle(Shaman)}, true, 9000);
 
+    ASSERT_EQ(watch.Done().size(), 1u);
+    EXPECT_EQ(watch.Done()[0].member, Tank);
     ASSERT_EQ(watch.Doubles().size(), 1u);
     EXPECT_EQ(watch.Doubles()[0].enemy, Shaman);
     EXPECT_EQ(watch.Doubles()[0].spell, HealingWave);
@@ -170,20 +208,32 @@ TEST(InterruptWatch, ASecondTryAfterAMissedKickIsNoDouble)
     InterruptWatch watch;
     watch.Observe({HealOf(Shaman)}, true, 1000);
     watch.NoteAttempt(Rogue, Shaman, HealingWave, 1200);
+    watch.NoteMissed(Rogue, Shaman, 1300);
     watch.NoteAttempt(Tank, Shaman, HealingWave, 1700);
-    watch.NoteLanded(Tank, Shaman, HealingWave, CastKind::Heal, 1900);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1900);
     watch.Observe({Idle(Shaman)}, true, 2000);
     watch.Observe({Idle(Shaman)}, true, 9000);
 
     EXPECT_TRUE(watch.Doubles().empty());
-    EXPECT_EQ(watch.Done().size(), 1u);
+    ASSERT_EQ(watch.Done().size(), 1u);
+    EXPECT_EQ(watch.Done()[0].member, Tank);
+}
+
+TEST(InterruptWatch, AStopAfterOnlyMissedAttemptsIsNoInterrupt)
+{
+    InterruptWatch watch;
+    watch.NoteAttempt(Rogue, Shaman, HealingWave, 1000);
+    watch.NoteMissed(Rogue, Shaman, 1100);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1200);
+
+    EXPECT_TRUE(watch.Done().empty());
 }
 
 TEST(InterruptWatch, AnAttemptAtALaterCastIsNoDouble)
 {
     InterruptWatch watch;
     watch.NoteAttempt(Tank, Shaman, HealingWave, 1000);
-    watch.NoteLanded(Tank, Shaman, HealingWave, CastKind::Heal, 1100);
+    watch.NoteStopped(Shaman, HealingWave, CastKind::Heal, 1100);
     watch.NoteAttempt(Rogue, Shaman, HealingWave, 1100 + Bots::DoubleInterruptMs + 1);
 
     EXPECT_TRUE(watch.Doubles().empty());

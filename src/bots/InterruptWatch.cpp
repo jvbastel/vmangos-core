@@ -21,12 +21,12 @@ namespace Bots
             cast.endMs = nowMs;
             // A caster that died or went away: no miss.
             if (seen == casts.end() || !seen->alive)
-                cast.interrupted = true;
+                cast.stopped = true;
         }
 
         // The ended casts whose grace is over.
         for (Cast const& cast : m_casts)
-            if (cast.endMs && nowMs - cast.endMs > InterruptNoteGraceMs && !cast.interrupted && cast.free)
+            if (cast.endMs && nowMs - cast.endMs > InterruptNoteGraceMs && !cast.stopped && cast.free)
                 m_missed.push_back({cast.enemy, cast.spell, cast.kind, cast.startMs});
         m_casts.erase(std::remove_if(m_casts.begin(), m_casts.end(),
             [nowMs](Cast const& cast) { return cast.endMs && nowMs - cast.endMs > InterruptNoteGraceMs; }),
@@ -47,45 +47,56 @@ namespace Bots
 
     void InterruptWatch::NoteAttempt(Guid member, Guid enemy, SpellId castSpell, std::int64_t nowMs)
     {
-        m_attempts.push_back({member, enemy, castSpell, nowMs, false});
-        for (InterruptDone const& done : m_done)
-            if (IsDouble(m_attempts.back(), done))
+        m_attempts.push_back({member, enemy, castSpell, nowMs, false, false});
+    }
+
+    void InterruptWatch::NoteMissed(Guid member, Guid enemy, std::int64_t nowMs)
+    {
+        for (auto it = m_attempts.rbegin(); it != m_attempts.rend(); ++it)
+            if (it->member == member && it->enemy == enemy && nowMs - it->ms <= InterruptLandsMs)
             {
-                AddDouble(m_attempts.back(), done);
-                break;
+                it->missed = true;
+                return;
             }
     }
 
-    void InterruptWatch::NoteLanded(Guid member, Guid enemy, SpellId castSpell, CastKind kind, std::int64_t nowMs)
+    void InterruptWatch::NoteStopped(Guid enemy, SpellId castSpell, CastKind kind, std::int64_t nowMs)
     {
-        m_done.push_back({member, enemy, castSpell, kind, nowMs});
         for (Cast& cast : m_casts)
             if (cast.enemy == enemy && cast.spell == castSpell)
-                cast.interrupted = true;
+                cast.stopped = true;
+        // The first attempt at the cast that did not miss landed, once.
+        for (Attempt const& attempt : m_attempts)
+            if (attempt.landed && attempt.enemy == enemy && attempt.spell == castSpell
+                && nowMs - attempt.ms <= InterruptLandsMs)
+                return;
         for (Attempt& attempt : m_attempts)
-            if (IsDouble(attempt, m_done.back()))
-                AddDouble(attempt, m_done.back());
+            if (!attempt.missed && attempt.enemy == enemy && attempt.spell == castSpell && attempt.ms <= nowMs
+                && nowMs - attempt.ms <= InterruptLandsMs)
+            {
+                attempt.landed = true;
+                m_done.push_back({attempt.member, enemy, castSpell, kind, nowMs});
+                return;
+            }
     }
 
-    bool InterruptWatch::IsDouble(Attempt const& attempt, InterruptDone const& done) const
+    std::vector<DoubleInterrupt> InterruptWatch::Doubles() const
     {
-        if (attempt.doubled || attempt.member == done.member || attempt.enemy != done.enemy || attempt.spell != done.spell)
-            return false;
-        if (attempt.ms > done.ms + DoubleInterruptMs)
-            return false;
-        // The attempt of the member whose interrupt landed: its last one
-        // at the cast before it landed.
-        std::int64_t landedAttemptMs = done.ms;
-        for (Attempt const& own : m_attempts)
-            if (own.member == done.member && own.enemy == done.enemy && own.spell == done.spell && own.ms <= done.ms
-                && done.ms - own.ms <= DoubleInterruptMs)
-                landedAttemptMs = own.ms;
-        return attempt.ms >= landedAttemptMs;
-    }
-
-    void InterruptWatch::AddDouble(Attempt& attempt, InterruptDone const& done)
-    {
-        attempt.doubled = true;
-        m_doubles.push_back({done.enemy, done.spell, done.member, attempt.member, attempt.ms});
+        std::vector<DoubleInterrupt> doubles;
+        for (std::size_t j = 0; j < m_attempts.size(); ++j)
+        {
+            Attempt const& second = m_attempts[j];
+            for (std::size_t i = 0; i < j; ++i)
+            {
+                Attempt const& first = m_attempts[i];
+                if (!first.missed && first.member != second.member && first.enemy == second.enemy
+                    && first.spell == second.spell && second.ms - first.ms <= DoubleInterruptMs)
+                {
+                    doubles.push_back({second.enemy, second.spell, first.member, second.member, second.ms});
+                    break;
+                }
+            }
+        }
+        return doubles;
     }
 }
