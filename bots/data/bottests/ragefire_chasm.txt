@@ -105,14 +105,14 @@ command follow
 # Healing Wave and Lightning Bolt. The result shows the interrupts
 # (jvbastel/WOWAI#95).
 scenario shaman
-teleport pull_pack16
-clear 80 pack16         # only the pack stays
+teleport pull_pack10
+clear 80 pack10         # only the pack stays
 command follow
 wait 20
 command stay
 refill
 wait 3
-target pack16
+target pack10
 command pull
 wait combat_end 300
-expect pack_dead pack16
+expect pack_dead pack10
