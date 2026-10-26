@@ -14,6 +14,7 @@
 #include "RunScript.h"
 #include "ScriptRunner.h"
 #include "ThreatWatch.h"
+#include "WipeRevive.h"
 
 #include <memory>
 #include <set>
@@ -116,7 +117,8 @@ class BotRun
         // The revive rule of the scripted runs (jvbastel/WOWAI#72): the run
         // cuts the ghost run short. Out of combat, a released member
         // revives at once at the living member nearest to its corpse. In a
-        // wipe, every member revives at the dungeon entrance.
+        // wipe, every member in the world revives at the dungeon entrance
+        // (WipeRevive.h).
         void ReviveTheDead();
         void ReviveAt(Player* member, uint32 mapId, float x, float y, float z, float o);
         // A random spot of a random place of the point. The run logs it.
@@ -144,8 +146,7 @@ class BotRun
         // The end of the last `move` of the driver.
         bool m_moving = false;
         float m_moveX = 0.0f, m_moveY = 0.0f, m_moveRadius = 0.0f;
-        // The start of the wipe, or 0 while a member lives.
-        int64 m_wipeMs = 0;
+        Bots::WipeWatch m_wipeWatch;
 };
 
 #endif
