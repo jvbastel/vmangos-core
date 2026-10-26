@@ -321,9 +321,9 @@ namespace Bots
         }
 
         // The pull point of a pack of the line: the first spot from where the
-        // line comes in range on, outside aggro range, whose navmesh path to
-        // the pack is within the limit. A straight distance can cross a floor
-        // to another level of a cave; a path cannot.
+        // line comes in range on whose navmesh path to the pack is within the
+        // limit. A straight distance can cross a floor to another level of a
+        // cave; a path cannot.
         std::vector<float> pullAt(approach);
         std::vector<float> pullPath(packs.size(), -1.0f); // -1: no path within the limit.
         for (std::size_t p = 0; p < packs.size(); ++p)
@@ -339,7 +339,7 @@ namespace Bots
                 Position const at = line.At(s);
                 float const distance = DistanceToPack(at, packs[p], spawns);
                 // A path is never shorter than the straight distance.
-                if (distance < settings.aggroRange || distance > settings.pullPathLimit)
+                if (distance > settings.pullPathLimit)
                     continue;
                 std::vector<Position> path;
                 if (!nav.Path(at, target, path))
@@ -357,14 +357,30 @@ namespace Bots
         }
 
         // A pack of the line with no pull point near it by path, for example
-        // on a lower level of a cave, gets a detour from the spot of the line
-        // with the shortest path to it.
+        // on a lower level of a cave. Out of aggro range of the line, it is
+        // not on the route. Within it, it gets a detour from the spot of the
+        // line with the shortest path to it.
         std::vector<Detour> detours;
         std::vector<float> detourPath(packs.size(), -1.0f); // >= 0: a pack of the line on a detour.
         for (std::size_t p = 0; p < packs.size(); ++p)
         {
-            if (approach[p] < 0.0f || (pullPath[p] >= 0.0f && pullPath[p] <= settings.pullPathLimit))
+            // With no path at all, the pull point stays where the line comes
+            // in range.
+            if (approach[p] < 0.0f || pullPath[p] < 0.0f || pullPath[p] <= settings.pullPathLimit)
                 continue;
+            if (distanceToRoute[p] >= settings.aggroRange)
+            {
+                char text[160];
+                std::snprintf(text, sizeof(text),
+                    "the pack of spawn %u at %s is off the route: the line passes it at %.0f yards, but no spot "
+                    "of the line is within %.0f yards of it by path",
+                    unsigned(spawns[packs[p].members[0]].guid), Format(spawns[packs[p].members[0]].position).c_str(),
+                    distanceToRoute[p], settings.pullPathLimit);
+                result.warnings.push_back(text);
+                approach[p] = -1.0f;
+                onRoute[p] = false;
+                continue;
+            }
             Position const target = spawns[packs[p].members[0]].position;
             std::vector<std::pair<float, float>> nearest; // The straight distance, then s.
             for (float s : samples)
@@ -387,7 +403,7 @@ namespace Bots
                     bestS = candidate.second;
                 }
             }
-            if (best < 0.0f || (pullPath[p] >= 0.0f && best >= pullPath[p]))
+            if (best < 0.0f || best >= pullPath[p])
                 continue;
             detourPath[p] = best;
             nearestS[p] = pullAt[p] = bestS;
@@ -494,8 +510,9 @@ namespace Bots
         }
 
         // The detours to the quest packs off the line.
-        for (Detour const& detour : detours)
+        for (std::size_t d = 0; d < detours.size(); ++d)
         {
+            Detour const& detour = detours[d];
             std::size_t const p = detour.pack;
             Position const start = line.At(nearestS[p]);
             Position const target = spawns[packs[p].members[0]].position;
@@ -509,7 +526,8 @@ namespace Bots
             }
             RouteLine const way(path);
             float const pullAt = PullOnPath(way, packs[p], spawns, settings);
-            int sub = 0;
+            // Two detours from one spot keep their steps apart.
+            int sub = int(d) * 100000;
             for (float s = settings.pointSpacing; s < pullAt - settings.pointSpacing / 2.0f; s += settings.pointSpacing)
             {
                 Event point{nearestS[p], 4, sub++, EventKind::Point, way.At(s)};

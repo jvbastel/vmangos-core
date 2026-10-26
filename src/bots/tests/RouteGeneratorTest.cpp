@@ -522,7 +522,7 @@ namespace
     public:
         LevelsNav()
         {
-            rooms = {{0, 200, -3, 3}, {96, 98, -3, 20}, {40, 98, 10, 20}};
+            rooms = {{0, 200, -3, 3}, {96, 98, -3, 20}, {40, 98, 10, 30}};
             doors = {{97, 0, 0}, {97, 15, 0}};
         }
 
@@ -561,13 +561,13 @@ namespace
         return length;
     }
 
-    Bots::GeneratorInput LevelsInput(float packX)
+    Bots::GeneratorInput LevelsInput(float packX, float packY = 15)
     {
         Bots::GeneratorInput input;
         input.name = "levels";
         input.mapId = 389;
         input.entrance = {2, 0, 0};
-        input.spawns = {Spawn(1, 11318, packX, 15), Spawn(5, 100, 190, 0)};
+        input.spawns = {Spawn(1, 11318, packX, packY), Spawn(5, 100, 190, 0)};
         input.bosses = {100};
         return input;
     }
@@ -617,4 +617,20 @@ TEST(RouteGenerator, APackFarFromTheLineByPathGetsADetourAndAWarning)
         EXPECT_GE(Bots::Distance3d(place.position, {40, 15, 0}), input.settings.aggroRange);
     }
     EXPECT_EQ(Bots::CheckRouteWalk(generated.route, nav), std::vector<std::string>{});
+}
+
+TEST(RouteGenerator, APackOutOfAggroRangeOfTheLineAndFarByPathIsNotOnTheRoute)
+{
+    // 25 yards below the line, so on the route by straight distance, but
+    // out of its aggro range, and 82 yards away by path.
+    LevelsNav nav;
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(LevelsInput(40, 25), nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    for (Bots::RoutePack const& pack : generated.route.packs)
+        EXPECT_NE(pack.mobs[0].spawnGuid, 1u) << pack.name;
+    bool told = false;
+    for (std::string const& warning : generated.warnings)
+        told = told || warning.find("the pack of spawn 1 at 40.00 25.00 0.00 is off the route") != std::string::npos;
+    EXPECT_TRUE(told);
 }
