@@ -591,9 +591,7 @@ bool RunBuild(ChatHandler& handler, char* args)
     if (!RouteFiles::Write(path, Bots::WriteRoute(route, RouteFiles::Names())))
         return Fail(handler, "Cannot write " + path + ". Does the routes folder exist?");
 
-    uint32 checkpoints = 0;
-    for (Bots::RoutePoint const& point : route.points)
-        checkpoints += point.name.compare(0, 4, "mark") == 0 ? 1 : 0;
+    uint32 const checkpoints = uint32(Bots::MarkCount(trace.trace));
     handler.PSendSysMessage("Route %s on map %u from the trace (%u trace points, %.0f yards): %u steps, %u points "
         "(%u checkpoints), %u packs. File %s.", route.name.c_str(), mapId, uint32(trace.trace.points.size()),
         Bots::TraceLength(trace.trace), uint32(route.steps.size()), uint32(route.points.size()), checkpoints,

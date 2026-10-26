@@ -155,6 +155,9 @@ namespace Bots
                 {
                     TracePoint back = walk[k];
                     back.joined = walk[k + 1].joined;
+                    // A checkpoint is one route point, on the way out.
+                    back.mark = false;
+                    back.note.clear();
                     branch.push_back(back);
                 }
                 TracePoint rejoin;
@@ -221,6 +224,18 @@ namespace Bots
         std::vector<TracePoint> const points = CenterLine(input.trace, spacing, result.warnings);
         TraceLine const line(points);
         std::vector<float> const samples = line.Samples();
+
+        // The bots walk straight across a gap from one part to the next.
+        for (std::size_t p = 1; p < line.Parts(); ++p)
+        {
+            Position const from = line.At(line.End(p - 1));
+            Position const to = line.At(line.Start(p));
+            float const gap = Distance3d(from, to);
+            if (gap > spacing)
+                result.warnings.push_back("the route goes straight across a gap of " + std::to_string(int(gap + 0.5f)) +
+                    " yards from " + Format(from) + " to " + Format(to) +
+                    " that the GM did not walk: walk it with .route trace start, or check it");
+        }
 
         // The packs, and where the trace first comes near each one.
         std::vector<GeneratorPack> const packs = BuildPacks(spawns, settings.clusterDistance);

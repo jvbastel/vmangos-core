@@ -217,6 +217,9 @@ namespace
         trace.name = names[0];
         trace.mapId = character->GetMapId();
         std::string const path = RouteFiles::TracePathOf(names[0]);
+        for (auto const& other : traces)
+            if (other.second.path == path)
+                return command.Fail("another GM records the trace " + names[0] + " now.");
         std::string text;
         if (RouteFiles::Read(path, text))
         {

@@ -387,6 +387,43 @@ TEST(RouteTraceBuild, PutsNoRoutePointOnAGapOfTheTrace)
     for (Bots::RoutePoint const* point : PointsOf(built.route))
         xs.push_back(point->places[0].position.x);
     EXPECT_EQ(xs, (std::vector<float>{0.0f, 10.0f, 20.0f, 60.0f, 70.0f, 80.0f}));
+    // The bots walk straight from 20 to 60, so the build warns about the gap.
+    ASSERT_EQ(built.warnings.size(), 1u);
+    EXPECT_NE(built.warnings[0].find("gap of 40 yards"), std::string::npos) << built.warnings[0];
+}
+
+TEST(RouteTraceBuild, GivesNoGapWarningForAGapWithinTheSpacing)
+{
+    TraceBuildInput input;
+    input.trace = NewTrace();
+    AddWalk(input.trace, 0.0f, 20.0f);
+    AddWalk(input.trace, 24.0f, 40.0f, 0.0f, false);
+    TraceBuild const built = Bots::BuildTraceRoute(input);
+
+    ASSERT_TRUE(built.ok) << built.error;
+    EXPECT_TRUE(built.warnings.empty());
+}
+
+TEST(RouteTraceBuild, KeepsACheckpointOfALaterWalkAsOneRoutePoint)
+{
+    TraceBuildInput input = Corridor();
+    Bots::TracePoint start;
+    start.position = {52.0f, 2.0f, 0.0f};
+    start.joined = false;
+    start.walk = true;
+    input.trace.points.push_back(start);
+    for (float y = 6.0f; y <= 40.0f; y += 4.0f)
+    {
+        Bots::TracePoint point;
+        point.position = {52.0f, y, 0.0f};
+        point.mark = y == 22.0f;
+        input.trace.points.push_back(point);
+    }
+    TraceBuild const built = Bots::BuildTraceRoute(input);
+
+    ASSERT_TRUE(built.ok) << built.error;
+    EXPECT_NE(Bots::FindPoint(built.route, "mark1"), nullptr);
+    EXPECT_EQ(Bots::FindPoint(built.route, "mark2"), nullptr);
 }
 
 TEST(RouteTraceBuild, WalksALaterWalkThatStartsOnTheTraceOutAndBackThere)
