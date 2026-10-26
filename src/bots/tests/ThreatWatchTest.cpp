@@ -202,3 +202,70 @@ TEST(LostMobWatch, AHeldEnemyThatTurnsToTheHealerStartsItsTime)
     ASSERT_EQ(watch.LostMobs().size(), 1u);
     EXPECT_EQ(watch.LostMobs()[0].startMs, 5000);
 }
+
+// What counts as an attack for the lost-mob watch (WOWAI#83): a bot hits
+// the enemy or casts at it. A selection is no attack, and the test driver
+// is no bot: its attacks do not hold an enemy.
+namespace
+{
+    Bots::MemberAttacks Selects(Bots::Guid enemy)
+    {
+        Bots::MemberAttacks member;
+        member.selection = enemy;
+        return member;
+    }
+}
+
+TEST(AttackedEnemies, ASelectionIsNoAttack)
+{
+    EXPECT_TRUE(Bots::AttackedEnemies({Selects(Enforcer)}).empty());
+}
+
+TEST(LostMobWatch, AnEnemyThatABotOnlySelectsIsLost)
+{
+    Bots::LostMobWatch watch;
+    for (std::int64_t now = 0; now <= Bots::LostMobMs; now += 1000)
+        watch.Update({{Enforcer, Healer}}, Bots::AttackedEnemies({Selects(Enforcer)}), now);
+    EXPECT_TRUE(watch.LostMobs().empty());
+
+    watch.Update({{Enforcer, Healer}}, Bots::AttackedEnemies({Selects(Enforcer)}), Bots::LostMobMs + 1000);
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].enemy, Enforcer);
+}
+
+TEST(AttackedEnemies, ABotKeepsTheTargetOfEachSpellItCasts)
+{
+    Bots::MemberAttacks hunter;
+    hunter.spellTargets = {Enforcer, Other};
+
+    EXPECT_EQ(Bots::AttackedEnemies({hunter}), (std::vector<Bots::Guid>{Enforcer, Other}));
+}
+
+TEST(AttackedEnemies, ABotAttacksTheEnemyItHitsOrCastsAt)
+{
+    Bots::MemberAttacks hits, casts, pet;
+    hits.victim = Enforcer;
+    casts.spellTargets = {Other};
+    casts.selection = Other;
+    pet.petVictim = Enforcer;
+
+    EXPECT_EQ(Bots::AttackedEnemies({hits}), std::vector<Bots::Guid>{Enforcer});
+    EXPECT_EQ(Bots::AttackedEnemies({casts}), std::vector<Bots::Guid>{Other});
+    EXPECT_EQ(Bots::AttackedEnemies({pet}), std::vector<Bots::Guid>{Enforcer});
+}
+
+TEST(LostMobWatch, TheTestDriverDoesNotHoldAnEnemy)
+{
+    Bots::MemberAttacks driver;
+    driver.bot = false;
+    driver.victim = Enforcer;
+    driver.spellTargets = {Enforcer};
+    driver.petVictim = Enforcer;
+    driver.selection = Enforcer;
+    Bots::LostMobWatch watch;
+    for (std::int64_t now = 0; now <= 11000; now += 1000)
+        watch.Update({{Enforcer, Healer}}, Bots::AttackedEnemies({driver, Selects(Enforcer)}), now);
+
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].enemy, Enforcer);
+}
