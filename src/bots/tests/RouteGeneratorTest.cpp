@@ -530,15 +530,26 @@ namespace
         {
             if (Straight(from, to, path))
                 return true;
-            std::vector<Position> stops{from};
-            stops.insert(stops.end(), doors.begin(), doors.end());
-            stops.push_back(to);
-            std::vector<Position> leg;
-            for (std::size_t i = 0; i + 1 < stops.size(); ++i)
-                if (!Straight(stops[i], stops[i + 1], leg))
-                    return false;
-            path = stops;
-            return true;
+            // Down the ramp, or up it.
+            for (bool down : {true, false})
+            {
+                std::vector<Position> stops{from};
+                if (down)
+                    stops.insert(stops.end(), doors.begin(), doors.end());
+                else
+                    stops.insert(stops.end(), doors.rbegin(), doors.rend());
+                stops.push_back(to);
+                std::vector<Position> leg;
+                bool walkable = true;
+                for (std::size_t i = 0; i + 1 < stops.size(); ++i)
+                    walkable = walkable && Straight(stops[i], stops[i + 1], leg);
+                if (walkable)
+                {
+                    path = stops;
+                    return true;
+                }
+            }
+            return false;
         }
     };
 
@@ -582,14 +593,28 @@ TEST(RouteGenerator, APullPointIsNearItsPackByPathNotByStraightDistance)
         EXPECT_EQ(warning.find("pull point"), std::string::npos) << warning;
 }
 
-TEST(RouteGenerator, TellsWhenAPackHasNoPullPointWithinThePathLimit)
+TEST(RouteGenerator, APackFarFromTheLineByPathGetsADetourAndAWarning)
 {
+    // The lower room's far end: from the line, the only way is down the
+    // ramp and back along the room, 72 yards.
     LevelsNav nav;
-    Bots::GeneratedRoute generated = Bots::GenerateRoute(LevelsInput(40), nav);
+    Bots::GeneratorInput const input = LevelsInput(40);
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
     ASSERT_TRUE(generated.ok) << generated.error;
 
     bool told = false;
     for (std::string const& warning : generated.warnings)
         told = told || warning.find("pack1 has no pull point within 35 yards by path") != std::string::npos;
     EXPECT_TRUE(told);
+
+    Bots::RoutePoint const* pull = Bots::FindPoint(generated.route, "pull_pack1");
+    ASSERT_NE(pull, nullptr);
+    for (Bots::RoutePlace const& place : pull->places)
+    {
+        std::vector<Position> path;
+        ASSERT_TRUE(nav.Path(place.position, {40, 15, 0}, path));
+        EXPECT_LE(PathLength(path), input.settings.pullPathLimit) << place.position.x;
+        EXPECT_GE(Bots::Distance3d(place.position, {40, 15, 0}), input.settings.aggroRange);
+    }
+    EXPECT_EQ(Bots::CheckRouteWalk(generated.route, nav), std::vector<std::string>{});
 }

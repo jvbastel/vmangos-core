@@ -24,8 +24,9 @@
 //    patrol, comes within aggro range plus a margin of the center line. The
 //    route fights the packs in the order the line reaches them, from a pull
 //    point where the line first comes that close and the navmesh path to
-//    the pack is short (pullPathLimit). A warning tells of a pack with no
-//    such spot.
+//    the pack is short (pullPathLimit). A pack with no such spot, for
+//    example on a lower level of a cave, gets a detour from the spot of the
+//    line with the shortest path to it, and a warning.
 // 4. Route points every few yards along the line, moved sideways by a random
 //    distance that stays on the navmesh. Wide rooms give alternative points.
 // 5. The quest objectives: a visit point, and packs added off the line until

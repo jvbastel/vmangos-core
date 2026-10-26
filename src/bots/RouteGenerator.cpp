@@ -57,6 +57,26 @@ namespace Bots
             return length;
         }
 
+        // The pull point on a path to a pack: the first spot whose rest of the
+        // path is within the limit and that is within aggro range plus the
+        // margin of the pack. Without one, the first spot within the limit.
+        float PullOnPath(RouteLine const& way, GeneratorPack const& pack, std::vector<GeneratorSpawn> const& spawns,
+            GeneratorSettings const& settings)
+        {
+            float const range = settings.aggroRange + settings.margin;
+            float first = -1.0f;
+            for (float s : way.Samples())
+            {
+                if (way.Length() - s > settings.pullPathLimit)
+                    continue;
+                if (first < 0.0f)
+                    first = s;
+                if (DistanceToPack(way.At(s), pack, spawns) <= range)
+                    return s;
+            }
+            return first < 0.0f ? way.Length() : first;
+        }
+
         std::string UniqueName(std::set<std::string>& used, std::string const& name)
         {
             std::string candidate = name;
@@ -336,8 +356,45 @@ namespace Bots
             pullPath[p] = best;
         }
 
-        std::vector<Event> events;
+        // A pack of the line with no pull point near it by path, for example
+        // on a lower level of a cave, gets a detour from the spot of the line
+        // with the shortest path to it.
         std::vector<Detour> detours;
+        std::vector<float> detourPath(packs.size(), -1.0f); // >= 0: a pack of the line on a detour.
+        for (std::size_t p = 0; p < packs.size(); ++p)
+        {
+            if (approach[p] < 0.0f || (pullPath[p] >= 0.0f && pullPath[p] <= settings.pullPathLimit))
+                continue;
+            Position const target = spawns[packs[p].members[0]].position;
+            std::vector<std::pair<float, float>> nearest; // The straight distance, then s.
+            for (float s : samples)
+                nearest.push_back({DistanceToPack(line.At(s), packs[p], spawns), s});
+            std::sort(nearest.begin(), nearest.end());
+            float best = -1.0f;
+            float bestS = 0.0f;
+            for (auto const& candidate : nearest)
+            {
+                // A path is never shorter than the straight distance.
+                if (best >= 0.0f && candidate.first >= best)
+                    break;
+                std::vector<Position> path;
+                if (!nav.Path(line.At(candidate.second), target, path))
+                    continue;
+                float const length = PathLength(path);
+                if (best < 0.0f || length < best)
+                {
+                    best = length;
+                    bestS = candidate.second;
+                }
+            }
+            if (best < 0.0f || (pullPath[p] >= 0.0f && best >= pullPath[p]))
+                continue;
+            detourPath[p] = best;
+            nearestS[p] = pullAt[p] = bestS;
+            detours.push_back({p, 0});
+        }
+
+        std::vector<Event> events;
         std::set<std::string> visitNames;
 
         // The quests: visit points, and packs for the kill counts and items.
@@ -420,7 +477,7 @@ namespace Bots
         // The packs of the line, with their pull points.
         for (std::size_t p = 0; p < packs.size(); ++p)
         {
-            if (approach[p] < 0.0f)
+            if (approach[p] < 0.0f || detourPath[p] >= 0.0f)
                 continue;
             float dx, dy;
             line.Direction(pullAt[p], dx, dy);
@@ -451,9 +508,7 @@ namespace Bots
                 continue;
             }
             RouteLine const way(path);
-            float pullAt = FirstApproach(path, packs[p], spawns, range);
-            if (pullAt < 0.0f)
-                pullAt = way.Length();
+            float const pullAt = PullOnPath(way, packs[p], spawns, settings);
             int sub = 0;
             for (float s = settings.pointSpacing; s < pullAt - settings.pointSpacing / 2.0f; s += settings.pointSpacing)
             {
@@ -609,19 +664,22 @@ namespace Bots
             if (event.kind == EventKind::Pull &&
                 DistanceToPack(first, packs[event.pack], spawns) < settings.aggroRange)
                 result.warnings.push_back("the pull point of " + packName[event.pack] + " is within aggro range");
-            if (event.kind == EventKind::Pull && event.order == 1 &&
-                (pullPath[event.pack] < 0.0f || pullPath[event.pack] > settings.pullPathLimit))
+            std::size_t const p = event.pack;
+            bool const lineless = detourPath[p] >= 0.0f;
+            if (event.kind == EventKind::Pull && (lineless ||
+                (event.order == 1 && (pullPath[p] < 0.0f || pullPath[p] > settings.pullPathLimit))))
             {
                 char limit[16];
                 std::snprintf(limit, sizeof(limit), "%.0f", settings.pullPathLimit);
-                std::string text = packName[event.pack] + " has no pull point within " + limit + " yards by path";
-                if (pullPath[event.pack] >= 0.0f)
-                {
-                    char length[16];
-                    std::snprintf(length, sizeof(length), "%.0f", pullPath[event.pack]);
-                    text += std::string(": the shortest is ") + length + " yards";
-                }
-                result.warnings.push_back(text + ", at " + Format(event.center));
+                std::string text = packName[p] + " has no pull point within " + limit + " yards by path on the line";
+                char length[16];
+                std::snprintf(length, sizeof(length), "%.0f", lineless ? detourPath[p] : pullPath[p]);
+                if (lineless)
+                    text += std::string(": a detour of ") + length + " yards from " + Format(line.At(nearestS[p])) +
+                        " goes to it";
+                else if (pullPath[p] >= 0.0f)
+                    text += std::string(": the shortest is ") + length + " yards, at " + Format(event.center);
+                result.warnings.push_back(text);
             }
         }
 
