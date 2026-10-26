@@ -79,6 +79,13 @@ class Fight:
         self.joined = joined  # Member name -> took part.
 
 
+class RunEnd:
+    def __init__(self, line):
+        self.line = line
+        self.result_file = None
+        self.threshold_failures = None  # Read from the result file.
+
+
 class RunState:
     """What the page shows: the newest run, from its log and trace lines.
     `on_event(kind, text)` hears each new event, for the pushes."""
@@ -88,9 +95,14 @@ class RunState:
         self.count = None
         self.runs_seen = 0
         self.status = ""
+        self.ends = []  # Of the runs before this one, the oldest first.
         self._new_run(0, "", "")
 
     def _new_run(self, number, script, scenario):
+        if getattr(self, "end", ""):
+            ended = RunEnd(self.end)
+            ended.result_file, ended.threshold_failures = self.result_file, self.threshold_failures
+            self.ends.append(ended)
         self.number = number
         self.script = script
         self.scenario = scenario
@@ -253,6 +265,9 @@ def page(state):
         end = "<p class=end>%s</p>" % e(state.end)
         if state.threshold_failures:
             end += "<ul class=th>%s</ul>" % "".join("<li>threshold: %s</li>" % e(f) for f in state.threshold_failures)
+    for ended in reversed(state.ends):
+        end += "<p class=small>%s</p>" % e(ended.line)
+        end += "".join("<p class=small>&nbsp;threshold: %s</p>" % e(f) for f in ended.threshold_failures or [])
     return """<!doctype html>
 <html><head><meta charset="utf-8"><meta http-equiv="refresh" content="%d">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>WOWAI run</title>
@@ -316,7 +331,7 @@ def threshold_failures(runs_dir, name):
         with open(os.path.join(runs_dir, name)) as f:
             return runs.threshold_failures(json.load(f))
     except (OSError, ValueError, KeyError):
-        return []
+        return None  # Not written yet: try again.
 
 
 def watch(state, log, runs_dir, lock, stop):

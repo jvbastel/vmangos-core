@@ -222,6 +222,12 @@ class Watch(unittest.TestCase):
         self.assertEqual(command[2:], ["--ticket", "98", "--port", "8098", "--count", "3", "--runs-dir", "runs-x",
                                        "--status"])
 
+    def test_watch_takes_a_port_only_when_one_follows(self):
+        self.assertEqual(runs.watch_port_argv(["--ticket", "98", "--watch", "full", "3"]),
+                         ["--ticket", "98", "--watch=8098", "full", "3"])
+        self.assertEqual(runs.watch_port_argv(["--watch", "8198", "full"]), ["--watch", "8198", "full"])
+        self.assertEqual(runs.watch_port_argv(["full", "--watch"]), ["full", "--watch=8098"])
+
     def test_passes_the_ntfy_topic_on(self):
         command = runs.watch_command(["--shared"], 9000, 1, "runs-x", "wowai-7f3k")
 

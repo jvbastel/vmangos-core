@@ -1428,21 +1428,21 @@ void BotRun::WatchFight(int64 nowMs)
     {
         if (!InWorldAndStill(member))
             continue;
-        Bots::FightMemberSeen state = {member->GetName(), Bots::NoGuid, Bots::NoSpell, Bots::NoGuid, Bots::CastKind::None};
-        Unit const* victim = member->GetVictim();
-        if (!victim)
-            if (Pet const* pet = member->GetPet())
-                victim = pet->GetVictim();
-        if (victim)
-            state.victim = victim->GetObjectGuid().GetRawValue();
-        for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL})
-            if (Spell const* spell = member->GetCurrentSpell(type))
-            {
-                state.spell = spell->m_spellInfo->Id;
-                state.spellTarget = spell->m_targets.getUnitTargetGuid().GetRawValue();
-                state.kind = BotAdapter::CastKindOf(spell->m_spellInfo);
-                break;
-            }
+        // The attacks of the threat watch, and the cast of the interrupts.
+        Bots::MemberAttacks const attacks = BotAdapter::AttacksOf(member, true);
+        Bots::CastInfo const cast = BotAdapter::CastOf(member);
+        // The victim of the member itself: a pet that fights for a member
+        // that only follows is no part of the member (jvbastel/WOWAI#93).
+        Bots::FightMemberSeen state = {member->GetName(), attacks.victim, cast.spell, Bots::NoGuid, cast.kind};
+        // The first spell target is that of the cast. With no cast, it is
+        // that of an auto-repeat spell (a wand's Shoot): an attack.
+        if (!attacks.spellTargets.empty())
+        {
+            if (cast.spell != Bots::NoSpell)
+                state.spellTarget = attacks.spellTargets.front();
+            else if (state.victim == Bots::NoGuid)
+                state.victim = attacks.spellTargets.front();
+        }
         seen.push_back(state);
     }
     if (m_fight.Observe(nowMs, Facts().groupInCombat, enemies, seen))

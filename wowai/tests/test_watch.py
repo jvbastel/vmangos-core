@@ -95,6 +95,14 @@ class Log(unittest.TestCase):
         self.assertTrue(state.end.startswith("Run 3 ragefire_chasm full: failed after 351 s: lost mob"))
         self.assertEqual(state.events[-1][1], "run_end")
 
+    def test_the_end_lines_of_earlier_runs_stay(self):
+        state = state_of(START, FAILED, "2026-10-26 17:20:00 [Bots] Run 4: ragefire_chasm full starts, test driver Ezzra")
+
+        self.assertEqual(state.end, "")
+        self.assertEqual(len(state.ends), 1)
+        self.assertTrue(state.ends[0].line.startswith("Run 3 ragefire_chasm full: failed after 351 s"))
+        self.assertIn("failed after 351 s", watch.page(state))
+
     def test_the_result_file_of_the_run(self):
         state = state_of(START, "2026-10-26 17:12:36 [Bots] Run 3: result /opt/vmangos/storage/logs/runs/"
                          "ragefire_chasm-full-20261026-130645.json, trace ragefire_chasm-full-20261026-130645.trace.txt")

@@ -225,6 +225,16 @@ def collect(runs, status, out):
     return result
 
 
+def watch_port_argv(argv):
+    """`--watch` with no port before the positional arguments: argparse
+    would take `full` as the port. Gives it the default port."""
+    argv = list(argv)
+    for i, arg in enumerate(argv):
+        if arg == "--watch" and (i + 1 == len(argv) or not argv[i + 1].isdigit()):
+            argv[i] = "--watch=8098"
+    return argv
+
+
 def watch_command(realm_args, port, count, runs_dir, ntfy):
     """The command line of the watch script for the realm of `realm_args`
     (["--ticket", N] or ["--shared"])."""
@@ -259,7 +269,7 @@ def main():
     parser.add_argument("--ntfy")
     parser.add_argument("kind", choices=["full", "scenario"])
     parser.add_argument("arg", nargs="?")
-    args = parser.parse_args()
+    args = parser.parse_args(watch_port_argv(sys.argv[1:]))
 
     if args.kind == "full":
         scenario = "full_noquests" if args.noquests else "full"
@@ -278,7 +288,11 @@ def main():
     watcher = None
     if args.watch:
         realm_args = ["--shared"] if args.shared else ["--ticket", args.ticket]
-        watcher = subprocess.Popen(watch_command(realm_args, args.watch, count, runs_dir, args.ntfy))
+        watcher = subprocess.Popen(watch_command(realm_args, args.watch, count, runs_dir, args.ntfy),
+                                   stdout=subprocess.PIPE, text=True)
+        # Its first line (the address) comes once it read the log so far:
+        # the start of the first run then gets its push.
+        print(watcher.stdout.readline().rstrip(), flush=True)
 
     passed = 0
     for n in range(1, count + 1):
