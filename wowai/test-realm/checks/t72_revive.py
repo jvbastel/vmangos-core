@@ -18,11 +18,10 @@ Hela, and the Mage Ezzra. `part`: run one part only (reach, pack, ghost, run).
    in a wipe, every member revives at the dungeon entrance.
 No bot ever revives at its corpse on its own.
 """
-import math
 import re
 import sys
 
-from kit import Realm, Results, pos, stat
+from kit import Realm, Results, dist, kill, pos, revive_all, stat
 from wowclient import CHAT_MSG_PARTY, CHAT_MSG_WHISPER
 
 ACCOUNT = "PLAYER72"
@@ -51,10 +50,6 @@ def unit_pos(guid):
     return None if there == here else there
 
 
-def dist(a, b):
-    return math.hypot(a[0] - b[0], a[1] - b[1])
-
-
 def ground_z(x, y, z_hint):
     c.gm(".go xyz %f %f %f" % (x, y, z_hint + 1.0), select=c.guid, wait=1.5)
     for line in c.gm(".gps", select=c.guid):
@@ -67,12 +62,6 @@ def ground_z(x, y, z_hint):
 def go_ground(x, y):
     z = ground_z(x, y, pos(c, c.guid)[2])
     c.gm(".go xyz %f %f %f" % (x, y, z + 0.1), select=c.guid, wait=1.5)
-
-
-def revive_all():
-    for bot in bots:
-        realm.soap(".revive %s" % bot)
-    c.gm(".revive", select=c.guid)
 
 
 def gather():
@@ -90,15 +79,11 @@ def gather():
         print("  not near yet:", far)
 
 
-def kill(guid):
-    return c.gm(".die", select=guid, wait=1.0)
-
-
 def die_at(bot, x, y):
     """Summon the bot to (x, y) and kill it there at once."""
     go_ground(x, y)
     c.gm(".namego %s" % bot, wait=1.5)
-    print("  kill %s at %r:" % (bot, pos(c, bots[bot])), kill(bots[bot]))
+    print("  kill %s at %r:" % (bot, pos(c, bots[bot])), kill(c, bots[bot]))
 
 
 def spawn_here(entry):
@@ -114,7 +99,7 @@ for bot in bots:
 members = realm.sql("characters", "SELECT COUNT(*) FROM group_member m JOIN characters c ON c.guid = m.member_guid "
                     "WHERE c.name IN ('%s')" % "', '".join(bots))
 results.check("the three bots are in the group of the player", members == "3", "members %s" % members)
-revive_all()
+revive_all(realm, c, bots)
 camp = (-500.0, -4400.0)
 go_ground(*camp)
 gather()
@@ -134,8 +119,8 @@ def part_reach():
     go_ground(camp[0] + 8, camp[1])
     c.gm(".namego %s" % mage, wait=1.5)
     realm.mark("reach")
-    kill(tank_guid)
-    kill(mage_guid)
+    kill(c, tank_guid)
+    kill(c, mage_guid)
     priest_at = pos(c, priest_guid)
     print("  priest at", priest_at, "tank at", pos(c, tank_guid), "mage at", pos(c, mage_guid))
     second = realm.wait_log(r"%s accepts the resurrect" % tank, 60, c)
@@ -168,7 +153,7 @@ def part_pack():
     realm.mark("pack")
     go_ground(*spot)
     c.gm(".namego %s" % mage, wait=1.0)
-    kill(mage_guid)
+    kill(c, mage_guid)
     for tiger in tigers:
         c.gm(".npc set faction 16", select=tiger, wait=0.3)
     go_ground(*camp)
@@ -199,8 +184,8 @@ def part_ghost():
     c.chat(CHAT_MSG_PARTY, "stay")
     c.pump(2)
     realm.mark("ghost")
-    print("  kill priest:", kill(priest_guid))
-    print("  kill mage:", kill(mage_guid))
+    print("  kill priest:", kill(c, priest_guid))
+    print("  kill mage:", kill(c, mage_guid))
     released = all(realm.wait_log(r"%s: release when no resurrect comes" % bot, 15, c) for bot in (priest, mage))
     text = realm.log()
     results.check("with the Priest dead, the Priest and the mage release", released,
@@ -226,7 +211,7 @@ def part_ghost():
         results.check("%s is alive at the dungeon entrance" % bot,
                       at is not None and dist(at, RFC_ENTRANCE) < 15 and health > 0, "at %r health %d" % (at, health))
     results.check("no bot revived on its own", no_self_revive(text))
-    revive_all()
+    revive_all(realm, c, bots)
     c.gm(".go xyz %f %f 30 1" % camp, select=c.guid, wait=4.0)
     go_ground(*camp)
 
@@ -249,7 +234,7 @@ def part_run():
     c.pump(3)
     # Nobody can resurrect the Priest: it releases, and the run revives it
     # at a living member, not at its corpse and with no ghost run.
-    kill(guids["Hela"])
+    kill(c, guids["Hela"])
     revived = realm.wait_log(r"Run \d+: Hela revives at \w+", 20, c)
     text = realm.log()
     results.check("in a scripted run, the released Priest revives at once at a living member", revived,
@@ -263,8 +248,8 @@ def part_run():
     # nobody releases and revives before every member is dead.
     for name in run_bots:
         if name != "Hela":
-            kill(guids[name])
-    kill(guids["Hela"])
+            kill(c, guids[name])
+    kill(c, guids["Hela"])
     wiped = realm.wait_log(r"Run \d+: wipe: everyone revives at the dungeon entrance", 20, c)
     results.check("in a wipe, every member revives at the dungeon entrance", wiped)
     c.gm(".go xyz %f %f %f 389" % RFC_ENTRANCE, select=c.guid, wait=3.0)
@@ -288,7 +273,7 @@ for name, part in parts.items():
     print("== %s" % name)
     part()
     if name != "run":
-        revive_all()
+        revive_all(realm, c, bots)
         go_ground(*camp)
         gather()
 

@@ -197,7 +197,7 @@ namespace Bots
         m_givenUpResurrects.erase(bot);
     }
 
-    void GroupCoordinator::RetryResurrects(std::function<bool(Guid)> const& lives)
+    void GroupCoordinator::RetryResurrects(EnemyLives const& lives)
     {
         Lock lock(m_mutex);
         for (auto it = m_givenUpResurrects.begin(); it != m_givenUpResurrects.end();)

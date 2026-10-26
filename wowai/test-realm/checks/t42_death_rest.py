@@ -16,11 +16,10 @@ resurrect, nobody, wipe).
 4. Wipe: every member dies; the bots wait; the player releases and the bots release;
    the player revives near the corpses, and the ghosts still do not revive there (#72).
 """
-import math
 import re
 import sys
 
-from kit import Realm, Results, pos, stat
+from kit import Realm, Results, dist, kill, pos, revive_all, stat
 from wowclient import CHAT_MSG_PARTY, CHAT_MSG_WHISPER, WorldClient
 
 CMSG_REPOP_REQUEST = 0x15A
@@ -55,10 +54,6 @@ class Client(WorldClient):
 c = realm.login(ACCOUNT, PLAYER, client_class=Client)
 
 
-def dist(a, b):
-    return math.hypot(a[0] - b[0], a[1] - b[1])
-
-
 def go_ground(x, y):
     z = pos(c, c.guid)[2]
     c.gm(".go xyz %f %f %f" % (x, y, z + 1.0), select=c.guid, wait=1.5)
@@ -66,12 +61,6 @@ def go_ground(x, y):
         m = re.search(r"GroundZ: (-?[\d.]+)", line)
         if m:
             c.gm(".go xyz %f %f %f" % (x, y, float(m.group(1)) + 0.1), select=c.guid, wait=1.5)
-
-
-def revive_all():
-    for bot in bots:
-        realm.soap(".revive %s" % bot)
-    c.gm(".revive", select=c.guid)
 
 
 def bots_away(yards=10.0):
@@ -99,10 +88,6 @@ def gather():
             return
 
 
-def kill(guid):
-    return c.gm(".die", select=guid, wait=1.0)
-
-
 def spawn_mob_here(entry=3098):
     c.gm(".npc spawn add %d" % entry, wait=2.0)
     low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % entry).split()[-1])
@@ -117,7 +102,7 @@ for bot in bots:
 members = realm.sql("characters", "SELECT COUNT(*) FROM group_member m JOIN characters c ON c.guid = m.member_guid "
                     "WHERE c.name IN ('%s')" % "', '".join(bots))
 results.check("the three bots are in the group of the player", members == "3", "members %s" % members)
-revive_all()
+revive_all(realm, c, bots)
 # Away from the guards of the Den, who kill a hostile mob.
 camp = (-500.0, -4400.0)
 go_ground(*camp)
@@ -181,7 +166,7 @@ def part_rest():
 
 def part_resurrect():
     realm.mark("resurrect")
-    print("  kill mage:", kill(mage_guid))
+    print("  kill mage:", kill(c, mage_guid))
     ok = realm.wait_log(r"%s: resurrect a member" % priest, 10, c)
     results.check("the Priest resurrects the mage after the fight", ok, repr(rules_of(priest, realm.log())))
     accepted = realm.wait_log(r"%s accepts the resurrect" % mage, 20, c)
@@ -197,8 +182,8 @@ def part_nobody():
     # The Priest dead: nobody can resurrect.
     realm.mark("nobody, priest dead")
     # The mage first: while the Priest lives, the mage waits for its resurrect.
-    print("  kill mage:", kill(mage_guid))
-    print("  kill priest:", kill(priest_guid))
+    print("  kill mage:", kill(c, mage_guid))
+    print("  kill priest:", kill(c, priest_guid))
     ok = realm.wait_log(r"%s: release when no resurrect comes" % mage, 8, c)
     ok_priest = realm.wait_log(r"%s: release when no resurrect comes" % priest, 4, c)
     text = realm.log()
@@ -211,14 +196,14 @@ def part_nobody():
     results.check("no bot revives at its corpse", all("%s: revive" % bot not in text for bot in bots))
     results.check("the mage is still dead (a ghost)", stat(c, mage_guid)[0] <= 1)
     results.check("the Priest is still dead (a ghost)", stat(c, priest_guid)[0] <= 1)
-    revive_all()
+    revive_all(realm, c, bots)
     c.pump(2)
 
     # No Priest in the group (logged out).
     realm.soap(".wowai bot logout %s" % priest)
     c.pump(4)
     realm.mark("nobody, no priest")
-    print("  kill mage:", kill(mage_guid))
+    print("  kill mage:", kill(c, mage_guid))
     # .die deals the damage from the player, so the group stays in combat
     # for some seconds: the mage releases only after that (~9 s).
     ok = realm.wait_log(r"%s: release when no resurrect comes" % mage, 15, c)
@@ -226,7 +211,7 @@ def part_nobody():
     c.pump(4)
     results.check("the mage does not revive at its corpse (no Priest)", "%s: revive" % mage not in realm.log())
     results.check("the mage is still dead (no Priest)", stat(c, mage_guid)[0] <= 1)
-    revive_all()
+    revive_all(realm, c, bots)
     realm.soap(".wowai bot login %s" % priest)
     c.pump(6)
     c.gm(".namego %s" % priest, wait=2.0)
@@ -245,9 +230,9 @@ def part_wipe():
     results.check("the bots stand with the player before the wipe", not away, "away %r" % away)
     # The Priest last: while a resurrect can come, the dead wait, so that
     # nobody releases before the wipe (#72).
-    print("  kill player:", kill(c.guid))
+    print("  kill player:", kill(c, c.guid))
     for guid in (tank_guid, mage_guid, priest_guid):
-        print("  kill:", kill(guid))
+        print("  kill:", kill(c, guid))
     wiped = realm.wait_log(r"Group \d+ wipes", 5, c)
     results.check("the coordinator sees the wipe", wiped)
     c.pump(6)
@@ -290,7 +275,7 @@ for name, part in parts.items():
         continue
     print("== %s" % name)
     part()
-    revive_all()
+    revive_all(realm, c, bots)
     go_ground(*camp)
     gather()
 

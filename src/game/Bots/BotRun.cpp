@@ -71,17 +71,32 @@ namespace
         return true;
     }
 
-    Player* FindByName(std::string const& name)
+    // The character `name` in the world. `includeNotInWorld`: also out of
+    // the world, for example during a far teleport.
+    Player* FindByName(std::string const& name, bool includeNotInWorld = false)
     {
         std::string wanted = name;
         if (!normalizePlayerName(wanted))
             return nullptr;
-        return ObjectAccessor::FindPlayerByName(wanted.c_str());
+        return includeNotInWorld ? ObjectAccessor::FindPlayerByNameNotInWorld(wanted.c_str())
+                                 : ObjectAccessor::FindPlayerByName(wanted.c_str());
+    }
+
+    // The state of a run member (WipeRevive.h). A far teleport takes the
+    // member out of the world until it lands: the teleport counts first.
+    Bots::RunMember RunMemberOf(Player const* player)
+    {
+        if (player && player->IsBeingTeleported())
+            return Bots::RunMember::InTeleport;
+        if (!player || !player->IsInWorld())
+            return Bots::RunMember::NotInWorld;
+        return player->IsAlive() ? Bots::RunMember::Living : Bots::RunMember::Dead;
     }
 
     bool InWorldAndStill(Player const* player)
     {
-        return player && player->IsInWorld() && !player->IsBeingTeleported();
+        Bots::RunMember const state = RunMemberOf(player);
+        return state == Bots::RunMember::Living || state == Bots::RunMember::Dead;
     }
 
     // A member that lives and stands in the world, for the revive of the
@@ -89,7 +104,7 @@ namespace
     // living nor dead.
     bool IsLivingMember(Player const* player)
     {
-        return InWorldAndStill(player) && player->IsAlive();
+        return RunMemberOf(player) == Bots::RunMember::Living;
     }
 
     struct LivingNearCheck
@@ -797,8 +812,8 @@ bool BotRun::Move(Bots::RoutePoint const& point, std::string& detail)
     }
     float x, y;
     Bots::RoutePlace const place = PickPlace(point, driver->GetName(), x, y);
-    float z = place.position.z;
-    driver->UpdateAllowedPositionZ(x, y, z);
+    // The one ground height helper of the bots (BotAdapter::GetGround).
+    float const z = BotAdapter(driver).GetGround({x, y, place.position.z}).z;
     driver->GetMotionMaster()->Clear();
     driver->GetMotionMaster()->MovePoint(0, x, y, z, MOVE_PATHFINDING | MOVE_RUN_MODE);
     m_moving = true;
@@ -949,32 +964,25 @@ void BotRun::ReviveAt(Player* member, uint32 mapId, float x, float y, float z, f
 
 void BotRun::ReviveTheDead()
 {
-    std::vector<Player*> const members = Members();
-    std::vector<Player*> living;
-    for (Player* member : members)
-        if (IsLivingMember(member))
-            living.push_back(member);
-
-    // The wipe rule for a member away or in a teleport: WipeRevive.h.
+    // One lookup of each member, the driver first, for the wipe rule
+    // (WipeRevive.h) and for the revive of the released.
     std::vector<std::string> names = m_script.group;
     names.insert(names.begin(), m_script.driver);
+    std::vector<Player*> members;
+    std::vector<Player*> living;
     std::vector<Bots::RunMember> states;
-    int away = 0;
+    int notInWorld = 0;
     for (std::string const& name : names)
     {
-        // A far teleport takes the member out of the world until it lands:
-        // look it up out of the world too, and check the teleport first.
-        std::string wanted = name;
-        Player const* member = normalizePlayerName(wanted) ? ObjectAccessor::FindPlayerByNameNotInWorld(wanted.c_str()) : nullptr;
-        if (member && member->IsBeingTeleported())
-            states.push_back(Bots::RunMember::InTeleport);
-        else if (!member || !member->IsInWorld())
-        {
-            states.push_back(Bots::RunMember::Away);
-            ++away;
-        }
-        else
-            states.push_back(member->IsAlive() ? Bots::RunMember::Living : Bots::RunMember::Dead);
+        Player* member = FindByName(name, true);
+        Bots::RunMember const state = RunMemberOf(member);
+        states.push_back(state);
+        if (state == Bots::RunMember::NotInWorld)
+            ++notInWorld;
+        if (state == Bots::RunMember::Living || state == Bots::RunMember::Dead)
+            members.push_back(member);
+        if (state == Bots::RunMember::Living)
+            living.push_back(member);
     }
     if (m_wipeWatch.Update(states, SteadyMs()))
     {
@@ -982,11 +990,10 @@ void BotRun::ReviveTheDead()
         if (!entrance)
             return;
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL,
-            "[Bots] Run %u: wipe: everyone revives at the dungeon entrance (%d not in the world)", m_number, away);
+            "[Bots] Run %u: wipe: everyone revives at the dungeon entrance (%d not in the world)", m_number, notInWorld);
         for (Player* member : members)
-            if (InWorldAndStill(member))
-                ReviveAt(member, entrance->destination.mapId, entrance->destination.x + frand(-2.0f, 2.0f),
-                    entrance->destination.y + frand(-2.0f, 2.0f), entrance->destination.z, entrance->destination.o);
+            ReviveAt(member, entrance->destination.mapId, entrance->destination.x + frand(-2.0f, 2.0f),
+                entrance->destination.y + frand(-2.0f, 2.0f), entrance->destination.z, entrance->destination.o);
         return;
     }
     if (living.empty() || Facts().groupInCombat)
@@ -996,7 +1003,7 @@ void BotRun::ReviveTheDead()
     for (Player* member : members)
     {
         Corpse const* corpse = member->GetCorpse();
-        if (!InWorldAndStill(member) || member->IsAlive() || !member->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST) || !corpse)
+        if (member->IsAlive() || !member->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST) || !corpse)
             continue;
         Player* nearest = nullptr;
         for (Player* other : living)

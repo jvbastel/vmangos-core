@@ -12,11 +12,10 @@ Hela, and the Mage Ezzra. `part`: run one part only (noroute, away).
 2. away (a scripted run): Shanka logs out, then the other members die. The
    members in the world revive at the dungeon entrance without Shanka.
 """
-import math
 import re
 import sys
 
-from kit import Realm, Results, pos, stat
+from kit import Realm, Results, dist, kill, pos, revive_all, stat
 from wowclient import CHAT_MSG_PARTY, CHAT_MSG_WHISPER
 
 ACCOUNT = "PLAYER85"
@@ -33,20 +32,6 @@ only = sys.argv[1] if len(sys.argv) > 1 else ""
 c = realm.login(ACCOUNT, PLAYER)
 
 
-def dist(a, b):
-    return math.hypot(a[0] - b[0], a[1] - b[1])
-
-
-def kill(guid):
-    return c.gm(".die", select=guid, wait=1.0)
-
-
-def revive_all():
-    for bot in bots:
-        realm.soap(".revive %s" % bot)
-    c.gm(".revive", select=c.guid)
-
-
 def gather():
     for bot in bots:
         c.gm(".namego %s" % bot, wait=2.0)
@@ -61,8 +46,8 @@ def part_noroute():
     c.chat(CHAT_MSG_PARTY, "stay")
     c.pump(2)
     realm.mark("noroute")
-    kill(bots[priest])
-    kill(bots[mage])
+    kill(c, bots[priest])
+    kill(c, bots[mage])
     released = all(realm.wait_log(r"%s: release when no resurrect comes" % bot, 15, c) for bot in (priest, mage))
     results.check("the Priest and the mage release", released)
     logged = all(realm.wait_log(r"\[Bots\] %s is a ghost of map 43 \(Wailing Caverns\), which has no ghost route" % bot, 20, c)
@@ -75,7 +60,7 @@ def part_noroute():
     results.check("each ghost with no ghost route logs a line that names map 43 (Wailing Caverns)", logged)
     results.check("each ghost logs it once", all(sum(bot in line for line in lines) == 1 for bot in (priest, mage)),
                   repr(lines))
-    revive_all()
+    revive_all(realm, c, bots)
     c.gm(".go xyz -500 -4400 30 1", select=c.guid, wait=4.0)
 
 
@@ -105,8 +90,8 @@ def part_away():
     # The Priest last: while it lives, the dead wait for its resurrect.
     for name in run_bots:
         if name != "Hela":
-            kill(guids[name])
-    kill(guids["Hela"])
+            kill(c, guids[name])
+    kill(c, guids["Hela"])
     wiped = realm.wait_log(r"Run \d+: wipe: everyone revives at the dungeon entrance \(1 not in the world\)", 20, c)
     results.check("with a member logged out, the wipe still revives the others", wiped, realm.log()[-600:])
     c.gm(".go xyz %f %f %f 389" % RFC_ENTRANCE, select=c.guid, wait=3.0)
@@ -128,7 +113,7 @@ if not only or only == "noroute":
     for bot in bots:
         c.chat(CHAT_MSG_WHISPER, "invite", target=bot)
         c.pump(4)
-    revive_all()
+    revive_all(realm, c, bots)
 for name, part in parts.items():
     if only and name != only:
         continue

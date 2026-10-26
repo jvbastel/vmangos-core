@@ -118,14 +118,13 @@ namespace Bots
             // No ground path leads to a place with x >= `x`. Else a path is
             // the straight line.
             void AddNoPathFromX(float x) { m_noPathFromX.push_back(x); }
-            // A living hostile creature at `position` (GetEnemiesNear).
-            void AddEnemy(Position position, float aggroYards)
-            {
-                m_enemies.push_back({position, aggroYards});
-            }
-            // Enemy `enemy` at `position`: listed while it lives (SetHealth).
+            // Hostile creature `enemy` at `position` (GetEnemiesNear). Like
+            // the real adapter, GetEnemiesNear lists it only while it lives
+            // (SetHealth). Without a health of its own, it lives.
             void AddEnemy(Guid enemy, Position position, float aggroYards)
             {
+                if (!m_health.count(enemy))
+                    SetHealth(enemy, 800, 800);
                 m_enemies.push_back({position, aggroYards, enemy});
             }
             // From each place with x >= `x`, the bot sees no unit.
@@ -346,7 +345,7 @@ namespace Bots
                 Position const self = GetPosition(m_self);
                 std::vector<NearEnemy> near;
                 for (NearEnemy const& enemy : m_enemies)
-                    if ((enemy.guid == NoGuid || GetHealth(enemy.guid).current > 0) && Distance2d(self, enemy.position) <= yards)
+                    if (GetHealth(enemy.guid).current > 0 && Distance2d(self, enemy.position) <= yards)
                         near.push_back(enemy);
                 return near;
             }

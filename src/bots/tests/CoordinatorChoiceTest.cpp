@@ -24,21 +24,21 @@ TEST(CoordinatorChoice, ABotOnTheMapOfTheLeaderUsesTheGroupCoordinator)
     EXPECT_EQ(ChooseCoordinator(true, RagefireChasm, LeaderPlace::On(RagefireChasm)), CoordinatorChoice::Group);
 }
 
-TEST(CoordinatorChoice, ABotOnAnotherMapThanTheLeaderIgnoresTheGroupCoordinator)
+TEST(CoordinatorChoice, ABotOnAnotherMapThanTheLeaderUsesTheCoordinatorOfItsPlace)
 {
     // The leader entered the instance first: the bot is still outside.
-    EXPECT_EQ(ChooseCoordinator(true, Orgrimmar, LeaderPlace::On(RagefireChasm)), CoordinatorChoice::Own);
+    EXPECT_EQ(ChooseCoordinator(true, Orgrimmar, LeaderPlace::On(RagefireChasm)), CoordinatorChoice::Place);
 }
 
-TEST(CoordinatorChoice, ABotInAnotherInstanceOfTheMapIgnoresTheGroupCoordinator)
+TEST(CoordinatorChoice, ABotInAnotherInstanceOfTheMapUsesTheCoordinatorOfItsPlace)
 {
-    EXPECT_EQ(ChooseCoordinator(true, OtherRagefireChasm, LeaderPlace::On(RagefireChasm)), CoordinatorChoice::Own);
+    EXPECT_EQ(ChooseCoordinator(true, OtherRagefireChasm, LeaderPlace::On(RagefireChasm)), CoordinatorChoice::Place);
 }
 
 TEST(CoordinatorChoice, ABotUsesTheGroupCoordinatorAgainWhenItReachesTheMapOfTheLeader)
 {
     LeaderPlace const leader = LeaderPlace::On(RagefireChasm);
-    ASSERT_EQ(ChooseCoordinator(true, Orgrimmar, leader), CoordinatorChoice::Own);
+    ASSERT_EQ(ChooseCoordinator(true, Orgrimmar, leader), CoordinatorChoice::Place);
 
     EXPECT_EQ(ChooseCoordinator(true, RagefireChasm, leader), CoordinatorChoice::Group);
 }

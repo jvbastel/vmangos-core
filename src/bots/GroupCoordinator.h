@@ -76,9 +76,13 @@ namespace Bots
     // kill or roll after this time, so that a respawned creature counts again.
     std::int64_t const GroupEventMemoryMs = 60 * 1000;
 
+    // Tells if enemy `enemy` still lives, as the asking bot sees it.
+    using EnemyLives = std::function<bool(Guid enemy)>;
+
     // The only shared state between the bots of one group. The bot manager
-    // keeps one per group. A bot without a group has one of its own, so that
-    // the strategies always have a coordinator.
+    // keeps one per group, and one for the group's bots in each other place
+    // than the leader's (CoordinatorRegistry.h). A bot without a group has
+    // one of its own, so that the strategies always have a coordinator.
     //
     // Threads: the bots of one group can briefly sit on two map threads, so
     // each call takes a small mutex. A call returns a copy, never a reference
@@ -160,7 +164,7 @@ namespace Bots
         bool IsResurrectGivenUp(Guid bot) const;
         void ClearGivenUpResurrect(Guid bot);
         // Ends each give-up with a blocker for which `lives` is false.
-        void RetryResurrects(std::function<bool(Guid)> const& lives);
+        void RetryResurrects(EnemyLives const& lives);
 
         // A bot saw SMSG_PARTYKILLLOG with a victim of the boss list. The
         // first note of a kill adds a boss kill event. `nowMs`: any steady

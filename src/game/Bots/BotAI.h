@@ -16,6 +16,7 @@
 #include "BotLoot.h"
 #include "BotRecipe.h"
 #include "CommandState.h"
+#include "CoordinatorChoice.h"
 #include "GroupCoordinator.h"
 #include "Inbox.h"
 #include "StartDelay.h"
@@ -69,9 +70,15 @@ class BotAI : public PlayerBotAI
         // Forgets the attack target when it died or the bot cannot see it.
         void CheckAttackTarget();
         bool IsInReach(Player const* player) const;
+        // Which coordinator the bot uses now (bots/CoordinatorChoice.h).
+        Bots::CoordinatorChoice CoordinatorChoiceNow() const;
+        // The map and instance of the bot, and of its group leader.
+        Bots::MapPlace BotPlace() const;
+        Bots::LeaderPlace PlaceOfLeader() const;
         // False without a group, or on another map than the group leader.
         bool UsesGroupCoordinator() const;
-        // The coordinator of the bot's group, or the bot's own one.
+        // The coordinator of the bot's group, of the group's bots in the
+        // bot's place away from the leader, or the bot's own one.
         std::shared_ptr<Bots::GroupCoordinator> Coordinator();
         void Think();
         // Accepts the resurrect of SMSG_RESURRECT_REQUEST.
@@ -104,10 +111,10 @@ class BotAI : public PlayerBotAI
         Bots::BossReactionSlot m_bossReaction;
         // The rule of the last think that did something, for the debug log.
         std::string m_lastRule;
-        // The coordinator of a bot without a group, or away from its leader.
+        // The coordinator of a bot without a group.
         Bots::GroupCoordinator m_soloCoordinator;
-        // The bot is in a group but on another map than the leader: it
-        // ignores the group coordinator. For the log line of a change.
+        // The bot is in a group but on another map than the leader: it uses
+        // the place coordinator. For the log line of a change.
         bool m_awayFromLeader = false;
         // The level routine ran after the login (and so after the creation).
         bool m_levelRoutineDone = false;
