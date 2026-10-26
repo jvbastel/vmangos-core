@@ -29,6 +29,7 @@
 #include "Player.h"
 #include "RouteFiles.h"
 #include "RouteTrace.h"
+#include "RouteTraces.h"
 #include "World.h"
 #include "WorldSession.h"
 

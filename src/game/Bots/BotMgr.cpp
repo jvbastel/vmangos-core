@@ -21,6 +21,7 @@
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "RouteFiles.h"
+#include "RouteTraces.h"
 #include "SharedDefines.h"
 #include "Utilities/Random.h"
 #include "World.h"
@@ -307,15 +308,12 @@ void BotMgr::TakeGroupEvents()
 void BotMgr::LoadBossList()
 {
     std::string const dir = m_settings.dataDir + "/routes";
-    std::string const extension = ".txt";
     m_bosses = Bots::BossList();
     m_ghostRoutes.clear();
     uint32 routes = 0;
     for (std::string const& file : IO::Filesystem::GetAllFilesInFolder(dir, IO::Filesystem::OutputFilePath::JustFileName))
     {
-        if (file.size() <= extension.size() || file.compare(file.size() - extension.size(), extension.size(), extension) != 0)
-            continue;
-        if (RouteFiles::IsTraceFile(file))
+        if (RouteFiles::KindOf(file) != RouteFiles::FileKind::Route)
             continue;
         std::string const path = dir + "/" + file;
         std::ifstream in(path, std::ios::binary);
