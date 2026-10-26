@@ -33,6 +33,25 @@ TEST(ChatContract, TheContractVersionIsOne)
     EXPECT_EQ(ChatContractVersion, 1);
 }
 
+TEST(ChatContract, TheRosterHasTheGuidsOfAllBots)
+{
+    EXPECT_EQ(EncodeChatRoster({101, 102, 4000000000u}),
+        R"({"contract_version":1,"bot_guids":[101,102,4000000000]})");
+    EXPECT_EQ(EncodeChatRoster({}), R"({"contract_version":1,"bot_guids":[]})");
+}
+
+TEST(ChatContract, TheRosterAnswerNamesTheDeletedBots)
+{
+    std::vector<Guid> deleted;
+    std::string error;
+    ASSERT_TRUE(DecodeChatRosterAnswer(R"({"contract_version":1,"deleted_bot_guids":[102,103]})", deleted, error)) << error;
+    EXPECT_EQ(deleted, (std::vector<Guid>{102, 103}));
+
+    EXPECT_FALSE(DecodeChatRosterAnswer(R"({"contract_version":1,"lines":[]})", deleted, error));
+    EXPECT_FALSE(DecodeChatRosterAnswer(R"({"contract_version":2,"deleted_bot_guids":[]})", deleted, error));
+    EXPECT_FALSE(DecodeChatRosterAnswer("no json", deleted, error));
+}
+
 TEST(ChatContract, APartyMessageHasNoWhisperedBot)
 {
     ChatEvent event = Event(ChatEventKind::PlayerMessage);

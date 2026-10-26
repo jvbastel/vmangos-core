@@ -165,6 +165,12 @@ void BotChat::Start()
     m_client.reset(new Bots::ChatClient(m_settings, NowMs, LogChat));
 }
 
+void BotChat::SetRoster(std::vector<Bots::Guid> botGuids)
+{
+    if (m_client)
+        m_client->SetRoster(std::move(botGuids));
+}
+
 std::vector<BotLine> BotChat::Update()
 {
     std::vector<BotLine> lines;

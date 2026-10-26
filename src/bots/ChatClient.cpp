@@ -94,10 +94,22 @@ std::vector<Bots::DueChatLine> Bots::ChatClient::TakeDue(std::int64_t nowMs)
     return lines;
 }
 
+void Bots::ChatClient::SetRoster(std::vector<Guid> botGuids)
+{
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_roster = std::move(botGuids);
+        if (m_rosterState == RosterState::None)
+            m_rosterState = RosterState::Due;
+    }
+    m_wake.notify_one();
+}
+
 std::size_t Bots::ChatClient::Pending() const
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    return m_requests.size() + m_inFlight.size();
+    bool const roster = m_rosterState == RosterState::Due || m_rosterState == RosterState::Sending;
+    return m_requests.size() + m_inFlight.size() + (roster ? 1 : 0);
 }
 
 bool Bots::ChatClient::HasPendingChat(std::uint32_t groupId) const
@@ -115,11 +127,39 @@ void Bots::ChatClient::Work(std::unique_ptr<ChatConnection> connection)
     for (;;)
     {
         Request request;
+        std::vector<Guid> roster;
+        bool sendRoster = false;
         {
             std::unique_lock<std::mutex> lock(m_mutex);
-            m_wake.wait(lock, [this]() { return m_stopping || !m_requests.empty(); });
+            m_wake.wait(lock, [this]() {
+                return m_stopping || !m_requests.empty() || m_rosterState == RosterState::Due;
+            });
             if (m_stopping)
                 return;
+            // The roster goes before the next event. Another worker may send
+            // an event meanwhile: the roster deletes only the GUIDs that are
+            // not on it, so the order does not matter for the memory.
+            sendRoster = m_rosterState == RosterState::Due || m_rosterState == RosterState::Retry;
+            if (sendRoster)
+            {
+                m_rosterState = RosterState::Sending;
+                roster = m_roster;
+            }
+            else
+            {
+                request = std::move(m_requests.front());
+                m_requests.pop_front();
+                m_inFlight.push_back(request.event.groupId);
+            }
+        }
+        if (sendRoster)
+        {
+            SendRoster(*connection, roster);
+            // Then one event, also when the roster had no answer: while the
+            // service is down, the events still go (and fail) in turn.
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (m_stopping || m_requests.empty())
+                continue;
             request = std::move(m_requests.front());
             m_requests.pop_front();
             m_inFlight.push_back(request.event.groupId);
@@ -132,11 +172,16 @@ void Bots::ChatClient::Work(std::unique_ptr<ChatConnection> connection)
 
 void Bots::ChatClient::Handle(ChatConnection& connection, Request const& request)
 {
-    ChatPostResult const result = connection.Post(EncodeChatEvent(request.event));
+    ChatPostResult const result = connection.Post(ChatEventsPath, EncodeChatEvent(request.event));
     std::int64_t const arrivedAt = m_clock();
 
     if (!result.answered)
     {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (m_rosterState == RosterState::Sent)
+                m_rosterState = RosterState::Retry;
+        }
         Log("no answer to " + Describe(request.event) + ": " + result.error);
         return;
     }
@@ -165,6 +210,38 @@ void Bots::ChatClient::Handle(ChatConnection& connection, Request const& request
         held.order = m_nextOrder++;
         m_lines.push_back(held);
     }
+}
+
+void Bots::ChatClient::SendRoster(ChatConnection& connection, std::vector<Guid> const& botGuids)
+{
+    ChatPostResult const result = connection.Post(ChatRosterPath, EncodeChatRoster(botGuids));
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_rosterState = result.answered ? RosterState::Sent : RosterState::Retry;
+    }
+    std::string const what = "the roster of " + std::to_string(botGuids.size()) + " bots";
+    if (!result.answered)
+    {
+        Log("no answer to " + what + ": " + result.error);
+        return;
+    }
+    if (result.status != 200)
+    {
+        Log(DescribeChatServiceError(result.status, result.body) + ", to " + what);
+        return;
+    }
+    std::vector<Guid> deleted;
+    std::string error;
+    if (!DecodeChatRosterAnswer(result.body, deleted, error))
+    {
+        Log("a bad answer to " + what + ": " + error);
+        return;
+    }
+    std::string text = "the chat service has " + what + ", and deleted the memory of " +
+        std::to_string(deleted.size()) + " other bots";
+    for (std::size_t i = 0; i < deleted.size(); ++i)
+        text += (i ? ", " : ": ") + std::to_string(deleted[i]);
+    Log(text);
 }
 
 void Bots::ChatClient::Log(std::string const& text)
