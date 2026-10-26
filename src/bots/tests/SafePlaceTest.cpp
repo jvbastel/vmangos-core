@@ -1,3 +1,4 @@
+#include "BotGeometry.h"
 #include "SafePlace.h"
 #include "FakeBot.h"
 
@@ -122,8 +123,7 @@ TEST(SafeCastPlace, APlaceNearAnEnemyDoesNotCount)
     Position place{};
 
     ASSERT_TRUE(walker.Find(place));
-    float const dx = place.x - 7.0f, dy = place.y + 27.0f;
-    EXPECT_GE(dx * dx + dy * dy, 10.0f * 10.0f);
+    EXPECT_GE(Bots::Distance2d(place, {7.0f, -27.0f, 0.0f}), 10.0f);
 }
 
 TEST(SafeCastPlace, AWalkAwayFromAnEnemyTheBotStandsNearIsFine)

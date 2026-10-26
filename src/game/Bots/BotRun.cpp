@@ -8,6 +8,7 @@
 #include "BotRun.h"
 #include "Bag.h"
 #include "BotAdapter.h"
+#include "BotGeometry.h"
 #include "BotHooks.h"
 #include "BotMgr.h"
 #include "BotRecipe.h"
@@ -631,8 +632,8 @@ Bots::RunFacts BotRun::Facts() const
     }
     if (m_moving && driver && driver->IsInWorld())
     {
-        float const dx = driver->GetPositionX() - m_moveX, dy = driver->GetPositionY() - m_moveY;
-        facts.driverArrived = std::sqrt(dx * dx + dy * dy) <= m_moveRadius + ArriveSlackYards;
+        Bots::Position const at{driver->GetPositionX(), driver->GetPositionY(), 0.0f};
+        facts.driverArrived = Bots::Distance2d(at, {m_moveX, m_moveY, 0.0f}) <= m_moveRadius + ArriveSlackYards;
     }
     return facts;
 }

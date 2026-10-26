@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_TESTS_FAKE_BOT_H
 
 #include "BotActions.h"
+#include "BotGeometry.h"
 #include "BotView.h"
 
 #include <algorithm>
@@ -185,7 +186,7 @@ namespace Bots
                 auto here = m_position.find(m_self);
                 auto there = m_position.find(unit);
                 if (here != m_position.end() && there != m_position.end())
-                    return std::hypot(there->second.x - here->second.x, there->second.y - here->second.y);
+                    return Distance2d(here->second, there->second);
                 return unit == m_self || GetHealth(unit).max ? 5.0f : 100000.0f;
             }
             float GetSpellDistance(Guid unit) const override
@@ -338,7 +339,7 @@ namespace Bots
                 Position const self = GetPosition(m_self);
                 std::vector<NearEnemy> near;
                 for (NearEnemy const& enemy : m_enemies)
-                    if (std::hypot(enemy.position.x - self.x, enemy.position.y - self.y) <= yards)
+                    if (Distance2d(self, enemy.position) <= yards)
                         near.push_back(enemy);
                 return near;
             }
