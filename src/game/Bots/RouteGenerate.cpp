@@ -15,6 +15,14 @@
 // RouteGenerator.h of the bot library for what each one does.
 // A ghost route name, for example ghost_389, makes the ghost route of that
 // dungeon instead (bots/GhostWalk.h): stand at the graveyard of the dungeon.
+//
+// The route build command makes the route file around the GM trace of the
+// route (RouteTraceCommands.cpp, bots/RouteTrace.h), with the same packs and
+// quests, and with no navmesh path of its own:
+//   .route build <route> [character] [setting=value ...]
+// The settings are aggro, margin, cluster, spacing, radius, visit, and
+// bosses. With a character on the map of the route, it also runs the walk
+// check of the navmesh.
 
 #include "BotMgr.h"
 #include "Chat.h"
@@ -28,10 +36,12 @@
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "GridMap.h"
 #include "QuestDef.h"
 #include "Route.h"
 #include "RouteFiles.h"
 #include "RouteGenerator.h"
+#include "RouteTrace.h"
 #include "WorldSession.h"
 
 #include <algorithm>
@@ -275,6 +285,48 @@ namespace
         return text.str();
     }
 
+    // The boss list, the packs in route order, and the quests with their
+    // objectives, as .route generate and .route build print them.
+    void PrintSummary(ChatHandler& handler, Bots::Route const& route, std::vector<Bots::ObjectiveCheck> const& objectives)
+    {
+        std::ostringstream bossLine;
+        bossLine << "Bosses:";
+        for (uint32 boss : route.bosses)
+            bossLine << " " << boss << " " << RouteFiles::EntryName(boss) << ",";
+        std::string bossText = bossLine.str();
+        bossText.pop_back();
+        handler.SendSysMessage(bossText.c_str());
+        handler.SendSysMessage("Packs in order:");
+        for (Bots::RouteStep const& step : route.steps)
+        {
+            if (step.kind != Bots::RouteStepKind::Pack)
+                continue;
+            Bots::RoutePack const& pack = route.packs[step.index];
+            std::map<std::string, uint32> counts;
+            for (Bots::RouteMob const& mob : pack.mobs)
+                ++counts[RouteFiles::EntryName(mob.entry)];
+            std::ostringstream line;
+            line << "  " << pack.name << ":";
+            for (auto const& count : counts)
+                line << " " << count.second << " " << count.first << ",";
+            std::string text = line.str();
+            text.pop_back();
+            if (pack.quest)
+                text += " (quest " + std::to_string(pack.quest) + ")";
+            handler.SendSysMessage(text.c_str());
+        }
+        handler.SendSysMessage("Quests:");
+        for (Bots::ObjectiveCheck const& check : objectives)
+        {
+            Quest const* quest = sObjectMgr.GetQuestTemplate(check.quest);
+            std::string text = "  " + std::to_string(check.quest) + " " + (quest ? quest->GetTitle() : "") + ": " +
+                ObjectiveText(check.objective);
+            if (check.objective.kind != Bots::QuestObjectiveKind::Visit)
+                text += " (the route has " + std::to_string(check.have) + ")";
+            handler.SendSysMessage(text.c_str());
+        }
+    }
+
     bool Fail(ChatHandler& handler, std::string const& line)
     {
         handler.SendSysMessage(line.c_str());
@@ -422,42 +474,7 @@ bool RunGenerate(ChatHandler& handler, char* args)
     handler.PSendSysMessage("Route %s on map %u, seed %u: %u steps, %u points (%u with alternatives), %u packs. File %s.",
         route.name.c_str(), mapId, route.seed, uint32(route.steps.size()), uint32(route.points.size()), alternatives,
         uint32(route.packs.size()), path.c_str());
-    std::ostringstream bossLine;
-    bossLine << "Bosses:";
-    for (uint32 boss : route.bosses)
-        bossLine << " " << boss << " " << RouteFiles::EntryName(boss) << ",";
-    std::string bossText = bossLine.str();
-    bossText.pop_back();
-    handler.SendSysMessage(bossText.c_str());
-    handler.SendSysMessage("Packs in order:");
-    for (Bots::RouteStep const& step : route.steps)
-    {
-        if (step.kind != Bots::RouteStepKind::Pack)
-            continue;
-        Bots::RoutePack const& pack = route.packs[step.index];
-        std::map<std::string, uint32> counts;
-        for (Bots::RouteMob const& mob : pack.mobs)
-            ++counts[RouteFiles::EntryName(mob.entry)];
-        std::ostringstream line;
-        line << "  " << pack.name << ":";
-        for (auto const& count : counts)
-            line << " " << count.second << " " << count.first << ",";
-        std::string text = line.str();
-        text.pop_back();
-        if (pack.quest)
-            text += " (quest " + std::to_string(pack.quest) + ")";
-        handler.SendSysMessage(text.c_str());
-    }
-    handler.SendSysMessage("Quests:");
-    for (Bots::ObjectiveCheck const& check : generated.objectives)
-    {
-        Quest const* quest = sObjectMgr.GetQuestTemplate(check.quest);
-        std::string text = "  " + std::to_string(check.quest) + " " + (quest ? quest->GetTitle() : "") + ": " +
-            ObjectiveText(check.objective);
-        if (check.objective.kind != Bots::QuestObjectiveKind::Visit)
-            text += " (the route has " + std::to_string(check.have) + ")";
-        handler.SendSysMessage(text.c_str());
-    }
+    PrintSummary(handler, route, generated.objectives);
     for (std::string const& warning : generated.warnings)
         handler.PSendSysMessage("Check: %s", warning.c_str());
     std::vector<std::string> const problems = Bots::CheckRouteWalk(route, nav);
@@ -469,6 +486,172 @@ bool RunGenerate(ChatHandler& handler, char* args)
         path.c_str(), uint32(route.steps.size()), uint32(route.packs.size()), route.seed, uint32(problems.size()));
     return true;
 }
+}
+
+namespace
+{
+// An unmet objective, for the GM.
+std::string UnmetText(Bots::UnmetObjective const& unmet)
+{
+    Quest const* quest = sObjectMgr.GetQuestTemplate(unmet.quest);
+    std::ostringstream text;
+    text << "Unmet: quest " << unmet.quest << " " << (quest ? quest->GetTitle() : "") << ": " << ObjectiveText(unmet.objective);
+    if (unmet.objective.kind == Bots::QuestObjectiveKind::Visit)
+        text << ": the trace passes " << uint32(unmet.distance + 0.5f) << " yards from it.";
+    else
+        text << ": the trace has " << unmet.have << " of " << unmet.need << ".";
+    return text.str();
+}
+
+bool RunBuild(ChatHandler& handler, char* args)
+{
+    std::vector<std::string> names;
+    Bots::GeneratorSettings settings;
+    std::vector<uint32> bosses;
+    bool bossSetting = false;
+    float visitRange = Bots::TraceBuildInput{}.visitRange;
+    for (std::string const& word : Words(args))
+    {
+        std::size_t const equals = word.find('=');
+        if (equals == std::string::npos)
+        {
+            names.push_back(word);
+            continue;
+        }
+        std::string const key = word.substr(0, equals);
+        if (key == "visit")
+        {
+            if (!ReadFloat(word.substr(equals + 1), visitRange))
+                return Fail(handler, "The setting visit needs a number of 0 or more.");
+            continue;
+        }
+        if (key != "aggro" && key != "margin" && key != "cluster" && key != "spacing" && key != "radius" &&
+            key != "bosses")
+            return Fail(handler, "Unknown setting " + key + ". Use aggro, margin, cluster, spacing, radius, visit, or bosses.");
+        bossSetting = bossSetting || key == "bosses";
+        std::string const error = ReadSetting(word, settings, bosses);
+        if (!error.empty())
+            return Fail(handler, error);
+    }
+    if (names.empty() || names.size() > 2)
+        return Fail(handler, "Usage: .route build <route> [character] [setting=value ...]");
+    if (!Bots::IsValidRouteName(names[0]))
+        return Fail(handler, "The route name must have only a-z, 0-9, and _.");
+
+    std::string const tracePath = RouteFiles::TracePathOf(names[0]);
+    std::string text;
+    if (!RouteFiles::Read(tracePath, text))
+        return Fail(handler, "No trace " + tracePath + ". Walk it first with .route trace start " + names[0] + ".");
+    Bots::TraceResult const trace = Bots::ParseTrace(text);
+    if (!trace.ok)
+        return Fail(handler, tracePath + ": " + trace.error);
+    if (trace.trace.points.empty())
+        return Fail(handler, "The trace " + tracePath + " has no points.");
+    uint32 const mapId = trace.trace.mapId;
+
+    // The character is only for the walk check.
+    Player* character = nullptr;
+    if (names.size() == 2)
+    {
+        std::string name = names[1];
+        if (!normalizePlayerName(name) || !(character = ObjectAccessor::FindPlayerByName(name.c_str())))
+            return Fail(handler, "No character " + names[1] + " is online.");
+    }
+    else if (handler.GetSession())
+        character = handler.GetSession()->GetPlayer();
+    if (character && (!character->IsInWorld() || character->GetMapId() != mapId))
+        character = nullptr;
+
+    std::string const path = RouteFiles::PathOf(names[0]);
+    if (!bossSetting && RouteFiles::Read(path, text))
+    {
+        Bots::RouteResult const old = Bots::ParseRoute(text);
+        if (old.ok && old.route.mapId == mapId)
+            bosses = old.route.bosses;
+    }
+    if (bosses.empty())
+        return Fail(handler, "Give the bosses in run order: bosses=<entry>,<entry>,...");
+
+    Bots::Position const first = trace.trace.points.front().position;
+    uint32 const zoneId = sTerrainMgr.GetZoneId(mapId, first.x, first.y, first.z);
+
+    Bots::TraceBuildInput input;
+    input.trace = trace.trace;
+    input.spawns = SpawnsOf(mapId);
+    input.bosses = bosses;
+    input.settings = settings;
+    input.visitRange = visitRange;
+    input.entryName = RouteFiles::EntryName;
+    input.quests = QuestsOf(zoneId, input.spawns);
+
+    Bots::TraceBuild const built = Bots::BuildTraceRoute(input);
+    if (!built.ok)
+        return Fail(handler, "The route was not made: " + built.error);
+    Bots::Route const& route = built.route;
+    if (!RouteFiles::Write(path, Bots::WriteRoute(route, RouteFiles::Names())))
+        return Fail(handler, "Cannot write " + path + ". Does the routes folder exist?");
+
+    uint32 checkpoints = 0;
+    for (Bots::RoutePoint const& point : route.points)
+        checkpoints += point.name.compare(0, 4, "mark") == 0 ? 1 : 0;
+    handler.PSendSysMessage("Route %s on map %u from the trace (%u trace points, %.0f yards): %u steps, %u points "
+        "(%u checkpoints), %u packs. File %s.", route.name.c_str(), mapId, uint32(trace.trace.points.size()),
+        Bots::TraceLength(trace.trace), uint32(route.steps.size()), uint32(route.points.size()), checkpoints,
+        uint32(route.packs.size()), path.c_str());
+    PrintSummary(handler, route, built.objectives);
+
+    for (uint32 boss : built.unmetBosses)
+        handler.PSendSysMessage("Unmet: the trace does not pass the boss %u %s within aggro range (%.0f yards).", boss,
+            RouteFiles::EntryName(boss).c_str(), settings.aggroRange);
+    for (Bots::UnmetObjective const& unmet : built.unmet)
+    {
+        handler.SendSysMessage(UnmetText(unmet).c_str());
+        for (Bots::NearPack const& pack : unmet.nearest)
+        {
+            std::ostringstream line;
+            line << "  Nearest: " << pack.count << " in the pack of spawn " << pack.mobs.front().spawnGuid << " "
+                 << RouteFiles::EntryName(pack.mobs.front().entry) << " at " << pack.position.x << " " << pack.position.y
+                 << " " << pack.position.z << ", " << uint32(pack.distance + 0.5f) << " yards from the trace.";
+            handler.SendSysMessage(line.str().c_str());
+        }
+        if (unmet.nearest.empty() && unmet.objective.kind != Bots::QuestObjectiveKind::Visit)
+            handler.SendSysMessage("  The dungeon has no more spawns for it.");
+    }
+    if (built.unmet.empty() && built.unmetBosses.empty())
+        handler.SendSysMessage("Each boss and each quest objective is on the trace.");
+    else
+        handler.PSendSysMessage("Walk an extra trace there (.route trace start %s), then run .route build again.",
+            route.name.c_str());
+    for (std::string const& warning : built.warnings)
+        handler.PSendSysMessage("Check: %s", warning.c_str());
+
+    uint32 problems = 0;
+    if (character)
+    {
+        GameRouteNav nav(character);
+        if (nav.Ready())
+        {
+            std::vector<std::string> const lines = Bots::CheckRouteWalk(route, nav);
+            problems = uint32(lines.size());
+            if (lines.empty())
+                handler.SendSysMessage("Walk check: each point is on the navmesh, and each path to the next point has no lava.");
+            for (std::string const& line : lines)
+                handler.PSendSysMessage("Walk check: %s", line.c_str());
+        }
+    }
+    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] .route build wrote %s: %u steps, %u packs, %u unmet, %u walk problems.",
+        path.c_str(), uint32(route.steps.size()), uint32(route.packs.size()),
+        uint32(built.unmet.size() + built.unmetBosses.size()), problems);
+    return true;
+}
+}
+
+bool ChatHandler::HandleRouteBuildCommand(char* args)
+{
+    if (RunBuild(*this, args))
+        return true;
+    SetSentErrorMessage(true);
+    return false;
 }
 
 bool ChatHandler::HandleRouteGenerateCommand(char* args)

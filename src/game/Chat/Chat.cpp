@@ -137,6 +137,18 @@ ChatCommand * ChatHandler::getCommandTable()
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 
+    static ChatCommand routeTraceCommandTable[] =
+    {
+        { "start",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceStartCommand,     "", nullptr },
+        { "stop",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceStopCommand,      "", nullptr },
+        { "undo",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceUndoCommand,      "", nullptr },
+        { "show",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceShowCommand,      "", nullptr },
+        { "mark",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceMarkCommand,      "", nullptr },
+        { "pause",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTracePauseCommand,     "", nullptr },
+        { "resume",     SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteTraceResumeCommand,    "", nullptr },
+        { nullptr,      0,                      false, nullptr,                                        "", nullptr },
+    };
+
     static ChatCommand routeCommandTable[] =
     {
         { "start",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteStartCommand,          "", nullptr },
@@ -150,6 +162,8 @@ ChatCommand * ChatHandler::getCommandTable()
         { "next",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteNextCommand,           "", nullptr },
         { "back",       SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteBackCommand,           "", nullptr },
         { "go",         SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteGoCommand,             "", nullptr },
+        { "trace",      SEC_ADMINISTRATOR,      true,  nullptr,                                        "", routeTraceCommandTable },
+        { "build",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteBuildCommand,          "", nullptr },
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 

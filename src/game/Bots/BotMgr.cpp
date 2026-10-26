@@ -20,6 +20,7 @@
 #include "Log.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "RouteFiles.h"
 #include "SharedDefines.h"
 #include "Utilities/Random.h"
 #include "World.h"
@@ -202,7 +203,7 @@ void BotMgr::Load()
     m_chat.Start();
 }
 
-void BotMgr::Update(uint32 /*diff*/)
+void BotMgr::Update(uint32 diff)
 {
     // After the maps: the lines of bot chat whose delay ended.
     for (BotLine& line : m_chat.Update())
@@ -213,6 +214,7 @@ void BotMgr::Update(uint32 /*diff*/)
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
     m_run.Update();
+    RouteTraces::Update(diff);
     for (auto& pair : m_bots)
     {
         PlayerBotEntry& entry = *pair.second.entry;
@@ -312,6 +314,8 @@ void BotMgr::LoadBossList()
     for (std::string const& file : IO::Filesystem::GetAllFilesInFolder(dir, IO::Filesystem::OutputFilePath::JustFileName))
     {
         if (file.size() <= extension.size() || file.compare(file.size() - extension.size(), extension.size(), extension) != 0)
+            continue;
+        if (RouteFiles::IsTraceFile(file))
             continue;
         std::string const path = dir + "/" + file;
         std::ifstream in(path, std::ios::binary);
