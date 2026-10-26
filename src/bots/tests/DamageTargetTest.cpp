@@ -214,3 +214,86 @@ TEST(DamageTarget, AttacksAnotherEnemyOnAMemberWhileItWaitsForTheTaunt)
 
     EXPECT_EQ(bot.Target(), Kobold);
 }
+
+// A loose enemy on a member comes before the focus that the tank holds: no
+// bot attacked the second Earthborer on the healer while all hit the focus,
+// a lost mob (WOWAI#93, Ragefire Chasm pack 1).
+TEST(DamageTarget, ALooseEnemyOnAMemberComesBeforeTheFocus)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetGroupMembers({Tank, Healer});
+    bot.group.SetTank(Tank);
+    bot.group.StartPull(Tank, Kobold);
+    bot.group.HoldPull(Tank);
+    bot.fake.SetVictim(Kobold, Tank);
+    bot.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
+// Two loose enemies: the bot takes the one that no other member attacks, so
+// that no enemy stays lost.
+TEST(DamageTarget, TakesTheLooseEnemyThatNoOtherMemberAttacks)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    Bots::Guid const Mage = 0x14;
+    Bots::Guid const Trogg = 0xF130000302000044;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetHealth(Mage, 300, 300);
+    bot.fake.SetHealth(Trogg, 200, 200);
+    bot.fake.SetGroupMembers({Tank, Healer, Mage});
+    bot.group.SetTank(Tank);
+    bot.fake.SetVictim(Wolf, Healer);
+    bot.fake.SetVictim(Trogg, Healer);
+    bot.fake.SetVictim(Mage, Wolf);
+
+    EXPECT_EQ(bot.Target(), Trogg);
+}
+
+// The bot keeps the loose enemy that only it attacks.
+TEST(DamageTarget, KeepsTheLooseEnemyThatOnlyItAttacks)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    Bots::Guid const Trogg = 0xF130000302000044;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetHealth(Trogg, 200, 200);
+    bot.fake.SetGroupMembers({Tank, Healer});
+    bot.group.SetTank(Tank);
+    bot.fake.SetVictim(Wolf, Healer);
+    bot.fake.SetVictim(Trogg, Healer);
+    bot.fake.SetVictim(Rogue, Trogg);
+
+    EXPECT_EQ(bot.Target(), Trogg);
+}
+
+// The attacks of the player hold no enemy in a scripted run (the test driver
+// is no bot): the bot does not leave an enemy to it.
+TEST(DamageTarget, ALooseEnemyThatThePlayerAttacksIsStillLoose)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    Bots::Guid const Player = 0x1;
+    Bots::Guid const Mage = 0x14;
+    Bots::Guid const Trogg = 0xF130000302000044;
+    bot.fake.SetGroupMembers({Tank, Healer, Player, Mage});
+    bot.fake.SetHealth(Mage, 300, 300);
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetHealth(Player, 300, 300);
+    bot.fake.SetHealth(Trogg, 200, 200);
+    bot.group.SetTank(Tank);
+    bot.fake.SetVictim(Wolf, Healer);
+    bot.fake.SetVictim(Trogg, Healer);
+    bot.fake.SetVictim(Player, Wolf);
+    bot.fake.SetVictim(Rogue, Trogg);
+    bot.fake.SetVictim(Mage, Trogg);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}

@@ -2,6 +2,9 @@
 #include "CommonRules.h"
 #include "GroupRules.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace Bots
 {
     namespace
@@ -18,16 +21,53 @@ namespace Bots
                 && victim != context.view.GetSelf();
         }
 
-        // The first living enemy in the chase limit that hits a living group
-        // member, the bot first. It skips the enemy `skip`.
-        Guid PickMemberAttackerInLimit(BotContext const& context, Guid skip)
+        // The living enemies in the chase limit that hit a living group
+        // member other than the living tank, the bot first. It skips the
+        // enemy `skip`. The tank holds its own attackers.
+        std::vector<Guid> LooseEnemies(BotContext const& context, Guid skip)
+        {
+            Guid const tank = context.group.GetTank();
+            bool const tankLives = IsAlive(context.view, tank);
+            std::vector<Guid> enemies;
+            for (Guid member : context.view.GetGroupMembers())
+                if (IsAlive(context.view, member) && !(tankLives && member == tank))
+                    for (Guid attacker : context.view.GetAttackers(member))
+                        if (attacker != skip && IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker)
+                            && std::find(enemies.begin(), enemies.end(), attacker) == enemies.end())
+                            enemies.push_back(attacker);
+            return enemies;
+        }
+
+        // True when a group member other than the bot and the player
+        // attacks enemy `enemy`. The attacks of the player do not count: in
+        // a scripted run, the test driver holds no enemy.
+        bool AnotherMemberAttacks(BotContext const& context, Guid enemy)
         {
             for (Guid member : context.view.GetGroupMembers())
-                if (IsAlive(context.view, member))
-                    for (Guid attacker : context.view.GetAttackers(member))
-                        if (attacker != skip && IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker))
-                            return attacker;
-            return NoGuid;
+                if (member != context.view.GetSelf() && member != context.commandPlayer
+                    && IsAlive(context.view, member)
+                    && context.view.GetVictim(member) == enemy)
+                    return true;
+            return false;
+        }
+
+        // The loose enemy of the bot, or NoGuid: the one that only the bot
+        // attacks, else the first that no member attacks, else the bot's
+        // own victim, else the first. So the damage bots spread over the
+        // loose enemies, and no enemy stays lost.
+        Guid PickLooseEnemy(BotContext const& context, Guid skip)
+        {
+            std::vector<Guid> const enemies = LooseEnemies(context, skip);
+            if (enemies.empty())
+                return NoGuid;
+            Guid const own = context.view.GetVictim(context.view.GetSelf());
+            bool const ownIsLoose = std::find(enemies.begin(), enemies.end(), own) != enemies.end();
+            if (ownIsLoose && !AnotherMemberAttacks(context, own))
+                return own;
+            for (Guid enemy : enemies)
+                if (!AnotherMemberAttacks(context, enemy))
+                    return enemy;
+            return ownIsLoose ? own : enemies.front();
         }
     }
 
@@ -40,10 +80,13 @@ namespace Bots
             return healer;
         Guid const focus = context.group.GetFocusTarget();
         bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
+        Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);
+        if (loose != NoGuid)
+            return loose;
         if (IsAlive(context.view, focus) && context.group.TankHoldsThreat() && !waitForTaunt
             && IsInChaseLimit(context, focus))
             return focus;
-        return PickMemberAttackerInLimit(context, waitForTaunt ? focus : NoGuid);
+        return NoGuid;
     }
 
     bool HasDamageTarget(BotContext const& context)

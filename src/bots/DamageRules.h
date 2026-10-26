@@ -12,12 +12,15 @@ namespace Bots
     // The damage target of the bot, or NoGuid:
     // 1. the attack target of the player (`attack`), at once;
     // 2. an enemy healer in the fight (GroupRules.h), until it dies;
-    // 3. the focus target, once the tank holds threat on it, while it is in
+    // 3. a loose enemy: an enemy in the chase limit that hits a group
+    //    member other than the living tank, the bot itself too. The bot
+    //    joins a fight that it did not see start, also when it stays or
+    //    follows. It takes the enemy that only it attacks, else one that no
+    //    member attacks, so that no enemy stays lost. Not the focus that the
+    //    bot waits a taunt for;
+    // 4. the focus target, once the tank holds threat on it, while it is in
     //    the chase limit (GroupRules.h). Outside a pull, not while it hits
-    //    another member and the tank lives: the bot waits for the taunt;
-    // 4. an enemy that attacks a group member, the bot itself first, in the
-    //    chase limit: the bot joins a fight that it did not see start, also
-    //    when it stays or follows. Not the focus that the bot waits for.
+    //    another member and the tank lives: the bot waits for the taunt.
     Guid PickDamageTarget(BotContext const& context);
 
     // True when the bot has a damage target now.
