@@ -102,6 +102,12 @@ namespace Bots
         // the pull attacks the tank, or the tank fights back an enemy outside
         // a pull. The damage bots wait for it.
         bool TankHoldsThreat() const;
+        // The tank cannot taunt enemy `enemy` off another member now: it
+        // knows no Taunt, or the taunt cannot go out in range (cooldown). The
+        // damage bots stop their wait for the taunt (DamageRules.h). A new
+        // focus target or pull forgets it.
+        void GiveUpTaunt(Guid enemy);
+        bool IsTauntGivenUp(Guid enemy) const;
 
         // The interrupt claims (GroupRules.h): two bots never interrupt the
         // same cast. An enemy casts one spell at a time, so a claim of a
@@ -190,6 +196,7 @@ namespace Bots
         // The kills and rolls that made an event, with the time of the event.
         std::map<std::pair<Guid, std::int64_t>, std::int64_t> m_seen;
         Guid m_focusTarget = NoGuid;
+        Guid m_tauntGivenUp = NoGuid;
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;

@@ -1,6 +1,7 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
 #include "GroupRules.h"
+#include "SpellBook.h"
 
 namespace Bots
 {
@@ -11,6 +12,8 @@ namespace Bots
             // Rage for Bloodrage below it, and for Heroic Strike from it.
             std::uint32_t const LowRage = 20;
             std::uint32_t const SpareRage = 45;
+            // The range of Taunt.
+            float const TauntYards = 20.0f;
 
             Guid Self(BotContext const& context)
             {
@@ -111,6 +114,23 @@ namespace Bots
                         return context.group.GetFocusTarget() == NoGuid && PickFightBackTarget(context) != NoGuid;
                     },
                     [](BotContext const& context) { context.group.SetFocusTarget(PickFightBackTarget(context)); }),
+
+                // The focus hits another member, and the taunt cannot come:
+                // the tank knows no Taunt, or it cannot cast it in range (it
+                // waits for its cooldown, after a resist). The damage bots
+                // then attack the focus, or nobody but the tank does.
+                Bookkeeping("give up the taunt", P + 64,
+                    [](BotContext const& context) {
+                        Guid const focus = PickFocusTarget(context);
+                        Guid const victim = context.view.GetVictim(focus);
+                        if (!FightsFocus(context) || victim == NoGuid || victim == Self(context)
+                            || context.group.IsTauntGivenUp(focus))
+                            return false;
+                        SpellId const taunt = HighestKnownRank(context.view, Taunt);
+                        return taunt == NoSpell || (context.view.HasAura(Self(context), DefensiveStance)
+                            && context.view.GetDistance(focus) <= TauntYards && !context.view.CanCast(taunt, focus));
+                    },
+                    [](BotContext const& context) { context.group.GiveUpTaunt(PickFocusTarget(context)); }),
 
                 // The fight on the focus target.
                 MeleeRule("attack the focus target", P + 62,

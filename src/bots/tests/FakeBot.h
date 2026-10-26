@@ -51,7 +51,13 @@ namespace Bots
                 else
                     m_debuffs.erase({unit, kind});
             }
-            void SetKnownSpell(SpellId spell) { m_known.insert(spell); }
+            void SetKnownSpell(SpellId spell, bool known = true)
+            {
+                if (known)
+                    m_known.insert(spell);
+                else
+                    m_known.erase(spell);
+            }
             // The bot knows the spell, but cannot cast it now (cooldown,
             // range, power, stance).
             void SetCannotCast(SpellId spell) { m_cannotCast.insert(spell); }

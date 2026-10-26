@@ -90,6 +90,36 @@ TEST(DamageTarget, WaitsWhileTheFocusOutsideAPullHitsAnotherMember)
     EXPECT_EQ(bot.Target(), Wolf);
 }
 
+// The taunt does not come (the tank cannot cast it): the damage bots attack
+// the focus that hits the healer, or nobody ever does (WOWAI#93 review, the
+// row 32 case).
+TEST(DamageTarget, TheFocusOnAnotherMemberWhenNoTauntComes)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Healer);
+    bot.group.GiveUpTaunt(Wolf);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
+TEST(DamageTarget, ANewFocusWaitsForItsTauntAgain)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.group.SetFocusTarget(Wolf);
+    bot.group.GiveUpTaunt(Wolf);
+    bot.group.SetFocusTarget(Kobold);
+    bot.fake.SetVictim(Kobold, Healer);
+
+    EXPECT_EQ(bot.Target(), NoGuid);
+}
+
 TEST(DamageTarget, TheFocusOnAnotherMemberWhenTheTankIsDead)
 {
     DamageBot bot;

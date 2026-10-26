@@ -20,7 +20,8 @@ namespace Bots
     //    bot waits a taunt for;
     // 4. the focus target, once the tank holds threat on it, while it is in
     //    the chase limit (GroupRules.h). Outside a pull, not while it hits
-    //    another member and the tank lives: the bot waits for the taunt.
+    //    another member and the tank lives: the bot waits for the taunt,
+    //    unless the tank gave it up (GroupCoordinator::GiveUpTaunt).
     Guid PickDamageTarget(BotContext const& context);
 
     // True when the bot has a damage target now.

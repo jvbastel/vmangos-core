@@ -15,6 +15,8 @@ namespace Bots
     void GroupCoordinator::SetFocusTarget(Guid target)
     {
         Lock lock(m_mutex);
+        if (target != m_focusTarget)
+            m_tauntGivenUp = NoGuid;
         m_focusTarget = target;
     }
 
@@ -29,6 +31,7 @@ namespace Bots
         Lock lock(m_mutex);
         m_pull = {PullPhase::Pulling, puller, target};
         m_focusTarget = target;
+        m_tauntGivenUp = NoGuid;
     }
 
     void GroupCoordinator::HoldPull(Guid puller)
@@ -43,6 +46,7 @@ namespace Bots
         Lock lock(m_mutex);
         m_pull = {PullPhase::None, NoGuid, NoGuid};
         m_focusTarget = NoGuid;
+        m_tauntGivenUp = NoGuid;
     }
 
     bool GroupCoordinator::TankHoldsThreat() const
@@ -51,6 +55,18 @@ namespace Bots
         if (m_pull.phase == PullPhase::None)
             return m_focusTarget != NoGuid;
         return m_pull.phase == PullPhase::Holding;
+    }
+
+    void GroupCoordinator::GiveUpTaunt(Guid enemy)
+    {
+        Lock lock(m_mutex);
+        m_tauntGivenUp = enemy;
+    }
+
+    bool GroupCoordinator::IsTauntGivenUp(Guid enemy) const
+    {
+        Lock lock(m_mutex);
+        return enemy != NoGuid && m_tauntGivenUp == enemy;
     }
 
     bool GroupCoordinator::ClaimInterrupt(Guid caster, SpellId spell, Guid bot)
