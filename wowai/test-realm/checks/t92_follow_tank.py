@@ -210,8 +210,10 @@ def part_far(camp):
             for o in others}
     results.check("in the fight each member gets within 30 yards of the tank",
                   all(d <= 30 for d in gaps.values()), repr(gaps))
+    # The healer may walk to the tank as to a hurt member (#93) instead.
     results.check("the members use the follow rule",
-                  all("%s: follow the tank to the pull" % o in text for o in others),
+                  all("%s: follow the tank to the pull" % o in text
+                      or (o == "Hela" and "%s: go to a hurt member" % o in text) for o in others),
                   repr({o: rules_of(o, text) for o in others}))
     results.check("the trogg dies", len(dead) == 1, "%d dead" % len(dead))
     deaths = [line for line in text.splitlines() if re.search(r"\[Bots\] \w+: (wait dead|release)", line)]
