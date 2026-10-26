@@ -24,6 +24,7 @@ namespace
         ChatPostResult answer;
         ChatPostResult rosterAnswer = OkRoster();
         bool hold = false;
+        bool holdRoster = false;
         int inFlight = 0;
         int connections = 0;
         // The clock jumps to this time when a request ends (a slow service).
@@ -47,6 +48,7 @@ namespace
             if (path == ChatRosterPath)
             {
                 changed.notify_all();
+                changed.wait(lock, [this]() { return !holdRoster; });
                 return rosterAnswer;
             }
             ++inFlight;
@@ -479,4 +481,31 @@ TEST_F(ClientTest, WhileTheServiceIsDownTheEventsStillGoInTurn)
 
     std::vector<std::string> const paths = Paths();
     EXPECT_EQ(std::count(paths.begin(), paths.end(), ChatEventsPath), 2);
+}
+
+TEST_F(ClientTest, NoEventGoesWhileTheRosterIsSent)
+{
+    // An event of a bot made after the roster was taken must not reach the
+    // service before the roster: the roster would delete the new rows.
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    service.holdRoster = true;
+    Start(2);
+
+    client->SetRoster({101});
+    ASSERT_TRUE(service.WaitForRequests(1));
+    client->SetRoster({101, 103}); // a new bot
+    client->Post(PartyMessage());
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(Paths().size(), 1u);
+
+    {
+        std::lock_guard<std::mutex> lock(service.mutex);
+        service.holdRoster = false;
+    }
+    service.changed.notify_all();
+    WaitIdle();
+
+    std::vector<std::string> const paths = Paths();
+    ASSERT_EQ(paths.size(), 2u);
+    EXPECT_EQ(paths[1], ChatEventsPath);
 }

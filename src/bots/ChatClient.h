@@ -100,7 +100,8 @@ namespace Bots
         // The GUIDs of all bot characters. The first call makes a worker send
         // them to the service (POST /v1/roster), before the next event. They
         // go again before the next call after a call with no answer: the
-        // service was down or restarted, for example. A later call only
+        // service was down or restarted, for example. No event goes while the
+        // roster is sent. A later call only
         // keeps the newest list for that. An answer that is not 200 (an older
         // service) logs once and is not sent again.
         void SetRoster(std::vector<Guid> botGuids);

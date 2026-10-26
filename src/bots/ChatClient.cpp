@@ -131,14 +131,16 @@ void Bots::ChatClient::Work(std::unique_ptr<ChatConnection> connection)
         bool sendRoster = false;
         {
             std::unique_lock<std::mutex> lock(m_mutex);
+            // No event goes while a roster is sent: the service would store
+            // the rows of a bot made after the roster was taken, and the
+            // roster would then delete them.
             m_wake.wait(lock, [this]() {
-                return m_stopping || !m_requests.empty() || m_rosterState == RosterState::Due;
+                return m_stopping || m_rosterState == RosterState::Due ||
+                    (m_rosterState != RosterState::Sending && !m_requests.empty());
             });
             if (m_stopping)
                 return;
-            // The roster goes before the next event. Another worker may send
-            // an event meanwhile: the roster deletes only the GUIDs that are
-            // not on it, so the order does not matter for the memory.
+            // The roster goes before the next event.
             sendRoster = m_rosterState == RosterState::Due || m_rosterState == RosterState::Retry;
             if (sendRoster)
             {
@@ -155,6 +157,7 @@ void Bots::ChatClient::Work(std::unique_ptr<ChatConnection> connection)
         if (sendRoster)
         {
             SendRoster(*connection, roster);
+            m_wake.notify_all();
             // Then one event, also when the roster had no answer: while the
             // service is down, the events still go (and fail) in turn.
             std::lock_guard<std::mutex> lock(m_mutex);
