@@ -69,6 +69,8 @@ class BotAI : public PlayerBotAI
         // Forgets the attack target when it died or the bot cannot see it.
         void CheckAttackTarget();
         bool IsInReach(Player const* player) const;
+        // False without a group, or on another map than the group leader.
+        bool UsesGroupCoordinator() const;
         // The coordinator of the bot's group, or the bot's own one.
         std::shared_ptr<Bots::GroupCoordinator> Coordinator();
         void Think();
@@ -102,8 +104,11 @@ class BotAI : public PlayerBotAI
         Bots::BossReactionSlot m_bossReaction;
         // The rule of the last think that did something, for the debug log.
         std::string m_lastRule;
-        // The coordinator of a bot without a group.
+        // The coordinator of a bot without a group, or away from its leader.
         Bots::GroupCoordinator m_soloCoordinator;
+        // The bot is in a group but on another map than the leader: it
+        // ignores the group coordinator. For the log line of a change.
+        bool m_awayFromLeader = false;
         // The level routine ran after the login (and so after the creation).
         bool m_levelRoutineDone = false;
         // The pet that has its pet spells. Empty without a pet.
