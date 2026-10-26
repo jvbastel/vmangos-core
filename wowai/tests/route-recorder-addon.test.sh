@@ -11,7 +11,7 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 addon="$here/../addons/RouteRecorder"
 [ -n "${LUA50:-}" ] && [ -x "$LUA50/bin/lua" ] || { echo "Set LUA50 to a Lua 5.0 build folder." >&2; exit 2; }
-"$LUA50/bin/lua" -v 2>&1 | grep -q "Lua 5.0" || { echo "$LUA50/bin/lua is not Lua 5.0." >&2; exit 2; }
+case "$("$LUA50/bin/lua" -v 2>&1)" in *"Lua 5.0"*) ;; *) echo "$LUA50/bin/lua is not Lua 5.0." >&2; exit 2 ;; esac
 
 for file in "$addon"/*.lua; do
   "$LUA50/bin/luac" -p "$file"
