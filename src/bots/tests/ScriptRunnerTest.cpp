@@ -171,6 +171,68 @@ TEST(ScriptRunner, TellsTheLineThatRuns)
     EXPECT_EQ(runner.Current(), "the end");
 }
 
+TEST(ScriptRunner, AFightPullsThenWaitsForTheEndOfTheFight)
+{
+    ScriptRunner runner(Commands("fight pack1 100\nrefill\n"));
+
+    RunStep const step = runner.Update(Idle(), 0);
+    ASSERT_EQ(step.kind, RunStepKind::Do);
+    EXPECT_EQ(step.command.kind, ScriptCommandKind::Fight);
+    EXPECT_EQ(step.command.name, "pack1");
+    runner.Done(true, "", 0);
+
+    EXPECT_EQ(runner.Update(Idle(), 5000).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(InCombat(), 6000).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(Idle(), 30000).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(Idle(), 30000 + Bots::CombatEndQuietMs).command.kind, ScriptCommandKind::Refill);
+}
+
+TEST(ScriptRunner, AFightFailsWhenItLastsTooLong)
+{
+    ScriptRunner runner(Commands("fight pack1 100\n"));
+    runner.Update(Idle(), 0);
+    runner.Done(true, "", 0);
+    runner.Update(InCombat(), 1000);
+
+    RunStep const step = runner.Update(InCombat(), 101000);
+    EXPECT_EQ(step.kind, RunStepKind::Failed);
+    EXPECT_EQ(step.reason, "line 6: fight pack1 100: the fight did not end in 100 s");
+}
+
+TEST(ScriptRunner, AFightWithNothingToFightGoesOnAtOnce)
+{
+    // The pack died in an earlier fight: no fight starts, and that is fine.
+    ScriptRunner runner(Commands("fight pack1\nrefill\n"));
+    runner.Update(Idle(), 0);
+    runner.NothingToDo();
+
+    EXPECT_EQ(runner.Update(Idle(), 0).command.kind, ScriptCommandKind::Refill);
+}
+
+TEST(ScriptRunner, WaitRestedWaitsUntilNoBotRests)
+{
+    ScriptRunner runner(Commands("wait rested\nrefill\n"));
+    RunFacts resting;
+    resting.groupResting = true;
+
+    EXPECT_EQ(runner.Update(resting, 0).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(resting, 30000).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(Idle(), 31000).command.kind, ScriptCommandKind::Refill);
+}
+
+TEST(ScriptRunner, WaitRestedFailsAfterItsSeconds)
+{
+    ScriptRunner runner(Commands("wait rested 60\n"));
+    RunFacts resting;
+    resting.groupResting = true;
+    runner.Update(resting, 0);
+
+    EXPECT_EQ(runner.Update(resting, 59999).kind, RunStepKind::Wait);
+    RunStep const step = runner.Update(resting, 60000);
+    EXPECT_EQ(step.kind, RunStepKind::Failed);
+    EXPECT_EQ(step.reason, "line 6: wait rested 60: the group still rests after 60 s");
+}
+
 TEST(RunEnd, TheGroupWaitsForThePendingChatOfTheRun)
 {
     // Spec section 10: the last boss_kill, wipe, or loot_roll gets its line

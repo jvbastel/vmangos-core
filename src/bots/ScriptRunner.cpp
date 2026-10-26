@@ -7,7 +7,7 @@ namespace Bots
         bool IsWait(ScriptCommandKind kind)
         {
             return kind == ScriptCommandKind::WaitSeconds || kind == ScriptCommandKind::WaitArrive ||
-                kind == ScriptCommandKind::WaitCombatEnd;
+                kind == ScriptCommandKind::WaitCombatEnd || kind == ScriptCommandKind::WaitRested;
         }
 
         std::string Seconds(std::int64_t ms)
@@ -94,7 +94,14 @@ namespace Bots
                             else if (waited >= ArriveLimitMs)
                                 return Fail("the test driver did not arrive in " + Seconds(ArriveLimitMs));
                             break;
+                        case ScriptCommandKind::WaitRested:
+                            if (!facts.groupResting)
+                                done = true;
+                            else if (waited >= std::int64_t(c.seconds) * 1000)
+                                return Fail("the group still rests after " + Seconds(std::int64_t(c.seconds) * 1000));
+                            break;
                         case ScriptCommandKind::WaitCombatEnd:
+                        case ScriptCommandKind::Fight:
                             if (!m_fightSeen)
                             {
                                 if (facts.groupInCombat)
@@ -138,13 +145,23 @@ namespace Bots
             Fail(detail);
             return;
         }
-        if (m_commands[m_index].kind == ScriptCommandKind::Teleport)
+        ScriptCommandKind const kind = m_commands[m_index].kind;
+        if (kind == ScriptCommandKind::Teleport || kind == ScriptCommandKind::Fight)
         {
-            // The group arrives over the next updates.
+            // The group arrives, or the fight starts and ends, over the next
+            // updates.
             Start(nowMs);
             m_state = State::Waiting;
             return;
         }
+        ++m_index;
+        m_state = State::Next;
+    }
+
+    void ScriptRunner::NothingToDo()
+    {
+        if (m_state != State::AwaitDone)
+            return;
         ++m_index;
         m_state = State::Next;
     }

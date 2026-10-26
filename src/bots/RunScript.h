@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_RUN_SCRIPT_H
 
 #include "BotTypes.h"
+#include "RouteQuests.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -46,10 +47,27 @@
 //   combat; the run fails after the seconds).
 // - `expect boss_dead <entry>`, `expect pack_dead <pack>`, `expect alive`
 //   (each group member lives). A failed expect ends the run as failed.
+// - `wait rested [<seconds>]`: no bot of the group eats or drinks any more;
+//   the run fails after the seconds.
+// - `fight <pack> [<seconds>]`: the test driver selects a living mob of the
+//   pack and says `pull` in party chat, then the run waits for the end of
+//   the fight, as `wait combat_end`. A pack that is dead already is no fight:
+//   the run goes on at once.
+// - `release <seconds>` or `release never`: in a wipe, the test driver
+//   releases this long after the last member died (default 5 s), and the
+//   group revives at the dungeon entrance. `never`: nobody releases.
+// - `route [noquests]`: the whole route, step by step (a full run). Each
+//   point is `move <point>` and `wait arrive`, each pack `wait rested` and
+//   `fight <pack>`. `noquests` leaves out the steps that are only there for a
+//   quest. A scenario with a `route` line passes when the last boss of the
+//   route dies.
 namespace Bots
 {
-    // The longest fight of `wait combat_end` without its own number.
+    // The longest fight of `wait combat_end` and `fight` without their own
+    // number.
     std::uint32_t const DefaultCombatEndSeconds = 300;
+    // The longest rest of `wait rested` without its own number.
+    std::uint32_t const DefaultRestedSeconds = 120;
 
     enum class ScriptCommandKind
     {
@@ -66,6 +84,10 @@ namespace Bots
         ExpectBossDead,
         ExpectPackDead,
         ExpectAlive,
+        WaitRested,
+        Fight,
+        Release,
+        Route,
     };
 
     struct ScriptCommand
@@ -79,8 +101,13 @@ namespace Bots
         std::uint32_t entry = 0;
         // The distance of `clear`.
         float yards = 0.0f;
-        // The time of `wait <seconds>`, and the limit of `wait combat_end`.
+        // The time of `wait <seconds>` and `release`, and the limit of
+        // `wait combat_end`, `wait rested`, and `fight`.
         std::uint32_t seconds = 0;
+        // `release never`.
+        bool never = false;
+        // `route` or `route noquests`.
+        RunQuests quests = RunQuests::Do;
         // The line in the file and its words, for the log and the result.
         std::size_t line = 0;
         std::string source;
@@ -118,10 +145,16 @@ namespace Bots
     // The scenario of that name, or nullptr.
     ScriptScenario const* FindScenario(RunScript const& script, std::string const& name);
 
-    struct Route;
     // Empty when each point and pack that the script names is in the route,
     // else a short line for the GM.
     std::string CheckRunScript(RunScript const& script, Route const& route);
+
+    // The commands with each `route` line replaced by the steps of the route
+    // that the run walks. Each step keeps the line of its `route` line.
+    std::vector<ScriptCommand> ExpandRoute(std::vector<ScriptCommand> const& commands, Route const& route);
+
+    // A scenario with a `route` line: a full run of the dungeon.
+    bool IsFullRun(ScriptScenario const& scenario);
 }
 
 #endif

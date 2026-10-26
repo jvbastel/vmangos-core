@@ -46,6 +46,8 @@ namespace Bots
         bool teleporting = false;
         // The test driver stands at the end of its last `move`.
         bool driverArrived = false;
+        // A living bot of the group eats or drinks.
+        bool groupResting = false;
     };
 
     enum class RunStepKind
@@ -71,6 +73,9 @@ namespace Bots
         RunStep Update(RunFacts const& facts, std::int64_t nowMs);
         // The result of the last Do. `detail` says why it did not work.
         void Done(bool ok, std::string const& detail, std::int64_t nowMs);
+        // The last Do found nothing to do, for example a `fight` of a pack
+        // that died in an earlier fight: the runner skips its wait.
+        void NothingToDo();
 
         // "line <n>: <command>" of the command that runs or comes next, or
         // "the end".
