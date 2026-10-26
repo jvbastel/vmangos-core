@@ -34,7 +34,8 @@ Kit commands:
                        and start the slot. Stops with a list of the holders
                        when all slots have a lease.
   release              Stop the checks of the pid files, keep the logs, stop
-                       the slot (`docker compose stop`), and delete the lease.
+                       the slot (`docker compose stop`) and its dev container,
+                       and delete the lease.
                        `down` does the same.
   baseline             Make the baseline database volume of the newest
                        database image, wowai-test-baseline-<tag>, if it has
@@ -73,7 +74,9 @@ the shared test realm (or on the realm that the WOWAI_REALM_* settings name).
   compose <args>       Any other `docker compose` command.
 
 Pool folders (WOWAI_POOL_DIR, default ~/wowai/slots): slot S in S/ (the
-realm folder, with its dev install in S/install), its lease in S.lease
+realm folder, with its dev install in S/install), its dev container
+wowai-dev-slot-S with the build volume wowai-dev-build-slot-S (wowai/dev
+uses them for each tree that leases S), its lease in S.lease
 (ticket, worktree, branch, start time), and the logs that a ticket keeps in
 logs/t<N>/<time>/ (`release`, `gc`) and logs/t<N>/<time>-restart/
 (`restart`). Slot S is the Compose project wowai-test-S, with the ports
@@ -175,6 +178,8 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
     export WOWAI_REALM_WORLD_PORT=$((8090 + slot))
     export WOWAI_REALM_SOAP_PORT=$((7880 + slot))
     export WOWAI_DEV_INSTALL="$pool_dir/$slot/install"
+    # The dev container of the slot, not one for each worktree.
+    export WOWAI_DEV_ID="slot-$slot"
     export WOWAI_REALM_KEPT_LOGS="$pool_dir/logs/t$ticket"
     export WOWAI_REALM_LOG_FILE_LEVEL=3
     # The chat service of the caller, never the one of the last lease.
@@ -238,7 +243,7 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
   [ "$#" -gt 0 ] || kit_die "give a command (see: realm.sh --help)"
   # Only the ticket names the realm.
   unset "${!realm_defaults[@]}" WOWAI_REALM_KEPT_LOGS WOWAI_REALM_LOG_FILE_LEVEL \
-    WOWAI_REALM_SLOT WOWAI_REALM_LEASE WOWAI_REALM_BASELINE WOWAI_REALM_BASELINE_ENV
+    WOWAI_REALM_SLOT WOWAI_REALM_LEASE WOWAI_REALM_BASELINE WOWAI_REALM_BASELINE_ENV WOWAI_DEV_ID
   if [ -z "$ticket" ]; then
     case "$1" in
       baseline) kit_baseline; echo "The baseline is $WOWAI_REALM_BASELINE." ;;
@@ -785,6 +790,8 @@ cmd_realm_release() {
   # By the project name only: gc releases the slots of deleted worktrees,
   # whose .env can name folders that are gone.
   docker compose --project-name "$project" stop
+  # The slot's dev container (wowai/dev names it from WOWAI_DEV_ID).
+  cmd_stop
   rm -f "$WOWAI_REALM_LEASE"
   if [ -d "$keep" ]; then
     echo "Released the slot ${WOWAI_REALM_SLOT:-} ($project). Kept its logs in $keep."

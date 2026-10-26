@@ -102,6 +102,7 @@ check "the dev install is the slot's" test "$(value "$out" WOWAI_DEV_INSTALL)" =
 check "the login port is 3730 + the slot" test "$(value "$out" WOWAI_REALM_LOGIN_PORT)" = $((3730 + s11))
 check "the world port is 8090 + the slot" test "$(value "$out" WOWAI_REALM_WORLD_PORT)" = $((8090 + s11))
 check "the SOAP port is 7880 + the slot" test "$(value "$out" WOWAI_REALM_SOAP_PORT)" = $((7880 + s11))
+check "the dev container is the slot's" test "$(value "$out" WOWAI_DEV_ID)" = "slot-$s11"
 
 out="$(WOWAI_REALM_DIR="$tmp/shared" WOWAI_REALM_PROJECT=wowai-test-realm WOWAI_REALM_SOAP_PORT=7879 \
   WOWAI_DEV_INSTALL="$tmp/shared-install" "$kit" --ticket 11 env 2>&1)"
@@ -136,6 +137,18 @@ check "--shared does not lease a slot" test "$code" -ne 0
 # --- release and gc, with the real dev script and the fake docker ---
 
 unset WOWAI_KIT_DEV
+
+# wowai/dev outside the kit: a tree that leases a slot uses the slot's dev
+# container, and another tree its own.
+"$repo/wowai/dev" stop
+check "a leased tree uses the dev container of its slot" \
+  bash -c "tail -n 1 '$FAKE_DOCKER_LOG' | grep -qE ' stop wowai-dev-slot-[1-5]$'"
+WOWAI_POOL_DIR="$tmp/no-slots" "$repo/wowai/dev" stop
+check "a tree with no lease uses a dev container of its own" \
+  bash -c "tail -n 1 '$FAKE_DOCKER_LOG' | grep -qE ' stop wowai-dev-$(basename "$repo")-[0-9a-f]{8}$'"
+code=0; WOWAI_DEV_ID='a b' "$repo/wowai/dev" stop 2>/dev/null || code=$?
+check "WOWAI_DEV_ID must be a plain name" test "$code" -ne 0
+
 mkdir -p "$WOWAI_POOL_DIR/$s11/storage/mangosd/logs"
 echo "the log of ticket 11" > "$WOWAI_POOL_DIR/$s11/storage/mangosd/logs/Server.log"
 run_kit --ticket 11 release
@@ -144,6 +157,7 @@ check "release removes the lease" test ! -e "$WOWAI_POOL_DIR/$s11.lease"
 check "release keeps Server.log in the ticket's log folder" \
   bash -c "grep -qs 'the log of ticket 11' '$WOWAI_POOL_DIR'/logs/t11/*/mangosd/Server.log"
 check "release stops the slot" grep -q "compose --project-name wowai-test-$s11 stop" "$FAKE_DOCKER_LOG"
+check "release stops the slot's dev container" grep -q " stop wowai-dev-slot-$s11$" "$FAKE_DOCKER_LOG"
 check "release keeps the slot folder" test -d "$WOWAI_POOL_DIR/$s11/storage"
 run_kit --ticket 11 soap 'server info'
 check "after release the ticket has no slot" test "$code" -ne 0
@@ -158,6 +172,7 @@ check "gc removes the lease of a deleted worktree" test ! -e "$WOWAI_POOL_DIR/$s
 check "gc keeps its Server.log first" \
   bash -c "grep -qs 'the log of ticket 12' '$WOWAI_POOL_DIR'/logs/t12/*/mangosd/Server.log"
 check "gc stops that slot" grep -q "compose --project-name wowai-test-$s12 stop" "$FAKE_DOCKER_LOG"
+check "gc stops that slot's dev container" grep -q " stop wowai-dev-slot-$s12$" "$FAKE_DOCKER_LOG"
 check "gc keeps the leases of existing worktrees" test -n "$(slot_of 13)"
 
 check "no command removes a slot" bash -c "! grep -E ' (down|rm)( |$)' '$FAKE_DOCKER_LOG'"
