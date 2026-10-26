@@ -27,6 +27,10 @@ namespace Bots
     // role `role`.
     std::shared_ptr<Strategy const> MakeGroupStrategy(BotRole role);
 
+    // Whether `firstRank`, the spell ID of the first rank of a spell, is an
+    // interrupt spell of the group rules (Kick, Shield Bash).
+    bool IsInterruptSpell(SpellId firstRank);
+
     // The living enemies in the fight of the group: the focus target and the
     // units that attack a group member.
     std::vector<Guid> EnemiesInFight(BotContext const& context);

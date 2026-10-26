@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 using Bots::Distance2d;
 using Bots::GeneratorPack;
@@ -510,4 +511,157 @@ TEST(RouteGenerator, AQuestVisitComesAfterThePacksThatGuardTheSpot)
     ASSERT_LT(guard, route.steps.size());
     ASSERT_LT(visit, route.steps.size());
     EXPECT_LT(guard, visit);
+}
+
+namespace
+{
+    // Two levels: the line runs along an upper corridor, and a lower room
+    // lies beside it, joined to it only by a ramp at its far end. A path
+    // goes straight, or down the ramp.
+    class LevelsNav : public FakeNav
+    {
+    public:
+        LevelsNav()
+        {
+            rooms = {{0, 200, -3, 3}, {96, 98, -3, 20}, {40, 98, 10, 30}};
+            doors = {{97, 0, 0}, {97, 15, 0}};
+        }
+
+        bool Path(Position const& from, Position const& to, std::vector<Position>& path) override
+        {
+            if (Straight(from, to, path))
+                return true;
+            // Down the ramp, or up it.
+            for (bool down : {true, false})
+            {
+                std::vector<Position> stops{from};
+                if (down)
+                    stops.insert(stops.end(), doors.begin(), doors.end());
+                else
+                    stops.insert(stops.end(), doors.rbegin(), doors.rend());
+                stops.push_back(to);
+                std::vector<Position> leg;
+                bool walkable = true;
+                for (std::size_t i = 0; i + 1 < stops.size(); ++i)
+                    walkable = walkable && Straight(stops[i], stops[i + 1], leg);
+                if (walkable)
+                {
+                    path = stops;
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+
+    float PathLength(std::vector<Position> const& path)
+    {
+        float length = 0.0f;
+        for (std::size_t i = 1; i < path.size(); ++i)
+            length += Bots::Distance3d(path[i - 1], path[i]);
+        return length;
+    }
+
+    Bots::GeneratorInput LevelsInput(float packX, float packY = 15)
+    {
+        Bots::GeneratorInput input;
+        input.name = "levels";
+        input.mapId = 389;
+        input.entrance = {2, 0, 0};
+        input.spawns = {Spawn(1, 11318, packX, packY), Spawn(5, 100, 190, 0)};
+        input.bosses = {100};
+        return input;
+    }
+}
+
+TEST(RouteGenerator, APullPointIsNearItsPackByPathNotByStraightDistance)
+{
+    LevelsNav nav;
+    Bots::GeneratorInput const input = LevelsInput(80);
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    Bots::RoutePoint const* pull = Bots::FindPoint(generated.route, "pull_pack1");
+    ASSERT_NE(pull, nullptr);
+    for (Bots::RoutePlace const& place : pull->places)
+    {
+        std::vector<Position> path;
+        ASSERT_TRUE(nav.Path(place.position, {80, 15, 0}, path));
+        EXPECT_LE(PathLength(path), input.settings.pullPathLimit) << place.position.x;
+        EXPECT_GE(Bots::Distance3d(place.position, {80, 15, 0}), input.settings.aggroRange);
+    }
+    for (std::string const& warning : generated.warnings)
+        EXPECT_EQ(warning.find("pull point"), std::string::npos) << warning;
+}
+
+TEST(RouteGenerator, APackFarFromTheLineByPathGetsADetourAndAWarning)
+{
+    // The lower room's far end: from the line, the only way is down the
+    // ramp and back along the room, 72 yards.
+    LevelsNav nav;
+    Bots::GeneratorInput const input = LevelsInput(40);
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    bool told = false;
+    for (std::string const& warning : generated.warnings)
+        told = told || warning.find("pack1 has no pull point within 35 yards by path") != std::string::npos;
+    EXPECT_TRUE(told);
+
+    Bots::RoutePoint const* pull = Bots::FindPoint(generated.route, "pull_pack1");
+    ASSERT_NE(pull, nullptr);
+    for (Bots::RoutePlace const& place : pull->places)
+    {
+        std::vector<Position> path;
+        ASSERT_TRUE(nav.Path(place.position, {40, 15, 0}, path));
+        EXPECT_LE(PathLength(path), input.settings.pullPathLimit) << place.position.x;
+        EXPECT_GE(Bots::Distance3d(place.position, {40, 15, 0}), input.settings.aggroRange);
+    }
+    EXPECT_EQ(Bots::CheckRouteWalk(generated.route, nav), std::vector<std::string>{});
+}
+
+TEST(RouteGenerator, APackOutOfAggroRangeOfTheLineAndFarByPathIsNotOnTheRoute)
+{
+    // 25 yards below the line, so on the route by straight distance, but
+    // out of its aggro range, and 82 yards away by path.
+    LevelsNav nav;
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(LevelsInput(40, 25), nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    for (Bots::RoutePack const& pack : generated.route.packs)
+        EXPECT_NE(pack.mobs[0].spawnGuid, 1u) << pack.name;
+    bool told = false;
+    for (std::string const& warning : generated.warnings)
+        told = told || warning.find("the pack of spawn 1 at 40.00 25.00 0.00 is off the route") != std::string::npos;
+    EXPECT_TRUE(told);
+}
+
+TEST(RouteGenerator, ADetourFightsThePacksItPasses)
+{
+    // The detour to the far end of the lower room passes a pack that the
+    // line does not come near.
+    LevelsNav nav;
+    Bots::GeneratorInput input = LevelsInput(40);
+    input.spawns.push_back(Spawn(2, 11319, 70, 29));
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    std::vector<std::uint32_t> fought;
+    for (std::size_t i = 0; i < generated.route.steps.size(); ++i)
+        if (generated.route.steps[i].kind == Bots::RouteStepKind::Pack)
+        {
+            Bots::RoutePack const& pack = generated.route.packs[generated.route.steps[i].index];
+            fought.push_back(pack.mobs[0].spawnGuid);
+            ASSERT_EQ(generated.route.steps[i - 1].kind, Bots::RouteStepKind::Point);
+            EXPECT_EQ(generated.route.points[generated.route.steps[i - 1].index].name, "pull_" + pack.name);
+        }
+    EXPECT_EQ(fought, (std::vector<std::uint32_t>{2, 1, 5}));
+    // The line passes within aggro range of pack 1 by straight distance,
+    // but no point of the lower room is in aggro range of a later pack.
+    for (std::string const& warning : generated.warnings)
+    {
+        float x = 0.0f, y = 0.0f;
+        if (std::sscanf(warning.c_str(), "a point at %f %f", &x, &y) == 2)
+            EXPECT_LT(y, 5.0f) << warning;
+    }
 }

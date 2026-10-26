@@ -13,10 +13,18 @@ outside 1 1811.78 -4410.50 -18.47   # the entrance in Orgrimmar (game_tele 46)
 
 # Full run: the whole dungeon, step by step along the route. It passes when
 # the fourth boss dies (spec section 10).
+# The talk of spec section 10: the test driver whispers each bot once and
+# writes once in party chat. Each whisper gets an answer of its bot, and the
+# party message 1 or 2 answers (wowai/test-realm/runs.py checks them).
 scenario full
 teleport p1
 command follow
 wait 20                 # the buffs
+whisper Grukk how are you holding up?
+whisper Hela how are you holding up?
+whisper Shanka how are you holding up?
+whisper Morzul how are you holding up?
+command good luck in there, everyone
 route
 
 # A full run without the steps that are only there for a quest.
@@ -24,6 +32,11 @@ scenario full_noquests
 teleport p1
 command follow
 wait 20
+whisper Grukk how are you holding up?
+whisper Hela how are you holding up?
+whisper Shanka how are you holding up?
+whisper Morzul how are you holding up?
+command good luck in there, everyone
 route noquests
 
 # Boss scenario: the group starts at Taragaman the Hungerer and runs only
@@ -44,22 +57,22 @@ expect boss_dead 11520
 # Trash scenario: the group runs one fixed pack, two Searing Blade
 # Enforcers.
 scenario enforcers
-teleport pull_pack39
-clear 50 pack39         # only the pack stays
+teleport pull_pack47
+clear 50 pack47         # only the pack stays
 command follow
 wait 20
 command stay
 refill
 wait 3
-target pack39
+target pack47
 command pull
 wait combat_end 300
-expect pack_dead pack39
+expect pack_dead pack47
 
 # The revive rule of jvbastel/WOWAI#72: the check t72_revive.py kills
 # members during the wait.
 scenario revive
-teleport pull_pack39
+teleport pull_pack47
 clear 50
 command follow
 wait 120
@@ -67,7 +80,7 @@ wait 120
 # A short run that passes, for the check t82_run_group.py: after it, the
 # members are out of the run group (jvbastel/WOWAI#82).
 scenario short
-teleport pull_pack39
+teleport pull_pack47
 clear 50
 wait 2
 expect alive
@@ -87,3 +100,19 @@ wait rested             # no settle: the coordinator sees a rest at once
 command stay
 fight pack1
 command follow
+
+# A trash scenario with an enemy healer: one Ragefire Shaman, who casts
+# Healing Wave and Lightning Bolt. The result shows the interrupts
+# (jvbastel/WOWAI#95).
+scenario shaman
+teleport pull_pack10
+clear 80 pack10         # only the pack stays
+command follow
+wait 20
+command stay
+refill
+wait 3
+target pack10
+command pull
+wait combat_end 300
+expect pack_dead pack10

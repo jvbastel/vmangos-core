@@ -607,3 +607,10 @@ TEST(GroupRules, AMeleeBotComesBackFromAnEnemyThatFleesFromTheHealer)
 
     EXPECT_EQ(party.rogue.Think(), "come back to the tank");
 }
+
+TEST(GroupRules, KickAndShieldBashAreTheInterruptSpells)
+{
+    EXPECT_TRUE(Bots::IsInterruptSpell(Bots::Rogue::Kick));
+    EXPECT_TRUE(Bots::IsInterruptSpell(Bots::Warrior::ShieldBash));
+    EXPECT_FALSE(Bots::IsInterruptSpell(Bots::Rogue::SinisterStrike));
+}

@@ -35,6 +35,12 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         // the lost-mob watch of the scripted runs (Bots::MemberAttacks has
         // the rule). On the world thread, in BotRun.
         static Bots::MemberAttacks AttacksOf(Player const* member, bool bot);
+        // The spell that a unit casts now, as GetCast sees it. Also on the
+        // world thread, in BotRun (the interrupts of a scripted run).
+        static Bots::CastInfo CastOf(Unit const* unit);
+        // The unit that a player runs after (a chase), or null. Also on the
+        // world thread, in BotRun (the chases of a scripted run).
+        static Unit* ChaseTargetOf(Player const* player);
 
         // BotView
         Bots::Guid GetSelf() const override;
