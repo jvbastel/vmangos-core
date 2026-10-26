@@ -28,7 +28,7 @@ bool GameRouteNav::Path(Bots::Position const& from, Bots::Position const& to, st
     out.clear();
     // PathInfo finds no path between two spots this close: its
     // smooth path needs two steps.
-    if (Distance(from, to) < 2.0f && OnMesh(from) && OnMesh(to) && !OnLava(from) && !OnLava(to))
+    if (Bots::Distance3d(from, to) < 2.0f && OnMesh(from) && OnMesh(to) && !OnLava(from) && !OnLava(to))
     {
         out = {from, to};
         return true;
@@ -49,7 +49,7 @@ bool GameRouteNav::Path(Bots::Position const& from, Bots::Position const& to, st
         for (Vector3 const& point : points)
         {
             Bots::Position const position{point.x, point.y, point.z};
-            if (out.empty() || Distance(out.back(), position) > 0.01f)
+            if (out.empty() || Bots::Distance3d(out.back(), position) > 0.01f)
                 out.push_back(position);
         }
         if (!(type & PATHFIND_INCOMPLETE))
@@ -64,7 +64,7 @@ bool GameRouteNav::Path(Bots::Position const& from, Bots::Position const& to, st
     // No step of the path on lava.
     for (std::size_t i = 1; i < out.size(); ++i)
     {
-        float const length = Distance(out[i - 1], out[i]);
+        float const length = Bots::Distance3d(out[i - 1], out[i]);
         int const steps = std::max(1, int(length / 0.5f));
         for (int k = 0; k <= steps; ++k)
         {
