@@ -52,6 +52,7 @@ class BotRun
             Logout,      // A new login gives each bot a fresh AI.
             Login,
             Script,      // The ScriptRunner runs the scenario.
+            Closing,     // The run has its result. The group waits for the chat of the run.
             Passed,
             Failed,
         };
@@ -59,13 +60,27 @@ class BotRun
         // The run is over: passed or failed.
         bool IsOver() const { return m_phase == Phase::Passed || m_phase == Phase::Failed; }
 
-        // Ends the run as failed, and leaves the run group.
+        // Ends the run as failed: Finish(false, reason).
         void Fail(std::string const& reason);
-        // The end of a run, passed or failed: the members leave the run
-        // group, so that a later run, check, or player invite starts from
-        // a clean state (jvbastel/WOWAI#82). A bot out of its group logs
-        // out (BotMgr::UpdateGroupOf).
-        void LeaveGroup();
+        // The one end of a run, passed or failed. In this order:
+        // 1. The result line, for the GM and the log.
+        // 2. Each writer of the run end, while the group still is (a later
+        //    trace of the last 3 minutes of a failed run goes here, spec
+        //    section 10).
+        // 3. The phase Closing: the group stays until the chat of the run is
+        //    said or dropped (Bots::RunEndWaitsForChat), so that the last
+        //    boss_kill, wipe, or loot_roll gets its line. Then EndClosing.
+        void Finish(bool passed, std::string const& reason);
+        // In Closing: ends the wait now (EndRunGroup) and sets Passed or
+        // Failed. A run start or a run stop cuts the wait short, so the wait
+        // never blocks them; `cutBy` names the cause for the log (nullptr
+        // when the wait ends by itself). False when the run is not in Closing.
+        bool EndClosing(char const* cutBy);
+        // After Closing: the test driver is a normal bot again, and the
+        // members leave the run group, so that a later run, check, or
+        // player invite starts from a clean state (jvbastel/WOWAI#82). A bot
+        // out of its group logs out (BotMgr::UpdateGroupOf).
+        void EndRunGroup();
         void SetPhase(Phase phase);
         bool PhaseTimedOut(std::string const& what);
         std::vector<Player*> Members() const;
@@ -116,6 +131,7 @@ class BotRun
         int64 m_startMs = 0;
         int64 m_phaseMs = 0;
         std::string m_result;
+        bool m_passed = false; // The result of Finish, for the end of Closing.
         uint32 m_groupId = 0; // The run group, from FormGroup to the end of the run.
         std::set<uint32> m_bossKills;
         Bots::ThreatWatch m_threat;

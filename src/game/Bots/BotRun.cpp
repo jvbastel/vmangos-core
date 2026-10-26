@@ -7,6 +7,7 @@
 
 #include "BotRun.h"
 #include "Bag.h"
+#include "BotAdapter.h"
 #include "BotHooks.h"
 #include "BotMgr.h"
 #include "BotRecipe.h"
@@ -24,6 +25,7 @@
 #include "ObjectMgr.h"
 #include "Pet.h"
 #include "Player.h"
+#include "RouteFiles.h"
 #include "SharedDefines.h"
 #include "Spell.h"
 #include "SpellAuras.h"
@@ -169,13 +171,16 @@ namespace
     char const* PhaseName(int phase)
     {
         static char const* const names[] = {"idle", "reset: login", "reset: out of the dungeon", "reset: logout",
-            "reset: login again", "script", "passed", "failed"};
+            "reset: login again", "script",
+            "closing: the group waits for the chat of the run", "passed", "failed"};
         return names[phase];
     }
 }
 
 bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, std::string const& scenario, std::string& error)
 {
+    // A new run does not wait for the chat of the last run.
+    EndClosing("a new run starts");
     if (m_phase != Phase::Idle && !IsOver())
     {
         error = "A run is running: " + Status();
@@ -199,7 +204,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
         error = "The script " + scriptName + " has no scenario " + scenario + ".";
         return false;
     }
-    std::string const routePath = dataDir + "/routes/" + script.script.route + ".txt";
+    std::string const routePath = RouteFiles::PathOf(script.script.route);
     if (!Bots::IsValidRouteName(script.script.route) || !ReadFile(routePath, text))
     {
         error = "Cannot read the route file " + routePath + ".";
@@ -255,6 +260,9 @@ bool BotRun::Stop(std::string& error)
         error = "No run is running.";
         return false;
     }
+    // The run has its result: a stop only ends the wait for its chat.
+    if (EndClosing("stopped by a GM"))
+        return true;
     Fail("stopped by a GM");
     return true;
 }
@@ -287,16 +295,39 @@ void BotRun::SetPhase(Phase phase)
 
 void BotRun::Fail(std::string const& reason)
 {
-    m_phase = Phase::Failed;
-    std::ostringstream line;
-    line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": failed after "
-         << (SteadyMs() - m_startMs) / 1000 << " s: " << reason << WatchText();
-    m_result = line.str();
-    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
-    LeaveGroup();
+    Finish(false, reason);
 }
 
-void BotRun::LeaveGroup()
+void BotRun::Finish(bool passed, std::string const& reason)
+{
+    // 1. The result. A threat loss does not fail the run: the spec allows
+    // some (spec section 10). The result counts them.
+    m_passed = passed;
+    std::ostringstream line;
+    line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": "
+         << (passed ? "passed" : "failed") << " after " << (SteadyMs() - m_startMs) / 1000 << " s";
+    if (!passed)
+        line << ": " << reason;
+    line << WatchText();
+    m_result = line.str();
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
+    // 2. The writers of the run end come here, before the group ends.
+    // 3. The group waits for the chat of the run (Update, Phase::Closing).
+    SetPhase(Phase::Closing);
+}
+
+bool BotRun::EndClosing(char const* cutBy)
+{
+    if (m_phase != Phase::Closing)
+        return false;
+    if (cutBy)
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: the wait for the chat of the run ends early: %s", m_number, cutBy);
+    EndRunGroup();
+    m_phase = m_passed ? Phase::Passed : Phase::Failed;
+    return true;
+}
+
+void BotRun::EndRunGroup()
 {
     // The test driver is a normal bot again.
     sBotMgr.SetTestDriver(ObjectGuid());
@@ -440,13 +471,18 @@ void BotRun::Update()
             return;
         case Phase::Script:
             break;
+        case Phase::Closing:
+            if (Bots::RunEndWaitsForChat(SteadyMs() - m_phaseMs, m_groupId && sBotMgr.Chat().HasPendingChat(m_groupId)))
+                return;
+            EndClosing(nullptr);
+            return;
     }
 
     if (m_teleportRest)
         TeleportRest();
     ReviveTheDead();
     WatchThreat(SteadyMs() - m_startMs);
-    if (m_phase == Phase::Failed)
+    if (m_phase != Phase::Script)
         return;
     for (;;)
     {
@@ -462,15 +498,7 @@ void BotRun::Update()
         }
         if (step.kind == Bots::RunStepKind::Passed)
         {
-            // A threat loss does not fail the run: the spec allows some
-            // (spec section 10). The result counts them.
-            m_phase = Phase::Passed;
-            std::ostringstream line;
-            line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": passed after "
-                 << (SteadyMs() - m_startMs) / 1000 << " s" << WatchText();
-            m_result = line.str();
-            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
-            LeaveGroup();
+            Finish(true, std::string());
             return;
         }
         std::string detail;
@@ -611,35 +639,6 @@ Bots::RunFacts BotRun::Facts() const
     return facts;
 }
 
-namespace
-{
-    Bots::Guid GuidOf(Unit const* unit)
-    {
-        return unit ? unit->GetObjectGuid().GetRawValue() : Bots::NoGuid;
-    }
-
-    // What a member does to enemies now, for the lost-mob watch
-    // (Bots::MemberAttacks has the rule).
-    Bots::MemberAttacks AttacksOf(Player const* member, bool bot)
-    {
-        Bots::MemberAttacks attacks;
-        attacks.bot = bot;
-        attacks.victim = GuidOf(member->GetVictim());
-        for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL, CURRENT_AUTOREPEAT_SPELL})
-            if (Spell const* spell = member->GetCurrentSpell(type))
-            {
-                ObjectGuid const target = spell->m_targets.getUnitTargetGuid();
-                if (!target.IsEmpty())
-                    attacks.spellTargets.push_back(target.GetRawValue());
-            }
-        if (Pet const* pet = member->GetPet())
-            if (pet->IsAlive())
-                attacks.petVictim = GuidOf(pet->GetVictim());
-        attacks.selection = member->GetTargetGuid().GetRawValue();
-        return attacks;
-    }
-}
-
 void BotRun::WatchThreat(int64 nowMs)
 {
     std::vector<Bots::EnemyOnMember> hitsOnNonTanks, hits;
@@ -650,7 +649,7 @@ void BotRun::WatchThreat(int64 nowMs)
     {
         if (!IsLivingMember(member))
             continue;
-        attacks.push_back(AttacksOf(member, member != driver));
+        attacks.push_back(BotAdapter::AttacksOf(member, member != driver));
         Bots::BotRole role;
         bool const tank = sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank;
         if (tank && member->GetVictim())

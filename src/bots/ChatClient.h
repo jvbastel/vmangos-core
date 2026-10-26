@@ -99,6 +99,11 @@ namespace Bots
         // Requests that wait or that a worker sends.
         std::size_t Pending() const;
 
+        // A request of the group waits or is sent, or a line of the group
+        // waits for its delay. A line that TakeDue gave or dropped is not
+        // pending.
+        bool HasPendingChat(std::uint32_t groupId) const;
+
     private:
         struct Request
         {
@@ -125,7 +130,7 @@ namespace Bots
         mutable std::mutex m_mutex;
         std::condition_variable m_wake;
         std::deque<Request> m_requests;
-        std::size_t m_inFlight = 0;
+        std::vector<std::uint32_t> m_inFlight; // The group of each sent request.
         bool m_stopping = false;
         std::vector<HeldLine> m_lines;
         std::uint64_t m_nextOrder = 0;

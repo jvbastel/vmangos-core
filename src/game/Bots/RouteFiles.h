@@ -17,27 +17,27 @@
 // generator, the trace, and the route walk of the GM commands share.
 namespace RouteFiles
 {
+    // The kinds of file of the routes folder, by the end of the name.
+    enum class FileKind
+    {
+        Route, // <route>.txt
+        Trace, // <route>.trace.txt: the GM trace of the route (bots/RouteTrace.h).
+        Other,
+    };
+
+    // The one owner of the two file names: the kind of a file name of the
+    // routes folder.
+    FileKind KindOf(std::string const& fileName);
     // <Bots.DataDir>/routes/<route>.txt
     std::string PathOf(std::string const& route);
-    // <Bots.DataDir>/routes/<route>.trace.txt: the GM trace of the route
-    // (bots/RouteTrace.h).
+    // <Bots.DataDir>/routes/<route>.trace.txt
     std::string TracePathOf(std::string const& route);
-    // A file of the routes folder that holds a trace, not a route.
-    bool IsTraceFile(std::string const& fileName);
     bool Read(std::string const& path, std::string& text);
     // Writes a temporary file first, so that a crash never leaves half a file.
     bool Write(std::string const& path, std::string const& text);
     // The creature, quest, and item names for the comments of a route file.
     Bots::RouteNames Names();
     std::string EntryName(uint32 entry);
-}
-
-// The GM traces of `.route trace` (RouteTraceCommands.cpp).
-namespace RouteTraces
-{
-    // From BotMgr::Update on the world thread: each trace that is on looks
-    // at the position of its character.
-    void Update(uint32 diff);
 }
 
 #endif

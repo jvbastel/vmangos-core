@@ -23,6 +23,19 @@ namespace Bots
     // The group must be out of combat this long before a fight counts as
     // ended: a short gap between two enemies is no end.
     std::int64_t const CombatEndQuietMs = 3000;
+    // At its end, a run holds its group at most this long for the chat of
+    // the run: the HTTP timeout (5 s), the delays of the lines (about 7 s),
+    // and the drop of a line that is more than 10 s late are each shorter.
+    std::int64_t const RunEndChatWaitMs = 20000;
+
+    // The run ended `heldMs` ago. True while it holds its group, so that the
+    // line of its last boss_kill, wipe, or loot_roll still finds the bots in
+    // the group (spec section 10): a chat line of the group is pending, and
+    // the wait is shorter than RunEndChatWaitMs.
+    inline bool RunEndWaitsForChat(std::int64_t heldMs, bool chatPending)
+    {
+        return chatPending && heldMs < RunEndChatWaitMs;
+    }
 
     // The facts of the group at one update of the run.
     struct RunFacts

@@ -10,6 +10,7 @@
 
 #include "BotActions.h"
 #include "BotView.h"
+#include "ThreatWatch.h"
 
 #include "Common.h"
 
@@ -29,6 +30,11 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         // `loot`: the corpse loot of the bot, for HasLootWork and Loot. Null:
         // the bot has no loot work.
         explicit BotAdapter(Player* me, BotLoot* loot = nullptr) : me(me), m_loot(loot) {}
+
+        // What any member does to enemies now, a bot or the test driver, for
+        // the lost-mob watch of the scripted runs (Bots::MemberAttacks has
+        // the rule). On the world thread, in BotRun.
+        static Bots::MemberAttacks AttacksOf(Player const* member, bool bot);
 
         // BotView
         Bots::Guid GetSelf() const override;

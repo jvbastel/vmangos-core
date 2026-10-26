@@ -275,6 +275,9 @@ def part_run():
         results.check("%s is alive at the entrance" % name, at is not None and dist(at, RFC_ENTRANCE) < 15 and health > 0,
                       "at %r health %d" % (at, health))
     print(" ", realm.soap(".wowai run stop"))
+    # The group waits for the chat of the run (at most 20 s), then ends:
+    # the next part invites the bots again.
+    realm.wait_log(r"Run \d+: the members leave the run group", 30, c)
     c.gm(".go xyz %f %f 30 1" % camp, select=c.guid, wait=4.0)
 
 

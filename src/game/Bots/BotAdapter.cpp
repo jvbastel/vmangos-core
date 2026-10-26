@@ -41,6 +41,7 @@
 #include <limits>
 #include <list>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -105,6 +106,28 @@ namespace
     Bots::Guid GuidOf(Unit const* unit)
     {
         return unit ? unit->GetObjectGuid().GetRawValue() : Bots::NoGuid;
+    }
+
+    struct CurrentSpell
+    {
+        CurrentSpellTypes type;
+        Spell const* spell;
+    };
+
+    // The one loop over the current spells of a unit: the generic spell,
+    // then the channeled spell, then with `autoRepeat` the auto-repeat spell
+    // (Shoot, Auto Shot). The cast of the unit comes first.
+    std::vector<CurrentSpell> CurrentSpellsOf(Unit const* unit, bool autoRepeat)
+    {
+        std::vector<CurrentSpell> spells;
+        for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL, CURRENT_AUTOREPEAT_SPELL})
+        {
+            if (type == CURRENT_AUTOREPEAT_SPELL && !autoRepeat)
+                continue;
+            if (Spell const* spell = unit->GetCurrentSpell(type))
+                spells.push_back({type, spell});
+        }
+        return spells;
     }
 
     // The first ranks of the spells that resurrect a dead player:
@@ -177,38 +200,46 @@ Bots::Health BotAdapter::GetHealth(Bots::Guid unit) const
 
 Bots::SpellId BotAdapter::GetCurrentCast(Bots::Guid unit) const
 {
-    Unit const* found = Find(unit);
-    if (!found)
-        return Bots::NoSpell;
-    for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL})
-        if (Spell const* spell = found->GetCurrentSpell(type))
-            return spell->m_spellInfo->Id;
-    return Bots::NoSpell;
+    return GetCast(unit).spell;
 }
 
 Bots::CastInfo BotAdapter::GetCast(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
-    if (!found)
+    std::vector<CurrentSpell> const spells = found ? CurrentSpellsOf(found, false) : std::vector<CurrentSpell>();
+    if (spells.empty())
         return {Bots::NoSpell, Bots::CastKind::None, false};
-    for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL})
+    CurrentSpellTypes const type = spells.front().type;
+    Spell const* spell = spells.front().spell;
+    SpellEntry const* info = spell->m_spellInfo;
+    Bots::CastKind const kind = info->IsHealSpell() ? Bots::CastKind::Heal
+        : info->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+    // The test of Spell::EffectInterruptCast, the effect of Kick and
+    // Shield Bash.
+    bool const casting = spell->getState() == SPELL_STATE_CASTING
+        || (spell->getState() == SPELL_STATE_PREPARING && spell->GetCastTime() > 0);
+    bool const interruptible = casting && info->PreventionType == SPELL_PREVENTION_TYPE_SILENCE
+        && (type == CURRENT_GENERIC_SPELL ? spell->GetCastTime() > 0 && info->HasSpellInterruptFlag(SPELL_INTERRUPT_FLAG_DAMAGE_PUSHBACK)
+            : info->HasChannelInterruptFlag(AURA_INTERRUPT_ACTION_CANCELS));
+    return {info->Id, kind, interruptible};
+}
+
+Bots::MemberAttacks BotAdapter::AttacksOf(Player const* member, bool bot)
+{
+    Bots::MemberAttacks attacks;
+    attacks.bot = bot;
+    attacks.victim = GuidOf(member->GetVictim());
+    for (CurrentSpell const& current : CurrentSpellsOf(member, true))
     {
-        Spell const* spell = found->GetCurrentSpell(type);
-        if (!spell)
-            continue;
-        SpellEntry const* info = spell->m_spellInfo;
-        Bots::CastKind const kind = info->IsHealSpell() ? Bots::CastKind::Heal
-            : info->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
-        // The test of Spell::EffectInterruptCast, the effect of Kick and
-        // Shield Bash.
-        bool const casting = spell->getState() == SPELL_STATE_CASTING
-            || (spell->getState() == SPELL_STATE_PREPARING && spell->GetCastTime() > 0);
-        bool const interruptible = casting && info->PreventionType == SPELL_PREVENTION_TYPE_SILENCE
-            && (type == CURRENT_GENERIC_SPELL ? spell->GetCastTime() > 0 && info->HasSpellInterruptFlag(SPELL_INTERRUPT_FLAG_DAMAGE_PUSHBACK)
-                : info->HasChannelInterruptFlag(AURA_INTERRUPT_ACTION_CANCELS));
-        return {info->Id, kind, interruptible};
+        ObjectGuid const target = current.spell->m_targets.getUnitTargetGuid();
+        if (!target.IsEmpty())
+            attacks.spellTargets.push_back(target.GetRawValue());
     }
-    return {Bots::NoSpell, Bots::CastKind::None, false};
+    if (Pet const* pet = member->GetPet())
+        if (pet->IsAlive())
+            attacks.petVictim = GuidOf(pet->GetVictim());
+    attacks.selection = member->GetTargetGuid().GetRawValue();
+    return attacks;
 }
 
 Bots::Power BotAdapter::GetPower(Bots::Guid unit) const

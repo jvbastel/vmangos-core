@@ -44,6 +44,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -69,25 +70,43 @@ Bots::RouteNames RouteFiles::Names()
     return names;
 }
 
+namespace
+{
+    char const* const RouteExtension = ".txt";
+    char const* const TraceExtension = ".trace.txt";
+
+    bool EndsWith(std::string const& text, std::string const& end)
+    {
+        return text.size() >= end.size() && text.compare(text.size() - end.size(), end.size(), end) == 0;
+    }
+
+    std::string RoutesDir()
+    {
+        std::string dir = sBotMgr.GetSettings().dataDir;
+        if (!dir.empty() && dir.back() != '/' && dir.back() != '\\')
+            dir += '/';
+        return dir + "routes/";
+    }
+}
+
+RouteFiles::FileKind RouteFiles::KindOf(std::string const& fileName)
+{
+    // A kind needs a route name before its end.
+    if (EndsWith(fileName, TraceExtension))
+        return fileName.size() > std::strlen(TraceExtension) ? FileKind::Trace : FileKind::Other;
+    if (EndsWith(fileName, RouteExtension))
+        return fileName.size() > std::strlen(RouteExtension) ? FileKind::Route : FileKind::Other;
+    return FileKind::Other;
+}
+
 std::string RouteFiles::PathOf(std::string const& name)
 {
-    std::string dir = sBotMgr.GetSettings().dataDir;
-    if (!dir.empty() && dir.back() != '/' && dir.back() != '\\')
-        dir += '/';
-    return dir + "routes/" + name + ".txt";
+    return RoutesDir() + name + RouteExtension;
 }
 
 std::string RouteFiles::TracePathOf(std::string const& name)
 {
-    std::string const path = PathOf(name);
-    return path.substr(0, path.size() - 4) + ".trace.txt";
-}
-
-bool RouteFiles::IsTraceFile(std::string const& fileName)
-{
-    std::string const extension = ".trace.txt";
-    return fileName.size() >= extension.size() &&
-        fileName.compare(fileName.size() - extension.size(), extension.size(), extension) == 0;
+    return RoutesDir() + name + TraceExtension;
 }
 
 bool RouteFiles::Read(std::string const& path, std::string& text)

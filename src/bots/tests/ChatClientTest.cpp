@@ -290,6 +290,41 @@ TEST_F(ClientTest, ABrokenAnswerGivesOneLogLineAndNoLine)
     EXPECT_EQ(Log().size(), 1u);
 }
 
+TEST_F(ClientTest, AGroupHasChatPendingUntilItsLastLineIsTaken)
+{
+    // The end of a scripted run waits for this (jvbastel/WOWAI#82, spec
+    // section 10): the line of the last boss_kill must still find the bots
+    // in the group.
+    service.answer = Answer(TwoLines);
+    service.hold = true;
+    Start();
+    ChatEvent other = PartyMessage("other group");
+    other.groupId = 43;
+
+    EXPECT_FALSE(client->HasPendingChat(42));
+    client->Post(PartyMessage());
+    EXPECT_TRUE(client->HasPendingChat(42)); // The request waits or is sent.
+    ASSERT_TRUE(service.WaitInFlight(1));
+    EXPECT_TRUE(client->HasPendingChat(42));
+    EXPECT_FALSE(client->HasPendingChat(43));
+    service.Release();
+    WaitIdle();
+
+    EXPECT_TRUE(client->HasPendingChat(42)); // Two lines are held.
+    EXPECT_EQ(client->TakeDue(1000).size(), 1u);
+    EXPECT_TRUE(client->HasPendingChat(42)); // One line is held.
+    EXPECT_EQ(client->TakeDue(2500).size(), 1u);
+    EXPECT_FALSE(client->HasPendingChat(42));
+
+    client->Post(other);
+    WaitIdle();
+    EXPECT_FALSE(client->HasPendingChat(42));
+    EXPECT_TRUE(client->HasPendingChat(43));
+    // A line that drops (too late) ends the wait too.
+    EXPECT_TRUE(client->TakeDue(100000).empty());
+    EXPECT_FALSE(client->HasPendingChat(43));
+}
+
 TEST_F(ClientTest, TheClientStopsWhileARequestWaits)
 {
     service.answer = Answer(R"({"contract_version":1,"lines":[]})");
