@@ -509,11 +509,21 @@ namespace Bots
             events.push_back(fight);
         }
 
-        // The detours to the quest packs off the line.
+        // The detours to the packs off the line, in route order. A detour
+        // also fights each pack off the route, or of a later detour, that its
+        // path comes within aggro range plus the margin of.
+        std::stable_sort(detours.begin(), detours.end(),
+            [&](Detour const& a, Detour const& b) { return nearestS[a.pack] < nearestS[b.pack]; });
+        std::vector<bool> detourTarget(packs.size(), false);
+        for (Detour const& detour : detours)
+            detourTarget[detour.pack] = true;
+        std::vector<bool> foughtOnDetour(packs.size(), false);
         for (std::size_t d = 0; d < detours.size(); ++d)
         {
             Detour const& detour = detours[d];
             std::size_t const p = detour.pack;
+            if (foughtOnDetour[p])
+                continue;
             Position const start = line.At(nearestS[p]);
             Position const target = spawns[packs[p].members[0]].position;
             std::vector<Position> path;
@@ -525,25 +535,59 @@ namespace Bots
                 continue;
             }
             RouteLine const way(path);
-            float const pullAt = PullOnPath(way, packs[p], spawns, settings);
+            std::vector<std::pair<float, std::size_t>> fights{{PullOnPath(way, packs[p], spawns, settings), p}};
+            foughtOnDetour[p] = true;
+            for (std::size_t q = 0; q < packs.size(); ++q)
+            {
+                if (foughtOnDetour[q] || (onRoute[q] && !detourTarget[q]))
+                    continue;
+                float const at = FirstApproach(path, packs[q], spawns, range);
+                if (at < 0.0f)
+                    continue;
+                fights.push_back({at, q});
+                foughtOnDetour[q] = true;
+                onRoute[q] = true;
+            }
+            std::stable_sort(fights.begin(), fights.end(),
+                [](std::pair<float, std::size_t> const& a, std::pair<float, std::size_t> const& b) {
+                    return a.first < b.first;
+                });
+
             // Two detours from one spot keep their steps apart.
             int sub = int(d) * 100000;
-            for (float s = settings.pointSpacing; s < pullAt - settings.pointSpacing / 2.0f; s += settings.pointSpacing)
+            std::size_t next = 0;
+            float const lastPull = fights.back().first;
+            auto addFights = [&](float upTo) {
+                for (; next < fights.size() && fights[next].first <= upTo; ++next)
+                {
+                    float const at = fights[next].first;
+                    std::size_t const q = fights[next].second;
+                    Event pull{nearestS[p], 4, sub++, EventKind::Pull, way.At(at)};
+                    way.Direction(at, pull.dx, pull.dy);
+                    pull.pack = q;
+                    pull.quest = detour.quest;
+                    events.push_back(pull);
+                    Event fight{nearestS[p], 4, sub++, EventKind::Pack, spawns[packs[q].members[0]].position};
+                    fight.pack = q;
+                    fight.quest = detour.quest;
+                    events.push_back(fight);
+                }
+            };
+            for (float at = settings.pointSpacing; at < lastPull - settings.pointSpacing / 2.0f;
+                 at += settings.pointSpacing)
             {
-                Event point{nearestS[p], 4, sub++, EventKind::Point, way.At(s)};
-                way.Direction(s, point.dx, point.dy);
+                addFights(at);
+                bool nearPull = false;
+                for (auto const& fight : fights)
+                    nearPull = nearPull || std::fabs(fight.first - at) < settings.pointSpacing / 2.0f;
+                if (nearPull)
+                    continue;
+                Event point{nearestS[p], 4, sub++, EventKind::Point, way.At(at)};
+                way.Direction(at, point.dx, point.dy);
                 point.quest = detour.quest;
                 events.push_back(point);
             }
-            Event pull{nearestS[p], 4, sub++, EventKind::Pull, way.At(pullAt)};
-            way.Direction(pullAt, pull.dx, pull.dy);
-            pull.pack = p;
-            pull.quest = detour.quest;
-            events.push_back(pull);
-            Event fight{nearestS[p], 4, sub++, EventKind::Pack, target};
-            fight.pack = p;
-            fight.quest = detour.quest;
-            events.push_back(fight);
+            addFights(way.Length() + 1.0f);
         }
 
         // The points along the line, away from the pull and visit points.

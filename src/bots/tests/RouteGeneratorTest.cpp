@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 using Bots::Distance2d;
 using Bots::GeneratorPack;
@@ -633,4 +634,34 @@ TEST(RouteGenerator, APackOutOfAggroRangeOfTheLineAndFarByPathIsNotOnTheRoute)
     for (std::string const& warning : generated.warnings)
         told = told || warning.find("the pack of spawn 1 at 40.00 25.00 0.00 is off the route") != std::string::npos;
     EXPECT_TRUE(told);
+}
+
+TEST(RouteGenerator, ADetourFightsThePacksItPasses)
+{
+    // The detour to the far end of the lower room passes a pack that the
+    // line does not come near.
+    LevelsNav nav;
+    Bots::GeneratorInput input = LevelsInput(40);
+    input.spawns.push_back(Spawn(2, 11319, 70, 29));
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    std::vector<std::uint32_t> fought;
+    for (std::size_t i = 0; i < generated.route.steps.size(); ++i)
+        if (generated.route.steps[i].kind == Bots::RouteStepKind::Pack)
+        {
+            Bots::RoutePack const& pack = generated.route.packs[generated.route.steps[i].index];
+            fought.push_back(pack.mobs[0].spawnGuid);
+            ASSERT_EQ(generated.route.steps[i - 1].kind, Bots::RouteStepKind::Point);
+            EXPECT_EQ(generated.route.points[generated.route.steps[i - 1].index].name, "pull_" + pack.name);
+        }
+    EXPECT_EQ(fought, (std::vector<std::uint32_t>{2, 1, 5}));
+    // The line passes within aggro range of pack 1 by straight distance,
+    // but no point of the lower room is in aggro range of a later pack.
+    for (std::string const& warning : generated.warnings)
+    {
+        float x = 0.0f, y = 0.0f;
+        if (std::sscanf(warning.c_str(), "a point at %f %f", &x, &y) == 2)
+            EXPECT_LT(y, 5.0f) << warning;
+    }
 }
