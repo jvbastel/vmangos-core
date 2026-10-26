@@ -357,3 +357,25 @@ TEST(ScriptRunner, AFightAgainWalksBackToThePointOfThePull)
     }
     EXPECT_EQ(again, (std::vector<std::string>{"command follow", "move p3", "command stay", "fight pack8"}));
 }
+
+TEST(ScriptRunner, AFightAgainWaitsForTheDeadBeforeTheWalkBack)
+{
+    // A wipe ends the fight before the release: the group walks back only
+    // after it lives again at the entrance.
+    ScriptRunner runner(Commands("move p3\nwait arrive\nfight pack8\n"));
+    std::int64_t now = 0;
+    RunFacts arrived;
+    arrived.driverArrived = true;
+    runner.Update(arrived, now);
+    runner.Done(true, "", now);
+    ASSERT_EQ(runner.Update(arrived, now).command.kind, ScriptCommandKind::Fight);
+
+    RunFacts wiped = PackAlive();
+    wiped.memberDead = true;
+    EXPECT_EQ(FightToItsEnd(runner, now, wiped).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(wiped, now += 5000).kind, RunStepKind::Wait);
+
+    RunStep const follow = runner.Update(Idle(), now += 1000);
+    ASSERT_EQ(follow.kind, RunStepKind::Do);
+    EXPECT_EQ(follow.command.source, "command follow");
+}

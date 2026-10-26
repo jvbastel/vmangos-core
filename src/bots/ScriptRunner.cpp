@@ -192,8 +192,12 @@ namespace Bots
             return step;
         };
 
-        // A wipe revives the group at the dungeon entrance: it follows the
-        // driver back to the point of the last move.
+        ScriptCommand rested = command(ScriptCommandKind::WaitRested, "wait rested");
+        rested.seconds = DefaultRestedSeconds;
+        // A wipe ends the fight before the release: the group lives again
+        // at the dungeon entrance, rests, and follows the driver back to
+        // the point of the last move.
+        add(rested);
         for (std::size_t i = m_index; i-- > 0;)
             if (m_commands[i].kind == ScriptCommandKind::Move)
             {
@@ -204,8 +208,7 @@ namespace Bots
                 add(command(ScriptCommandKind::WaitArrive, "wait arrive"));
                 break;
             }
-        ScriptCommand rested = command(ScriptCommandKind::WaitRested, "wait rested");
-        rested.seconds = DefaultRestedSeconds;
+        // A member that died on the way back.
         add(rested);
         // The group held its place for the pull: it does so again.
         if (m_index > 0 && m_commands[m_index - 1].kind == ScriptCommandKind::Command &&

@@ -53,9 +53,10 @@
 //   pack and says `pull` in party chat, then the run waits for the end of
 //   the fight, as `wait combat_end`. A pack that is dead already is no fight:
 //   the run goes on at once. A pack that lives after its fight (the tank
-//   died, the pack reset) is fought again at most twice: the group follows
-//   the driver back to the point of the last `move`, rests, holds its place
-//   when it did so before, and the driver pulls again. Then the run fails.
+//   died, the pack reset) is fought again at most twice: the group lives
+//   and rests, follows the driver back to the point of the last `move`,
+//   holds its place when it did so before, and the driver pulls again.
+//   Then the run fails.
 // - `release <seconds>` or `release never`: in a wipe, the test driver
 //   releases this long after the last member died (default 5 s), and the
 //   group revives at the dungeon entrance. `never`: nobody releases.
