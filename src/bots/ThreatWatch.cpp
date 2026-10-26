@@ -12,7 +12,7 @@ namespace Bots
         }
     }
 
-    void ThreatWatch::Update(std::vector<EnemyOnMember> const& hits, std::int64_t nowMs)
+    void ThreatWatch::Update(std::vector<EnemyOnMember> const& hits, std::int64_t nowMs, HitNamer const& name)
     {
         std::vector<Hit> next;
         for (EnemyOnMember const& pair : hits)
@@ -22,7 +22,7 @@ namespace Bots
             if (hit.loss < 0 && nowMs - hit.startMs > ThreatLossMs)
             {
                 hit.loss = static_cast<int>(m_losses.size());
-                m_losses.push_back({pair.enemy, pair.member, hit.startMs, nowMs});
+                m_losses.push_back({pair.enemy, pair.member, hit.startMs, nowMs, name ? name(pair) : std::string()});
             }
             if (hit.loss >= 0)
                 m_losses[hit.loss].endMs = nowMs;
@@ -50,7 +50,7 @@ namespace Bots
     }
 
     void LostMobWatch::Update(std::vector<EnemyOnMember> const& hits, std::vector<Guid> const& attacked, std::int64_t nowMs,
-        Guid holder)
+        Guid holder, HitNamer const& name)
     {
         std::vector<Unattacked> next;
         for (EnemyOnMember const& hit : hits)
@@ -73,7 +73,7 @@ namespace Bots
                 }
             }
             else if (nowMs - now.startMs > m_limitMs)
-                m_lost.push_back({hit.enemy, hit.member, now.startMs, nowMs});
+                m_lost.push_back({hit.enemy, hit.member, now.startMs, nowMs, name ? name(hit) : std::string()});
         }
         m_unattacked = std::move(next);
     }

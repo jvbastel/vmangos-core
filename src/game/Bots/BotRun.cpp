@@ -239,9 +239,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_result.clear();
     m_bossKills.clear();
     m_threat = Bots::ThreatWatch();
-    m_threatNames.clear();
     m_lostMobs = Bots::LostMobWatch(sBotMgr.GetSettings().lostMobMs);
-    m_lostMobNames.clear();
     m_groupId = 0;
     m_teleportRest = false;
     m_moving = false;
@@ -664,30 +662,17 @@ void BotRun::WatchThreat(int64 nowMs)
             }
     }
 
+    Bots::HitNamer const name = [this](Bots::EnemyOnMember const& hit) { return HitName(hit.enemy, hit.member); };
     std::size_t const known = m_threat.Losses().size();
-    m_threat.Update(hitsOnNonTanks, nowMs);
+    m_threat.Update(hitsOnNonTanks, nowMs, name);
     for (std::size_t i = known; i < m_threat.Losses().size(); ++i)
-    {
-        Bots::ThreatLoss const& loss = m_threat.Losses()[i];
-        m_threatNames.push_back(HitName(loss.enemy, loss.member));
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s for more than %u s", m_number,
-            m_threatNames.back().c_str(), uint32(Bots::ThreatLossMs / 1000));
-    }
+            m_threat.Losses()[i].name.c_str(), uint32(Bots::ThreatLossMs / 1000));
 
     std::size_t const lostBefore = m_lostMobs.LostMobs().size();
-    m_lostMobs.Update(hits, Bots::AttackedEnemies(attacks), nowMs, holder);
-    for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
-    {
-        Bots::LostMob const& mob = m_lostMobs.LostMobs()[i];
-        if (i >= m_lostMobNames.size())
-            m_lostMobNames.push_back(HitName(mob.enemy, mob.member));
-    }
+    m_lostMobs.Update(hits, Bots::AttackedEnemies(attacks), nowMs, holder, name);
     if (m_lostMobs.LostMobs().size() > lostBefore)
-    {
-        Bots::LostMob const& mob = m_lostMobs.LostMobs()[lostBefore];
-        Fail("lost mob: " + m_lostMobNames[lostBefore] + ", and no bot attacks it for more than "
-            + std::to_string((mob.endMs - mob.startMs) / 1000) + " s");
-    }
+        Fail("lost mob: " + Bots::HitText(m_lostMobs.LostMobs()[lostBefore]) + ", and no bot attacks it");
 }
 
 std::string BotRun::HitName(Bots::Guid enemy, Bots::Guid member) const
@@ -705,18 +690,7 @@ std::string BotRun::HitName(Bots::Guid enemy, Bots::Guid member) const
 
 std::string BotRun::WatchText() const
 {
-    std::ostringstream text;
-    std::vector<Bots::ThreatLoss> const& losses = m_threat.Losses();
-    text << ", threat losses " << losses.size();
-    for (std::size_t i = 0; i < losses.size(); ++i)
-        text << (i ? "; " : " (") << m_threatNames[i] << " " << (losses[i].endMs - losses[i].startMs) / 1000 << " s"
-             << (i + 1 == losses.size() ? ")" : "");
-    std::vector<Bots::LostMob> const& lost = m_lostMobs.LostMobs();
-    text << ", lost mobs " << lost.size();
-    for (std::size_t i = 0; i < lost.size(); ++i)
-        text << (i ? "; " : " (") << m_lostMobNames[i] << " " << (lost[i].endMs - lost[i].startMs) / 1000 << " s"
-             << (i + 1 == lost.size() ? ")" : "");
-    return text.str();
+    return Bots::HitListText("threat losses", m_threat.Losses()) + Bots::HitListText("lost mobs", m_lostMobs.LostMobs());
 }
 
 bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
