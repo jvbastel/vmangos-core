@@ -39,12 +39,7 @@ namespace Bots
         // member. It stays with it until the fight ends.
         bool FollowsAMemberInTheFight(BotContext const& context)
         {
-            Guid const target = context.view.GetFollowTarget();
-            if (target == NoGuid || target == context.commandPlayer || !IsAlive(context.view, target))
-                return false;
-            std::vector<Guid> const members = context.view.GetGroupMembers();
-            return std::find(members.begin(), members.end(), target) != members.end()
-                && IsGroupInCombat(context.view);
+            return FollowsAMember(context) && IsGroupInCombat(context.view);
         }
 
         bool ShouldFollow(BotContext const& context)

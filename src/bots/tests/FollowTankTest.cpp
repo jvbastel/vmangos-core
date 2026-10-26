@@ -125,6 +125,32 @@ TEST(FollowTank, NobodyFollowsWithoutAPull)
     EXPECT_NE(bot.Think(CommandState::Stay), "follow the tank to the pull");
 }
 
+// The focus of the pull died, so the tank ended the pull, but the pack
+// still fights: the tank fights back the next mob (WOWAI#92 review). The
+// others keep up with it.
+TEST(FollowTank, TheBotKeepsFollowingWhileThePackFightsOnAfterTheFocusDied)
+{
+    Bot bot;
+    Bots::Guid const Wolf = 0xF130000302000033;
+    bot.fake.SetHealth(Wolf, 300, 300);
+    bot.fake.SetPosition(Wolf, {0.0f, 52.0f, 0.0f});
+    bot.fake.SetVictim(Wolf, Tank);
+    bot.fake.SetInCombat(Tank, true);
+    bot.group.EndPull();
+    bot.group.SetFocusTarget(Wolf);
+
+    EXPECT_EQ(bot.Think(CommandState::Stay), "follow the tank to the pull");
+}
+
+TEST(FollowTank, NobodyFollowsATankOutOfCombat)
+{
+    Bot bot;
+    bot.group.EndPull();
+    bot.group.SetFocusTarget(Kobold);
+
+    EXPECT_NE(bot.Think(CommandState::Stay), "follow the tank to the pull");
+}
+
 TEST(FollowTank, NobodyFollowsADeadTank)
 {
     Bot bot;

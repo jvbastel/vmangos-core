@@ -570,14 +570,6 @@ namespace
         }
     };
 
-    float PathLength(std::vector<Position> const& path)
-    {
-        float length = 0.0f;
-        for (std::size_t i = 1; i < path.size(); ++i)
-            length += Bots::Distance3d(path[i - 1], path[i]);
-        return length;
-    }
-
     Bots::GeneratorInput LevelsInput(float packX, float packY = 15)
     {
         Bots::GeneratorInput input;
@@ -603,7 +595,7 @@ TEST(RouteGenerator, APullPointIsNearItsPackByPathNotByStraightDistance)
     {
         std::vector<Position> path;
         ASSERT_TRUE(nav.Path(place.position, {80, 15, 0}, path));
-        EXPECT_LE(PathLength(path), input.settings.pullPathLimit) << place.position.x;
+        EXPECT_LE(Bots::PathLength(path), input.settings.pullPathLimit) << place.position.x;
         EXPECT_GE(Bots::Distance3d(place.position, {80, 15, 0}), input.settings.aggroRange);
     }
     for (std::string const& warning : generated.warnings)

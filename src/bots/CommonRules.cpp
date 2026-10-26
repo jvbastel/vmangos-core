@@ -1,6 +1,9 @@
 #include "CommonRules.h"
 #include "SpellBook.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace Bots
 {
     Guid PickSelf(BotContext const& context)
@@ -29,6 +32,18 @@ namespace Bots
             if (IsAlive(view, member) && view.IsInCombat(member))
                 return true;
         return false;
+    }
+
+    bool IsGroupMember(BotView const& view, Guid unit)
+    {
+        std::vector<Guid> const members = view.GetGroupMembers();
+        return unit != NoGuid && std::find(members.begin(), members.end(), unit) != members.end();
+    }
+
+    bool FollowsAMember(BotContext const& context)
+    {
+        Guid const target = context.view.GetFollowTarget();
+        return target != context.commandPlayer && IsAlive(context.view, target) && IsGroupMember(context.view, target);
     }
 
     Rule CastRule(std::string name, int priority, Trigger trigger, SpellId firstRank, TargetPicker target)

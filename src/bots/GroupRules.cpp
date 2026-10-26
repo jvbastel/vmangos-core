@@ -235,9 +235,7 @@ namespace Bots
         // An enemy that hits another member: that member does not come to
         // the tank, so the bot goes to it, while the enemy stays near it.
         Guid const victim = context.view.GetVictim(unit);
-        std::vector<Guid> const members = context.view.GetGroupMembers();
-        return victim != NoGuid && victim != Self(context) && IsAlive(context.view, victim)
-            && std::find(members.begin(), members.end(), victim) != members.end()
+        return victim != Self(context) && IsAlive(context.view, victim) && IsGroupMember(context.view, victim)
             && context.view.GetDistanceBetween(unit, victim) <= ChaseLimitYards;
     }
 

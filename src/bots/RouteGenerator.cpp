@@ -49,14 +49,6 @@ namespace Bots
             std::uint32_t quest;
         };
 
-        float PathLength(std::vector<Position> const& path)
-        {
-            float length = 0.0f;
-            for (std::size_t i = 1; i < path.size(); ++i)
-                length += Distance3d(path[i - 1], path[i]);
-            return length;
-        }
-
         // The member of the pack whose spawn point is nearest to `at`.
         Position NearestMember(Position const& at, GeneratorPack const& pack, std::vector<GeneratorSpawn> const& spawns)
         {
