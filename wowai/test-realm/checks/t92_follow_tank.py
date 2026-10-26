@@ -25,7 +25,7 @@ from kit import Realm, Results, pos, stat
 from wowclient import CHAT_MSG_PARTY, CHAT_MSG_WHISPER
 
 ACCOUNT = "PLAYER92"
-PLAYER = "Thrallson"
+PLAYER = "Followson"  # its own name: another check of the slot has Thrallson
 TROGG = 11318  # Ragefire Trogg, level 13-14
 # Less than the aggro distance of a trogg for a level 16 bot: a member this
 # near before the tank fights could pull it.

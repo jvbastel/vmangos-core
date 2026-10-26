@@ -8,9 +8,12 @@ The scenario `refight` of ragefire_chasm.txt pulls pack1. In the fight the GM
 player kills the whole group. Then:
 1. the members revive at the dungeon entrance at half health, and each bot
    rests (eats or drinks) until full before the next pull;
-2. the pack lives after its fight: the group walks back to the pull point
-   and fights it again.
+2. the pack lives after its fight: the group walks back over the route
+   points (p1, p2, pull_pack1) and fights it again;
+3. the result file marks the second pull as a fight again.
 """
+import json
+import os
 import re
 
 from kit import Realm, Results, stat
@@ -53,9 +56,10 @@ for _ in range(200):
 text = realm.log()
 results.check("the pack lives after its fight: the run fights it again", again, realm.soap(".wowai run status"))
 after_wipe = text.split("the test driver releases", 1)[-1]
-results.check("the group walks back to the pull point first",
-              re.search(r"line \d+: command follow.*line \d+: move pull_pack1.*line \d+: fight pack1", after_wipe, re.S)
-              is not None)
+walk = re.search(r"line \d+: command follow(.*?)line \d+: fight pack1", after_wipe, re.S)
+moves = re.findall(r"line \d+: move (\w+)", walk.group(1)) if walk else []
+results.check("the group walks back over the route points to the pull point first",
+              moves == ["p1", "p2", "pull_pack1"], repr(moves))
 before_pull = after_wipe.split("fight pack1", 1)[0]
 for name in bots:
     rested = re.search(r"Group \d+ rests: %s (eats|drinks)" % name, before_pull) is not None
@@ -70,7 +74,17 @@ if again:
                   "health %d/%d" % (health, max_health))
 
 ended = realm.wait_log(r"Run \d+ ragefire_chasm refight: (passed|failed|aborted)", 300, c)
-print(" ", realm.soap(".wowai run status"))
+status = realm.soap(".wowai run status")
+print(" ", status)
+name = re.search(r"Result: (\S+\.json)", status)
+pulls = []
+if name:
+    path = os.path.join(realm.dir, "storage", "mangosd", "logs", "runs", name.group(1))
+    if os.path.exists(path):
+        with open(path) as f:
+            pulls = [(p["pack"], p["again"]) for p in json.load(f)["pulls"]]
+results.check("the result file marks the second pull of pack1 as a fight again",
+              pulls[:2] == [("pack1", False), ("pack1", True)], repr(pulls))
 if not ended:
     print(" ", realm.soap(".wowai run stop"))
 realm.wait_log(r"Run \d+: the members leave the run group", 30, c)
