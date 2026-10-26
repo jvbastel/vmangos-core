@@ -620,6 +620,16 @@ namespace
         return false;
     }
 
+    Bots::GeneratorQuest KillQuest(std::uint32_t entry, std::uint32_t count)
+    {
+        Bots::GeneratorQuest kill{5723, {}, {}};
+        Bots::QuestObjective objective{Bots::QuestObjectiveKind::Kill};
+        objective.entry = entry;
+        objective.count = count;
+        kill.objectives.push_back(objective);
+        return kill;
+    }
+
     bool Told(Bots::GeneratedRoute const& generated, std::string const& text)
     {
         for (std::string const& warning : generated.warnings)
@@ -698,12 +708,7 @@ TEST(RouteGenerator, AQuestDetourFightsThePacksItPassesThatCanSeeIt)
     Bots::GeneratorInput input = LevelsInput(40);
     input.spawns.push_back(Spawn(2, 11319, 85, 29));
     input.spawns.push_back(Spawn(3, 11319, 63, 36));
-    Bots::GeneratorQuest kill{5723, {}, {}};
-    Bots::QuestObjective trogg{Bots::QuestObjectiveKind::Kill};
-    trogg.entry = 11318;
-    trogg.count = 1;
-    kill.objectives.push_back(trogg);
-    input.quests = {kill};
+    input.quests = {KillQuest(11318, 1)};
     Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
     ASSERT_TRUE(generated.ok) << generated.error;
 
@@ -731,4 +736,40 @@ TEST(RouteGenerator, APullPointCountsThePathToTheNearestMember)
 
     EXPECT_TRUE(Fights(generated.route, 1));
     EXPECT_FALSE(Told(generated, "no pull point within"));
+}
+
+TEST(RouteGenerator, AQuestDetourStartsWhereThePathFromTheLineIsShortest)
+{
+    // The quest trogg is at the lower room's far end: the detour goes down
+    // the ramp and along the room, not first back along the corridor.
+    LevelsNav nav;
+    Bots::GeneratorInput input = LevelsInput(40);
+    input.quests = {KillQuest(11318, 1)};
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    ASSERT_TRUE(Fights(generated.route, 1));
+    EXPECT_TRUE(Told(generated, "the pack of spawn 1 at 40.00 15.00 0.00 is off the route: it is on another level "
+                                "(the line passes it at 15 yards, but the shortest path from the line to it is 109 "
+                                "yards); a detour for quest 5723 fights it"));
+    for (Bots::RoutePoint const& point : generated.route.points)
+        if (point.quest == 5723)
+            EXPECT_TRUE(point.places[0].position.x > 90.0f || point.places[0].position.y > 5.0f)
+                << point.name << " at " << point.places[0].position.x;
+}
+
+TEST(RouteGenerator, AQuestTakesThePackNearestToTheLineByPath)
+{
+    // Two troggs off the line: one in the lower room, 15 yards from the
+    // line but 72 by path, and one up a side room, 40 yards by both.
+    LevelsNav nav;
+    nav.rooms.push_back({0, 10, 3, 45});
+    Bots::GeneratorInput input = LevelsInput(40);
+    input.spawns.push_back(Spawn(2, 11318, 5, 40));
+    input.quests = {KillQuest(11318, 1)};
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    EXPECT_TRUE(Fights(generated.route, 2));
+    EXPECT_FALSE(Fights(generated.route, 1));
 }
