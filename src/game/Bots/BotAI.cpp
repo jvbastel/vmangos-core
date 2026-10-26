@@ -159,10 +159,11 @@ void BotAI::HandlePacket(WorldPacket const& packet)
         case SMSG_LOOT_ROLL_WON:
         {
             // Each bot of the group sees the roll end: the coordinator makes
-            // one `loot_roll` event of it.
+            // one `loot_roll` event of it. A bot away from the leader ignores
+            // the group coordinator.
             BotLootRollWon const won = m_loot.OnRollWon(me, packet);
-            if (Group* group = me->GetGroup())
-                sBotMgr.GetCoordinator(group->GetId())->NoteRollWon(won.lootedTarget.GetRawValue(), won.itemSlot,
+            if (UsesGroupCoordinator())
+                Coordinator()->NoteRollWon(won.lootedTarget.GetRawValue(), won.itemSlot,
                     won.itemEntry, won.winner.GetRawValue(), SteadyMs());
             return;
         }
@@ -187,10 +188,9 @@ void BotAI::OnPartyKill(WorldPacket const& packet)
     WorldPacket data(packet);
     ObjectGuid killer, victim;
     data >> killer >> victim;
-    Group* group = me->GetGroup();
-    if (!group || !victim.IsCreature() || !sBotMgr.IsBoss(me->GetMapId(), victim.GetEntry()))
+    if (!UsesGroupCoordinator() || !victim.IsCreature() || !sBotMgr.IsBoss(me->GetMapId(), victim.GetEntry()))
         return;
-    sBotMgr.GetCoordinator(group->GetId())->NoteBossKill(victim.GetRawValue(), victim.GetEntry(), SteadyMs());
+    Coordinator()->NoteBossKill(victim.GetRawValue(), victim.GetEntry(), SteadyMs());
 }
 
 void BotAI::HandleCommand(BotCommandMessage const& message)
