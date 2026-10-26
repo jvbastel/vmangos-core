@@ -1,6 +1,7 @@
 #ifndef WOWAI_BOTS_RUN_RESULT_H
 #define WOWAI_BOTS_RUN_RESULT_H
 
+#include "BotView.h"
 #include "RouteQuests.h"
 
 #include <cstdint>
@@ -33,9 +34,11 @@ namespace Bots
         std::int64_t ms;
     };
 
+    // A `fight` of a pack, or a `command pull` of a scenario (no pack).
     struct RunPull
     {
-        std::string pack;
+        std::string pack;   // Empty for a `command pull`.
+        std::string target; // The unit that the test driver selected.
         std::int64_t ms;
     };
 
@@ -46,6 +49,77 @@ namespace Bots
         std::string member;
         std::int64_t startMs;
         std::int64_t endMs;
+    };
+
+    // An interrupt that landed: the cast `spell` of the enemy stopped.
+    struct RunInterrupt
+    {
+        std::string member;
+        std::string enemy;
+        std::uint32_t spell;
+        std::string spellName;
+        CastKind kind;
+        std::int64_t ms;
+    };
+
+    // A cast that ended with no interrupt while a member could interrupt
+    // (bots/InterruptWatch.h). `ms` is the start of the cast.
+    struct RunMissedCast
+    {
+        std::string enemy;
+        std::uint32_t spell;
+        std::string spellName;
+        CastKind kind;
+        std::int64_t ms;
+    };
+
+    // `second` tried to interrupt the cast that `first` interrupted.
+    struct RunDoubleInterrupt
+    {
+        std::string enemy;
+        std::uint32_t spell;
+        std::string spellName;
+        std::string first;
+        std::string second;
+        std::int64_t ms;
+    };
+
+    // A chase beyond the limit (bots/ChaseWatch.h).
+    struct RunChase
+    {
+        std::string member;
+        std::string enemy;
+        std::int64_t startMs;
+        std::int64_t endMs;
+        float maxYards;
+    };
+
+    // A Fire Nova of Taragaman that hit a member.
+    struct RunFireNovaHit
+    {
+        std::string member;
+        std::string role;    // "tank", "healer", "melee", or "ranged" (the test driver and the Warlock bot).
+        std::uint32_t fight; // 1 for the first fight, one more after each wipe.
+        std::uint32_t damage;
+        std::int64_t ms;
+    };
+
+    // A line of a bot that arrived in game chat.
+    struct RunChatLine
+    {
+        std::string bot;
+        std::int64_t ms;
+    };
+
+    // A bot chat event of the run group that the core sent to the chat
+    // service, and the lines of its answer that the bots said in game.
+    struct RunChatEvent
+    {
+        std::string event; // The event name of the contract: boss_kill, wipe, ...
+        std::string to;    // The whispered bot of a player_message, or empty.
+        std::int64_t ms;
+        bool reached = false; // The chat service answered it.
+        std::vector<RunChatLine> lines;
     };
 
     struct RunGearItem
@@ -95,6 +169,12 @@ namespace Bots
         std::vector<RunPull> pulls;
         std::vector<RunHit> threatLosses;
         std::vector<RunHit> lostMobs;
+        std::vector<RunInterrupt> interrupts;
+        std::vector<RunMissedCast> missedCasts;
+        std::vector<RunDoubleInterrupt> doubleInterrupts;
+        std::vector<RunChase> chases;
+        std::vector<RunFireNovaHit> fireNovaHits;
+        std::vector<RunChatEvent> chatEvents;
         std::vector<RunGearDraw> gearDraws;
         std::vector<RunChoice> choices;
         std::vector<ObjectiveProgress> questProgress;
