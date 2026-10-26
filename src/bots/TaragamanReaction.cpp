@@ -56,9 +56,9 @@ namespace Bots
             // 30, 60, ... degrees off it. With walls all around, the most open
             // direction, short of its wall. The place must be safe
             // (SafePlace.h): no lava on it or on the way, and in his sight
-            // (no cast and no heal from elsewhere). False when no place is
-            // left.
-            bool FindSafePlace(BotContext const& context, Position& found)
+            // (no cast from elsewhere); for the healer, in the tank's sight
+            // too (no heal from elsewhere). False when no place is left.
+            bool FindSafePlace(BotContext const& context, BotRole role, Position& found)
             {
                 Position const boss = context.view.GetPosition(Boss(context));
                 Position const self = Self(context);
@@ -87,21 +87,30 @@ namespace Bots
                 for (auto const& wall : shortOfWall)
                     open.push_back(wall.second);
                 SafeMoveRules rules;
-                rules.inSightOf = Boss(context);
+                rules.inSightOf = {Boss(context)};
+                Guid const tank = context.group.GetTank();
+                if (role == BotRole::Healer && tank != NoGuid && tank != context.view.GetSelf())
+                    rules.inSightOf.push_back(tank);
                 return FirstSafePlace(context.view, open, rules, found);
             }
 
-            bool ShouldLeaveFireNova(BotContext const& context)
+            // The trigger finds the safe place and the action moves to it:
+            // one search per think. The action runs in the same think as its
+            // trigger (StrategyStack::Think), so the place it reads is the
+            // one found now. Each bot has its own reaction, so no other bot
+            // shares the place.
+            Rule FireNovaRule(int priority, BotRole role)
             {
-                Position place;
-                return InFireNova(context) && FindSafePlace(context, place);
-            }
-
-            Position SafePlace(BotContext const& context)
-            {
-                Position place = Self(context);
-                FindSafePlace(context, place);
-                return place;
+                auto const place = std::make_shared<Position>();
+                Rule rule;
+                rule.name = "stay out of fire nova";
+                rule.priority = priority;
+                rule.trigger = [role, place](BotContext const& context) {
+                    return InFireNova(context) && FindSafePlace(context, role, *place);
+                };
+                rule.action.canDo = [](BotContext const&) { return true; };
+                rule.action.run = [place](BotContext const& context) { context.actions.MoveTo(*place); };
+                return rule;
             }
 
             // The direction of the nearest wall behind the tank, with the
@@ -164,7 +173,7 @@ namespace Bots
             int const P = Priority::Boss;
             std::vector<Rule> rules;
             if (role == BotRole::Ranged || role == BotRole::Healer)
-                rules.push_back(MoveRule("stay out of fire nova", P + 50, ShouldLeaveFireNova, &SafePlace));
+                rules.push_back(FireNovaRule(P + 50, role));
             if (role == BotRole::Tank)
                 rules.push_back(MoveRule("back to the wall", P + 50, ShouldGoToWall, &WallPlace));
             return std::make_shared<Strategy const>(Strategy{"taragaman the hungerer", std::move(rules)});

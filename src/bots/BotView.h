@@ -52,8 +52,7 @@ namespace Bots
     struct NearEnemy
     {
         Position position;
-        float aggroYards;  // Its aggro distance for this bot.
-        float radiusYards; // Its body: distances to it end at its edge.
+        float aggroYards; // Its aggro distance for this bot, from its center.
     };
 
     class BotView

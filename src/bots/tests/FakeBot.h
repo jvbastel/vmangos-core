@@ -118,12 +118,16 @@ namespace Bots
             // the straight line.
             void AddNoPathFromX(float x) { m_noPathFromX.push_back(x); }
             // A living hostile creature at `position` (GetEnemiesNear).
-            void AddEnemy(Position position, float aggroYards, float radiusYards = 0.0f)
+            void AddEnemy(Position position, float aggroYards)
             {
-                m_enemies.push_back({position, aggroYards, radiusYards});
+                m_enemies.push_back({position, aggroYards});
             }
             // From each place with x >= `x`, the bot sees no unit.
             void AddBlindFromX(float x) { m_blindFromX.push_back(x); }
+            // How many ground paths the bot asked for (FindGroundPath).
+            int GroundPaths() const { return m_groundPaths; }
+            // From each place with x >= `x`, the bot does not see `unit`.
+            void AddBlindToFromX(Guid unit, float x) { m_blindToFromX.push_back({unit, x}); }
             void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
             void SetGroupLeader(Guid unit) { m_leader = unit; }
             void SetCanResurrect(Guid unit, bool can = true)
@@ -284,10 +288,13 @@ namespace Bots
                         return true;
                 return false;
             }
-            bool CanSeeFrom(Position const& place, Guid) const override
+            bool CanSeeFrom(Position const& place, Guid unit) const override
             {
                 for (float x : m_blindFromX)
                     if (place.x >= x)
+                        return false;
+                for (auto const& blind : m_blindToFromX)
+                    if (blind.first == unit && place.x >= blind.second)
                         return false;
                 return true;
             }
@@ -318,6 +325,7 @@ namespace Bots
             }
             bool FindGroundPath(Position const& from, Position const& to, std::vector<Position>& path) const override
             {
+                ++m_groundPaths;
                 path.clear();
                 for (float x : m_noPathFromX)
                     if (to.x >= x)
@@ -433,6 +441,8 @@ namespace Bots
             std::vector<float> m_noPathFromX;
             std::vector<NearEnemy> m_enemies;
             std::vector<float> m_blindFromX;
+            std::vector<std::pair<Guid, float>> m_blindToFromX;
+            mutable int m_groundPaths = 0;
             std::map<Guid, LifeState> m_lifeState;
             Guid m_leader = NoGuid;
             std::set<Guid> m_resurrecters;
