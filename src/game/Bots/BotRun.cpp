@@ -7,6 +7,7 @@
 
 #include "BotRun.h"
 #include "Bag.h"
+#include "BotAdapter.h"
 #include "BotHooks.h"
 #include "BotMgr.h"
 #include "BotRecipe.h"
@@ -24,6 +25,7 @@
 #include "ObjectMgr.h"
 #include "Pet.h"
 #include "Player.h"
+#include "RouteFiles.h"
 #include "SharedDefines.h"
 #include "Spell.h"
 #include "SpellAuras.h"
@@ -200,7 +202,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
         error = "The script " + scriptName + " has no scenario " + scenario + ".";
         return false;
     }
-    std::string const routePath = dataDir + "/routes/" + script.script.route + ".txt";
+    std::string const routePath = RouteFiles::PathOf(script.script.route);
     if (!Bots::IsValidRouteName(script.script.route) || !ReadFile(routePath, text))
     {
         error = "Cannot read the route file " + routePath + ".";
@@ -627,35 +629,6 @@ Bots::RunFacts BotRun::Facts() const
     return facts;
 }
 
-namespace
-{
-    Bots::Guid GuidOf(Unit const* unit)
-    {
-        return unit ? unit->GetObjectGuid().GetRawValue() : Bots::NoGuid;
-    }
-
-    // What a member does to enemies now, for the lost-mob watch
-    // (Bots::MemberAttacks has the rule).
-    Bots::MemberAttacks AttacksOf(Player const* member, bool bot)
-    {
-        Bots::MemberAttacks attacks;
-        attacks.bot = bot;
-        attacks.victim = GuidOf(member->GetVictim());
-        for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL, CURRENT_AUTOREPEAT_SPELL})
-            if (Spell const* spell = member->GetCurrentSpell(type))
-            {
-                ObjectGuid const target = spell->m_targets.getUnitTargetGuid();
-                if (!target.IsEmpty())
-                    attacks.spellTargets.push_back(target.GetRawValue());
-            }
-        if (Pet const* pet = member->GetPet())
-            if (pet->IsAlive())
-                attacks.petVictim = GuidOf(pet->GetVictim());
-        attacks.selection = member->GetTargetGuid().GetRawValue();
-        return attacks;
-    }
-}
-
 void BotRun::WatchThreat(int64 nowMs)
 {
     std::vector<Bots::EnemyOnMember> hitsOnNonTanks, hits;
@@ -666,7 +639,7 @@ void BotRun::WatchThreat(int64 nowMs)
     {
         if (!IsLivingMember(member))
             continue;
-        attacks.push_back(AttacksOf(member, member != driver));
+        attacks.push_back(BotAdapter::AttacksOf(member, member != driver));
         Bots::BotRole role;
         bool const tank = sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank;
         if (tank && member->GetVictim())
