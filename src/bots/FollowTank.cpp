@@ -5,6 +5,7 @@
 #include "SafePlace.h"
 
 #include <algorithm>
+#include <vector>
 
 namespace Bots
 {
@@ -19,15 +20,32 @@ namespace Bots
         // A spot this near to the bot is no move.
         float const NoMoveYards = 2.0f;
 
-        bool ShouldFollowTank(BotContext const& context)
+        // True when the bot follows a living group member other than the
+        // player, such as the healer on its way to a hurt member
+        // (PriestModule): a second walk would take turns with that one.
+        bool FollowsAMember(BotContext const& context)
+        {
+            Guid const target = context.view.GetFollowTarget();
+            if (target == NoGuid || target == context.commandPlayer || !IsAlive(context.view, target))
+                return false;
+            std::vector<Guid> const members = context.view.GetGroupMembers();
+            return std::find(members.begin(), members.end(), target) != members.end();
+        }
+
+        // The tank of a pull that is on, and that another bot can follow.
+        bool PullToFollow(BotContext const& context, Guid& tank)
         {
             PullState const pull = context.group.GetPull();
+            tank = pull.puller;
             return pull.phase != PullPhase::None && pull.puller != NoGuid && pull.puller != context.view.GetSelf()
-                && context.command != CommandState::Come && IsAlive(context.view, pull.puller)
-                // On its way to the tank already, such as the healer to a
-                // hurt tank: a second walk would take turns with that one.
-                && context.view.GetFollowTarget() != pull.puller
-                && context.view.GetDistance(pull.puller) > FollowTankYards;
+                && context.command != CommandState::Come && IsAlive(context.view, pull.puller);
+        }
+
+        bool ShouldFollowTank(BotContext const& context)
+        {
+            Guid tank = NoGuid;
+            return PullToFollow(context, tank) && !FollowsAMember(context)
+                && context.view.GetDistance(tank) > FollowTankYards;
         }
 
         // The enemies near the bot that a walk must not pull: all but those
@@ -93,6 +111,12 @@ namespace Bots
             rules.enemies = EnemiesToKeepOff(context, std::min(length + SearchMarginYards, MaxSearchYards));
             return FirstSafePlace(context.view, SpotsBehindTank(context, path), rules, place);
         }
+    }
+
+    bool StaysNearThePull(BotContext const& context)
+    {
+        Guid tank = NoGuid;
+        return PullToFollow(context, tank) && context.view.GetDistance(tank) <= FollowTankYards;
     }
 
     Rule FollowTankRule(int priority)

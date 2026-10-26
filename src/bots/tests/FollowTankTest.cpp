@@ -188,3 +188,43 @@ TEST(FollowTank, AHealerThatFollowsTheHurtTankKeepsFollowingIt)
 
     EXPECT_NE(bot.Think(CommandState::Stay), "follow the tank to the pull");
 }
+
+TEST(FollowTank, AHealerThatFollowsAnotherHurtMemberKeepsFollowingIt)
+{
+    Bot bot;
+    Bots::Guid const Mage = 0x31;
+    bot.fake.SetHealth(Mage, 200, 600);
+    bot.fake.SetPosition(Mage, {40.0f, 0.0f, 0.0f});
+    bot.fake.SetGroupMembers({Tank, Mage});
+    // On its way to the hurt mage (the Priest's rule), far from the tank.
+    bot.fake.SetFollowTarget(Mage);
+
+    EXPECT_NE(bot.Think(CommandState::Stay), "follow the tank to the pull");
+}
+
+TEST(FollowTank, ABotThatFollowsThePlayerStillKeepsUpWithTheTank)
+{
+    Bot bot;
+    bot.fake.SetFollowTarget(Player);
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "follow the tank to the pull");
+}
+
+TEST(FollowTank, AFollowingBotNearTheTankDoesNotWalkBackToThePlayer)
+{
+    Bot bot;
+    // The bot reached the tank on its walk: it no longer follows the player.
+    bot.fake.SetPosition(Self, {0.0f, 38.0f, 0.0f});
+
+    EXPECT_NE(bot.Think(CommandState::Follow), "follow the player");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
+TEST(FollowTank, AFollowingBotFollowsThePlayerAgainAfterThePull)
+{
+    Bot bot;
+    bot.fake.SetPosition(Self, {0.0f, 38.0f, 0.0f});
+    bot.group.EndPull();
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "follow the player");
+}

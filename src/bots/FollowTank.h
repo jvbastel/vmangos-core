@@ -13,10 +13,12 @@
 //   margin, as the Priest's corpse walk does (SafePlace.h). An enemy that
 //   attacks a group member is in the fight already: it does not count;
 // - from that spot the bot sees the tank, so it can heal it and fight;
-// - a bot that follows the tank already, such as the healer on its way to
-//   a hurt tank (PriestModule), keeps that walk;
+// - a bot that follows a group member already, such as the healer on its
+//   way to a hurt member (PriestModule), keeps that walk;
 // - a bot within FollowTankYards of the tank does not move: a short pull
-//   that brings the pack to the group works as before.
+//   that brings the pack to the group works as before. A bot on `follow`
+//   does not walk back to the player then either (StaysNearThePull), or it
+//   would swing between the tank and the player.
 // The rule is under the class rules, so a bot that can fight or heal does
 // that first.
 namespace Bots
@@ -29,6 +31,10 @@ namespace Bots
     float const FollowTankNearYards = 12.0f;
     // The spots on the path are this far apart.
     float const FollowTankStepYards = 3.0f;
+
+    // True while a pull is on and the bot, not its tank, is within
+    // FollowTankYards of the tank: it holds its place there.
+    bool StaysNearThePull(BotContext const& context);
 
     // The rule "follow the tank to the pull" at priority `priority`.
     Rule FollowTankRule(int priority);

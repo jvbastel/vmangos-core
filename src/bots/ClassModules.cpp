@@ -58,6 +58,8 @@ namespace Bots
                 // A damage bot on its way to its target.
                 && !IsAlive(context.view, context.view.GetChase().target)
                 && !FollowsAMemberInTheFight(context)
+                // Near the tank of a pull (FollowTank.h).
+                && !StaysNearThePull(context)
                 && context.view.GetFollowTarget() != context.commandPlayer;
         }
 
