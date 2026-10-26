@@ -664,3 +664,35 @@ TEST(GroupWatch, ABotRevivedByTheRunRestsOnlyUntilFull)
     bot.fake.SetHealth(Tank, 300, 600);
     EXPECT_EQ(bot.Think(), "");
 }
+
+// The rest watch runs at each update of a bot, not only at its think: the
+// run sees a meal start and end at once (no `wait rested` race).
+
+TEST(GroupWatch, TheRestWatchSeesAMealStartAndEnd)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetHealth(Mage, 200, 600);
+    bot.fake.SetEating();
+
+    Bots::WatchRest(bot.fake, bot.group);
+    EXPECT_EQ(bot.group.GetResting(), (std::vector<Bots::Guid>{Mage}));
+
+    bot.fake.SetHealth(Mage, 600, 600);
+    Bots::WatchRest(bot.fake, bot.group);
+    EXPECT_TRUE(bot.group.GetResting().empty());
+}
+
+TEST(GroupWatch, TheRestWatchLeavesTheWipeAlone)
+{
+    DeadMage bot;
+    bot.fake.SetHealth(Player, 0, 600);
+    bot.fake.SetLifeState(Player, LifeState::Dead);
+    bot.fake.SetHealth(Tank, 0, 600);
+    bot.fake.SetLifeState(Tank, LifeState::Dead);
+    bot.fake.SetHealth(Healer, 0, 600);
+    bot.fake.SetLifeState(Healer, LifeState::Dead);
+
+    Bots::WatchRest(bot.fake, bot.group);
+
+    EXPECT_FALSE(bot.group.IsWiped());
+}

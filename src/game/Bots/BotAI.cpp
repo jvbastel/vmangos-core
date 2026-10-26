@@ -120,6 +120,14 @@ void BotAI::UpdateAI(uint32 const diff)
     Bots::ThinkState state = Bots::ThinkStateFor(me->IsInCombat(), IsNearPlayer());
     if (m_thinkTimer.Advance(diff, state))
         Think();
+
+    // At each update, not only at the think: the group sees a meal start or
+    // end at once, so no pull goes out while a member sits down to eat.
+    if (me->GetGroup())
+    {
+        BotAdapter adapter(me);
+        Bots::WatchRest(adapter, *Coordinator());
+    }
 }
 
 void BotAI::KeepLevelCorrect()

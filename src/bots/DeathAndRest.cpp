@@ -142,6 +142,11 @@ namespace Bots
         if (IsAlive(view, view.GetSelf()))
             group.ClearGivenUpResurrect(view.GetSelf());
 
+        WatchRest(view, group);
+    }
+
+    void WatchRest(BotView const& view, GroupCoordinator& group)
+    {
         group.SetResting(view.GetSelf(), RestReasonOf(view));
         Guid const self = view.GetSelf();
         Health const health = view.GetHealth(self);
