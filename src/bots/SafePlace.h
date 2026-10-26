@@ -13,7 +13,7 @@
 //   (BotView::IsHarmfulGround, checked each yard of the path: a path that
 //   is no navmesh path is never taken, and the grid liquid has the last
 //   word on lava),
-// - with a unit to see, the unit is in sight from the place, and
+// - each unit to see is in sight from the place, and
 // - with enemies to keep away from, the place keeps out of each enemy's
 //   aggro distance and a margin, and so does the path, except for a step
 //   that goes no nearer to the enemy than the bot stands now. Both are
@@ -29,8 +29,8 @@ namespace Bots
 
     struct SafeMoveRules
     {
-        // The unit to see from the place, or NoGuid.
-        Guid inSightOf = NoGuid;
+        // The units to see from the place. None: no sight check.
+        std::vector<Guid> inSightOf;
         // The enemies not to pull. None: no pull check.
         std::vector<NearEnemy> enemies;
     };

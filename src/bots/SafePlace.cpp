@@ -65,6 +65,14 @@ namespace Bots
             }
             return true;
         }
+
+        bool SeesAll(BotView const& view, Position const& place, std::vector<Guid> const& units)
+        {
+            for (Guid unit : units)
+                if (!view.CanSeeFrom(place, unit))
+                    return false;
+            return true;
+        }
     }
 
     bool FirstSafePlace(BotView const& view, std::vector<Position> const& spots, SafeMoveRules const& rules,
@@ -75,7 +83,7 @@ namespace Bots
         for (Position const& spot : spots)
         {
             if (Pulls(rules.enemies, spot, nullptr) || view.IsHarmfulGround(spot)
-                || (rules.inSightOf != NoGuid && !view.CanSeeFrom(spot, rules.inSightOf)))
+                || !SeesAll(view, spot, rules.inSightOf))
                 continue;
             if (!view.FindGroundPath(self, spot, path) || path.empty() || !IsSafePath(view, path, rules))
                 continue;
@@ -108,7 +116,7 @@ namespace Bots
         });
 
         SafeMoveRules rules;
-        rules.inSightOf = unit;
+        rules.inSightOf = {unit};
         rules.enemies = view.GetEnemiesNear(searchYards);
         return FirstSafePlace(view, spots, rules, place);
     }

@@ -124,6 +124,8 @@ namespace Bots
             }
             // From each place with x >= `x`, the bot sees no unit.
             void AddBlindFromX(float x) { m_blindFromX.push_back(x); }
+            // From each place with x >= `x`, the bot does not see `unit`.
+            void AddBlindToFromX(Guid unit, float x) { m_blindToFromX.push_back({unit, x}); }
             void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
             void SetGroupLeader(Guid unit) { m_leader = unit; }
             void SetCanResurrect(Guid unit, bool can = true)
@@ -284,10 +286,13 @@ namespace Bots
                         return true;
                 return false;
             }
-            bool CanSeeFrom(Position const& place, Guid) const override
+            bool CanSeeFrom(Position const& place, Guid unit) const override
             {
                 for (float x : m_blindFromX)
                     if (place.x >= x)
+                        return false;
+                for (auto const& blind : m_blindToFromX)
+                    if (blind.first == unit && place.x >= blind.second)
                         return false;
                 return true;
             }
@@ -433,6 +438,7 @@ namespace Bots
             std::vector<float> m_noPathFromX;
             std::vector<NearEnemy> m_enemies;
             std::vector<float> m_blindFromX;
+            std::vector<std::pair<Guid, float>> m_blindToFromX;
             std::map<Guid, LifeState> m_lifeState;
             Guid m_leader = NoGuid;
             std::set<Guid> m_resurrecters;
