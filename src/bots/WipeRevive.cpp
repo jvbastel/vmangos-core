@@ -8,7 +8,7 @@ namespace Bots
     {
         bool const someoneDead = std::find(members.begin(), members.end(), RunMember::Dead) != members.end();
         bool const wiped = someoneDead && std::all_of(members.begin(), members.end(), [](RunMember member) {
-            return member == RunMember::Dead || member == RunMember::Away;
+            return member == RunMember::Dead || member == RunMember::NotInWorld;
         });
         if (!wiped)
         {

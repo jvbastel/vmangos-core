@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <sstream>
 
 INSTANTIATE_SINGLETON_1(BotMgr);
@@ -261,19 +262,15 @@ void BotMgr::Update(uint32 diff)
     }
 }
 
-std::shared_ptr<Bots::GroupCoordinator> BotMgr::GetCoordinator(uint32 groupId)
+std::shared_ptr<Bots::GroupCoordinator> BotMgr::GetCoordinator(uint32 groupId, Bots::MapPlace bot,
+    Bots::LeaderPlace leader, int64 nowMs)
 {
-    std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
-    std::shared_ptr<Bots::GroupCoordinator>& coordinator = m_coordinators[groupId];
-    if (!coordinator)
-        coordinator = std::make_shared<Bots::GroupCoordinator>();
-    return coordinator;
+    return m_coordinators.For(groupId, bot, leader, nowMs);
 }
 
 void BotMgr::DropCoordinator(uint32 groupId)
 {
-    std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
-    m_coordinators.erase(groupId);
+    m_coordinators.Drop(groupId);
 }
 
 BotOnlineState BotMgr::OnlineStateOf(std::string const& name)
@@ -291,27 +288,14 @@ BotOnlineState BotMgr::OnlineStateOf(std::string const& name)
 void BotMgr::DropOldCoordinators()
 {
     // On the world thread, after the maps. A bot holds its coordinator only
-    // during its think, so a group that is gone frees its coordinator here.
-    std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
-    for (auto it = m_coordinators.begin(); it != m_coordinators.end();)
-    {
-        if (!sObjectMgr.GetGroupById(it->first))
-            it = m_coordinators.erase(it);
-        else
-            ++it;
-    }
+    // during its think, so a group that is gone frees its coordinators here.
+    m_coordinators.DropOld([](uint32 groupId) { return sObjectMgr.GetGroupById(groupId) != nullptr; },
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 
 void BotMgr::TakeGroupEvents()
 {
-    std::vector<std::pair<uint32, Bots::GroupEvent>> events;
-    {
-        std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
-        for (auto const& pair : m_coordinators)
-            for (Bots::GroupEvent const& event : pair.second->TakeEvents())
-                events.emplace_back(pair.first, event);
-    }
-    for (auto const& pair : events)
+    for (auto const& pair : m_coordinators.TakeEvents())
         OnGroupEvent(pair.first, pair.second);
 }
 

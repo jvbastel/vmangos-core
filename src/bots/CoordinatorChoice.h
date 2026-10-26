@@ -26,7 +26,9 @@ namespace Bots
     enum class CoordinatorChoice
     {
         Group, // The coordinator of the bot's group.
-        Own,   // The bot's own coordinator: no other bot shares it.
+        Place, // The coordinator of the group's bots in the bot's place, on
+               // another map or instance than the leader.
+        Own,   // The bot's own coordinator: the bot has no group.
     };
 
     CoordinatorChoice ChooseCoordinator(bool inGroup, MapPlace bot, LeaderPlace leader);

@@ -143,10 +143,7 @@ namespace Bots
         // dead only when the bot sees its dead body: a bot on another map
         // finds no unit (no health), and that does not end the give-up.
         if (view.CanResurrect(view.GetSelf()))
-            group.RetryResurrects([&view](Guid enemy) {
-                Health const health = view.GetHealth(enemy);
-                return health.max == 0 || health.current > 0;
-            });
+            group.RetryResurrects([&view](Guid enemy) { return !SeenDead(view, enemy); });
 
         group.SetResting(view.GetSelf(), RestReasonOf(view));
     }

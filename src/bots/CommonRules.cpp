@@ -28,6 +28,12 @@ namespace Bots
         return unit != NoGuid && view.GetHealth(unit).current > 0 && view.GetLifeState(unit) == LifeState::Alive;
     }
 
+    bool SeenDead(BotView const& view, Guid unit)
+    {
+        Health const health = view.GetHealth(unit);
+        return health.max > 0 && health.current == 0;
+    }
+
     bool IsGroupInCombat(BotView const& view)
     {
         for (Guid member : view.GetGroupMembers())

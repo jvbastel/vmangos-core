@@ -22,7 +22,7 @@ namespace Bots
         Living,     // In the world and alive.
         Dead,       // In the world and dead, as a corpse or a ghost.
         InTeleport, // In the world, in a teleport.
-        Away,       // Not in the world.
+        NotInWorld, // Not in the world (logged out, or not found).
     };
 
     class WipeWatch
