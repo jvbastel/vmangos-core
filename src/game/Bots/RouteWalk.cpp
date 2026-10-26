@@ -172,6 +172,8 @@ namespace
         else if (choice.action == Bots::WispTrail::Action::Move)
         {
             TemporarySummon* wisp = FindWisp(character, choice.guid);
+            if (!wisp)
+                return;
             Map* map = character->GetMap();
             // A wisp that moves into a grid that is not loaded goes to its
             // spawn place instead.
