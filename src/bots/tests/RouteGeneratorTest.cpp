@@ -51,6 +51,22 @@ namespace
         std::vector<Rect> rooms;
         std::vector<Rect> lava;
         std::vector<Position> doors;
+        // Rock that blocks the line of sight, walkable or not.
+        std::vector<Rect> rock;
+
+        bool LineOfSight(Position const& from, Position const& to) override
+        {
+            float const length = std::hypot(to.x - from.x, to.y - from.y);
+            int const steps = std::max(1, int(length / 0.5f));
+            for (int i = 0; i <= steps; ++i)
+            {
+                float const t = float(i) / float(steps);
+                for (Rect const& r : rock)
+                    if (r.Holds(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t))
+                        return false;
+            }
+            return true;
+        }
 
         bool OnMesh(Position const& p) override
         {
@@ -594,55 +610,100 @@ TEST(RouteGenerator, APullPointIsNearItsPackByPathNotByStraightDistance)
         EXPECT_EQ(warning.find("pull point"), std::string::npos) << warning;
 }
 
-TEST(RouteGenerator, APackFarFromTheLineByPathGetsADetourAndAWarning)
+namespace
 {
-    // The lower room's far end: from the line, the only way is down the
-    // ramp and back along the room, 72 yards.
+    bool Fights(Bots::Route const& route, std::uint32_t guid)
+    {
+        for (Bots::RoutePack const& pack : route.packs)
+            if (pack.mobs[0].spawnGuid == guid)
+                return true;
+        return false;
+    }
+
+    bool Told(Bots::GeneratedRoute const& generated, std::string const& text)
+    {
+        for (std::string const& warning : generated.warnings)
+            if (warning.find(text) != std::string::npos)
+                return true;
+        return false;
+    }
+}
+
+TEST(RouteGenerator, APackOnAnotherLevelIsLeftOutWithTheReason)
+{
+    // The lower room's far end: 15 yards from the line, but from the line
+    // the only way is down the ramp and back along the room, 72 yards.
     LevelsNav nav;
-    Bots::GeneratorInput const input = LevelsInput(40);
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(LevelsInput(40), nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    EXPECT_FALSE(Fights(generated.route, 1));
+    for (Bots::RoutePoint const& point : generated.route.points)
+        EXPECT_LT(point.places[0].position.y, 5.0f) << point.name << ": no detour goes down to it";
+    EXPECT_TRUE(Told(generated, "the pack of spawn 1 at 40.00 15.00 0.00 is off the route: it is on another level"));
+    // No point keeps away from a pack that cannot see it.
+    EXPECT_FALSE(Told(generated, "is within aggro range of a pack"));
+}
+
+TEST(RouteGenerator, APackOutOfSightOfTheLineIsLeftOutWithTheReason)
+{
+    // Near the ramp, so near by path, but rock stands between it and the
+    // line.
+    LevelsNav nav;
+    nav.rock = {{40, 95, 4, 9}};
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(LevelsInput(80), nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    EXPECT_FALSE(Fights(generated.route, 1));
+    EXPECT_TRUE(Told(generated, "the pack of spawn 1 at 80.00 15.00 0.00 is off the route: no line of sight"));
+}
+
+TEST(RouteGenerator, APackOnAnotherLevelIsOnTheRouteWhenTheLineGoesThere)
+{
+    // The boss is in the lower room: the line goes down the ramp and
+    // passes the pack there.
+    LevelsNav nav;
+    Bots::GeneratorInput input = LevelsInput(40);
+    input.spawns[1].position = {45, 28, 0};
     Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
     ASSERT_TRUE(generated.ok) << generated.error;
 
-    bool told = false;
-    for (std::string const& warning : generated.warnings)
-        told = told || warning.find("pack1 has no pull point within 35 yards by path") != std::string::npos;
-    EXPECT_TRUE(told);
-
+    ASSERT_TRUE(Fights(generated.route, 1));
     Bots::RoutePoint const* pull = Bots::FindPoint(generated.route, "pull_pack1");
     ASSERT_NE(pull, nullptr);
-    for (Bots::RoutePlace const& place : pull->places)
-    {
-        std::vector<Position> path;
-        ASSERT_TRUE(nav.Path(place.position, {40, 15, 0}, path));
-        EXPECT_LE(PathLength(path), input.settings.pullPathLimit) << place.position.x;
-        EXPECT_GE(Bots::Distance3d(place.position, {40, 15, 0}), input.settings.aggroRange);
-    }
+    EXPECT_GT(pull->places[0].position.y, 10.0f) << "the pull point is in the lower room";
+    EXPECT_FALSE(Told(generated, "is within aggro range of a pack"));
     EXPECT_EQ(Bots::CheckRouteWalk(generated.route, nav), std::vector<std::string>{});
 }
 
 TEST(RouteGenerator, APackOutOfAggroRangeOfTheLineAndFarByPathIsNotOnTheRoute)
 {
-    // 25 yards below the line, so on the route by straight distance, but
-    // out of its aggro range, and 82 yards away by path.
+    // 25 yards below the line, so in range plus the margin, and 82 yards
+    // away by path.
     LevelsNav nav;
     Bots::GeneratedRoute generated = Bots::GenerateRoute(LevelsInput(40, 25), nav);
     ASSERT_TRUE(generated.ok) << generated.error;
 
-    for (Bots::RoutePack const& pack : generated.route.packs)
-        EXPECT_NE(pack.mobs[0].spawnGuid, 1u) << pack.name;
-    bool told = false;
-    for (std::string const& warning : generated.warnings)
-        told = told || warning.find("the pack of spawn 1 at 40.00 25.00 0.00 is off the route") != std::string::npos;
-    EXPECT_TRUE(told);
+    EXPECT_FALSE(Fights(generated.route, 1));
+    EXPECT_TRUE(Told(generated, "the pack of spawn 1 at 40.00 25.00 0.00 is off the route"));
 }
 
-TEST(RouteGenerator, ADetourFightsThePacksItPasses)
+TEST(RouteGenerator, AQuestDetourFightsThePacksItPassesThatCanSeeIt)
 {
-    // The detour to the far end of the lower room passes a pack that the
-    // line does not come near.
+    // A quest needs the trogg at the far end of the lower room. The detour
+    // passes a pack in the room, and a pack behind rock.
     LevelsNav nav;
+    nav.rooms.push_back({40, 98, 30, 40});
+    nav.rock = {{50, 75, 22, 30}};
     Bots::GeneratorInput input = LevelsInput(40);
-    input.spawns.push_back(Spawn(2, 11319, 70, 29));
+    input.spawns.push_back(Spawn(2, 11319, 85, 29));
+    input.spawns.push_back(Spawn(3, 11319, 63, 36));
+    Bots::GeneratorQuest kill{5723, {}, {}};
+    Bots::QuestObjective trogg{Bots::QuestObjectiveKind::Kill};
+    trogg.entry = 11318;
+    trogg.count = 1;
+    kill.objectives.push_back(trogg);
+    input.quests = {kill};
     Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
     ASSERT_TRUE(generated.ok) << generated.error;
 
@@ -656,12 +717,18 @@ TEST(RouteGenerator, ADetourFightsThePacksItPasses)
             EXPECT_EQ(generated.route.points[generated.route.steps[i - 1].index].name, "pull_" + pack.name);
         }
     EXPECT_EQ(fought, (std::vector<std::uint32_t>{2, 1, 5}));
-    // The line passes within aggro range of pack 1 by straight distance,
-    // but no point of the lower room is in aggro range of a later pack.
-    for (std::string const& warning : generated.warnings)
-    {
-        float x = 0.0f, y = 0.0f;
-        if (std::sscanf(warning.c_str(), "a point at %f %f", &x, &y) == 2)
-            EXPECT_LT(y, 5.0f) << warning;
-    }
+}
+
+TEST(RouteGenerator, APullPointCountsThePathToTheNearestMember)
+{
+    // A pack of two along the lower room: the leader at its far end, the
+    // other member near the ramp.
+    LevelsNav nav;
+    Bots::GeneratorInput input = LevelsInput(40);
+    input.spawns.push_back(Spawn(2, 11318, 82, 15, 0.0f, 1));
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    EXPECT_TRUE(Fights(generated.route, 1));
+    EXPECT_FALSE(Told(generated, "no pull point within"));
 }
