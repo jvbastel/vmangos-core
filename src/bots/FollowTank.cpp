@@ -24,6 +24,9 @@ namespace Bots
             PullState const pull = context.group.GetPull();
             return pull.phase != PullPhase::None && pull.puller != NoGuid && pull.puller != context.view.GetSelf()
                 && context.command != CommandState::Come && IsAlive(context.view, pull.puller)
+                // On its way to the tank already, such as the healer to a
+                // hurt tank: a second walk would take turns with that one.
+                && context.view.GetFollowTarget() != pull.puller
                 && context.view.GetDistance(pull.puller) > FollowTankYards;
         }
 

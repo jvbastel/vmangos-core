@@ -178,3 +178,13 @@ TEST(FollowTank, AHealerHealsTheHurtTankBeforeItFollows)
     EXPECT_NE(stack.Think(context), "follow the tank to the pull");
     EXPECT_NE(stack.Think(context), "");
 }
+
+TEST(FollowTank, AHealerThatFollowsTheHurtTankKeepsFollowingIt)
+{
+    Bot bot;
+    // The healer is on its way to the hurt tank (the Priest's rule): no
+    // second walk to the tank takes turns with that one.
+    bot.fake.SetFollowTarget(Tank);
+
+    EXPECT_NE(bot.Think(CommandState::Stay), "follow the tank to the pull");
+}

@@ -13,6 +13,8 @@
 //   margin, as the Priest's corpse walk does (SafePlace.h). An enemy that
 //   attacks a group member is in the fight already: it does not count;
 // - from that spot the bot sees the tank, so it can heal it and fight;
+// - a bot that follows the tank already, such as the healer on its way to
+//   a hurt tank (PriestModule), keeps that walk;
 // - a bot within FollowTankYards of the tank does not move: a short pull
 //   that brings the pack to the group works as before.
 // The rule is under the class rules, so a bot that can fight or heal does
