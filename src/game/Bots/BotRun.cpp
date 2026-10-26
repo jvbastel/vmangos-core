@@ -1231,6 +1231,12 @@ void BotRun::WatchEnemies(int64 nowMs)
         }
         if (!enemy->IsAlive())
         {
+            // A creature that `clear` took away has no corpse: no kill.
+            if (enemy->GetDeathState() != CORPSE)
+            {
+                it = m_enemyHealth.erase(it);
+                continue;
+            }
             m_judge->NoteProgress(nowMs);
             m_quests->OnKill(enemy->GetEntry());
             m_trace.Add(nowMs, UnitText(enemy) + " dies");
