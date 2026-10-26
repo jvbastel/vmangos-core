@@ -45,6 +45,12 @@ class BotChat
         // Starts the chat client with the settings of the startup.
         void Start();
 
+        // The GUIDs of all bot characters (the `bot_character` table). At
+        // startup and for each new bot. The client sends them to the service
+        // at its start and after the service was gone (Bots::ChatClient::SetRoster),
+        // and the service deletes the memory of every other bot.
+        void SetRoster(std::vector<Bots::Guid> botGuids);
+
         // From any thread (the chat hook runs on the async packet thread):
         // posts one player_message at the next update.
         void QueuePlayerMessage(PlayerChatMessage message) { m_messages.Push(std::move(message)); }

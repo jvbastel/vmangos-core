@@ -134,6 +134,50 @@ std::string Bots::EncodeChatEvent(ChatEvent const& event)
     return out.str();
 }
 
+std::string Bots::EncodeChatRoster(std::vector<Guid> const& botGuids)
+{
+    std::ostringstream out;
+    out << "{\"contract_version\":" << ChatContractVersion << ",\"bot_guids\":[";
+    for (std::size_t i = 0; i < botGuids.size(); ++i)
+        out << (i ? "," : "") << botGuids[i];
+    out << "]}";
+    return out.str();
+}
+
+bool Bots::DecodeChatRosterAnswer(std::string const& body, std::vector<Guid>& deleted, std::string& error)
+{
+    Json const json = Json::parse(body, nullptr, false);
+    if (json.is_discarded() || !json.is_object())
+    {
+        error = "the answer is no JSON object";
+        return false;
+    }
+    auto const version = json.find("contract_version");
+    if (version == json.end() || !version->is_number_integer() || version->get<int>() != ChatContractVersion)
+    {
+        error = "the answer has no contract_version " + std::to_string(ChatContractVersion);
+        return false;
+    }
+    auto const guids = json.find("deleted_bot_guids");
+    if (guids == json.end() || !guids->is_array())
+    {
+        error = "the answer has no deleted_bot_guids";
+        return false;
+    }
+    std::vector<Guid> decoded;
+    for (Json const& guid : *guids)
+    {
+        if (!guid.is_number_unsigned())
+        {
+            error = "the answer has a GUID that is no number";
+            return false;
+        }
+        decoded.push_back(guid.get<Guid>());
+    }
+    deleted = decoded;
+    return true;
+}
+
 bool Bots::DecodeChatResponse(std::string const& body, ChatResponse& response, std::string& error)
 {
     Json const json = Json::parse(body, nullptr, false);

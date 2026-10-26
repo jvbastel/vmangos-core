@@ -64,13 +64,26 @@ namespace
     };
 }
 
+TEST(ChatHttp, PostsTheRosterToV1Roster)
+{
+    TestService service;
+    std::unique_ptr<ChatConnection> connection = NewHttpChatConnection(service.Settings());
+
+    ChatPostResult const result = connection->Post(ChatRosterPath, EncodeChatRoster({101, 102}));
+
+    EXPECT_TRUE(result.answered) << result.error;
+    ASSERT_EQ(service.paths.size(), 1u);
+    EXPECT_EQ(service.paths[0], "/v1/roster");
+    EXPECT_EQ(service.bodies[0], R"({"contract_version":1,"bot_guids":[101,102]})");
+}
+
 TEST(ChatHttp, PostsTheEventAsJsonToV1Events)
 {
     TestService service;
     service.answer = R"({"contract_version":1,"lines":[{"bot_guid":5,"channel":"party","text":"hi","delay_ms":0}]})";
     std::unique_ptr<ChatConnection> connection = NewHttpChatConnection(service.Settings());
 
-    ChatPostResult const result = connection->Post(R"({"event":"rest"})");
+    ChatPostResult const result = connection->Post(ChatEventsPath, R"({"event":"rest"})");
 
     EXPECT_TRUE(result.answered) << result.error;
     EXPECT_EQ(result.status, 200);
@@ -86,9 +99,9 @@ TEST(ChatHttp, KeepsTheConnectionAliveBetweenEvents)
     TestService service;
     std::unique_ptr<ChatConnection> connection = NewHttpChatConnection(service.Settings());
 
-    connection->Post("{}");
-    connection->Post("{}");
-    connection->Post("{}");
+    connection->Post(ChatEventsPath, "{}");
+    connection->Post(ChatEventsPath, "{}");
+    connection->Post(ChatEventsPath, "{}");
 
     ASSERT_EQ(service.clientPorts.size(), 3u);
     EXPECT_EQ(service.clientPorts[1], service.clientPorts[0]);
@@ -102,7 +115,7 @@ TEST(ChatHttp, AnErrorStatusComesBackWithItsBody)
     service.answer = R"({"error":"unsupported_contract_version","accepted":[0,1]})";
     std::unique_ptr<ChatConnection> connection = NewHttpChatConnection(service.Settings());
 
-    ChatPostResult const result = connection->Post("{}");
+    ChatPostResult const result = connection->Post(ChatEventsPath, "{}");
 
     EXPECT_TRUE(result.answered);
     EXPECT_EQ(result.status, 400);
@@ -116,7 +129,7 @@ TEST(ChatHttp, ASlowServiceTimesOut)
     std::unique_ptr<ChatConnection> connection = NewHttpChatConnection(service.Settings(200));
 
     auto const start = std::chrono::steady_clock::now();
-    ChatPostResult const result = connection->Post("{}");
+    ChatPostResult const result = connection->Post(ChatEventsPath, "{}");
     auto const took = std::chrono::steady_clock::now() - start;
 
     EXPECT_FALSE(result.answered);
@@ -135,7 +148,7 @@ TEST(ChatHttp, AServiceThatIsDownGivesNoAnswer)
     settings.url = "http://127.0.0.1:" + std::to_string(port);
     settings.timeoutMs = 500;
 
-    ChatPostResult const result = NewHttpChatConnection(settings)->Post("{}");
+    ChatPostResult const result = NewHttpChatConnection(settings)->Post(ChatEventsPath, "{}");
 
     EXPECT_FALSE(result.answered);
     EXPECT_FALSE(result.error.empty());

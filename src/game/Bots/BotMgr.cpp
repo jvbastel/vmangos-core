@@ -202,6 +202,16 @@ void BotMgr::Load()
     m_gear.Load(m_settings.dataDir + "/gear");
     LoadBossList();
     m_chat.Start();
+    m_chat.SetRoster(BotGuids());
+}
+
+std::vector<Bots::Guid> BotMgr::BotGuids() const
+{
+    // The same GUIDs as the bots in chat events (ObjectGuid::GetRawValue).
+    std::vector<Bots::Guid> guids;
+    for (auto const& pair : m_bots)
+        guids.push_back(ObjectGuid(HIGHGUID_PLAYER, pair.first).GetRawValue());
+    return guids;
 }
 
 void BotMgr::Update(uint32 diff)
@@ -613,6 +623,7 @@ bool BotMgr::CreateBot(Bots::BotRecipe const& recipe, std::string& error)
     else
         sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] No gear template %s: %s keeps its starting gear", gearName.c_str(), name.c_str());
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Made the bot %s (GUID %u, account %u, %s)", name.c_str(), guid, accountId, role.c_str());
+    m_chat.SetRoster(BotGuids());
 
     StartLogin(record, session);
     return true;
