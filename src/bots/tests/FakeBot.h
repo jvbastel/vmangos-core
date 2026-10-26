@@ -118,9 +118,9 @@ namespace Bots
             // the straight line.
             void AddNoPathFromX(float x) { m_noPathFromX.push_back(x); }
             // A living hostile creature at `position` (GetEnemiesNear).
-            void AddEnemy(Position position, float aggroYards, float radiusYards = 0.0f)
+            void AddEnemy(Position position, float aggroYards)
             {
-                m_enemies.push_back({position, aggroYards, radiusYards});
+                m_enemies.push_back({position, aggroYards});
             }
             // From each place with x >= `x`, the bot sees no unit.
             void AddBlindFromX(float x) { m_blindFromX.push_back(x); }

@@ -22,10 +22,11 @@ namespace Bots
         // goes nearer.
         float const NearerYards = 0.5f;
 
-        // From `at` to the edge of the enemy's body.
+        // From `at` to the enemy's center, as the game measures its aggro
+        // distance (BasicAI::MoveInLineOfSight, no body size).
         float DistanceTo(NearEnemy const& enemy, Position const& at)
         {
-            return Distance3d(enemy.position, at) - enemy.radiusYards;
+            return Distance3d(enemy.position, at);
         }
 
         // A place within the aggro distance and the margin of an enemy

@@ -16,7 +16,9 @@
 // - with a unit to see, the unit is in sight from the place, and
 // - with enemies to keep away from, the place keeps out of each enemy's
 //   aggro distance and a margin, and so does the path, except for a step
-//   that goes no nearer to the enemy than the bot stands now.
+//   that goes no nearer to the enemy than the bot stands now. Both are
+//   measured from the enemy's center, as the game measures aggro: the
+//   bodies of the bot and the enemy do not count (the margin covers them).
 namespace Bots
 {
     // Yards more than the aggro distance of an enemy, for a place and a
