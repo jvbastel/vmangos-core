@@ -68,9 +68,9 @@ namespace
         return false;
     }
 
-    float DistanceTo(Player const* character, Bots::Position const& p)
+    Bots::Position Here(Player const* character)
     {
-        return Bots::Distance3d({character->GetPositionX(), character->GetPositionY(), character->GetPositionZ()}, p);
+        return {character->GetPositionX(), character->GetPositionY(), character->GetPositionZ()};
     }
 
     std::string QuestNote(uint32 quest)
@@ -84,12 +84,12 @@ namespace
         Bots::Position const& first = point.places[0].position;
         handler.PSendSysMessage("%s: step %u, point %s at %.2f %.2f %.2f, radius %.1f, %.1f yards away, %u places.%s",
             label, uint32(step + 1), point.name.c_str(), first.x, first.y, first.z, point.places[0].radius,
-            DistanceTo(character, first), uint32(point.places.size()), QuestNote(point.quest).c_str());
+            Bots::Distance3d(Here(character), first), uint32(point.places.size()), QuestNote(point.quest).c_str());
         for (std::size_t k = 1; k < point.places.size(); ++k)
         {
             Bots::Position const& place = point.places[k].position;
             handler.PSendSysMessage("  place %u at %.2f %.2f %.2f, %.1f yards away.", uint32(k + 1), place.x, place.y,
-                place.z, DistanceTo(character, place));
+                place.z, Bots::Distance3d(Here(character), place));
         }
     }
 
@@ -98,7 +98,7 @@ namespace
         Bots::RoutePack const& pack = walk.route.packs[walk.route.steps[step].index];
         handler.PSendSysMessage("%s: step %u, pack %s with %u mobs at %.2f %.2f %.2f, %.1f yards away.%s", label,
             uint32(step + 1), pack.name.c_str(), uint32(pack.mobs.size()), pack.position.x, pack.position.y,
-            pack.position.z, DistanceTo(character, pack.position), QuestNote(pack.quest).c_str());
+            pack.position.z, Bots::Distance3d(Here(character), pack.position), QuestNote(pack.quest).c_str());
         for (Bots::RouteMob const& mob : pack.mobs)
         {
             CreatureData const* data = sObjectMgr.GetCreatureData(mob.spawnGuid);
