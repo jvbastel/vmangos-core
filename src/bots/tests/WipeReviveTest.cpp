@@ -10,7 +10,7 @@ namespace
     RunMember const Living = RunMember::Living;
     RunMember const Dead = RunMember::Dead;
     RunMember const InTeleport = RunMember::InTeleport;
-    RunMember const Away = RunMember::Away;
+    RunMember const NotInWorld = RunMember::NotInWorld;
 
     // The watch after `ms` of the same members, from the time 1000.
     bool After(WipeWatch& watch, std::vector<RunMember> const& members, std::int64_t ms)
@@ -42,14 +42,14 @@ TEST(WipeRevive, AMemberNotInTheWorldDoesNotBlockTheWipe)
 {
     WipeWatch watch;
 
-    EXPECT_TRUE(After(watch, {Dead, Away, Dead}, Bots::WipeReviveDelayMs));
+    EXPECT_TRUE(After(watch, {Dead, NotInWorld, Dead}, Bots::WipeReviveDelayMs));
 }
 
 TEST(WipeRevive, WithNoMemberInTheWorldNobodyRevives)
 {
     WipeWatch watch;
 
-    EXPECT_FALSE(After(watch, {Away, Away}, 60000));
+    EXPECT_FALSE(After(watch, {NotInWorld, NotInWorld}, 60000));
 }
 
 // A member in a teleport can land alive: the wipe waits for it, and the
