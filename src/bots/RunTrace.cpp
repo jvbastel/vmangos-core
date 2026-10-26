@@ -29,6 +29,12 @@ namespace Bots
             return member.name + " casts " + std::to_string(member.spell) +
                 (member.spellName.empty() ? "" : " " + member.spellName);
         }
+
+        std::string EventLine(std::pair<std::int64_t, std::string> const& event)
+        {
+            return std::to_string(event.first / 1000) + "." + std::to_string(event.first % 1000 / 100) + " " +
+                event.second;
+        }
     }
 
     RunTrace::RunTrace(std::int64_t keepMs) : m_keepMs(keepMs)
@@ -38,6 +44,7 @@ namespace Bots
     void RunTrace::Add(std::int64_t ms, std::string const& line)
     {
         m_events.emplace_back(ms, line);
+        m_new.emplace_back(ms, line);
         while (!m_events.empty() && m_events.front().first < ms - m_keepMs)
             m_events.pop_front();
     }
@@ -79,8 +86,16 @@ namespace Bots
     {
         std::vector<std::string> lines;
         for (auto const& event : m_events)
-            lines.push_back(std::to_string(event.first / 1000) + "." + std::to_string(event.first % 1000 / 100) + " " +
-                event.second);
+            lines.push_back(EventLine(event));
+        return lines;
+    }
+
+    std::vector<std::string> RunTrace::TakeNew()
+    {
+        std::vector<std::string> lines;
+        for (auto const& event : m_new)
+            lines.push_back(EventLine(event));
+        m_new.clear();
         return lines;
     }
 

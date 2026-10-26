@@ -47,6 +47,10 @@ namespace Bots
         // The events of the last 3 minutes before the newest one.
         std::vector<std::string> Lines() const;
         std::string Text() const;
+        // The lines added since the last call, for the live trace file of
+        // the run (jvbastel/WOWAI#98), also those that the last 3 minutes no
+        // longer hold. The game layer takes them at each update.
+        std::vector<std::string> TakeNew();
 
     private:
         struct Seen
@@ -59,6 +63,7 @@ namespace Bots
 
         std::int64_t m_keepMs;
         std::deque<std::pair<std::int64_t, std::string>> m_events;
+        std::vector<std::pair<std::int64_t, std::string>> m_new; // Since the last TakeNew.
         std::map<std::string, Seen> m_seen;
     };
 }
