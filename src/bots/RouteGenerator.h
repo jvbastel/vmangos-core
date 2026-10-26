@@ -23,7 +23,9 @@
 // 3. A pack is on the route when any member, with its wander distance or its
 //    patrol, comes within aggro range plus a margin of the center line. The
 //    route fights the packs in the order the line reaches them, from a pull
-//    point where the line first comes that close.
+//    point where the line first comes that close and the navmesh path to
+//    the pack is short (pullPathLimit). A warning tells of a pack with no
+//    such spot.
 // 4. Route points every few yards along the line, moved sideways by a random
 //    distance that stays on the navmesh. Wide rooms give alternative points.
 // 5. The quest objectives: a visit point, and packs added off the line until
@@ -54,6 +56,8 @@ namespace Bots
         // A pack is on the route within aggroRange + margin of the line.
         // The pull point is that far from the pack.
         float margin = 5.0f;
+        // A pull point is at most this far from its pack by navmesh path.
+        float pullPathLimit = 35.0f;
         // Spawns this close join one pack.
         float clusterDistance = 8.0f;
         // The distance between two route points along the line.

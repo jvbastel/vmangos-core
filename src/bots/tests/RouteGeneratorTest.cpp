@@ -511,3 +511,85 @@ TEST(RouteGenerator, AQuestVisitComesAfterThePacksThatGuardTheSpot)
     ASSERT_LT(visit, route.steps.size());
     EXPECT_LT(guard, visit);
 }
+
+namespace
+{
+    // Two levels: the line runs along an upper corridor, and a lower room
+    // lies beside it, joined to it only by a ramp at its far end. A path
+    // goes straight, or down the ramp.
+    class LevelsNav : public FakeNav
+    {
+    public:
+        LevelsNav()
+        {
+            rooms = {{0, 200, -3, 3}, {96, 98, -3, 20}, {40, 98, 10, 20}};
+            doors = {{97, 0, 0}, {97, 15, 0}};
+        }
+
+        bool Path(Position const& from, Position const& to, std::vector<Position>& path) override
+        {
+            if (Straight(from, to, path))
+                return true;
+            std::vector<Position> stops{from};
+            stops.insert(stops.end(), doors.begin(), doors.end());
+            stops.push_back(to);
+            std::vector<Position> leg;
+            for (std::size_t i = 0; i + 1 < stops.size(); ++i)
+                if (!Straight(stops[i], stops[i + 1], leg))
+                    return false;
+            path = stops;
+            return true;
+        }
+    };
+
+    float PathLength(std::vector<Position> const& path)
+    {
+        float length = 0.0f;
+        for (std::size_t i = 1; i < path.size(); ++i)
+            length += Bots::Distance3d(path[i - 1], path[i]);
+        return length;
+    }
+
+    Bots::GeneratorInput LevelsInput(float packX)
+    {
+        Bots::GeneratorInput input;
+        input.name = "levels";
+        input.mapId = 389;
+        input.entrance = {2, 0, 0};
+        input.spawns = {Spawn(1, 11318, packX, 15), Spawn(5, 100, 190, 0)};
+        input.bosses = {100};
+        return input;
+    }
+}
+
+TEST(RouteGenerator, APullPointIsNearItsPackByPathNotByStraightDistance)
+{
+    LevelsNav nav;
+    Bots::GeneratorInput const input = LevelsInput(80);
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    Bots::RoutePoint const* pull = Bots::FindPoint(generated.route, "pull_pack1");
+    ASSERT_NE(pull, nullptr);
+    for (Bots::RoutePlace const& place : pull->places)
+    {
+        std::vector<Position> path;
+        ASSERT_TRUE(nav.Path(place.position, {80, 15, 0}, path));
+        EXPECT_LE(PathLength(path), input.settings.pullPathLimit) << place.position.x;
+        EXPECT_GE(Bots::Distance3d(place.position, {80, 15, 0}), input.settings.aggroRange);
+    }
+    for (std::string const& warning : generated.warnings)
+        EXPECT_EQ(warning.find("pull point"), std::string::npos) << warning;
+}
+
+TEST(RouteGenerator, TellsWhenAPackHasNoPullPointWithinThePathLimit)
+{
+    LevelsNav nav;
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(LevelsInput(40), nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    bool told = false;
+    for (std::string const& warning : generated.warnings)
+        told = told || warning.find("pack1 has no pull point within 35 yards by path") != std::string::npos;
+    EXPECT_TRUE(told);
+}

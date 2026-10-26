@@ -49,6 +49,14 @@ namespace Bots
             std::uint32_t quest;
         };
 
+        float PathLength(std::vector<Position> const& path)
+        {
+            float length = 0.0f;
+            for (std::size_t i = 1; i < path.size(); ++i)
+                length += Distance3d(path[i - 1], path[i]);
+            return length;
+        }
+
         std::string UniqueName(std::set<std::string>& used, std::string const& name)
         {
             std::string candidate = name;
@@ -292,6 +300,42 @@ namespace Bots
                     bossOf[p] = input.bosses[b];
         }
 
+        // The pull point of a pack of the line: the first spot from where the
+        // line comes in range on, outside aggro range, whose navmesh path to
+        // the pack is within the limit. A straight distance can cross a floor
+        // to another level of a cave; a path cannot.
+        std::vector<float> pullAt(approach);
+        std::vector<float> pullPath(packs.size(), -1.0f); // -1: no path within the limit.
+        for (std::size_t p = 0; p < packs.size(); ++p)
+        {
+            if (approach[p] < 0.0f)
+                continue;
+            Position const target = spawns[packs[p].members[0]].position;
+            float best = -1.0f;
+            for (float s : samples)
+            {
+                if (s < approach[p])
+                    continue;
+                Position const at = line.At(s);
+                float const distance = DistanceToPack(at, packs[p], spawns);
+                // A path is never shorter than the straight distance.
+                if (distance < settings.aggroRange || distance > settings.pullPathLimit)
+                    continue;
+                std::vector<Position> path;
+                if (!nav.Path(at, target, path))
+                    continue;
+                float const length = PathLength(path);
+                if (best < 0.0f || length < best)
+                {
+                    best = length;
+                    pullAt[p] = s;
+                }
+                if (length <= settings.pullPathLimit)
+                    break;
+            }
+            pullPath[p] = best;
+        }
+
         std::vector<Event> events;
         std::vector<Detour> detours;
         std::set<std::string> visitNames;
@@ -332,7 +376,7 @@ namespace Bots
                             bestS = std::max(bestS, nearestS[p]);
                         }
                         else if (approach[p] >= 0.0f)
-                            bestS = std::max(bestS, approach[p]);
+                            bestS = std::max(bestS, pullAt[p]);
                     }
                     Event event{bestS, 5, 0, EventKind::Visit, visit.position};
                     event.quest = quest.id;
@@ -374,24 +418,22 @@ namespace Bots
         }
 
         // The packs of the line, with their pull points.
-        std::vector<float> pullS;
         for (std::size_t p = 0; p < packs.size(); ++p)
         {
             if (approach[p] < 0.0f)
                 continue;
             float dx, dy;
-            line.Direction(approach[p], dx, dy);
+            line.Direction(pullAt[p], dx, dy);
             // Two packs that the line reaches at one spot: each pull point
             // comes right before its own pack.
-            Event pull{approach[p], 1, int(2 * p), EventKind::Pull, line.At(approach[p])};
+            Event pull{pullAt[p], 1, int(2 * p), EventKind::Pull, line.At(pullAt[p])};
             pull.dx = dx;
             pull.dy = dy;
             pull.pack = p;
             events.push_back(pull);
-            Event fight{approach[p], 1, int(2 * p + 1), EventKind::Pack, spawns[packs[p].members[0]].position};
+            Event fight{pullAt[p], 1, int(2 * p + 1), EventKind::Pack, spawns[packs[p].members[0]].position};
             fight.pack = p;
             events.push_back(fight);
-            pullS.push_back(approach[p]);
         }
 
         // The detours to the quest packs off the line.
@@ -490,11 +532,19 @@ namespace Bots
 
         // A place must not pull a pack that the route fights later, nor a
         // pack off the route. A pull point keeps outside its own pack too.
+        // The place of a pull point of the line keeps the path to its pack
+        // within the limit.
         auto allowed = [&](Position const& place, std::size_t e) {
             for (std::size_t p = 0; p < packs.size(); ++p)
                 if (foughtAt[p] > e && DistanceToPack(place, packs[p], spawns) < settings.aggroRange)
                     return false;
-            return true;
+            Event const& event = events[e];
+            if (event.kind != EventKind::Pull || event.order != 1 || pullPath[event.pack] < 0.0f ||
+                Distance3d(place, event.center) < 1e-3f)
+                return true;
+            std::vector<Position> path;
+            return nav.Path(place, spawns[packs[event.pack].members[0]].position, path) &&
+                PathLength(path) <= std::max(settings.pullPathLimit, pullPath[event.pack]);
         };
 
         RouteRandom random(settings.seed);
@@ -559,6 +609,20 @@ namespace Bots
             if (event.kind == EventKind::Pull &&
                 DistanceToPack(first, packs[event.pack], spawns) < settings.aggroRange)
                 result.warnings.push_back("the pull point of " + packName[event.pack] + " is within aggro range");
+            if (event.kind == EventKind::Pull && event.order == 1 &&
+                (pullPath[event.pack] < 0.0f || pullPath[event.pack] > settings.pullPathLimit))
+            {
+                char limit[16];
+                std::snprintf(limit, sizeof(limit), "%.0f", settings.pullPathLimit);
+                std::string text = packName[event.pack] + " has no pull point within " + limit + " yards by path";
+                if (pullPath[event.pack] >= 0.0f)
+                {
+                    char length[16];
+                    std::snprintf(length, sizeof(length), "%.0f", pullPath[event.pack]);
+                    text += std::string(": the shortest is ") + length + " yards";
+                }
+                result.warnings.push_back(text + ", at " + Format(event.center));
+            }
         }
 
         // Each alternative has its own path to the next point.
