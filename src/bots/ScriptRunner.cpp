@@ -202,7 +202,9 @@ namespace Bots
         // at the dungeon entrance, rests, and follows the driver back. The
         // walk starts from where the driver stands after the rest.
         add(rested);
-        bool const walk = FindPack(m_route, fight.name) != nullptr;
+        // The walk back goes over the route points before the pack. With
+        // none, the group goes back to the last `move` of the script.
+        bool const walk = !WalkBackPoints(m_route, Position{0.0f, 0.0f, 0.0f}, fight.name).empty();
         std::size_t lastMove = m_index;
         for (std::size_t i = m_index; i-- > 0;)
             if (m_commands[i].kind == ScriptCommandKind::Move)

@@ -464,3 +464,30 @@ TEST(ScriptRunner, ALaterFightOfAPackHasItsOwnFightsAgain)
     EXPECT_EQ(again.kind, RunStepKind::Do);
     EXPECT_EQ(again.command.again, 1u);
 }
+
+// A pack with no route point before it has no walk back over the route: the
+// group goes back to the last `move` of the script (merger review of the
+// WOWAI#91-#96 fixes).
+TEST(ScriptRunner, AFightAgainWithNoRoutePointBeforeThePackGoesToTheLastMove)
+{
+    Bots::Route const route = Bots::ParseRoute("route rfc 389\n"
+                                               "pack pack3 70 0 0\n"
+                                               "mob 3 11319\n"
+                                               "point p3 60 0 0 2\n")
+                                  .route;
+    ScriptRunner runner(Commands("move p3\nwait arrive\ncommand stay\nfight pack3\ncommand follow\n"), route);
+    std::int64_t now = 0;
+    RunFacts arrived;
+    arrived.driverArrived = true;
+    runner.Update(arrived, now);
+    runner.Done(true, "", now);
+    ASSERT_EQ(runner.Update(arrived, now).command.kind, ScriptCommandKind::Command);
+    runner.Done(true, "", now);
+    ASSERT_EQ(runner.Update(arrived, now).command.kind, ScriptCommandKind::Fight);
+    RunFacts aliveAway = PackAlive();
+    aliveAway.driverArrived = false;
+    RunStep const step = FightToItsEnd(runner, now, aliveAway);
+
+    EXPECT_EQ(StepsToTheFight(runner, step, Idle(), now),
+        (std::vector<std::string>{"command follow", "move p3", "command stay", "fight pack3"}));
+}

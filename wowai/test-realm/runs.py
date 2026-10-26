@@ -109,7 +109,7 @@ def clean_pull_share(result):
     last pull before it. A fight again of a pack that lived after its fight
     (`again`) takes its own losses, but is no first pull."""
     pulls = sorted(result["pulls"], key=lambda pull: pull["time_s"])
-    first = [i for i, pull in enumerate(pulls) if not pull["again"]]
+    first = [i for i, pull in enumerate(pulls) if not pull.get("again", False)]
     if not first:
         return 1.0
     lossy = set()
