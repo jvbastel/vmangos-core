@@ -19,12 +19,11 @@ The GM Wispwarden walks bots/data/routes/ragefire_chasm.txt (the route of #79,
 3. new walk: `.route walk` again removes the wisps of the last walk.
 The check does not change the route file.
 """
-import math
 import os
 import re
 import time
 
-from kit import Realm, Results, pos
+from kit import Realm, Results, dist, pos
 from wowclient import CHAT_MSG_SAY, CHAT_MSG_SYSTEM
 
 ACCOUNT = os.environ.get("T90_ACCOUNT", "PLAYER90")
@@ -45,7 +44,7 @@ c.set_active_mover()
 c.gm(".gm on", select=c.guid)
 c.gm(".go xyz %f %f %f 389" % RFC_ENTRANCE, select=c.guid, wait=4)
 here = pos(c, c.guid)
-results.check("the GM is in Ragefire Chasm", here is not None and math.dist(here, RFC_ENTRANCE) < 5, str(here))
+results.check("the GM is in Ragefire Chasm", here is not None and dist(here, RFC_ENTRANCE) < 5, str(here))
 
 
 def answers(lines):
