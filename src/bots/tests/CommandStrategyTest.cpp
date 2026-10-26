@@ -166,3 +166,30 @@ TEST(CommandStrategy, ABotThatWaitsItsStartDelayDoesNotFollowYet)
     EXPECT_EQ(bot.stack.Think(context), "");
     EXPECT_TRUE(bot.fake.Deeds().empty());
 }
+
+// The healer goes to a hurt member in a fight: the follow rule does not take
+// it back to the player before the fight ends (WOWAI#93, Hela switched every
+// second between the two).
+TEST(CommandStrategy, ABotThatFollowsAMemberInTheGroupFightDoesNotFollowThePlayer)
+{
+    Bot bot;
+    Bots::Guid const Tank = 0x12;
+    bot.fake.SetHealth(Tank, 300, 600);
+    bot.fake.SetGroupMembers({Tank, Player});
+    bot.fake.SetFollowTarget(Tank);
+    bot.fake.SetVictim(Kobold, Tank);
+    bot.fake.SetInCombat(Tank);
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "");
+}
+
+TEST(CommandStrategy, ABotThatFollowsAMemberFollowsThePlayerAfterTheFight)
+{
+    Bot bot;
+    Bots::Guid const Tank = 0x12;
+    bot.fake.SetHealth(Tank, 300, 600);
+    bot.fake.SetGroupMembers({Tank, Player});
+    bot.fake.SetFollowTarget(Tank);
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "follow the player");
+}
