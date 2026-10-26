@@ -11,9 +11,33 @@ deploy_dir="${WOWAI_DEPLOY_DIR:-/mnt/c/Games/vmangos-deploy}"
 shared_install_dir="${realm_defaults[WOWAI_DEV_INSTALL]}"
 install_dir="${WOWAI_DEV_INSTALL:-$shared_install_dir}"
 
-tree_id="$(basename "$src" | tr -c 'a-zA-Z0-9_.\n-' '-')-$(printf '%s' "$src" | sha1sum | cut -c1-8)"
-container="wowai-dev-$tree_id"
-volume="wowai-dev-build-$tree_id"
+# The slot of the check kit whose lease names this source tree, or nothing.
+leased_slot() {
+  local lease tree
+  tree="$(realpath -m "$src")"
+  for lease in "$(realpath -m "${WOWAI_POOL_DIR:-$HOME/wowai/slots}")"/*.lease; do
+    [ -e "$lease" ] || continue
+    if [ "$(realpath -m "$(sed -n 's/^worktree=//p' "$lease")")" = "$tree" ]; then
+      basename "$lease" .lease
+      return
+    fi
+  done
+}
+
+# The name of the dev container and its build volume. A tree that leases a
+# test realm slot uses the slot's (the kit sets WOWAI_DEV_ID=slot-<N>), so the
+# pool keeps one dev container for each slot, not one for each worktree.
+# Another tree gets its own.
+if [ -n "${WOWAI_DEV_ID:-}" ]; then
+  dev_id="$WOWAI_DEV_ID"
+elif leased="$(leased_slot)" && [ -n "$leased" ]; then
+  dev_id="slot-$leased"
+else
+  dev_id="$(basename "$src" | tr -c 'a-zA-Z0-9_.\n-' '-')-$(printf '%s' "$src" | sha1sum | cut -c1-8)"
+fi
+[[ "$dev_id" =~ ^[a-zA-Z0-9_.-]+$ ]] || { echo "wowai/dev: WOWAI_DEV_ID may hold only letters, digits, '_', '.', and '-', not '$dev_id'" >&2; exit 1; }
+container="wowai-dev-$dev_id"
+volume="wowai-dev-build-$dev_id"
 image="wowai/dev-build:latest"
 
 # Dev build options. The release build keeps the vmangos-deploy options.
@@ -109,7 +133,7 @@ in_container() {
   local tty=()
   [ -t 0 ] && [ -t 1 ] && tty=(--interactive --tty)
   docker exec "${tty[@]}" --user "$(id -u):$(id -g)" --env HOME=/tmp \
-    --workdir /build "$container" "$@"
+    --env WOWAI_DEV_TREE="$src" --workdir /build "$container" "$@"
 }
 
 # Runs in the dev container. Arguments: the CMake options.
@@ -130,9 +154,19 @@ mapfile -t patched < <(cat "${patches[@]}" | tr -d '\r' | sed -n 's|^diff --git 
 # handled below. Files that Git ignores are not copied and not deleted: CMake
 # writes some of them into the copy, for example revision.h, Progression.h,
 # and migrations_list.h.
+# The volume of a test realm slot builds the trees of many tickets. After
+# another tree, the times of this one say nothing about the objects in the
+# volume: a changed file can be older than its object. Then copy by content,
+# and give each changed file the time of now, so that it builds again.
 excludes=(--exclude=/.git --filter=':- .gitignore')
 for f in "${patched[@]}"; do excludes+=("--exclude=/$f"); done
-rsync -a --delete "${excludes[@]}" /src/ "$core/"
+if [ "$(cat /build/tree 2>/dev/null)" = "$WOWAI_DEV_TREE" ]; then
+  rsync -a --delete "${excludes[@]}" /src/ "$core/"
+else
+  echo "The build volume last built another tree. Copying by content..."
+  rsync -a --no-times --checksum --delete "${excludes[@]}" /src/ "$core/"
+fi
+printf '%s\n' "$WOWAI_DEV_TREE" > /build/tree
 
 # Apply the patches to fresh copies of the patched files. Replace a file in
 # the build copy only when its content changed, so that it does not build again.
@@ -156,7 +190,7 @@ done
 if [ -f /build/patched-files ]; then
   while read -r f; do
     if [[ " ${patched[*]} " != *" $f "* ]] && [ -f "/src/$f" ]; then
-      cp -p "/src/$f" "$core/$f"
+      cp "/src/$f" "$core/$f"
     fi
   done < /build/patched-files
 fi
@@ -235,7 +269,9 @@ The dev script of the fork.
 The dev container is long-lived. It uses the same base image as the build
 stage of vmangos-deploy, bind-mounts the source tree read-only, and keeps
 the build folder in a named Docker volume, so that a one-file change builds
-in seconds. Each source tree gets its own container and volume.
+in seconds. A source tree that leases a test realm slot uses the slot's
+container and volume, wowai-dev-slot-<N> (the volume then builds by content
+after another tree). Another source tree gets its own.
 
 Settings (environment variables):
   WOWAI_SRC          Source tree to build. Default: the tree of this script.
@@ -248,6 +284,9 @@ Settings (environment variables):
   WOWAI_DEV_SHARED_INSTALL
                      Set it to 1 to build into the shared install folder on
                      purpose.
+  WOWAI_DEV_ID       The name of the dev container (wowai-dev-<ID>) and its
+                     volume. Default: slot-<N> for a tree that leases slot N
+                     of the check kit (WOWAI_POOL_DIR), else <tree>-<hash>.
 
 A command waits while another command uses the same dev container.
 EOF
