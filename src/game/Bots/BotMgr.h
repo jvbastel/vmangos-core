@@ -92,6 +92,9 @@ struct BotLine
     uint32 chatType;     // CHAT_MSG_PARTY: to the party of the bot. CHAT_MSG_WHISPER: to `receiver`.
     ObjectGuid receiver; // Only for a whisper.
     std::string text;
+    // A line of the chat service: the id of its event (ChatClient::Post),
+    // for the result of a scripted run. 0 for a line of the bot itself.
+    uint64 eventId = 0;
 };
 
 // Whether a bot is in the game, as the script controller needs it.

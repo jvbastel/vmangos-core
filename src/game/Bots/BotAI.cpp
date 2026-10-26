@@ -12,6 +12,7 @@
 #include "DeathAndRest.h"
 #include "Group.h"
 #include "ObjectAccessor.h"
+#include "TaragamanReaction.h"
 #include "Pet.h"
 #include "Player.h"
 #include "MotionMaster.h"
@@ -168,6 +169,12 @@ void BotAI::HandlePacket(WorldPacket const& packet)
         case SMSG_PARTYKILLLOG:
             OnPartyKill(packet);
             return;
+        case SMSG_SPELLLOGEXECUTE:
+            OnSpellExecuteLog(packet);
+            return;
+        case SMSG_SPELLNONMELEEDAMAGELOG:
+            OnSpellDamageLog(packet);
+            return;
         case SMSG_RESURRECT_REQUEST:
             AcceptResurrect(packet);
             return;
@@ -190,6 +197,53 @@ void BotAI::OnPartyKill(WorldPacket const& packet)
     if (!group || !victim.IsCreature() || !sBotMgr.IsBoss(me->GetMapId(), victim.GetEntry()))
         return;
     sBotMgr.GetCoordinator(group->GetId())->NoteBossKill(victim.GetRawValue(), victim.GetEntry(), SteadyMs());
+}
+
+void BotAI::OnSpellExecuteLog(WorldPacket const& packet)
+{
+    // An interrupt of this bot that landed, in a scripted run: the run
+    // counts the interrupts done (spec section 10, Results). Each member
+    // near gets the log; only the caster notes it.
+    if (!sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        return;
+    WorldPacket data(packet);
+    ObjectGuid caster;
+    uint32 spell = 0, effects = 0;
+    data >> caster.ReadAsPackedClientBuildAware() >> spell >> effects;
+    if (caster != me->GetObjectGuid())
+        return;
+    for (uint32 i = 0; i < effects; ++i)
+    {
+        uint32 effect = 0, count = 0;
+        data >> effect >> count;
+        // The other effects of Kick and Shield Bash write no log. Another
+        // effect has its own layout: stop there.
+        if (effect != SPELL_EFFECT_INTERRUPT_CAST)
+            return;
+        for (uint32 j = 0; j < count; ++j)
+        {
+            ObjectGuid target;
+            uint32 stopped = 0;
+            data >> target.ReadAsPackedClientBuildAware() >> stopped;
+            sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::InterruptLanded, me->GetObjectGuid(), target, stopped, 0});
+        }
+    }
+}
+
+void BotAI::OnSpellDamageLog(WorldPacket const& packet)
+{
+    // A Fire Nova of Taragaman that hit this bot, in a scripted run (spec
+    // section 10, Results). Each member near gets the log; only the target
+    // notes it.
+    if (!sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        return;
+    WorldPacket data(packet);
+    ObjectGuid target, attacker;
+    uint32 spell = 0, damage = 0;
+    data >> target.ReadAsPackedClientBuildAware() >> attacker.ReadAsPackedClientBuildAware() >> spell >> damage;
+    if (target != me->GetObjectGuid() || spell != Bots::Taragaman::FireNova || attacker.GetEntry() != Bots::Taragaman::Entry)
+        return;
+    sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::FireNovaHit, me->GetObjectGuid(), attacker, spell, damage});
 }
 
 void BotAI::HandleCommand(BotCommandMessage const& message)

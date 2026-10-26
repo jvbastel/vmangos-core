@@ -8,7 +8,11 @@
 #ifndef WOWAI_GAME_BOTRUN_H
 #define WOWAI_GAME_BOTRUN_H
 
+#include "BotChat.h"
+#include "ChaseWatch.h"
 #include "Common.h"
+#include "Inbox.h"
+#include "InterruptWatch.h"
 #include "ObjectGuid.h"
 #include "Route.h"
 #include "RouteQuests.h"
@@ -28,6 +32,27 @@
 
 class Creature;
 class Player;
+class Unit;
+struct BotLine;
+
+// A fact of a scripted run that a bot sees on its map thread: an interrupt
+// spell that it cast at an enemy cast, an interrupt of its own that landed,
+// or a Fire Nova of Taragaman that hit it (spec section 10, Results).
+struct RunCombatNote
+{
+    enum class Kind
+    {
+        InterruptAttempt,
+        InterruptLanded,
+        FireNovaHit,
+    };
+
+    Kind kind;
+    ObjectGuid member;
+    ObjectGuid enemy;
+    uint32 spell;  // The enemy cast of an interrupt, or Fire Nova.
+    uint32 damage; // Of a Fire Nova.
+};
 
 // The script controller of the scripted runs (spec section 10). It runs one
 // scenario of a script file at a time: first a full reset of the test driver
@@ -54,6 +79,16 @@ class BotRun
 
         // A boss of the route died for the group of the run.
         void NoteBossKill(uint32 groupId, uint32 entry);
+
+        // From any thread: a combat fact of a member of the run. The run
+        // takes the notes at its next update.
+        void QueueCombatNote(RunCombatNote const& note) { m_combatNotes.Push(note); }
+        // Bot chat, on the world thread (BotMgr::Update): an event that bot
+        // chat sent, its outcome, and a line of the chat service that bot
+        // `bot` said in game. The run keeps those of its group in the result.
+        void NoteChatSent(SentChatEvent const& sent);
+        void NoteChatOutcome(Bots::ChatEventOutcome const& outcome);
+        void NoteChatLine(BotLine const& line, Player const* bot);
 
     private:
         enum class Phase
@@ -118,6 +153,22 @@ class BotRun
         // progress, and a kill counts for the quests.
         void WatchEnemies(int64 nowMs);
         void TraceMembers(int64 nowMs);
+        // The interrupts, the chases beyond the limit, and the Fire Nova
+        // hits (spec section 10, Results): the combat notes of the members,
+        // the casts of the enemies that the group fights, and the chase of
+        // each bot.
+        void WatchCombat(int64 nowMs);
+        void TakeCombatNotes(int64 nowMs);
+        // A living member knows an interrupt spell that is ready, and has
+        // the power for it.
+        bool InterrupterFree() const;
+        // The name of a unit that the run saw, for the result.
+        std::string NameOf(ObjectGuid guid) const;
+        void RememberName(Unit const* unit);
+        // The role of a member for the result: the test driver is ranged.
+        std::string RoleText(Player const* member) const;
+        // The chat event of the run with the id, or null.
+        Bots::RunChatEvent* ChatEventOf(uint64 id);
         // A living bot of the group eats or drinks.
         bool GroupResting() const;
         // A living mob of the pack near the test driver, or null.
@@ -125,6 +176,12 @@ class BotRun
         bool Fight(Bots::ScriptCommand const& command, std::string& detail);
         // Writes the result file, and the trace when the run did not pass.
         void WriteResultFiles();
+        // Writes the result file only: at the end of Closing again, with the
+        // chat lines that came while the group waited for them.
+        bool WriteResultJson() const;
+        // The interrupts and the chases of the watches, by name, into the
+        // result.
+        void RecordCombat();
         int64 RunMs() const;
         // ", threat losses <n> (<enemy> on <member> <s> s; ...), lost mobs
         // <m> (...)": both counts, for the result line (spec section 10).
@@ -169,6 +226,11 @@ class BotRun
         std::vector<std::pair<std::string, std::string>> m_lostMobNames; // The enemy and the member of each lost mob.
         bool m_aborted = false; // A GM stopped the run.
         std::unique_ptr<Bots::RunJudge> m_judge;
+        Bots::InterruptWatch m_interrupts;
+        Bots::ChaseWatch m_chases;
+        Bots::Inbox<RunCombatNote> m_combatNotes;
+        std::map<ObjectGuid, std::string> m_unitNames;
+        std::map<uint64, std::size_t> m_chatEvents; // By event id: the index in m_record.chatEvents.
         Bots::RunTrace m_trace;
         Bots::RunResult m_record; // The result file.
         std::unique_ptr<Bots::QuestProgress> m_quests;
