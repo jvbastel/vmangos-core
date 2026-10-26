@@ -39,6 +39,9 @@
 #include <list>
 #include <sstream>
 #include <sys/stat.h>
+#if PLATFORM == PLATFORM_WINDOWS
+#include <direct.h>
+#endif
 
 namespace
 {
@@ -178,7 +181,11 @@ namespace
     {
         std::time_t const now = std::time(nullptr);
         std::tm utc;
+#if PLATFORM == PLATFORM_WINDOWS
+        gmtime_s(&utc, &now);
+#else
         gmtime_r(&now, &utc);
+#endif
         char text[32];
         std::strftime(text, sizeof(text), format, &utc);
         return text;
@@ -1337,7 +1344,11 @@ void BotRun::WriteResultFiles()
             m_lostMobs.LostMobs()[i].endMs});
 
     std::string const dir = sBotMgr.GetSettings().runDir;
+#if PLATFORM == PLATFORM_WINDOWS
+    _mkdir(dir.c_str());
+#else
     mkdir(dir.c_str(), 0775);
+#endif
     std::string const stem = Bots::RunFileStem(m_record);
     std::string const path = dir + "/" + stem;
     m_record.traceFile.clear();
