@@ -297,7 +297,7 @@ TEST(ThreatWatch, EachLossKeepsTheNameOfItsHit)
     EXPECT_EQ(asked, 2);
 }
 
-TEST(LostMobWatch, EachLostMobKeepsTheNameOfItsFirstHit)
+TEST(LostMobWatch, EachLostMobKeepsTheNameOfTheHitWhenItWasLost)
 {
     Bots::LostMobWatch watch;
     int asked = 0;
@@ -309,6 +309,11 @@ TEST(LostMobWatch, EachLostMobKeepsTheNameOfItsFirstHit)
     ASSERT_EQ(watch.LostMobs().size(), 1u);
     EXPECT_EQ(watch.LostMobs()[0].name, "Enforcer on Healer");
     EXPECT_EQ(asked, 1);
+}
+
+TEST(HitText, TheWholeSecondsOfAHit)
+{
+    EXPECT_EQ(Bots::HitSeconds(Bots::ThreatLoss{Enforcer, Healer, 1000, 12900, "Enforcer on Healer"}), 11);
 }
 
 // One text for the threat losses and the lost mobs of the result line.

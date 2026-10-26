@@ -673,7 +673,10 @@ void BotRun::WatchThreat(int64 nowMs)
     std::size_t const lostBefore = m_lostMobs.LostMobs().size();
     m_lostMobs.Update(hits, Bots::AttackedEnemies(attacks), nowMs, holder, name);
     if (m_lostMobs.LostMobs().size() > lostBefore)
-        Fail("lost mob: " + Bots::HitText(m_lostMobs.LostMobs()[lostBefore]) + ", and no bot attacks it");
+    {
+        Bots::LostMob const& mob = m_lostMobs.LostMobs()[lostBefore];
+        Fail("lost mob: " + mob.name + ", and no bot attacks it for more than " + std::to_string(Bots::HitSeconds(mob)) + " s");
+    }
 }
 
 std::string BotRun::HitName(Bots::Guid enemy, Bots::Guid member) const

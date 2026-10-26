@@ -97,7 +97,7 @@ namespace Bots
         Guid member;          // The member it hit at the last update.
         std::int64_t startMs; // The first update of the unattacked hits.
         std::int64_t endMs;   // The last update of them so far.
-        std::string name;     // Of the first hit, from the HitNamer, or empty.
+        std::string name;     // Of the hit when it was lost, from the HitNamer, or empty.
     };
 
     class LostMobWatch
@@ -127,11 +127,19 @@ namespace Bots
         std::vector<LostMob> m_lost;
     };
 
+    // The whole seconds of a threat loss or a lost mob. Hit is ThreatLoss or
+    // LostMob (fields name, startMs, endMs).
+    template <typename Hit>
+    std::int64_t HitSeconds(Hit const& hit)
+    {
+        return (hit.endMs - hit.startMs) / 1000;
+    }
+
     // "<name> <s> s": a threat loss or a lost mob with its whole seconds.
     template <typename Hit>
     std::string HitText(Hit const& hit)
     {
-        return hit.name + " " + std::to_string((hit.endMs - hit.startMs) / 1000) + " s";
+        return hit.name + " " + std::to_string(HitSeconds(hit)) + " s";
     }
 
     // ", <label> <n> (<hit>; <hit>)" for the result line, or ", <label> 0".
