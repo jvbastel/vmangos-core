@@ -141,8 +141,9 @@ class RunState:
         if step:
             self.line = text
             command = step.group(1)
-            if command.startswith("fight "):
+            if command.startswith("fight ") or command.startswith("target "):
                 self.pack = command.split()[1]
+            if command.startswith("fight ") or command == "command pull":
                 self._event(clock, "pull", command)
         elif summary:
             self._fight(clock, summary)

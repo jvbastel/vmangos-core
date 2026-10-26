@@ -46,6 +46,13 @@ class Log(unittest.TestCase):
         self.assertEqual(state.pack, "pack7")
         self.assertEqual(state.events[-1], ("17:10:32", "pull", "fight pack7"))
 
+    def test_a_command_pull_is_a_pull_of_the_pack_that_the_driver_targets(self):
+        state = state_of(START, "2026-10-26 17:10:30 [Bots] Run 3: line 115: target pack10",
+                         "2026-10-26 17:10:31 [Bots] Run 3: line 116: command pull")
+
+        self.assertEqual(state.pack, "pack10")
+        self.assertEqual(state.events[-1], ("17:10:31", "pull", "command pull"))
+
     def test_a_death_and_a_revive_change_who_lives(self):
         state = state_of(START, RESET, "2026-10-26 17:05:00 [Bots] Run 3: Grukk dies")
         self.assertFalse(state.members["Grukk"].alive)
