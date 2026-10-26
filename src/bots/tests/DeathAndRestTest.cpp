@@ -1,4 +1,5 @@
 #include "ClassModules.h"
+#include "CoordinatorRegistry.h"
 #include "DeathAndRest.h"
 #include "FakeBot.h"
 #include "PriestModule.h"
@@ -26,16 +27,20 @@ namespace
 
     // A bot of a group of four: the player (the leader), a tank, a Priest
     // healer, and a mage. Everyone is alive and at full health and mana,
-    // nobody fights, and the bot follows the player.
+    // nobody fights, and the bot follows the player. `coordinator`: the
+    // coordinator that the bot AI gives the bot, by default one of its own.
     struct GroupBot
     {
         FakeBot fake;
-        GroupCoordinator group;
+        std::shared_ptr<GroupCoordinator> coordinator;
+        GroupCoordinator& group;
         StrategyStack stack;
         Bots::Guid self;
 
-        GroupBot(Bots::Guid self, Bots::BotClass botClass, Bots::BotRole role) :
-            fake(self), stack(Bots::MakeStrategyStack(botClass, role)), self(self)
+        GroupBot(Bots::Guid self, Bots::BotClass botClass, Bots::BotRole role,
+            std::shared_ptr<GroupCoordinator> coordinator = std::make_shared<GroupCoordinator>()) :
+            fake(self), coordinator(std::move(coordinator)), group(*this->coordinator),
+            stack(Bots::MakeStrategyStack(botClass, role)), self(self)
         {
             std::vector<Bots::Guid> others;
             for (Bots::Guid member : {Player, Tank, Healer, Mage})
@@ -74,7 +79,11 @@ namespace
 
     struct DeadMage : GroupBot
     {
-        DeadMage() : GroupBot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged) { Die(Mage); }
+        explicit DeadMage(std::shared_ptr<GroupCoordinator> coordinator = std::make_shared<GroupCoordinator>()) :
+            GroupBot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged, std::move(coordinator))
+        {
+            Die(Mage);
+        }
     };
 
     bool IsRest(GroupEvent const& event, Bots::Guid bot, RestReason reason)
@@ -250,7 +259,8 @@ namespace
     // Resurrection.
     struct GroupPriest : GroupBot
     {
-        GroupPriest() : GroupBot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer)
+        explicit GroupPriest(std::shared_ptr<GroupCoordinator> coordinator = std::make_shared<GroupCoordinator>()) :
+            GroupBot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer, std::move(coordinator))
         {
             fake.SetKnownSpell(Priest::Resurrection);
             fake.SetCastsOnDead(Priest::Resurrection);
@@ -414,6 +424,28 @@ TEST(Resurrect, TheGiveUpStaysWhenTheBlockersAreNotFound)
     bot.fake.SetHealth(Pack, 0, 0);
     bot.Watch();
     EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+}
+
+// The leader left the instance (a hearth, or a release that put his ghost
+// at the graveyard outside). The Priest inside gives up a resurrect: the dead
+// bot inside sees the give-up, because the bots in one place share the
+// coordinator of that place, and releases.
+TEST(Resurrect, WithTheLeaderOnAnotherMapTheDeadBotSeesTheGiveUpOfThePriest)
+{
+    Bots::Guid const Pack = 0x900;
+    Bots::CoordinatorRegistry registry;
+    std::uint32_t const group = 7;
+    Bots::MapPlace const ragefireChasm = {389, 7};
+    Bots::LeaderPlace const leaderOutside = Bots::LeaderPlace::On({1, 0});
+    GroupPriest priest(registry.For(group, ragefireChasm, leaderOutside, 0));
+    DeadMage mage(registry.For(group, ragefireChasm, leaderOutside, 0));
+    priest.DieOutOfReach(Mage);
+    priest.fake.SetHealth(Pack, 800, 800);
+    priest.fake.AddEnemy(Pack, {50.0f, 0.0f, 0.0f}, 30.0f);
+    priest.Think();
+    ASSERT_TRUE(priest.group.IsResurrectGivenUp(Mage));
+
+    EXPECT_EQ(mage.Think(), "release when no resurrect comes");
 }
 
 TEST(Resurrect, ThePriestDoesNotResurrectAMemberThatItGaveUp)

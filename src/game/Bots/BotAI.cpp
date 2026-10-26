@@ -334,27 +334,39 @@ void BotAI::StartPull(Player* player)
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s pulls %s", me->GetName(), target.GetString().c_str());
 }
 
-bool BotAI::UsesGroupCoordinator() const
+Bots::CoordinatorChoice BotAI::CoordinatorChoiceNow() const
 {
     Group const* group = me->GetGroup();
-    Bots::LeaderPlace leader = Bots::LeaderPlace::Unknown();
-    if (group)
-    {
-        // The leader can sit on another map thread: only its map and
-        // instance ids are read.
-        if (Player const* player = ObjectAccessor::FindPlayer(group->GetLeaderGuid()))
-            leader = Bots::LeaderPlace::On({player->GetMapId(), player->GetInstanceId()});
-    }
-    return Bots::ChooseCoordinator(group != nullptr, {me->GetMapId(), me->GetInstanceId()}, leader) ==
-        Bots::CoordinatorChoice::Group;
+    return Bots::ChooseCoordinator(group != nullptr, BotPlace(), PlaceOfLeader());
+}
+
+Bots::MapPlace BotAI::BotPlace() const
+{
+    return {me->GetMapId(), me->GetInstanceId()};
+}
+
+Bots::LeaderPlace BotAI::PlaceOfLeader() const
+{
+    Group const* group = me->GetGroup();
+    if (!group)
+        return Bots::LeaderPlace::Unknown();
+    // The leader can sit on another map thread: only its map and instance
+    // ids are read.
+    Player const* player = ObjectAccessor::FindPlayer(group->GetLeaderGuid());
+    return player ? Bots::LeaderPlace::On({player->GetMapId(), player->GetInstanceId()}) : Bots::LeaderPlace::Unknown();
+}
+
+bool BotAI::UsesGroupCoordinator() const
+{
+    return CoordinatorChoiceNow() == Bots::CoordinatorChoice::Group;
 }
 
 std::shared_ptr<Bots::GroupCoordinator> BotAI::Coordinator()
 {
-    if (UsesGroupCoordinator())
-        return sBotMgr.GetCoordinator(me->GetGroup()->GetId());
-    // No owner: the coordinator is a member of this AI. A bot without a
-    // group, or on another map than its leader, uses it.
+    if (Group const* group = me->GetGroup())
+        return sBotMgr.GetCoordinator(group->GetId(), BotPlace(), PlaceOfLeader(), SteadyMs());
+    // No owner: the coordinator of a bot without a group is a member of this
+    // AI.
     return std::shared_ptr<Bots::GroupCoordinator>(std::shared_ptr<Bots::GroupCoordinator>(), &m_soloCoordinator);
 }
 
@@ -441,10 +453,10 @@ void BotAI::Think()
         me->SetStandState(UNIT_STAND_STATE_STAND);
 
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
-    bool const away = me->GetGroup() && coordinator.get() == &m_soloCoordinator;
+    bool const away = CoordinatorChoiceNow() == Bots::CoordinatorChoice::Place;
     if (away != m_awayFromLeader)
-        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s %s the group coordinator (map %u)", me->GetName(),
-            away ? "ignores" : "uses", me->GetMapId());
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s uses the %s coordinator (map %u, instance %u)", me->GetName(),
+            away ? "place" : "group", me->GetMapId(), me->GetInstanceId());
     m_awayFromLeader = away;
     // For the chase limit of the damage bots (GroupRules.h).
     if (m_role == Bots::BotRole::Tank)
@@ -467,8 +479,8 @@ void BotAI::Think()
         m_attackTarget.GetRawValue()};
     context.startWaits = m_startGate.Waiting();
     std::string const rule = m_strategies.Think(context);
-    // A bot without a group has no chat session, and a bot away from its
-    // leader is no part of the group's events: its own coordinator drops them.
+    // A bot without a group has no chat session: its own coordinator drops
+    // the events. The bot manager drops the events of a place coordinator.
     if (coordinator.get() == &m_soloCoordinator)
         m_soloCoordinator.TakeEvents();
     if (!rule.empty() && rule != m_lastRule)
