@@ -57,6 +57,11 @@ namespace Bots
             void SetCannotCast(SpellId spell) { m_cannotCast.insert(spell); }
             void SetPower(Guid unit, std::uint32_t current, std::uint32_t max) { m_power[unit] = Power{current, max}; }
             void SetDistance(Guid unit, float yards) { m_distance[unit] = yards; }
+            // The distance as spell ranges measure it. Unset: GetDistance.
+            void SetSpellDistance(Guid unit, float yards) { m_spellDistance[unit] = yards; }
+            // CanCast refuses spell `spell` on a unit beyond `yards`
+            // (GetSpellDistance). Unset: any range.
+            void SetSpellRange(SpellId spell, float yards) { m_spellRange[spell] = yards; }
             void SetInCombat(Guid unit, bool inCombat = true) { m_inCombat[unit] = inCombat; }
             void SetVictim(Guid unit, Guid victim)
             {
@@ -179,6 +184,11 @@ namespace Bots
                     return std::hypot(there->second.x - here->second.x, there->second.y - here->second.y);
                 return unit == m_self || GetHealth(unit).max ? 5.0f : 100000.0f;
             }
+            float GetSpellDistance(Guid unit) const override
+            {
+                auto found = m_spellDistance.find(unit);
+                return found == m_spellDistance.end() ? GetDistance(unit) : found->second;
+            }
             float GetDistanceBetween(Guid a, Guid b) const override
             {
                 auto found = m_between.find({a, b});
@@ -214,6 +224,9 @@ namespace Bots
             bool CanCast(SpellId spell, Guid target) const override
             {
                 if (!KnowsSpell(spell) || m_cannotCast.count(spell) || m_cannotCastOn.count({spell, target}))
+                    return false;
+                auto range = m_spellRange.find(spell);
+                if (range != m_spellRange.end() && target != m_self && GetSpellDistance(target) > range->second)
                     return false;
                 if (m_castsOnDead.count(spell))
                     return GetLifeState(target) == LifeState::Dead;
@@ -394,6 +407,8 @@ namespace Bots
             std::set<SpellId> m_cannotCast;
             std::map<Guid, Power> m_power;
             std::map<Guid, float> m_distance;
+            std::map<Guid, float> m_spellDistance;
+            std::map<SpellId, float> m_spellRange;
             std::map<Guid, bool> m_inCombat;
             std::map<Guid, Guid> m_victim;
             std::set<std::pair<Guid, SpellId>> m_auras;

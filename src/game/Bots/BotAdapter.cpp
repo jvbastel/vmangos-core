@@ -257,6 +257,13 @@ float BotAdapter::GetDistance(Bots::Guid unit) const
     return found ? me->GetDistance(found) : std::numeric_limits<float>::max();
 }
 
+float BotAdapter::GetSpellDistance(Bots::Guid unit) const
+{
+    // The distance of Spell::CheckRange and of the range check of CanCast.
+    Unit const* found = Find(unit);
+    return found ? me->GetCombatDistance(found) : std::numeric_limits<float>::max();
+}
+
 float BotAdapter::GetDistanceBetween(Bots::Guid a, Bots::Guid b) const
 {
     Unit const* first = Find(a);

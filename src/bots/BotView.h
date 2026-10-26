@@ -76,6 +76,11 @@ namespace Bots
         // The distance in yards from the bot to unit `unit`. A large number
         // for a unit that the bot cannot see.
         virtual float GetDistance(Guid unit) const = 0;
+        // The distance in yards from the bot to unit `unit` as spell ranges
+        // measure it: between the combat reaches, not the bodies
+        // (Spell::CheckRange). A large number for a unit that the bot
+        // cannot see.
+        virtual float GetSpellDistance(Guid unit) const = 0;
         // The distance in yards between units `a` and `b`. A large number
         // when the bot cannot see one of them.
         virtual float GetDistanceBetween(Guid a, Guid b) const = 0;
