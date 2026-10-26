@@ -58,7 +58,13 @@ namespace Bots
             if (keyword == "refill")
                 return "use: refill";
             if (keyword == "wait")
-                return "use: wait <seconds> | wait arrive | wait combat_end [<seconds>]";
+                return "use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]";
+            if (keyword == "fight")
+                return "use: fight <pack> [<seconds>]";
+            if (keyword == "release")
+                return "use: release <seconds> | release never";
+            if (keyword == "route")
+                return "use: route [noquests]";
             if (keyword == "expect")
                 return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive";
             if (keyword == "script")
@@ -136,8 +142,38 @@ namespace Bots
                     c.seconds = DefaultCombatEndSeconds;
                     return n == 2 || (ReadNumber(w[2], c.seconds) && c.seconds > 0);
                 }
+                if ((n == 2 || n == 3) && w[1] == "rested")
+                {
+                    c.kind = ScriptCommandKind::WaitRested;
+                    c.seconds = DefaultRestedSeconds;
+                    return n == 2 || (ReadNumber(w[2], c.seconds) && c.seconds > 0);
+                }
                 c.kind = ScriptCommandKind::WaitSeconds;
                 return n == 2 && ReadNumber(w[1], c.seconds);
+            }
+            if (keyword == "fight")
+            {
+                c.kind = ScriptCommandKind::Fight;
+                c.seconds = DefaultCombatEndSeconds;
+                if (n < 2 || n > 3)
+                    return false;
+                c.name = w[1];
+                return n == 2 || (ReadNumber(w[2], c.seconds) && c.seconds > 0);
+            }
+            if (keyword == "release")
+            {
+                c.kind = ScriptCommandKind::Release;
+                if (n != 2)
+                    return false;
+                c.never = w[1] == "never";
+                return c.never || ReadNumber(w[1], c.seconds);
+            }
+            if (keyword == "route")
+            {
+                c.kind = ScriptCommandKind::Route;
+                if (n == 2 && w[1] == "noquests")
+                    c.quests = RunQuests::Skip;
+                return n == 1 || c.quests == RunQuests::Skip;
             }
             if (keyword == "expect")
             {
@@ -164,7 +200,8 @@ namespace Bots
 
         bool IsCommandKeyword(std::string const& word)
         {
-            for (char const* keyword : {"teleport", "move", "command", "whisper", "target", "clear", "refill", "wait", "expect"})
+            for (char const* keyword : {"teleport", "move", "command", "whisper", "target", "clear", "refill", "wait", "expect",
+                     "fight", "release", "route"})
                 if (word == keyword)
                     return true;
             return false;
@@ -264,12 +301,65 @@ namespace Bots
                 std::string const at = "line " + std::to_string(c.line) + ": the route " + route.name;
                 bool const point = c.kind == ScriptCommandKind::Teleport || c.kind == ScriptCommandKind::Move;
                 bool const pack = !c.name.empty() && (c.kind == ScriptCommandKind::Target ||
-                    c.kind == ScriptCommandKind::Clear || c.kind == ScriptCommandKind::ExpectPackDead);
+                    c.kind == ScriptCommandKind::Clear || c.kind == ScriptCommandKind::ExpectPackDead ||
+                    c.kind == ScriptCommandKind::Fight);
                 if (point && !FindPoint(route, c.name))
                     return at + " has no point named " + c.name;
                 if (pack && !FindPack(route, c.name))
                     return at + " has no pack named " + c.name;
             }
         return "";
+    }
+
+    std::vector<ScriptCommand> ExpandRoute(std::vector<ScriptCommand> const& commands, Route const& route)
+    {
+        std::vector<ScriptCommand> expanded;
+        for (ScriptCommand const& c : commands)
+        {
+            if (c.kind != ScriptCommandKind::Route)
+            {
+                expanded.push_back(c);
+                continue;
+            }
+            auto add = [&](ScriptCommandKind kind, std::string const& name, std::uint32_t seconds, std::string const& source)
+            {
+                ScriptCommand step;
+                step.kind = kind;
+                step.name = name;
+                step.seconds = seconds;
+                step.line = c.line;
+                step.source = source;
+                expanded.push_back(step);
+            };
+            auto say = [&](std::string const& text)
+            {
+                add(ScriptCommandKind::Command, "", 0, "command " + text);
+                expanded.back().text = text;
+            };
+            for (RouteStep const& step : RunSteps(route, c.quests))
+                if (step.kind == RouteStepKind::Point)
+                {
+                    std::string const& point = route.points[step.index].name;
+                    add(ScriptCommandKind::Move, point, 0, "move " + point);
+                    add(ScriptCommandKind::WaitArrive, "", 0, "wait arrive");
+                }
+                else
+                {
+                    std::string const& pack = route.packs[step.index].name;
+                    add(ScriptCommandKind::WaitRested, "", DefaultRestedSeconds, "wait rested");
+                    say("stay");
+                    add(ScriptCommandKind::Fight, pack, DefaultCombatEndSeconds, "fight " + pack);
+                    say("follow");
+                }
+        }
+        return expanded;
+    }
+
+    bool IsFullRun(ScriptScenario const& scenario)
+    {
+        for (ScriptCommand const& c : scenario.commands)
+            if (c.kind == ScriptCommandKind::Route)
+                return true;
+        return false;
     }
 }
