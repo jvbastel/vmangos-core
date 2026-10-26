@@ -133,6 +133,22 @@ TEST(MageFrost, RunsIntoCastingRangeOfAFarFocusTarget)
     EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
 }
 
+TEST(MageFrost, RunsIntoFrostboltRangeRatherThanCastFireballAtTheEdge)
+{
+    // Spell ranges count from the combat reach, which is smaller here than
+    // the body: Frostbolt (30 yards) is out of range, Fireball (35) not.
+    FrostMage mage;
+    mage.fake.SetSpellRange(Mage::Frostbolt, 30.0f);
+    mage.fake.SetSpellRange(Mage::Fireball, 35.0f);
+    mage.fake.SetDistance(Kobold, 29.0f);
+    mage.fake.SetSpellDistance(Kobold, 32.0f);
+    mage.TankHoldsKobold();
+
+    mage.Think();
+
+    EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
+}
+
 TEST(MageFrost, FrostNovasAnEnemyThatHitsItInMelee)
 {
     FrostMage mage;

@@ -257,6 +257,13 @@ float BotAdapter::GetDistance(Bots::Guid unit) const
     return found ? me->GetDistance(found) : std::numeric_limits<float>::max();
 }
 
+float BotAdapter::GetSpellDistance(Bots::Guid unit) const
+{
+    // The distance of Spell::CheckRange and of the range check of CanCast.
+    Unit const* found = Find(unit);
+    return found ? me->GetCombatDistance(found) : std::numeric_limits<float>::max();
+}
+
 float BotAdapter::GetDistanceBetween(Bots::Guid a, Bots::Guid b) const
 {
     Unit const* first = Find(a);
@@ -443,6 +450,33 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
             return false;
     }
     return true;
+}
+
+bool BotAdapter::LevelAllowsRank(Bots::SpellId rank, Bots::Guid target) const
+{
+    // Like the SPELL_FAILED_LOWLEVEL check of Spell::CheckTarget. A player
+    // gets a lower rank from WorldSession::HandleCastSpellOpcode, a bot not.
+    SpellEntry const* entry = sSpellMgr.GetSpellEntry(rank);
+    Unit const* unit = Find(target);
+    if (!entry || !unit || unit == me || entry->HasAttribute(SPELL_ATTR_EX2_ALLOW_LOW_LEVEL_BUFF))
+        return true;
+    return sSpellMgr.SelectAuraRankForLevel(entry, unit->GetLevel()) == entry;
+}
+
+bool BotAdapter::IsCastLocked(Bots::SpellId spell) const
+{
+    // Like the states of Spell::CheckCasterAuras, without the spells that
+    // grant an immunity to them (the bots cast none).
+    SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
+    if (!entry || entry->IsIgnoringCasterAndTargetRestrictions())
+        return false;
+    if (me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED | UNIT_FLAG_CONFUSED | UNIT_FLAG_FLEEING))
+        return true;
+    if (entry->PreventionType == SPELL_PREVENTION_TYPE_SILENCE)
+        return me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED) || me->CheckLockout(entry->GetSpellSchoolMask());
+    if (entry->PreventionType == SPELL_PREVENTION_TYPE_PACIFY)
+        return me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
+    return false;
 }
 
 std::vector<Bots::Guid> BotAdapter::GetGroupMembers() const

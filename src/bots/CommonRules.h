@@ -25,8 +25,9 @@ namespace Bots
     std::uint32_t Percent(std::uint32_t current, std::uint32_t max);
 
     // A rule that casts the highest known rank of the spell whose first rank
-    // is `firstRank` on the picked unit. The bot can do it when it knows a
-    // rank and BotView::CanCast allows it.
+    // is `firstRank` that the level of the picked unit allows, on that unit
+    // (SpellBook.h, CastableRank). The bot can do it when it knows such a
+    // rank and can cast it now.
     Rule CastRule(std::string name, int priority, Trigger trigger, SpellId firstRank, TargetPicker target);
 
     // A rule that starts the melee attack of the picked unit and runs to it.

@@ -76,6 +76,11 @@ namespace Bots
         // The distance in yards from the bot to unit `unit`. A large number
         // for a unit that the bot cannot see.
         virtual float GetDistance(Guid unit) const = 0;
+        // The distance in yards from the bot to unit `unit` as spell ranges
+        // measure it: between the combat reaches, not the bodies
+        // (Spell::CheckRange). A large number for a unit that the bot
+        // cannot see.
+        virtual float GetSpellDistance(Guid unit) const = 0;
         // The distance in yards between units `a` and `b`. A large number
         // when the bot cannot see one of them.
         virtual float GetDistanceBetween(Guid a, Guid b) const = 0;
@@ -114,6 +119,14 @@ namespace Bots
         // `target` now: the spell is ready, the global cooldown is over, and
         // the power, the stance, the aura states, and the range allow it.
         virtual bool CanCast(SpellId spell, Guid target) const = 0;
+        // True when the level of unit `target` allows rank `rank` of a spell.
+        // A buff rank may be at most 10 levels above the target, else the
+        // cast fails with SPELL_FAILED_LOWLEVEL. Each other spell is allowed.
+        virtual bool LevelAllowsRank(SpellId rank, Guid target) const = 0;
+        // True when a state of the bot keeps it from casting spell `spell`
+        // now: a stun, a fear, a confuse; a silence or a school lockout for
+        // a magic spell; a pacify for a physical one (Spell::CheckCasterAuras).
+        virtual bool IsCastLocked(SpellId spell) const = 0;
 
         // The members of the bot's group that the bot can see, the bot
         // first. Only the bot when it is in no group.

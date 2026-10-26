@@ -97,11 +97,8 @@ namespace Bots
             // The first dead member that the bot can resurrect now, or NoGuid.
             Guid DeadMemberInReach(BotContext const& context)
             {
-                SpellId const rank = HighestKnownRank(context.view, Resurrection);
-                if (rank == NoSpell)
-                    return NoGuid;
                 for (Guid member : context.view.GetGroupMembers())
-                    if (MayResurrect(context, member) && context.view.CanCast(rank, member))
+                    if (MayResurrect(context, member) && CastableRank(context.view, Resurrection, member) != NoSpell)
                         return member;
                 return NoGuid;
             }
