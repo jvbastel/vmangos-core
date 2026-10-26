@@ -60,8 +60,10 @@ class BotAI : public PlayerBotAI
         // SMSG_PARTYKILLLOG: a boss kill of the group goes to the coordinator.
         void OnPartyKill(WorldPacket const& packet);
         // The facts of a scripted run that only the combat log shows: an
-        // interrupt of this bot that landed, and a Fire Nova that hit it.
-        void OnSpellExecuteLog(WorldPacket const& packet);
+        // interrupt of this bot that missed, an enemy cast that stopped, and
+        // a Fire Nova that hit the bot.
+        void OnSpellMissLog(WorldPacket const& packet);
+        void OnSpellFailedOther(WorldPacket const& packet);
         void OnSpellDamageLog(WorldPacket const& packet);
         void HandleCommand(BotCommandMessage const& message);
         void StartCommand(Player* player);

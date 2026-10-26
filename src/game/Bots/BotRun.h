@@ -35,22 +35,24 @@ class Player;
 class Unit;
 struct BotLine;
 
-// A fact of a scripted run that a bot sees on its map thread: an interrupt
-// spell that it cast at an enemy cast, an interrupt of its own that landed,
-// or a Fire Nova of Taragaman that hit it (spec section 10, Results).
+// A fact of a scripted run that a bot sees on its map thread (spec section
+// 10, Results): an interrupt spell that it cast at an enemy cast, an
+// interrupt of its own that missed, an enemy cast that stopped before it went
+// off, or a Fire Nova of Taragaman that hit it.
 struct RunCombatNote
 {
     enum class Kind
     {
         InterruptAttempt,
-        InterruptLanded,
+        InterruptMissed,
+        CastStopped,
         FireNovaHit,
     };
 
     Kind kind;
-    ObjectGuid member;
+    ObjectGuid member; // The bot that saw it.
     ObjectGuid enemy;
-    uint32 spell;  // The enemy cast of an interrupt, or Fire Nova.
+    uint32 spell;  // The enemy cast of an interrupt or a stop, or Fire Nova.
     uint32 damage; // Of a Fire Nova.
 };
 

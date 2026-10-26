@@ -1499,14 +1499,19 @@ void BotRun::TakeCombatNotes(int64 nowMs)
             case RunCombatNote::Kind::InterruptAttempt:
                 m_interrupts.NoteAttempt(who, enemy, note.spell, nowMs);
                 break;
-            case RunCombatNote::Kind::InterruptLanded:
+            case RunCombatNote::Kind::InterruptMissed:
+                m_interrupts.NoteMissed(who, enemy, nowMs);
+                break;
+            case RunCombatNote::Kind::CastStopped:
             {
                 SpellEntry const* entry = sSpellMgr.GetSpellEntry(note.spell);
                 Bots::CastKind const kind = !entry ? Bots::CastKind::Other : entry->IsHealSpell() ? Bots::CastKind::Heal
                     : entry->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
-                m_interrupts.NoteLanded(who, enemy, note.spell, kind, nowMs);
-                m_trace.Add(nowMs, std::string(member->GetName()) + " interrupts " + NameOf(note.enemy) + " "
-                    + std::to_string(note.spell));
+                std::size_t const done = m_interrupts.Done().size();
+                m_interrupts.NoteStopped(enemy, note.spell, kind, nowMs);
+                if (m_interrupts.Done().size() > done)
+                    m_trace.Add(nowMs, NameOf(ObjectGuid(m_interrupts.Done().back().member)) + " interrupts "
+                        + NameOf(note.enemy) + " " + std::to_string(note.spell));
                 break;
             }
             case RunCombatNote::Kind::FireNovaHit:
