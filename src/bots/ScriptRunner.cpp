@@ -16,7 +16,8 @@ namespace Bots
         }
     }
 
-    ScriptRunner::ScriptRunner(std::vector<ScriptCommand> commands) : m_commands(std::move(commands))
+    ScriptRunner::ScriptRunner(std::vector<ScriptCommand> commands, Route route)
+        : m_commands(std::move(commands)), m_route(std::move(route))
     {
     }
 
@@ -60,6 +61,11 @@ namespace Bots
                     if (m_index >= m_commands.size())
                     {
                         m_state = State::Passed;
+                        continue;
+                    }
+                    if (m_commands[m_index].kind == ScriptCommandKind::WalkBack)
+                    {
+                        ExpandWalkBack(facts.driverAt);
                         continue;
                     }
                     ScriptCommand const& c = m_commands[m_index];
@@ -131,10 +137,8 @@ namespace Bots
                         return wait;
                     if (c.kind == ScriptCommandKind::Fight && facts.fightPackAlive)
                     {
-                        int& refights = m_refights[c.name];
-                        if (refights >= RefightLimit)
+                        if (c.again >= std::uint32_t(RefightLimit))
                             return Fail(c.name + " still lives after " + std::to_string(RefightLimit + 1) + " fights");
-                        ++refights;
                         FightAgain();
                     }
                     ++m_index;
@@ -195,27 +199,65 @@ namespace Bots
         ScriptCommand rested = command(ScriptCommandKind::WaitRested, "wait rested");
         rested.seconds = DefaultRestedSeconds;
         // A wipe ends the fight before the release: the group lives again
-        // at the dungeon entrance, rests, and follows the driver back to
-        // the point of the last move.
+        // at the dungeon entrance, rests, and follows the driver back. The
+        // walk starts from where the driver stands after the rest.
         add(rested);
+        bool const walk = FindPack(m_route, fight.name) != nullptr;
+        std::size_t lastMove = m_index;
         for (std::size_t i = m_index; i-- > 0;)
             if (m_commands[i].kind == ScriptCommandKind::Move)
             {
-                ScriptCommand follow = command(ScriptCommandKind::Command, "command follow");
-                follow.text = "follow";
-                add(follow);
-                add(m_commands[i]);
-                add(command(ScriptCommandKind::WaitArrive, "wait arrive"));
+                lastMove = i;
                 break;
             }
+        if (walk || lastMove < m_index)
+        {
+            ScriptCommand follow = command(ScriptCommandKind::Command, "command follow");
+            follow.text = "follow";
+            add(follow);
+        }
+        if (walk)
+        {
+            ScriptCommand back = command(ScriptCommandKind::WalkBack, "walk back to " + fight.name);
+            back.name = fight.name;
+            add(back);
+        }
+        else if (lastMove < m_index)
+        {
+            add(m_commands[lastMove]);
+            add(command(ScriptCommandKind::WaitArrive, "wait arrive"));
+        }
         // A member that died on the way back.
         add(rested);
         // The group held its place for the pull: it does so again.
         if (m_index > 0 && m_commands[m_index - 1].kind == ScriptCommandKind::Command &&
             m_commands[m_index - 1].text == "stay")
             add(m_commands[m_index - 1]);
-        add(fight);
+        ScriptCommand next = fight;
+        ++next.again;
+        add(next);
         m_commands.insert(m_commands.begin() + m_index + 1, again.begin(), again.end());
+    }
+
+    void ScriptRunner::ExpandWalkBack(Position const& from)
+    {
+        ScriptCommand const back = m_commands[m_index];
+        std::vector<ScriptCommand> walk;
+        for (std::string const& point : WalkBackPoints(m_route, from, back.name))
+        {
+            ScriptCommand move = back;
+            move.kind = ScriptCommandKind::Move;
+            move.name = point;
+            move.source = "move " + point;
+            walk.push_back(move);
+            ScriptCommand arrive = back;
+            arrive.kind = ScriptCommandKind::WaitArrive;
+            arrive.name.clear();
+            arrive.source = "wait arrive";
+            walk.push_back(arrive);
+        }
+        m_commands.erase(m_commands.begin() + m_index);
+        m_commands.insert(m_commands.begin() + m_index, walk.begin(), walk.end());
     }
 
     void ScriptRunner::NothingToDo()

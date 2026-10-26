@@ -77,8 +77,9 @@ MAX_WIPES = 1
 MIN_CLEAN_PULLS = 0.8
 MAX_BOT_DEATHS = 2
 MIN_HEALS_INTERRUPTED = 0.7
-CHASE_YARDS = 25
 MAX_FIRE_NOVA_HITS = 1
+# The roles (the result file's role names) that Fire Nova must not hit.
+FIRE_NOVA_ROLES = ("ranged", "healer")
 # The events that need a delivered line, and the events of the game (not the
 # talk with the player).
 EVENTS_WITH_A_LINE = ("boss_kill", "wipe", "loot_roll")
@@ -104,16 +105,18 @@ def bot_deaths_outside_wipe(result):
 
 
 def clean_pull_share(result):
-    """The share of pulls with no threat loss. A loss belongs to the last
-    pull before it."""
-    starts = sorted(pull["time_s"] for pull in result["pulls"])
-    if not starts:
+    """The share of first pulls with no threat loss. A loss belongs to the
+    last pull before it. A fight again of a pack that lived after its fight
+    (`again`) takes its own losses, but is no first pull."""
+    pulls = sorted(result["pulls"], key=lambda pull: pull["time_s"])
+    first = [i for i, pull in enumerate(pulls) if not pull["again"]]
+    if not first:
         return 1.0
     lossy = set()
     for loss in result["threat_losses"]:
-        before = [i for i, start in enumerate(starts) if start <= loss["time_s"]]
-        lossy.add(before[-1] if before else 0)
-    return 1.0 - len(lossy) / len(starts)
+        before = [i for i, pull in enumerate(pulls) if pull["time_s"] <= loss["time_s"]]
+        lossy.add(before[-1] if before else first[0])
+    return 1.0 - len(lossy.intersection(first)) / len(first)
 
 
 def chat_failures(result):
@@ -172,11 +175,11 @@ def threshold_failures(result):
                                                               percent(MIN_HEALS_INTERRUPTED)))
     if result["chases"]:
         failures.append("chases more than %d yards from the tank %d (%s)" % (
-            CHASE_YARDS, len(result["chases"]),
+            result["chase_limit_yards"], len(result["chases"]),
             ", ".join("%s %.0f yd" % (c["member"], c["max_yards"]) for c in result["chases"])))
     fights = {}
     for hit in result["fire_nova_hits"]:
-        if hit["role"] in ("ranged", "healer"):
+        if hit["role"] in FIRE_NOVA_ROLES:
             fights[hit["fight"]] = fights.get(hit["fight"], 0) + 1
     for fight, hits in sorted(fights.items()):
         if hits > MAX_FIRE_NOVA_HITS:

@@ -27,7 +27,8 @@ namespace
         r.bossKills = {{11517, "Oggleflint", 300000}};
         r.wipes = {600000, 1200000};
         r.deaths = {{"Hela", 590000}, {"Grukk", 600000}, {"Hela", 1199000}};
-        r.pulls = {{"pack1", "Earthborer", 61500}, {"", "Taragaman the Hungerer", 900000}};
+        r.pulls = {{"pack1", "Earthborer", 61500}, {"pack1", "Earthborer", 120000, true},
+            {"", "Taragaman the Hungerer", 900000}};
         r.threatLosses = {{"Earthborer", "Hela", 62000, 67000}};
         r.lostMobs = {};
         r.gearDraws = {{"Grukk", "warrior_tank", "1h_shield", {{"main_hand", 2489, "Two-Handed Sword"}}}};
@@ -41,7 +42,8 @@ namespace
         r.missedCasts = {{"Searing Blade Cultist", 403, "Lightning Bolt", Bots::CastKind::Harm, 75000}};
         r.doubleInterrupts = {{"Searing Blade Cultist", 332, "Healing Wave", "Shanka", "Grukk", 70500}};
         r.chases = {{"Shanka", "Earthborer", 80000, 82500, 31.25f}};
-        r.fireNovaHits = {{"Hela", "healer", 1, 85, 905000}};
+        r.fireNovaHits = {{"Hela", Bots::BotRole::Healer, 1, 85, 905000}};
+        r.chaseLimitYards = 25.0f;
         r.chatEvents = {{"boss_kill", "", 300000, true, {{"Grukk", 302000}, {"Hela", 304500}}},
             {"player_message", "Hela", 20000, false, {}}};
         r.traceFile = "ragefire_chasm-full-20261026-101500.trace.txt";
@@ -88,8 +90,10 @@ TEST(RunResult, WritesThePullsTheThreatLossesAndTheLostMobs)
     Json const j = Json::parse(Bots::RunResultJson(AFailedFullRun()));
 
     // A `command pull` of a scenario has no pack.
-    EXPECT_EQ(j["pulls"], Json::parse(R"([{"pack": "pack1", "target": "Earthborer", "time_s": 61.5},
-        {"pack": null, "target": "Taragaman the Hungerer", "time_s": 900.0}])"));
+    // A fight again of a pack that lived after its fight is marked.
+    EXPECT_EQ(j["pulls"], Json::parse(R"([{"pack": "pack1", "target": "Earthborer", "time_s": 61.5, "again": false},
+        {"pack": "pack1", "target": "Earthborer", "time_s": 120.0, "again": true},
+        {"pack": null, "target": "Taragaman the Hungerer", "time_s": 900.0, "again": false}])"));
     EXPECT_EQ(j["threat_losses"],
         Json::parse(R"([{"enemy": "Earthborer", "member": "Hela", "time_s": 62.0, "seconds": 5.0}])"));
     EXPECT_EQ(j["lost_mobs"], Json::array());
@@ -155,6 +159,7 @@ TEST(RunResult, WritesTheChasesBeyondTheLimitAndTheFireNovaHits)
 
     EXPECT_EQ(j["chases"], Json::parse(R"([{"member": "Shanka", "enemy": "Earthborer", "time_s": 80.0,
         "seconds": 2.5, "max_yards": 31.25}])"));
+    EXPECT_EQ(j["chase_limit_yards"], 25.0);
     EXPECT_EQ(j["fire_nova_hits"], Json::parse(R"([{"member": "Hela", "role": "healer", "fight": 1, "damage": 85,
         "time_s": 905.0}])"));
 }
@@ -168,4 +173,18 @@ TEST(RunResult, WritesTheChatEventsWithTheLinesThatTheBotsSaid)
         {"event": "boss_kill", "to": null, "time_s": 300.0, "reached": true,
          "lines": [{"bot": "Grukk", "time_s": 302.0}, {"bot": "Hela", "time_s": 304.5}]},
         {"event": "player_message", "to": "Hela", "time_s": 20.0, "reached": false, "lines": []}])"));
+}
+
+// The fight of a Fire Nova hit: 1 for the first pull of the fight, one more
+// for each pull again of it, with or without a wipe (WOWAI#94/#95 review).
+TEST(RunResult, TheFightNumberCountsThePullsAgain)
+{
+    EXPECT_EQ(Bots::FightNumber({}), 1u);
+    EXPECT_EQ(Bots::FightNumber({{"pack1", "Earthborer", 1000}}), 1u);
+    EXPECT_EQ(Bots::FightNumber({{"pack1", "Earthborer", 1000}, {"pack1", "Earthborer", 2000, true},
+                  {"pack1", "Earthborer", 3000, true}}),
+        3u);
+    EXPECT_EQ(Bots::FightNumber({{"pack1", "Earthborer", 1000}, {"pack1", "Earthborer", 2000, true},
+                  {"pack2", "Taragaman the Hungerer", 3000}}),
+        1u);
 }

@@ -274,7 +274,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_scenario = scenario;
     Bots::ScriptScenario const& commands = *Bots::FindScenario(m_script, scenario);
     bool const fullRun = Bots::IsFullRun(commands);
-    m_runner.reset(new Bots::ScriptRunner(Bots::ExpandRoute(commands.commands, m_route)));
+    m_runner.reset(new Bots::ScriptRunner(Bots::ExpandRoute(commands.commands, m_route), m_route));
     m_startMs = SteadyMs();
     m_result.clear();
     m_bossKills.clear();
@@ -305,6 +305,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
 
     m_record = Bots::RunResult();
     m_record.number = m_number;
+    m_record.chaseLimitYards = Bots::ChaseLimitYards;
     m_record.script = m_script.name;
     m_record.scenario = m_scenario;
     m_record.fullRun = fullRun;
@@ -766,6 +767,8 @@ Bots::RunFacts BotRun::Facts() const
     std::string const pack = m_runner ? m_runner->FightPack() : std::string();
     if (!pack.empty())
         facts.fightPackAlive = !InWorldAndStill(driver) || LivingMobOf(pack);
+    if (driver && driver->IsInWorld())
+        facts.driverAt = {driver->GetPositionX(), driver->GetPositionY(), driver->GetPositionZ()};
     if (m_moving && driver && driver->IsInWorld())
     {
         float const dx = driver->GetPositionX() - m_moveX, dy = driver->GetPositionY() - m_moveY;
@@ -876,10 +879,7 @@ bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
         case Bots::ScriptCommandKind::Command:
             // A `command pull` is a pull of the result, like a `fight`.
             if (command.text == "pull")
-            {
-                Unit const* target = driver->GetMap()->GetUnit(driver->GetTargetGuid());
-                m_record.pulls.push_back({"", target ? target->GetName() : "", RunMs()});
-            }
+                RecordPull(command);
             return Say(CHAT_MSG_PARTY, nullptr, command.text);
         case Bots::ScriptCommandKind::Whisper:
         {
@@ -1347,16 +1347,21 @@ bool BotRun::GroupResting() const
 {
     if (!m_groupId)
         return false;
-    for (Bots::Guid bot : sBotMgr.GetCoordinator(m_groupId)->GetResting())
+    std::shared_ptr<Bots::GroupCoordinator> const coordinator = sBotMgr.GetCoordinator(m_groupId);
+    bool resting = false;
+    for (Bots::Guid bot : coordinator->GetResting())
     {
-        // Only a bot that is still here: a bot that logged out while it ate
-        // stays in the list of the coordinator.
+        // Only a bot that is still here. A bot that died, left the group,
+        // or logged out while it rested no longer updates its rest: the
+        // coordinator forgets it, or `wait rested` waits for it for good.
         Player const* player = ObjectAccessor::FindPlayer(ObjectGuid(bot));
         if (player && player->IsInWorld() && player->IsAlive() && player->GetGroup() &&
             player->GetGroup()->GetId() == m_groupId)
-            return true;
+            resting = true;
+        else if (!player || !player->IsBeingTeleported())
+            coordinator->ForgetRest(bot);
     }
-    return false;
+    return resting;
 }
 
 bool BotRun::Fight(Bots::ScriptCommand const& command, std::string& detail)
@@ -1365,10 +1370,17 @@ bool BotRun::Fight(Bots::ScriptCommand const& command, std::string& detail)
     // does. The bots that follow it come to the fight.
     if (!Target(command, detail))
         return false;
+    RecordPull(command);
+    return Say(CHAT_MSG_PARTY, nullptr, "pull");
+}
+
+void BotRun::RecordPull(Bots::ScriptCommand const& command)
+{
     Player const* driver = Driver();
     Unit const* target = driver->GetMap()->GetUnit(driver->GetTargetGuid());
-    m_record.pulls.push_back({command.name, target ? target->GetName() : "", RunMs()});
-    return Say(CHAT_MSG_PARTY, nullptr, "pull");
+    // The pack of a `fight`; none for a `command pull`.
+    std::string const pack = command.kind == Bots::ScriptCommandKind::Fight ? command.name : "";
+    m_record.pulls.push_back({pack, target ? target->GetName() : "", RunMs(), command.again > 0});
 }
 
 void BotRun::WriteResultFiles()
@@ -1482,10 +1494,7 @@ void BotRun::WatchCombat(int64 nowMs)
             continue;
         RememberName(member);
         RememberName(target);
-        float const dx = member->GetPositionX() - tank->GetPositionX();
-        float const dy = member->GetPositionY() - tank->GetPositionY();
-        float const dz = member->GetPositionZ() - tank->GetPositionZ();
-        float const yards = std::sqrt(dx * dx + dy * dy + dz * dz);
+        float const yards = member->GetDistance3dToCenter(tank);
         chases.push_back({member->GetObjectGuid().GetRawValue(), target->GetObjectGuid().GetRawValue(), yards});
     }
     std::size_t const known = m_chases.Chases().size();
@@ -1494,7 +1503,7 @@ void BotRun::WatchCombat(int64 nowMs)
     {
         Bots::FarChase const& chase = m_chases.Chases()[i];
         std::string const text = NameOf(ObjectGuid(chase.member)) + " chases " + NameOf(ObjectGuid(chase.enemy))
-            + " more than " + std::to_string(int(Bots::ChaseRecordYards)) + " yards from the tank";
+            + " more than " + std::to_string(int(Bots::ChaseLimitYards)) + " yards from the tank";
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
         m_trace.Add(nowMs, text);
     }
@@ -1521,9 +1530,7 @@ void BotRun::TakeCombatNotes(int64 nowMs)
                 break;
             case RunCombatNote::Kind::CastStopped:
             {
-                SpellEntry const* entry = sSpellMgr.GetSpellEntry(note.spell);
-                Bots::CastKind const kind = !entry ? Bots::CastKind::Other : entry->IsHealSpell() ? Bots::CastKind::Heal
-                    : entry->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+                Bots::CastKind const kind = BotAdapter::CastKindOf(sSpellMgr.GetSpellEntry(note.spell));
                 std::size_t const done = m_interrupts.Done().size();
                 m_interrupts.NoteStopped(enemy, note.spell, kind, nowMs);
                 if (m_interrupts.Done().size() > done)
@@ -1533,8 +1540,8 @@ void BotRun::TakeCombatNotes(int64 nowMs)
             }
             case RunCombatNote::Kind::FireNovaHit:
             {
-                uint32 const fight = uint32(m_record.wipes.size()) + 1;
-                m_record.fireNovaHits.push_back({member->GetName(), RoleText(member), fight, note.damage, nowMs});
+                uint32 const fight = Bots::FightNumber(m_record.pulls);
+                m_record.fireNovaHits.push_back({member->GetName(), RoleOf(member), fight, note.damage, nowMs});
                 sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: Fire Nova hits %s for %u", m_number,
                     member->GetName(), note.damage);
                 m_trace.Add(nowMs, "Fire Nova hits " + std::string(member->GetName()) + " for " + std::to_string(note.damage));
@@ -1576,10 +1583,10 @@ void BotRun::RememberName(Unit const* unit)
     m_unitNames[unit->GetObjectGuid()] = unit->GetName();
 }
 
-std::string BotRun::RoleText(Player const* member) const
+Bots::BotRole BotRun::RoleOf(Player const* member) const
 {
     Bots::BotRole role;
-    return sBotMgr.BotRoleOf(member, role) ? Bots::RoleName(role) : "ranged";
+    return sBotMgr.BotRoleOf(member, role) ? role : Bots::BotRole::Ranged;
 }
 
 Bots::RunChatEvent* BotRun::ChatEventOf(uint64 id)

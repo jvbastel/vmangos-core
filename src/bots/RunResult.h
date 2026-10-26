@@ -1,7 +1,8 @@
 #ifndef WOWAI_BOTS_RUN_RESULT_H
 #define WOWAI_BOTS_RUN_RESULT_H
 
-#include "BotView.h"
+#include "BotRecipe.h"
+#include "BotTypes.h"
 #include "RouteQuests.h"
 
 #include <cstdint>
@@ -40,6 +41,7 @@ namespace Bots
         std::string pack;   // Empty for a `command pull`.
         std::string target; // The unit that the test driver selected.
         std::int64_t ms;
+        bool again = false; // A fight again of a pack that lived after its fight.
     };
 
     // A threat loss or a lost mob: the enemy hit the member from start to end.
@@ -98,8 +100,8 @@ namespace Bots
     struct RunFireNovaHit
     {
         std::string member;
-        std::string role;    // "tank", "healer", "melee", or "ranged" (the test driver and the Warlock bot).
-        std::uint32_t fight; // 1 for the first fight, one more after each wipe.
+        BotRole role;        // The test driver counts as Ranged.
+        std::uint32_t fight; // FightNumber at the hit.
         std::uint32_t damage;
         std::int64_t ms;
     };
@@ -173,6 +175,7 @@ namespace Bots
         std::vector<RunMissedCast> missedCasts;
         std::vector<RunDoubleInterrupt> doubleInterrupts;
         std::vector<RunChase> chases;
+        float chaseLimitYards = 0.0f; // The limit of `chases` (ChaseLimitYards).
         std::vector<RunFireNovaHit> fireNovaHits;
         std::vector<RunChatEvent> chatEvents;
         std::vector<RunGearDraw> gearDraws;
@@ -186,6 +189,10 @@ namespace Bots
     std::string RunFileStem(RunResult const& result);
 
     std::string RunResultJson(RunResult const& result);
+
+    // The number of the fight of the last pull: 1, and one more for each
+    // pull again (RunPull::again) of the same fight. 1 without a pull.
+    std::uint32_t FightNumber(std::vector<RunPull> const& pulls);
 }
 
 #endif

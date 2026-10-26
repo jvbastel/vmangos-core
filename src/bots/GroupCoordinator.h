@@ -156,10 +156,14 @@ namespace Bots
         std::vector<Guid> GetResting() const;
         // A bot that a scripted run revived, at half health and mana: it
         // eats and drinks until full, and the group waits for it from now
-        // on. WatchGroup clears it when the bot is full.
+        // on. WatchRest clears it when the bot is full.
         void SetRestUntilFull(Guid bot);
         bool RestsUntilFull(Guid bot) const;
         void ClearRestUntilFull(Guid bot);
+        // Bot `bot` rests no more and is no longer waited for: it died, left
+        // the group, or logged out. The game layer calls it for a bot of
+        // GetResting that is not a living member in the world any more.
+        void ForgetRest(Guid bot);
         // A dead bot releases to run back, because no resurrect comes:
         // adds a rest event.
         void NoteRevive(Guid bot);

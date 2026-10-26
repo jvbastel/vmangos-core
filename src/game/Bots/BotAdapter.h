@@ -17,6 +17,7 @@
 class BotLoot;
 class Player;
 class Unit;
+class SpellEntry;
 
 // The real adapter of the decision library on one bot: BotView answers from
 // the Player and the units of its map, and BotActions acts as the Player.
@@ -38,6 +39,8 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         // The spell that a unit casts now, as GetCast sees it. Also on the
         // world thread, in BotRun (the interrupts of a scripted run).
         static Bots::CastInfo CastOf(Unit const* unit);
+        // The kind of spell `spell` for the interrupts: Other without a spell.
+        static Bots::CastKind CastKindOf(SpellEntry const* spell);
         // The unit that a player runs after (a chase), or null. Also on the
         // world thread, in BotRun (the chases of a scripted run).
         static Unit* ChaseTargetOf(Player const* player);

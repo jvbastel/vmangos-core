@@ -368,3 +368,40 @@ TEST(RouteRecorder, FixesAPackByNameAndRemovesAWrongMob)
     EXPECT_EQ(Bots::FindPack(route, "pack1")->mobs.size(), 2u);
     EXPECT_EQ(Bots::RemoveMob(route, 2), "the mob 2 is in no pack");
 }
+
+namespace
+{
+    // Four points in a line to pack3, with a quest point between.
+    char const* const WalkRoute =
+        "route rfc 389\n"
+        "quest 5723\n"
+        "visit q1\n"
+        "point p1 0 0 0 2\n"
+        "pack pack1 10 10 0\n"
+        "mob 1 11319\n"
+        "point p2 30 0 0 2\n"
+        "point q1 30 60 0 2 quest 5723\n"
+        "point p3 60 0 0 2\n"
+        "pack pack3 70 0 0\n"
+        "mob 3 11319\n"
+        "point p4 90 0 0 2\n";
+}
+
+// The walk back of a fight again (WOWAI#94 review): the route points from
+// the one nearest to the group to the last one before the pack, without the
+// quest detours. Each is one walk, so no walk passes a pack of another way.
+TEST(Route, TheWalkBackToAPackGoesOverTheRoutePoints)
+{
+    RouteResult const result = ParseRoute(WalkRoute);
+    ASSERT_TRUE(result.ok) << result.error;
+
+    // From the entrance.
+    EXPECT_EQ(Bots::WalkBackPoints(result.route, {1, 1, 0}, "pack3"),
+        (std::vector<std::string>{"p1", "p2", "p3"}));
+    // From near the pack.
+    EXPECT_EQ(Bots::WalkBackPoints(result.route, {58, 3, 0}, "pack3"), (std::vector<std::string>{"p3"}));
+    // No point before the pack, or no such pack.
+    EXPECT_TRUE(Bots::WalkBackPoints(result.route, {1, 1, 0}, "pack0").empty());
+    EXPECT_TRUE(Bots::WalkBackPoints(ParseRoute("route rfc 389\npack pack1 0 0 0\nmob 1 2\n").route, {0, 0, 0}, "pack1")
+                    .empty());
+}

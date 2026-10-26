@@ -1,4 +1,5 @@
 #include "ChaseWatch.h"
+#include "GroupRules.h"
 
 #include <algorithm>
 
@@ -9,7 +10,7 @@ namespace Bots
         std::vector<std::size_t> open;
         for (MemberChase const& chase : chases)
         {
-            if (chase.yardsFromTank <= ChaseRecordYards)
+            if (chase.yardsFromTank <= ChaseLimitYards)
                 continue;
             auto const last = std::find_if(m_open.begin(), m_open.end(),
                 [this, &chase](std::size_t index) { return m_chases[index].member == chase.member; });

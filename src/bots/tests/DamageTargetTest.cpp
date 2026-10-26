@@ -221,8 +221,8 @@ TEST(DamageTarget, LeavesAnEnemyOnAGroupMemberOutsideTheChaseLimit)
     bot.fake.SetHealth(Healer, 300, 300);
     bot.fake.SetGroupMembers({Tank, Healer});
     bot.group.SetTank(Tank);
-    bot.fake.SetDistanceBetween(Wolf, Tank, Bots::ChaseLimitYards + 5.0f);
-    bot.fake.SetDistanceBetween(Wolf, Healer, Bots::ChaseLimitYards + 5.0f);
+    bot.fake.SetDistanceBetween(Wolf, Tank, Bots::ChaseEnemyYards + 5.0f);
+    bot.fake.SetDistanceBetween(Wolf, Healer, Bots::ChaseEnemyYards + 5.0f);
     bot.fake.SetVictim(Wolf, Healer);
 
     EXPECT_EQ(bot.Target(), NoGuid);

@@ -54,9 +54,10 @@
 //   the fight, as `wait combat_end`. A pack that is dead already is no fight:
 //   the run goes on at once. A pack that lives after its fight (the tank
 //   died, the pack reset) is fought again at most twice: the group lives
-//   and rests, follows the driver back to the point of the last `move`,
-//   holds its place when it did so before, and the driver pulls again.
-//   Then the run fails.
+//   and rests, follows the driver back over the route points from the one
+//   nearest to it to the last one before the pack (Route.h,
+//   WalkBackPoints), holds its place when it did so before, and the driver
+//   pulls again. Then the run fails.
 // - `release <seconds>` or `release never`: in a wipe, the test driver
 //   releases this long after the last member died (default 5 s), and the
 //   group revives at the dungeon entrance. `never`: nobody releases.
@@ -93,6 +94,9 @@ namespace Bots
         Fight,
         Release,
         Route,
+        // Only the runner adds it, for a fight again: the walk of the group
+        // back to the pack `name` over the route points (ScriptRunner).
+        WalkBack,
     };
 
     struct ScriptCommand
@@ -113,6 +117,9 @@ namespace Bots
         bool never = false;
         // `route` or `route noquests`.
         RunQuests quests = RunQuests::Do;
+        // A `fight` that the runner added: 1 for the first fight again of
+        // the pack, and so on. 0 for the fight of the script.
+        std::uint32_t again = 0;
         // The line in the file and its words, for the log and the result.
         std::size_t line = 0;
         std::string source;

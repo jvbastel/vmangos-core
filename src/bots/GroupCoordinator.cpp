@@ -192,6 +192,13 @@ namespace Bots
         return bots;
     }
 
+    void GroupCoordinator::ForgetRest(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_resting.erase(bot);
+        m_restUntilFull.erase(bot);
+    }
+
     void GroupCoordinator::SetRestUntilFull(Guid bot)
     {
         Lock lock(m_mutex);

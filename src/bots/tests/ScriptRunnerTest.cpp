@@ -379,3 +379,88 @@ TEST(ScriptRunner, AFightAgainWaitsForTheDeadBeforeTheWalkBack)
     ASSERT_EQ(follow.kind, RunStepKind::Do);
     EXPECT_EQ(follow.command.source, "command follow");
 }
+
+namespace
+{
+    Bots::Route WalkRoute()
+    {
+        return Bots::ParseRoute("route rfc 389\n"
+                                "point p1 0 0 0 2\n"
+                                "point p2 30 0 0 2\n"
+                                "point p3 60 0 0 2\n"
+                                "pack pack3 70 0 0\n"
+                                "mob 3 11319\n")
+            .route;
+    }
+
+    // Hands out the steps from `step` on, says each worked, and returns the
+    // sources up to the next `fight`. The driver arrives at once.
+    std::vector<std::string> StepsToTheFight(ScriptRunner& runner, RunStep step, RunFacts facts, std::int64_t& now)
+    {
+        facts.driverArrived = true;
+        std::vector<std::string> sources;
+        for (int i = 0; i < 20 && step.kind == RunStepKind::Do; ++i)
+        {
+            sources.push_back(step.command.source);
+            if (step.command.kind == ScriptCommandKind::Fight)
+                break;
+            runner.Done(true, "", now);
+            step = runner.Update(facts, now += 1000);
+        }
+        return sources;
+    }
+}
+
+// After a wipe the group lives at the entrance: the walk back goes over the
+// route points, one `wait arrive` each, not one long walk that can pass
+// packs and take longer than the arrive limit (WOWAI#94 review).
+TEST(ScriptRunner, AFightAgainWalksBackOverTheRoutePoints)
+{
+    ScriptRunner runner(Commands("move p3\nwait arrive\ncommand stay\nfight pack3\ncommand follow\n"), WalkRoute());
+    std::int64_t now = 0;
+    RunFacts arrived;
+    arrived.driverArrived = true;
+    runner.Update(arrived, now);
+    runner.Done(true, "", now);
+    ASSERT_EQ(runner.Update(arrived, now).command.kind, ScriptCommandKind::Command);
+    runner.Done(true, "", now);
+    ASSERT_EQ(runner.Update(arrived, now).command.kind, ScriptCommandKind::Fight);
+    RunFacts aliveAway = PackAlive();
+    aliveAway.driverArrived = false;
+    RunStep const step = FightToItsEnd(runner, now, aliveAway);
+
+    RunFacts atTheEntrance;
+    atTheEntrance.driverAt = {1, 1, 0};
+    EXPECT_EQ(StepsToTheFight(runner, step, atTheEntrance, now),
+        (std::vector<std::string>{"command follow", "move p1", "move p2", "move p3", "command stay", "fight pack3"}));
+}
+
+TEST(ScriptRunner, AFightAgainIsMarked)
+{
+    ScriptRunner runner(Commands("fight pack1 100\n"));
+    std::int64_t now = 0;
+    EXPECT_EQ(runner.Update(Idle(), now).command.again, 0u);
+
+    RunStep const again = FightToItsEnd(runner, now, PackAlive());
+    ASSERT_EQ(again.command.kind, ScriptCommandKind::Fight);
+    EXPECT_EQ(again.command.again, 1u);
+}
+
+// The limit of the fights again holds for each fight of a pack: a pack that
+// died and is fought again later (a respawn) has its own (WOWAI#94 review).
+TEST(ScriptRunner, ALaterFightOfAPackHasItsOwnFightsAgain)
+{
+    ScriptRunner runner(Commands("fight pack1 100\nfight pack1 100\n"));
+    std::int64_t now = 0;
+    runner.Update(Idle(), now);
+    for (int fight = 1; fight < 3; ++fight)
+        ASSERT_EQ(FightToItsEnd(runner, now, PackAlive()).command.kind, ScriptCommandKind::Fight) << fight;
+    // The third fight kills it: the next `fight pack1`.
+    RunStep const next = FightToItsEnd(runner, now, Idle());
+    ASSERT_EQ(next.command.kind, ScriptCommandKind::Fight);
+    EXPECT_EQ(next.command.again, 0u);
+
+    RunStep const again = FightToItsEnd(runner, now, PackAlive());
+    EXPECT_EQ(again.kind, RunStepKind::Do);
+    EXPECT_EQ(again.command.again, 1u);
+}
