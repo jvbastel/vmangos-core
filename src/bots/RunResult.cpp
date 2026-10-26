@@ -37,6 +37,17 @@ namespace Bots
             return list;
         }
 
+        char const* CastKindName(CastKind kind)
+        {
+            switch (kind)
+            {
+                case CastKind::Heal: return "heal";
+                case CastKind::Harm: return "harm";
+                case CastKind::Other: return "other";
+                default: return "none";
+            }
+        }
+
         Json Objective(ObjectiveProgress const& progress)
         {
             QuestObjective const& o = progress.objective;
@@ -80,6 +91,8 @@ namespace Bots
         j["duration_s"] = Seconds(r.durationMs);
         j["result"] = OutcomeName(r.outcome);
         j["reason"] = TextOrNull(r.reason);
+        j["driver"] = r.driver;
+        j["group"] = r.group;
 
         Json bosses = Json::array();
         for (RunBossKill const& kill : r.bossKills)
@@ -102,10 +115,48 @@ namespace Bots
 
         Json pulls = Json::array();
         for (RunPull const& pull : r.pulls)
-            pulls.push_back({{"pack", pull.pack}, {"time_s", Seconds(pull.ms)}});
+            pulls.push_back({{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)}});
         j["pulls"] = pulls;
         j["threat_losses"] = Hits(r.threatLosses);
         j["lost_mobs"] = Hits(r.lostMobs);
+
+        Json interrupts = Json::array();
+        for (RunInterrupt const& i : r.interrupts)
+            interrupts.push_back({{"member", i.member}, {"enemy", i.enemy}, {"spell", i.spell},
+                {"spell_name", i.spellName}, {"kind", CastKindName(i.kind)}, {"time_s", Seconds(i.ms)}});
+        j["interrupts"] = interrupts;
+        Json missed = Json::array();
+        for (RunMissedCast const& m : r.missedCasts)
+            missed.push_back({{"enemy", m.enemy}, {"spell", m.spell}, {"spell_name", m.spellName},
+                {"kind", CastKindName(m.kind)}, {"time_s", Seconds(m.ms)}});
+        j["missed_interrupts"] = missed;
+        Json doubles = Json::array();
+        for (RunDoubleInterrupt const& d : r.doubleInterrupts)
+            doubles.push_back({{"enemy", d.enemy}, {"spell", d.spell}, {"spell_name", d.spellName},
+                {"first", d.first}, {"second", d.second}, {"time_s", Seconds(d.ms)}});
+        j["double_interrupts"] = doubles;
+
+        Json chases = Json::array();
+        for (RunChase const& c : r.chases)
+            chases.push_back({{"member", c.member}, {"enemy", c.enemy}, {"time_s", Seconds(c.startMs)},
+                {"seconds", Seconds(c.endMs - c.startMs)}, {"max_yards", c.maxYards}});
+        j["chases"] = chases;
+        Json novas = Json::array();
+        for (RunFireNovaHit const& hit : r.fireNovaHits)
+            novas.push_back({{"member", hit.member}, {"role", hit.role}, {"fight", hit.fight},
+                {"damage", hit.damage}, {"time_s", Seconds(hit.ms)}});
+        j["fire_nova_hits"] = novas;
+
+        Json chat = Json::array();
+        for (RunChatEvent const& event : r.chatEvents)
+        {
+            Json lines = Json::array();
+            for (RunChatLine const& line : event.lines)
+                lines.push_back({{"bot", line.bot}, {"time_s", Seconds(line.ms)}});
+            chat.push_back({{"event", event.event}, {"to", TextOrNull(event.to)}, {"time_s", Seconds(event.ms)},
+                {"reached", event.reached}, {"lines", lines}});
+        }
+        j["chat_events"] = chat;
 
         Json draws = Json::array();
         for (RunGearDraw const& draw : r.gearDraws)

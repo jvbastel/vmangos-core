@@ -38,6 +38,12 @@ namespace Bots
     // and whether the bot rests now. A bot that lives again clears its
     // given-up resurrect.
     void WatchGroup(BotView const& view, GroupCoordinator& group);
+
+    // The rest part of the group watch: whether the bot rests now, and the
+    // end of its rest until full. The game layer runs it at each update of
+    // the bot too, so the coordinator sees a meal start or end at once and
+    // not one think later.
+    void WatchRest(BotView const& view, GroupCoordinator& group);
 }
 
 #endif
