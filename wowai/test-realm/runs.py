@@ -21,7 +21,9 @@ until the run ends, and stops a run that takes too long. mangosd writes each
 result file, and the trace of a run that did not pass, to the folder runs/ of
 its logs, which the realm mounts at <realm folder>/storage/mangosd/logs/runs.
 The script copies them from there to the out folder and prints one line per
-run. It ends with exit code 0 when every run passed.
+run. A full run passes when the run passed and its result file meets the
+pass thresholds of spec section 10 (threshold_failures). It ends with exit
+code 0 when every run passed.
 """
 import argparse
 import json
@@ -66,6 +68,119 @@ def summary(result):
     if result["reason"]:
         line += ": " + result["reason"]
     return line
+
+
+# The pass thresholds of a full run (spec section 10). They can be tuned
+# after the first runs.
+BOSSES = 4
+MAX_WIPES = 1
+MIN_CLEAN_PULLS = 0.8
+MAX_BOT_DEATHS = 2
+MIN_HEALS_INTERRUPTED = 0.7
+CHASE_YARDS = 25
+MAX_FIRE_NOVA_HITS = 1
+# The events that need a delivered line, and the events of the game (not the
+# talk with the player).
+EVENTS_WITH_A_LINE = ("boss_kill", "wipe", "loot_roll")
+NO_GAME_EVENTS = ("player_message", "session_end")
+
+
+def percent(share):
+    return "%d%%" % round(share * 100)
+
+
+def bot_deaths_outside_wipe(result):
+    """The deaths of the bots (not the test driver) outside the one allowed
+    wipe: in the first wipe, the last death of each member up to its time."""
+    in_wipe = set()
+    if result["wipes"]:
+        wipe = result["wipes"][0]
+        for member, times in result["deaths"].items():
+            before = [t for t in times if t <= wipe]
+            if before:
+                in_wipe.add((member, max(before)))
+    return [(member, t) for member, times in result["deaths"].items() if member != result["driver"]
+            for t in times if (member, t) not in in_wipe]
+
+
+def clean_pull_share(result):
+    """The share of pulls with no threat loss. A loss belongs to the last
+    pull before it."""
+    starts = sorted(pull["time_s"] for pull in result["pulls"])
+    if not starts:
+        return 1.0
+    lossy = set()
+    for loss in result["threat_losses"]:
+        before = [i for i, start in enumerate(starts) if start <= loss["time_s"]]
+        lossy.add(before[-1] if before else 0)
+    return 1.0 - len(lossy) / len(starts)
+
+
+def chat_failures(result):
+    failures = []
+    events = result["chat_events"]
+    for event in events:
+        if event["event"] in EVENTS_WITH_A_LINE and not event["lines"]:
+            failures.append("%s at %.0f s got no line" % (event["event"], event["time_s"]))
+    speakers = {line["bot"] for event in events if event["event"] not in NO_GAME_EVENTS for line in event["lines"]}
+    for bot in result["group"]:
+        if bot not in speakers:
+            failures.append("no line for a game event from " + bot)
+    messages = [event for event in events if event["event"] == "player_message"]
+    for bot in result["group"]:
+        whispers = [event for event in messages if event["to"] == bot]
+        if len(whispers) != 1:
+            failures.append("the test driver whispered %s %d times, once expected" % (bot, len(whispers)))
+        for whisper in whispers:
+            if not any(line["bot"] == bot for line in whisper["lines"]):
+                failures.append("the whisper to %s got no answer from %s" % (bot, bot))
+    party = [event for event in messages if event["to"] is None]
+    if len(party) != 1:
+        failures.append("the test driver wrote %d party messages, once expected" % len(party))
+    for message in party:
+        if not 1 <= len(message["lines"]) <= 2:
+            failures.append("the party message got %d answers, 1 or 2 expected" % len(message["lines"]))
+    return failures
+
+
+def threshold_failures(result):
+    """The pass thresholds of spec section 10 that a full run misses, one
+    line each. A scenario has no thresholds: an empty list."""
+    if not result["full_run"]:
+        return []
+    failures = []
+    if result["result"] != "passed":
+        failures.append("the run failed: %s" % result["reason"])
+    if len(result["bosses_killed"]) < BOSSES:
+        failures.append("bosses killed %d of %d" % (len(result["bosses_killed"]), BOSSES))
+    if len(result["wipes"]) > MAX_WIPES:
+        failures.append("wipes %d, at most %d" % (len(result["wipes"]), MAX_WIPES))
+    clean = clean_pull_share(result)
+    if clean < MIN_CLEAN_PULLS:
+        failures.append("pulls with no threat loss %s, at least %s" % (percent(clean), percent(MIN_CLEAN_PULLS)))
+    deaths = bot_deaths_outside_wipe(result)
+    if len(deaths) > MAX_BOT_DEATHS:
+        failures.append("bot deaths outside the wipe %d, at most %d" % (len(deaths), MAX_BOT_DEATHS))
+    if result["double_interrupts"]:
+        failures.append("double interrupts %d, none allowed" % len(result["double_interrupts"]))
+    done = sum(1 for i in result["interrupts"] if i["kind"] == "heal")
+    missed = sum(1 for m in result["missed_interrupts"] if m["kind"] == "heal")
+    if done + missed and done / (done + missed) < MIN_HEALS_INTERRUPTED:
+        failures.append("heals interrupted %s, at least %s" % (percent(done / (done + missed)),
+                                                              percent(MIN_HEALS_INTERRUPTED)))
+    if result["chases"]:
+        failures.append("chases more than %d yards from the tank %d (%s)" % (
+            CHASE_YARDS, len(result["chases"]),
+            ", ".join("%s %.0f yd" % (c["member"], c["max_yards"]) for c in result["chases"])))
+    fights = {}
+    for hit in result["fire_nova_hits"]:
+        if hit["role"] in ("ranged", "healer"):
+            fights[hit["fight"]] = fights.get(hit["fight"], 0) + 1
+    for fight, hits in sorted(fights.items()):
+        if hits > MAX_FIRE_NOVA_HITS:
+            failures.append("Fire Nova hits on ranged and healer in fight %d: %d, at most %d" % (
+                fight, hits, MAX_FIRE_NOVA_HITS))
+    return failures + chat_failures(result)
 
 
 def wait_for_end(realm, limit_seconds):
@@ -137,7 +252,10 @@ def main():
             print("No result file: " + status, flush=True)
             continue
         print(summary(result), flush=True)
-        passed += result["result"] == "passed"
+        failures = threshold_failures(result)
+        for failure in failures:
+            print("  threshold: " + failure, flush=True)
+        passed += result["result"] == "passed" and not failures
 
     print("%d of %d runs passed. The result files are in %s." % (passed, count, os.path.abspath(out)), flush=True)
     return 0 if passed == count else 1
