@@ -1,5 +1,6 @@
 #include "RouteGenerator.h"
 #include "BotGeometry.h"
+#include "RouteLine.h"
 
 #include <algorithm>
 #include <cmath>
@@ -12,91 +13,12 @@ namespace Bots
 {
     namespace
     {
-        float DistanceToSegment(Position const& p, Position const& a, Position const& b)
-        {
-            float const vx = b.x - a.x;
-            float const vy = b.y - a.y;
-            float const vz = b.z - a.z;
-            float const length2 = vx * vx + vy * vy + vz * vz;
-            float t = 0.0f;
-            if (length2 > 0.0f)
-                t = std::max(0.0f, std::min(1.0f, ((p.x - a.x) * vx + (p.y - a.y) * vy + (p.z - a.z) * vz) / length2));
-            return Distance3d(p, {a.x + vx * t, a.y + vy * t, a.z + vz * t});
-        }
-
         std::string Format(Position const& p)
         {
             char text[96];
             std::snprintf(text, sizeof(text), "%.2f %.2f %.2f", p.x, p.y, p.z);
             return text;
         }
-
-        // A path as a line with the distance along it.
-        class Line
-        {
-        public:
-            explicit Line(std::vector<Position> points) : m_points(std::move(points))
-            {
-                m_arc.push_back(0.0f);
-                for (std::size_t i = 1; i < m_points.size(); ++i)
-                    m_arc.push_back(m_arc.back() + Distance3d(m_points[i - 1], m_points[i]));
-            }
-
-            float Length() const { return m_arc.empty() ? 0.0f : m_arc.back(); }
-
-            Position At(float s) const
-            {
-                if (m_points.size() == 1 || s <= 0.0f)
-                    return m_points.front();
-                std::size_t const i = Segment(s);
-                if (i + 1 >= m_points.size())
-                    return m_points.back();
-                float const length = m_arc[i + 1] - m_arc[i];
-                float const t = length > 0.0f ? (s - m_arc[i]) / length : 0.0f;
-                Position const& a = m_points[i];
-                Position const& b = m_points[i + 1];
-                return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t};
-            }
-
-            // The flat direction of the line at s, normalized. (1, 0) on a line
-            // with no length.
-            void Direction(float s, float& dx, float& dy) const
-            {
-                Position const a = At(std::max(0.0f, s - 1.0f));
-                Position const b = At(std::min(Length(), s + 1.0f));
-                dx = b.x - a.x;
-                dy = b.y - a.y;
-                float const norm = std::hypot(dx, dy);
-                if (norm < 1e-4f)
-                {
-                    dx = 1.0f;
-                    dy = 0.0f;
-                    return;
-                }
-                dx /= norm;
-                dy /= norm;
-            }
-
-            // The distances at 1 yard steps, and the end.
-            std::vector<float> Samples() const
-            {
-                std::vector<float> samples;
-                for (float s = 0.0f; s < Length(); s += 1.0f)
-                    samples.push_back(s);
-                samples.push_back(Length());
-                return samples;
-            }
-
-        private:
-            std::size_t Segment(float s) const
-            {
-                auto it = std::upper_bound(m_arc.begin(), m_arc.end(), s);
-                return it == m_arc.begin() ? 0 : std::size_t(it - m_arc.begin()) - 1;
-            }
-
-            std::vector<Position> m_points;
-            std::vector<float> m_arc;
-        };
 
         enum class EventKind
         {
@@ -227,7 +149,7 @@ namespace Bots
     float FirstApproach(std::vector<Position> const& points, GeneratorPack const& pack,
         std::vector<GeneratorSpawn> const& spawns, float range)
     {
-        Line const line(points);
+        RouteLine const line(points);
         for (float s : line.Samples())
             if (DistanceToPack(line.At(s), pack, spawns) <= range)
                 return s;
@@ -339,7 +261,7 @@ namespace Bots
             if (leg.size() == 1)
                 centerPoints.push_back(leg[0]);
         }
-        Line const line(centerPoints);
+        RouteLine const line(centerPoints);
         std::vector<float> const samples = line.Samples();
 
         // The packs, and where the line first comes near each one.
@@ -486,7 +408,7 @@ namespace Bots
                 onRoute[p] = false;
                 continue;
             }
-            Line const way(path);
+            RouteLine const way(path);
             float pullAt = FirstApproach(path, packs[p], spawns, range);
             if (pullAt < 0.0f)
                 pullAt = way.Length();

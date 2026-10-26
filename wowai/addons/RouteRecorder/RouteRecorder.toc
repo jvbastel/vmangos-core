@@ -1,0 +1,7 @@
+## Interface: 11200
+## Title: RouteRecorder
+## Notes: Records the GM trace of a WOWAI dungeon route with the .route trace commands.
+## Author: WOWAI
+## Version: 1.0
+## SavedVariables: RouteRecorderDB
+RouteRecorder.lua

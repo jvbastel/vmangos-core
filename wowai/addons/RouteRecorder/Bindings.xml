@@ -1,0 +1,8 @@
+<Bindings>
+	<Binding name="ROUTERECORDER_CHECKPOINT" header="ROUTERECORDER">
+		RouteRecorder_Checkpoint();
+	</Binding>
+	<Binding name="ROUTERECORDER_TOGGLE">
+		RouteRecorder_Toggle();
+	</Binding>
+</Bindings>

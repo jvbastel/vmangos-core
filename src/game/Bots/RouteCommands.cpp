@@ -77,6 +77,19 @@ std::string RouteFiles::PathOf(std::string const& name)
     return dir + "routes/" + name + ".txt";
 }
 
+std::string RouteFiles::TracePathOf(std::string const& name)
+{
+    std::string const path = PathOf(name);
+    return path.substr(0, path.size() - 4) + ".trace.txt";
+}
+
+bool RouteFiles::IsTraceFile(std::string const& fileName)
+{
+    std::string const extension = ".trace.txt";
+    return fileName.size() >= extension.size() &&
+        fileName.compare(fileName.size() - extension.size(), extension.size(), extension) == 0;
+}
+
 bool RouteFiles::Read(std::string const& path, std::string& text)
 {
     std::ifstream file(path, std::ios::binary);

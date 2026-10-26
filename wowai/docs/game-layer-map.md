@@ -148,11 +148,15 @@ These commands work over SOAP. Each example ran on a fresh check realm, with its
 | `.wowai run status` | `.wowai run status` | `No run` |
 | `.wowai run stop` | `.wowai run stop` | `No run is running` |
 | `.route show` | `.route show` | `No route is being recorded` |
+| `.route trace start <route> <character>` | `.route trace start ragefire_chasm Thrallson` | `[route] trace on ragefire_chasm points=1 marks=0 length=0y` |
+| `.route trace show` | `.route trace show` | `[route] trace error: no trace is on` |
+| `.route build <route> [bosses=...]` | `.route build ragefire_chasm` | `Route ragefire_chasm on map 389 from the trace` |
 
 More notes:
 
 - `.wowai bot create` makes a level 16 bot and logs it in. A new name answers "Bot <name> made. It logs in now." `.wowai run start <script> <scenario>` starts a scripted run.
 - `.kick <name>` works over SOAP, but do not kick a bot: the bot entry stays online and `.wowai bot login` then answers "online already".
+- `.route trace` writes `bots/data/routes/<route>.trace.txt`, and `.route build` writes `<route>.txt` from it (`wowai/docs/route-recorder.md`). On SOAP, each GM keeps one trace, and the console counts as one GM. `wowai/test-realm/checks/t79_trace_route.py` walks a trace with client movement packets.
 - `.character level` calls `GiveLevel` on an online bot: a good level-up test.
 - An empty answer prints an empty line. A wrong command answers "There is no such command".
 
