@@ -9,6 +9,7 @@
 #include "BotMgr.h"
 #include "BotAdapter.h"
 #include "ClassModules.h"
+#include "CoordinatorChoice.h"
 #include "DeathAndRest.h"
 #include "Group.h"
 #include "ObjectAccessor.h"
@@ -333,11 +334,27 @@ void BotAI::StartPull(Player* player)
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s pulls %s", me->GetName(), target.GetString().c_str());
 }
 
+bool BotAI::UsesGroupCoordinator() const
+{
+    Group const* group = me->GetGroup();
+    Bots::LeaderPlace leader = Bots::LeaderPlace::Unknown();
+    if (group)
+    {
+        // The leader can sit on another map thread: only its map and
+        // instance ids are read.
+        if (Player const* player = ObjectAccessor::FindPlayer(group->GetLeaderGuid()))
+            leader = Bots::LeaderPlace::On({player->GetMapId(), player->GetInstanceId()});
+    }
+    return Bots::ChooseCoordinator(group != nullptr, {me->GetMapId(), me->GetInstanceId()}, leader) ==
+        Bots::CoordinatorChoice::Group;
+}
+
 std::shared_ptr<Bots::GroupCoordinator> BotAI::Coordinator()
 {
-    if (Group* group = me->GetGroup())
-        return sBotMgr.GetCoordinator(group->GetId());
-    // No owner: the coordinator is a member of this AI.
+    if (UsesGroupCoordinator())
+        return sBotMgr.GetCoordinator(me->GetGroup()->GetId());
+    // No owner: the coordinator is a member of this AI. A bot without a
+    // group, or on another map than its leader, uses it.
     return std::shared_ptr<Bots::GroupCoordinator>(std::shared_ptr<Bots::GroupCoordinator>(), &m_soloCoordinator);
 }
 
@@ -424,6 +441,11 @@ void BotAI::Think()
         me->SetStandState(UNIT_STAND_STATE_STAND);
 
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
+    bool const away = me->GetGroup() && coordinator.get() == &m_soloCoordinator;
+    if (away != m_awayFromLeader)
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s %s the group coordinator (map %u)", me->GetName(),
+            away ? "ignores" : "uses", me->GetMapId());
+    m_awayFromLeader = away;
     // For the chase limit of the damage bots (GroupRules.h).
     if (m_role == Bots::BotRole::Tank)
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
@@ -445,9 +467,9 @@ void BotAI::Think()
         m_attackTarget.GetRawValue()};
     context.startWaits = m_startGate.Waiting();
     std::string const rule = m_strategies.Think(context);
-    // A bot without a group has no chat session: its own coordinator drops
-    // the events.
-    if (!me->GetGroup())
+    // A bot without a group has no chat session, and a bot away from its
+    // leader is no part of the group's events: its own coordinator drops them.
+    if (coordinator.get() == &m_soloCoordinator)
         m_soloCoordinator.TakeEvents();
     if (!rule.empty() && rule != m_lastRule)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());
