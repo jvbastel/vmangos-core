@@ -1966,3 +1966,69 @@ TEST(WarriorTank, HoldsItsWalkBackForALooseEnemyOutOfTauntRange)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Wolf), Chase(Wolf)}));
 }
+
+// After the taunt, the bat attacks the tank, but the healer's threat on it
+// equals the tank's (a taunt gives the top threat, no lead): the tank
+// sunders the bat until it leads on its threat, then goes back to the focus.
+TEST(WarriorTank, AfterATauntKeepsHittingTheTauntedEnemyUntilItHoldsIt)
+{
+    GroupInFight tank;
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.0f);
+
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+
+    tank.fake.SetThreatRatio(Tank, Bat, 1.5f);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, KeepsThreatOnTheTauntedEnemyWithAReadyRevenge)
+{
+    GroupInFight tank;
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.Think();
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.0f);
+
+    tank.fake.ClearDeeds();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Bat)}));
+}
+
+// The picked-up enemy: the tank reached it and hits it. It sunders it, and
+// does not turn back to the focus while the enemy still hits the healer.
+TEST(WarriorTank, SundersThePickedUpEnemyUntilItHoldsIt)
+{
+    BatOnTheFarHealer tank;
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+    tank.fake.SetVictim(Tank, Bat);
+    tank.fake.SetDistance(Bat, 2.0f);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+
+    // It attacks the tank, which leads on its threat now: back to the focus.
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.5f);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
+}

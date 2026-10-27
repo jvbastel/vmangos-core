@@ -59,6 +59,12 @@ namespace Bots
             // The rule priorities (P + N), below "taunt an enemy off a
             // member" (54) and above Revenge (40).
             int const PickUpLooseEnemy = 53;
+            int const KeepThreatOnTheTaunted = 41;
+            // The taunted (or picked-up) enemy is back on the tank when it
+            // attacks the tank and the tank's threat on it is at least this
+            // ratio of any other member's (BotView::GetThreatRatio). A taunt
+            // gives only the top threat (1.0): no lead yet.
+            float const KeepThreatLead = 1.1f;
 
             Guid Self(BotContext const& context)
             {
@@ -323,6 +329,47 @@ namespace Bots
                 return rule;
             }
 
+            // jvbastel/WOWAI#126: the loose enemy that the tank last taunted
+            // off or picked up, in the fight on one focus. Its own choice,
+            // no group state.
+            struct LooseHold
+            {
+                Guid focus = NoGuid; // The focus of the fight of the hold.
+                Guid enemy = NoGuid;
+            };
+            using LooseHoldPtr = std::shared_ptr<LooseHold>;
+
+            // The enemy that the tank keeps threat on: the one it last taunted
+            // off or picked up in this fight, while it lives, is in the fight
+            // and not yet back on the tank (KeepThreatLead). NoGuid else.
+            Guid PickHeldEnemy(BotContext const& context, LooseHold const& hold)
+            {
+                Guid const focus = context.group.GetFocusTarget();
+                Guid const enemy = hold.enemy;
+                if (!FightsFocus(context) || hold.focus != focus || enemy == NoGuid || enemy == focus
+                    || !IsAlive(context.view, enemy))
+                    return NoGuid;
+                Guid const victim = context.view.GetVictim(enemy);
+                if (victim == NoGuid
+                    || (victim == Self(context) && context.view.GetThreatRatio(Self(context), enemy) >= KeepThreatLead))
+                    return NoGuid;
+                return enemy;
+            }
+
+            // The rule `rule` notes the enemy that `target` picks as the
+            // tank's hold, when it runs.
+            Rule Holds(Rule rule, TargetPicker target, LooseHoldPtr const& hold)
+            {
+                std::function<void(BotContext const&)> const run = rule.action.run;
+                rule.action.run = [run, target, hold](BotContext const& context) {
+                    Guid const enemy = target(context);
+                    run(context);
+                    hold->focus = context.group.GetFocusTarget();
+                    hold->enemy = enemy;
+                };
+                return rule;
+            }
+
             // A taunt is due and ready: the focus or another enemy hits a
             // member, and the tank can taunt it now. The walk back waits
             // for it, so that no member holds an enemy of the pull.
@@ -397,6 +444,9 @@ namespace Bots
             TargetPicker const revengeTarget = [visit](BotContext const& context) {
                 return PickRevengeTarget(context, *visit);
             };
+            // Each tank has its own hold too (jvbastel/WOWAI#126).
+            LooseHoldPtr const hold = std::make_shared<LooseHold>();
+            TargetPicker const heldEnemy = [hold](BotContext const& context) { return PickHeldEnemy(context, *hold); };
             // The opener, highest first: Defensive Stance, then a due
             // Demoralizing Shout (jvbastel/WOWAI#114: threat on each enemy
             // near), and Bloodrage with little rage, which gives the rage.
@@ -588,7 +638,7 @@ namespace Bots
                 // The fight on the focus target. A focus that runs to the
                 // tank finds it where it stands; else the tank runs to it.
                 Rule{"attack the focus target", P + 62,
-                    [](BotContext const& context) {
+                    [heldEnemy](BotContext const& context) {
                         Guid const focus = PickFocusTarget(context);
                         if (!FightsFocus(context))
                             return false;
@@ -596,7 +646,10 @@ namespace Bots
                         if (IsPulling(context))
                             return false;
                         // The tank picks up a loose enemy first (jvbastel/WOWAI#126).
-                        if (PickUpTarget(context) != NoGuid)
+                        // and hits it until it holds it.
+                        Guid const held = heldEnemy(context);
+                        if (PickUpTarget(context) != NoGuid
+                            || (held != NoGuid && context.view.GetVictim(Self(context)) == held))
                             return false;
                         ChaseState const chase = context.view.GetChase();
                         // The ranged chase of the pull attacks with no melee swing.
@@ -623,13 +676,14 @@ namespace Bots
                         return FightsFocus(context) && victim != NoGuid && victim != Self(context);
                     },
                     Taunt, PickFocusTarget),
-                CastRule("taunt an enemy off a member", P + 54,
-                    [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
-                    Taunt, PickLooseEnemy),
+                Holds(CastRule("taunt an enemy off a member", P + 54,
+                          [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
+                          Taunt, PickLooseEnemy),
+                    PickLooseEnemy, hold),
                 // jvbastel/WOWAI#126: Taunt cannot reach the loose enemy (or
                 // waits for its cooldown): the tank goes to it and attacks
                 // it. Once in range with Taunt ready, the taunt takes over.
-                MeleeRule("pick up a loose enemy", P + PickUpLooseEnemy,
+                Holds(MeleeRule("pick up a loose enemy", P + PickUpLooseEnemy,
                     [](BotContext const& context) {
                         // A due Challenging Shout (52) takes them all at once.
                         Guid const loose = PickUpTarget(context);
@@ -638,6 +692,24 @@ namespace Bots
                                 && CastableRank(context.view, ChallengingShout, Self(context)) != NoSpell);
                     },
                     PickUpTarget),
+                    PickUpTarget, hold),
+                // jvbastel/WOWAI#126: after the taunt or the pick-up, Revenge
+                // or Sunder Armor on that enemy until it is back on the tank,
+                // then the focus again. Each counts in a visit to the threat
+                // target (jvbastel/WOWAI#117), which waits for the focus.
+                CountsInThreatVisit(
+                    Rule{"keep threat on the taunted enemy", P + KeepThreatOnTheTaunted,
+                        [heldEnemy](BotContext const& context) { return heldEnemy(context) != NoGuid; },
+                        {[heldEnemy](BotContext const& context) {
+                             Guid const enemy = heldEnemy(context);
+                             return CastableRank(context.view, ThreatTargetAbility(context, enemy), enemy) != NoSpell;
+                         },
+                            [heldEnemy](BotContext const& context) {
+                                Guid const enemy = heldEnemy(context);
+                                SpellId const ability = ThreatTargetAbility(context, enemy);
+                                context.actions.CastSpell(RankForTarget(context.view, ability, enemy), enemy);
+                            }}},
+                    heldEnemy, visit),
                 // A broken pull: too many loose enemies to taunt one by one.
                 CastRule("challenging shout", P + 52,
                     ChallengingShoutDue, ChallengingShout, PickSelf),
