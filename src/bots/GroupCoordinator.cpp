@@ -114,16 +114,22 @@ namespace Bots
             m_pull.warned = true;
     }
 
-    void GroupCoordinator::SetMemberSpot(Guid bot, bool found, Position spot)
+    MemberSpot GroupCoordinator::ClaimMemberSpot(Guid bot, MemberSpotFinder const& find)
     {
         Lock lock(m_mutex);
-        for (MemberSpot& member : m_memberSpots)
+        std::vector<Position> taken;
+        for (MemberSpot const& member : m_memberSpots)
+        {
             if (member.bot == bot)
-            {
-                member = {bot, found, spot, false};
-                return;
-            }
-        m_memberSpots.push_back({bot, found, spot, false});
+                return member;
+            if (member.found)
+                taken.push_back(member.spot);
+        }
+        MemberSpot mine;
+        mine.bot = bot;
+        mine.found = find(taken, mine.spot);
+        m_memberSpots.push_back(mine);
+        return mine;
     }
 
     void GroupCoordinator::SetMemberInPlace(Guid bot)

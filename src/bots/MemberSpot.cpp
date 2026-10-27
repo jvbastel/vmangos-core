@@ -189,20 +189,14 @@ namespace Bots
         void GoToMemberSpot(BotContext const& context, BotRole role)
         {
             Guid const self = context.view.GetSelf();
-            MemberSpot mine;
-            if (!MySpot(context, mine))
-            {
-                PullState const pull = context.group.GetPull();
-                std::vector<Position> taken;
-                for (MemberSpot const& other : context.group.GetMemberSpots())
-                    if (other.bot != self && other.found)
-                        taken.push_back(other.spot);
-                mine.bot = self;
-                mine.found = FindMemberSpot(context.view, role, pull.spot, context.group.GetTrail(), pull.target, taken, mine.spot);
-                context.group.SetMemberSpot(self, mine.found, mine.spot);
-                if (!mine.found)
-                    return;
-            }
+            PullState const pull = context.group.GetPull();
+            std::vector<Position> const trail = context.group.GetTrail();
+            MemberSpot const mine = context.group.ClaimMemberSpot(self,
+                [&context, role, &pull, &trail](std::vector<Position> const& taken, Position& spot) {
+                    return FindMemberSpot(context.view, role, pull.spot, trail, pull.target, taken, spot);
+                });
+            if (!mine.found)
+                return;
             if (Distance2d(context.view.GetPosition(self), mine.spot) <= MemberInPlaceYards)
             {
                 context.group.SetMemberInPlace(self);

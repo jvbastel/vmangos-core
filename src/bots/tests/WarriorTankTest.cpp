@@ -1027,7 +1027,7 @@ TEST(WarriorTank, WaitsForTheGroupBeforeItShoots)
 TEST(WarriorTank, ShootsOnceEachBotIsInPlace)
 {
     GroupTank tank;
-    tank.group.SetMemberSpot(Healer, true, {-16, 0, 0});
+    tank.group.ClaimMemberSpot(Healer, Bots::Tests::SpotAt(true, {-16, 0, 0}));
     tank.group.SetMemberInPlace(Healer);
     tank.nowMs = 1500;
 

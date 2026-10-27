@@ -4,6 +4,7 @@
 #include "BotActions.h"
 #include "BotGeometry.h"
 #include "BotView.h"
+#include "GroupCoordinator.h"
 
 #include <algorithm>
 #include <cmath>
@@ -536,6 +537,16 @@ namespace Bots
             bool m_noMeleeSwing = false;
             std::vector<std::string> m_deeds;
         };
+
+        // A member spot finder (GroupCoordinator::ClaimMemberSpot) that
+        // answers `spot`, or none for `found` false.
+        inline GroupCoordinator::MemberSpotFinder SpotAt(bool found, Position spot)
+        {
+            return [found, spot](std::vector<Position> const&, Position& at) {
+                at = spot;
+                return found;
+            };
+        }
     }
 }
 

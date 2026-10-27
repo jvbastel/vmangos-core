@@ -162,11 +162,17 @@ namespace Bots
         // The puller warned about extra packs (WarnExtraPacks). Only the
         // puller can.
         void NoteExtraPackWarn(Guid puller);
-        // The member spots of the pull that is on: each bot notes its own
-        // spot (`found` false: none is safe), and then that it is in place;
+        // The member spots of the pull that is on: each bot claims its own
+        // spot (`found` false: none is safe), and then notes that it is in place;
         // it stays in place for the rest of the pull.
         // A new pull or the end of the pull forgets them.
-        void SetMemberSpot(Guid bot, bool found, Position spot);
+        // Bot `bot` takes its member spot in one step under the lock, so two
+        // bots never take one spot: when it has none yet, `find` runs with
+        // the spots that the other members found, and its answer (a spot,
+        // or false for none) is noted. `find` must not call the
+        // coordinator. Returns the bot's member spot.
+        using MemberSpotFinder = std::function<bool(std::vector<Position> const& taken, Position& spot)>;
+        MemberSpot ClaimMemberSpot(Guid bot, MemberSpotFinder const& find);
         void SetMemberInPlace(Guid bot);
         std::vector<MemberSpot> GetMemberSpots() const;
         // The bots of the group: each bot notes itself on each think

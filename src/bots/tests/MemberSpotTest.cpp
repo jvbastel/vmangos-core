@@ -268,7 +268,7 @@ TEST(MemberSpotRule, ABotThatDrinksGetsUpAndGoesToItsSpotThenDrinksThere)
 TEST(MemberSpotRule, TheSecondRangedBotTakesASpotAwayFromTheFirst)
 {
     MemberBot bot;
-    bot.group.SetMemberSpot(Other, true, {-16, 0, 0});
+    bot.group.ClaimMemberSpot(Other, Bots::Tests::SpotAt(true, {-16, 0, 0}));
 
     bot.Think();
 
@@ -348,11 +348,11 @@ TEST(GroupWait, TheTankWaitsForEachBotUntilItIsInPlace)
     Waiting wait;
     EXPECT_TRUE(wait.Waits(1500));
 
-    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(true, {-16, 0, 0}));
     wait.group.SetMemberInPlace(Self);
     EXPECT_TRUE(wait.Waits(1500));
 
-    wait.group.SetMemberSpot(Other, true, {-22, 0, 0});
+    wait.group.ClaimMemberSpot(Other, Bots::Tests::SpotAt(true, {-22, 0, 0}));
     wait.group.SetMemberInPlace(Other);
     EXPECT_FALSE(wait.Waits(1500));
 }
@@ -360,8 +360,8 @@ TEST(GroupWait, TheTankWaitsForEachBotUntilItIsInPlace)
 TEST(GroupWait, ABotWithNoSpotIsNotWaitedFor)
 {
     Waiting wait;
-    wait.group.SetMemberSpot(Self, false, {});
-    wait.group.SetMemberSpot(Other, false, {});
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(false, {}));
+    wait.group.ClaimMemberSpot(Other, Bots::Tests::SpotAt(false, {}));
 
     EXPECT_FALSE(wait.Waits(1500));
 }
@@ -397,7 +397,7 @@ TEST(GroupWait, NotForABotThatJoinsNoPull)
 TEST(GroupWait, NotForABotThatStoppedThinking)
 {
     Waiting wait;
-    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(true, {-16, 0, 0}));
     wait.group.SetMemberInPlace(Self);
 
     EXPECT_TRUE(wait.Waits(1000 + Bots::BotNoteMs));
@@ -417,9 +417,9 @@ TEST(GroupWait, TheWaitEndsAfterTenSeconds)
 TEST(GroupWait, ABotOnceInPlaceIsNotWaitedForAgain)
 {
     Waiting wait;
-    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(true, {-16, 0, 0}));
     wait.group.SetMemberInPlace(Self);
-    wait.group.SetMemberSpot(Other, true, {-22, 0, 0});
+    wait.group.ClaimMemberSpot(Other, Bots::Tests::SpotAt(true, {-22, 0, 0}));
     wait.group.SetMemberInPlace(Other);
 
     // Self walks off its spot (a fight, a push): the pull goes on.
@@ -431,7 +431,7 @@ TEST(GroupWait, ABotOnceInPlaceIsNotWaitedForAgain)
 TEST(GroupWait, ANewPullForgetsTheMemberSpots)
 {
     Waiting wait;
-    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(true, {-16, 0, 0}));
 
     wait.group.StartPull(Tank, Kobold);
 

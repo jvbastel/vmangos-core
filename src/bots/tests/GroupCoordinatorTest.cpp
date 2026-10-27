@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <thread>
 
 using Bots::GroupCoordinator;
@@ -212,4 +213,64 @@ TEST(GroupCoordinator, AForgottenMemberRestsNoMore)
 
     EXPECT_TRUE(group.GetResting().empty());
     EXPECT_FALSE(group.RestsUntilFull(0x12));
+}
+
+// Member spots (MemberSpot.h): the read of the taken spots and the note of
+// the bot's own spot are one step (CODING_STANDARDS 6, the review of
+// jvbastel/WOWAI#100). Each bot takes the first of two spots that is free.
+namespace
+{
+    Bots::Guid const Ranged = 0x12;
+    Bots::Guid const Healer = 0x13;
+
+    bool FirstFree(std::vector<Bots::Position> const& taken, Bots::Position& spot)
+    {
+        for (float x : {-16.0f, -22.0f})
+            if (std::none_of(taken.begin(), taken.end(), [x](Bots::Position const& other) { return other.x == x; }))
+            {
+                spot = {x, 0, 0};
+                return true;
+            }
+        return false;
+    }
+}
+
+TEST(GroupCoordinator, TwoBotsBackToBackClaimTwoMemberSpots)
+{
+    GroupCoordinator group;
+
+    Bots::MemberSpot const ranged = group.ClaimMemberSpot(Ranged, FirstFree);
+    Bots::MemberSpot const healer = group.ClaimMemberSpot(Healer, FirstFree);
+
+    EXPECT_EQ(ranged.spot.x, -16.0f);
+    EXPECT_EQ(healer.spot.x, -22.0f);
+    EXPECT_TRUE(ranged.found && healer.found);
+}
+
+TEST(GroupCoordinator, ABotWithAMemberSpotKeepsIt)
+{
+    GroupCoordinator group;
+    group.ClaimMemberSpot(Ranged, FirstFree);
+    int finds = 0;
+
+    Bots::MemberSpot const again = group.ClaimMemberSpot(Ranged, [&finds](std::vector<Bots::Position> const& taken, Bots::Position& spot) {
+        ++finds;
+        return FirstFree(taken, spot);
+    });
+
+    EXPECT_EQ(finds, 0);
+    EXPECT_EQ(again.spot.x, -16.0f);
+}
+
+TEST(GroupCoordinator, TwoBotsAtOnceNeverClaimOneMemberSpot)
+{
+    for (int round = 0; round < 500; ++round)
+    {
+        GroupCoordinator group;
+        Bots::MemberSpot healer;
+        std::thread other([&] { healer = group.ClaimMemberSpot(Healer, FirstFree); });
+        Bots::MemberSpot const ranged = group.ClaimMemberSpot(Ranged, FirstFree);
+        other.join();
+        ASSERT_NE(ranged.spot.x, healer.spot.x);
+    }
 }
