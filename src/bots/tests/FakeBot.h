@@ -211,6 +211,15 @@ namespace Bots
                 auto found = m_spellDistance.find(unit);
                 return found == m_spellDistance.end() ? GetDistance(unit) : found->second;
             }
+            // From the bot's own place: GetSpellDistance. Else the distance
+            // between the centers (the fake has no bodies).
+            float GetSpellDistanceFrom(Position const& place, Guid unit) const override
+            {
+                Position const here = GetPosition(m_self);
+                if (place.x == here.x && place.y == here.y && place.z == here.z)
+                    return GetSpellDistance(unit);
+                return Distance3d(place, GetPosition(unit));
+            }
             float GetDistanceBetween(Guid a, Guid b) const override
             {
                 auto found = m_between.find({a, b});

@@ -18,10 +18,7 @@ namespace Bots
             std::uint32_t const SpareRage = 45;
             // The range of Taunt.
             float const TauntYards = 20.0f;
-            // The shoot spells reach from 8 to 30 yards (spell range 74).
-            // Out of range or sight, the tank walks to ShootStandYards.
-            float const MinShootYards = 8.0f;
-            float const MaxShootYards = 30.0f;
+            // Out of shooting range (Ranged.h), the tank walks to this.
             float const ShootStandYards = 25.0f;
             // Nearer than this to its pull spot, the tank is back.
             float const SpotYards = 2.0f;
@@ -66,16 +63,16 @@ namespace Bots
                 return PlanAmmoTopUp(context.view.GetRangedWeapon(), context.view.GetLevel(Self(context)));
             }
 
-            // The pull target is out of the range or the sight of a shot.
+            // The pull target is out of the range or the sight of a shot
+            // (InShotFrom, Ranged.h): too far, too near, or out of sight.
             bool OutOfShot(BotContext const& context)
             {
-                Guid const target = PickPullTarget(context);
-                return context.view.GetSpellDistance(target) > MaxShootYards
-                    || !context.view.CanSeeFrom(context.view.GetPosition(Self(context)), target);
+                return !InShotFrom(context.view, context.view.GetPosition(Self(context)), PickPullTarget(context));
             }
 
             // The tank pulls from range: it wears a ranged weapon with ammo,
-            // knows its shoot spell, and the target is not too near for it.
+            // knows its shoot spell, and the target is not too near for it,
+            // or the fight spot search found it a shoot spot (FightSpot.h).
             // Not when its chase into range ended out of shot (the path
             // cannot get nearer; StillChaseThinks), nor once it ran in
             // to hit (a melee attack of the target): then the pull is the
@@ -84,8 +81,10 @@ namespace Bots
             {
                 RangedWeapon const weapon = context.view.GetRangedWeapon();
                 Guid const target = PickPullTarget(context);
-                if (!CanFire(weapon) || !context.view.KnowsSpell(ShootSpell(weapon.kind))
-                    || context.view.GetSpellDistance(target) < MinShootYards)
+                if (!CanFire(weapon) || !context.view.KnowsSpell(ShootSpell(weapon.kind)))
+                    return false;
+                if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooNear
+                    && !context.group.GetPull().hasShootSpot)
                     return false;
                 if (context.view.GetVictim(Self(context)) == target && context.view.IsMeleeAttacking())
                     return false;
@@ -201,8 +200,7 @@ namespace Bots
                 Bookkeeping("note the pull spot", P + 80,
                     [](BotContext const& context) { return IsPulling(context) && !context.group.GetPull().hasSpot; },
                     [](BotContext const& context) {
-                        FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(),
-                            PickPullTarget(context), ShotRange{MinShootYards, MaxShootYards});
+                        FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(), PickPullTarget(context));
                         context.group.SetPullSpot(Self(context), fight.spot);
                         context.group.StartGroupWait(Self(context), context.nowMs);
                         if (fight.hasShootSpot)
@@ -260,7 +258,7 @@ namespace Bots
                             // sight: closer, until the tank sees the target.
                             Guid const target = PickPullTarget(context);
                             context.group.CountRangeChase(Self(context), context.view.IsMoving(Self(context)));
-                            if (context.view.GetSpellDistance(target) > MaxShootYards)
+                            if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooFar)
                                 context.actions.ChaseToRange(target, ShootStandYards);
                             else
                                 context.actions.Chase(target);

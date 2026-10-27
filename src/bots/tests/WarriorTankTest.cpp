@@ -338,10 +338,13 @@ TEST(WarriorTank, WithNoAmmoRunsInToHitThePullTarget)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
 }
 
+// Too near to shoot, and no place to shoot from (no ground path): the
+// tank runs in.
 TEST(WarriorTank, TooCloseToShootRunsInToHitThePullTarget)
 {
     BowTank tank;
     tank.fake.SetDistance(Kobold, 6.0f);
+    tank.fake.AddNoPathFromX(-1000.0f);
     tank.Pull();
 
     tank.Think();
@@ -371,6 +374,7 @@ TEST(WarriorTank, RunsToThePullTargetOnlyOnce)
 {
     BowTank tank;
     tank.fake.SetDistance(Kobold, 3.5f);
+    tank.fake.AddNoPathFromX(-1000.0f);
     tank.Pull();
     tank.Think();
     tank.fake.SetVictim(Tank, Kobold);
@@ -932,6 +936,21 @@ TEST(WarriorTank, WalksBackAlongItsTrailToAShootSpotWhenItCannotSeeThePullTarget
     tank.fake.ClearDeeds();
     tank.Think();
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
+}
+
+// The review of jvbastel/WOWAI#100: a tank within the least shot range of
+// the target does not run in when its fight spot search found a shoot spot
+// on the trail: it walks there and shoots.
+TEST(WarriorTank, TooNearToShootItWalksToItsShootSpotOnTheTrail)
+{
+    TrailTank tank;
+    tank.fake.SetPosition(Tank, {19, 0, 0});
+    tank.fake.SetDistance(Kobold, 6.0f);
+    tank.Pull();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to 0 0 0"}));
 }
 
 // The shoot spot was wrong (the sight of the real game differs): the tank

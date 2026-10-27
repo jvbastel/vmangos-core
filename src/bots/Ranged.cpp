@@ -1,4 +1,5 @@
 #include "Ranged.h"
+#include "BotView.h"
 
 namespace Bots
 {
@@ -53,5 +54,17 @@ namespace Bots
     bool CanFire(RangedWeapon const& weapon)
     {
         return weapon.kind != RangedKind::None && weapon.ammoEntry != 0 && weapon.ammoCount > 0;
+    }
+
+    ShotReach ShotReachAt(float spellYards)
+    {
+        if (spellYards < ShotMinYards)
+            return ShotReach::TooNear;
+        return spellYards > ShotMaxYards ? ShotReach::TooFar : ShotReach::InRange;
+    }
+
+    bool InShotFrom(BotView const& view, Position const& at, Guid target)
+    {
+        return ShotReachAt(view.GetSpellDistanceFrom(at, target)) == ShotReach::InRange && view.CanSeeFrom(at, target);
     }
 }

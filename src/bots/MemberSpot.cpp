@@ -55,16 +55,6 @@ namespace Bots
                 return Distance3d(spot, other) >= MemberSpreadYards;
             });
         }
-
-        // The enemies of all packs but the target's.
-        std::vector<NearEnemy> OtherPacks(std::vector<NearEnemy> const& enemies, Guid target)
-        {
-            std::vector<NearEnemy> others;
-            for (std::vector<NearEnemy> const& pack : SplitIntoPacks(enemies))
-                if (std::none_of(pack.begin(), pack.end(), [target](NearEnemy const& enemy) { return enemy.guid == target; }))
-                    others.insert(others.end(), pack.begin(), pack.end());
-            return others;
-        }
     }
 
     bool FindMemberSpot(BotView const& view, BotRole role, Position const& fightSpot,
@@ -84,7 +74,8 @@ namespace Bots
         std::vector<Position> spots;
         if (role == BotRole::Melee)
         {
-            rules.enemies = OtherPacks(enemies, target);
+            for (std::vector<NearEnemy> const& pack : SplitTargetPack(enemies, target, view.GetPosition(target)).others)
+                rules.enemies.insert(rules.enemies.end(), pack.begin(), pack.end());
             for (float degrees : {0.0f, 90.0f, -90.0f})
                 spots.push_back(Along(view, fightSpot, dx, dy, degrees, MeleeBackYards));
             spots.push_back(fightSpot);

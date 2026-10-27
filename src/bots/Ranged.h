@@ -10,6 +10,8 @@
 // never buy ammo.
 namespace Bots
 {
+    class BotView;
+
     enum class RangedKind
     {
         None, // No ranged weapon, or a wand.
@@ -63,6 +65,27 @@ namespace Bots
 
     // The bot can fire the weapon: it wears one and has ammo for it.
     bool CanFire(RangedWeapon const& weapon);
+
+    // The one "in shot" rule of the ranged pull (WarriorModule.h, the
+    // fight spot search of FightSpot.h). The shoot spells reach from
+    // ShotMinYards to ShotMaxYards (spell range 74), measured as spell
+    // ranges measure them: between the combat reaches
+    // (BotView::GetSpellDistanceFrom), so no body margin is guessed.
+    float const ShotMinYards = 8.0f;
+    float const ShotMaxYards = 30.0f;
+
+    enum class ShotReach
+    {
+        TooNear, // Nearer than ShotMinYards: no shot.
+        InRange,
+        TooFar, // Farther than ShotMaxYards.
+    };
+
+    // Where a target `spellYards` away (spell distance) is for a shot.
+    ShotReach ShotReachAt(float spellYards);
+
+    // A bot at `at` can shoot unit `target`: in range and in sight.
+    bool InShotFrom(BotView const& view, Position const& at, Guid target);
 }
 
 #endif

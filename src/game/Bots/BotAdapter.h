@@ -53,6 +53,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::Power GetPower(Bots::Guid unit) const override;
         float GetDistance(Bots::Guid unit) const override;
         float GetSpellDistance(Bots::Guid unit) const override;
+        float GetSpellDistanceFrom(Bots::Position const& place, Bots::Guid unit) const override;
         float GetDistanceBetween(Bots::Guid a, Bots::Guid b) const override;
         bool IsInCombat(Bots::Guid unit) const override;
         Bots::Guid GetVictim(Bots::Guid unit) const override;

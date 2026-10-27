@@ -292,6 +292,17 @@ float BotAdapter::GetSpellDistance(Bots::Guid unit) const
     return found ? me->GetCombatDistance(found) : std::numeric_limits<float>::max();
 }
 
+float BotAdapter::GetSpellDistanceFrom(Bots::Position const& place, Bots::Guid unit) const
+{
+    // GetCombatDistance with the bot on the ground at the place.
+    Unit const* found = Find(unit);
+    if (!found)
+        return std::numeric_limits<float>::max();
+    float const ground = GetGround(place).z;
+    float const centers = found->GetDistance3dToCenter(place.x, place.y, ground);
+    return std::max(0.0f, centers - me->GetCombatReach() - found->GetCombatReach());
+}
+
 float BotAdapter::GetDistanceBetween(Bots::Guid a, Bots::Guid b) const
 {
     Unit const* first = Find(a);
