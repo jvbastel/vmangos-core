@@ -35,7 +35,6 @@
 #include "SQLStorages.h"
 #include "TargetedMovementGenerator.h"
 #include "WorldSession.h"
-#include "PathFinder.h"
 #include "Utilities/Random.h"
 
 #include <algorithm>
@@ -594,66 +593,10 @@ void BotAdapter::Attack(Bots::Guid target)
     }
 }
 
-static void DebugProbe(Player* me, Unit* unit, BotAdapter const* adapter)
-{
-    static ObjectGuid probed;
-    if (probed == unit->GetObjectGuid())
-        return;
-    probed = unit->GetObjectGuid();
-    float mx = me->GetPositionX(), my = me->GetPositionY(), mz = me->GetPositionZ();
-    float tx = unit->GetPositionX(), ty = unit->GetPositionY(), tz = unit->GetPositionZ();
-    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] DEBUG probe me %.2f %.2f %.2f target %.2f %.2f %.2f melee %d los %d",
-        mx, my, mz, tx, ty, tz, me->CanReachWithMeleeAutoAttack(unit), me->IsWithinLOSInMap(unit));
-    {
-        PathFinder path(me);
-        path.calculate(tx, ty, tz, false);
-        auto const& pts = path.getPath();
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] DEBUG path to target type %u points %u len %.1f end %.2f %.2f %.2f",
-            uint32(path.getPathType()), uint32(pts.size()), path.Length(), path.getActualEndPosition().x,
-            path.getActualEndPosition().y, path.getActualEndPosition().z);
-        for (auto const& v : pts)
-            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] DEBUG   pt %.2f %.2f %.2f", v.x, v.y, v.z);
-    }
-    float ax, ay, az;
-    bool att = unit->GetRandomAttackPoint(me, ax, ay, az);
-    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] DEBUG attack point ok %d %.2f %.2f %.2f", att, ax, ay, az);
-    {
-        PathFinder path(me);
-        path.calculate(ax, ay, az, false);
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] DEBUG path to attack point type %u points %u len %.1f",
-            uint32(path.getPathType()), uint32(path.getPath().size()), path.Length());
-    }
-    std::vector<Bots::NearEnemy> enemies = adapter->GetEnemiesNear(80.0f);
-    for (auto const& e : enemies)
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] DEBUG enemy %.2f %.2f %.2f aggro %.1f", e.position.x, e.position.y,
-            e.position.z, e.aggroYards);
-    Bots::Position self{mx, my, mz};
-    for (int ix = -20; ix <= 20; ++ix)
-        for (int iy = -20; iy <= 20; ++iy)
-        {
-            Bots::Position spot = adapter->GetGround({tx + ix * 2.0f, ty + iy * 2.0f, tz + 6.0f});
-            if (std::fabs(spot.z - tz) > 12.0f)
-                continue;
-            float const sd = adapter->GetSpellDistanceFrom(spot, GuidOf(unit));
-            if (sd < 8.0f || sd > 30.0f)
-                continue;
-            if (!adapter->CanSeeFrom(spot, GuidOf(unit)))
-                continue;
-            std::vector<Bots::Position> gp;
-            bool const pathOk = adapter->FindGroundPath(self, spot, gp);
-            std::string near;
-            for (auto const& e : enemies)
-                near += " " + std::to_string(int(Bots::Distance3d(e.position, spot) * 10) / 10.0f) + "/" + std::to_string(int(e.aggroYards));
-            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] DEBUG shotspot %.2f %.2f %.2f sd %.1f path %d len %u enemies%s",
-                spot.x, spot.y, spot.z, sd, pathOk, uint32(gp.size()), near.c_str());
-        }
-}
-
 void BotAdapter::Chase(Bots::Guid target)
 {
     if (Unit* unit = Find(target))
     {
-        DebugProbe(me, unit, this);
         // A melee chase, also after a ranged one (ChaseToRange).
         me->SetCasterChaseDistance(0.0f);
         me->GetMotionMaster()->MoveChase(unit);
