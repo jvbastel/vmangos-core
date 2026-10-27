@@ -216,3 +216,34 @@ TEST(FightSpot, TrailSpotsFarFromTheTankDoNotCount)
     EXPECT_FALSE(spot.clean);
     EXPECT_EQ(spot.spot.x, 0.0f);
 }
+
+// jvbastel/WOWAI#122: a target on a ledge (two_packs, pack48). No safe place
+// round it sees it, so the tank closes in: its shoot spot is the first point
+// of its ground path to the target from which it has a shot. That spot is no
+// checked way, so the pull is not clean.
+TEST(FightSpot, WithNoSafePlaceShootsFromTheFirstPointOfItsPathToTheTargetWithAShot)
+{
+    Pull pull;
+    // Every place round the target is within its aggro distance and margin.
+    pull.fake.AddEnemy(Target, {25, 0, 0}, 25.0f);
+    pull.fake.AddBlindToBelowX(Target, 15.0f);
+
+    FightSpot const spot = pull.Find();
+
+    EXPECT_FALSE(spot.clean);
+    ASSERT_TRUE(spot.hasShootSpot);
+    EXPECT_NEAR(spot.shootSpot.x, 15.0f, 0.01f);
+}
+
+TEST(FightSpot, WithNoPathToTheTargetHasNoShootSpot)
+{
+    Pull pull;
+    pull.fake.AddEnemy(Target, {25, 0, 0}, 25.0f);
+    pull.fake.AddBlindToBelowX(Target, 15.0f);
+    pull.fake.AddNoPathFromX(-1000.0f);
+
+    FightSpot const spot = pull.Find();
+
+    EXPECT_FALSE(spot.clean);
+    EXPECT_FALSE(spot.hasShootSpot);
+}

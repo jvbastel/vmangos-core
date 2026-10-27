@@ -58,6 +58,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool IsInCombat(Bots::Guid unit) const override;
         Bots::Guid GetVictim(Bots::Guid unit) const override;
         std::vector<Bots::Guid> GetAttackers(Bots::Guid unit) const override;
+        float GetThreatRatio(Bots::Guid unit, Bots::Guid enemy) const override;
         bool HasAura(Bots::Guid unit, Bots::SpellId firstRank) const override;
         bool HasDebuff(Bots::Guid unit, Bots::DispelKind kind) const override;
         Bots::Guid GetFollowTarget() const override;

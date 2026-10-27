@@ -8,6 +8,9 @@
 #include "Ranged.h"
 #include "SpellBook.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace Bots
 {
     namespace Warrior
@@ -27,6 +30,29 @@ namespace Bots
             std::uint32_t const StillChaseThinks = 3;
             // Nearer than this, the focus is in melee reach.
             float const MeleeYards = 5.0f;
+
+            // jvbastel/WOWAI#114: Demoralizing Shout reaches the enemies
+            // within ShoutYards. The tank shouts when ShoutEnemies or more
+            // of them lack the debuff, or one in the fight lacks it.
+            float const ShoutYards = 10.0f;
+            std::size_t const ShoutEnemies = 2;
+
+            // jvbastel/WOWAI#116: Shield Block.
+            // Rage for Shield Block from it.
+            std::uint32_t const ShieldBlockRage = 10;
+
+            // jvbastel/WOWAI#115: Challenging Shout from this many loose
+            // enemies.
+            std::size_t const ShoutLooseEnemies = 3;
+            // The radius of Challenging Shout: it counts only the loose
+            // enemies this near.
+            float const ChallengingShoutYards = 10.0f;
+
+            // jvbastel/WOWAI#117: the threat target. From this threat lead
+            // on the focus (BotView::GetThreatRatio; 1.5 is 150%), the tank
+            // turns to its threat target, for this many abilities a visit.
+            float const ThreatTargetLead = 1.5f;
+            std::uint32_t const AbilitiesPerVisit = 1;
 
             Guid Self(BotContext const& context)
             {
@@ -139,11 +165,125 @@ namespace Bots
                 return PickMemberAttacker(context);
             }
 
-            // An enemy that hits another group member and is not the focus
-            // target: the tank taunts it off.
+            // The living enemies that hit a living group member other than the
+            // tank and are not the focus target: the loose enemies. The
+            // enemies on the healer come first (jvbastel/WOWAI#115), then the
+            // rest in the order of the group members.
+            std::vector<Guid> LooseEnemies(BotContext const& context)
+            {
+                return MemberAttackers(context, Self(context), context.group.GetFocusTarget(), context.group.GetHealer());
+            }
+
+            // The loose enemies that a Challenging Shout reaches.
+            std::size_t LooseEnemiesInShoutRange(BotContext const& context)
+            {
+                std::vector<Guid> const loose = LooseEnemies(context);
+                return std::count_if(loose.begin(), loose.end(),
+                    [&](Guid enemy) { return context.view.GetDistance(enemy) <= ChallengingShoutYards; });
+            }
+
+            // The loose enemy that the tank taunts off: one on the healer
+            // first.
             Guid PickLooseEnemy(BotContext const& context)
             {
-                return PickMemberAttacker(context, Self(context), context.group.GetFocusTarget());
+                std::vector<Guid> const loose = LooseEnemies(context);
+                return loose.empty() ? NoGuid : loose.front();
+            }
+
+            // The tank's visits to its threat target: its own choice, no
+            // group state. An ability on the focus ends a visit.
+            struct ThreatVisit
+            {
+                std::uint32_t abilities = 0; // On the threat target, this visit.
+            };
+            using ThreatVisitPtr = std::shared_ptr<ThreatVisit>;
+
+            // The threat target: of the enemies in the fight other than the
+            // focus that the tank can hit now with Revenge or Sunder Armor,
+            // the one with the lowest threat ratio of the tank. A tie: the
+            // one nearest the healer, if it lives. NoGuid when there is none.
+            Guid PickThreatTarget(BotContext const& context)
+            {
+                Guid const focus = context.group.GetFocusTarget();
+                // The tie-break needs a living healer in the group: the
+                // coordinator does not clear a healer that died or left.
+                Guid healer = context.group.GetHealer();
+                std::vector<Guid> const members = context.view.GetGroupMembers();
+                if (!IsAlive(context.view, healer)
+                    || std::find(members.begin(), members.end(), healer) == members.end())
+                    healer = NoGuid;
+                Guid best = NoGuid;
+                float bestRatio = 0.0f;
+                float bestYards = 0.0f;
+                for (Guid enemy : EnemiesInFight(context))
+                {
+                    if (enemy == focus
+                        || (CastableRank(context.view, Revenge, enemy) == NoSpell
+                            && CastableRank(context.view, SunderArmor, enemy) == NoSpell))
+                        continue;
+                    float const ratio = context.view.GetThreatRatio(Self(context), enemy);
+                    float const yards = healer == NoGuid ? 0.0f : context.view.GetDistanceBetween(enemy, healer);
+                    if (best == NoGuid || ratio < bestRatio || (ratio == bestRatio && yards < bestYards))
+                    {
+                        best = enemy;
+                        bestRatio = ratio;
+                        bestYards = yards;
+                    }
+                }
+                return best;
+            }
+
+            // A visit to the threat target is due: the lead on the focus
+            // holds, the visit has abilities left, and a threat target is
+            // in reach.
+            bool ThreatVisitDue(BotContext const& context, ThreatVisit const& visit)
+            {
+                return FightsFocus(context) && visit.abilities < AbilitiesPerVisit
+                    && context.view.GetThreatRatio(Self(context), context.group.GetFocusTarget()) >= ThreatTargetLead
+                    && PickThreatTarget(context) != NoGuid;
+            }
+
+            // The first rank of the ability on the threat target: Revenge
+            // when it is ready, else Sunder Armor.
+            SpellId ThreatTargetAbility(BotContext const& context, Guid target)
+            {
+                return CastableRank(context.view, Revenge, target) != NoSpell ? Revenge : SunderArmor;
+            }
+
+            // Revenge goes to the threat target when a visit is due and
+            // Revenge is its ability, else to the focus. So Revenge keeps
+            // its place above Shield Block on a visit too.
+            Guid PickRevengeTarget(BotContext const& context, ThreatVisit const& visit)
+            {
+                if (ThreatVisitDue(context, visit))
+                {
+                    Guid const target = PickThreatTarget(context);
+                    if (ThreatTargetAbility(context, target) == Revenge)
+                        return target;
+                }
+                return PickFocusTarget(context);
+            }
+
+            // A rule of an ability on the focus: it ends a visit to the
+            // threat target.
+            Rule EndsThreatVisit(Rule rule, ThreatVisitPtr const& visit)
+            {
+                std::function<void(BotContext const&)> const run = rule.action.run;
+                rule.action.run = [run, visit](BotContext const& context) {
+                    run(context);
+                    visit->abilities = 0;
+                };
+                return rule;
+            }
+
+            // A living enemy hits the tank in melee reach: a hit that a
+            // shield can block.
+            bool HitInMelee(BotContext const& context)
+            {
+                for (Guid const attacker : context.view.GetAttackers(Self(context)))
+                    if (IsAlive(context.view, attacker) && context.view.GetDistance(attacker) <= MeleeYards)
+                        return true;
+                return false;
             }
 
             // A taunt is due and ready: the focus or another enemy hits a
@@ -160,6 +300,28 @@ namespace Bots
                     return true;
                 Guid const loose = PickLooseEnemy(context);
                 return loose != NoGuid && context.view.CanCast(taunt, loose);
+            }
+
+            // Demoralizing Shout is due: ShoutEnemies or more enemies within
+            // ShoutYards lack its debuff, or an enemy in the fight
+            // (EnemiesInFight: the focus, or an attacker of a group member)
+            // lacks it: a late arrival, or an expired debuff. Not for one
+            // enemy out of the fight.
+            bool ShoutDue(BotContext const& context)
+            {
+                if (!FightsFocus(context))
+                    return false;
+                std::vector<Guid> const inFight = EnemiesInFight(context);
+                std::size_t lacking = 0;
+                for (NearEnemy const& enemy : context.view.GetEnemiesNear(ShoutYards))
+                {
+                    if (context.view.HasAura(enemy.guid, DemoralizingShout))
+                        continue;
+                    if (std::find(inFight.begin(), inFight.end(), enemy.guid) != inFight.end())
+                        return true;
+                    ++lacking;
+                }
+                return lacking >= ShoutEnemies;
             }
 
             // The tank warns in party chat that the pull brings `packs`
@@ -185,6 +347,8 @@ namespace Bots
         std::shared_ptr<Strategy const> MakeTankStrategy()
         {
             int const P = Priority::Class;
+            // Each strategy, so each tank, has its own visits.
+            ThreatVisitPtr const visit = std::make_shared<ThreatVisit>();
             std::vector<Rule> rules = {
                 // The pull and the fight end when the focus target dies or
                 // the bot cannot see it any more.
@@ -198,7 +362,7 @@ namespace Bots
                     [](BotContext const& context) {
                         return IsPulling(context) && context.view.GetVictim(PickPullTarget(context)) == Self(context);
                     },
-                    [](BotContext const& context) { context.group.HoldPull(Self(context)); }),
+                    [](BotContext const& context) { context.group.HoldPull(Self(context), context.nowMs); }),
 
                 // The pull. The tank picks its fight spot on its cleared way
                 // (FightSpot.h), and the pack comes to it there. With no
@@ -279,14 +443,18 @@ namespace Bots
                     },
                     {[](BotContext const& context) { return IsAlive(context.view, PickPullTarget(context)); },
                         [](BotContext const& context) {
-                            // Too far: to shooting range. In range but out of
-                            // sight: closer, until the tank sees the target.
+                            // Too far, or in range but out of sight: a ranged
+                            // chase. The core ends its path at the first point
+                            // within ShootStandYards that the target sees (on
+                            // a ledge that can be a point with no shot; then
+                            // FindShotOnPath gives the shoot spot). A melee
+                            // chase would not do: the core moves a
+                            // chase only toward the bot's victim, and the
+                            // ranged chase makes the target the victim with
+                            // no melee swing (jvbastel/WOWAI#122).
                             Guid const target = PickPullTarget(context);
                             context.group.CountRangeChase(Self(context), context.view.IsMoving(Self(context)));
-                            if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooFar)
-                                context.actions.ChaseToRange(target, ShootStandYards);
-                            else
-                                context.actions.Chase(target);
+                            context.actions.ChaseToRange(target, ShootStandYards);
                         }}},
                 // Else the fallback: run in and hit the target once, then
                 // walk back ("walk back to the fight spot").
@@ -385,14 +553,64 @@ namespace Bots
                 CastRule("taunt an enemy off a member", P + 54,
                     [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
                     Taunt, PickLooseEnemy),
+                // A broken pull: too many loose enemies to taunt one by one.
+                CastRule("challenging shout", P + 52,
+                    [](BotContext const& context) {
+                        return FightsFocus(context) && LooseEnemiesInShoutRange(context) >= ShoutLooseEnemies;
+                    },
+                    ChallengingShout, PickSelf),
+                // jvbastel/WOWAI#114: threat on each enemy near, from the
+                // opener on (after Defensive Stance and Bloodrage, which
+                // give it the rage).
+                CastRule("demoralizing shout", P + 50, ShoutDue, DemoralizingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
-                CastRule("revenge", P + 40, FightsFocus, Revenge, PickFocusTarget),
-                CastRule("heroic strike", P + 35,
-                    [](BotContext const& context) { return FightsFocus(context) && Rage(context) >= SpareRage; },
-                    HeroicStrike, PickFocusTarget),
-                CastRule("sunder armor", P + 30, FightsFocus, SunderArmor, PickFocusTarget),
+                // A ready Revenge goes to the threat target on a visit
+                // (jvbastel/WOWAI#117), and counts as its ability there. On
+                // the focus, it ends the visit.
+                Rule{"revenge", P + 40, FightsFocus,
+                    {[visit](BotContext const& context) {
+                         Guid const target = PickRevengeTarget(context, *visit);
+                         return target != NoGuid && CastableRank(context.view, Revenge, target) != NoSpell;
+                     },
+                        [visit](BotContext const& context) {
+                            Guid const target = PickRevengeTarget(context, *visit);
+                            context.actions.CastSpell(RankForTarget(context.view, Revenge, target), target);
+                            if (target == context.group.GetFocusTarget())
+                                visit->abilities = 0;
+                            else
+                                ++visit->abilities;
+                        }}},
+                // Below Revenge: more blocks give more Revenge. The cast
+                // check covers the shield and the cooldown.
+                CastRule("shield block", P + 38,
+                    [](BotContext const& context) {
+                        return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
+                            && Rage(context) >= ShieldBlockRage && HitInMelee(context);
+                    },
+                    ShieldBlock, PickSelf),
+                // jvbastel/WOWAI#117: one Sunder Armor on the threat target
+                // (a ready Revenge goes there through the revenge rule), then
+                // the focus again. The focus of the group stays.
+                Rule{"threat target", P + 37,
+                    [visit](BotContext const& context) { return ThreatVisitDue(context, *visit); },
+                    {[](BotContext const& context) {
+                         Guid const target = PickThreatTarget(context);
+                         return target != NoGuid
+                             && CastableRank(context.view, ThreatTargetAbility(context, target), target) != NoSpell;
+                     },
+                        [visit](BotContext const& context) {
+                            Guid const target = PickThreatTarget(context);
+                            context.actions.CastSpell(
+                                RankForTarget(context.view, ThreatTargetAbility(context, target), target), target);
+                            ++visit->abilities;
+                        }}},
+                EndsThreatVisit(CastRule("heroic strike", P + 35,
+                                    [](BotContext const& context) { return FightsFocus(context) && Rage(context) >= SpareRage; },
+                                    HeroicStrike, PickFocusTarget),
+                    visit),
+                EndsThreatVisit(CastRule("sunder armor", P + 30, FightsFocus, SunderArmor, PickFocusTarget), visit),
                 Rule{"top up the ammo", P + 20,
                     [](BotContext const& context) {
                         return !InCombat(context)

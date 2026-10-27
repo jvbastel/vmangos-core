@@ -867,20 +867,21 @@ void BotRun::WatchThreat(int64 nowMs)
             continue;
         attacks.push_back(BotAdapter::AttacksOf(member, member != driver));
         Bots::BotRole role;
-        bool const tank = sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank;
+        bool const hasRole = sBotMgr.BotRoleOf(member, role);
+        bool const tank = hasRole && role == Bots::BotRole::Tank;
         Bots::Guid const guid = member->GetObjectGuid().GetRawValue();
-        if (member != driver && sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Healer &&
+        if (member != driver && hasRole && role == Bots::BotRole::Healer &&
             std::find(m_healers.begin(), m_healers.end(), guid) == m_healers.end())
         {
             m_healers.push_back(guid);
             m_record.healers.push_back(member->GetName());
         }
         if (tank && member->GetVictim())
-            holder = member->GetObjectGuid().GetRawValue();
+            holder = guid;
         for (Unit* attacker : member->GetAttackers())
             if (attacker->IsAlive() && attacker->GetVictim() == member)
             {
-                Bots::EnemyOnMember const hit{attacker->GetObjectGuid().GetRawValue(), member->GetObjectGuid().GetRawValue()};
+                Bots::EnemyOnMember const hit{attacker->GetObjectGuid().GetRawValue(), guid};
                 hits.push_back(hit);
                 if (!tank)
                     hitsOnNonTanks.push_back(hit);

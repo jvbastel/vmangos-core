@@ -76,6 +76,9 @@ namespace Bots
                 m_victim[unit] = victim;
                 m_inCombat[unit] = victim != NoGuid;
             }
+            // The threat ratio of unit `unit` on enemy `enemy`
+            // (GetThreatRatio). Unset: 0, no threat.
+            void SetThreatRatio(Guid unit, Guid enemy, float ratio) { m_threatRatio[{unit, enemy}] = ratio; }
             void SetAura(Guid unit, SpellId firstRank, bool has = true)
             {
                 if (has)
@@ -140,6 +143,9 @@ namespace Bots
             int GroundPaths() const { return m_groundPaths; }
             // From each place with x >= `x`, the bot does not see `unit`.
             void AddBlindToFromX(Guid unit, float x) { m_blindToFromX.push_back({unit, x}); }
+            // From each place with x < `x`, the bot does not see `unit`, as
+            // from below a ledge.
+            void AddBlindToBelowX(Guid unit, float x) { m_blindToBelowX.push_back({unit, x}); }
             // Sight is blocked along x = `x`: no place sees a place on its
             // other side (CanSeeBetween).
             void AddSightWallAtX(float x) { m_sightWallsAtX.push_back(x); }
@@ -250,6 +256,11 @@ namespace Bots
                         attackers.push_back(pair.first);
                 return attackers;
             }
+            float GetThreatRatio(Guid unit, Guid enemy) const override
+            {
+                auto found = m_threatRatio.find({unit, enemy});
+                return found == m_threatRatio.end() ? 0.0f : found->second;
+            }
             bool HasAura(Guid unit, SpellId firstRank) const override { return m_auras.count({unit, firstRank}) != 0; }
             bool HasDebuff(Guid unit, DispelKind kind) const override { return m_debuffs.count({unit, kind}) != 0; }
             Guid GetFollowTarget() const override { return m_followTarget; }
@@ -334,6 +345,9 @@ namespace Bots
                         return false;
                 for (auto const& blind : m_blindToFromX)
                     if (blind.first == unit && place.x >= blind.second)
+                        return false;
+                for (auto const& blind : m_blindToBelowX)
+                    if (blind.first == unit && place.x < blind.second)
                         return false;
                 return true;
             }
@@ -496,6 +510,7 @@ namespace Bots
             std::map<SpellId, float> m_spellRange;
             std::map<Guid, bool> m_inCombat;
             std::map<Guid, Guid> m_victim;
+            std::map<std::pair<Guid, Guid>, float> m_threatRatio;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
             std::vector<Guid> m_groupMembers;
@@ -520,6 +535,7 @@ namespace Bots
             std::vector<float> m_blindFromX;
             std::vector<float> m_sightWallsAtX;
             std::vector<std::pair<Guid, float>> m_blindToFromX;
+            std::vector<std::pair<Guid, float>> m_blindToBelowX;
             mutable int m_groundPaths = 0;
             std::map<Guid, LifeState> m_lifeState;
             Guid m_leader = NoGuid;
