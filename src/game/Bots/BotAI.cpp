@@ -15,6 +15,7 @@
 #include "ObjectAccessor.h"
 #include "SpellMgr.h"
 #include "TaragamanReaction.h"
+#include "Trail.h"
 #include "Pet.h"
 #include "Player.h"
 #include "MotionMaster.h"
@@ -541,8 +542,12 @@ void BotAI::Think()
             away ? "place" : "group", me->GetMapId(), me->GetInstanceId());
     m_awayFromLeader = away;
     // For the chase limit of the damage bots (GroupRules.h).
+    // And the tank's trail, the cleared way of its fight spot (Trail.h).
     if (m_role == Bots::BotRole::Tank)
+    {
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
+        Bots::WatchTrail(adapter, *coordinator);
+    }
     std::string const reaction = m_bossReaction.Active();
     switch (m_bossReaction.Update(adapter, *coordinator, m_strategies, m_role))
     {

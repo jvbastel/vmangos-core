@@ -53,9 +53,10 @@ namespace Bots
     // first. False when no spot is safe, and for a unit too far away to know
     // the enemies on the way (the bot looks 150 yards around it, so about
     // 84 yards for a cast of 26 yards). `enemies`, when given: the enemies
-    // that the search kept away from.
+    // that the search kept away from. `leastYards`: no ring nearer to the
+    // unit than this, for a spell with a least range (a shot).
     bool FindSafeCastPlace(BotView const& view, Guid unit, float yards, Position& place,
-        std::vector<NearEnemy>* enemies = nullptr);
+        std::vector<NearEnemy>* enemies = nullptr, float leastYards = 0.0f);
 }
 
 #endif

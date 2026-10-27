@@ -1,6 +1,7 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
 #include "BotGeometry.h"
+#include "FightSpot.h"
 #include "GroupRules.h"
 #include "Ranged.h"
 #include "SpellBook.h"
@@ -99,6 +100,19 @@ namespace Bots
                 return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().spot);
             }
 
+            float DistanceToShootSpot(BotContext const& context)
+            {
+                return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().shootSpot);
+            }
+
+            // The tank pulls from range from its shoot spot, and stands
+            // out of shot.
+            bool GoesToShoot(BotContext const& context)
+            {
+                return IsPulling(context) && context.group.GetPull().hasShootSpot && !IsCasting(context)
+                    && PullsFromRange(context) && OutOfShot(context);
+            }
+
             // The focus target attacks the tank and runs to it: the tank
             // waits for it where it stands.
             bool FocusComes(BotContext const& context)
@@ -174,13 +188,35 @@ namespace Bots
                     },
                     [](BotContext const& context) { context.group.HoldPull(Self(context)); }),
 
-                // The pull. The tank notes where it stands, and the pack
-                // comes to it there. No Charge: it stuns the target in place.
+                // The pull. The tank picks its fight spot on its cleared way
+                // (FightSpot.h), and the pack comes to it there. With no
+                // clean spot it warns about the extra packs, once a pull.
+                // No Charge: it stuns the target in place.
                 Bookkeeping("note the pull spot", P + 80,
                     [](BotContext const& context) { return IsPulling(context) && !context.group.GetPull().hasSpot; },
                     [](BotContext const& context) {
-                        context.group.SetPullSpot(Self(context), context.view.GetPosition(Self(context)));
+                        FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(),
+                            PickPullTarget(context), ShotRange{MinShootYards, MaxShootYards});
+                        context.group.SetPullSpot(Self(context), fight.spot);
+                        if (fight.hasShootSpot)
+                            context.group.SetShootSpot(Self(context), fight.shootSpot);
+                        if (fight.extraPacks > 0)
+                            context.actions.WarnExtraPacks(fight.extraPacks);
                     }),
+                // The tank cannot shoot from where it stands: it walks to
+                // its shoot spot. No shot from there either (the sight of
+                // the game): it pulls as without one.
+                Bookkeeping("no shot from the shoot spot", P + 78,
+                    [](BotContext const& context) {
+                        return GoesToShoot(context) && DistanceToShootSpot(context) <= SpotYards;
+                    },
+                    [](BotContext const& context) { context.group.ClearShootSpot(Self(context)); }),
+                Rule{"go to the shoot spot", P + 77,
+                    [](BotContext const& context) {
+                        return GoesToShoot(context) && DistanceToShootSpot(context) > SpotYards;
+                    },
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().shootSpot); }}},
                 // From range: a shot with the ranged weapon.
                 Rule{"shoot the pull target", P + 75,
                     [](BotContext const& context) {

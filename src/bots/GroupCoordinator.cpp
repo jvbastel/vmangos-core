@@ -57,6 +57,22 @@ namespace Bots
             m_pull.hasSpot = false;
     }
 
+    void GroupCoordinator::SetShootSpot(Guid puller, Position spot)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+            return;
+        m_pull.hasShootSpot = true;
+        m_pull.shootSpot = spot;
+    }
+
+    void GroupCoordinator::ClearShootSpot(Guid puller)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.puller == puller)
+            m_pull.hasShootSpot = false;
+    }
+
     void GroupCoordinator::EndPull()
     {
         Lock lock(m_mutex);

@@ -99,7 +99,7 @@ namespace Bots
     }
 
     bool FindSafeCastPlace(BotView const& view, Guid unit, float yards, Position& place,
-        std::vector<NearEnemy>* enemies)
+        std::vector<NearEnemy>* enemies, float leastYards)
     {
         Position const self = view.GetPosition(view.GetSelf());
         Position const target = view.GetPosition(unit);
@@ -109,7 +109,7 @@ namespace Bots
 
         std::vector<Position> spots;
         for (float ring : SafeRings)
-            for (int i = 0; i < SafeSpotsPerRing; ++i)
+            for (int i = 0; ring * yards >= leastYards && i < SafeSpotsPerRing; ++i)
             {
                 float const angle = float(i) * 2.0f * Pi / float(SafeSpotsPerRing);
                 Position const spot = view.GetGround(

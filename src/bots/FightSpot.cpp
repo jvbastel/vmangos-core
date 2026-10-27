@@ -11,6 +11,9 @@ namespace Bots
         float const EnemySearchYards = FightSpotSearchYards + 60.0f;
         // A trail spot this near to the last one is the same spot.
         float const SameSpotYards = 0.5f;
+        // A shot from a spot: the least range plus this, for the bodies
+        // that the center distance of a spot leaves out.
+        float const ShotBodyYards = 2.0f;
 
         bool Near(std::vector<NearEnemy> const& pack, Position const& at, float yards)
         {
@@ -49,7 +52,7 @@ namespace Bots
         bool InShotFrom(BotView const& view, Position const& at, Guid target, Position const& targetAt, ShotRange shot)
         {
             float const distance = Distance3d(at, targetAt);
-            return distance >= shot.minYards + 2.0f && distance <= shot.maxYards && view.CanSeeFrom(at, target);
+            return distance >= shot.minYards + ShotBodyYards && distance <= shot.maxYards && view.CanSeeFrom(at, target);
         }
     }
 
@@ -128,7 +131,7 @@ namespace Bots
                 result.hasShootSpot = true;
                 result.shootSpot = spots[i];
             }
-        if (!canShoot && FindSafeCastPlace(view, target, shot.maxYards, result.shootSpot))
+        if (!canShoot && FindSafeCastPlace(view, target, shot.maxYards, result.shootSpot, nullptr, shot.minYards + ShotBodyYards))
         {
             canShoot = true;
             result.hasShootSpot = true;
