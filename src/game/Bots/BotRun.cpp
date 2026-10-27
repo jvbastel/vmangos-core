@@ -16,6 +16,7 @@
 #include "Chat.h"
 #include "Corpse.h"
 #include "Creature.h"
+#include "ExtraPackWatch.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "Group.h"
@@ -321,6 +322,13 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0));
     m_trace = Bots::RunTrace();
     m_fight = Bots::FightWatch();
+    {
+        std::map<uint32, std::string> packOf;
+        for (Bots::RoutePack const& pack : m_route.packs)
+            for (Bots::RouteMob const& mob : pack.mobs)
+                packOf[mob.spawnGuid] = pack.name;
+        m_extraPacks = Bots::ExtraPackWatch(std::move(packOf));
+    }
     MakeDir(sBotMgr.GetSettings().runDir);
     if (!WriteFile(sBotMgr.GetSettings().runDir + "/" + LiveTraceFile, ""))
         sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] cannot write %s/%s", sBotMgr.GetSettings().runDir.c_str(), LiveTraceFile);
@@ -1417,6 +1425,10 @@ void BotRun::RecordPull(Bots::ScriptCommand const& command)
     // The pack of a `fight`; none for a `command pull`.
     std::string const pack = command.kind == Bots::ScriptCommandKind::Fight ? command.name : "";
     m_record.pulls.push_back({pack, target ? target->GetName() : "", RunMs(), command.again > 0});
+    // The pack of the pull for the extra packs: that of the target of a
+    // `command pull` too.
+    Creature const* creature = target ? target->ToCreature() : nullptr;
+    m_extraPacks.Start(!pack.empty() || !creature ? pack : m_extraPacks.PackOf(creature->GetDBTableGUIDLow()));
     // A new pull ends the fight of the last one.
     if (m_fight.Running())
         EndFight(RunMs());
@@ -1455,8 +1467,37 @@ void BotRun::WatchFight(int64 nowMs)
         }
         seen.push_back(state);
     }
+    WatchExtraPacks(nowMs);
     if (m_fight.Observe(nowMs, Facts().groupInCombat, enemies, seen))
         EndFight(nowMs);
+}
+
+void BotRun::WatchExtraPacks(int64 nowMs)
+{
+    Player* driver = Driver();
+    if (m_record.pulls.empty() || !InWorldAndStill(driver))
+        return;
+    std::set<uint32> spawns;
+    for (auto const& enemy : m_enemyHealth)
+        if (Creature const* creature = driver->GetMap()->GetCreature(enemy.first))
+            spawns.insert(creature->GetDBTableGUIDLow());
+    std::size_t const known = m_extraPacks.ExtraPacks().size();
+    m_extraPacks.Observe(nowMs, spawns);
+    RecordExtraPacks();
+    for (std::size_t i = known; i < m_extraPacks.ExtraPacks().size(); ++i)
+    {
+        Bots::RunExtraPack const& extra = m_extraPacks.ExtraPacks()[i];
+        std::string const text = "extra pack " + extra.pack + " joins pull " + std::to_string(m_record.pulls.size()) +
+            (extra.warned ? " (warned)" : " (no warn)");
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
+        m_trace.Add(nowMs, text);
+    }
+}
+
+void BotRun::RecordExtraPacks()
+{
+    if (!m_record.pulls.empty())
+        m_record.pulls.back().extraPacks = m_extraPacks.ExtraPacks();
 }
 
 void BotRun::EndFight(int64 nowMs)
@@ -1704,6 +1745,14 @@ void BotRun::NoteChatLine(BotLine const& line, Player const* bot)
 {
     if (m_phase != Phase::Script && m_phase != Phase::Closing)
         return;
+    if (line.extraPackWarn && m_groupId && bot->GetGroup() && bot->GetGroup()->GetId() == m_groupId &&
+        !m_record.pulls.empty())
+    {
+        m_extraPacks.NoteWarn();
+        RecordExtraPacks();
+        m_trace.Add(RunMs(), std::string(bot->GetName()) + " warns about extra packs");
+        return;
+    }
     Bots::RunChatEvent* event = line.eventId ? ChatEventOf(line.eventId) : nullptr;
     if (!event)
         return;

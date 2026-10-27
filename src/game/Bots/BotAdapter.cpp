@@ -12,6 +12,7 @@
 #include "BotGeometry.h"
 #include "GhostWalk.h"
 #include "CastResult.h"
+#include "ExtraPackWatch.h"
 #include "Bag.h"
 #include "Corpse.h"
 #include "Group.h"
@@ -888,4 +889,13 @@ void BotAdapter::Eat()
 void BotAdapter::Drink()
 {
     UseRestItem(RestItemFor(me->GetLevel()).drink);
+}
+
+void BotAdapter::WarnExtraPacks(uint32 packs)
+{
+    // A party line like the refusals of BotAI: BotMgr::SendLines says it on
+    // the world thread, and a scripted run notes the warn there.
+    BotLine line{me->GetObjectGuid(), CHAT_MSG_PARTY, ObjectGuid(), Bots::ExtraPackWarnLine(packs)};
+    line.extraPackWarn = true;
+    sBotMgr.QueueLine(std::move(line));
 }

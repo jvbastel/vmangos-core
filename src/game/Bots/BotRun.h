@@ -11,6 +11,7 @@
 #include "BotChat.h"
 #include "ChaseWatch.h"
 #include "Common.h"
+#include "ExtraPackWatch.h"
 #include "FightWatch.h"
 #include "GroupCoordinator.h"
 #include "Inbox.h"
@@ -164,6 +165,11 @@ class BotRun
         void WatchFight(int64 nowMs);
         // The fight summary into the result, the trace, and the log.
         void EndFight(int64 nowMs);
+        // The packs of the route that join the fight of the last pull
+        // (Bots::ExtraPackWatch), into the result, the trace, and the log.
+        void WatchExtraPacks(int64 nowMs);
+        // The extra packs of the watch into the last pull of the result.
+        void RecordExtraPacks();
         // The new lines of the trace, appended to the live trace file
         // (LiveTraceFile in Bots.Run.ResultDir), so that the watch script
         // (wowai/test-realm/watch.py) follows the run as it goes.
@@ -254,6 +260,7 @@ class BotRun
         std::map<uint64, std::size_t> m_chatEvents; // By event id: the index in m_record.chatEvents.
         Bots::RunTrace m_trace;
         Bots::FightWatch m_fight;
+        Bots::ExtraPackWatch m_extraPacks;
         Bots::RunResult m_record; // The result file.
         std::unique_ptr<Bots::QuestProgress> m_quests;
         // `release`: in a wipe, the test driver releases this long after the
