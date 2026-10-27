@@ -287,6 +287,8 @@ def main():
 
     if args.kind == "scenario" and not args.arg:
         parser.error("scenario needs a name")
+    if args.kind == "full" and args.count:
+        parser.error("full takes one count: full [<count>]")
     scenario, count, limit = run_plan(args.kind, args.arg, args.count, args.noquests)
 
     from kit import Realm

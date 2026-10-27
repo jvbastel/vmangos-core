@@ -41,7 +41,7 @@ namespace Bots
     struct RunExtraPack
     {
         std::string pack;
-        std::int64_t ms;     // When the group first fought a mob of it.
+        std::int64_t ms = 0; // When the group first fought a mob of it.
         bool warned = false; // The tank warned in party chat in that pull.
     };
 
