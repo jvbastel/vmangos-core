@@ -8,6 +8,8 @@
 #include "Ranged.h"
 #include "SpellBook.h"
 
+#include <algorithm>
+
 namespace Bots
 {
     namespace Warrior
@@ -27,6 +29,16 @@ namespace Bots
             std::uint32_t const StillChaseThinks = 3;
             // Nearer than this, the focus is in melee reach.
             float const MeleeYards = 5.0f;
+
+            // jvbastel/WOWAI#114: Demoralizing Shout reaches the enemies
+            // within ShoutYards. The tank shouts when ShoutEnemies or more
+            // of them lack the debuff, or one in the fight lacks it.
+            float const ShoutYards = 10.0f;
+            std::size_t const ShoutEnemies = 2;
+
+            // jvbastel/WOWAI#116: Shield Block.
+            // Rage for Shield Block from it.
+            std::uint32_t const ShieldBlockRage = 10;
 
             Guid Self(BotContext const& context)
             {
@@ -146,6 +158,16 @@ namespace Bots
                 return PickMemberAttacker(context, Self(context), context.group.GetFocusTarget());
             }
 
+            // A living enemy hits the tank in melee reach: a hit that a
+            // shield can block.
+            bool HitInMelee(BotContext const& context)
+            {
+                for (Guid const attacker : context.view.GetAttackers(Self(context)))
+                    if (IsAlive(context.view, attacker) && context.view.GetDistance(attacker) <= MeleeYards)
+                        return true;
+                return false;
+            }
+
             // A taunt is due and ready: the focus or another enemy hits a
             // member, and the tank can taunt it now. The walk back waits
             // for it, so that no member holds an enemy of the pull.
@@ -160,6 +182,28 @@ namespace Bots
                     return true;
                 Guid const loose = PickLooseEnemy(context);
                 return loose != NoGuid && context.view.CanCast(taunt, loose);
+            }
+
+            // Demoralizing Shout is due: ShoutEnemies or more enemies within
+            // ShoutYards lack its debuff, or an enemy in the fight
+            // (EnemiesInFight: the focus, or an attacker of a group member)
+            // lacks it: a late arrival, or an expired debuff. Not for one
+            // enemy out of the fight.
+            bool ShoutDue(BotContext const& context)
+            {
+                if (!FightsFocus(context))
+                    return false;
+                std::vector<Guid> const inFight = EnemiesInFight(context);
+                std::size_t lacking = 0;
+                for (NearEnemy const& enemy : context.view.GetEnemiesNear(ShoutYards))
+                {
+                    if (context.view.HasAura(enemy.guid, DemoralizingShout))
+                        continue;
+                    if (std::find(inFight.begin(), inFight.end(), enemy.guid) != inFight.end())
+                        return true;
+                    ++lacking;
+                }
+                return lacking >= ShoutEnemies;
             }
 
             // The tank warns in party chat that the pull brings `packs`
@@ -385,10 +429,22 @@ namespace Bots
                 CastRule("taunt an enemy off a member", P + 54,
                     [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
                     Taunt, PickLooseEnemy),
+                // jvbastel/WOWAI#114: threat on each enemy near, from the
+                // opener on (after Defensive Stance and Bloodrage, which
+                // give it the rage).
+                CastRule("demoralizing shout", P + 50, ShoutDue, DemoralizingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
                 CastRule("revenge", P + 40, FightsFocus, Revenge, PickFocusTarget),
+                // Below Revenge: more blocks give more Revenge. The cast
+                // check covers the shield and the cooldown.
+                CastRule("shield block", P + 38,
+                    [](BotContext const& context) {
+                        return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
+                            && Rage(context) >= ShieldBlockRage && HitInMelee(context);
+                    },
+                    ShieldBlock, PickSelf),
                 CastRule("heroic strike", P + 35,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) >= SpareRage; },
                     HeroicStrike, PickFocusTarget),
