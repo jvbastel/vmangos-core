@@ -207,6 +207,10 @@ namespace Bots
     std::string RunFileStem(RunResult const& result);
 
     std::string RunResultJson(RunResult const& result);
+    // The threat losses on a member named in `healers` (jvbastel/WOWAI#113):
+    // the one source of the healer's count, for the result file and the
+    // result line of the game layer.
+    std::size_t HealerThreatLosses(RunResult const& result);
 
     // The number of the fight of the last pull: 1, and one more for each
     // pull again (RunPull::again) of the same fight. 1 without a pull.

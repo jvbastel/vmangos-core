@@ -240,7 +240,7 @@ namespace Bots
     void GroupCoordinator::MarkEnemyHealer(Guid enemy)
     {
         Lock lock(m_mutex);
-        if (std::find(m_enemyHealers.begin(), m_enemyHealers.end(), enemy) == m_enemyHealers.end())
+        if (!Contains(m_enemyHealers, enemy))
             m_enemyHealers.push_back(enemy);
     }
 

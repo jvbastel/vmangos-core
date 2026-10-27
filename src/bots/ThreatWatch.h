@@ -46,9 +46,6 @@ namespace Bots
 
         // In the order they passed 4 seconds.
         std::vector<ThreatLoss> const& Losses() const { return m_losses; }
-        // The losses on any of `members`: one member, or the healers that the
-        // game layer finds by role (jvbastel/WOWAI#113).
-        std::size_t LossesOn(std::vector<Guid> const& members) const;
 
     private:
         struct Hit

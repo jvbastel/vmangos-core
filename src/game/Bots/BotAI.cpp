@@ -553,7 +553,7 @@ void BotAI::Think()
         Bots::WatchTrail(adapter, *coordinator);
     }
     // The tank taunts enemies off the healer first (WarriorModule.cpp).
-    if (m_role == Bots::BotRole::Healer)
+    if (sBotMgr.IsHealerBot(me))
         coordinator->SetHealer(me->GetObjectGuid().GetRawValue());
     std::string const reaction = m_bossReaction.Active();
     switch (m_bossReaction.Update(adapter, *coordinator, m_strategies, m_role))

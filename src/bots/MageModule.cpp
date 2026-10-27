@@ -35,14 +35,6 @@ namespace Bots
                 return !context.view.GetAttackers(Self(context)).empty();
             }
 
-            bool IsHitInMelee(BotContext const& context)
-            {
-                for (Guid attacker : context.view.GetAttackers(Self(context)))
-                    if (context.view.GetDistance(attacker) <= FrostNovaYards)
-                        return true;
-                return false;
-            }
-
             bool HasArmor(BotContext const& context)
             {
                 return context.view.HasAura(Self(context), FrostArmor) || context.view.HasAura(Self(context), IceArmor);
@@ -55,7 +47,9 @@ namespace Bots
             std::vector<Rule> rules = {
                 // Defense: the tank holds the threat, but an enemy can still
                 // come to the Mage.
-                CastRule("frost nova", P + 90, IsHitInMelee, FrostNova, PickSelf),
+                CastRule("frost nova", P + 90,
+                    [](BotContext const& context) { return IsHitInMelee(context, FrostNovaYards); }, FrostNova,
+                    PickSelf),
                 CastRule("ice barrier", P + 85,
                     [](BotContext const& context) {
                         return IsAttacked(context) && !context.view.HasAura(Self(context), IceBarrier);

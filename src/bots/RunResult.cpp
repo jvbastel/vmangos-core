@@ -30,6 +30,11 @@ namespace Bots
             return text.empty() ? Json() : Json(text);
         }
 
+        bool OnHealer(RunResult const& r, RunHit const& loss)
+        {
+            return Contains(r.healers, loss.member);
+        }
+
         Json Hits(std::vector<RunHit> const& hits)
         {
             Json list = Json::array();
@@ -79,6 +84,12 @@ namespace Bots
     std::string RunFileStem(RunResult const& result)
     {
         return result.script + "-" + result.scenario + "-" + result.stamp;
+    }
+
+    std::size_t HealerThreatLosses(RunResult const& r)
+    {
+        return static_cast<std::size_t>(std::count_if(r.threatLosses.begin(), r.threatLosses.end(),
+            [&](RunHit const& loss) { return OnHealer(r, loss); }));
     }
 
     std::string RunResultJson(RunResult const& r)
@@ -143,22 +154,22 @@ namespace Bots
                 {"members", members}});
         }
         j["fights"] = fights;
-        j["threat_losses"] = Hits(r.threatLosses);
+        // Each loss says whether it was on a healer, for the pull reports
+        // of runs.py (jvbastel/WOWAI#118).
+        Json losses = Hits(r.threatLosses);
+        for (std::size_t i = 0; i < r.threatLosses.size(); ++i)
+            losses[i]["healer"] = OnHealer(r, r.threatLosses[i]);
+        j["threat_losses"] = losses;
         // Each member, also one with no loss, and the healer's count
         // (jvbastel/WOWAI#113).
         Json byMember = Json::object();
         byMember[r.driver] = 0;
         for (std::string const& member : r.group)
             byMember[member] = 0;
-        std::size_t healerLosses = 0;
         for (RunHit const& loss : r.threatLosses)
-        {
             byMember[loss.member] = byMember.value(loss.member, 0) + 1;
-            if (std::find(r.healers.begin(), r.healers.end(), loss.member) != r.healers.end())
-                ++healerLosses;
-        }
         j["threat_losses_by_member"] = byMember;
-        j["healer_threat_losses"] = healerLosses;
+        j["healer_threat_losses"] = HealerThreatLosses(r);
         j["lost_mobs"] = Hits(r.lostMobs);
         j["moves_stopped"] = r.movesStopped;
 

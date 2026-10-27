@@ -85,8 +85,8 @@ def a_three_enemy_run(losses):
         "run": 1, "script": "deadmines", "scenario": "three_enemies", "result": "passed", "reason": None,
         "healers": ["Hela"],
         "pulls": [{"pack": "miners", "target": "Defias Miner", "time_s": 30.0, "again": False, "extra_packs": []}],
-        "threat_losses": [{"enemy": "Defias Miner", "member": member, "time_s": t, "seconds": 5.0}
-                          for member, t in losses],
+        "threat_losses": [{"enemy": "Defias Miner", "member": member, "time_s": t, "seconds": 5.0,
+                           "healer": member == "Hela"} for member, t in losses],
     }
 
 
@@ -103,6 +103,14 @@ class PullReport(unittest.TestCase):
         report = runs.pull_reports(a_three_enemy_run([("Hela", 35.0), ("Ezzra", 36.0), ("Hela", 40.0)]))
         self.assertEqual([(r["threat_losses"], r["healer_threat_losses"], r["clean"]) for r in report],
                          [(3, 2, False)])
+
+    def test_the_healer_flag_of_the_result_counts(self):
+        # The result file decides which loss was on a healer: runs.py reads it.
+        result = a_three_enemy_run([("Hela", 35.0), ("Ezzra", 36.0), ("Hela", 37.0)])
+        result["threat_losses"][0]["healer"] = False
+        result["threat_losses"][1]["healer"] = True
+        result["threat_losses"][2]["healer"] = False
+        self.assertEqual([r["healer_threat_losses"] for r in runs.pull_reports(result)], [1])
 
     def test_a_loss_belongs_to_the_last_pull_before_it(self):
         result = a_three_enemy_run([("Hela", 35.0), ("Shanka", 95.0)])

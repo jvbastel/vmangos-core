@@ -104,7 +104,7 @@ TEST(RunResult, WritesThePullsTheThreatLossesAndTheLostMobs)
         {"pack": "pack1", "target": "Earthborer", "time_s": 120.0, "again": true, "extra_packs": []},
         {"pack": null, "target": "Taragaman the Hungerer", "time_s": 900.0, "again": false, "extra_packs": []}])"));
     EXPECT_EQ(j["threat_losses"],
-        Json::parse(R"([{"enemy": "Earthborer", "member": "Hela", "time_s": 62.0, "seconds": 5.0}])"));
+        Json::parse(R"([{"enemy": "Earthborer", "member": "Hela", "time_s": 62.0, "seconds": 5.0, "healer": false}])"));
     EXPECT_EQ(j["lost_mobs"], Json::array());
 }
 
@@ -247,6 +247,12 @@ TEST(RunResult, CountsTheThreatLossesOfEachMemberAndOfTheHealer)
 
     EXPECT_EQ(j["threat_losses"].size(), 3u);
     EXPECT_EQ(j["healer_threat_losses"], 2);
+    EXPECT_EQ(Bots::HealerThreatLosses(r), 2u);
+    // Each loss says whether it was on a healer, for the pull reports of
+    // runs.py: one source of the healer count.
+    EXPECT_EQ(j["threat_losses"][0]["healer"], true);
+    EXPECT_EQ(j["threat_losses"][1]["healer"], false);
+    EXPECT_EQ(j["threat_losses"][2]["healer"], true);
     // Each member, also one with no loss.
     EXPECT_EQ(j["threat_losses_by_member"], Json::parse(R"({"Ezzra": 1, "Grukk": 0, "Hela": 2})"));
 }

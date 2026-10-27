@@ -614,3 +614,24 @@ TEST(GroupRules, KickAndShieldBashAreTheInterruptSpells)
     EXPECT_TRUE(Bots::IsInterruptSpell(Bots::Warrior::ShieldBash));
     EXPECT_FALSE(Bots::IsInterruptSpell(Bots::Rogue::SinisterStrike));
 }
+
+// jvbastel/WOWAI#102 review: the enemies in the fight are the focus, then the
+// attackers of the living members (MemberAttackers). An enemy on a dead
+// member only is in the fight again once it attacks a living one.
+TEST(GroupRules, EnemiesInFightSkipTheAttackersOfADeadMember)
+{
+    FakeBot fake(Tank);
+    GroupCoordinator group;
+    fake.SetGroupMembers({Tank, Healer});
+    fake.SetHealth(Tank, 600, 600);
+    fake.SetHealth(Healer, 0, 300);
+    for (Bots::Guid enemy : {Kobold, Shaman, Warlock})
+        fake.SetHealth(enemy, 300, 300);
+    fake.SetVictim(Kobold, Tank);
+    fake.SetVictim(Warlock, Tank);
+    fake.SetVictim(Shaman, Healer);
+    group.SetFocusTarget(Warlock);
+    BotContext const context{fake, fake, group, Bots::CommandState::Follow, Player};
+
+    EXPECT_EQ(Bots::EnemiesInFight(context), (std::vector<Bots::Guid>{Warlock, Kobold}));
+}

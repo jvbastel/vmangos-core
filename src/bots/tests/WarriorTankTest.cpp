@@ -416,6 +416,10 @@ TEST(WarriorTank, WalksBackToWhereItStartedAfterTheHit)
     tank.fake.SetInCombat(Tank);
     tank.fake.SetVictim(Tank, Kobold);
     tank.fake.SetVictim(Kobold, Tank);
+    // The opener is done: it fires on the way otherwise.
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetPower(Tank, 20, 100);
 
     tank.Think(); // Holds the pull.
     tank.Think();
@@ -1410,6 +1414,7 @@ TEST(WarriorTank, NoShoutForEnemiesBeyondItsReach)
     tank.fake.SetAura(Wolf, Warrior::DemoralizingShout);
     tank.fake.AddEnemy(ShoutTank::Boar, {11, 0, 0}, 10.0f);
     tank.fake.AddEnemy(ShoutTank::Raptor, {0, 11, 0}, 10.0f);
+    tank.fake.SetDistance(ShoutTank::Raptor, 11.0f);
     tank.fake.SetVictim(ShoutTank::Raptor, Tank);
 
     EXPECT_EQ(tank.Next(), CastOn(Warrior::Revenge, Kobold));
@@ -1765,4 +1770,114 @@ TEST(WarriorTank, IgnoresADeadHealerInTheTieBreak)
 
     // The distances to the corpse do not change the pick.
     EXPECT_EQ(swapped.fake.Deeds(), deadHealer);
+}
+
+// jvbastel/WOWAI#102 review: the opener on the walk back, the visits.
+namespace
+{
+    // After a ranged pull the kobold hits the tank, which walks back from
+    // (28, 20) to its fight spot at (10, 20). It is in Battle Stance with
+    // no rage, and knows Demoralizing Shout.
+    struct WalkBackTank : BowTank
+    {
+        WalkBackTank()
+        {
+            fake.SetKnownSpell(Warrior::DemoralizingShout);
+            fake.SetPosition(Tank, {10, 20, 0});
+            Pull();
+            fake.SetPosition(Tank, {28, 20, 0});
+            fake.AddEnemy(Kobold, {29, 20, 0}, 10.0f);
+            fake.SetDistance(Kobold, 2.0f);
+            fake.SetInCombat(Tank);
+            fake.SetVictim(Tank, Kobold);
+            fake.SetVictim(Kobold, Tank);
+            Think(); // Holds the pull.
+            fake.ClearDeeds();
+        }
+
+        std::vector<std::string> Next()
+        {
+            fake.ClearDeeds();
+            Think();
+            return fake.Deeds();
+        }
+    };
+}
+
+// Spec story 3: with no Charge, the tank opens with Defensive Stance,
+// Bloodrage and Demoralizing Shout, and walks on meanwhile.
+TEST(WarriorTank, OpensWhileItWalksBackAfterARangedPull)
+{
+    WalkBackTank tank;
+    std::string const walk = "keep move to 10 20 0";
+
+    EXPECT_EQ(tank.Next(), (std::vector<std::string>{CastOn(Warrior::DefensiveStance, Tank), walk}));
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetCannotCastOn(Warrior::DemoralizingShout, Tank);
+
+    EXPECT_EQ(tank.Next(), (std::vector<std::string>{CastOn(Warrior::Bloodrage, Tank), walk}));
+    tank.fake.SetPower(Tank, 10, 100);
+    tank.fake.SetCanCastOn(Warrior::DemoralizingShout, Tank);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    EXPECT_EQ(tank.Next(), (std::vector<std::string>{CastOn(Warrior::DemoralizingShout, Tank), walk}));
+    tank.fake.SetAura(Kobold, Warrior::DemoralizingShout);
+
+    EXPECT_EQ(tank.Next(), (std::vector<std::string>{walk}));
+}
+
+// The end of a fight ends a visit too: the next fight starts with a full one.
+TEST(WarriorTank, ANewFightStartsWithANewVisit)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetHealth(Kobold, 0, 200);
+    ASSERT_EQ(tank.Think(), "end the fight");
+
+    tank.group.SetFocusTarget(Lynx);
+    tank.fake.SetVictim(Tank, Lynx);
+    tank.fake.ClearDeeds();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// A fight can end on other paths than "end the fight" (a wipe, the Stop
+// command, the tank's death): a new focus starts with a new visit too.
+TEST(WarriorTank, ANewFocusStartsWithANewVisit)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+
+    tank.group.EndPull();
+    tank.group.SetFocusTarget(Lynx);
+    tank.fake.SetVictim(Tank, Lynx);
+    tank.fake.ClearDeeds();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// Spec story 11: the lead on the focus drops below 150% in a visit, before
+// its ability: the next action goes to the focus.
+TEST(WarriorTank, GoesBackToTheFocusWhenItsLeadDropsInAVisit)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+    // The visit is due, but Shield Block (above it) takes this think.
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+
+    tank.fake.SetCannotCast(Warrior::ShieldBlock);
+    tank.fake.SetThreatRatio(Tank, Kobold, 1.4f);
+    tank.fake.ClearDeeds();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
 }

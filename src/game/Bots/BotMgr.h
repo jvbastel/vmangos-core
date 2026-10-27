@@ -181,6 +181,11 @@ class BotMgr
         // The same role, typed: the role of one of our bots that is online
         // and not the test driver, or false.
         bool BotRoleOf(Player const* player, Bots::BotRole& role) const;
+        // The healer of a group: one of our bots that is online, not the
+        // test driver, with the healer role. The tank's healer
+        // (GroupCoordinator::SetHealer) and the healer's threat losses of
+        // a scripted run (BotRun) both use it.
+        bool IsHealerBot(Player const* player) const;
         // True for a character of the `bot_character` table, online or not.
         bool IsBotCharacter(ObjectGuid guid) const;
         // The characters of our bots that are online.

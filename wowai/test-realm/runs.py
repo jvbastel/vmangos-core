@@ -148,6 +148,8 @@ def pull_reports(result):
     pull to the first pull that is no fight again. `again` marks a fight again of a pack, which is no
     first pull."""
     pulls = sorted(result.get("pulls", []), key=lambda pull: pull["time_s"])
+    # The result file says which loss was on a healer. Result files from
+    # before that flag name the healers only.
     healers = set(result.get("healers", []))
     reports = [{"pull": i + 1, "pack": pull.get("pack"), "target": pull.get("target", ""),
                 "again": pull.get("again", False), "threat_losses": 0, "healer_threat_losses": 0}
@@ -157,7 +159,7 @@ def pull_reports(result):
         before = [i for i, pull in enumerate(pulls) if pull["time_s"] <= loss["time_s"]]
         report = reports[before[-1] if before else (first or [0])[0]]
         report["threat_losses"] += 1
-        report["healer_threat_losses"] += loss["member"] in healers
+        report["healer_threat_losses"] += loss.get("healer", loss["member"] in healers)
     for report in reports:
         report["clean"] = report["threat_losses"] == 0
     return reports
