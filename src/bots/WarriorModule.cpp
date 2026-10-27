@@ -222,16 +222,20 @@ namespace Bots
                         Guid const focus = PickFocusTarget(context);
                         if (!FightsFocus(context))
                             return false;
-                        if (context.view.GetVictim(Self(context)) != focus)
+                        ChaseState const chase = context.view.GetChase();
+                        // A ranged chase from the pull attacks with no melee swing.
+                        if (context.view.GetVictim(Self(context)) != focus || (chase.target == focus && chase.ranged))
                             return true;
-                        return context.view.GetDistance(focus) > MeleeYards && context.view.GetChase().target != focus
+                        return context.view.GetDistance(focus) > MeleeYards && chase.target != focus
                             && !FocusComes(context);
                     },
                     {[](BotContext const& context) { return IsAlive(context.view, PickFocusTarget(context)); },
                         [](BotContext const& context) {
                             Guid const focus = PickFocusTarget(context);
                             context.actions.Attack(focus);
-                            if (!FocusComes(context))
+                            if (FocusComes(context) && context.view.GetDistance(focus) > MeleeYards)
+                                context.actions.Stand();
+                            else
                                 context.actions.Chase(focus);
                         }}},
                 CastRule("defensive stance", P + 60,

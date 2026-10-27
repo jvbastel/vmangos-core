@@ -98,6 +98,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void Chase(Bots::Guid target) override;
         void ChaseBehind(Bots::Guid target) override;
         void ChaseToRange(Bots::Guid target, float yards) override;
+        void Stand() override;
         void PetAttack(Bots::Guid target) override;
         void Follow(Bots::Guid unit) override;
         void Loot(bool mayMove) override;

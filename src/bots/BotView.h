@@ -19,6 +19,9 @@ namespace Bots
         Guid target; // NoGuid when the bot chases no unit.
         bool behind; // The bot runs behind the unit (BotActions::ChaseBehind).
         // A chase from BotActions::ChaseToRange is not behind.
+        // A chase from ChaseToRange: the bot stays at range and attacks
+        // without a melee swing.
+        bool ranged = false;
     };
 
     // The spell that a unit casts now.

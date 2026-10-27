@@ -374,7 +374,7 @@ Bots::ChaseState BotAdapter::GetChase() const
     auto const* chase = dynamic_cast<ChaseMovementGenerator<Player> const*>(motion->GetCurrent());
     if (!chase)
         return {Bots::NoGuid, false};
-    return {GuidOf(chase->GetTarget()), chase->GetAngle() != 0.0f};
+    return {GuidOf(chase->GetTarget()), chase->GetAngle() != 0.0f, me->GetMinChaseDistance() > 0.0f};
 }
 
 Unit* BotAdapter::ChaseTargetOf(Player const* player)
@@ -980,4 +980,11 @@ void BotAdapter::TopUpAmmo(Bots::AmmoTopUp const& topUp)
                 topUp.count);
     }
     me->SetAmmo(topUp.entry);
+}
+
+void BotAdapter::Stand()
+{
+    me->StopMoving();
+    me->GetMotionMaster()->Clear(false, true);
+    me->GetMotionMaster()->MoveIdle();
 }

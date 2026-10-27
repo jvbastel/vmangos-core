@@ -281,7 +281,30 @@ TEST(WarriorTank, WaitsForThePulledTargetToComeToIt)
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022"}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "stand"}));
+}
+
+// The tank went into shooting range with a ranged chase, which attacks
+// without a melee swing. The kobold came: the tank hits it in melee now.
+TEST(WarriorTank, AfterARangedPullMeleesTheFocus)
+{
+    BowTank tank;
+    tank.Pull();
+    tank.fake.ChaseToRange(Kobold, 25.0f);
+    tank.fake.ClearDeeds();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetDistance(Kobold, 2.0f);
+    tank.group.HoldPull(Tank);
+    tank.group.ClearPullSpot(Tank);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
 }
 
 // An enemy that attacks the tank but stays away, such as a caster, gets

@@ -31,6 +31,8 @@ namespace Bots
         // Run to unit `target` until it is `yards` away, and stay about that
         // far from it: the chase of a ranged bot.
         virtual void ChaseToRange(Guid target, float yards) = 0;
+        // Stop where the bot stands: no walk and no chase.
+        virtual void Stand() = 0;
         // The pet of the bot attacks unit `target`.
         virtual void PetAttack(Guid target) = 0;
         // Follow unit `unit` at a short distance.

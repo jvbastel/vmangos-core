@@ -413,7 +413,12 @@ namespace Bots
                 std::ostringstream range;
                 range << " to " << yards << " yards";
                 m_deeds.back() += range.str();
-                m_chase = {target, false};
+                m_chase = {target, false, true};
+            }
+            void Stand() override
+            {
+                m_deeds.push_back("stand");
+                m_chase = {NoGuid, false};
             }
             void PetAttack(Guid target) override { AddDeed("pet attack", target); }
             void Follow(Guid unit) override
