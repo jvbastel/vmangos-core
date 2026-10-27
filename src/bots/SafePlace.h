@@ -31,6 +31,9 @@ namespace Bots
     {
         // The units to see from the place. None: no sight check.
         std::vector<Guid> inSightOf;
+        // The places to see from the place (BotView::CanSeeBetween), such as
+        // a fight spot that the tank has not reached yet.
+        std::vector<Position> inSightOfPlaces;
         // The enemies not to pull. None: no pull check.
         std::vector<NearEnemy> enemies;
     };

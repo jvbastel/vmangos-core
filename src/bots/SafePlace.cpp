@@ -66,10 +66,13 @@ namespace Bots
             return true;
         }
 
-        bool SeesAll(BotView const& view, Position const& place, std::vector<Guid> const& units)
+        bool SeesAll(BotView const& view, Position const& place, SafeMoveRules const& rules)
         {
-            for (Guid unit : units)
+            for (Guid unit : rules.inSightOf)
                 if (!view.CanSeeFrom(place, unit))
+                    return false;
+            for (Position const& other : rules.inSightOfPlaces)
+                if (!view.CanSeeBetween(place, other))
                     return false;
             return true;
         }
@@ -88,7 +91,7 @@ namespace Bots
         for (Position const& spot : spots)
         {
             if (Pulls(rules.enemies, spot, nullptr) || view.IsHarmfulGround(spot)
-                || !SeesAll(view, spot, rules.inSightOf))
+                || !SeesAll(view, spot, rules))
                 continue;
             if (!view.FindGroundPath(self, spot, path) || path.empty() || !IsSafePath(view, path, rules))
                 continue;

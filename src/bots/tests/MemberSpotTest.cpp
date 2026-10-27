@@ -46,7 +46,7 @@ namespace
 
         bool Find(BotRole role, Position& spot, std::vector<Position> const& taken = {}) const
         {
-            return Bots::FindMemberSpot(fake, role, fightSpot, trail, Tank, Kobold, taken, spot);
+            return Bots::FindMemberSpot(fake, role, fightSpot, trail, Kobold, taken, spot);
         }
     };
 
@@ -115,19 +115,20 @@ TEST(MemberSpot, NoSpotOnGroundFarAboveOrBelowTheFightSpot)
     EXPECT_EQ(spot.z, 0.0f);
 }
 
-TEST(MemberSpot, TheHealersSpotSeesTheTank)
+// The review of jvbastel/WOWAI#100: the healer heals the tank at the fight
+// spot, so its spot sees the fight spot, not where the tank stands now.
+TEST(MemberSpot, TheHealersSpotSeesTheFightSpot)
 {
     Spots spots;
-    // From x = -20 on, a wall hides the tank.
-    spots.fake.AddBlindToFromX(Tank, -20.0f);
-    Position ranged{};
+    // The tank stands back on the trail now; a wall at x = -14.5 hides the
+    // fight spot from the spots of the trail.
+    spots.fake.SetPosition(Tank, {-25, 0, 0});
+    spots.fake.AddSightWallAtX(-14.5f);
     Position healer{};
 
-    ASSERT_TRUE(spots.Find(BotRole::Ranged, ranged));
     ASSERT_TRUE(spots.Find(BotRole::Healer, healer));
 
-    EXPECT_EQ(ranged.x, -16.0f);
-    EXPECT_LT(healer.x, -20.0f);
+    EXPECT_GT(healer.x, -14.5f);
     EXPECT_TRUE(BackFromTheFightSpot(healer));
 }
 

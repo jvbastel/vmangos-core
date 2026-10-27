@@ -58,7 +58,7 @@ namespace Bots
     }
 
     bool FindMemberSpot(BotView const& view, BotRole role, Position const& fightSpot,
-        std::vector<Position> const& trail, Guid tank, Guid target, std::vector<Position> const& taken,
+        std::vector<Position> const& trail, Guid target, std::vector<Position> const& taken,
         Position& spot)
     {
         Position const self = view.GetPosition(view.GetSelf());
@@ -83,8 +83,9 @@ namespace Bots
         else
         {
             rules.enemies = enemies;
+            // The healer heals the tank at its fight spot.
             if (role == BotRole::Healer)
-                rules.inSightOf = {tank};
+                rules.inSightOfPlaces = {fightSpot};
             // The cleared way first, from the fight spot back.
             for (auto point = trail.rbegin(); point != trail.rend(); ++point)
                 if (InBand(*point, fightSpot))
@@ -197,8 +198,7 @@ namespace Bots
                     if (other.bot != self && other.found)
                         taken.push_back(other.spot);
                 mine.bot = self;
-                mine.found = FindMemberSpot(context.view, role, pull.spot, context.group.GetTrail(), pull.puller,
-                    pull.target, taken, mine.spot);
+                mine.found = FindMemberSpot(context.view, role, pull.spot, context.group.GetTrail(), pull.target, taken, mine.spot);
                 context.group.SetMemberSpot(self, mine.found, mine.spot);
                 if (!mine.found)
                     return;

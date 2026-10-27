@@ -723,6 +723,13 @@ bool BotAdapter::CanSeeFrom(Bots::Position const& place, Bots::Guid unit) const
     return me->IsWithinLOSAtPosition(place.x, place.y, ground, x, y, z, true, 0.0f);
 }
 
+bool BotAdapter::CanSeeBetween(Bots::Position const& from, Bots::Position const& to) const
+{
+    // As CanSeeFrom, to a bot of the bot's height on the ground at `to`.
+    return me->IsWithinLOSAtPosition(from.x, from.y, GetGround(from).z, to.x, to.y, GetGround(to).z, true,
+        me->GetCollisionHeight());
+}
+
 Unit const* BotAdapter::FindAnywhere(Bots::Guid unit) const
 {
     if (Unit const* found = Find(unit))

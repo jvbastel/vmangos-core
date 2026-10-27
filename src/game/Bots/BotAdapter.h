@@ -83,6 +83,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool IsEating() const override;
         bool IsDrinking() const override;
         Bots::Position GetGround(Bots::Position const& place) const override;
+        bool CanSeeBetween(Bots::Position const& from, Bots::Position const& to) const override;
         bool FindGroundPath(Bots::Position const& from, Bots::Position const& to,
             std::vector<Bots::Position>& path) const override;
         std::vector<Bots::NearEnemy> GetEnemiesNear(float yards) const override;

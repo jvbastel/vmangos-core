@@ -19,7 +19,7 @@
 //   back from the fight spot, toward the cleared way (the tank's trail, else
 //   away from the target), at least MemberSpreadYards from the spot of each
 //   other member, so one area attack cannot hit them all;
-// - the healer's spot sees the tank.
+// - the healer's spot sees the fight spot, where it heals the tank.
 // Each spot, and the path to it, keeps out of the aggro distance of each
 // enemy and the margin (the safe place rule, SafePlace.h). Melee keeps out
 // of the other packs only: it fights the target's pack at the fight spot.
@@ -50,7 +50,7 @@ namespace Bots
     // tank's fight spot `fightSpot` and its trail `trail` (oldest first).
     // `taken`: the spots of the other members. False when no spot is safe.
     bool FindMemberSpot(BotView const& view, BotRole role, Position const& fightSpot,
-        std::vector<Position> const& trail, Guid tank, Guid target, std::vector<Position> const& taken,
+        std::vector<Position> const& trail, Guid target, std::vector<Position> const& taken,
         Position& spot);
 
     // A bot that has not noted itself for this long (NoteForPulls) is gone
