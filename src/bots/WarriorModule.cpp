@@ -440,7 +440,7 @@ namespace Bots
             bool CasterStaysAway(BotContext const& context)
             {
                 PullState const pull = context.group.GetPull();
-                if (!HoldsPull(context) || pull.hasFightSpot || pull.goesIn || !FightsFocus(context))
+                if (!HoldsPull(context) || !pull.backAtFightSpot || pull.goesIn || !FightsFocus(context))
                     return false;
                 Guid const focus = PickFocusTarget(context);
                 bool const caster = context.view.GetMana(focus).max > 0 || context.view.GetCurrentCast(focus) != NoSpell;

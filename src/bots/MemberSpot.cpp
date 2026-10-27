@@ -193,8 +193,10 @@ namespace Bots
         {
             PullState const pull = context.group.GetPull();
             Guid const self = context.view.GetSelf();
-            bool const hadFightSpot = pull.hasFightSpot || pull.phase == PullPhase::Holding;
-            if (!hadFightSpot || pull.puller == self || !JoinsPulls(context) || !PullNotHeldYet(context, pull))
+            // The tank noted its fight spot: it still has it, or it holds the pull
+            // (it clears the spot once back there, PullState::backAtFightSpot).
+            bool const fightSpotNoted = pull.hasFightSpot || pull.phase == PullPhase::Holding;
+            if (!fightSpotNoted || pull.puller == self || !JoinsPulls(context) || !PullNotHeldYet(context, pull))
                 return false;
             MemberSpot mine;
             return !MySpot(context, mine) || (mine.found && !mine.inPlace);
