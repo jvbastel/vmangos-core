@@ -38,7 +38,7 @@ namespace Bots
     // moved on.
     std::int64_t const MaxChatLineLateMs = 10000;
 
-    // The result of one POST /v1/events. `answered` is false when the
+    // The result of one POST to the service. `answered` is false when the
     // service did not answer (down, timeout), with the reason in `error`.
     struct ChatPostResult
     {
@@ -53,7 +53,8 @@ namespace Bots
     {
     public:
         virtual ~ChatConnection() = default;
-        virtual ChatPostResult Post(std::string const& body) = 0;
+        // `path` is ChatEventsPath or ChatRosterPath.
+        virtual ChatPostResult Post(std::string const& path, std::string const& body) = 0;
     };
 
     using ChatConnectionFactory = std::function<std::unique_ptr<ChatConnection>()>;
@@ -113,7 +114,16 @@ namespace Bots
         // last call.
         std::vector<ChatEventOutcome> TakeOutcomes();
 
-        // Requests that wait or that a worker sends.
+        // The GUIDs of all bot characters. The first call makes a worker send
+        // them to the service (POST /v1/roster), before the next event. They
+        // go again before the next call after a call with no answer: the
+        // service was down or restarted, for example. No event goes while the
+        // roster is sent. A later call only
+        // keeps the newest list for that. An answer that is not 200 (an older
+        // service) logs once and is not sent again.
+        void SetRoster(std::vector<Guid> botGuids);
+
+        // Requests that wait or that a worker sends, and a roster that is due.
         std::size_t Pending() const;
 
         // A request of the group waits or is sent, or a line of the group
@@ -139,6 +149,12 @@ namespace Bots
 
         void Work(std::unique_ptr<ChatConnection> connection);
         void Handle(ChatConnection& connection, Request const& request);
+        void SendRoster(ChatConnection& connection, std::vector<Guid> const& botGuids);
+
+        // None: no roster yet. Due: a worker sends it now. Sending: a worker
+        // sends it. Sent: the service has it. Retry: it goes before the next
+        // event (no answer to the last call).
+        enum class RosterState { None, Due, Sending, Sent, Retry };
         void Log(std::string const& text);
 
         ChatClientSettings m_settings;
@@ -154,6 +170,8 @@ namespace Bots
         std::uint64_t m_nextOrder = 0;
         std::uint64_t m_nextEventId = 1;
         std::vector<ChatEventOutcome> m_outcomes;
+        std::vector<Guid> m_roster;
+        RosterState m_rosterState = RosterState::None;
 
         std::vector<std::thread> m_workers;
     };

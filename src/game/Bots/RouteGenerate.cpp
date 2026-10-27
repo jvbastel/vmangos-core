@@ -24,6 +24,7 @@
 // bosses. With a character on the map of the route, it also runs the walk
 // check of the navmesh.
 
+#include "BotGeometry.h"
 #include "BotMgr.h"
 #include "Chat.h"
 #include "Database/DatabaseEnv.h"
@@ -62,7 +63,7 @@ namespace
     {
         float length = 0.0f;
         for (std::size_t i = 1; i < path.size(); ++i)
-            length += std::hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+            length += Bots::Distance2d(path[i - 1], path[i]);
         return length;
     }
 
@@ -354,7 +355,7 @@ bool GenerateGhostRoute(ChatHandler& handler, std::string const& name, uint32 du
     Bots::Position const to{exit->destination.x, exit->destination.y, exit->destination.z};
     // The navmesh tiles load with the terrain of their grid.
     TerrainInfo const* terrain = character->GetTerrain();
-    float const length = std::hypot(to.x - from.x, to.y - from.y);
+    float const length = Bots::Distance2d(from, to);
     for (float along = 0.0f; along <= length + GhostTileStepYards; along += GhostTileStepYards)
     {
         float const t = length > 0.0f ? std::min(1.0f, along / length) : 1.0f;

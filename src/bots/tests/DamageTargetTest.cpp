@@ -106,6 +106,24 @@ TEST(DamageTarget, TheFocusOnAnotherMemberWhenNoTauntComes)
     EXPECT_EQ(bot.Target(), Wolf);
 }
 
+// A new focus of the tank beyond the chase limit is not chased: the damage
+// bots stay with the tank (WOWAI#87).
+TEST(DamageTarget, NoChaseOfANewFocusBeyondTheChaseLimit)
+{
+    DamageBot bot;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Tank);
+    bot.fake.SetDistanceBetween(Wolf, Tank, Bots::ChaseLimitYards + 10.0f);
+
+    EXPECT_EQ(bot.Target(), NoGuid);
+
+    bot.fake.SetDistanceBetween(Wolf, Tank, Bots::ChaseLimitYards - 5.0f);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
 TEST(DamageTarget, ANewFocusWaitsForItsTauntAgain)
 {
     DamageBot bot;

@@ -217,16 +217,16 @@ namespace Bots
         m_restUntilFull.erase(bot);
     }
 
-    void GroupCoordinator::NoteRevive(Guid bot)
+    void GroupCoordinator::NoteReleaseToRunBack(Guid bot)
     {
         Lock lock(m_mutex);
         m_events.push_back({GroupEventKind::Rest, bot, RestReason::Revive});
     }
 
-    void GroupCoordinator::GiveUpResurrect(Guid bot)
+    void GroupCoordinator::GiveUpResurrect(Guid bot, std::vector<Guid> const& blockers)
     {
         Lock lock(m_mutex);
-        m_givenUpResurrects.insert(bot);
+        m_givenUpResurrects[bot] = blockers;
     }
 
     bool GroupCoordinator::IsResurrectGivenUp(Guid bot) const
@@ -239,6 +239,19 @@ namespace Bots
     {
         Lock lock(m_mutex);
         m_givenUpResurrects.erase(bot);
+    }
+
+    void GroupCoordinator::RetryResurrects(EnemyLives const& lives)
+    {
+        Lock lock(m_mutex);
+        for (auto it = m_givenUpResurrects.begin(); it != m_givenUpResurrects.end();)
+        {
+            std::vector<Guid> const& blockers = it->second;
+            if (std::any_of(blockers.begin(), blockers.end(), [&lives](Guid enemy) { return !lives(enemy); }))
+                it = m_givenUpResurrects.erase(it);
+            else
+                ++it;
+        }
     }
 
     bool GroupCoordinator::FirstNote(std::pair<Guid, std::int64_t> key, std::int64_t nowMs)

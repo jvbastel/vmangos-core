@@ -21,7 +21,8 @@ namespace Bots
         // The melee damage bot: it attacks the damage target (DamageRules.h)
         // from behind when the target attacks another unit, builds combo
         // points with Sinister Strike, keeps Slice and Dice up, and spends
-        // five combo points on Eviscerate.
+        // five combo points on Eviscerate. On a dying target it spends the
+        // combo points it has, so that they are not lost.
         std::shared_ptr<Strategy const> MakeMeleeStrategy();
     }
 }

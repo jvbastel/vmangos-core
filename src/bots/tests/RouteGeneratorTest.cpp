@@ -95,7 +95,7 @@ namespace
 
         bool Straight(Position const& from, Position const& to, std::vector<Position>& path)
         {
-            float const length = std::hypot(to.x - from.x, to.y - from.y);
+            float const length = Bots::Distance2d(from, to);
             int const steps = std::max(1, int(length / 0.5f));
             for (int i = 0; i <= steps; ++i)
             {

@@ -12,6 +12,17 @@ namespace Bots
     // bot knows, or NoSpell when it knows no rank. A spell without ranks is
     // its own first and highest rank.
     SpellId HighestKnownRank(BotView const& view, SpellId firstRank);
+
+    // The highest known rank of the spell whose first rank is `firstRank`
+    // that the level of unit `target` allows (BotView::LevelAllowsRank), or
+    // NoSpell. A buff on a low-level player takes a lower rank.
+    SpellId RankForTarget(BotView const& view, SpellId firstRank, Guid target);
+
+    // The rank of RankForTarget when the bot can cast it on unit `target`
+    // now, else NoSpell: no stun or silence locks the cast
+    // (BotView::IsCastLocked), and BotView::CanCast allows it. Each rule
+    // that casts asks this before it casts.
+    SpellId CastableRank(BotView const& view, SpellId firstRank, Guid target);
 }
 
 #endif

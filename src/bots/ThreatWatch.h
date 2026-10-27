@@ -4,6 +4,9 @@
 #include "BotTypes.h"
 
 #include <cstdint>
+#include <functional>
+#include <sstream>
+#include <string>
 #include <vector>
 
 // The threat losses of a scripted run. A threat loss is an enemy that hits a
@@ -22,19 +25,24 @@ namespace Bots
         Guid member; // For the threat watch, not the tank.
     };
 
+    // The name of a hit for the run report ("<enemy> on <member>"). The
+    // watches ask for it once, when a threat loss or a lost mob starts.
+    using HitNamer = std::function<std::string(EnemyOnMember const&)>;
+
     struct ThreatLoss
     {
         Guid enemy;
         Guid member;
         std::int64_t startMs; // The first update with the hit.
         std::int64_t endMs;   // The last update with the hit so far.
+        std::string name;     // From the HitNamer, or empty.
     };
 
     class ThreatWatch
     {
     public:
         // A pair missing from `hits` ends its hit.
-        void Update(std::vector<EnemyOnMember> const& hits, std::int64_t nowMs);
+        void Update(std::vector<EnemyOnMember> const& hits, std::int64_t nowMs, HitNamer const& name = nullptr);
 
         // In the order they passed 4 seconds.
         std::vector<ThreatLoss> const& Losses() const { return m_losses; }
@@ -89,6 +97,7 @@ namespace Bots
         Guid member;          // The member it hit at the last update.
         std::int64_t startMs; // The first update of the unattacked hits.
         std::int64_t endMs;   // The last update of them so far.
+        std::string name;     // Of the hit when it was lost, from the HitNamer, or empty.
     };
 
     class LostMobWatch
@@ -100,7 +109,7 @@ namespace Bots
         // `holder` (the tank while it fights, else NoGuid) starts its time
         // again.
         void Update(std::vector<EnemyOnMember> const& hits, std::vector<Guid> const& attacked, std::int64_t nowMs,
-            Guid holder = NoGuid);
+            Guid holder = NoGuid, HitNamer const& name = nullptr);
 
         // In the order they passed the limit. An enemy is lost once.
         std::vector<LostMob> const& LostMobs() const { return m_lost; }
@@ -117,6 +126,32 @@ namespace Bots
         std::vector<Unattacked> m_unattacked;
         std::vector<LostMob> m_lost;
     };
+
+    // The whole seconds of a threat loss or a lost mob. Hit is ThreatLoss or
+    // LostMob (fields name, startMs, endMs).
+    template <typename Hit>
+    std::int64_t HitSeconds(Hit const& hit)
+    {
+        return (hit.endMs - hit.startMs) / 1000;
+    }
+
+    // "<name> <s> s": a threat loss or a lost mob with its whole seconds.
+    template <typename Hit>
+    std::string HitText(Hit const& hit)
+    {
+        return hit.name + " " + std::to_string(HitSeconds(hit)) + " s";
+    }
+
+    // ", <label> <n> (<hit>; <hit>)" for the result line, or ", <label> 0".
+    template <typename Hit>
+    std::string HitListText(std::string const& label, std::vector<Hit> const& hits)
+    {
+        std::ostringstream text;
+        text << ", " << label << " " << hits.size();
+        for (std::size_t i = 0; i < hits.size(); ++i)
+            text << (i ? "; " : " (") << HitText(hits[i]) << (i + 1 == hits.size() ? ")" : "");
+        return text.str();
+    }
 }
 
 #endif
