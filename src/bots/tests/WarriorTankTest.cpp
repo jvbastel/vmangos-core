@@ -161,6 +161,36 @@ TEST(WarriorTank, ClosesInWhenItCannotSeeThePullTarget)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
 }
 
+// The chase into shooting range ended, and the tank still cannot shoot (a
+// target out of reach of the path): it runs in instead.
+TEST(WarriorTank, RunsInWhenItsChaseIntoRangeEndsOutOfShot)
+{
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 45.0f);
+    tank.Pull();
+    tank.fake.ChaseToRange(Kobold, 25.0f);
+    tank.fake.ClearDeeds();
+    tank.fake.SetMoving(Tank, false);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+TEST(WarriorTank, KeepsChasingIntoRangeWhileItMoves)
+{
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 45.0f);
+    tank.Pull();
+    tank.fake.ChaseToRange(Kobold, 25.0f);
+    tank.fake.ClearDeeds();
+    tank.fake.SetMoving(Tank);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
+}
+
 // The shot is out and the tank is in combat, but the kobold does not
 // attack it yet: the tank stays and does not run to it.
 TEST(WarriorTank, DoesNotRunToThePullTargetAfterItsShot)

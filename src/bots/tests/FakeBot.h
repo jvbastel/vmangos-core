@@ -419,6 +419,9 @@ namespace Bots
                 range << " to " << yards << " yards";
                 m_deeds.back() += range.str();
                 m_chase = {target, false};
+                // Like the real chase: the target becomes the victim,
+                // with no melee swing.
+                m_victim[m_self] = target;
                 m_noMeleeSwing = true;
             }
             void Stand() override

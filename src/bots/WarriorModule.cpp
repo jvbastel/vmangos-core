@@ -54,21 +54,30 @@ namespace Bots
                 return context.view.GetCurrentCast(Self(context)) != NoSpell;
             }
 
-            // The tank pulls from range: it wears a ranged weapon with ammo,
-            // knows its shoot spell, and the target is not too near for it.
-            bool PullsFromRange(BotContext const& context)
-            {
-                RangedWeapon const weapon = context.view.GetRangedWeapon();
-                return CanFire(weapon) && context.view.KnowsSpell(ShootSpell(weapon.kind))
-                    && context.view.GetSpellDistance(PickPullTarget(context)) >= MinShootYards;
-            }
-
             // The pull target is out of the range or the sight of a shot.
             bool OutOfShot(BotContext const& context)
             {
                 Guid const target = PickPullTarget(context);
                 return context.view.GetSpellDistance(target) > MaxShootYards
                     || !context.view.CanSeeFrom(context.view.GetPosition(Self(context)), target);
+            }
+
+            // The tank pulls from range: it wears a ranged weapon with ammo,
+            // knows its shoot spell, and the target is not too near for it.
+            // Not when its chase into range ended out of shot (the path
+            // cannot get nearer), nor once it ran in to hit (a melee attack
+            // of the target): then the pull is the fallback.
+            bool PullsFromRange(BotContext const& context)
+            {
+                RangedWeapon const weapon = context.view.GetRangedWeapon();
+                Guid const target = PickPullTarget(context);
+                if (!CanFire(weapon) || !context.view.KnowsSpell(ShootSpell(weapon.kind))
+                    || context.view.GetSpellDistance(target) < MinShootYards)
+                    return false;
+                if (context.view.GetVictim(Self(context)) == target && context.view.IsMeleeAttacking())
+                    return false;
+                return !(context.view.GetChase().target == target && !context.view.IsMoving(Self(context))
+                    && OutOfShot(context));
             }
 
             // The pulled pack holds on the puller: the tank is the puller of
@@ -181,8 +190,11 @@ namespace Bots
                 // walk back ("walk back to the pull spot").
                 MeleeRule("run to the pull target", P + 70,
                     [](BotContext const& context) {
+                        // A ranged chase made the target the victim, with no
+                        // melee swing: that is no hit yet.
                         return IsPulling(context) && !IsCasting(context) && !PullsFromRange(context)
-                            && context.view.GetVictim(Self(context)) != PickPullTarget(context);
+                            && (context.view.GetVictim(Self(context)) != PickPullTarget(context)
+                                || !context.view.IsMeleeAttacking());
                     },
                     PickPullTarget),
                 Bookkeeping("back at the pull spot", P + 69,

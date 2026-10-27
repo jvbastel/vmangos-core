@@ -628,6 +628,8 @@ void BotAdapter::ChaseToRange(Bots::Guid target, float yards)
     me->SetTargetGuid(unit->GetObjectGuid());
     me->Attack(unit, false);
     motion->MoveChase(unit, 1.0f);
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s chases %s to %.0f yards, from %.1f yards (motion %u)", me->GetName(),
+        unit->GetName(), yards, me->GetCombatDistance(unit), unsigned(motion->GetCurrentMovementGeneratorType()));
 }
 
 void BotAdapter::PetAttack(Bots::Guid target)
