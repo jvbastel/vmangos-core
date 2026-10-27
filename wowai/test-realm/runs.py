@@ -51,6 +51,9 @@ SCENARIO_SECONDS = 15 * 60
 
 OVER = re.compile(r"^Run \d+ \S+ \S+: (passed|failed|aborted) after ", re.M)
 RESULT = re.compile(r"Result: (\S+\.json)")
+# The trace of the whole run that mangosd writes as it goes (BotRun), next
+# to the result files. The next run starts it empty.
+LIVE_TRACE = "live.trace.txt"
 
 
 def run_outcome(status):
@@ -277,8 +280,8 @@ def wait_for_end(realm, limit_seconds):
 
 
 def collect(runs, status, out):
-    """Copies the result file of the status line, and its trace, from the
-    folder `runs` to `out`. The result as a dict, or None."""
+    """Copies the result file of the status line, its trace, and the live
+    trace of the run, from the folder `runs` to `out`. The result as a dict, or None."""
     name = result_file(status)
     if not name:
         return None
@@ -287,6 +290,10 @@ def collect(runs, status, out):
     shutil.copy(os.path.join(runs, name), out)
     if result["trace"]:
         shutil.copy(os.path.join(runs, result["trace"]), out)
+    # The whole run, also of a passed run (jvbastel/WOWAI#119).
+    live = os.path.join(runs, LIVE_TRACE)
+    if os.path.exists(live):
+        shutil.copy(live, os.path.join(out, name[:-len(".json")] + ".live.trace.txt"))
     return result
 
 
