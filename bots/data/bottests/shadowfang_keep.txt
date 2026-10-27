@@ -9,8 +9,10 @@ level 18
 
 # The three-enemy pack of jvbastel/WOWAI#118 (spec #102): Rethilgore and his
 # two Bleak Worgs, three elite melee enemies of level 18-20 that stand within
-# 9.2 yd of each other. The miners of deadmines.txt were too easy: today's
-# tank lost no threat on them. No ranged pull, no patrol, no crowd control:
+# 9.2 yd of each other. Their spells are no crowd control: Rethilgore
+# casts Soul Drain (7295) on his victim, a worg Wavering Will (7127).
+# The miners of deadmines.txt were too easy: today's tank lost no threat
+# on them. No ranged pull, no patrol, no crowd control:
 # the group holds its place and the tank pulls. runs.py reports the threat
 # losses of each pull, the healer's, and whether the pull was clean. 10 runs
 # are one measurement.
