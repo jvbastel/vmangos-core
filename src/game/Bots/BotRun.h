@@ -11,6 +11,7 @@
 #include "BotChat.h"
 #include "ChaseWatch.h"
 #include "Common.h"
+#include "GroupCoordinator.h"
 #include "Inbox.h"
 #include "InterruptWatch.h"
 #include "ObjectGuid.h"
@@ -174,6 +175,9 @@ class BotRun
         Bots::RunChatEvent* ChatEventOf(uint64 id);
         // A living bot of the group eats or drinks.
         bool GroupResting() const;
+        // The coordinator of the run group that bot `member` uses where it
+        // is now, with the test driver as the leader (BotMgr::GetCoordinator).
+        std::shared_ptr<Bots::GroupCoordinator> CoordinatorOf(Player const* member) const;
         // A living mob of the pack near the test driver, or null.
         Creature* LivingMobOf(std::string const& pack) const;
         bool Fight(Bots::ScriptCommand const& command, std::string& detail);

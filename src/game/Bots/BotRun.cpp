@@ -1135,7 +1135,7 @@ void BotRun::ReviveAt(Player* member, uint32 mapId, float x, float y, float z, f
     // full before the next pull (`wait rested`).
     if (member->IsBot() && m_groupId)
     {
-        std::shared_ptr<Bots::GroupCoordinator> coordinator = sBotMgr.GetCoordinator(m_groupId);
+        std::shared_ptr<Bots::GroupCoordinator> coordinator = CoordinatorOf(member);
         Bots::Guid const guid = member->GetObjectGuid().GetRawValue();
         coordinator->SetRestUntilFull(guid);
         // A tank that died in its pull: the pull is over, else the puller
@@ -1344,11 +1344,20 @@ void BotRun::TraceMembers(int64 nowMs)
     }
 }
 
+std::shared_ptr<Bots::GroupCoordinator> BotRun::CoordinatorOf(Player const* member) const
+{
+    Player const* driver = Driver();
+    Bots::LeaderPlace const leader = driver ? Bots::LeaderPlace::On({driver->GetMapId(), driver->GetInstanceId()})
+                                            : Bots::LeaderPlace::Unknown();
+    Bots::MapPlace const place = member ? Bots::MapPlace{member->GetMapId(), member->GetInstanceId()} : leader.place;
+    return sBotMgr.GetCoordinator(m_groupId, place, leader, SteadyMs());
+}
+
 bool BotRun::GroupResting() const
 {
     if (!m_groupId)
         return false;
-    std::shared_ptr<Bots::GroupCoordinator> const coordinator = sBotMgr.GetCoordinator(m_groupId);
+    std::shared_ptr<Bots::GroupCoordinator> const coordinator = CoordinatorOf(Driver());
     bool resting = false;
     for (Bots::Guid bot : coordinator->GetResting())
     {
