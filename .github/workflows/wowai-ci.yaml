@@ -1,7 +1,7 @@
-# The CI of the WOWAI fork. On each push it builds the fork with the code
-# tests of the bot decision library (src/bots), runs them with ctest, and
-# makes sure that src/bots builds alone, without game headers (ADR 0002 of
-# WOWAI). `wowai/dev test` runs the same `wowai/bots-test.sh` locally. The
+# The CI of the WOWAI fork. On each pull request into wowai it builds the
+# fork with the code tests of the bot decision library (src/bots), runs them
+# with ctest, and makes sure that src/bots builds alone, without game headers
+# (ADR 0002 of WOWAI). `wowai/dev test` runs the same `wowai/bots-test.sh` locally. The
 # fork-rules job runs `wowai/fork-check.sh`: changed core files must be on
 # `wowai/core-allowlist.txt`, and the bot code has no DEBUG lines.
 #
@@ -13,11 +13,14 @@
 # `wowai/shellcheck.sh`) and the script tests that need no Docker.
 name: WOWAI CI
 
+# It runs only on pull requests into wowai, not on every push, to save CI
+# minutes. The wowai branch rules require its checks, so they still gate merges.
 on:
-  push:
+  pull_request:
+    branches:
+      - wowai
 
-# A newer commit on the same branch cancels the older run. The push run and
-# the pull request run of one branch share the group, so a commit is built once.
+# A newer commit on the same pull request cancels the older run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
