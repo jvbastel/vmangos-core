@@ -1101,3 +1101,58 @@ TEST(WarriorTank, WalksToItsShootSpotWhileTheGroupGetsInPlace)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -4 0 0"}));
 }
+
+// jvbastel/WOWAI#114: the opener and Demoralizing Shout.
+namespace
+{
+    // A tank that knows Demoralizing Shout, in a fight with the kobold and
+    // the wolf. Both stand next to it and attack it.
+    struct ShoutTank : WarriorTank
+    {
+        ShoutTank()
+        {
+            fake.SetKnownSpell(Warrior::DemoralizingShout);
+            InFightWithKobold();
+            fake.SetPosition(Tank, {0, 0, 0});
+            fake.AddEnemy(Kobold, {2, 0, 0}, 10.0f);
+            fake.AddEnemy(Wolf, {0, 3, 0}, 10.0f);
+            fake.SetHealth(Wolf, 200, 200);
+            fake.SetVictim(Wolf, Tank);
+            fake.SetPower(Tank, 15, 100);
+        }
+
+        // The think of one deed, which then has its effect on the fake.
+        std::string Next()
+        {
+            fake.ClearDeeds();
+            Think();
+            std::vector<std::string> const deeds = fake.Deeds();
+            return deeds.empty() ? "" : deeds.back();
+        }
+    };
+}
+
+// The tank charged the kobold in Battle Stance (Charge gave it rage). It
+// takes Defensive Stance at once, which drops all its rage with no Tactical
+// Mastery. Then Bloodrage gives it rage, and with that rage it shouts.
+TEST(WarriorTank, AfterChargeTakesDefensiveStanceThenBloodrageThenDemoralizingShout)
+{
+    ShoutTank tank;
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance, false);
+    tank.fake.SetAura(Tank, Warrior::BattleStance);
+    tank.fake.SetPower(Tank, 9, 100);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::DefensiveStance, Tank));
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetPower(Tank, 0, 100);
+    // Demoralizing Shout costs 10 rage: the game refuses it with less.
+    tank.fake.SetCannotCastOn(Warrior::DemoralizingShout, Tank);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::Bloodrage, Tank));
+    tank.fake.SetPower(Tank, 10, 100);
+    tank.fake.SetCanCastOn(Warrior::DemoralizingShout, Tank);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
+}
