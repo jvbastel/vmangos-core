@@ -51,6 +51,16 @@ namespace Bots
         }
     }
 
+    void GroupCoordinator::NoteFocusContact(std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.phase == PullPhase::Holding && !m_pull.hasContact)
+        {
+            m_pull.hasContact = true;
+            m_pull.contactMs = nowMs;
+        }
+    }
+
     void GroupCoordinator::SetFightSpot(Guid puller, Position spot)
     {
         Lock lock(m_mutex);
@@ -185,12 +195,17 @@ namespace Bots
         return bots;
     }
 
-    bool GroupCoordinator::TankHoldsThreat() const
+    bool GroupCoordinator::TankHoldsThreat(std::int64_t nowMs) const
     {
         Lock lock(m_mutex);
         if (m_pull.phase == PullPhase::None)
             return m_focusTarget != NoGuid;
-        return m_pull.phase == PullPhase::Holding;
+        if (m_pull.phase != PullPhase::Holding)
+            return false;
+        // The puller clears its fight spot when it is back there.
+        bool const backAtFightSpot = !m_pull.hasFightSpot;
+        return nowMs - m_pull.engagedMs >= HoldLimitMs
+            || (backAtFightSpot && m_pull.hasContact && nowMs - m_pull.contactMs >= HoldContactMs);
     }
 
     void GroupCoordinator::GiveUpTaunt(Guid enemy)

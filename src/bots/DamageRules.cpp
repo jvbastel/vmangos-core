@@ -91,10 +91,20 @@ namespace Bots
         Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);
         if (loose != NoGuid)
             return loose;
-        if (IsAlive(context.view, focus) && context.group.TankHoldsThreat() && !waitForTaunt
+        if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
             && IsInChaseLimit(context, focus))
             return focus;
         return NoGuid;
+    }
+
+    bool TankHoldsThreat(BotContext const& context)
+    {
+        PullState const pull = context.group.GetPull();
+        if (pull.phase == PullPhase::Holding && !pull.hasContact
+            && context.view.GetVictim(pull.target) == pull.puller
+            && context.view.GetDistanceBetween(pull.target, pull.puller) <= MeleeContactYards)
+            context.group.NoteFocusContact(context.nowMs);
+        return context.group.TankHoldsThreat(context.nowMs);
     }
 
     bool HasDamageTarget(BotContext const& context)

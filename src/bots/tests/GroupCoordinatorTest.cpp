@@ -23,7 +23,7 @@ TEST(GroupCoordinator, StartsWithNoFocusAndNoPull)
 
     EXPECT_EQ(group.GetFocusTarget(), NoGuid);
     EXPECT_EQ(group.GetPull().phase, PullPhase::None);
-    EXPECT_FALSE(group.TankHoldsThreat());
+    EXPECT_FALSE(group.TankHoldsThreat(0));
 }
 
 TEST(GroupCoordinator, APullMakesItsTargetTheFocusTarget)
@@ -37,18 +37,57 @@ TEST(GroupCoordinator, APullMakesItsTargetTheFocusTarget)
     EXPECT_EQ(pull.puller, Tank);
     EXPECT_EQ(pull.target, Kobold);
     EXPECT_EQ(group.GetFocusTarget(), Kobold);
-    EXPECT_FALSE(group.TankHoldsThreat());
+    EXPECT_FALSE(group.TankHoldsThreat(0));
 }
 
-TEST(GroupCoordinator, ThePullerHoldsThreatWhenTheTargetAttacksIt)
+// jvbastel/WOWAI#127: the target that attacks the puller holds the pull,
+// but the tank holds threat only HoldContactMs after the melee contact.
+TEST(GroupCoordinator, ThePullerHoldsThreatAfterTheMeleeContact)
 {
     GroupCoordinator group;
     group.StartPull(Tank, Kobold);
 
-    group.HoldPull(Tank);
-
+    group.HoldPull(Tank, 1000);
     EXPECT_EQ(group.GetPull().phase, PullPhase::Holding);
-    EXPECT_TRUE(group.TankHoldsThreat());
+    EXPECT_FALSE(group.TankHoldsThreat(1000));
+
+    group.NoteFocusContact(3000);
+    group.NoteFocusContact(4000);
+    EXPECT_EQ(group.GetPull().contactMs, 3000);
+    EXPECT_FALSE(group.TankHoldsThreat(3000 + Bots::HoldContactMs - 1));
+    EXPECT_TRUE(group.TankHoldsThreat(3000 + Bots::HoldContactMs));
+}
+
+TEST(GroupCoordinator, NoMeleeContactBeforeTheHold)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+
+    group.NoteFocusContact(500);
+
+    EXPECT_FALSE(group.GetPull().hasContact);
+}
+
+TEST(GroupCoordinator, ThePullerHoldsThreatAfterTheTimeLimitWithNoContact)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 1000);
+
+    EXPECT_FALSE(group.TankHoldsThreat(1000 + Bots::HoldLimitMs - 1));
+    EXPECT_TRUE(group.TankHoldsThreat(1000 + Bots::HoldLimitMs));
+}
+
+TEST(GroupCoordinator, ANewPullForgetsTheMeleeContact)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 1000);
+    group.NoteFocusContact(2000);
+
+    group.StartPull(Tank, Other);
+
+    EXPECT_FALSE(group.GetPull().hasContact);
 }
 
 TEST(GroupCoordinator, OnlyThePullerCanHoldThePull)
@@ -110,7 +149,7 @@ TEST(GroupCoordinator, TheTankHoldsThreatOnAFocusTargetOutsideAPull)
 
     group.SetFocusTarget(Kobold);
 
-    EXPECT_TRUE(group.TankHoldsThreat());
+    EXPECT_TRUE(group.TankHoldsThreat(0));
 }
 
 TEST(GroupCoordinator, StartsWithNoBossFight)
