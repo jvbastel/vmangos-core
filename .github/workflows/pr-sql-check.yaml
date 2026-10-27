@@ -1,13 +1,10 @@
 # Validate SQL changes on pull requests.
 name: Pull Request SQL Check
 
+# Runs on every pull request, not only on SQL changes: the wowai branch rules
+# require this check, and a path filter leaves it unreported (merge blocked).
 on:
   pull_request:
-    paths:
-      - '.github/scripts/export-and-verify-sql-dumps.sh'
-      - '.github/scripts/prepare-sql-test-environment.sh'
-      - '.github/workflows/pr-sql-check.yaml'
-      - '**/*.sql'
 
 env:
   WORLD_DB_ARCHIVE: world_full_14_june_2021
