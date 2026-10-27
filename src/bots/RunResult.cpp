@@ -1,5 +1,7 @@
 #include "RunResult.h"
 
+#include <algorithm>
+
 #include <nlohmann/json.hpp>
 
 namespace Bots
@@ -141,6 +143,21 @@ namespace Bots
         }
         j["fights"] = fights;
         j["threat_losses"] = Hits(r.threatLosses);
+        // Each member, also one with no loss, and the healer's count
+        // (jvbastel/WOWAI#113).
+        Json byMember = Json::object();
+        byMember[r.driver] = 0;
+        for (std::string const& member : r.group)
+            byMember[member] = 0;
+        std::size_t healerLosses = 0;
+        for (RunHit const& loss : r.threatLosses)
+        {
+            byMember[loss.member] = byMember.value(loss.member, 0) + 1;
+            if (std::find(r.healers.begin(), r.healers.end(), loss.member) != r.healers.end())
+                ++healerLosses;
+        }
+        j["threat_losses_by_member"] = byMember;
+        j["healer_threat_losses"] = healerLosses;
         j["lost_mobs"] = Hits(r.lostMobs);
         j["moves_stopped"] = r.movesStopped;
 
