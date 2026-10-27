@@ -24,6 +24,10 @@ namespace Bots
             float const ShootStandYards = 25.0f;
             // Nearer than this to its pull spot, the tank is back.
             float const SpotYards = 2.0f;
+            // A chase into shooting range that stands still counts as ended
+            // only after this many thinks of the chase order: right after
+            // the order the tank does not move yet.
+            std::uint32_t const RangeChaseStartThinks = 3;
             // Nearer than this, the focus is in melee reach.
             float const MeleeYards = 5.0f;
 
@@ -72,7 +76,7 @@ namespace Bots
             // The tank pulls from range: it wears a ranged weapon with ammo,
             // knows its shoot spell, and the target is not too near for it.
             // Not when its chase into range ended out of shot (the path
-            // cannot get nearer), nor once it ran in to hit (a melee attack
+            // cannot get nearer; RangeChaseStartThinks), nor once it ran in to hit (a melee attack
             // of the target): then the pull is the fallback.
             bool PullsFromRange(BotContext const& context)
             {
@@ -84,7 +88,7 @@ namespace Bots
                 if (context.view.GetVictim(Self(context)) == target && context.view.IsMeleeAttacking())
                     return false;
                 return !(context.view.GetChase().target == target && !context.view.IsMoving(Self(context))
-                    && OutOfShot(context));
+                    && context.group.GetPull().rangeChaseThinks >= RangeChaseStartThinks && OutOfShot(context));
             }
 
             // The pulled pack holds on the puller: the tank is the puller of
@@ -239,6 +243,7 @@ namespace Bots
                             // Too far: to shooting range. In range but out of
                             // sight: closer, until the tank sees the target.
                             Guid const target = PickPullTarget(context);
+                            context.group.CountRangeChase(Self(context));
                             if (context.view.GetSpellDistance(target) > MaxShootYards)
                                 context.actions.ChaseToRange(target, ShootStandYards);
                             else

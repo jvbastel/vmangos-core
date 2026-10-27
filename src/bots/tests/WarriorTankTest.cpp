@@ -183,10 +183,49 @@ TEST(WarriorTank, RunsInWhenItsChaseIntoRangeEndsOutOfShot)
 {
     BowTank tank;
     tank.fake.SetDistance(Kobold, 45.0f);
+    // No safe place to shoot from (no ground path): the ranged chase.
+    tank.fake.AddNoPathFromX(-1000.0f);
     tank.Pull();
-    tank.fake.ChaseToRange(Kobold, 25.0f);
+    tank.fake.SetMoving(Tank);
+    for (int think = 0; think < 3; ++think)
+        tank.Think();
     tank.fake.ClearDeeds();
     tank.fake.SetMoving(Tank, false);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+// The think right after the chase order: the chase is on, but the tank does
+// not move yet. That is no end of the chase (the two_packs scenario of
+// jvbastel/WOWAI#105, where the tank ran in each time).
+TEST(WarriorTank, KeepsChasingOnTheThinkAfterItsChaseOrder)
+{
+    BowTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+    tank.Pull();
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+    tank.fake.ClearDeeds();
+    tank.fake.SetMoving(Tank, false);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
+// A chase that never moves (the path gets no nearer) ends after a few
+// thinks: the tank runs in and does not wait for good.
+TEST(WarriorTank, RunsInWhenItsChaseNeverMoves)
+{
+    BowTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+    tank.Pull();
+    tank.fake.SetMoving(Tank, false);
+    for (int think = 0; think < 3; ++think)
+        tank.Think();
+    tank.fake.ClearDeeds();
 
     tank.Think();
 

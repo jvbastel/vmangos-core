@@ -73,6 +73,13 @@ namespace Bots
             m_pull.hasShootSpot = false;
     }
 
+    void GroupCoordinator::CountRangeChase(Guid puller)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.phase != PullPhase::None && m_pull.puller == puller)
+            ++m_pull.rangeChaseThinks;
+    }
+
     void GroupCoordinator::EndPull()
     {
         Lock lock(m_mutex);
