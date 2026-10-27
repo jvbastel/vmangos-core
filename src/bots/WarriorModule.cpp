@@ -545,10 +545,12 @@ namespace Bots
                     [](BotContext const& context) { context.group.ClearFightSpot(Self(context)); }),
                 // A due opener ability (after a ranged pull, spec story 3)
                 // fires on the way, and the walk goes on in the same think.
+                // It waits while an enemy hits a member, in Taunt range or not
+                // (jvbastel/WOWAI#126): the tank taunts it or goes to it.
                 Rule{"walk back to the fight spot", P + 68,
                     [](BotContext const& context) {
                         return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) > AtSpotYards
-                            && !TauntDue(context);
+                            && !TauntDue(context) && PickLooseEnemy(context) == NoGuid;
                     },
                     {[](BotContext const&) { return true; },
                         [opener](BotContext const& context) {

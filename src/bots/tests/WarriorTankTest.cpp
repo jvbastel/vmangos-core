@@ -1920,3 +1920,49 @@ TEST(WarriorTank, GoesToALooseEnemyOnTheHealerOutOfTauntRangeAndAttacksIt)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
 }
+
+// A second add hits a member while Taunt waits for its cooldown (it went out
+// on the first add).
+TEST(WarriorTank, AttacksASecondAddOnAMemberWhenTauntIsOnItsCooldown)
+{
+    GroupInFight tank;
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Tank);
+    tank.fake.SetVictim(Bat, Rogue);
+    tank.fake.SetDistance(Bat, 8.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+}
+
+// The walk back after a fallback pull waits for a loose enemy out of Taunt
+// range too: the tank goes to it, not away from it.
+TEST(WarriorTank, HoldsItsWalkBackForALooseEnemyOutOfTauntRange)
+{
+    BowTank tank;
+    tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
+    tank.fake.SetGroupMembers({Healer});
+    tank.group.SetHealer(Healer);
+    tank.fake.SetPosition(Tank, {10, 20, 0});
+    tank.Pull();
+    tank.fake.SetPosition(Tank, {28, 20, 0});
+    tank.fake.SetDistance(Kobold, 2.0f);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+    tank.fake.SetPower(Tank, 20, 100);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetSpellRange(Warrior::Taunt, 20.0f);
+    tank.fake.SetDistance(Wolf, 28.0f);
+    tank.fake.SetVictim(Wolf, Healer);
+    ASSERT_EQ(tank.Think(), "hold the pull");
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Wolf), Chase(Wolf)}));
+}
