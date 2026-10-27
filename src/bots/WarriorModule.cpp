@@ -31,6 +31,10 @@ namespace Bots
             // Nearer than this, the focus is in melee reach.
             float const MeleeYards = 5.0f;
 
+            // jvbastel/WOWAI#115: Challenging Shout from this many loose
+            // enemies.
+            std::size_t const ShoutLooseEnemies = 3;
+
             Guid Self(BotContext const& context)
             {
                 return context.view.GetSelf();
@@ -411,6 +415,12 @@ namespace Bots
                 CastRule("taunt an enemy off a member", P + 54,
                     [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
                     Taunt, PickLooseEnemy),
+                // A broken pull: too many loose enemies to taunt one by one.
+                CastRule("challenging shout", P + 52,
+                    [](BotContext const& context) {
+                        return FightsFocus(context) && LooseEnemies(context).size() >= ShoutLooseEnemies;
+                    },
+                    ChallengingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
