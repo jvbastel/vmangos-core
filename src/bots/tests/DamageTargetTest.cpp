@@ -63,6 +63,27 @@ TEST(DamageTarget, TheFocusTargetOnceTheTankHoldsThreat)
     EXPECT_EQ(bot.Target(), Kobold);
 }
 
+// jvbastel/WOWAI#121: no member steps within the aggro distance and the
+// margin of an enemy out of the fight. A focus that stands there (a caster
+// at its spawn, next to another pack) waits until the tank leads it away.
+TEST(DamageTarget, NoneWhileTheFocusStandsWhereAFightPullsAnotherPack)
+{
+    DamageBot bot;
+    bot.fake.SetPosition(Rogue, {0, 0, 0});
+    bot.fake.SetPosition(Kobold, {30, 0, 0});
+    bot.fake.SetInCombat(Kobold);
+    bot.fake.AddEnemy(Kobold, {30, 0, 0}, 10.0f);
+    // Out of the fight, 10 yards from the kobold: aggro 10 and the margin.
+    bot.fake.AddEnemy(Wolf, {40, 0, 0}, 10.0f);
+    bot.group.StartPull(Tank, Kobold);
+    bot.group.HoldPull(Tank);
+
+    EXPECT_EQ(bot.Target(), NoGuid);
+
+    bot.fake.SetPosition(Kobold, {20, 0, 0});
+    EXPECT_EQ(bot.Target(), Kobold);
+}
+
 TEST(DamageTarget, TheFocusTargetWhenTheTankFightsBackOutsideAPull)
 {
     DamageBot bot;

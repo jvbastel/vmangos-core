@@ -12,6 +12,9 @@ namespace Bots
         float const EnemySearchYards = FightSpotSearchYards + 60.0f;
         // A trail spot this near to the last one is the same spot.
         float const SameSpotYards = 0.5f;
+        // The enemies round a place that a member there could pull: more
+        // than the aggro distance of any creature and the margin.
+        float const PullReachYards = 50.0f;
 
         bool Near(std::vector<NearEnemy> const& pack, Position const& at, float yards)
         {
@@ -93,6 +96,56 @@ namespace Bots
         return split;
     }
 
+    std::vector<std::vector<NearEnemy>> PacksOutsideTheFight(BotView const& view, Position const& at)
+    {
+        Position const self = view.GetPosition(view.GetSelf());
+        std::vector<NearEnemy> outside;
+        for (NearEnemy const& enemy : view.GetEnemiesNear(Distance3d(self, at) + PullReachYards))
+            if (!view.IsInCombat(enemy.guid))
+                outside.push_back(enemy);
+        return SplitIntoPacks(outside);
+    }
+
+    std::uint32_t PacksPulledAt(BotView const& view, Position const& at)
+    {
+        std::uint32_t pulled = 0;
+        for (std::vector<NearEnemy> const& pack : PacksOutsideTheFight(view, at))
+            if (PullsAnEnemy(pack, at))
+                ++pulled;
+        return pulled;
+    }
+
+    bool FindRunOutSpot(BotView const& view, std::vector<Position> const& way, Position const& from,
+        Position const& focusAt, Position& spot)
+    {
+        bool found = false;
+        for (auto point = way.rbegin(); point != way.rend(); ++point)
+        {
+            float const yards = Distance3d(from, *point);
+            if (yards < RunOutStepYards || yards > FightSpotSearchYards
+                || Distance3d(focusAt, *point) <= Distance3d(focusAt, from) || PacksPulledAt(view, *point) != 0)
+                continue;
+            if (!view.CanSeeBetween(focusAt, *point))
+            {
+                spot = *point;
+                return true;
+            }
+            if (!found)
+            {
+                spot = *point;
+                found = true;
+            }
+        }
+        return found;
+    }
+
+    bool IsCasterPack(BotView const& view, std::vector<NearEnemy> const& pack)
+    {
+        return std::any_of(pack.begin(), pack.end(), [&view](NearEnemy const& enemy) {
+            return view.GetMana(enemy.guid).max > 0;
+        });
+    }
+
     FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target)
     {
         Guid const self = view.GetSelf();
@@ -116,13 +169,66 @@ namespace Bots
 
         std::vector<Position> const spots = Candidates(selfAt, trail);
 
+        FightSpot result;
+        for (NearEnemy const& enemy : targetPack)
+            result.targetPack.push_back(enemy.guid);
+        for (std::vector<NearEnemy> const& pack : others)
+        {
+            result.otherPacks.emplace_back();
+            for (NearEnemy const& enemy : pack)
+                result.otherPacks.back().push_back(enemy.guid);
+        }
+        // The other packs that the pull brings with the tank at `spot`.
+        auto extraAt = [&](Position const& spot) {
+            std::uint32_t extra = assisting;
+            for (std::vector<NearEnemy> const* pack : avoidable)
+                if (PullsAnEnemy(*pack, spot) || Near(*pack, spot, AssistanceYards))
+                    ++extra;
+            return extra;
+        };
+        // A shot from a spot that pulls no other pack.
+        auto safeShot = [&](Position const& at) {
+            return InShotFrom(view, at, target) && !PullsAnEnemy(otherEnemies, at);
+        };
+
+        // The line-of-sight pull of a caster pack: the first clean spot that
+        // the caster cannot see, with a shot near it.
+        if (IsCasterPack(view, targetPack))
+            for (Position const& spot : spots)
+            {
+                if (extraAt(spot) != 0 || view.CanSeeBetween(targetAt, spot))
+                    continue;
+                auto nearSpot = [&spot](Position const& at) { return Distance3d(at, spot) <= LineOfSightShotYards; };
+                bool shot = nearSpot(selfAt) && InShotFrom(view, selfAt, target);
+                for (std::size_t i = 1; !shot && i < spots.size(); ++i)
+                    if (nearSpot(spots[i]) && safeShot(spots[i]))
+                    {
+                        shot = true;
+                        result.hasShootSpot = true;
+                        result.shootSpot = spots[i];
+                    }
+                if (!shot
+                    && FindSafeCastPlace(view, target, ShotMaxYards, result.shootSpot, nullptr,
+                        [&](Position const& at) { return nearSpot(at) && InShotFrom(view, at, target); }))
+                {
+                    shot = true;
+                    result.hasShootSpot = true;
+                }
+                if (shot)
+                {
+                    result.spot = spot;
+                    result.clean = true;
+                    result.lineOfSight = true;
+                    return result;
+                }
+            }
+
         // The pull from range: from where the tank stands, else from the
         // newest trail spot in shot that pulls no other pack, else from a
         // safe place round the target.
-        FightSpot result;
         bool canShoot = InShotFrom(view, selfAt, target);
         for (std::size_t i = 1; !canShoot && i < spots.size(); ++i)
-            if (InShotFrom(view, spots[i], target) && !PullsAnEnemy(otherEnemies, spots[i]))
+            if (safeShot(spots[i]))
             {
                 canShoot = true;
                 result.hasShootSpot = true;
@@ -139,10 +245,7 @@ namespace Bots
         bool found = false;
         for (Position const& spot : spots)
         {
-            std::uint32_t extra = assisting;
-            for (std::vector<NearEnemy> const* pack : avoidable)
-                if (PullsAnEnemy(*pack, spot) || Near(*pack, spot, AssistanceYards))
-                    ++extra;
+            std::uint32_t const extra = extraAt(spot);
             if (extra == 0 && canShoot)
             {
                 result.spot = spot;

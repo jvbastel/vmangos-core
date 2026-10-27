@@ -143,6 +143,9 @@ namespace Bots
             // Sight is blocked along x = `x`: no place sees a place on its
             // other side (CanSeeBetween).
             void AddSightWallAtX(float x) { m_sightWallsAtX.push_back(x); }
+            // A wall on the map from `a` to `b` (x and y): no place sees a
+            // place or a unit behind it (CanSeeBetween, CanSeeFrom).
+            void AddSightWall(Position a, Position b) { m_sightWalls.push_back({a, b}); }
             void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
             void SetGroupLeader(Guid unit) { m_leader = unit; }
             void SetCanResurrect(Guid unit, bool can = true)
@@ -325,7 +328,7 @@ namespace Bots
                 for (float x : m_sightWallsAtX)
                     if ((from.x < x) != (to.x < x))
                         return false;
-                return true;
+                return !BehindAWall(from, to);
             }
             bool CanSeeFrom(Position const& place, Guid unit) const override
             {
@@ -335,7 +338,7 @@ namespace Bots
                 for (auto const& blind : m_blindToFromX)
                     if (blind.first == unit && place.x >= blind.second)
                         return false;
-                return true;
+                return !BehindAWall(place, GetPosition(unit));
             }
             LifeState GetLifeState(Guid unit) const override
             {
@@ -474,6 +477,19 @@ namespace Bots
             }
 
         private:
+            // A wall of AddSightWall crosses the line from `from` to `to`.
+            bool BehindAWall(Position const& from, Position const& to) const
+            {
+                auto side = [](Position const& a, Position const& b, Position const& p) {
+                    return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+                };
+                for (auto const& wall : m_sightWalls)
+                    if ((side(wall.first, wall.second, from) > 0) != (side(wall.first, wall.second, to) > 0)
+                        && (side(from, to, wall.first) > 0) != (side(from, to, wall.second) > 0))
+                        return true;
+                return false;
+            }
+
             void AddDeed(char const* verb, Guid unit)
             {
                 std::ostringstream deed;
@@ -519,6 +535,7 @@ namespace Bots
             std::vector<NearEnemy> m_enemies;
             std::vector<float> m_blindFromX;
             std::vector<float> m_sightWallsAtX;
+            std::vector<std::pair<Position, Position>> m_sightWalls;
             std::vector<std::pair<Guid, float>> m_blindToFromX;
             mutable int m_groundPaths = 0;
             std::map<Guid, LifeState> m_lifeState;

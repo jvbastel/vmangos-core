@@ -56,6 +56,15 @@ namespace Bots
         // The puller warned about extra packs in this pull
         // (NoteExtraPackWarn): it warns once a pull.
         bool extraPackWarned = false;
+        // The puller holds the pull at its fight spot, and the focus stays
+        // away on ground where a fight pulls other packs (a caster,
+        // jvbastel/WOWAI#121): it waits for it from `focusWaitFromMs`
+        // (StartFocusWait). A new fight spot ends the wait.
+        bool waitsForFocus = false;
+        std::int64_t focusWaitFromMs = 0;
+        // The puller found no way further out, warned, and goes in to the
+        // focus where it stands (GoIn).
+        bool goesIn = false;
     };
 
     // The member spot of a bot in the pull (MemberSpot.h).
@@ -162,6 +171,29 @@ namespace Bots
         // The puller warned about extra packs (WarnExtraPacks). Only the
         // puller can.
         void NoteExtraPackWarn(Guid puller);
+        // The puller waits for a focus that stays away from `nowMs`, or goes
+        // in to it (PullState). Only the puller can.
+        void StartFocusWait(Guid puller, std::int64_t nowMs);
+        void GoIn(Guid puller);
+        // The cleared way of the pull: the puller keeps its trail as it is
+        // when it notes its fight spot, since the trail is empty in a fight.
+        // Its spots further out are where the puller leads a focus that
+        // does not come. A new pull forgets it. Only the puller can keep it.
+        void KeepPullWay(Guid puller);
+        std::vector<Position> GetPullWay() const;
+        // The packs round the pull (FightSpot.h): the target's pack and the
+        // others, for the warn when another pack joins the fight
+        // (jvbastel/WOWAI#121). A new pull forgets them, and so does the
+        // tank out of a fight (KeepTrail). Only the puller can set them.
+        void SetPullPacks(Guid puller, std::vector<Guid> const& targetPack,
+            std::vector<std::vector<Guid>> const& otherPacks);
+        // The packs of `enemies` (in the fight) that joined the fight of the
+        // pull and that the tank has not warned about yet: other packs of
+        // the pull, and each enemy of no pack (a roaming mob) on its own.
+        // 0 without pull packs.
+        std::uint32_t CountJoinedPacks(std::vector<Guid> const& enemies) const;
+        // The tank warned about those packs: they count no more.
+        void NoteJoinedPacksWarned(std::vector<Guid> const& enemies);
         // The member spots of the pull that is on: each bot claims its own
         // spot (`found` false: none is safe), and then notes that it is in place;
         // it stays in place for the rest of the pull.
@@ -290,6 +322,10 @@ namespace Bots
     private:
         // A pull is on, and `puller` is its puller. The caller holds the lock.
         bool PullsNow(Guid puller) const;
+        // The keys of the joined packs not warned yet of CountJoinedPacks:
+        // the pack index, or for an enemy of no pack its guid. The caller
+        // holds the lock.
+        std::set<std::pair<int, Guid>> JoinedPacks(std::vector<Guid> const& enemies) const;
         // True for the first note of `key` within GroupEventMemoryMs.
         bool FirstNote(std::pair<Guid, std::int64_t> key, std::int64_t nowMs);
 
@@ -307,6 +343,10 @@ namespace Bots
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;
         Trail m_trail;
+        std::vector<Position> m_pullWay;
+        // The packs round the pull: 0 for the target's pack, then 1, 2...
+        std::map<Guid, int> m_pullPackOf;
+        std::set<std::pair<int, Guid>> m_warnedPacks;
         std::vector<MemberSpot> m_memberSpots;
         // Counts each change of m_memberSpots but the in-place notes.
         std::uint64_t m_memberSpotsVersion = 0;

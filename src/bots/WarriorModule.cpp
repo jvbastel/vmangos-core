@@ -162,6 +162,23 @@ namespace Bots
                 return loose != NoGuid && context.view.CanCast(taunt, loose);
             }
 
+            // The tank holds the pull back at its fight spot, and the focus
+            // stays away on ground where a fight pulls other packs, such
+            // as a caster at its spawn (jvbastel/WOWAI#121): the tank does
+            // not run to it. It waits FocusComeMs, then leads it further
+            // out along its cleared way, until the focus stands where the
+            // tank can fight it, or no way is left: then the tank warns and
+            // goes in.
+            bool FocusStaysOnPullingGround(BotContext const& context)
+            {
+                PullState const pull = context.group.GetPull();
+                if (!HoldsPull(context) || pull.hasFightSpot || pull.goesIn || !FightsFocus(context))
+                    return false;
+                Guid const focus = PickFocusTarget(context);
+                return !FocusComes(context) && context.view.GetDistance(focus) > MeleeYards
+                    && PacksPulledAt(context.view, context.view.GetPosition(focus)) != 0;
+            }
+
             // The tank warns in party chat that the pull brings `packs`
             // extra packs (0: may bring), once a pull.
             void Warn(BotContext const& context, std::uint32_t packs)
@@ -200,6 +217,18 @@ namespace Bots
                     },
                     [](BotContext const& context) { context.group.HoldPull(Self(context)); }),
 
+                // Another pack joins the fight: the tank warns at once, once
+                // a pack, whatever brought it (jvbastel/WOWAI#121).
+                Bookkeeping("warn of a pack that joins", P + 88,
+                    [](BotContext const& context) {
+                        return InCombat(context) && context.group.CountJoinedPacks(EnemiesInFight(context)) > 0;
+                    },
+                    [](BotContext const& context) {
+                        std::vector<Guid> const enemies = EnemiesInFight(context);
+                        Warn(context, context.group.CountJoinedPacks(enemies));
+                        context.group.NoteJoinedPacksWarned(enemies);
+                    }),
+
                 // The pull. The tank picks its fight spot on its cleared way
                 // (FightSpot.h), and the pack comes to it there. With no
                 // clean spot it warns about the extra packs, once a pull.
@@ -209,6 +238,8 @@ namespace Bots
                     [](BotContext const& context) {
                         FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(), PickPullTarget(context));
                         context.group.SetFightSpot(Self(context), fight.spot);
+                        context.group.KeepPullWay(Self(context));
+                        context.group.SetPullPacks(Self(context), fight.targetPack, fight.otherPacks);
                         context.group.StartGroupWait(Self(context), context.nowMs);
                         if (fight.hasShootSpot)
                             context.group.SetShootSpot(Self(context), fight.shootSpot);
@@ -316,6 +347,32 @@ namespace Bots
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().fightSpot); }}},
 
+                // A focus that stays away on ground where a fight pulls
+                // other packs (FocusStaysOnPullingGround).
+                Bookkeeping("wait for the focus", P + 67,
+                    [](BotContext const& context) {
+                        return FocusStaysOnPullingGround(context) && !context.group.GetPull().waitsForFocus;
+                    },
+                    [](BotContext const& context) { context.group.StartFocusWait(Self(context), context.nowMs); }),
+                Bookkeeping("lead the focus further out", P + 66,
+                    [](BotContext const& context) {
+                        PullState const pull = context.group.GetPull();
+                        return FocusStaysOnPullingGround(context) && pull.waitsForFocus
+                            && context.nowMs - pull.focusWaitFromMs >= FocusComeMs;
+                    },
+                    [](BotContext const& context) {
+                        Position const focusAt = context.view.GetPosition(PickFocusTarget(context));
+                        Position spot{};
+                        if (FindRunOutSpot(context.view, context.group.GetPullWay(), context.view.GetPosition(Self(context)),
+                                focusAt, spot))
+                        {
+                            context.group.SetFightSpot(Self(context), spot);
+                            return;
+                        }
+                        Warn(context, PacksPulledAt(context.view, focusAt));
+                        context.group.GoIn(Self(context));
+                    }),
+
                 // An enemy attacks the bot or another group member outside
                 // a pull: it becomes the focus target. This is no pull of its
                 // own: the enemy is in the fight already.
@@ -350,7 +407,7 @@ namespace Bots
                         if (!FightsFocus(context))
                             return false;
                         // The pull rules move the tank until the pull holds.
-                        if (IsPulling(context))
+                        if (IsPulling(context) || FocusStaysOnPullingGround(context))
                             return false;
                         ChaseState const chase = context.view.GetChase();
                         // The ranged chase of the pull attacks with no melee swing.

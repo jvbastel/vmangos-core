@@ -428,6 +428,10 @@ TEST(WarriorTank, TauntsAnEnemyOffAMemberBeforeItWalksBack)
     tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
     tank.fake.SetGroupMembers({Healer});
     tank.fake.SetPosition(Tank, {10, 20, 0});
+    // The kobold and the wolf are one pack: the wolf joins with no warn.
+    tank.fake.SetPosition(Kobold, {30, 20, 0});
+    tank.fake.AddEnemy(Kobold, {30, 20, 0}, 10.0f);
+    tank.fake.AddEnemy(Wolf, {32, 20, 0}, 10.0f);
     tank.Pull();
     tank.fake.SetPosition(Tank, {28, 20, 0});
     tank.fake.SetDistance(Kobold, 2.0f);

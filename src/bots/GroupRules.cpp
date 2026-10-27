@@ -1,5 +1,6 @@
 #include "GroupRules.h"
 #include "CommonRules.h"
+#include "FightSpot.h"
 #include "MageModule.h"
 #include "PriestModule.h"
 #include "RogueModule.h"
@@ -232,13 +233,17 @@ namespace Bots
     bool IsInChaseLimit(BotContext const& context, Guid unit)
     {
         Guid const tank = context.group.GetTank();
-        if (!IsAlive(context.view, tank) || context.view.GetDistanceBetween(unit, tank) <= ChaseEnemyYards)
-            return true;
-        // An enemy that hits another member: that member does not come to
-        // the tank, so the bot goes to it, while the enemy stays near it.
-        Guid const victim = context.view.GetVictim(unit);
-        return victim != Self(context) && IsAlive(context.view, victim) && IsGroupMember(context.view, victim)
-            && context.view.GetDistanceBetween(unit, victim) <= ChaseEnemyYards;
+        bool near = !IsAlive(context.view, tank) || context.view.GetDistanceBetween(unit, tank) <= ChaseEnemyYards;
+        if (!near)
+        {
+            // An enemy that hits another member: that member does not come to
+            // the tank, so the bot goes to it, while the enemy stays near it.
+            Guid const victim = context.view.GetVictim(unit);
+            near = victim != Self(context) && IsAlive(context.view, victim) && IsGroupMember(context.view, victim)
+                && context.view.GetDistanceBetween(unit, victim) <= ChaseEnemyYards;
+        }
+        // The enemy search last: it is the dearest check.
+        return near && PacksPulledAt(context.view, context.view.GetPosition(unit)) == 0;
     }
 
     Guid PickEnemyHealer(BotContext const& context)

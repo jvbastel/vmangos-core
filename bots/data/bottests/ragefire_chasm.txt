@@ -150,3 +150,26 @@ refill
 wait 3
 fight pack52
 expect pack_dead pack52
+
+# Caster pack of jvbastel/WOWAI#121: pack9 is one Ragefire Shaman, a caster
+# that stays at its spawn and casts. pack10 and pack11 stand 16.8 and 13.9 yd
+# from it, out of its call for help but within aggro distance of a member
+# that fights at the shaman's spawn. The group walks the way of the full run
+# from p15, so the tank has a cleared way to pull the shaman back along.
+# It passes with no extra pack, or with warned ones only (runs.py summary).
+scenario caster_pack
+teleport p15
+clear 100 pack9 pack10 pack11  # only the three packs stay
+command follow
+wait 20
+move p17
+wait arrive
+move pull_pack8
+wait arrive
+move pull_pack9
+wait arrive
+command stay
+refill
+wait 3
+fight pack9
+expect pack_dead pack9

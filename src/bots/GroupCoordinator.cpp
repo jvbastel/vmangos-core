@@ -35,6 +35,9 @@ namespace Bots
     {
         Lock lock(m_mutex);
         m_pull = {PullPhase::Pulling, puller, target};
+        m_pullWay.clear();
+        m_pullPackOf.clear();
+        m_warnedPacks.clear();
         m_memberSpots.clear();
         ++m_memberSpotsVersion;
         m_focusTarget = target;
@@ -55,6 +58,7 @@ namespace Bots
             return;
         m_pull.hasFightSpot = true;
         m_pull.fightSpot = spot;
+        m_pull.waitsForFocus = false;
     }
 
     void GroupCoordinator::ClearFightSpot(Guid puller)
@@ -119,6 +123,79 @@ namespace Bots
         Lock lock(m_mutex);
         if (PullsNow(puller))
             m_pull.extraPackWarned = true;
+    }
+
+    void GroupCoordinator::StartFocusWait(Guid puller, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        if (!PullsNow(puller))
+            return;
+        m_pull.waitsForFocus = true;
+        m_pull.focusWaitFromMs = nowMs;
+    }
+
+    void GroupCoordinator::GoIn(Guid puller)
+    {
+        Lock lock(m_mutex);
+        if (PullsNow(puller))
+            m_pull.goesIn = true;
+    }
+
+    void GroupCoordinator::KeepPullWay(Guid puller)
+    {
+        Lock lock(m_mutex);
+        if (PullsNow(puller))
+            m_pullWay = m_trail.Points();
+    }
+
+    std::vector<Position> GroupCoordinator::GetPullWay() const
+    {
+        Lock lock(m_mutex);
+        return m_pullWay;
+    }
+
+    void GroupCoordinator::SetPullPacks(Guid puller, std::vector<Guid> const& targetPack,
+        std::vector<std::vector<Guid>> const& otherPacks)
+    {
+        Lock lock(m_mutex);
+        if (!PullsNow(puller))
+            return;
+        m_pullPackOf.clear();
+        m_warnedPacks.clear();
+        for (Guid enemy : targetPack)
+            m_pullPackOf[enemy] = 0;
+        for (std::size_t pack = 0; pack < otherPacks.size(); ++pack)
+            for (Guid enemy : otherPacks[pack])
+                m_pullPackOf[enemy] = int(pack) + 1;
+    }
+
+    std::set<std::pair<int, Guid>> GroupCoordinator::JoinedPacks(std::vector<Guid> const& enemies) const
+    {
+        std::set<std::pair<int, Guid>> joined;
+        if (m_pullPackOf.empty())
+            return joined;
+        for (Guid enemy : enemies)
+        {
+            auto found = m_pullPackOf.find(enemy);
+            std::pair<int, Guid> const key =
+                found == m_pullPackOf.end() ? std::make_pair(-1, enemy) : std::make_pair(found->second, NoGuid);
+            if (key.first != 0 && !m_warnedPacks.count(key))
+                joined.insert(key);
+        }
+        return joined;
+    }
+
+    std::uint32_t GroupCoordinator::CountJoinedPacks(std::vector<Guid> const& enemies) const
+    {
+        Lock lock(m_mutex);
+        return std::uint32_t(JoinedPacks(enemies).size());
+    }
+
+    void GroupCoordinator::NoteJoinedPacksWarned(std::vector<Guid> const& enemies)
+    {
+        Lock lock(m_mutex);
+        for (std::pair<int, Guid> const& key : JoinedPacks(enemies))
+            m_warnedPacks.insert(key);
     }
 
     MemberSpot GroupCoordinator::ClaimMemberSpot(Guid bot, MemberSpotFinder const& find)
@@ -273,7 +350,11 @@ namespace Bots
         if (fights)
             m_trail.Clear();
         else if (m_pull.phase == PullPhase::None)
+        {
             m_trail.Note(at);
+            m_pullPackOf.clear();
+            m_warnedPacks.clear();
+        }
     }
 
     std::vector<Position> GroupCoordinator::GetTrail() const
