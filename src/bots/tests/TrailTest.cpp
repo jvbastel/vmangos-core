@@ -103,3 +103,24 @@ TEST(Trail, ADeadTankHasNoTrail)
 
     EXPECT_TRUE(group.GetTrail().empty());
 }
+
+// The review of jvbastel/WOWAI#100: the walk of the tank to its shoot spot
+// during the group wait is no cleared way. While a pull is on, the trail
+// stays as it was when the pull began.
+TEST(Trail, APullFreezesTheTrail)
+{
+    FakeBot fake{Tank};
+    fake.SetHealth(Tank, 600, 600);
+    GroupCoordinator group;
+    for (float x : {0.0f, 2.0f, 4.0f})
+    {
+        fake.SetPosition(Tank, {x, 0, 0});
+        Bots::WatchTrail(fake, group);
+    }
+    group.StartPull(Tank, 0xF130000302000022);
+
+    fake.SetPosition(Tank, {6, 0, 0});
+    Bots::WatchTrail(fake, group);
+
+    EXPECT_EQ(Xs(group.GetTrail()), (std::vector<float>{0, 2, 4}));
+}

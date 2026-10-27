@@ -231,9 +231,11 @@ namespace Bots
     void GroupCoordinator::KeepTrail(Position at, bool fights)
     {
         Lock lock(m_mutex);
+        // A pull keeps the trail as it was at its start: the tank's walk to
+        // its shoot spot is no cleared way.
         if (fights)
             m_trail.Clear();
-        else
+        else if (m_pull.phase == PullPhase::None)
             m_trail.Note(at);
     }
 

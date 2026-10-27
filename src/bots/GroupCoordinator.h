@@ -192,7 +192,7 @@ namespace Bots
         // The tank's trail since the last fight (Trail.h): the cleared way of
         // its fight spot (FightSpot.h). The tank notes where it stands on
         // each think (WatchTrail); `fights`: it fights or is dead, so the
-        // trail is empty.
+        // trail is empty. While a pull is on, the trail does not grow.
         void KeepTrail(Position at, bool fights);
         std::vector<Position> GetTrail() const;
 
