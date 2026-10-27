@@ -1454,3 +1454,270 @@ TEST(WarriorTank, NoShoutOutOfCombat)
 
     EXPECT_NE(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
 }
+
+// jvbastel/WOWAI#115: healer-first Taunt and Challenging Shout.
+namespace
+{
+    Bots::Guid const Rogue = 0x0000000000000013;
+    Bots::Guid const Bat = 0xF130000302000044;
+    Bots::Guid const Rat = 0xF130000302000055;
+
+    // The tank holds the kobold, and the group has a rogue and a healer
+    // (the rogue first in the member order).
+    struct GroupInFight : WarriorTank
+    {
+        GroupInFight()
+        {
+            fake.SetGroupMembers({Rogue, Healer});
+            group.SetHealer(Healer);
+            InFightWithKobold();
+            fake.SetInCombat(Tank);
+            for (Bots::Guid unit : {Rogue, Healer, Wolf, Bat, Rat})
+                fake.SetHealth(unit, 300, 300);
+        }
+    };
+}
+
+TEST(WarriorTank, TauntsTheEnemyOnTheHealerFirst)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+}
+
+TEST(WarriorTank, TauntsTheFocusBeforeTheEnemyOnTheHealer)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Kobold, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Kobold)}));
+}
+
+TEST(WarriorTank, ShoutsAtThreeLooseEnemies)
+{
+    GroupInFight tank;
+    tank.fake.SetKnownSpell(Warrior::ChallengingShout);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Rat, Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ChallengingShout, Tank)}));
+}
+
+TEST(WarriorTank, DoesNotShoutAtTwoLooseEnemies)
+{
+    GroupInFight tank;
+    tank.fake.SetKnownSpell(Warrior::ChallengingShout);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::ChallengingShout, Tank));
+}
+
+// Below level 26 the tank knows no Challenging Shout: it taunts the loose
+// enemies one by one, the one on the healer first.
+TEST(WarriorTank, WithoutChallengingShoutTauntsLooseEnemiesOneByOne)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Rat, Rogue);
+
+    tank.Think();
+    tank.fake.SetVictim(Bat, Tank);
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(),
+        (std::vector<std::string>{CastOn(Warrior::Taunt, Bat), CastOn(Warrior::Taunt, Wolf)}));
+}
+
+TEST(WarriorTank, DoesNotShoutWhenALooseEnemyIsOutOfShoutRange)
+{
+    GroupInFight tank;
+    tank.fake.SetKnownSpell(Warrior::ChallengingShout);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Rat, Healer);
+    tank.fake.SetDistance(Rat, 15.0f);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::ChallengingShout, Tank));
+}
+
+// jvbastel/WOWAI#117: the threat target.
+namespace
+{
+    Bots::Guid const Lynx = 0xF130000302000088;
+
+    // The tank fights the kobold (the focus), and the wolf and the lynx
+    // attack it too. The healer stands back. Revenge is not ready, unless
+    // `revengeReady`.
+    struct ThreeEnemyTank : WarriorTank
+    {
+        explicit ThreeEnemyTank(bool revengeReady = false)
+        {
+            fake.SetGroupMembers({Healer});
+            fake.SetHealth(Healer, 300, 300);
+            group.SetHealer(Healer);
+            InFightWithKobold();
+            fake.SetInCombat(Tank);
+            fake.SetPower(Tank, 30, 100);
+            if (!revengeReady)
+                fake.SetCannotCast(Warrior::Revenge);
+            for (Bots::Guid enemy : {Wolf, Lynx})
+            {
+                fake.SetHealth(enemy, 300, 300);
+                fake.SetVictim(enemy, Tank);
+            }
+        }
+
+        void SetRatios(float kobold, float wolf, float lynx)
+        {
+            fake.SetThreatRatio(Tank, Kobold, kobold);
+            fake.SetThreatRatio(Tank, Wolf, wolf);
+            fake.SetThreatRatio(Tank, Lynx, lynx);
+        }
+    };
+}
+
+TEST(WarriorTank, StaysOnTheFocusBelowAThreatLeadOf150Percent)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(1.49f, 1.0f, 1.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, AtA150PercentLeadSundersTheEnemyWithTheLowestThreatRatio)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(1.5f, 2.0f, 1.2f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Lynx)}));
+}
+
+TEST(WarriorTank, UsesRevengeOnTheThreatTargetWhenItIsReady)
+{
+    ThreeEnemyTank tank(true);
+    tank.SetRatios(3.0f, 1.1f, 2.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Wolf)}));
+}
+
+TEST(WarriorTank, BreaksATieOnTheThreatRatioByTheDistanceToTheHealer)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.0f);
+    tank.fake.SetDistanceBetween(Wolf, Healer, 15.0f);
+    tank.fake.SetDistanceBetween(Lynx, Healer, 8.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Lynx)}));
+}
+
+TEST(WarriorTank, GoesBackToTheFocusAfterOneAbilityOnTheThreatTarget)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+    tank.Think();
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+    tank.fake.ClearDeeds();
+
+    // The next visit, once it hit the focus.
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+TEST(WarriorTank, TheThreatTargetLeavesTheGroupsFocusAlone)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+
+    tank.Think();
+
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    EXPECT_EQ(tank.group.GetFocusTarget(), Kobold);
+}
+
+TEST(WarriorTank, OnAVisitPrefersReadyRevengeOnTheThreatTargetToShieldBlock)
+{
+    ThreeEnemyTank tank(true);
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock);
+    tank.SetRatios(3.0f, 1.1f, 2.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Wolf)}));
+}
+
+TEST(WarriorTank, AfterRevengeOnTheThreatTargetGoesBackToTheFocus)
+{
+    ThreeEnemyTank tank(true);
+    tank.SetRatios(3.0f, 1.1f, 2.0f);
+    tank.Think();
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Kobold)}));
+}
+
+TEST(WarriorTank, NoThreatTargetWhenNoOtherEnemyIsInReach)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.0f);
+    tank.fake.SetCannotCastOn(Warrior::SunderArmor, Wolf);
+    tank.fake.SetCannotCastOn(Warrior::SunderArmor, Lynx);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, IgnoresADeadHealerInTheTieBreak)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.0f);
+    tank.fake.SetDistanceBetween(Wolf, Healer, 8.0f);
+    tank.fake.SetDistanceBetween(Lynx, Healer, 15.0f);
+    tank.fake.SetHealth(Healer, 0, 300);
+    tank.Think();
+    std::vector<std::string> const deadHealer = tank.fake.Deeds();
+
+    ThreeEnemyTank swapped;
+    swapped.SetRatios(2.0f, 1.0f, 1.0f);
+    swapped.fake.SetDistanceBetween(Wolf, Healer, 15.0f);
+    swapped.fake.SetDistanceBetween(Lynx, Healer, 8.0f);
+    swapped.fake.SetHealth(Healer, 0, 300);
+    swapped.Think();
+
+    // The distances to the corpse do not change the pick.
+    EXPECT_EQ(swapped.fake.Deeds(), deadHealer);
+}
