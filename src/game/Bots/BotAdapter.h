@@ -85,6 +85,10 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool FindGroundPath(Bots::Position const& from, Bots::Position const& to,
             std::vector<Bots::Position>& path) const override;
         std::vector<Bots::NearEnemy> GetEnemiesNear(float yards) const override;
+        Bots::RangedWeapon GetRangedWeapon() const override;
+        uint32 GetLevel(Bots::Guid unit) const override;
+        bool IsMoving(Bots::Guid unit) const override;
+        bool HasRoomFor(Bots::AmmoTopUp const& topUp) const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;
@@ -101,6 +105,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void WalkAsGhost() override;
         void Eat() override;
         void Drink() override;
+        void TopUpAmmo(Bots::AmmoTopUp const& topUp) override;
 
     private:
         // The unit on the map of the bot, in the world, or null.

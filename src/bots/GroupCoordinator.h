@@ -25,6 +25,10 @@ namespace Bots
         PullPhase phase;
         Guid puller; // The tank. NoGuid without a pull.
         Guid target; // NoGuid without a pull.
+        // Where the puller stood when the pull began: it holds the pack
+        // there. Set by the puller (SetPullSpot); cleared when it is back.
+        bool hasSpot = false;
+        Position spot = {0, 0, 0};
     };
 
     // A bot will interrupt the cast of spell `spell` by enemy `caster`.
@@ -101,6 +105,10 @@ namespace Bots
         void StartPull(Guid puller, Guid target);
         // The target attacks the puller now. Only the puller can call it.
         void HoldPull(Guid puller);
+        // The puller notes where it stands at the start of its pull, or
+        // clears the spot when it is back there. Only the puller can.
+        void SetPullSpot(Guid puller, Position spot);
+        void ClearPullSpot(Guid puller);
         // The fight of the pull ends: no pull and no focus target.
         void EndPull();
         // True when the tank holds threat on the focus target: the target of

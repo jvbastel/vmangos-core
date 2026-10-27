@@ -165,6 +165,11 @@ namespace Bots
             // The level of unit `target` is too low for rank `rank` of a
             // buff (BotView::LevelAllowsRank).
             void SetLevelTooLowFor(SpellId rank, Guid target) { m_levelTooLow.insert({rank, target}); }
+            void SetRangedWeapon(RangedWeapon const& weapon) { m_ranged = weapon; }
+            void SetLevel(Guid unit, std::uint32_t level) { m_level[unit] = level; }
+            void SetMoving(Guid unit, bool moving = true) { m_moving[unit] = moving; }
+            // The bags are full: no ammo top-up has room (HasRoomFor).
+            void SetBagsFull(bool full = true) { m_bagsFull = full; }
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -356,6 +361,19 @@ namespace Bots
                 return near;
             }
 
+            RangedWeapon GetRangedWeapon() const override { return m_ranged; }
+            std::uint32_t GetLevel(Guid unit) const override
+            {
+                auto found = m_level.find(unit);
+                return found == m_level.end() ? 0 : found->second;
+            }
+            bool HasRoomFor(AmmoTopUp const&) const override { return !m_bagsFull; }
+            bool IsMoving(Guid unit) const override
+            {
+                auto found = m_moving.find(unit);
+                return found != m_moving.end() && found->second;
+            }
+
             // BotActions
             void CastSpell(SpellId spell, Guid target) override
             {
@@ -408,6 +426,10 @@ namespace Bots
             void WalkAsGhost() override { m_deeds.push_back("walk as a ghost"); }
             void Eat() override { m_deeds.push_back("eat"); }
             void Drink() override { m_deeds.push_back("drink"); }
+            void TopUpAmmo(AmmoTopUp const& topUp) override
+            {
+                m_deeds.push_back("top up ammo " + std::to_string(topUp.entry) + " to " + std::to_string(topUp.count));
+            }
 
         private:
             void AddDeed(char const* verb, Guid unit)
@@ -467,6 +489,10 @@ namespace Bots
             std::set<std::pair<SpellId, Guid>> m_levelTooLow;
             bool m_stunned = false;
             bool m_silenced = false;
+            RangedWeapon m_ranged;
+            std::map<Guid, std::uint32_t> m_level;
+            std::map<Guid, bool> m_moving;
+            bool m_bagsFull = false;
             std::vector<std::string> m_deeds;
         };
     }

@@ -889,3 +889,95 @@ void BotAdapter::Drink()
 {
     UseRestItem(RestItemFor(me->GetLevel()).drink);
 }
+
+Bots::RangedWeapon BotAdapter::GetRangedWeapon() const
+{
+    Bots::RangedWeapon weapon;
+    Item const* item = me->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED);
+    ItemPrototype const* proto = item ? item->GetProto() : nullptr;
+    if (!proto || proto->Class != ITEM_CLASS_WEAPON)
+        return weapon;
+    switch (proto->SubClass)
+    {
+        case ITEM_SUBCLASS_WEAPON_THROWN: weapon.kind = Bots::RangedKind::Thrown; break;
+        case ITEM_SUBCLASS_WEAPON_BOW: weapon.kind = Bots::RangedKind::Bow; break;
+        case ITEM_SUBCLASS_WEAPON_GUN: weapon.kind = Bots::RangedKind::Gun; break;
+        case ITEM_SUBCLASS_WEAPON_CROSSBOW: weapon.kind = Bots::RangedKind::Crossbow; break;
+        default: return weapon; // A wand needs no pull rules.
+    }
+    weapon.entry = proto->ItemId;
+    if (weapon.kind == Bots::RangedKind::Thrown)
+    {
+        // Each throw uses up one of the worn stack (Spell::TakeAmmo).
+        weapon.ammoEntry = proto->ItemId;
+        weapon.ammoCount = item->GetCount();
+        return weapon;
+    }
+    // The ammo of the ammo slot, when it fits the weapon: arrows for a bow
+    // or a crossbow, bullets for a gun.
+    uint32 const ammo = me->GetUInt32Value(PLAYER_AMMO_ID);
+    ItemPrototype const* ammoProto = ammo ? sObjectMgr.GetItemPrototype(ammo) : nullptr;
+    if (ammoProto && ammoProto->SubClass == proto->AmmoType)
+    {
+        weapon.ammoEntry = ammo;
+        weapon.ammoCount = me->GetItemCount(ammo);
+    }
+    return weapon;
+}
+
+uint32 BotAdapter::GetLevel(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    return found ? found->GetLevel() : 0;
+}
+
+bool BotAdapter::IsMoving(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    return found && (found->IsMoving() || !found->movespline->Finalized());
+}
+
+bool BotAdapter::HasRoomFor(Bots::AmmoTopUp const& topUp) const
+{
+    if (!topUp.entry)
+        return false;
+    Item const* ranged = me->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED);
+    if (ranged && ranged->GetEntry() == topUp.entry)
+        return ranged->GetCount() < std::min(topUp.count, ranged->GetMaxStackCount());
+    uint32 const have = me->GetItemCount(topUp.entry);
+    if (have >= topUp.count)
+        return me->GetUInt32Value(PLAYER_AMMO_ID) != topUp.entry;
+    ItemPosCountVec dest;
+    return me->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, topUp.entry, topUp.count - have) == EQUIP_ERR_OK;
+}
+
+void BotAdapter::TopUpAmmo(Bots::AmmoTopUp const& topUp)
+{
+    if (!topUp.entry || !topUp.count)
+        return;
+    // A thrown stack grows in place, silently.
+    Item* ranged = me->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED);
+    if (ranged && ranged->GetEntry() == topUp.entry)
+    {
+        uint32 const count = std::min(topUp.count, ranged->GetMaxStackCount());
+        if (ranged->GetCount() < count)
+        {
+            ranged->SetCount(count);
+            ranged->SetState(ITEM_CHANGED, me);
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s tops up its thrown weapon %u silently to %u", me->GetName(),
+                topUp.entry, count);
+        }
+        return;
+    }
+    // Arrows or bullets: into the bags, silently, then into the ammo slot.
+    uint32 const have = me->GetItemCount(topUp.entry);
+    if (have < topUp.count)
+    {
+        ItemPosCountVec dest;
+        if (me->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, topUp.entry, topUp.count - have) == EQUIP_ERR_OK
+            && me->StoreNewItem(dest, topUp.entry, true))
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s tops up ammo %u silently to %u", me->GetName(), topUp.entry,
+                topUp.count);
+    }
+    me->SetAmmo(topUp.entry);
+}

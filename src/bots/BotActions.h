@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_BOT_ACTIONS_H
 
 #include "BotTypes.h"
+#include "Ranged.h"
 
 namespace Bots
 {
@@ -52,6 +53,10 @@ namespace Bots
         virtual void Eat() = 0;
         // Sit and drink the water of the bot's level. It refills silently.
         virtual void Drink() = 0;
+        // Bring the ammo up to `topUp` silently, from nothing: no vendor
+        // and no money (Ranged.h). The arrows or bullets go in the bags and
+        // become the ammo of the ammo slot; a thrown stack grows in place.
+        virtual void TopUpAmmo(AmmoTopUp const& topUp) = 0;
     };
 }
 
