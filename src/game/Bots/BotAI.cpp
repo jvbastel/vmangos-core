@@ -552,7 +552,7 @@ void BotAI::Think()
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
         Bots::WatchTrail(adapter, *coordinator);
     }
-    // The tank taunts enemies off the healer first (WarriorModule.h).
+    // The tank taunts enemies off the healer first (WarriorModule.cpp).
     if (m_role == Bots::BotRole::Healer)
         coordinator->SetHealer(me->GetObjectGuid().GetRawValue());
     std::string const reaction = m_bossReaction.Active();

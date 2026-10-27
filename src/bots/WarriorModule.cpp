@@ -31,16 +31,6 @@ namespace Bots
             // Nearer than this, the focus is in melee reach.
             float const MeleeYards = 5.0f;
 
-            // jvbastel/WOWAI#115: Challenging Shout from this many loose
-            // enemies.
-            std::size_t const ShoutLooseEnemies = 3;
-
-            // jvbastel/WOWAI#117: the threat target. From this threat lead
-            // on the focus (BotView::GetThreatRatio; 1.5 is 150%), the tank
-            // turns to its threat target, for this many abilities a visit.
-            float const ThreatTargetLead = 1.5f;
-            std::uint32_t const AbilitiesPerVisit = 1;
-
             // jvbastel/WOWAI#114: Demoralizing Shout reaches the enemies
             // within ShoutYards. The tank shouts when ShoutEnemies or more
             // of them lack the debuff, or one in the fight lacks it.
@@ -50,6 +40,19 @@ namespace Bots
             // jvbastel/WOWAI#116: Shield Block.
             // Rage for Shield Block from it.
             std::uint32_t const ShieldBlockRage = 10;
+
+            // jvbastel/WOWAI#115: Challenging Shout from this many loose
+            // enemies.
+            std::size_t const ShoutLooseEnemies = 3;
+            // The radius of Challenging Shout: it counts only the loose
+            // enemies this near.
+            float const ChallengingShoutYards = 10.0f;
+
+            // jvbastel/WOWAI#117: the threat target. From this threat lead
+            // on the focus (BotView::GetThreatRatio; 1.5 is 150%), the tank
+            // turns to its threat target, for this many abilities a visit.
+            float const ThreatTargetLead = 1.5f;
+            std::uint32_t const AbilitiesPerVisit = 1;
 
             Guid Self(BotContext const& context)
             {
@@ -168,20 +171,15 @@ namespace Bots
             // rest in the order of the group members.
             std::vector<Guid> LooseEnemies(BotContext const& context)
             {
-                Guid const focus = context.group.GetFocusTarget();
-                Guid const healer = context.group.GetHealer();
-                std::vector<Guid> members = context.view.GetGroupMembers();
-                auto const at = std::find(members.begin(), members.end(), healer);
-                if (at != members.end())
-                    std::rotate(members.begin(), at, at + 1);
-                std::vector<Guid> loose;
-                for (Guid member : members)
-                    if (member != Self(context) && IsAlive(context.view, member))
-                        for (Guid attacker : context.view.GetAttackers(member))
-                            if (attacker != focus && IsAlive(context.view, attacker)
-                                && std::find(loose.begin(), loose.end(), attacker) == loose.end())
-                                loose.push_back(attacker);
-                return loose;
+                return MemberAttackers(context, Self(context), context.group.GetFocusTarget(), context.group.GetHealer());
+            }
+
+            // The loose enemies that a Challenging Shout reaches.
+            std::size_t LooseEnemiesInShoutRange(BotContext const& context)
+            {
+                std::vector<Guid> const loose = LooseEnemies(context);
+                return std::count_if(loose.begin(), loose.end(),
+                    [&](Guid enemy) { return context.view.GetDistance(enemy) <= ChallengingShoutYards; });
             }
 
             // The loose enemy that the tank taunts off: one on the healer
@@ -203,11 +201,17 @@ namespace Bots
             // The threat target: of the enemies in the fight other than the
             // focus that the tank can hit now with Revenge or Sunder Armor,
             // the one with the lowest threat ratio of the tank. A tie: the
-            // one nearest the healer. NoGuid when there is none.
+            // one nearest the healer, if it lives. NoGuid when there is none.
             Guid PickThreatTarget(BotContext const& context)
             {
                 Guid const focus = context.group.GetFocusTarget();
-                Guid const healer = context.group.GetHealer();
+                // The tie-break needs a living healer in the group: the
+                // coordinator does not clear a healer that died or left.
+                Guid healer = context.group.GetHealer();
+                std::vector<Guid> const members = context.view.GetGroupMembers();
+                if (!IsAlive(context.view, healer)
+                    || std::find(members.begin(), members.end(), healer) == members.end())
+                    healer = NoGuid;
                 Guid best = NoGuid;
                 float bestRatio = 0.0f;
                 float bestYards = 0.0f;
@@ -548,7 +552,7 @@ namespace Bots
                 // A broken pull: too many loose enemies to taunt one by one.
                 CastRule("challenging shout", P + 52,
                     [](BotContext const& context) {
-                        return FightsFocus(context) && LooseEnemies(context).size() >= ShoutLooseEnemies;
+                        return FightsFocus(context) && LooseEnemiesInShoutRange(context) >= ShoutLooseEnemies;
                     },
                     ChallengingShout, PickSelf),
                 // jvbastel/WOWAI#114: threat on each enemy near, from the

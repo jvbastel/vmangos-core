@@ -219,14 +219,26 @@ namespace Bots
         return enemies;
     }
 
-    Guid PickMemberAttacker(BotContext const& context, Guid skipMember, Guid skipEnemy)
+    std::vector<Guid> MemberAttackers(BotContext const& context, Guid skipMember, Guid skipEnemy, Guid first)
     {
-        for (Guid member : context.view.GetGroupMembers())
+        std::vector<Guid> members = context.view.GetGroupMembers();
+        auto const at = std::find(members.begin(), members.end(), first);
+        if (at != members.end())
+            std::rotate(members.begin(), at, at + 1);
+        std::vector<Guid> attackers;
+        for (Guid member : members)
             if (member != skipMember && IsAlive(context.view, member))
                 for (Guid attacker : context.view.GetAttackers(member))
-                    if (attacker != skipEnemy && IsAlive(context.view, attacker))
-                        return attacker;
-        return NoGuid;
+                    if (attacker != skipEnemy && IsAlive(context.view, attacker)
+                        && std::find(attackers.begin(), attackers.end(), attacker) == attackers.end())
+                        attackers.push_back(attacker);
+        return attackers;
+    }
+
+    Guid PickMemberAttacker(BotContext const& context, Guid skipMember, Guid skipEnemy)
+    {
+        std::vector<Guid> const attackers = MemberAttackers(context, skipMember, skipEnemy);
+        return attackers.empty() ? NoGuid : attackers.front();
     }
 
     bool IsInChaseLimit(BotContext const& context, Guid unit)

@@ -1545,6 +1545,22 @@ TEST(WarriorTank, WithoutChallengingShoutTauntsLooseEnemiesOneByOne)
         (std::vector<std::string>{CastOn(Warrior::Taunt, Bat), CastOn(Warrior::Taunt, Wolf)}));
 }
 
+TEST(WarriorTank, DoesNotShoutWhenALooseEnemyIsOutOfShoutRange)
+{
+    GroupInFight tank;
+    tank.fake.SetKnownSpell(Warrior::ChallengingShout);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Rat, Healer);
+    tank.fake.SetDistance(Rat, 15.0f);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::ChallengingShout, Tank));
+}
+
 // jvbastel/WOWAI#117: the threat target.
 namespace
 {
@@ -1683,4 +1699,25 @@ TEST(WarriorTank, NoThreatTargetWhenNoOtherEnemyIsInReach)
     tank.Think();
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, IgnoresADeadHealerInTheTieBreak)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.0f);
+    tank.fake.SetDistanceBetween(Wolf, Healer, 8.0f);
+    tank.fake.SetDistanceBetween(Lynx, Healer, 15.0f);
+    tank.fake.SetHealth(Healer, 0, 300);
+    tank.Think();
+    std::vector<std::string> const deadHealer = tank.fake.Deeds();
+
+    ThreeEnemyTank swapped;
+    swapped.SetRatios(2.0f, 1.0f, 1.0f);
+    swapped.fake.SetDistanceBetween(Wolf, Healer, 15.0f);
+    swapped.fake.SetDistanceBetween(Lynx, Healer, 8.0f);
+    swapped.fake.SetHealth(Healer, 0, 300);
+    swapped.Think();
+
+    // The distances to the corpse do not change the pick.
+    EXPECT_EQ(swapped.fake.Deeds(), deadHealer);
 }
