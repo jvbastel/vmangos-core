@@ -265,18 +265,6 @@ namespace Bots
         m_tank = tank;
     }
 
-    Guid GroupCoordinator::GetHealer() const
-    {
-        Lock lock(m_mutex);
-        return m_healer;
-    }
-
-    void GroupCoordinator::SetHealer(Guid healer)
-    {
-        Lock lock(m_mutex);
-        m_healer = healer;
-    }
-
     void GroupCoordinator::KeepTrail(Position at, bool fights)
     {
         Lock lock(m_mutex);
