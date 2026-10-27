@@ -431,3 +431,42 @@ TEST(CasterPack, WithNoSafePlaceTheKeepOutRuleDoesNotFreezeTheTank)
 
     EXPECT_NE(tank.Think(), Bots::KeepOutRule);
 }
+
+// Review of jvbastel/WOWAI#121 (C2): the keep-out rule steps a melee damage
+// bot out, and its melee rule chased its target back in: a loop. As for the
+// tank's pick-up, the melee bot does not chase a target in the reach of a
+// pack outside the fight. The member that the enemy hits steps out itself.
+TEST(CasterPack, AMeleeDamageBotDoesNotChaseATargetInThePlaceOfAPackOutsideTheFight)
+{
+    Bots::Guid const Rogue = 0x13;
+    Bots::Guid const Healer = 0x12;
+    FakeBot fake{Rogue};
+    fake.SetHealth(Rogue, 500, 500);
+    fake.SetHealth(Tank, 600, 600);
+    fake.SetHealth(Healer, 400, 400);
+    fake.SetGroupMembers({Tank, Healer});
+    fake.SetPosition(Tank, PullPack9);
+    fake.SetPosition(Rogue, PullPack9);
+    fake.SetPosition(Healer, NearPack11);
+    fake.SetInCombat(Rogue);
+    fake.SetPosition(Trogg11, Pack11);
+    fake.AddEnemy(Trogg11, Pack11, AggroYards);
+    // The add hits the healer near pack11.
+    fake.SetPosition(Trogg10, NearPack11);
+    fake.AddEnemy(Trogg10, NearPack11, AggroYards);
+    fake.SetHealth(Trogg10, 300, 300);
+    fake.SetVictim(Trogg10, Healer);
+    fake.SetDistanceBetween(Trogg10, Healer, 1.0f);
+    Bots::GroupCoordinator group;
+    group.SetTank(Tank);
+    group.SetFocusTarget(Shaman);
+    fake.SetPosition(Shaman, Pack9);
+    fake.SetVictim(Shaman, Tank);
+    Bots::StrategyStack const stack = Bots::MakeStrategyStack(Bots::BotClass::Rogue, Bots::BotRole::Melee);
+    Bots::BotContext context{fake, fake, group, Bots::CommandState::None, Bots::NoGuid};
+
+    stack.Think(context);
+
+    for (std::string const& deed : fake.Deeds())
+        EXPECT_EQ(deed.find("chase"), std::string::npos) << deed;
+}

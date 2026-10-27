@@ -25,6 +25,13 @@ namespace Bots
     //    unless the tank gave it up (GroupCoordinator::GiveUpTaunt).
     Guid PickDamageTarget(BotContext const& context);
 
+    // The damage target of a melee bot (PickDamageTarget): not one in the
+    // reach of a pack outside the fight (KeepOut.h, jvbastel/WOWAI#121).
+    // The keep-out rule would step the bot out again, and its chase take it
+    // back in: a loop. The member that the enemy hits steps out itself and
+    // brings it along, as for the tank's pick-up.
+    Guid PickMeleeDamageTarget(BotContext const& context);
+
     // True when the bot has a damage target now.
     bool HasDamageTarget(BotContext const& context);
 

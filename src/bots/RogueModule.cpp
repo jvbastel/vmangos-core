@@ -23,7 +23,7 @@ namespace Bots
             // The bot fights the damage target with its melee attack.
             bool Fights(BotContext const& context)
             {
-                Guid const target = PickDamageTarget(context);
+                Guid const target = PickMeleeDamageTarget(context);
                 return target != NoGuid && context.view.GetVictim(Self(context)) == target;
             }
 
@@ -40,7 +40,7 @@ namespace Bots
                 std::uint32_t const comboPoints = context.view.GetComboPoints();
                 if (comboPoints >= EviscerateComboPoints)
                     return true;
-                Health const health = context.view.GetHealth(PickDamageTarget(context));
+                Health const health = context.view.GetHealth(PickMeleeDamageTarget(context));
                 return comboPoints > 0 && Percent(health.current, health.max) <= DyingHealthPercent;
             }
 
@@ -59,7 +59,7 @@ namespace Bots
                 rule.priority = priority;
                 rule.trigger = std::move(trigger);
                 rule.action.canDo = [](BotContext const&) { return true; };
-                rule.action.run = [](BotContext const& context) { ChaseTarget(context, PickDamageTarget(context)); };
+                rule.action.run = [](BotContext const& context) { ChaseTarget(context, PickMeleeDamageTarget(context)); };
                 return rule;
             }
         }
@@ -71,12 +71,12 @@ namespace Bots
                 // The damage target changes, or the fight starts.
                 Rule{"attack the target", P + 80,
                     [](BotContext const& context) {
-                        Guid const target = PickDamageTarget(context);
+                        Guid const target = PickMeleeDamageTarget(context);
                         return target != NoGuid && context.view.GetVictim(Self(context)) != target;
                     },
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) {
-                            Guid const target = PickDamageTarget(context);
+                            Guid const target = PickMeleeDamageTarget(context);
                             context.actions.Attack(target);
                             ChaseTarget(context, target);
                         }}},
@@ -84,14 +84,14 @@ namespace Bots
                 // Behind the target when it can: no parry and no block.
                 MoveRule("stand behind the target", P + 75,
                     [](BotContext const& context) {
-                        Guid const target = PickDamageTarget(context);
+                        Guid const target = PickMeleeDamageTarget(context);
                         ChaseState const chase = context.view.GetChase();
                         return Fights(context) && CanStandBehind(context, target)
                             && !(chase.target == target && chase.behind);
                     }),
                 MoveRule("face the target", P + 74,
                     [](BotContext const& context) {
-                        Guid const target = PickDamageTarget(context);
+                        Guid const target = PickMeleeDamageTarget(context);
                         ChaseState const chase = context.view.GetChase();
                         return Fights(context) && !CanStandBehind(context, target)
                             && !(chase.target == target && !chase.behind);
@@ -101,15 +101,15 @@ namespace Bots
                     [](BotContext const& context) {
                         return Fights(context) && ReadyToEviscerate(context);
                     },
-                    Eviscerate, PickDamageTarget),
+                    Eviscerate, PickMeleeDamageTarget),
                 // On the target: the spell takes the combo points on it.
                 CastRule("slice and dice", P + 55,
                     [](BotContext const& context) {
                         return Fights(context) && context.view.GetComboPoints() >= SliceComboPoints
                             && !context.view.HasAura(Self(context), SliceAndDice);
                     },
-                    SliceAndDice, PickDamageTarget),
-                CastRule("sinister strike", P + 50, Fights, SinisterStrike, PickDamageTarget),
+                    SliceAndDice, PickMeleeDamageTarget),
+                CastRule("sinister strike", P + 50, Fights, SinisterStrike, PickMeleeDamageTarget),
             };
             return std::make_shared<Strategy const>(Strategy{"rogue melee", std::move(rules)});
         }
