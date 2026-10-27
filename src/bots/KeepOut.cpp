@@ -52,19 +52,28 @@ namespace Bots
         // A step out ends this far out of the aggro distance and margin.
         float const StepOutSpareYards = 1.0f;
 
-        // The enemies outside the fight that the bot pulls where it
-        // stands, nearest first. None when the rule does not apply.
-        std::vector<NearEnemy> EnemiesTooNear(BotContext const& context)
+        // The tank hits an add on the healer that stands in the reach of
+        // another pack, and the healer cannot step out: it goes in.
+        bool TankHitsAnAddOfTheHealer(BotContext const& context, Guid member)
         {
-            Guid const self = context.view.GetSelf();
+            Guid const victim = context.view.GetVictim(member);
+            return member == context.group.GetTank() && victim != NoGuid && TankGoesInForTheHealer(context, victim);
+        }
+
+        // The enemies outside the fight that member `member` pulls where it
+        // stands, nearest first. None when the rule does not apply.
+        std::vector<NearEnemy> EnemiesTooNear(BotContext const& context, Guid member)
+        {
             PullState const pull = context.group.GetPull();
             // In the pull itself, the fight spot and the shoot spot keep
             // the puller out (FightSpot.h), and the member spots the others.
-            if (pull.phase != PullPhase::Holding && !context.view.IsInCombat(self))
+            if (pull.phase != PullPhase::Holding && !context.view.IsInCombat(member))
                 return {};
-            if (pull.goesIn && pull.puller == self)
+            // The exceptions: the puller that goes in to a caster after its
+            // warn, and the tank that goes in for the healer after its warn.
+            if ((pull.goesIn && pull.puller == member) || TankHitsAnAddOfTheHealer(context, member))
                 return {};
-            Position const at = context.view.GetPosition(self);
+            Position const at = context.view.GetPosition(member);
             if (!InOtherPacksReach(context, at))
                 return {};
             std::vector<NearEnemy> near;
@@ -80,9 +89,9 @@ namespace Bots
         // The places to step out to: straight away from each enemy too near,
         // to StepOutSpareYards out of its reach; then the tank, and the
         // fight spot of the pull.
-        std::vector<Position> StepOutPlaces(BotContext const& context, std::vector<NearEnemy> const& tooNear)
+        std::vector<Position> StepOutPlaces(BotContext const& context, Guid member, std::vector<NearEnemy> const& tooNear)
         {
-            Position const at = context.view.GetPosition(context.view.GetSelf());
+            Position const at = context.view.GetPosition(member);
             std::vector<Position> places;
             for (NearEnemy const& enemy : tooNear)
             {
@@ -94,7 +103,7 @@ namespace Bots
                     enemy.position.y + (at.y - enemy.position.y) / yards * reach, at.z}));
             }
             Guid const tank = context.group.GetTank();
-            if (tank != NoGuid && tank != context.view.GetSelf())
+            if (tank != NoGuid && tank != member)
                 places.push_back(context.view.GetPosition(tank));
             PullState const pull = context.group.GetPull();
             if (pull.hasFightSpot)
@@ -102,19 +111,33 @@ namespace Bots
             return places;
         }
 
-        // The safe place to step out to (FirstSafePlace). False when the bot
-        // stands out of reach, or finds no safe place: it then keeps its
-        // fight, so that a member never freezes in place.
-        bool FindStepOut(BotContext const& context, Position& place)
+        // The safe place for member `member` to step out to
+        // (FirstSafePlace). False when it stands out of reach, or finds no
+        // safe place: it then keeps its fight, so that a member never
+        // freezes in place.
+        bool FindStepOut(BotContext const& context, Guid member, Position& place)
         {
-            std::vector<NearEnemy> const tooNear = EnemiesTooNear(context);
+            std::vector<NearEnemy> const tooNear = EnemiesTooNear(context, member);
             if (tooNear.empty())
                 return false;
+            Position const at = context.view.GetPosition(member);
             SafeMoveRules rules;
-            rules.enemies = EnemiesOutsideTheFight(context.view,
-                context.view.GetPosition(context.view.GetSelf()), FightTarget(context));
-            return FirstSafePlace(context.view, StepOutPlaces(context, tooNear), rules, place);
+            rules.enemies = EnemiesOutsideTheFight(context.view, at, FightTarget(context));
+            return FirstSafePlaceFrom(context.view, at, StepOutPlaces(context, member, tooNear), rules, place);
         }
+    }
+
+    bool StuckInOtherPacksReach(BotContext const& context, Guid member)
+    {
+        Position place{};
+        return !EnemiesTooNear(context, member).empty() && !FindStepOut(context, member, place);
+    }
+
+    bool TankGoesInForTheHealer(BotContext const& context, Guid enemy)
+    {
+        Guid const healer = context.group.GetHealer();
+        return healer != NoGuid && context.view.GetVictim(enemy) == healer
+            && InOtherPacksReach(context, context.view.GetPosition(enemy)) && StuckInOtherPacksReach(context, healer);
     }
 
     std::shared_ptr<Strategy const> MakeKeepOutStrategy()
@@ -122,12 +145,12 @@ namespace Bots
         Rule keepOut{KeepOutRule, Priority::Group + 82,
             [](BotContext const& context) {
                 Position place{};
-                return FindStepOut(context, place);
+                return FindStepOut(context, context.view.GetSelf(), place);
             },
             {[](BotContext const&) { return true; },
                 [](BotContext const& context) {
                     Position place{};
-                    if (FindStepOut(context, place))
+                    if (FindStepOut(context, context.view.GetSelf(), place))
                         context.actions.MoveTo(place);
                 }}};
         return std::make_shared<Strategy const>(Strategy{"keep out", {keepOut}});

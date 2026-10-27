@@ -76,7 +76,12 @@ namespace Bots
     bool FirstSafePlace(BotView const& view, std::vector<Position> const& spots, SafeMoveRules const& rules,
         Position& place)
     {
-        Position const self = view.GetPosition(view.GetSelf());
+        return FirstSafePlaceFrom(view, view.GetPosition(view.GetSelf()), spots, rules, place);
+    }
+
+    bool FirstSafePlaceFrom(BotView const& view, Position const& self, std::vector<Position> const& spots,
+        SafeMoveRules const& rules, Position& place)
+    {
         std::vector<Position> path;
         for (Position const& spot : spots)
         {

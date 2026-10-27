@@ -48,6 +48,9 @@ namespace Bots
     // move to. False when none is.
     bool FirstSafePlace(BotView const& view, std::vector<Position> const& spots, SafeMoveRules const& rules,
         Position& place);
+    // The same for a unit that stands at `from`, such as another member.
+    bool FirstSafePlaceFrom(BotView const& view, Position const& from, std::vector<Position> const& spots,
+        SafeMoveRules const& rules, Position& place);
 
     // The cast place for a spell on unit `unit`, for example the resurrect
     // of a corpse: within `yards` of it, in its sight, reached on a path

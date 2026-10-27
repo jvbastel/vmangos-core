@@ -1,10 +1,13 @@
 #include "ClassModules.h"
 #include "DamageRules.h"
+#include "KeepOut.h"
 #include "WarriorModule.h"
 #include "FakeBot.h"
 #include "MemberSpot.h"
 
 #include <gtest/gtest.h>
+
+#include <algorithm>
 
 using Bots::BotContext;
 using Bots::GroupCoordinator;
@@ -2103,4 +2106,79 @@ TEST(WarriorTank, DoesNotPickUpALooseEnemyInTheReachOfAnotherPack)
         EXPECT_NE(deed, Attack(Bat));
         EXPECT_NE(deed, Chase(Bat));
     }
+}
+
+// Review of jvbastel/WOWAI#126 and #121 (C1): an add on the healer near
+// another pack. The healer stands in the reach of the rat too and finds no
+// place to step out to: nobody but the damage bots would take the add. The
+// tank picks it up anyway, and warns once.
+namespace
+{
+    struct BatOnTheHealerNearARat : BatOnTheFarHealer
+    {
+        BatOnTheHealerNearARat()
+        {
+            group.SetTank(Tank);
+            fake.SetPosition(Tank, {0, 0, 0});
+            // 10 yd from the rat: out of its aggro distance, in its margin.
+            fake.SetPosition(Healer, {26, 0, 0});
+            fake.SetPosition(Bat, {26, 0, 0});
+            fake.SetInCombat(Healer);
+            fake.AddEnemy(Rat, {36, 0, 0}, 10.0f);
+        }
+
+        int Warns() const
+        {
+            return int(std::count(fake.Deeds().begin(), fake.Deeds().end(),
+                "warn Careful: this pull brings 1 more pack."));
+        }
+    };
+}
+
+TEST(WarriorTank, PicksUpTheHealersAddNearAnotherPackWhenTheHealerCannotStepOut)
+{
+    BatOnTheHealerNearARat tank;
+    tank.fake.AddNoPathFromX(-10000.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.Warns(), 1);
+    EXPECT_NE(std::find(tank.fake.Deeds().begin(), tank.fake.Deeds().end(), Attack(Bat)), tank.fake.Deeds().end());
+    EXPECT_NE(std::find(tank.fake.Deeds().begin(), tank.fake.Deeds().end(), Chase(Bat)), tank.fake.Deeds().end());
+
+    // On its way, the keep-out rule does not step it back, and it warns once.
+    tank.fake.ClearDeeds();
+    tank.fake.SetVictim(Tank, Bat);
+    tank.fake.SetPosition(Tank, {22, 0, 0});
+    tank.fake.SetDistance(Bat, 4.0f);
+    EXPECT_NE(tank.Think(), Bots::KeepOutRule);
+    EXPECT_EQ(tank.Warns(), 0);
+}
+
+TEST(WarriorTank, LeavesTheHealersAddNearAnotherPackWhenTheHealerCanStepOut)
+{
+    BatOnTheHealerNearARat tank;
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+    {
+        EXPECT_NE(deed, Attack(Bat));
+        EXPECT_NE(deed, Chase(Bat));
+    }
+}
+
+// C1: the pick-up tries each loose enemy, the healer's first: the add on
+// the healer is in the rat's reach, so the tank picks up the add on the
+// rogue.
+TEST(WarriorTank, PicksUpTheNextLooseEnemyWhenTheFirstIsInTheReachOfAnotherPack)
+{
+    BatOnTheHealerNearARat tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetPosition(Wolf, {-25, 0, 0});
+    tank.fake.SetDistance(Wolf, 25.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Wolf), Chase(Wolf)}));
 }

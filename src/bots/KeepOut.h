@@ -35,14 +35,25 @@ namespace Bots
     // go there (the tank's pick-up, WarriorModule.cpp).
     bool InOtherPacksReach(BotContext const& context, Position const& at);
 
+    // Member `member` stands in the reach of a pack outside the fight, and
+    // finds no safe place to step out to: the keep-out rule cannot move it.
+    bool StuckInOtherPacksReach(BotContext const& context, Guid member);
+
+    // Review of jvbastel/WOWAI#126 and #121: enemy `enemy` hits the healer
+    // and stands in the reach of a pack outside the fight, and the healer is
+    // stuck there (StuckInOtherPacksReach). The tank picks it up all the
+    // same, after a warn (WarriorModule.cpp), and the keep-out rule lets the
+    // tank that hits it stand there.
+    bool TankGoesInForTheHealer(BotContext const& context, Guid enemy);
+
     // The strategy "keep out": its rule KeepOutRule, for each bot, the tank
     // too, at Priority::Group + 82. While a pull holds, or the bot is in combat, a bot
     // that stands within the aggro distance and AggroMarginYards of an
     // enemy outside the fight of the group's focus steps out to a safe place
     // (FirstSafePlace, SafePlace.h). With no safe place the rule does not
-    // fire: the bot keeps its fight rather than freeze. The one
-    // exception: the puller that goes in to a caster (PullState::goesIn,
-    // WarriorModule.h).
+    // fire: the bot keeps its fight rather than freeze. The exceptions: the
+    // puller that goes in to a caster (PullState::goesIn, WarriorModule.h),
+    // and the tank that hits an add of TankGoesInForTheHealer.
     std::shared_ptr<Strategy const> MakeKeepOutStrategy();
     char const* const KeepOutRule = "keep out of other packs";
 }
