@@ -42,6 +42,8 @@ size = 10
 #   fist dagger thrown crossbow wand. The shield and holdable slots take any
 #   shield and any off-hand item.
 # shapes: the weapon shapes, [name, weapon slot, weapon slot].
+# fill: the slots that hold an item at every level after their first item:
+#   the best item stays past its window until the next item comes.
 # armor: the armor types (cloth leather mail plate) of the head, shoulders,
 #   chest, wrists, hands, waist, legs, and feet slots. Plate and mail count
 #   only from the level at which the class learns them (40).
@@ -54,8 +56,10 @@ size = 10
 #   give healing. An item with a score of zero is never written.
 
 [roles.warrior_tank]
-# A one-handed weapon and a shield: Shield Bash is an interrupt.
+# A one-handed weapon and a shield: Shield Bash is an interrupt. The tank
+# pulls with its ranged weapon, so the ranged slot is filled at every level.
 shapes = [["sword-and-board", "mainhand", "shield"]]
+fill = ["ranged"]
 armor = ["leather", "mail", "plate"]
 [roles.warrior_tank.weapons]
 mainhand = ["axe", "mace", "sword", "dagger", "fist"]

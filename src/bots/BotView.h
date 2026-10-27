@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_BOT_VIEW_H
 
 #include "BotTypes.h"
+#include "Ranged.h"
 
 #include <vector>
 
@@ -170,6 +171,22 @@ namespace Bots
         // Every living hostile creature within `yards` of the bot, seen or
         // not, but no pet.
         virtual std::vector<NearEnemy> GetEnemiesNear(float yards) const = 0;
+
+        // The ranged pull of the tank (Ranged.h, WarriorModule.h).
+        // The ranged weapon that the bot wears, and its ammo.
+        virtual RangedWeapon GetRangedWeapon() const = 0;
+        // The level of unit `unit`. 0 for a unit that the bot cannot see.
+        virtual std::uint32_t GetLevel(Guid unit) const = 0;
+        // True when unit `unit` moves now, for example a pulled enemy on its
+        // way to the tank.
+        virtual bool IsMoving(Guid unit) const = 0;
+        // True when the bot swings at its victim in melee. The attack of
+        // BotActions::ChaseToRange has no melee swing; BotActions::Attack
+        // starts it.
+        virtual bool IsMeleeAttacking() const = 0;
+        // True when BotActions::TopUpAmmo(topUp) has room: in the bags for
+        // the missing arrows or bullets, or in the worn thrown stack.
+        virtual bool HasRoomFor(AmmoTopUp const& topUp) const = 0;
     };
 }
 
