@@ -6,6 +6,13 @@
 
 namespace Bots
 {
+    std::string FleeLine(std::string const& enemy, Position const& at)
+    {
+        char text[64];
+        std::snprintf(text, sizeof(text), " flees at %.2f %.2f %.2f", at.x, at.y, at.z);
+        return enemy + text;
+    }
+
     namespace
     {
         // A move shorter than this is no new position.

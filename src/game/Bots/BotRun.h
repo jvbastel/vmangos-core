@@ -295,6 +295,9 @@ class BotRun
         std::map<std::string, bool> m_alive;
         // The health of each enemy that the group fights.
         std::map<ObjectGuid, uint32> m_enemyHealth;
+        // The enemies of the fight that flee now: each start of a flee is a
+        // trace event (Bots::FleeLine, jvbastel/WOWAI#121).
+        std::set<ObjectGuid> m_fleeing;
         // Where the test driver stood at its last move along the route.
         bool m_driverSeen = false;
         float m_driverX = 0.0f, m_driverY = 0.0f, m_driverZ = 0.0f;

@@ -34,6 +34,11 @@ namespace Bots
         std::string spellName;
     };
 
+    // The trace line of an enemy of the fight that starts to flee
+    // (jvbastel/WOWAI#121, for #109): "<enemy> flees at <x> <y> <z>", where
+    // it was then.
+    std::string FleeLine(std::string const& enemy, Position const& at);
+
     class RunTrace
     {
     public:
