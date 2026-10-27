@@ -1881,3 +1881,42 @@ TEST(WarriorTank, GoesBackToTheFocusWhenItsLeadDropsInAVisit)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
 }
+
+// jvbastel/WOWAI#126: the tank picks up a loose enemy that Taunt cannot reach.
+namespace
+{
+    std::string Attack(Bots::Guid target)
+    {
+        char text[64];
+        std::snprintf(text, sizeof(text), "attack 0x%016llx", static_cast<unsigned long long>(target));
+        return text;
+    }
+
+    std::string Chase(Bots::Guid target)
+    {
+        char text[64];
+        std::snprintf(text, sizeof(text), "chase 0x%016llx", static_cast<unsigned long long>(target));
+        return text;
+    }
+
+    // The bat hits the healer 28 yards from the tank, out of the 20 yards of
+    // Taunt (pack 8 of runs/t99-1027).
+    struct BatOnTheFarHealer : GroupInFight
+    {
+        BatOnTheFarHealer()
+        {
+            fake.SetSpellRange(Warrior::Taunt, 20.0f);
+            fake.SetVictim(Bat, Healer);
+            fake.SetDistance(Bat, 28.0f);
+        }
+    };
+}
+
+TEST(WarriorTank, GoesToALooseEnemyOnTheHealerOutOfTauntRangeAndAttacksIt)
+{
+    BatOnTheFarHealer tank;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+}
