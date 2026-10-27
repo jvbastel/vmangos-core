@@ -330,6 +330,36 @@ std::vector<Bots::Guid> BotAdapter::GetAttackers(Bots::Guid unit) const
     return attackers;
 }
 
+// From the enemy's threat list, as a threat meter reads it. A rival is a
+// member of the bot's group, or a pet or guardian of one.
+float BotAdapter::GetThreatRatio(Bots::Guid unit, Bots::Guid enemy) const
+{
+    Unit const* holder = Find(unit);
+    Unit const* foe = Find(enemy);
+    if (!holder || !foe)
+        return 0.0f;
+    Group const* group = me->GetGroup();
+    float own = 0.0f;
+    float rival = 0.0f;
+    for (HostileReference const* ref : foe->GetThreatManager().getThreatList())
+    {
+        Unit const* hated = ref->getTarget();
+        if (!hated)
+            continue;
+        if (hated == holder)
+        {
+            own = ref->getThreat();
+            continue;
+        }
+        Player const* player = hated->GetCharmerOrOwnerPlayerOrPlayerItself();
+        if (player && (player == me || (group && group->IsMember(player->GetObjectGuid()))))
+            rival = std::max(rival, ref->getThreat());
+    }
+    if (own <= 0.0f)
+        return 0.0f;
+    return rival > 0.0f ? own / rival : Bots::UnrivalledThreat;
+}
+
 bool BotAdapter::HasAura(Bots::Guid unit, Bots::SpellId firstRank) const
 {
     Unit const* found = Find(unit);

@@ -233,3 +233,28 @@ TEST(RunResult, TheFightNumberCountsThePullsAgain)
                   {"pack2", "Taragaman the Hungerer", 3000}}),
         1u);
 }
+
+// jvbastel/WOWAI#113: the threat losses of each member, and the count of the
+// healer next to the threat losses. The game layer names the healers by role.
+TEST(RunResult, CountsTheThreatLossesOfEachMemberAndOfTheHealer)
+{
+    RunResult r = AFailedFullRun();
+    r.healers = {"Hela"};
+    r.threatLosses = {{"Earthborer", "Hela", 62000, 67000}, {"Earthborer", "Ezzra", 63000, 68000},
+        {"Ragefire Trogg", "Hela", 90000, 96000}};
+
+    Json const j = Json::parse(Bots::RunResultJson(r));
+
+    EXPECT_EQ(j["threat_losses"].size(), 3u);
+    EXPECT_EQ(j["healer_threat_losses"], 2);
+    // Each member, also one with no loss.
+    EXPECT_EQ(j["threat_losses_by_member"], Json::parse(R"({"Ezzra": 1, "Grukk": 0, "Hela": 2})"));
+}
+
+TEST(RunResult, AGroupWithNoHealerHasNoHealerThreatLoss)
+{
+    RunResult r = AFailedFullRun();
+    r.healers = {};
+
+    EXPECT_EQ(Json::parse(Bots::RunResultJson(r))["healer_threat_losses"], 0);
+}

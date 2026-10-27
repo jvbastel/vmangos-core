@@ -45,6 +45,11 @@ namespace Bots
         // party chat. With no ranged weapon or no ammo, or too near for a
         // shot, it runs in, hits the target once, and walks back. Never
         // Charge: it stuns the target in place. Out of combat it tops up its ammo for free.
+        // The opener: Defensive Stance at once (after a Charge too: with no
+        // Tactical Mastery the stance change drops all rage), Bloodrage, then
+        // Demoralizing Shout on the enemies near. It shouts again for an
+        // enemy in the fight that lacks the debuff (jvbastel/WOWAI#114).
+        // It never casts Thunder Clap or Mocking Blow.
         std::shared_ptr<Strategy const> MakeTankStrategy();
     }
 }

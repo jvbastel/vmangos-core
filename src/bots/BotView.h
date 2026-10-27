@@ -4,6 +4,7 @@
 #include "BotTypes.h"
 #include "Ranged.h"
 
+#include <limits>
 #include <vector>
 
 namespace Bots
@@ -48,6 +49,10 @@ namespace Bots
         Guid guid = NoGuid;
     };
 
+    // The threat ratio of a unit that alone has threat on an enemy
+    // (BotView::GetThreatRatio): no other member rivals it.
+    float const UnrivalledThreat = std::numeric_limits<float>::max();
+
     class BotView
     {
     public:
@@ -85,6 +90,12 @@ namespace Bots
         virtual Guid GetVictim(Guid unit) const = 0;
         // The units that attack unit `unit`.
         virtual std::vector<Guid> GetAttackers(Guid unit) const = 0;
+        // The threat of unit `unit` on enemy `enemy`, as a ratio of the
+        // highest threat of any other member of the bot's group (or a pet of
+        // one) on that enemy, as a threat meter shows it. 1.5: a lead of
+        // 150%. 0 when `unit` has no threat on it, or the bot cannot see
+        // either unit. UnrivalledThreat when no other member has threat on it.
+        virtual float GetThreatRatio(Guid unit, Guid enemy) const = 0;
         // True when unit `unit` has an aura of any rank of the spell whose
         // first rank is `firstRank`.
         virtual bool HasAura(Guid unit, SpellId firstRank) const = 0;

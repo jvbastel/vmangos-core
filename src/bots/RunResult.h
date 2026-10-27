@@ -182,6 +182,9 @@ namespace Bots
         std::vector<RunPull> pulls;
         std::vector<FightSummary> fights; // Who took part in each fight that ended.
         std::vector<RunHit> threatLosses;
+        // The members with the healer role, for the healer's threat-loss
+        // count (jvbastel/WOWAI#113).
+        std::vector<std::string> healers;
         std::vector<RunHit> lostMobs;
         // The scripted moves of the test driver that stopped before they
         // arrived (ScriptedMove.h).
