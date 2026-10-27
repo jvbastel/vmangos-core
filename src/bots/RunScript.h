@@ -38,9 +38,9 @@
 // - `whisper <bot> <text>`: the test driver whispers the text to a bot.
 // - `target <entry>` or `target <pack>`: the test driver selects the nearest
 //   living creature of the entry, or a living mob of the pack.
-// - `clear <yards> [<pack>]`: the living creatures within the distance of
-//   the test driver go away, except the bosses of the route and the mobs of
-//   the pack.
+// - `clear <yards> [<pack> ...]`: the living creatures within the distance
+//   of the test driver go away, except the bosses of the route and the mobs
+//   of the packs.
 // - `refill`: each group member gets full health and mana.
 // - `wait <seconds>`, `wait arrive` (the test driver reached its point),
 //   `wait combat_end [<seconds>]` (a fight starts, then the group is out of
@@ -108,8 +108,9 @@ namespace Bots
         std::string text;
         // The creature entry of `target <entry>` and `expect boss_dead`.
         std::uint32_t entry = 0;
-        // The distance of `clear`.
+        // The distance of `clear`, and the packs that stay.
         float yards = 0.0f;
+        std::vector<std::string> packs;
         // The time of `wait <seconds>` and `release`, and the limit of
         // `wait combat_end`, `wait rested`, and `fight`.
         std::uint32_t seconds = 0;

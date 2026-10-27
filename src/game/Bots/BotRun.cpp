@@ -1060,8 +1060,8 @@ bool BotRun::Clear(Bots::ScriptCommand const& command, std::string& detail)
 {
     Player* driver = Driver();
     std::set<uint32> keep;
-    if (!command.name.empty())
-        for (Bots::RouteMob const& mob : Bots::FindPack(m_route, command.name)->mobs)
+    for (std::string const& pack : command.packs)
+        for (Bots::RouteMob const& mob : Bots::FindPack(m_route, pack)->mobs)
             keep.insert(mob.spawnGuid);
 
     std::list<Creature*> creatures;
