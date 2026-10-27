@@ -23,11 +23,14 @@
 #include "RunScript.h"
 #include "RunTrace.h"
 #include "ScriptRunner.h"
+#include "ScriptedMove.h"
 #include "ThreatWatch.h"
 #include "WipeRevive.h"
 
+#include <atomic>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 #include <utility>
@@ -95,6 +98,14 @@ class BotRun
         void NoteChatOutcome(Bots::ChatEventOutcome const& outcome);
         void NoteChatLine(BotLine const& line, Player const* bot);
 
+        // From any thread: a scripted move of the test driver is in progress
+        // (BotView::IsScriptedMoveInProgress, jvbastel/WOWAI#99).
+        bool IsScriptedMoveInProgress() const { return m_moveInProgress; }
+        // From the map thread of the test driver: rule `rule` of its bot AI
+        // took it off its scripted move. The next update names the rule as
+        // the stop reason.
+        void NoteDriverMoveRule(std::string const& rule);
+
     private:
         enum class Phase
         {
@@ -154,6 +165,16 @@ class BotRun
         // the quest visits, and what each member does. Then the verdict of
         // the judge.
         void WatchRun(int64 nowMs);
+        // The test driver stands at the end of its last `move`.
+        bool DriverArrived(Player const* driver) const;
+        // The last `move` is still the motion of the driver: its point is
+        // on top of the motion master.
+        bool OnScriptedMove(Player* driver) const;
+        // The scripted move: its trace lines, its stop, and its arrival
+        // (jvbastel/WOWAI#99).
+        void WatchMove(Player* driver, int64 nowMs);
+        // A teleport or the end of the run ends the move.
+        void EndMove();
         // The enemies that the group fights: a kill or damage dealt is
         // progress, and a kill counts for the quests.
         void WatchEnemies(int64 nowMs);
@@ -275,6 +296,10 @@ class BotRun
         float m_moveX = 0.0f, m_moveY = 0.0f, m_moveRadius = 0.0f;
         std::string m_movePoint;
         bool m_visited = false; // The quests know that the driver reached m_movePoint.
+        Bots::ScriptedMove m_move;
+        std::atomic<bool> m_moveInProgress{false}; // m_move.InProgress(), for the map threads.
+        std::mutex m_moveRuleMutex;
+        std::string m_moveRule; // NoteDriverMoveRule, empty when no rule took the driver off its move.
         Bots::WipeWatch m_wipeWatch;
 };
 

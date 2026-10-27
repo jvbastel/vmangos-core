@@ -477,6 +477,32 @@ TEST(Rest, ABotBelowHalfManaDrinksAfterAFight)
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"drink"}));
 }
 
+// The script decides when the test driver rests: not while its scripted
+// move walks (jvbastel/WOWAI#99).
+TEST(Rest, AScriptedMoveBlocksTheRestRules)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetMana(Mage, 150, 400);
+    bot.fake.SetHealth(Mage, 200, 600);
+    bot.fake.SetScriptedMove();
+
+    EXPECT_NE(bot.Think(), "drink");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+
+    bot.fake.SetScriptedMove(false);
+    EXPECT_EQ(bot.Think(), "eat");
+}
+
+TEST(Rest, ADrinkingBotDoesNotKeepRestingDuringAScriptedMove)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetMana(Mage, 300, 400);
+    bot.fake.SetDrinking();
+    bot.fake.SetScriptedMove();
+
+    EXPECT_NE(bot.Think(), "keep resting");
+}
+
 TEST(Rest, ABotAtHalfHealthAndManaDoesNotRest)
 {
     GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);

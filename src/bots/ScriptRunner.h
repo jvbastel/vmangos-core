@@ -56,6 +56,9 @@ namespace Bots
         bool memberDead = false;
         // A mob of the pack of the running `fight` lives (FightPack).
         bool fightPackAlive = false;
+        // Why the last `move` of the test driver stopped before it arrived,
+        // or empty (ScriptedMove.h).
+        std::string driverMoveStop;
         // Where the test driver stands, for the walk back of a fight again.
         Position driverAt{0.0f, 0.0f, 0.0f};
     };

@@ -143,6 +143,20 @@ TEST(CommandStrategy, ThePullerDoesNotLootDuringItsPull)
     EXPECT_EQ(bot.Think(CommandState::Follow), "");
 }
 
+// The test driver of a scripted run loots no corpses: a loot walk stops its
+// scripted move (jvbastel/WOWAI#99). It still rolls on group loot, which the
+// game layer does without a rule.
+TEST(CommandStrategy, TheTestDriverOfAScriptedRunLootsNoCorpse)
+{
+    Bot bot;
+    bot.fake.SetLootWork(true);
+    BotContext context{bot.fake, bot.fake, bot.group, CommandState::None, Player};
+    context.testDriver = true;
+
+    EXPECT_EQ(bot.stack.Think(context), "");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
 TEST(ClassModules, TheWarriorTankHasTheCommandRestGroupClassAndDeathStrategies)
 {
     StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Warrior, Bots::BotRole::Tank);
