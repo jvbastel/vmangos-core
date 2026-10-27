@@ -1101,3 +1101,158 @@ TEST(WarriorTank, WalksToItsShootSpotWhileTheGroupGetsInPlace)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -4 0 0"}));
 }
+
+// jvbastel/WOWAI#116: Shield Block.
+namespace
+{
+    // A tank in Defensive Stance with a shield, 20 rage, Shield Block
+    // known, and the kobold hitting it in melee. Revenge is not ready.
+    struct ShieldTank : WarriorTank
+    {
+        ShieldTank()
+        {
+            fake.SetKnownSpell(Warrior::ShieldBlock);
+            InFightWithKobold();
+            fake.SetPower(Tank, 20, 100);
+            fake.SetCannotCast(Warrior::Revenge);
+        }
+    };
+}
+
+TEST(WarriorTank, UsesShieldBlockWhenAnEnemyHitsItInMelee)
+{
+    ShieldTank tank;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+TEST(WarriorTank, NoShieldBlockOutsideDefensiveStance)
+{
+    ShieldTank tank;
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance, false);
+    tank.fake.SetAura(Tank, Warrior::BattleStance);
+    // The stance change cannot come now (its cooldown).
+    tank.fake.SetCannotCast(Warrior::DefensiveStance);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, NoShieldBlockBelowTenRage)
+{
+    ShieldTank tank;
+    tank.fake.SetPower(Tank, 9, 100);
+    // Bloodrage is on its cooldown.
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, UsesShieldBlockAtTenRage)
+{
+    ShieldTank tank;
+    tank.fake.SetPower(Tank, 10, 100);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+TEST(WarriorTank, NoShieldBlockWhenNoEnemyHitsIt)
+{
+    ShieldTank tank;
+    // The kobold is stunned and hits nobody.
+    tank.fake.SetVictim(Kobold, NoGuid);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, NoShieldBlockWhenAnEnemyHitsItOnlyFromRange)
+{
+    ShieldTank tank;
+    tank.fake.SetVictim(Kobold, NoGuid);
+    // A caster hits the tank from 30 yards: a shield cannot block it.
+    tank.fake.SetHealth(Wolf, 200, 200);
+    tank.fake.SetDistance(Wolf, 30.0f);
+    tank.fake.SetVictim(Wolf, Tank);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, UsesShieldBlockWhenAnotherEnemyHitsItInMelee)
+{
+    ShieldTank tank;
+    tank.fake.SetVictim(Kobold, NoGuid);
+    tank.fake.SetHealth(Wolf, 200, 200);
+    tank.fake.SetDistance(Wolf, 2.0f);
+    tank.fake.SetVictim(Wolf, Tank);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+// The cast check of the game fails with no shield equipped.
+TEST(WarriorTank, NoShieldBlockWithNoShield)
+{
+    ShieldTank tank;
+    tank.fake.SetCannotCast(Warrior::ShieldBlock);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+// The cast check of the game fails on the cooldown too.
+TEST(WarriorTank, NoShieldBlockOnItsCooldown)
+{
+    ShieldTank tank;
+    tank.fake.SetCannotCastOn(Warrior::ShieldBlock, Tank);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, NoShieldBlockBeforeItKnowsIt)
+{
+    ShieldTank tank;
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock, false);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, PrefersReadyRevengeToShieldBlock)
+{
+    // As ShieldTank, but Revenge is ready.
+    WarriorTank tank;
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock);
+    tank.InFightWithKobold();
+    tank.fake.SetPower(Tank, 20, 100);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Kobold)}));
+}
+
+TEST(WarriorTank, PrefersShieldBlockToHeroicStrike)
+{
+    ShieldTank tank;
+    tank.fake.SetPower(Tank, 60, 100);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
