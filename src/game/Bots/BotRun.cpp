@@ -365,6 +365,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_fleeing.clear();
     m_pullFled.clear();
     m_pullMarks.clear();
+    m_pullJudged = false;
     m_driverSeen = false;
     ++m_number;
 
@@ -1622,8 +1623,8 @@ void BotRun::WatchExtraPacks(int64 nowMs)
     {
         std::string const name = m_extraPacks.ExtraPacks()[i].pack;
         auto const atPull = m_pullMarks.find(name);
-        m_extraPacks.Mark(name, Bots::JudgeExtraPack(atPull == m_pullMarks.end() ? nullptr : &atPull->second,
-            CauseOf(name)));
+        m_extraPacks.Mark(name, Bots::JudgeExtraPack(m_pullJudged,
+            atPull == m_pullMarks.end() ? nullptr : &atPull->second, CauseOf(name)));
         RecordExtraPacks();
         Bots::RunExtraPack const& extra = m_extraPacks.ExtraPacks()[i];
         std::string const text = "extra pack " + extra.pack + " joins pull " + std::to_string(m_record.pulls.size()) +
@@ -1638,6 +1639,7 @@ void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
 {
     m_pullFled.clear();
     m_pullMarks.clear();
+    m_pullJudged = false;
     Player* driver = Driver();
     if (!target || !driver)
         return;
@@ -1654,6 +1656,7 @@ void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
     // adapter's queries of the map are safe here.
     BotAdapter const view(tank);
     std::vector<Bots::Position> const trail = CoordinatorOf(tank)->GetTrail();
+    m_pullJudged = true;
     for (Bots::RoutePack const& pack : m_route.packs)
     {
         if (pack.name == pullPack)

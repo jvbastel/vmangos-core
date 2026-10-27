@@ -111,7 +111,10 @@ namespace Bots
     // The mark of an extra pack when it joins: `atPull`, the mark of
     // MarkExtraPack at the pull, or null when the pack was out of reach of
     // the search then. A flee or a patrol makes any pack unavoidable.
-    ExtraPackMark JudgeExtraPack(ExtraPackMark const* atPull, ExtraPackCause const& cause);
+    // `pullJudged` is false when the run could not mark the packs at the
+    // pull (no living tank, no target): then a pack with no flee or patrol
+    // is "not judged", and not avoidable.
+    ExtraPackMark JudgeExtraPack(bool pullJudged, ExtraPackMark const* atPull, ExtraPackCause const& cause);
 
     // Why the pull fails: its first unwarned or avoidable extra pack. Empty
     // when the pull passes. Each extra pack counts in the score of the run

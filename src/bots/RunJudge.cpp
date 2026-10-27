@@ -99,12 +99,14 @@ namespace Bots
         return {false, "no fight spot on the cleared way keeps it out"};
     }
 
-    ExtraPackMark JudgeExtraPack(ExtraPackMark const* atPull, ExtraPackCause const& cause)
+    ExtraPackMark JudgeExtraPack(bool pullJudged, ExtraPackMark const* atPull, ExtraPackCause const& cause)
     {
         if (!cause.fleeing.empty())
             return {false, "a fleeing enemy brought it: " + cause.fleeing};
         if (cause.patrol)
             return {false, "a patrol brought it"};
+        if (!pullJudged)
+            return {false, "not judged: the run saw no tank and target at the pull"};
         if (!atPull)
             return {true, "it was out of the fight spot search at the pull: the fight went to it"};
         return *atPull;

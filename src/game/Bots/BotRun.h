@@ -313,6 +313,8 @@ class BotRun
         // the judge's mark of each pack round it (MarkPullPacks).
         std::map<ObjectGuid, std::string> m_pullFled;
         std::map<std::string, Bots::ExtraPackMark> m_pullMarks;
+        // MarkPullPacks saw a living tank and the target at the last pull.
+        bool m_pullJudged = false;
         // Where the test driver stood at its last move along the route.
         bool m_driverSeen = false;
         float m_driverX = 0.0f, m_driverY = 0.0f, m_driverZ = 0.0f;

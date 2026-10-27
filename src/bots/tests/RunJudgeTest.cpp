@@ -270,9 +270,9 @@ TEST(ExtraPackJudge, AFleeOrAPatrolMakesAnExtraPackUnavoidable)
     Bots::ExtraPackCause patrol;
     patrol.patrol = true;
 
-    ExtraPackMark const fled = Bots::JudgeExtraPack(&avoidable, flee);
-    ExtraPackMark const walked = Bots::JudgeExtraPack(&avoidable, patrol);
-    ExtraPackMark const plain = Bots::JudgeExtraPack(&avoidable, {});
+    ExtraPackMark const fled = Bots::JudgeExtraPack(true, &avoidable, flee);
+    ExtraPackMark const walked = Bots::JudgeExtraPack(true, &avoidable, patrol);
+    ExtraPackMark const plain = Bots::JudgeExtraPack(true, &avoidable, {});
 
     EXPECT_FALSE(fled.avoidable);
     EXPECT_EQ(fled.reason, "a fleeing enemy brought it: Ragefire Shaman 48662");
@@ -284,9 +284,24 @@ TEST(ExtraPackJudge, AFleeOrAPatrolMakesAnExtraPackUnavoidable)
 
 TEST(ExtraPackJudge, APackThatJoinsWithNoMarkFromThePullIsAvoidable)
 {
-    ExtraPackMark const mark = Bots::JudgeExtraPack(nullptr, {});
+    ExtraPackMark const mark = Bots::JudgeExtraPack(true, nullptr, {});
 
     EXPECT_TRUE(mark.avoidable);
+    EXPECT_EQ(mark.reason, "it was out of the fight spot search at the pull: the fight went to it");
+}
+
+// A pull the run could not judge (no living tank, no target, another map)
+// gives no false "out of the search" reason, and does not fail a warned pack.
+TEST(ExtraPackJudge, APackOfAPullWithNoJudgeIsNotJudgedAndNotAvoidable)
+{
+    ExtraPackMark const mark = Bots::JudgeExtraPack(false, nullptr, {});
+    Bots::ExtraPackCause patrol;
+    patrol.patrol = true;
+    ExtraPackMark const walked = Bots::JudgeExtraPack(false, nullptr, patrol);
+
+    EXPECT_FALSE(mark.avoidable);
+    EXPECT_EQ(mark.reason, "not judged: the run saw no tank and target at the pull");
+    EXPECT_EQ(walked.reason, "a patrol brought it");
 }
 
 // Acceptance criteria 2 and 3: an unwarned or an avoidable extra pack fails
