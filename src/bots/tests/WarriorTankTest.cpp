@@ -1843,3 +1843,22 @@ TEST(WarriorTank, ANewFightStartsWithANewVisit)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
 }
+
+// Spec story 11: the lead on the focus drops below 150% in a visit, before
+// its ability: the next action goes to the focus.
+TEST(WarriorTank, GoesBackToTheFocusWhenItsLeadDropsInAVisit)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+    // The visit is due, but Shield Block (above it) takes this think.
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+
+    tank.fake.SetCannotCast(Warrior::ShieldBlock);
+    tank.fake.SetThreatRatio(Tank, Kobold, 1.4f);
+    tank.fake.ClearDeeds();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
