@@ -1825,3 +1825,21 @@ TEST(WarriorTank, OpensWhileItWalksBackAfterARangedPull)
 
     EXPECT_EQ(tank.Next(), (std::vector<std::string>{walk}));
 }
+
+// The end of a fight ends a visit too: the next fight starts with a full one.
+TEST(WarriorTank, ANewFightStartsWithANewVisit)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetHealth(Kobold, 0, 200);
+    ASSERT_EQ(tank.Think(), "end the fight");
+
+    tank.group.SetFocusTarget(Lynx);
+    tank.fake.SetVictim(Tank, Lynx);
+    tank.fake.ClearDeeds();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}

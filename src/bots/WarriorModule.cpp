@@ -376,13 +376,17 @@ namespace Bots
             };
             std::vector<Rule> rules = {
                 // The pull and the fight end when the focus target dies or
-                // the bot cannot see it any more.
+                // the bot cannot see it any more. A visit to the threat
+                // target ends with them.
                 Bookkeeping("end the fight", P + 90,
                     [](BotContext const& context) {
                         Guid const focus = context.group.GetFocusTarget();
                         return focus != NoGuid && !IsAlive(context.view, focus);
                     },
-                    [](BotContext const& context) { context.group.EndPull(); }),
+                    [visit](BotContext const& context) {
+                        context.group.EndPull();
+                        visit->abilities = 0;
+                    }),
                 Bookkeeping("hold the pull", P + 85,
                     [](BotContext const& context) {
                         return IsPulling(context) && context.view.GetVictim(PickPullTarget(context)) == Self(context);
