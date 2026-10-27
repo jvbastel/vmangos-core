@@ -118,6 +118,20 @@ namespace Bots
             pulls.push_back({{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)},
                 {"again", pull.again}});
         j["pulls"] = pulls;
+
+        Json fights = Json::array();
+        for (FightSummary const& fight : r.fights)
+        {
+            Json members = Json::object();
+            for (FightMember const& member : fight.members)
+                members[member.name] = {{"joined", member.joined},
+                    {"first_action_s", member.joined ? Json(Seconds(member.firstActionMs)) : Json()},
+                    {"casts", member.casts}};
+            fights.push_back({{"pull", fight.number}, {"pack", TextOrNull(fight.pack)}, {"again", fight.again},
+                {"time_s", Seconds(fight.startMs)}, {"seconds", Seconds(fight.endMs - fight.startMs)},
+                {"members", members}});
+        }
+        j["fights"] = fights;
         j["threat_losses"] = Hits(r.threatLosses);
         j["lost_mobs"] = Hits(r.lostMobs);
 

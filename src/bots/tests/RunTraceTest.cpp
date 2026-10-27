@@ -86,3 +86,17 @@ TEST(RunTrace, TheTextHasOneEventPerLine)
 
     EXPECT_EQ(trace.Text(), "0.0 a\n1.0 b\n");
 }
+
+TEST(RunTrace, GivesEachNewLineOnceForTheLiveFile)
+{
+    RunTrace trace(1000);
+    trace.Add(500, "line 12: fight pack1");
+    trace.Observe(600, Grukk(1.0f));
+
+    EXPECT_EQ(trace.TakeNew(), (std::vector<std::string>{"0.5 line 12: fight pack1", "0.6 Grukk at 1.00 2.00 3.00"}));
+    EXPECT_TRUE(trace.TakeNew().empty());
+
+    // A new line comes even when the last 3 minutes no longer hold the old ones.
+    trace.Add(5000, "wipe 1");
+    EXPECT_EQ(trace.TakeNew(), (std::vector<std::string>{"5.0 wipe 1"}));
+}

@@ -46,6 +46,14 @@ namespace
         r.chaseLimitYards = 25.0f;
         r.chatEvents = {{"boss_kill", "", 300000, true, {{"Grukk", 302000}, {"Hela", 304500}}},
             {"player_message", "Hela", 20000, false, {}}};
+        Bots::FightSummary fight;
+        fight.number = 2;
+        fight.pack = "pack1";
+        fight.again = true;
+        fight.startMs = 120000;
+        fight.endMs = 135500;
+        fight.members = {{"Grukk", true, 400, 1}, {"Hela", false, 0, 0}};
+        r.fights = {fight};
         r.traceFile = "ragefire_chasm-full-20261026-101500.trace.txt";
         return r;
     }
@@ -173,6 +181,16 @@ TEST(RunResult, WritesTheChatEventsWithTheLinesThatTheBotsSaid)
         {"event": "boss_kill", "to": null, "time_s": 300.0, "reached": true,
          "lines": [{"bot": "Grukk", "time_s": 302.0}, {"bot": "Hela", "time_s": 304.5}]},
         {"event": "player_message", "to": "Hela", "time_s": 20.0, "reached": false, "lines": []}])"));
+}
+
+TEST(RunResult, WritesWhoTookPartInEachFight)
+{
+    Json const j = Json::parse(Bots::RunResultJson(AFailedFullRun()));
+
+    EXPECT_EQ(j["fights"], Json::parse(R"([{"pull": 2, "pack": "pack1", "again": true, "time_s": 120.0,
+        "seconds": 15.5, "members": {
+            "Grukk": {"joined": true, "first_action_s": 0.4, "casts": 1},
+            "Hela": {"joined": false, "first_action_s": null, "casts": 0}}}])"));
 }
 
 // The fight of a Fire Nova hit: 1 for the first pull of the fight, one more

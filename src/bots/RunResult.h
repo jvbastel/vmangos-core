@@ -3,6 +3,7 @@
 
 #include "BotRecipe.h"
 #include "BotTypes.h"
+#include "FightWatch.h"
 #include "RouteQuests.h"
 
 #include <cstdint>
@@ -169,6 +170,7 @@ namespace Bots
         std::vector<std::int64_t> wipes;
         std::vector<RunDeath> deaths;
         std::vector<RunPull> pulls;
+        std::vector<FightSummary> fights; // Who took part in each fight that ended.
         std::vector<RunHit> threatLosses;
         std::vector<RunHit> lostMobs;
         std::vector<RunInterrupt> interrupts;
