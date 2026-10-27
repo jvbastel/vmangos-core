@@ -53,6 +53,10 @@ namespace Bots
         // puller said of it in party chat.
         std::int64_t waitFromMs = 0;
         GroupWaitSaid waitSaid = GroupWaitSaid::Nothing;
+        // When the target first attacked the puller (HoldPull): the tank
+        // engaged. The healer waits for the tank's threat from then
+        // (jvbastel/WOWAI#111).
+        std::int64_t engagedMs = 0;
         // The puller warned about extra packs in this pull
         // (NoteExtraPackWarn): it warns once a pull.
         bool extraPackWarned = false;
@@ -141,8 +145,9 @@ namespace Bots
         // tank starts the pull. The pull target becomes the focus target.
         PullState GetPull() const;
         void StartPull(Guid puller, Guid target);
-        // The target attacks the puller now. Only the puller can call it.
-        void HoldPull(Guid puller);
+        // The target attacks the puller now, at `nowMs`: the tank engages.
+        // Only the puller can call it.
+        void HoldPull(Guid puller, std::int64_t nowMs = 0);
         // The puller notes where it stands at the start of its pull, or
         // clears the spot when it is back there. Only the puller can.
         void SetFightSpot(Guid puller, Position spot);

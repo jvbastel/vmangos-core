@@ -362,7 +362,7 @@ namespace Bots
                     [](BotContext const& context) {
                         return IsPulling(context) && context.view.GetVictim(PickPullTarget(context)) == Self(context);
                     },
-                    [](BotContext const& context) { context.group.HoldPull(Self(context)); }),
+                    [](BotContext const& context) { context.group.HoldPull(Self(context), context.nowMs); }),
 
                 // The pull. The tank picks its fight spot on its cleared way
                 // (FightSpot.h), and the pack comes to it there. With no

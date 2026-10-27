@@ -41,6 +41,8 @@ namespace
         FakeBot fake{Healer};
         GroupCoordinator group;
         StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Priest, Bots::BotRole::Healer);
+        // The clock of the think (BotContext::nowMs).
+        std::int64_t nowMs = 0;
 
         PriestHealer()
         {
@@ -62,7 +64,8 @@ namespace
 
         std::string Think(Bots::CommandState command = Bots::CommandState::None, Bots::Guid player = NoGuid)
         {
-            BotContext const context{fake, fake, group, command, player};
+            BotContext context{fake, fake, group, command, player};
+            context.nowMs = nowMs;
             return stack.Think(context);
         }
 
@@ -391,4 +394,114 @@ TEST(PriestHealer, NamesItsSpellsByTheFirstRank)
              "2054\tHeal\tRank 1", "1243\tPower Word: Fortitude\tRank 1", "588\tInner Fire\tRank 1",
              "586\tFade\tRank 1"})
         EXPECT_NE(text.str().find(std::string("\n") + line + "\n"), std::string::npos) << line;
+}
+
+// jvbastel/WOWAI#111: the healer waits HealDelayMs after the tank engages
+// before its first heal, so that the tank gets threat on every enemy first.
+// A member under 50% health is in danger: it gets a heal at once.
+namespace
+{
+    // The tank pulls the kobold, and the kobold attacks the tank at
+    // `engageMs`: the tank engages.
+    void Engage(PriestHealer& priest, std::int64_t engageMs)
+    {
+        priest.group.StartPull(Tank, Kobold);
+        priest.InFight();
+        priest.group.HoldPull(Tank, engageMs);
+        priest.nowMs = engageMs;
+    }
+}
+
+TEST(PriestHealerDelay, DoesNotHealALightlyHurtTankRightAfterTheEngage)
+{
+    PriestHealer priest;
+    Engage(priest, 1000);
+    priest.fake.SetHealth(Tank, 400, 600);
+
+    priest.nowMs = 1500;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{}));
+}
+
+TEST(PriestHealerDelay, HealsAMemberInDangerAtOnce)
+{
+    PriestHealer priest;
+    Engage(priest, 1000);
+    priest.fake.SetHealth(Tank, 250, 600);
+
+    priest.nowMs = 1100;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Heal, Tank)}));
+}
+
+TEST(PriestHealerDelay, HealsALightlyHurtTankTwoSecondsAfterTheEngage)
+{
+    PriestHealer priest;
+    Engage(priest, 1000);
+    priest.fake.SetHealth(Tank, 400, 600);
+
+    priest.nowMs = 3000;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Tank)}));
+}
+
+TEST(PriestHealerDelay, TheDelayStartsWhenTheTankEngagesNotAtThePullCommand)
+{
+    // The tank waits for the group (MemberSpot.h) for 10 seconds before
+    // the kobold attacks it.
+    PriestHealer priest;
+    priest.group.StartPull(Tank, Kobold);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 400, 600);
+    priest.nowMs = 10000;
+    priest.Think();
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{}));
+
+    priest.group.HoldPull(Tank, 10000);
+    priest.nowMs = 11500;
+    priest.Think();
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{}));
+
+    priest.nowMs = 12000;
+    priest.Think();
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Tank)}));
+}
+
+TEST(PriestHealerDelay, DoesNotWaitWhenThePullTargetAttacksAnotherMember)
+{
+    // The kobold attacks the mage, not the tank: the tank never engages.
+    PriestHealer priest;
+    priest.group.StartPull(Tank, Kobold);
+    priest.InFight();
+    priest.fake.SetVictim(Kobold, Mage);
+    priest.fake.SetHealth(Mage, 400, 600);
+    priest.nowMs = 5000;
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Mage)}));
+}
+
+TEST(PriestHealerDelay, HealsAtOnceInAFightWithoutAPull)
+{
+    PriestHealer priest;
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 400, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Tank)}));
+}
+
+TEST(GroupCoordinator, NotesWhenTheTankEngages)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 5000);
+    group.HoldPull(Tank, 9000);
+
+    EXPECT_EQ(group.GetPull().engagedMs, 5000);
 }
