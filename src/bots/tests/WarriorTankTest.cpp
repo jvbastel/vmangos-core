@@ -1101,3 +1101,108 @@ TEST(WarriorTank, WalksToItsShootSpotWhileTheGroupGetsInPlace)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -4 0 0"}));
 }
+
+// jvbastel/WOWAI#117: the threat target.
+namespace
+{
+    Bots::Guid const Boar = 0xF130000302000044;
+
+    // The tank fights the kobold (the focus), and the wolf and the boar
+    // attack it too. The healer stands back. Revenge is not ready, unless
+    // `revengeReady`.
+    struct ThreeEnemyTank : WarriorTank
+    {
+        explicit ThreeEnemyTank(bool revengeReady = false)
+        {
+            fake.SetGroupMembers({Healer});
+            fake.SetHealth(Healer, 300, 300);
+            group.SetHealer(Healer);
+            InFightWithKobold();
+            fake.SetInCombat(Tank);
+            fake.SetPower(Tank, 30, 100);
+            if (!revengeReady)
+                fake.SetCannotCast(Warrior::Revenge);
+            for (Bots::Guid enemy : {Wolf, Boar})
+            {
+                fake.SetHealth(enemy, 300, 300);
+                fake.SetVictim(enemy, Tank);
+            }
+        }
+
+        void SetRatios(float kobold, float wolf, float boar)
+        {
+            fake.SetThreatRatio(Tank, Kobold, kobold);
+            fake.SetThreatRatio(Tank, Wolf, wolf);
+            fake.SetThreatRatio(Tank, Boar, boar);
+        }
+    };
+}
+
+TEST(WarriorTank, StaysOnTheFocusBelowAThreatLeadOf150Percent)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(1.49f, 1.0f, 1.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, AtA150PercentLeadSundersTheEnemyWithTheLowestThreatRatio)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(1.5f, 2.0f, 1.2f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Boar)}));
+}
+
+TEST(WarriorTank, UsesRevengeOnTheThreatTargetWhenItIsReady)
+{
+    ThreeEnemyTank tank(true);
+    tank.SetRatios(3.0f, 1.1f, 2.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Wolf)}));
+}
+
+TEST(WarriorTank, BreaksATieOnTheThreatRatioByTheDistanceToTheHealer)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.0f);
+    tank.fake.SetDistanceBetween(Wolf, Healer, 15.0f);
+    tank.fake.SetDistanceBetween(Boar, Healer, 8.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Boar)}));
+}
+
+TEST(WarriorTank, GoesBackToTheFocusAfterOneAbilityOnTheThreatTarget)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+    tank.Think();
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+    tank.fake.ClearDeeds();
+
+    // The next visit, once it hit the focus.
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+TEST(WarriorTank, TheThreatTargetLeavesTheGroupsFocusAlone)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+
+    tank.Think();
+
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    EXPECT_EQ(tank.group.GetFocusTarget(), Kobold);
+}
