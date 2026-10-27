@@ -170,7 +170,7 @@ namespace Bots
                 || context.view.IsInCombat(self))
                 return false;
             MemberSpot mine;
-            return !MySpot(context, mine) || mine.found;
+            return !MySpot(context, mine) || (mine.found && !mine.inPlace);
         }
 
         void GoToMemberSpot(BotContext const& context, BotRole role)
@@ -193,12 +193,19 @@ namespace Bots
             }
             if (Distance2d(context.view.GetPosition(self), mine.spot) <= MemberInPlaceYards)
             {
-                if (!mine.inPlace)
-                    context.group.SetMemberInPlace(self);
+                context.group.SetMemberInPlace(self);
                 return;
             }
             context.actions.KeepMovingTo(mine.spot);
         }
+    }
+
+    bool HoldsMemberSpot(BotContext const& context)
+    {
+        PullState const pull = context.group.GetPull();
+        MemberSpot mine;
+        return pull.phase == PullPhase::Pulling && pull.hasSpot && pull.puller != context.view.GetSelf()
+            && MySpot(context, mine) && mine.found && mine.inPlace;
     }
 
     std::shared_ptr<Strategy const> MakeMemberSpotStrategy(BotRole role)
@@ -207,7 +214,7 @@ namespace Bots
             return nullptr;
         Rule rule;
         rule.name = "go to the member spot";
-        rule.priority = Priority::Command + 30;
+        rule.priority = Priority::Command + 33;
         rule.trigger = GoesToMemberSpot;
         rule.action.canDo = [](BotContext const&) { return true; };
         rule.action.run = [role](BotContext const& context) { GoToMemberSpot(context, role); };

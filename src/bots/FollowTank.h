@@ -17,6 +17,7 @@
 // - from that spot the bot sees the tank, so it can heal it and fight;
 // - a bot that follows a group member already, such as the healer on its
 //   way to a hurt member (PriestModule), keeps that walk;
+// - a bot at its member spot (MemberSpot.h) holds there;
 // - a bot within FollowTankYards of the tank does not move: a short pull
 //   that brings the pack to the group works as before. A bot on `follow`
 //   does not walk back to the player then either (StaysNearThePull), or it

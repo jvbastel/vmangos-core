@@ -56,6 +56,8 @@ namespace Bots
                 && !FollowsAMemberInTheFight(context)
                 // Near the tank of a pull (FollowTank.h).
                 && !StaysNearThePull(context)
+                // At its member spot (MemberSpot.h).
+                && !HoldsMemberSpot(context)
                 && context.view.GetFollowTarget() != context.commandPlayer;
         }
 
@@ -69,7 +71,8 @@ namespace Bots
         bool ShouldLoot(BotContext const& context)
         {
             Guid const self = context.view.GetSelf();
-            return !context.view.IsInCombat(self) && context.group.GetPull().puller != self;
+            return !context.view.IsInCombat(self) && context.group.GetPull().puller != self
+                && !HoldsMemberSpot(context);
         }
     }
 

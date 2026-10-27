@@ -1,6 +1,7 @@
 #include "BotGeometry.h"
 #include "FakeBot.h"
 #include "ClassModules.h"
+#include "DeathAndRest.h"
 #include "MemberSpot.h"
 
 #include <gtest/gtest.h>
@@ -224,6 +225,27 @@ TEST(MemberSpotRule, AtItsSpotTheBotIsInPlaceAndHoldsThere)
 
     EXPECT_TRUE(bot.spots.fake.Deeds().empty());
     EXPECT_TRUE(bot.Mine().inPlace);
+
+    // In place, the follow rules and the corpse loot leave it there.
+    bot.spots.fake.SetLootWork(true);
+    bot.Think();
+    EXPECT_TRUE(bot.spots.fake.Deeds().empty());
+}
+
+TEST(MemberSpotRule, ABotThatDrinksGetsUpAndGoesToItsSpotThenDrinksThere)
+{
+    MemberBot bot;
+    bot.stack.Push(Bots::MakeRestStrategy());
+    bot.spots.fake.SetMana(Self, 100, 600);
+    bot.spots.fake.SetDrinking();
+
+    EXPECT_EQ(bot.Think(), "go to the member spot");
+
+    bot.spots.fake.SetPosition(Self, {-16, 0, 0});
+    bot.spots.fake.SetDrinking(false);
+    bot.Think();
+    bot.spots.fake.ClearDeeds();
+    EXPECT_EQ(bot.Think(), "drink");
 }
 
 TEST(MemberSpotRule, TheSecondRangedBotTakesASpotAwayFromTheFirst)

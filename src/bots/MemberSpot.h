@@ -64,9 +64,15 @@ namespace Bots
     // The party line of the tank that waits for `members` members.
     std::string GroupWaitLine(std::uint32_t members);
 
+    // The bot stands at its member spot in the pull that is on: it holds
+    // there, so the follow rules (FollowTank.h, "follow the player") and the
+    // corpse loot leave it; a rest may go on there.
+    bool HoldsMemberSpot(BotContext const& context);
+
     // The strategy "member spot" of a bot of role `role`: its rule "go to
-    // the member spot" at Priority::Command + 30, over the follow rules
-    // (FollowTank.h) and under the class rules. Null for the tank.
+    // the member spot" at Priority::Command + 33, over the rest after a fight
+    // (a move ends the meal; the bot rests again at its spot), the follow
+    // rules, and the loot, and under the class rules. Null for the tank.
     std::shared_ptr<Strategy const> MakeMemberSpotStrategy(BotRole role);
 }
 
