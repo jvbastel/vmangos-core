@@ -8,6 +8,8 @@
 #include "Ranged.h"
 #include "SpellBook.h"
 
+#include <algorithm>
+
 namespace Bots
 {
     namespace Warrior
@@ -27,6 +29,12 @@ namespace Bots
             std::uint32_t const StillChaseThinks = 3;
             // Nearer than this, the focus is in melee reach.
             float const MeleeYards = 5.0f;
+
+            // jvbastel/WOWAI#114: Demoralizing Shout reaches the enemies
+            // within ShoutYards. The tank shouts when ShoutEnemies or more
+            // of them lack the debuff, or one in the fight lacks it.
+            float const ShoutYards = 10.0f;
+            std::size_t const ShoutEnemies = 2;
 
             // jvbastel/WOWAI#116: Shield Block.
             // Rage for Shield Block from it.
@@ -174,6 +182,28 @@ namespace Bots
                     return true;
                 Guid const loose = PickLooseEnemy(context);
                 return loose != NoGuid && context.view.CanCast(taunt, loose);
+            }
+
+            // Demoralizing Shout is due: ShoutEnemies or more enemies within
+            // ShoutYards lack its debuff, or an enemy in the fight
+            // (EnemiesInFight: the focus, or an attacker of a group member)
+            // lacks it: a late arrival, or an expired debuff. Not for one
+            // enemy out of the fight.
+            bool ShoutDue(BotContext const& context)
+            {
+                if (!FightsFocus(context))
+                    return false;
+                std::vector<Guid> const inFight = EnemiesInFight(context);
+                std::size_t lacking = 0;
+                for (NearEnemy const& enemy : context.view.GetEnemiesNear(ShoutYards))
+                {
+                    if (context.view.HasAura(enemy.guid, DemoralizingShout))
+                        continue;
+                    if (std::find(inFight.begin(), inFight.end(), enemy.guid) != inFight.end())
+                        return true;
+                    ++lacking;
+                }
+                return lacking >= ShoutEnemies;
             }
 
             // The tank warns in party chat that the pull brings `packs`
@@ -399,6 +429,10 @@ namespace Bots
                 CastRule("taunt an enemy off a member", P + 54,
                     [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
                     Taunt, PickLooseEnemy),
+                // jvbastel/WOWAI#114: threat on each enemy near, from the
+                // opener on (after Defensive Stance and Bloodrage, which
+                // give it the rage).
+                CastRule("demoralizing shout", P + 50, ShoutDue, DemoralizingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
