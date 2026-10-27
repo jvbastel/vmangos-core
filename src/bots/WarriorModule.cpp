@@ -65,6 +65,10 @@ namespace Bots
             // ratio of any other member's (BotView::GetThreatRatio). A taunt
             // gives only the top threat (1.0): no lead yet.
             float const KeepThreatLead = 1.1f;
+            // The tank goes to a loose enemy at most this far from it: a
+            // farther one would lead it through more packs. The walk back
+            // still waits for it (a member brings it in).
+            float const PickUpYards = 40.0f;
 
             Guid Self(BotContext const& context)
             {
@@ -211,13 +215,21 @@ namespace Bots
             // attacks: the one it would taunt off (PickLooseEnemy, the healer
             // first), when Taunt cannot go out on it now (out of range, on
             // its cooldown, out of Defensive Stance, or not known). NoGuid
-            // when Taunt can, or no enemy is loose.
+            // when Taunt can, when no enemy is loose or none is in
+            // PickUpYards, or when the focus hits another member: the focus
+            // comes first (spec #102).
             Guid PickUpTarget(BotContext const& context)
             {
                 if (!FightsFocus(context))
                     return NoGuid;
+                Guid const focusVictim = context.view.GetVictim(context.group.GetFocusTarget());
+                if (focusVictim != NoGuid && focusVictim != Self(context))
+                    return NoGuid;
                 Guid const loose = PickLooseEnemy(context);
-                return loose != NoGuid && CastableRank(context.view, Taunt, loose) == NoSpell ? loose : NoGuid;
+                return loose != NoGuid && context.view.GetDistance(loose) <= PickUpYards
+                        && CastableRank(context.view, Taunt, loose) == NoSpell
+                    ? loose
+                    : NoGuid;
             }
 
             // The tank attacks unit `unit` in melee, and is in melee reach of
@@ -645,8 +657,8 @@ namespace Bots
                         // The pull rules move the tank until the pull holds.
                         if (IsPulling(context))
                             return false;
-                        // The tank picks up a loose enemy first (jvbastel/WOWAI#126).
-                        // and hits it until it holds it.
+                        // The tank picks up a loose enemy first, and hits it
+                        // until it holds it (jvbastel/WOWAI#126).
                         Guid const held = heldEnemy(context);
                         if (PickUpTarget(context) != NoGuid
                             || (held != NoGuid && context.view.GetVictim(Self(context)) == held))

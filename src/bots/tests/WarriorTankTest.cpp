@@ -2032,3 +2032,42 @@ TEST(WarriorTank, SundersThePickedUpEnemyUntilItHoldsIt)
     tank.Think();
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
 }
+
+// jvbastel/WOWAI#126 review: the focus on a member comes before a loose add.
+// Taunt waits for its cooldown, and the focus hits the rogue: the tank stays
+// on the focus and does not go to the bat on the healer.
+TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItPicksUpALooseEnemy)
+{
+    GroupInFight tank;
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Kobold, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetDistance(Bat, 8.0f);
+    tank.fake.SetDistance(Kobold, 12.0f);
+
+    tank.Think();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
+    for (std::string const& deed : tank.fake.Deeds())
+    {
+        EXPECT_NE(deed, Attack(Bat));
+        EXPECT_NE(deed, Chase(Bat));
+    }
+}
+
+// jvbastel/WOWAI#126 review: the tank does not run far from the fight to a
+// loose enemy (more packs wait on the way). It stays on the focus.
+TEST(WarriorTank, DoesNotPickUpALooseEnemyBeyondThePickUpReach)
+{
+    BatOnTheFarHealer tank;
+    tank.fake.SetDistance(Bat, 45.0f);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+    {
+        EXPECT_NE(deed, Attack(Bat));
+        EXPECT_NE(deed, Chase(Bat));
+    }
+}
