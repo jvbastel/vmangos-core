@@ -164,6 +164,14 @@ namespace Bots
                 return loose != NoGuid && context.view.CanCast(taunt, loose);
             }
 
+            // The tank warns in party chat that the pull brings `packs`
+            // extra packs (0: may bring), once a pull.
+            void Warn(BotContext const& context, std::uint32_t packs)
+            {
+                WarnExtraPacks(context.actions, packs);
+                context.group.NoteExtraPackWarn(Self(context));
+            }
+
             Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
             {
                 Rule rule;
@@ -206,8 +214,8 @@ namespace Bots
                         context.group.StartGroupWait(Self(context), context.nowMs);
                         if (fight.hasShootSpot)
                             context.group.SetShootSpot(Self(context), fight.shootSpot);
-                        if (fight.extraPacks > 0)
-                            WarnExtraPacks(context.actions, fight.extraPacks);
+                        if (!fight.clean)
+                            Warn(context, fight.extraPacks);
                     }),
                 // The group goes to its member spots (MemberSpot.h): the tank
                 // pulls when each bot is in place, or after GroupWaitMs. It
@@ -257,7 +265,11 @@ namespace Bots
                         [](BotContext const& context) {
                             // Too far: to shooting range. In range but out of
                             // sight: closer, until the tank sees the target.
+                            // No fight spot checked this way to the target
+                            // (no shoot spot): the tank warns.
                             Guid const target = PickPullTarget(context);
+                            if (!context.group.GetPull().warned)
+                                Warn(context, 0);
                             context.group.CountRangeChase(Self(context), context.view.IsMoving(Self(context)));
                             if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooFar)
                                 context.actions.ChaseToRange(target, ShootStandYards);

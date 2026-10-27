@@ -44,6 +44,9 @@ namespace Bots
         // puller said in party chat that it waits.
         std::int64_t waitFromMs = 0;
         bool waitSaid = false;
+        // The puller warned about extra packs in this pull
+        // (NoteExtraPackWarn): it warns once a pull.
+        bool warned = false;
     };
 
     // The member spot of a bot in the pull (MemberSpot.h).
@@ -147,6 +150,9 @@ namespace Bots
         // it said it waits. Only the puller can.
         void StartGroupWait(Guid puller, std::int64_t nowMs);
         void NoteGroupWaitSaid(Guid puller);
+        // The puller warned about extra packs (WarnExtraPacks). Only the
+        // puller can.
+        void NoteExtraPackWarn(Guid puller);
         // The member spots of the pull that is on: each bot notes its own
         // spot (`found` false: none is safe), and then that it is in place;
         // it stays in place for the rest of the pull.

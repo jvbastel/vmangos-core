@@ -921,6 +921,24 @@ TEST(WarriorTank, WarnsInPartyChatWhenThePullBringsAnotherPackAnyway)
         EXPECT_NE(deed, "warn Careful: this pull brings 1 more pack.");
 }
 
+// The review of jvbastel/WOWAI#100: no spot passes only for lack of a shot.
+// The tank pulls anyway, and warns once.
+TEST(WarriorTank, WarnsWhenNoSpotHasAShot)
+{
+    TrailTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+    tank.fake.AddNoPathFromX(-1000.0f);
+    tank.group.StartPull(Tank, Kobold);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(),
+        (std::vector<std::string>{"warn Careful: I cannot pull this pack from a safe spot; more packs may come."}));
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
 TEST(WarriorTank, WalksBackAlongItsTrailToAShootSpotWhenItCannotSeeThePullTarget)
 {
     TrailTank tank;
@@ -966,7 +984,13 @@ TEST(WarriorTank, AtItsShootSpotOutOfSightItPullsAsWithoutOne)
     tank.Think();
     tank.Think();
 
+    // Its chase to the target is no checked way: it warns, once.
     EXPECT_FALSE(tank.group.GetPull().hasShootSpot);
+    EXPECT_EQ(tank.fake.Deeds(),
+        (std::vector<std::string>{"warn Careful: I cannot pull this pack from a safe spot; more packs may come.",
+            "chase 0xf130000302000022"}));
+    tank.fake.ClearDeeds();
+    tank.Think();
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
 }
 

@@ -107,6 +107,13 @@ namespace Bots
             m_pull.waitSaid = true;
     }
 
+    void GroupCoordinator::NoteExtraPackWarn(Guid puller)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.phase != PullPhase::None && m_pull.puller == puller)
+            m_pull.warned = true;
+    }
+
     void GroupCoordinator::SetMemberSpot(Guid bot, bool found, Position spot)
     {
         Lock lock(m_mutex);
