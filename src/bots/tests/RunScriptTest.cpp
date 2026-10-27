@@ -423,3 +423,31 @@ TEST(RunScriptData, TheDeadminesScriptFightsOnePackOfThreeMeleeMobsAtLevel18)
     for (Bots::RouteMob const& mob : pack->mobs)
         EXPECT_EQ(mob.entry, 598u) << "each mob is a Defias Miner (level 17-18, melee)";
 }
+
+// jvbastel/WOWAI#118: the miners were too easy (today's tank lost no
+// threat). The measured three-enemy pack: Rethilgore and two Bleak Worgs in
+// Shadowfang Keep, three elite melee enemies, fought at level 18.
+TEST(RunScriptData, TheShadowfangKeepScriptFightsRethilgoreAndHisTwoWorgsAtLevel18)
+{
+    RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/shadowfang_keep.txt"));
+    ASSERT_TRUE(script.ok) << script.error;
+    Bots::RouteResult const route = Bots::ParseRoute(ReadDataFile("routes/" + script.script.route + ".txt"));
+    ASSERT_TRUE(route.ok) << route.error;
+
+    EXPECT_EQ(Bots::CheckRunScript(script.script, route.route), "");
+    EXPECT_EQ(route.route.mapId, 33u);
+    EXPECT_EQ(script.script.level, 18u);
+    Bots::ScriptScenario const* three = Bots::FindScenario(script.script, "three_enemies");
+    ASSERT_NE(three, nullptr);
+    std::vector<std::string> fought;
+    for (ScriptCommand const& c : three->commands)
+        if (c.kind == ScriptCommandKind::Fight)
+            fought.push_back(c.name);
+    ASSERT_EQ(fought, (std::vector<std::string>{"rethilgore"}));
+    Bots::RoutePack const* pack = Bots::FindPack(route.route, "rethilgore");
+    ASSERT_NE(pack, nullptr);
+    std::multiset<std::uint32_t> entries;
+    for (Bots::RouteMob const& mob : pack->mobs)
+        entries.insert(mob.entry);
+    EXPECT_EQ(entries, (std::multiset<std::uint32_t>{3861, 3861, 3914}));
+}
