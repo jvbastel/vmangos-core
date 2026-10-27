@@ -90,6 +90,12 @@ def summary(result):
         if marks:
             line += "; " + ", ".join(marks)
         line += ")"
+    # A pull with an unwarned or avoidable extra pack fails (jvbastel/WOWAI#123).
+    # It is counted and shown here, but it does not fail the run (user decision).
+    failed = [(i + 1, pull["failure"]) for i, pull in enumerate(result.get("pulls", []))
+              if pull.get("passed") is False]
+    if failed:
+        line += ", failed pulls %d (%s)" % (len(failed), "; ".join("pull %d: %s" % pull for pull in failed))
     if result["reason"]:
         line += ": " + result["reason"]
     return line

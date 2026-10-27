@@ -4,6 +4,7 @@
 #include "BotView.h"
 #include "RunResult.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <set>
 #include <string>
@@ -20,8 +21,9 @@
 // - A threat loss never fails it, on the healer or not: the judge does not
 //   see them. The result counts them (RunResult.h).
 // - An extra pack fails its pull when it had no warn, or when a better pull
-//   could have kept it out (jvbastel/WOWAI#123, below). A failed pull fails
-//   the run at its end.
+//   could have kept it out (jvbastel/WOWAI#123, below). A failed pull is
+//   counted and shown in the result, but it does not fail the run (user
+//   decision, 2026-10-27).
 // The game layer tells the judge the facts, then asks for the verdict.
 namespace Bots
 {
@@ -120,9 +122,9 @@ namespace Bots
     // when the pull passes. Each extra pack counts in the score of the run
     // (RunResult::pulls) all the same.
     std::string PullFailure(RunPull const& pull);
-    // The verdict of the pulls of a run: Failed at the first pull that
-    // fails, Passed otherwise.
-    RunVerdict JudgePulls(std::vector<RunPull> const& pulls);
+    // The number of pulls of a run that fail (PullFailure). They do not fail
+    // the run.
+    std::size_t FailedPulls(std::vector<RunPull> const& pulls);
 }
 
 #endif

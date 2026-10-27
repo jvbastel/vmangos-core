@@ -448,25 +448,17 @@ void BotRun::Fail(std::string const& reason)
     Finish(false, reason);
 }
 
-void BotRun::Finish(bool passed, std::string const& givenReason)
+void BotRun::Finish(bool passed, std::string const& reason)
 {
     // 1. The result. A threat loss does not fail the run: the spec allows
     // some (spec section 10). The result counts them. A fight that still
     // runs ends here, with what its members did so far.
     if (m_fight.Running())
         EndFight(RunMs());
-    // A pull with an unwarned or an avoidable extra pack fails the run at
-    // its end (Bots::JudgePulls, jvbastel/WOWAI#123).
-    std::string reason = givenReason;
-    if (passed)
-    {
-        Bots::RunVerdict const pulls = Bots::JudgePulls(m_record.pulls);
-        if (pulls.kind == Bots::RunVerdictKind::Failed)
-        {
-            passed = false;
-            reason = pulls.reason;
-        }
-    }
+    // A pull with an unwarned or an avoidable extra pack fails (Bots::
+    // PullFailure, jvbastel/WOWAI#123). The result counts and shows it, but
+    // it does not fail the run (user decision, 2026-10-27).
+    std::size_t const failedPulls = Bots::FailedPulls(m_record.pulls);
     m_passed = passed;
     // The result line counts the healer's losses from the record.
     RecordHits();
@@ -476,7 +468,10 @@ void BotRun::Finish(bool passed, std::string const& givenReason)
     if (!passed)
         line << ": " << reason;
     line << ", bosses " << m_record.bossKills.size() << ", wipes " << m_record.wipes.size()
-         << ", deaths " << m_record.deaths.size() << WatchText();
+         << ", deaths " << m_record.deaths.size();
+    if (failedPulls)
+        line << ", failed pulls " << failedPulls;
+    line << WatchText();
     m_result = line.str();
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
     m_trace.Add(RunMs(), m_result);

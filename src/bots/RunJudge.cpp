@@ -124,15 +124,12 @@ namespace Bots
         return "";
     }
 
-    RunVerdict JudgePulls(std::vector<RunPull> const& pulls)
+    std::size_t FailedPulls(std::vector<RunPull> const& pulls)
     {
-        for (std::size_t i = 0; i < pulls.size(); ++i)
-        {
-            std::string const failure = PullFailure(pulls[i]);
-            if (!failure.empty())
-                return {RunVerdictKind::Failed, "pull " + std::to_string(i + 1) +
-                    (pulls[i].pack.empty() ? "" : " (" + pulls[i].pack + ")") + " failed: " + failure};
-        }
-        return {RunVerdictKind::Passed, ""};
+        std::size_t failed = 0;
+        for (RunPull const& pull : pulls)
+            if (!PullFailure(pull).empty())
+                ++failed;
+        return failed;
     }
 }

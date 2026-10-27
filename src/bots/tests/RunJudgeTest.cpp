@@ -341,13 +341,13 @@ TEST(ExtraPackJudge, AnAvoidableExtraPackFailsThePullEvenWhenWarned)
         "extra pack pack49 was avoidable: a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out");
 }
 
-TEST(ExtraPackJudge, AFailedPullFailsTheRunAndNamesThePull)
+// User decision (2026-10-27): a failed pull is counted and shown, but it
+// does not fail the run.
+TEST(ExtraPackJudge, CountsTheFailedPullsOfARun)
 {
-    std::vector<Bots::RunPull> const pulls = {PullWith({Extra(true, false)}), PullWith({Extra(false, false)})};
+    std::vector<Bots::RunPull> const pulls = {PullWith({Extra(true, false)}), PullWith({Extra(false, false)}),
+        PullWith({Extra(true, true)}), PullWith({})};
 
-    RunVerdict const verdict = Bots::JudgePulls(pulls);
-
-    EXPECT_EQ(verdict.kind, RunVerdictKind::Failed);
-    EXPECT_EQ(verdict.reason, "pull 2 (pack48) failed: extra pack pack49 joined with no warn");
-    EXPECT_EQ(Bots::JudgePulls({PullWith({Extra(true, false)})}).kind, RunVerdictKind::Passed);
+    EXPECT_EQ(Bots::FailedPulls(pulls), 2u);
+    EXPECT_EQ(Bots::FailedPulls({PullWith({Extra(true, false)})}), 0u);
 }

@@ -146,6 +146,23 @@ TEST(RunResult, WritesTheMarkOfEachExtraPackAndWhetherThePullPassed)
         "extra pack pack3 was avoidable: a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out");
     EXPECT_EQ(j["extra_packs"], 2);
     EXPECT_EQ(j["avoidable_extra_packs"], 1);
+    EXPECT_EQ(j["failed_pulls"], 1);
+}
+
+// User decision (2026-10-27): a failed pull does not fail the run. The run
+// keeps its own result, and the file counts the failed pull.
+TEST(RunResult, AFailedPullLeavesThePassedRunPassed)
+{
+    RunResult r = AFailedFullRun();
+    r.outcome = Bots::RunOutcome::Passed;
+    r.reason = "";
+    r.pulls[1].extraPacks = {{"pack3", 70500, false}};
+
+    Json const j = Json::parse(Bots::RunResultJson(r));
+
+    EXPECT_EQ(j["result"], "passed");
+    EXPECT_EQ(j["pulls"][1]["passed"], false);
+    EXPECT_EQ(j["failed_pulls"], 1);
 }
 
 // The scripted moves of the test driver that stopped before they arrived
