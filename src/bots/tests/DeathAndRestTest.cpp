@@ -486,7 +486,7 @@ TEST(Rest, AScriptedMoveBlocksTheRestRules)
     bot.fake.SetHealth(Mage, 200, 600);
     bot.fake.SetScriptedMove();
 
-    EXPECT_NE(bot.Think(), "drink");
+    EXPECT_EQ(bot.Think(), "");
     EXPECT_TRUE(bot.fake.Deeds().empty());
 
     bot.fake.SetScriptedMove(false);

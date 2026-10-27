@@ -32,7 +32,7 @@ namespace Bots
         // Why the last move stopped, or empty when it did not stop.
         std::string const& StopReason() const { return m_stopReason; }
         // The moves that stopped before they arrived.
-        std::uint32_t Stopped() const { return m_stopped; }
+        std::uint32_t StopCount() const { return m_stopped; }
 
     private:
         bool m_inProgress = false;

@@ -454,7 +454,7 @@ void BotRun::Finish(bool passed, std::string const& reason)
     // The driver may rest again.
     EndMove();
     // 2. The result file, and the trace of a run that did not pass.
-    m_record.movesStopped = m_move.Stopped();
+    m_record.movesStopped = m_move.StopCount();
     m_record.durationMs = RunMs();
     m_record.outcome = passed ? Bots::RunOutcome::Passed : m_aborted ? Bots::RunOutcome::Aborted : Bots::RunOutcome::Failed;
     m_record.reason = passed ? "" : reason;
@@ -1042,10 +1042,7 @@ bool BotRun::Move(Bots::RoutePoint const& point, std::string& detail)
     m_visited = false;
     // While the move is in progress, the driver does not rest. Nothing sends
     // a stopped move again (jvbastel/WOWAI#99).
-    {
-        std::lock_guard<std::mutex> lock(m_moveRuleMutex);
-        m_moveRule.clear();
-    }
+    EndMove();
     std::string const line = m_move.Start(driver->GetName(), point.name);
     m_moveInProgress = true;
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, line.c_str());
@@ -1099,6 +1096,8 @@ void BotRun::EndMove()
 {
     m_move.End();
     m_moveInProgress = false;
+    std::lock_guard<std::mutex> lock(m_moveRuleMutex);
+    m_moveRule.clear();
 }
 
 bool BotRun::Say(uint32 chatType, Player* receiver, std::string const& text)
