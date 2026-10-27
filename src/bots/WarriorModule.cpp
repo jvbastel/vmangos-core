@@ -178,9 +178,7 @@ namespace Bots
             // The loose enemies that a Challenging Shout reaches.
             std::size_t LooseEnemiesInShoutRange(BotContext const& context)
             {
-                std::vector<Guid> const loose = LooseEnemies(context);
-                return std::count_if(loose.begin(), loose.end(),
-                    [&](Guid enemy) { return context.view.GetDistance(enemy) <= ChallengingShoutYards; });
+                return UnitsWithin(context.view, LooseEnemies(context), ChallengingShoutYards).size();
             }
 
             // The loose enemy that the tank taunts off: one on the healer
@@ -301,17 +299,14 @@ namespace Bots
             {
                 if (!FightsFocus(context))
                     return false;
-                std::vector<Guid> const inFight = EnemiesInFight(context);
-                std::size_t lacking = 0;
-                for (NearEnemy const& enemy : context.view.GetEnemiesNear(DemoralizingShoutYards))
-                {
-                    if (context.view.HasAura(enemy.guid, DemoralizingShout))
-                        continue;
-                    if (std::find(inFight.begin(), inFight.end(), enemy.guid) != inFight.end())
-                        return true;
-                    ++lacking;
-                }
-                return lacking >= DemoralizingShoutEnemies;
+                auto const lacks = [&](Guid enemy) { return !context.view.HasAura(enemy, DemoralizingShout); };
+                std::vector<Guid> const inFight = UnitsWithin(context.view, EnemiesInFight(context), DemoralizingShoutYards);
+                if (std::any_of(inFight.begin(), inFight.end(), lacks))
+                    return true;
+                // The other enemies near: those that no member fights yet.
+                std::vector<NearEnemy> const near = context.view.GetEnemiesNear(DemoralizingShoutYards);
+                return std::count_if(near.begin(), near.end(), [&](NearEnemy const& enemy) { return lacks(enemy.guid); })
+                    >= std::ptrdiff_t(DemoralizingShoutEnemies);
             }
 
             // The tank warns in party chat that the pull brings `packs`

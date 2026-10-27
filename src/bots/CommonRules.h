@@ -28,6 +28,10 @@ namespace Bots
     // True when unit `unit` is a member of the bot's group.
     bool IsGroupMember(BotView const& view, Guid unit);
 
+    // The living units of `units` that are at most `yards` from the bot
+    // (BotView::GetDistance), in their order.
+    std::vector<Guid> UnitsWithin(BotView const& view, std::vector<Guid> const& units, float yards);
+
     // True when a living enemy that attacks the bot is at most `yards` from
     // it: a melee hit, for Shield Block (WarriorModule.cpp) or Frost Nova
     // (MageModule.cpp).
