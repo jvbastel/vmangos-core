@@ -139,8 +139,6 @@ namespace Bots
     void WatchGroup(BotView const& view, GroupCoordinator& group)
     {
         group.SetWiped(!SomeoneLives(view));
-        // The tank waits for each bot on a pull (MemberSpot.h).
-        group.NoteBot(view.GetSelf());
         if (IsAlive(view, view.GetSelf()))
             group.ClearGivenUpResurrect(view.GetSelf());
         // The bot that resurrects judges the blockers. A blocker counts as

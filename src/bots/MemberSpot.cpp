@@ -103,13 +103,30 @@ namespace Bots
         return FirstSafePlace(view, spots, rules, spot);
     }
 
+    namespace
+    {
+        // The bot joins a pull now: it lives, is in no fight, and is not
+        // told to come.
+        bool JoinsPulls(BotContext const& context)
+        {
+            Guid const self = context.view.GetSelf();
+            return IsAlive(context.view, self) && !context.view.IsInCombat(self)
+                && context.command != CommandState::Come;
+        }
+    }
+
+    void NoteForPulls(BotContext const& context)
+    {
+        context.group.NoteBot(context.view.GetSelf(), context.nowMs, JoinsPulls(context));
+    }
+
     std::vector<Guid> MembersNotInPlace(BotContext const& context)
     {
         Guid const self = context.view.GetSelf();
         std::vector<Guid> const members = context.view.GetGroupMembers();
         std::vector<MemberSpot> const spots = context.group.GetMemberSpots();
         std::vector<Guid> waited;
-        for (Guid bot : context.group.GetBots())
+        for (Guid bot : context.group.GetPullMembers(context.nowMs, BotNoteMs))
         {
             if (bot == self || std::find(members.begin(), members.end(), bot) == members.end()
                 || !IsAlive(context.view, bot))
@@ -136,6 +153,11 @@ namespace Bots
             + " to get in place.";
     }
 
+    std::string PullWithoutLine(std::uint32_t members)
+    {
+        return "Pulling without " + std::to_string(members) + (members == 1 ? " member." : " members.");
+    }
+
     namespace
     {
         // The bot's member spot in the pull, if it noted one.
@@ -157,9 +179,7 @@ namespace Bots
         {
             PullState const pull = context.group.GetPull();
             Guid const self = context.view.GetSelf();
-            if (pull.phase != PullPhase::Pulling || !pull.hasSpot || pull.puller == self
-                || context.command == CommandState::Come || !IsAlive(context.view, self)
-                || context.view.IsInCombat(self))
+            if (pull.phase != PullPhase::Pulling || !pull.hasSpot || pull.puller == self || !JoinsPulls(context))
                 return false;
             MemberSpot mine;
             return !MySpot(context, mine) || (mine.found && !mine.inPlace);

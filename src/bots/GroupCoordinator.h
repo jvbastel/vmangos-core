@@ -21,6 +21,15 @@ namespace Bots
         Holding, // The target attacks the puller: the tank holds threat.
     };
 
+    // What the puller said in party chat of its wait for the group
+    // (MemberSpot.h).
+    enum class GroupWaitSaid
+    {
+        Nothing,
+        Waits,        // GroupWaitLine.
+        PullsWithout, // PullWithoutLine: the wait ended.
+    };
+
     struct PullState
     {
         PullPhase phase;
@@ -40,10 +49,10 @@ namespace Bots
         // only after a few thinks.
         std::uint32_t stillChaseThinks = 0;
         // The tank's wait for the group (MemberSpot.h): it starts when the
-        // puller notes its fight spot (StartGroupWait). `waitSaid`: the
-        // puller said in party chat that it waits.
+        // puller notes its fight spot (StartGroupWait). `waitSaid`: what the
+        // puller said of it in party chat.
         std::int64_t waitFromMs = 0;
-        bool waitSaid = false;
+        GroupWaitSaid waitSaid = GroupWaitSaid::Nothing;
         // The puller warned about extra packs in this pull
         // (NoteExtraPackWarn): it warns once a pull.
         bool warned = false;
@@ -146,10 +155,10 @@ namespace Bots
         // and stands still or moves (which starts the count again). Only the
         // puller can.
         void CountRangeChase(Guid puller, bool moving);
-        // The puller starts its wait for the group at `nowMs`, or notes that
-        // it said it waits. Only the puller can.
+        // The puller starts its wait for the group at `nowMs`, or notes what
+        // it said of it. Only the puller can.
         void StartGroupWait(Guid puller, std::int64_t nowMs);
-        void NoteGroupWaitSaid(Guid puller);
+        void NoteGroupWaitSaid(Guid puller, GroupWaitSaid said);
         // The puller warned about extra packs (WarnExtraPacks). Only the
         // puller can.
         void NoteExtraPackWarn(Guid puller);
@@ -161,10 +170,12 @@ namespace Bots
         void SetMemberInPlace(Guid bot);
         std::vector<MemberSpot> GetMemberSpots() const;
         // The bots of the group: each bot notes itself on each think
-        // (WatchGroup), so that the tank knows whom to wait for. A player
-        // is no bot.
-        void NoteBot(Guid bot);
-        std::vector<Guid> GetBots() const;
+        // (NoteForPulls, MemberSpot.h) at `nowMs`, and whether it joins a
+        // pull now, so that the tank knows whom to wait for. A player is no
+        // bot. GetPullMembers: the bots that join pulls, noted within
+        // `maxAgeMs` before `nowMs`.
+        void NoteBot(Guid bot, std::int64_t nowMs, bool joinsPulls);
+        std::vector<Guid> GetPullMembers(std::int64_t nowMs, std::int64_t maxAgeMs) const;
         // The fight of the pull ends: no pull and no focus target.
         void EndPull();
         // True when the tank holds threat on the focus target: the target of
@@ -286,7 +297,12 @@ namespace Bots
         Guid m_tank = NoGuid;
         Trail m_trail;
         std::vector<MemberSpot> m_memberSpots;
-        std::set<Guid> m_bots;
+        struct BotNote
+        {
+            std::int64_t atMs;
+            bool joinsPulls;
+        };
+        std::map<Guid, BotNote> m_bots;
         std::vector<Guid> m_enemyHealers;                 // In mark order.
         BossFight m_bossFight = {NoGuid, 0};
     };

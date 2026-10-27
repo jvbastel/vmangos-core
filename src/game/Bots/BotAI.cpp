@@ -569,6 +569,8 @@ void BotAI::Think()
         m_attackTarget.GetRawValue()};
     context.startWaits = m_startGate.Waiting();
     context.nowMs = SteadyMs();
+    // The tank waits for this bot on a pull (MemberSpot.h).
+    Bots::NoteForPulls(context);
     std::string const rule = m_strategies.Think(context);
     // A bot without a group has no chat session: its own coordinator drops
     // the events. The bot manager drops the events of a place coordinator.

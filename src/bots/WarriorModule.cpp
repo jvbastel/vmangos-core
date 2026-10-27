@@ -225,11 +225,23 @@ namespace Bots
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) {
                             PullState const pull = context.group.GetPull();
-                            if (pull.waitSaid || context.nowMs - pull.waitFromMs < GroupWaitSayMs)
+                            if (pull.waitSaid != GroupWaitSaid::Nothing || context.nowMs - pull.waitFromMs < GroupWaitSayMs)
                                 return;
                             context.actions.SayParty(GroupWaitLine(std::uint32_t(MembersNotInPlace(context).size())), PartyLine::Plain);
-                            context.group.NoteGroupWaitSaid(Self(context));
+                            context.group.NoteGroupWaitSaid(Self(context), GroupWaitSaid::Waits);
                         }}},
+                // The wait ended with bots not in place: the tank says that
+                // it pulls without them, once a pull.
+                Bookkeeping("pull without the group", P + 79,
+                    [](BotContext const& context) {
+                        PullState const pull = context.group.GetPull();
+                        return IsPulling(context) && pull.hasSpot && pull.waitSaid != GroupWaitSaid::PullsWithout
+                            && context.nowMs - pull.waitFromMs >= GroupWaitMs && !MembersNotInPlace(context).empty();
+                    },
+                    [](BotContext const& context) {
+                        context.actions.SayParty(PullWithoutLine(std::uint32_t(MembersNotInPlace(context).size())), PartyLine::Plain);
+                        context.group.NoteGroupWaitSaid(Self(context), GroupWaitSaid::PullsWithout);
+                    }),
                 // The tank cannot shoot from where it stands: it walks to
                 // its shoot spot. No shot from there either (the sight of
                 // the game): it pulls as without one.

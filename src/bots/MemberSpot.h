@@ -53,10 +53,21 @@ namespace Bots
         std::vector<Position> const& trail, Guid tank, Guid target, std::vector<Position> const& taken,
         Position& spot);
 
+    // A bot that has not noted itself for this long (NoteForPulls) is gone
+    // from the pull: logged out, in another place, or far away (a far bot
+    // thinks each 3 s).
+    std::int64_t const BotNoteMs = 5 * 1000;
+
+    // Each bot, on each think: it notes itself in the coordinator, and
+    // whether it joins a pull now (it lives, is in no fight, and is not
+    // told to come), so the tank waits only for bots that go to a member
+    // spot (GroupCoordinator::NoteBot).
+    void NoteForPulls(BotContext const& context);
+
     // The bots that the puller waits for: each living bot of its group that
-    // the coordinator knows (GroupCoordinator::NoteBot), but the puller,
-    // that is not in place at its member spot, and has found one or not yet
-    // looked for one.
+    // joins pulls (NoteForPulls, within BotNoteMs), but the puller, that is
+    // not in place at its member spot, and has found one or not yet looked
+    // for one.
     std::vector<Guid> MembersNotInPlace(BotContext const& context);
 
     // The tank waits for the group: a pull with a fight spot, with a member
@@ -64,8 +75,10 @@ namespace Bots
     // fight spot. A bot once in place is not waited for again.
     bool TankWaitsForTheGroup(BotContext const& context);
 
-    // The party line of the tank that waits for `members` members.
+    // The party line of the tank that waits for `members` members, and the
+    // one when it pulls without them after GroupWaitMs.
     std::string GroupWaitLine(std::uint32_t members);
+    std::string PullWithoutLine(std::uint32_t members);
 
     // The bot stands at its member spot in the pull that is on: it holds
     // there, so the follow rules (FollowTank.h, "follow the player") and the

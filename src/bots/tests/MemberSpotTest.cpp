@@ -325,9 +325,9 @@ namespace
             fake.SetHealth(Other, 600, 600);
             fake.SetHealth(Player, 600, 600);
             fake.SetGroupMembers({Self, Other, Player});
-            group.NoteBot(Tank);
-            group.NoteBot(Self);
-            group.NoteBot(Other);
+            group.NoteBot(Tank, 1000, true);
+            group.NoteBot(Self, 1000, true);
+            group.NoteBot(Other, 1000, true);
             group.StartPull(Tank, Kobold);
             group.SetPullSpot(Tank, {0, 0, 0});
             group.StartGroupWait(Tank, 1000);
@@ -374,9 +374,40 @@ TEST(GroupWait, NotForTheDeadNorForABotOutOfTheGroup)
     EXPECT_FALSE(wait.Waits(1500));
 }
 
+// The review of jvbastel/WOWAI#100: the tank waited the full 10 s on bots
+// that never go to a member spot.
+TEST(GroupWait, NotForABotThatJoinsNoPull)
+{
+    Waiting wait;
+    for (Bots::CommandState command : {Bots::CommandState::Come, Bots::CommandState::Follow})
+    {
+        FakeBot member{command == Bots::CommandState::Come ? Self : Other};
+        member.SetHealth(member.GetSelf(), 600, 600);
+        if (command == Bots::CommandState::Follow)
+            member.SetInCombat(Other);
+        Bots::BotContext context{member, member, wait.group, command, Player};
+        context.nowMs = 1200;
+        Bots::NoteForPulls(context);
+    }
+
+    EXPECT_FALSE(wait.Waits(1500));
+}
+
+TEST(GroupWait, NotForABotThatStoppedThinking)
+{
+    Waiting wait;
+    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.SetMemberInPlace(Self);
+
+    EXPECT_TRUE(wait.Waits(1000 + Bots::BotNoteMs));
+    // Other noted itself last at 1000: gone.
+    EXPECT_FALSE(wait.Waits(1000 + Bots::BotNoteMs + 1));
+}
+
 TEST(GroupWait, TheWaitEndsAfterTenSeconds)
 {
     Waiting wait;
+    wait.group.NoteBot(Self, 1000 + Bots::GroupWaitMs - 1, true);
 
     EXPECT_TRUE(wait.Waits(1000 + Bots::GroupWaitMs - 1));
     EXPECT_FALSE(wait.Waits(1000 + Bots::GroupWaitMs));

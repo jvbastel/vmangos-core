@@ -1004,8 +1004,8 @@ namespace
         {
             fake.SetHealth(Healer, 600, 600);
             fake.SetGroupMembers({Healer});
-            group.NoteBot(Tank);
-            group.NoteBot(Healer);
+            group.NoteBot(Tank, 1000, true);
+            group.NoteBot(Healer, 1000, true);
             group.StartPull(Tank, Kobold);
             nowMs = 1000;
             Think();
@@ -1048,7 +1048,12 @@ TEST(WarriorTank, SaysInPartyChatThatItWaitsOnABotAndShootsAfterTenSeconds)
     tank.Think();
     EXPECT_TRUE(tank.fake.Deeds().empty());
 
+    // At 10 s it pulls without the bot, and says so.
     tank.nowMs = 1000 + Bots::GroupWaitMs;
+    tank.group.NoteBot(Healer, tank.nowMs, true);
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"say Pulling without 1 member."}));
+    tank.fake.ClearDeeds();
     tank.Think();
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
 }
@@ -1072,7 +1077,7 @@ TEST(WarriorTank, WalksToItsShootSpotWhileTheGroupGetsInPlace)
     TrailTank tank;
     tank.fake.SetHealth(Healer, 600, 600);
     tank.fake.SetGroupMembers({Healer});
-    tank.group.NoteBot(Healer);
+    tank.group.NoteBot(Healer, 1000, true);
     tank.fake.AddBlindToFromX(Kobold, -3.0f);
     tank.group.StartPull(Tank, Kobold);
     tank.Think();

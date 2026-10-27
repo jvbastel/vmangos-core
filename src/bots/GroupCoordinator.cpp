@@ -97,14 +97,14 @@ namespace Bots
         if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
             return;
         m_pull.waitFromMs = nowMs;
-        m_pull.waitSaid = false;
+        m_pull.waitSaid = GroupWaitSaid::Nothing;
     }
 
-    void GroupCoordinator::NoteGroupWaitSaid(Guid puller)
+    void GroupCoordinator::NoteGroupWaitSaid(Guid puller, GroupWaitSaid said)
     {
         Lock lock(m_mutex);
         if (m_pull.phase != PullPhase::None && m_pull.puller == puller)
-            m_pull.waitSaid = true;
+            m_pull.waitSaid = said;
     }
 
     void GroupCoordinator::NoteExtraPackWarn(Guid puller)
@@ -140,16 +140,20 @@ namespace Bots
         return m_memberSpots;
     }
 
-    void GroupCoordinator::NoteBot(Guid bot)
+    void GroupCoordinator::NoteBot(Guid bot, std::int64_t nowMs, bool joinsPulls)
     {
         Lock lock(m_mutex);
-        m_bots.insert(bot);
+        m_bots[bot] = {nowMs, joinsPulls};
     }
 
-    std::vector<Guid> GroupCoordinator::GetBots() const
+    std::vector<Guid> GroupCoordinator::GetPullMembers(std::int64_t nowMs, std::int64_t maxAgeMs) const
     {
         Lock lock(m_mutex);
-        return std::vector<Guid>(m_bots.begin(), m_bots.end());
+        std::vector<Guid> bots;
+        for (auto const& pair : m_bots)
+            if (pair.second.joinsPulls && nowMs - pair.second.atMs <= maxAgeMs)
+                bots.push_back(pair.first);
+        return bots;
     }
 
     bool GroupCoordinator::TankHoldsThreat() const
