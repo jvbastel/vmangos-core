@@ -54,6 +54,12 @@ namespace Bots
                 return context.view.GetCurrentCast(Self(context)) != NoSpell;
             }
 
+            // The ammo the tank tops up now for its ranged weapon and level.
+            AmmoTopUp AmmoPlan(BotContext const& context)
+            {
+                return PlanAmmoTopUp(context.view.GetRangedWeapon(), context.view.GetLevel(Self(context)));
+            }
+
             // The pull target is out of the range or the sight of a shot.
             bool OutOfShot(BotContext const& context)
             {
@@ -120,6 +126,22 @@ namespace Bots
             Guid PickLooseEnemy(BotContext const& context)
             {
                 return PickMemberAttacker(context, Self(context), context.group.GetFocusTarget());
+            }
+
+            // A taunt is due and ready: the focus or another enemy hits a
+            // member, and the tank can taunt it now. The walk back waits
+            // for it, so that no member holds an enemy of the pull.
+            bool TauntDue(BotContext const& context)
+            {
+                SpellId const taunt = HighestKnownRank(context.view, Taunt);
+                if (taunt == NoSpell || !FightsFocus(context))
+                    return false;
+                Guid const focus = PickFocusTarget(context);
+                Guid const victim = context.view.GetVictim(focus);
+                if (victim != NoGuid && victim != Self(context) && context.view.CanCast(taunt, focus))
+                    return true;
+                Guid const loose = PickLooseEnemy(context);
+                return loose != NoGuid && context.view.CanCast(taunt, loose);
             }
 
             Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
@@ -204,7 +226,8 @@ namespace Bots
                     [](BotContext const& context) { context.group.ClearPullSpot(Self(context)); }),
                 Rule{"walk back to the pull spot", P + 68,
                     [](BotContext const& context) {
-                        return HoldsPull(context) && context.group.GetPull().hasSpot && DistanceToSpot(context) > SpotYards;
+                        return HoldsPull(context) && context.group.GetPull().hasSpot && DistanceToSpot(context) > SpotYards
+                            && !TauntDue(context);
                     },
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().spot); }}},
@@ -289,17 +312,17 @@ namespace Bots
                 Rule{"top up the ammo", P + 20,
                     [](BotContext const& context) {
                         return !InCombat(context)
-                            && PlanAmmoTopUp(context.view.GetRangedWeapon(), context.view.GetLevel(Self(context))).count > 0;
+                            && AmmoPlan(context).count > 0;
                     },
                     // Full bags: the rule waits, and lower rules such as
                     // the follow go on.
                     {[](BotContext const& context) {
                          return context.view.HasRoomFor(
-                             PlanAmmoTopUp(context.view.GetRangedWeapon(), context.view.GetLevel(Self(context))));
+                             AmmoPlan(context));
                      },
                         [](BotContext const& context) {
                             context.actions.TopUpAmmo(
-                                PlanAmmoTopUp(context.view.GetRangedWeapon(), context.view.GetLevel(Self(context))));
+                                AmmoPlan(context));
                         }}},
                 CastRule("battle shout", P + 25,
                     [](BotContext const& context) {

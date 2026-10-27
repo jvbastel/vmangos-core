@@ -302,6 +302,33 @@ TEST(WarriorTank, WalksBackToWhereItStartedAfterTheHit)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to 10 20 0"}));
 }
 
+// An enemy of the pack hits a member while the tank walks back: the tank
+// taunts it off first, and walks on after.
+TEST(WarriorTank, TauntsAnEnemyOffAMemberBeforeItWalksBack)
+{
+    BowTank tank;
+    tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
+    tank.fake.SetGroupMembers({Healer});
+    tank.fake.SetPosition(Tank, {10, 20, 0});
+    tank.Pull();
+    tank.fake.SetPosition(Tank, {28, 20, 0});
+    tank.fake.SetDistance(Kobold, 2.0f);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetDistance(Wolf, 10.0f);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    tank.Think(); // Holds the pull.
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Wolf)}));
+}
+
 TEST(WarriorTank, BackAtItsSpotItStopsWalkingBack)
 {
     BowTank tank;
