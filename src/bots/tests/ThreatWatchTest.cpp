@@ -331,3 +331,30 @@ TEST(HitText, TheCountAndEachHitOfAList)
         ", threat losses 2 (Enforcer on Healer 5 s; Other on Rogue 7 s)");
     EXPECT_EQ(Bots::HitListText("lost mobs", std::vector<Bots::LostMob>{}), ", lost mobs 0");
 }
+
+// jvbastel/WOWAI#113: the losses of each member, and of the healer.
+TEST(ThreatWatch, CountsTheLossesOfEachMember)
+{
+    ThreatWatch watch;
+    watch.Update({{Enforcer, Healer}, {Other, Rogue}}, 0);
+    watch.Update({{Enforcer, Healer}, {Other, Rogue}}, 5000);
+    watch.Update({}, 6000);
+    watch.Update({{Other, Healer}}, 7000);
+    watch.Update({{Other, Healer}}, 12000);
+
+    EXPECT_EQ(watch.LossesOn({Healer}), 2u);
+    EXPECT_EQ(watch.LossesOn({Rogue}), 1u);
+    EXPECT_EQ(watch.LossesOn({0x99}), 0u);
+}
+
+TEST(ThreatWatch, CountsTheLossesOfTheHealersFoundByRole)
+{
+    // The game layer finds the healers by role; a group can have none.
+    ThreatWatch watch;
+    watch.Update({{Enforcer, Healer}, {Other, Rogue}}, 0);
+    watch.Update({{Enforcer, Healer}, {Other, Rogue}}, 5000);
+
+    EXPECT_EQ(watch.LossesOn({Healer}), 1u);
+    EXPECT_EQ(watch.LossesOn({Healer, Rogue}), 2u);
+    EXPECT_EQ(watch.LossesOn({}), 0u);
+}

@@ -76,6 +76,9 @@ namespace Bots
                 m_victim[unit] = victim;
                 m_inCombat[unit] = victim != NoGuid;
             }
+            // The threat ratio of unit `unit` on enemy `enemy`
+            // (GetThreatRatio). Unset: 0, no threat.
+            void SetThreatRatio(Guid unit, Guid enemy, float ratio) { m_threatRatio[{unit, enemy}] = ratio; }
             void SetAura(Guid unit, SpellId firstRank, bool has = true)
             {
                 if (has)
@@ -252,6 +255,11 @@ namespace Bots
                     if (pair.second == unit && unit != NoGuid)
                         attackers.push_back(pair.first);
                 return attackers;
+            }
+            float GetThreatRatio(Guid unit, Guid enemy) const override
+            {
+                auto found = m_threatRatio.find({unit, enemy});
+                return found == m_threatRatio.end() ? 0.0f : found->second;
             }
             bool HasAura(Guid unit, SpellId firstRank) const override { return m_auras.count({unit, firstRank}) != 0; }
             bool HasDebuff(Guid unit, DispelKind kind) const override { return m_debuffs.count({unit, kind}) != 0; }
@@ -502,6 +510,7 @@ namespace Bots
             std::map<SpellId, float> m_spellRange;
             std::map<Guid, bool> m_inCombat;
             std::map<Guid, Guid> m_victim;
+            std::map<std::pair<Guid, Guid>, float> m_threatRatio;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
             std::vector<Guid> m_groupMembers;

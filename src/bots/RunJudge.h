@@ -14,6 +14,7 @@
 // - A run fails at the second wipe, after 45 minutes, or after 3 minutes
 //   with no progress: no kill, no damage dealt, and no movement along the
 //   route. (A lost mob fails it too: bots/ThreatWatch.h.)
+// - A threat loss never fails it, on the healer or not.
 // The game layer tells the judge the facts, then asks for the verdict.
 namespace Bots
 {
@@ -45,6 +46,10 @@ namespace Bots
         // A boss kill is progress too.
         void NoteBossKill(std::uint32_t entry, std::int64_t nowMs);
         void NoteWipe();
+        // A threat loss never fails the run, on the healer or not: the judge
+        // only counts it (jvbastel/WOWAI#113). A lost mob fails the run
+        // (BotRun, bots/ThreatWatch.h).
+        void NoteThreatLoss(bool onHealer);
         // A kill, damage dealt, or movement along the route.
         void NoteProgress(std::int64_t nowMs);
 
@@ -55,6 +60,8 @@ namespace Bots
         RunVerdict AtScriptEnd() const;
 
         std::uint32_t Wipes() const { return m_wipes; }
+        std::uint32_t ThreatLosses() const { return m_threatLosses; }
+        std::uint32_t HealerThreatLosses() const { return m_healerThreatLosses; }
 
     private:
         std::vector<std::uint32_t> m_bosses;
@@ -62,6 +69,8 @@ namespace Bots
         std::int64_t m_startMs;
         std::int64_t m_progressMs;
         std::uint32_t m_wipes = 0;
+        std::uint32_t m_threatLosses = 0;
+        std::uint32_t m_healerThreatLosses = 0;
     };
 }
 

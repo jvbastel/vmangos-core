@@ -270,6 +270,7 @@ class BotRun
         std::set<uint32> m_bossKills;
         Bots::ThreatWatch m_threat;
         std::vector<std::pair<std::string, std::string>> m_threatNames; // The enemy and the member of each loss.
+        std::vector<Bots::Guid> m_healers; // The members with the healer role so far (jvbastel/WOWAI#113).
         Bots::LostMobWatch m_lostMobs;
         std::vector<std::pair<std::string, std::string>> m_lostMobNames; // The enemy and the member of each lost mob.
         bool m_aborted = false; // A GM stopped the run.
