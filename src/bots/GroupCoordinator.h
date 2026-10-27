@@ -216,7 +216,7 @@ namespace Bots
         void SetTank(Guid tank);
         // The healer of the group, or NoGuid. The bot AI of the healer sets
         // it on each think. The tank taunts enemies off it first
-        // (WarriorModule.h).
+        // (WarriorModule.cpp).
         Guid GetHealer() const;
         void SetHealer(Guid healer);
 

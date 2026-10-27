@@ -1191,3 +1191,19 @@ TEST(WarriorTank, WithoutChallengingShoutTauntsLooseEnemiesOneByOne)
     EXPECT_EQ(tank.fake.Deeds(),
         (std::vector<std::string>{CastOn(Warrior::Taunt, Bat), CastOn(Warrior::Taunt, Wolf)}));
 }
+
+TEST(WarriorTank, DoesNotShoutWhenALooseEnemyIsOutOfShoutRange)
+{
+    GroupInFight tank;
+    tank.fake.SetKnownSpell(Warrior::ChallengingShout);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Rat, Healer);
+    tank.fake.SetDistance(Rat, 15.0f);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::ChallengingShout, Tank));
+}

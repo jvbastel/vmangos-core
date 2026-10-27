@@ -34,6 +34,9 @@ namespace Bots
             // jvbastel/WOWAI#115: Challenging Shout from this many loose
             // enemies.
             std::size_t const ShoutLooseEnemies = 3;
+            // The radius of Challenging Shout: it counts only the loose
+            // enemies this near.
+            float const ShoutYards = 10.0f;
 
             Guid Self(BotContext const& context)
             {
@@ -152,20 +155,15 @@ namespace Bots
             // rest in the order of the group members.
             std::vector<Guid> LooseEnemies(BotContext const& context)
             {
-                Guid const focus = context.group.GetFocusTarget();
-                Guid const healer = context.group.GetHealer();
-                std::vector<Guid> members = context.view.GetGroupMembers();
-                auto const at = std::find(members.begin(), members.end(), healer);
-                if (at != members.end())
-                    std::rotate(members.begin(), at, at + 1);
-                std::vector<Guid> loose;
-                for (Guid member : members)
-                    if (member != Self(context) && IsAlive(context.view, member))
-                        for (Guid attacker : context.view.GetAttackers(member))
-                            if (attacker != focus && IsAlive(context.view, attacker)
-                                && std::find(loose.begin(), loose.end(), attacker) == loose.end())
-                                loose.push_back(attacker);
-                return loose;
+                return MemberAttackers(context, Self(context), context.group.GetFocusTarget(), context.group.GetHealer());
+            }
+
+            // The loose enemies that a Challenging Shout reaches.
+            std::size_t LooseEnemiesInShoutRange(BotContext const& context)
+            {
+                std::vector<Guid> const loose = LooseEnemies(context);
+                return std::count_if(loose.begin(), loose.end(),
+                    [&](Guid enemy) { return context.view.GetDistance(enemy) <= ShoutYards; });
             }
 
             // The loose enemy that the tank taunts off: one on the healer
@@ -418,7 +416,7 @@ namespace Bots
                 // A broken pull: too many loose enemies to taunt one by one.
                 CastRule("challenging shout", P + 52,
                     [](BotContext const& context) {
-                        return FightsFocus(context) && LooseEnemies(context).size() >= ShoutLooseEnemies;
+                        return FightsFocus(context) && LooseEnemiesInShoutRange(context) >= ShoutLooseEnemies;
                     },
                     ChallengingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
