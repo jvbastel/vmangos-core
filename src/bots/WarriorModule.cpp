@@ -252,7 +252,7 @@ namespace Bots
             bool MeleesOrChases(BotContext const& context, Guid unit)
             {
                 return context.view.GetVictim(Self(context)) == unit && context.view.IsMeleeAttacking()
-                    && (context.view.GetDistance(unit) <= MeleeYards || context.view.GetChase().target == unit);
+                    && (context.view.GetDistance(unit) <= MeleeContactYards || context.view.GetChase().target == unit);
             }
 
             // The tank's visits to its threat target: its own choice, no
@@ -444,7 +444,7 @@ namespace Bots
                     return false;
                 Guid const focus = PickFocusTarget(context);
                 bool const caster = context.view.GetMana(focus).max > 0 || context.view.GetCurrentCast(focus) != NoSpell;
-                return caster && context.view.GetDistance(focus) > MeleeYards && !FocusComes(context);
+                return caster && context.view.GetDistance(focus) > MeleeContactYards && !FocusComes(context);
             }
 
             // The packs round the tank's pull, for the warn when one joins

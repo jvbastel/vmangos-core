@@ -38,12 +38,10 @@ namespace Bots
     // jvbastel/WOWAI#127: the tank holds threat on the focus now
     // (GroupCoordinator::TankHoldsThreat). In a held pull, the bot first
     // notes the melee contact when it sees the pull target attack the
-    // puller within MeleeContactYards: a ranged-pulled target that runs to
+    // puller within MeleeContactYards (CommonRules.h, between the edges,
+    // BotView::GetDistanceBetween): a ranged-pulled target that runs to
     // the tank is not the tank's yet.
     bool TankHoldsThreat(BotContext const& context);
-    // The distance between the edges of the pull target and the tank
-    // (BotView::GetDistanceBetween) that counts as melee contact.
-    float const MeleeContactYards = 5.0f;
 
     // The casting range of a ranged damage bot, and its distance from the
     // damage target when it runs closer. The casting range counts by
