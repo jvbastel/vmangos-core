@@ -242,7 +242,7 @@ namespace Bots
                 // itself, and brings it along.
                 return loose != NoGuid && context.view.GetDistance(loose) <= PickUpYards
                         && CastableRank(context.view, Taunt, loose) == NoSpell
-                        && PacksPulledAt(context.view, context.view.GetPosition(loose), context.group.GetFocusTarget()) == 0
+                        && !InOtherPacksReach(context, context.view.GetPosition(loose))
                     ? loose
                     : NoGuid;
             }

@@ -36,17 +36,21 @@ namespace Bots
         return pulled;
     }
 
+    Guid FightTarget(BotContext const& context)
+    {
+        Guid const focus = context.group.GetFocusTarget();
+        return focus != NoGuid ? focus : context.group.GetPull().target;
+    }
+
+    bool InOtherPacksReach(BotContext const& context, Position const& at)
+    {
+        return PacksPulledAt(context.view, at, FightTarget(context)) > 0;
+    }
+
     namespace
     {
         // A step out ends this far out of the aggro distance and margin.
         float const StepOutSpareYards = 1.0f;
-
-        // The enemy that the group fights: the focus, else the pull target.
-        Guid FightTarget(BotContext const& context)
-        {
-            Guid const focus = context.group.GetFocusTarget();
-            return focus != NoGuid ? focus : context.group.GetPull().target;
-        }
 
         // The enemies outside the fight that the bot pulls where it
         // stands, nearest first. None when the rule does not apply.
@@ -61,6 +65,8 @@ namespace Bots
             if (pull.goesIn && pull.puller == self)
                 return {};
             Position const at = context.view.GetPosition(self);
+            if (!InOtherPacksReach(context, at))
+                return {};
             std::vector<NearEnemy> near;
             for (NearEnemy const& enemy : EnemiesOutsideTheFight(context.view, at, FightTarget(context)))
                 if (PullsAnEnemy({enemy}, at))
