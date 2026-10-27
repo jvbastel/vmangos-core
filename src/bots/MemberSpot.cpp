@@ -45,7 +45,8 @@ namespace Bots
         bool InBand(Position const& spot, Position const& fightSpot)
         {
             float const yards = Distance3d(spot, fightSpot);
-            return yards >= MemberBackMinYards && yards <= MemberBackMaxYards;
+            return yards >= MemberBackMinYards && yards <= MemberBackMaxYards
+                && std::fabs(spot.z - fightSpot.z) <= MemberHeightYards;
         }
 
         bool FarFromTaken(Position const& spot, std::vector<Position> const& taken)

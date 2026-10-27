@@ -35,6 +35,9 @@ namespace Bots
     float const MemberSpreadYards = 5.0f;
     // Melee stands this far back from the fight spot.
     float const MeleeBackYards = 3.0f;
+    // A spot on ground more than this over or under the fight spot does not
+    // count: a ledge needs a long way round.
+    float const MemberHeightYards = 5.0f;
     // Nearer than this to its spot, a bot is in place.
     float const MemberInPlaceYards = 2.0f;
     // The longest wait of the tank for the group.

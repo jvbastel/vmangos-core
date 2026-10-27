@@ -99,6 +99,22 @@ TEST(MemberSpot, WithoutATrailTheSpotIsBackAwayFromTheTarget)
     EXPECT_NEAR(spot.y, 0.0f, 0.01f);
 }
 
+// The first spot of the fan, 20 yards back, is on ground 10 yards lower
+// (a ledge, as in the two_packs_apart scenario): the bot would need a long
+// way round to get there.
+TEST(MemberSpot, NoSpotOnGroundFarAboveOrBelowTheFightSpot)
+{
+    Spots spots;
+    spots.trail.clear();
+    spots.fake.AddGroundFromX(-21.0f, -10.0f);
+    Position spot{};
+
+    ASSERT_TRUE(spots.Find(BotRole::Ranged, spot));
+
+    EXPECT_EQ(spot.x, -25.0f);
+    EXPECT_EQ(spot.z, 0.0f);
+}
+
 TEST(MemberSpot, TheHealersSpotSeesTheTank)
 {
     Spots spots;
