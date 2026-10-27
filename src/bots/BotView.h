@@ -73,6 +73,9 @@ namespace Bots
         // (Spell::CheckRange). A large number for a unit that the bot
         // cannot see.
         virtual float GetSpellDistance(Guid unit) const = 0;
+        // The same, with the bot at `place` (on the ground there): for a
+        // cast from a spot that the bot has not reached yet (Ranged.h).
+        virtual float GetSpellDistanceFrom(Position const& place, Guid unit) const = 0;
         // The distance in yards between units `a` and `b`. A large number
         // when the bot cannot see one of them.
         virtual float GetDistanceBetween(Guid a, Guid b) const = 0;
@@ -144,6 +147,9 @@ namespace Bots
         // A bot on the ground at `place` would see unit `unit` (line of
         // sight, as for a cast). False for a unit that the bot cannot see.
         virtual bool CanSeeFrom(Position const& place, Guid unit) const = 0;
+        // A bot on the ground at `from` would see a bot on the ground at
+        // `to` (line of sight, as for a cast).
+        virtual bool CanSeeBetween(Position const& from, Position const& to) const = 0;
 
         // Death and rest.
         // The life state of unit `unit`. Alive for a unit that the bot

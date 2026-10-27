@@ -46,7 +46,7 @@ namespace
 
         bool Find(BotRole role, Position& spot, std::vector<Position> const& taken = {}) const
         {
-            return Bots::FindMemberSpot(fake, role, fightSpot, trail, Tank, Kobold, taken, spot);
+            return Bots::FindMemberSpot(fake, role, fightSpot, trail, Kobold, taken, spot);
         }
     };
 
@@ -115,19 +115,20 @@ TEST(MemberSpot, NoSpotOnGroundFarAboveOrBelowTheFightSpot)
     EXPECT_EQ(spot.z, 0.0f);
 }
 
-TEST(MemberSpot, TheHealersSpotSeesTheTank)
+// The review of jvbastel/WOWAI#100: the healer heals the tank at the fight
+// spot, so its spot sees the fight spot, not where the tank stands now.
+TEST(MemberSpot, TheHealersSpotSeesTheFightSpot)
 {
     Spots spots;
-    // From x = -20 on, a wall hides the tank.
-    spots.fake.AddBlindToFromX(Tank, -20.0f);
-    Position ranged{};
+    // The tank stands back on the trail now; a wall at x = -14.5 hides the
+    // fight spot from the spots of the trail.
+    spots.fake.SetPosition(Tank, {-25, 0, 0});
+    spots.fake.AddSightWallAtX(-14.5f);
     Position healer{};
 
-    ASSERT_TRUE(spots.Find(BotRole::Ranged, ranged));
     ASSERT_TRUE(spots.Find(BotRole::Healer, healer));
 
-    EXPECT_EQ(ranged.x, -16.0f);
-    EXPECT_LT(healer.x, -20.0f);
+    EXPECT_GT(healer.x, -14.5f);
     EXPECT_TRUE(BackFromTheFightSpot(healer));
 }
 
@@ -192,7 +193,7 @@ namespace
                 group.KeepTrail(point, false);
             group.SetTank(Tank);
             group.StartPull(Tank, Kobold);
-            group.SetPullSpot(Tank, {0, 0, 0});
+            group.SetFightSpot(Tank, {0, 0, 0});
         }
 
         std::string Think(Bots::CommandState command = Bots::CommandState::Follow)
@@ -267,7 +268,7 @@ TEST(MemberSpotRule, ABotThatDrinksGetsUpAndGoesToItsSpotThenDrinksThere)
 TEST(MemberSpotRule, TheSecondRangedBotTakesASpotAwayFromTheFirst)
 {
     MemberBot bot;
-    bot.group.SetMemberSpot(Other, true, {-16, 0, 0});
+    bot.group.ClaimMemberSpot(Other, Bots::Tests::SpotAt(true, {-16, 0, 0}));
 
     bot.Think();
 
@@ -293,7 +294,7 @@ TEST(MemberSpotRule, NotBeforeTheTankHasItsFightSpotNorOnceThePullHolds)
     bot.group.StartPull(Tank, Kobold);
     EXPECT_NE(bot.Think(), "go to the member spot");
 
-    bot.group.SetPullSpot(Tank, {0, 0, 0});
+    bot.group.SetFightSpot(Tank, {0, 0, 0});
     bot.group.HoldPull(Tank);
     EXPECT_NE(bot.Think(), "go to the member spot");
 }
@@ -325,11 +326,11 @@ namespace
             fake.SetHealth(Other, 600, 600);
             fake.SetHealth(Player, 600, 600);
             fake.SetGroupMembers({Self, Other, Player});
-            group.NoteBot(Tank);
-            group.NoteBot(Self);
-            group.NoteBot(Other);
+            group.NoteBot(Tank, 1000, true);
+            group.NoteBot(Self, 1000, true);
+            group.NoteBot(Other, 1000, true);
             group.StartPull(Tank, Kobold);
-            group.SetPullSpot(Tank, {0, 0, 0});
+            group.SetFightSpot(Tank, {0, 0, 0});
             group.StartGroupWait(Tank, 1000);
         }
 
@@ -347,11 +348,11 @@ TEST(GroupWait, TheTankWaitsForEachBotUntilItIsInPlace)
     Waiting wait;
     EXPECT_TRUE(wait.Waits(1500));
 
-    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(true, {-16, 0, 0}));
     wait.group.SetMemberInPlace(Self);
     EXPECT_TRUE(wait.Waits(1500));
 
-    wait.group.SetMemberSpot(Other, true, {-22, 0, 0});
+    wait.group.ClaimMemberSpot(Other, Bots::Tests::SpotAt(true, {-22, 0, 0}));
     wait.group.SetMemberInPlace(Other);
     EXPECT_FALSE(wait.Waits(1500));
 }
@@ -359,8 +360,8 @@ TEST(GroupWait, TheTankWaitsForEachBotUntilItIsInPlace)
 TEST(GroupWait, ABotWithNoSpotIsNotWaitedFor)
 {
     Waiting wait;
-    wait.group.SetMemberSpot(Self, false, {});
-    wait.group.SetMemberSpot(Other, false, {});
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(false, {}));
+    wait.group.ClaimMemberSpot(Other, Bots::Tests::SpotAt(false, {}));
 
     EXPECT_FALSE(wait.Waits(1500));
 }
@@ -374,9 +375,40 @@ TEST(GroupWait, NotForTheDeadNorForABotOutOfTheGroup)
     EXPECT_FALSE(wait.Waits(1500));
 }
 
+// The review of jvbastel/WOWAI#100: the tank waited the full 10 s on bots
+// that never go to a member spot.
+TEST(GroupWait, NotForABotThatJoinsNoPull)
+{
+    Waiting wait;
+    for (Bots::CommandState command : {Bots::CommandState::Come, Bots::CommandState::Follow})
+    {
+        FakeBot member{command == Bots::CommandState::Come ? Self : Other};
+        member.SetHealth(member.GetSelf(), 600, 600);
+        if (command == Bots::CommandState::Follow)
+            member.SetInCombat(Other);
+        Bots::BotContext context{member, member, wait.group, command, Player};
+        context.nowMs = 1200;
+        Bots::NoteForPulls(context);
+    }
+
+    EXPECT_FALSE(wait.Waits(1500));
+}
+
+TEST(GroupWait, NotForABotThatStoppedThinking)
+{
+    Waiting wait;
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(true, {-16, 0, 0}));
+    wait.group.SetMemberInPlace(Self);
+
+    EXPECT_TRUE(wait.Waits(1000 + Bots::BotNoteMs));
+    // Other noted itself last at 1000: gone.
+    EXPECT_FALSE(wait.Waits(1000 + Bots::BotNoteMs + 1));
+}
+
 TEST(GroupWait, TheWaitEndsAfterTenSeconds)
 {
     Waiting wait;
+    wait.group.NoteBot(Self, 1000 + Bots::GroupWaitMs - 1, true);
 
     EXPECT_TRUE(wait.Waits(1000 + Bots::GroupWaitMs - 1));
     EXPECT_FALSE(wait.Waits(1000 + Bots::GroupWaitMs));
@@ -385,9 +417,9 @@ TEST(GroupWait, TheWaitEndsAfterTenSeconds)
 TEST(GroupWait, ABotOnceInPlaceIsNotWaitedForAgain)
 {
     Waiting wait;
-    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(true, {-16, 0, 0}));
     wait.group.SetMemberInPlace(Self);
-    wait.group.SetMemberSpot(Other, true, {-22, 0, 0});
+    wait.group.ClaimMemberSpot(Other, Bots::Tests::SpotAt(true, {-22, 0, 0}));
     wait.group.SetMemberInPlace(Other);
 
     // Self walks off its spot (a fight, a push): the pull goes on.
@@ -399,7 +431,7 @@ TEST(GroupWait, ABotOnceInPlaceIsNotWaitedForAgain)
 TEST(GroupWait, ANewPullForgetsTheMemberSpots)
 {
     Waiting wait;
-    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.ClaimMemberSpot(Self, Bots::Tests::SpotAt(true, {-16, 0, 0}));
 
     wait.group.StartPull(Tank, Kobold);
 

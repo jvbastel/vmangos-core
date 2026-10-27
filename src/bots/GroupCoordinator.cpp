@@ -6,6 +6,11 @@ namespace Bots
 {
     using Lock = std::lock_guard<std::mutex>;
 
+    bool GroupCoordinator::PullsNow(Guid puller) const
+    {
+        return m_pull.phase != PullPhase::None && m_pull.puller == puller;
+    }
+
     Guid GroupCoordinator::GetFocusTarget() const
     {
         Lock lock(m_mutex);
@@ -31,6 +36,7 @@ namespace Bots
         Lock lock(m_mutex);
         m_pull = {PullPhase::Pulling, puller, target};
         m_memberSpots.clear();
+        ++m_memberSpotsVersion;
         m_focusTarget = target;
         m_tauntGivenUp = NoGuid;
     }
@@ -42,26 +48,26 @@ namespace Bots
             m_pull.phase = PullPhase::Holding;
     }
 
-    void GroupCoordinator::SetPullSpot(Guid puller, Position spot)
+    void GroupCoordinator::SetFightSpot(Guid puller, Position spot)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+        if (!PullsNow(puller))
             return;
-        m_pull.hasSpot = true;
-        m_pull.spot = spot;
+        m_pull.hasFightSpot = true;
+        m_pull.fightSpot = spot;
     }
 
-    void GroupCoordinator::ClearPullSpot(Guid puller)
+    void GroupCoordinator::ClearFightSpot(Guid puller)
     {
         Lock lock(m_mutex);
         if (m_pull.puller == puller)
-            m_pull.hasSpot = false;
+            m_pull.hasFightSpot = false;
     }
 
     void GroupCoordinator::SetShootSpot(Guid puller, Position spot)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+        if (!PullsNow(puller))
             return;
         m_pull.hasShootSpot = true;
         m_pull.shootSpot = spot;
@@ -77,7 +83,7 @@ namespace Bots
     void GroupCoordinator::CountRangeChase(Guid puller, bool moving)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+        if (!PullsNow(puller))
             return;
         m_pull.stillChaseThinks = moving ? 0 : m_pull.stillChaseThinks + 1;
     }
@@ -87,6 +93,7 @@ namespace Bots
         Lock lock(m_mutex);
         m_pull = {PullPhase::None, NoGuid, NoGuid};
         m_memberSpots.clear();
+        ++m_memberSpotsVersion;
         m_focusTarget = NoGuid;
         m_tauntGivenUp = NoGuid;
     }
@@ -94,29 +101,55 @@ namespace Bots
     void GroupCoordinator::StartGroupWait(Guid puller, std::int64_t nowMs)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+        if (!PullsNow(puller))
             return;
         m_pull.waitFromMs = nowMs;
-        m_pull.waitSaid = false;
+        m_pull.waitSaid = GroupWaitSaid::Nothing;
     }
 
-    void GroupCoordinator::NoteGroupWaitSaid(Guid puller)
+    void GroupCoordinator::NoteGroupWaitSaid(Guid puller, GroupWaitSaid said)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase != PullPhase::None && m_pull.puller == puller)
-            m_pull.waitSaid = true;
+        if (PullsNow(puller))
+            m_pull.waitSaid = said;
     }
 
-    void GroupCoordinator::SetMemberSpot(Guid bot, bool found, Position spot)
+    void GroupCoordinator::NoteExtraPackWarn(Guid puller)
     {
         Lock lock(m_mutex);
-        for (MemberSpot& member : m_memberSpots)
-            if (member.bot == bot)
+        if (PullsNow(puller))
+            m_pull.extraPackWarned = true;
+    }
+
+    MemberSpot GroupCoordinator::ClaimMemberSpot(Guid bot, MemberSpotFinder const& find)
+    {
+        for (;;)
+        {
+            PullState pull;
+            std::vector<Position> taken;
+            std::uint64_t version = 0;
             {
-                member = {bot, found, spot, false};
-                return;
+                Lock lock(m_mutex);
+                for (MemberSpot const& member : m_memberSpots)
+                {
+                    if (member.bot == bot)
+                        return member;
+                    if (member.found)
+                        taken.push_back(member.spot);
+                }
+                pull = m_pull;
+                version = m_memberSpotsVersion;
             }
-        m_memberSpots.push_back({bot, found, spot, false});
+            MemberSpot mine;
+            mine.bot = bot;
+            mine.found = find(pull, taken, mine.spot);
+            Lock lock(m_mutex);
+            if (version != m_memberSpotsVersion)
+                continue;
+            m_memberSpots.push_back(mine);
+            ++m_memberSpotsVersion;
+            return mine;
+        }
     }
 
     void GroupCoordinator::SetMemberInPlace(Guid bot)
@@ -133,16 +166,20 @@ namespace Bots
         return m_memberSpots;
     }
 
-    void GroupCoordinator::NoteBot(Guid bot)
+    void GroupCoordinator::NoteBot(Guid bot, std::int64_t nowMs, bool joinsPulls)
     {
         Lock lock(m_mutex);
-        m_bots.insert(bot);
+        m_bots[bot] = {nowMs, joinsPulls};
     }
 
-    std::vector<Guid> GroupCoordinator::GetBots() const
+    std::vector<Guid> GroupCoordinator::GetPullMembers(std::int64_t nowMs, std::int64_t maxAgeMs) const
     {
         Lock lock(m_mutex);
-        return std::vector<Guid>(m_bots.begin(), m_bots.end());
+        std::vector<Guid> bots;
+        for (auto const& pair : m_bots)
+            if (pair.second.joinsPulls && nowMs - pair.second.atMs <= maxAgeMs)
+                bots.push_back(pair.first);
+        return bots;
     }
 
     bool GroupCoordinator::TankHoldsThreat() const
@@ -231,9 +268,11 @@ namespace Bots
     void GroupCoordinator::KeepTrail(Position at, bool fights)
     {
         Lock lock(m_mutex);
+        // A pull keeps the trail as it was at its start: the tank's walk to
+        // its shoot spot is no cleared way.
         if (fights)
             m_trail.Clear();
-        else
+        else if (m_pull.phase == PullPhase::None)
             m_trail.Note(at);
     }
 

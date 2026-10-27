@@ -214,7 +214,9 @@ TEST(FirstSafePlace, TheAggroMarginIsMeasuredFromTheEnemysCenter)
     ExpectAt(place, 9.5f, 0.0f);
 }
 
-TEST(SafeCastPlace, NoRingNearerThanTheLeastRange)
+// A place that the caller's rule refuses (a shot too near, Ranged.h) does
+// not count: the next ring does.
+TEST(SafeCastPlace, OnlyAPlaceThatTheCallerAccepts)
 {
     Walker walker;
     // Next to the corpse: the inner ring is nearest.
@@ -223,6 +225,7 @@ TEST(SafeCastPlace, NoRingNearerThanTheLeastRange)
 
     ASSERT_TRUE(walker.Find(place));
     ExpectAt(place, 0.0f, -9.0f);
-    ASSERT_TRUE(FindSafeCastPlace(walker.fake, Corpse, 30.0f, place, nullptr, 20.0f));
+    ASSERT_TRUE(FindSafeCastPlace(walker.fake, Corpse, 30.0f, place, nullptr,
+        [](Position const& at) { return std::fabs(at.y) > 20.0f; }));
     ExpectAt(place, 0.0f, -27.0f);
 }

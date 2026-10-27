@@ -4,6 +4,7 @@
 #include "BotActions.h"
 #include "BotGeometry.h"
 #include "BotView.h"
+#include "GroupCoordinator.h"
 
 #include <algorithm>
 #include <cmath>
@@ -139,6 +140,9 @@ namespace Bots
             int GroundPaths() const { return m_groundPaths; }
             // From each place with x >= `x`, the bot does not see `unit`.
             void AddBlindToFromX(Guid unit, float x) { m_blindToFromX.push_back({unit, x}); }
+            // Sight is blocked along x = `x`: no place sees a place on its
+            // other side (CanSeeBetween).
+            void AddSightWallAtX(float x) { m_sightWallsAtX.push_back(x); }
             void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
             void SetGroupLeader(Guid unit) { m_leader = unit; }
             void SetCanResurrect(Guid unit, bool can = true)
@@ -210,6 +214,15 @@ namespace Bots
             {
                 auto found = m_spellDistance.find(unit);
                 return found == m_spellDistance.end() ? GetDistance(unit) : found->second;
+            }
+            // From the bot's own place: GetSpellDistance. Else the distance
+            // between the centers (the fake has no bodies).
+            float GetSpellDistanceFrom(Position const& place, Guid unit) const override
+            {
+                Position const here = GetPosition(m_self);
+                if (place.x == here.x && place.y == here.y && place.z == here.z)
+                    return GetSpellDistance(unit);
+                return Distance3d(place, GetPosition(unit));
             }
             float GetDistanceBetween(Guid a, Guid b) const override
             {
@@ -305,6 +318,13 @@ namespace Bots
                     if (place.x >= area.minX && place.x <= area.maxX && place.y >= area.minY && place.y <= area.maxY)
                         return true;
                 return false;
+            }
+            bool CanSeeBetween(Position const& from, Position const& to) const override
+            {
+                for (float x : m_sightWallsAtX)
+                    if ((from.x < x) != (to.x < x))
+                        return false;
+                return true;
             }
             bool CanSeeFrom(Position const& place, Guid unit) const override
             {
@@ -440,14 +460,10 @@ namespace Bots
             void WalkAsGhost() override { m_deeds.push_back("walk as a ghost"); }
             void Eat() override { m_deeds.push_back("eat"); }
             void Drink() override { m_deeds.push_back("drink"); }
-            void WarnExtraPacks(std::uint32_t packs) override
+            // "say <line>", or "warn <line>" for an extra pack warn.
+            void SayParty(std::string const& line, PartyLine kind) override
             {
-                m_deeds.push_back("warn extra packs " + std::to_string(packs));
-            }
-
-            void SayGroupWait(std::uint32_t members) override
-            {
-                m_deeds.push_back("say group wait " + std::to_string(members));
+                m_deeds.push_back((kind == PartyLine::ExtraPackWarn ? "warn " : "say ") + line);
             }
 
             void TopUpAmmo(AmmoTopUp const& topUp) override
@@ -500,6 +516,7 @@ namespace Bots
             std::vector<float> m_noPathFromX;
             std::vector<NearEnemy> m_enemies;
             std::vector<float> m_blindFromX;
+            std::vector<float> m_sightWallsAtX;
             std::vector<std::pair<Guid, float>> m_blindToFromX;
             mutable int m_groundPaths = 0;
             std::map<Guid, LifeState> m_lifeState;
@@ -520,6 +537,16 @@ namespace Bots
             bool m_noMeleeSwing = false;
             std::vector<std::string> m_deeds;
         };
+
+        // A member spot finder (GroupCoordinator::ClaimMemberSpot) that
+        // answers `spot`, or none for `found` false.
+        inline GroupCoordinator::MemberSpotFinder SpotAt(bool found, Position spot)
+        {
+            return [found, spot](PullState const&, std::vector<Position> const&, Position& at) {
+                at = spot;
+                return found;
+            };
+        }
     }
 }
 

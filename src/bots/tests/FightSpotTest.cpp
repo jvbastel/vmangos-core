@@ -20,8 +20,6 @@ namespace
     Bots::Guid const Third = 0xF130000302000044;
     Bots::Guid const Fourth = 0xF130000302000055;
 
-    Bots::ShotRange const Bow{8.0f, 30.0f};
-
     // A tank at (0, 0, 0) that walked along the x axis from x = -30, and a
     // pull target `targetX` yards ahead of it, in its own pack.
     struct Pull
@@ -43,7 +41,7 @@ namespace
             fake.AddEnemy(enemy, at, aggroYards);
         }
 
-        FightSpot Find() const { return FindFightSpot(fake, trail, Target, Bow); }
+        FightSpot Find() const { return FindFightSpot(fake, trail, Target); }
     };
 }
 

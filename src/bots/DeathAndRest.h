@@ -37,8 +37,7 @@ namespace Bots
     // coordinator whether every member that the bot sees is dead (the wipe)
     // and whether the bot rests now. A bot that lives again clears its
     // given-up resurrect. A bot that can resurrect ends each give-up whose
-    // blocker died (GroupCoordinator::RetryResurrects). And it notes the bot
-    // as a bot of the group (GroupCoordinator::NoteBot).
+    // blocker died (GroupCoordinator::RetryResurrects).
     void WatchGroup(BotView const& view, GroupCoordinator& group);
 
     // The rest part of the group watch: whether the bot rests now, and the

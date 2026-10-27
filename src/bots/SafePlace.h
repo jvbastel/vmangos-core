@@ -3,6 +3,7 @@
 
 #include "BotView.h"
 
+#include <functional>
 #include <vector>
 
 // Safe places to move to: the one rule for a bot that leaves its spot on
@@ -31,6 +32,9 @@ namespace Bots
     {
         // The units to see from the place. None: no sight check.
         std::vector<Guid> inSightOf;
+        // The places to see from the place (BotView::CanSeeBetween), such as
+        // a fight spot that the tank has not reached yet.
+        std::vector<Position> inSightOfPlaces;
         // The enemies not to pull. None: no pull check.
         std::vector<NearEnemy> enemies;
     };
@@ -53,10 +57,11 @@ namespace Bots
     // first. False when no spot is safe, and for a unit too far away to know
     // the enemies on the way (the bot looks 150 yards around it, so about
     // 84 yards for a cast of 26 yards). `enemies`, when given: the enemies
-    // that the search kept away from. `leastYards`: no ring nearer to the
-    // unit than this, for a spell with a least range (a shot).
+    // that the search kept away from. `accepts`, when given: the caller's
+    // own rule for a place, such as the shot range of Ranged.h (a spell with
+    // a least range).
     bool FindSafeCastPlace(BotView const& view, Guid unit, float yards, Position& place,
-        std::vector<NearEnemy>* enemies = nullptr, float leastYards = 0.0f);
+        std::vector<NearEnemy>* enemies = nullptr, std::function<bool(Position const&)> const& accepts = nullptr);
 }
 
 #endif

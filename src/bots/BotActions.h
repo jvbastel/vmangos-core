@@ -4,8 +4,19 @@
 #include "BotTypes.h"
 #include "Ranged.h"
 
+#include <string>
+
 namespace Bots
 {
+    // The kind of a party chat line (BotActions::SayParty).
+    enum class PartyLine
+    {
+        Plain,
+        // The tank warns that a pull brings extra packs (WarnExtraPacks,
+        // bots/ExtraPackWatch.h): a scripted run records it per pull.
+        ExtraPackWarn,
+    };
+
     // The deeds of one bot in the game. With BotView, the only way from the
     // decision library to the game (ADR 0002 of WOWAI).
     class BotActions
@@ -55,14 +66,8 @@ namespace Bots
         virtual void Eat() = 0;
         // Sit and drink the water of the bot's level. It refills silently.
         virtual void Drink() = 0;
-        // The tank says in party chat that the pull brings `packs` extra
-        // packs (ExtraPackWarnLine, bots/ExtraPackWatch.h). The warn hook of
-        // jvbastel/WOWAI#105; a scripted run records it per pull.
-        virtual void WarnExtraPacks(std::uint32_t packs) = 0;
-        // The tank says in party chat that it waits for `members` bots to
-        // get to their member spots before it pulls (GroupWaitLine,
-        // bots/MemberSpot.h, jvbastel/WOWAI#106).
-        virtual void SayGroupWait(std::uint32_t members) = 0;
+        // Say `line` in party chat.
+        virtual void SayParty(std::string const& line, PartyLine kind) = 0;
         // Bring the ammo up to `topUp` silently, from nothing: no vendor
         // and no money (Ranged.h). The arrows or bullets go in the bags and
         // become the ammo of the ammo slot; a thrown stack grows in place.

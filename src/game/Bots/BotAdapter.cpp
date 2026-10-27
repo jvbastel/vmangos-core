@@ -12,8 +12,6 @@
 #include "BotGeometry.h"
 #include "GhostWalk.h"
 #include "CastResult.h"
-#include "ExtraPackWatch.h"
-#include "MemberSpot.h"
 #include "Bag.h"
 #include "Corpse.h"
 #include "Group.h"
@@ -290,6 +288,17 @@ float BotAdapter::GetSpellDistance(Bots::Guid unit) const
     // The distance of Spell::CheckRange and of the range check of CanCast.
     Unit const* found = Find(unit);
     return found ? me->GetCombatDistance(found) : std::numeric_limits<float>::max();
+}
+
+float BotAdapter::GetSpellDistanceFrom(Bots::Position const& place, Bots::Guid unit) const
+{
+    // GetCombatDistance with the bot on the ground at the place.
+    Unit const* found = Find(unit);
+    if (!found)
+        return std::numeric_limits<float>::max();
+    float const ground = GetGround(place).z;
+    float const centers = found->GetDistance3dToCenter(place.x, place.y, ground);
+    return std::max(0.0f, centers - me->GetCombatReach() - found->GetCombatReach());
 }
 
 float BotAdapter::GetDistanceBetween(Bots::Guid a, Bots::Guid b) const
@@ -714,6 +723,13 @@ bool BotAdapter::CanSeeFrom(Bots::Position const& place, Bots::Guid unit) const
     return me->IsWithinLOSAtPosition(place.x, place.y, ground, x, y, z, true, 0.0f);
 }
 
+bool BotAdapter::CanSeeBetween(Bots::Position const& from, Bots::Position const& to) const
+{
+    // As CanSeeFrom, to a bot of the bot's height on the ground at `to`.
+    return me->IsWithinLOSAtPosition(from.x, from.y, GetGround(from).z, to.x, to.y, GetGround(to).z, true,
+        me->GetCollisionHeight());
+}
+
 Unit const* BotAdapter::FindAnywhere(Bots::Guid unit) const
 {
     if (Unit const* found = Find(unit))
@@ -892,18 +908,13 @@ void BotAdapter::Drink()
     UseRestItem(RestItemFor(me->GetLevel()).drink);
 }
 
-void BotAdapter::WarnExtraPacks(uint32 packs)
+void BotAdapter::SayParty(std::string const& text, Bots::PartyLine kind)
 {
     // A party line like the refusals of BotAI: BotMgr::SendLines says it on
-    // the world thread, and a scripted run notes the warn there.
-    BotLine line{me->GetObjectGuid(), CHAT_MSG_PARTY, ObjectGuid(), Bots::ExtraPackWarnLine(packs)};
-    line.extraPackWarn = true;
+    // the world thread, and a scripted run notes an extra pack warn there.
+    BotLine line{me->GetObjectGuid(), CHAT_MSG_PARTY, ObjectGuid(), text};
+    line.extraPackWarn = kind == Bots::PartyLine::ExtraPackWarn;
     sBotMgr.QueueLine(std::move(line));
-}
-
-void BotAdapter::SayGroupWait(uint32 members)
-{
-    sBotMgr.QueueLine({me->GetObjectGuid(), CHAT_MSG_PARTY, ObjectGuid(), Bots::GroupWaitLine(members)});
 }
 
 Bots::RangedWeapon BotAdapter::GetRangedWeapon() const

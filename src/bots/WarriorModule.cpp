@@ -1,6 +1,7 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
 #include "BotGeometry.h"
+#include "ExtraPackWatch.h"
 #include "FightSpot.h"
 #include "GroupRules.h"
 #include "MemberSpot.h"
@@ -18,13 +19,8 @@ namespace Bots
             std::uint32_t const SpareRage = 45;
             // The range of Taunt.
             float const TauntYards = 20.0f;
-            // The shoot spells reach from 8 to 30 yards (spell range 74).
-            // Out of range or sight, the tank walks to ShootStandYards.
-            float const MinShootYards = 8.0f;
-            float const MaxShootYards = 30.0f;
+            // Out of shooting range (Ranged.h), the tank walks to this.
             float const ShootStandYards = 25.0f;
-            // Nearer than this to its pull spot, the tank is back.
-            float const SpotYards = 2.0f;
             // A chase into shooting range counts as ended only after this
             // many thinks in a row with no move: right after the order (or
             // a new path) the tank does not move yet.
@@ -66,16 +62,16 @@ namespace Bots
                 return PlanAmmoTopUp(context.view.GetRangedWeapon(), context.view.GetLevel(Self(context)));
             }
 
-            // The pull target is out of the range or the sight of a shot.
+            // The pull target is out of the range or the sight of a shot
+            // (InShotFrom, Ranged.h): too far, too near, or out of sight.
             bool OutOfShot(BotContext const& context)
             {
-                Guid const target = PickPullTarget(context);
-                return context.view.GetSpellDistance(target) > MaxShootYards
-                    || !context.view.CanSeeFrom(context.view.GetPosition(Self(context)), target);
+                return !InShotFrom(context.view, context.view.GetPosition(Self(context)), PickPullTarget(context));
             }
 
             // The tank pulls from range: it wears a ranged weapon with ammo,
-            // knows its shoot spell, and the target is not too near for it.
+            // knows its shoot spell, and the target is not too near for it,
+            // or the fight spot search found it a shoot spot (FightSpot.h).
             // Not when its chase into range ended out of shot (the path
             // cannot get nearer; StillChaseThinks), nor once it ran in
             // to hit (a melee attack of the target): then the pull is the
@@ -84,8 +80,10 @@ namespace Bots
             {
                 RangedWeapon const weapon = context.view.GetRangedWeapon();
                 Guid const target = PickPullTarget(context);
-                if (!CanFire(weapon) || !context.view.KnowsSpell(ShootSpell(weapon.kind))
-                    || context.view.GetSpellDistance(target) < MinShootYards)
+                if (!CanFire(weapon) || !context.view.KnowsSpell(ShootSpell(weapon.kind)))
+                    return false;
+                if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooNear
+                    && !context.group.GetPull().hasShootSpot)
                     return false;
                 if (context.view.GetVictim(Self(context)) == target && context.view.IsMeleeAttacking())
                     return false;
@@ -103,7 +101,7 @@ namespace Bots
 
             float DistanceToSpot(BotContext const& context)
             {
-                return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().spot);
+                return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().fightSpot);
             }
 
             float DistanceToShootSpot(BotContext const& context)
@@ -164,6 +162,14 @@ namespace Bots
                 return loose != NoGuid && context.view.CanCast(taunt, loose);
             }
 
+            // The tank warns in party chat that the pull brings `packs`
+            // extra packs (0: may bring), once a pull.
+            void Warn(BotContext const& context, std::uint32_t packs)
+            {
+                WarnExtraPacks(context.actions, packs);
+                context.group.NoteExtraPackWarn(Self(context));
+            }
+
             Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
             {
                 Rule rule;
@@ -198,42 +204,59 @@ namespace Bots
                 // (FightSpot.h), and the pack comes to it there. With no
                 // clean spot it warns about the extra packs, once a pull.
                 // No Charge: it stuns the target in place.
-                Bookkeeping("note the pull spot", P + 80,
-                    [](BotContext const& context) { return IsPulling(context) && !context.group.GetPull().hasSpot; },
+                Bookkeeping(NoteFightSpotRule, P + 80,
+                    [](BotContext const& context) { return IsPulling(context) && !context.group.GetPull().hasFightSpot; },
                     [](BotContext const& context) {
-                        FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(),
-                            PickPullTarget(context), ShotRange{MinShootYards, MaxShootYards});
-                        context.group.SetPullSpot(Self(context), fight.spot);
+                        FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(), PickPullTarget(context));
+                        context.group.SetFightSpot(Self(context), fight.spot);
                         context.group.StartGroupWait(Self(context), context.nowMs);
                         if (fight.hasShootSpot)
                             context.group.SetShootSpot(Self(context), fight.shootSpot);
-                        if (fight.extraPacks > 0)
-                            context.actions.WarnExtraPacks(fight.extraPacks);
+                        if (!fight.clean)
+                            Warn(context, fight.extraPacks);
                     }),
                 // The group goes to its member spots (MemberSpot.h): the tank
                 // pulls when each bot is in place, or after GroupWaitMs. It
                 // may walk to its shoot spot meanwhile. A wait of
                 // GroupWaitSayMs it says in party chat, once a pull.
-                Rule{"wait for the group", P + 76, TankWaitsForTheGroup,
+                Rule{WaitForTheGroupRule, P + 76, TankWaitsForTheGroup,
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) {
                             PullState const pull = context.group.GetPull();
-                            if (pull.waitSaid || context.nowMs - pull.waitFromMs < GroupWaitSayMs)
+                            if (pull.waitSaid != GroupWaitSaid::Nothing || context.nowMs - pull.waitFromMs < GroupWaitSayMs)
                                 return;
-                            context.actions.SayGroupWait(std::uint32_t(MembersNotInPlace(context).size()));
-                            context.group.NoteGroupWaitSaid(Self(context));
+                            context.actions.SayParty(GroupWaitLine(std::uint32_t(MembersNotInPlace(context).size())), PartyLine::Plain);
+                            context.group.NoteGroupWaitSaid(Self(context), GroupWaitSaid::Waits);
                         }}},
+                // The wait ended with bots not in place: the tank says that
+                // it pulls without them, once a pull.
+                Bookkeeping("pull without the group", P + 79,
+                    [](BotContext const& context) {
+                        PullState const pull = context.group.GetPull();
+                        return IsPulling(context) && pull.hasFightSpot && pull.waitSaid != GroupWaitSaid::PullsWithout
+                            && context.nowMs - pull.waitFromMs >= GroupWaitMs && !MembersNotInPlace(context).empty();
+                    },
+                    [](BotContext const& context) {
+                        context.actions.SayParty(PullWithoutLine(std::uint32_t(MembersNotInPlace(context).size())), PartyLine::Plain);
+                        context.group.NoteGroupWaitSaid(Self(context), GroupWaitSaid::PullsWithout);
+                    }),
                 // The tank cannot shoot from where it stands: it walks to
                 // its shoot spot. No shot from there either (the sight of
                 // the game): it pulls as without one.
                 Bookkeeping("no shot from the shoot spot", P + 78,
                     [](BotContext const& context) {
-                        return GoesToShoot(context) && DistanceToShootSpot(context) <= SpotYards;
+                        return GoesToShoot(context) && DistanceToShootSpot(context) <= AtSpotYards;
                     },
-                    [](BotContext const& context) { context.group.ClearShootSpot(Self(context)); }),
+                    [](BotContext const& context) {
+                        // Its chase to the target from here is no checked
+                        // way (FightSpot.h): the tank warns, once a pull.
+                        context.group.ClearShootSpot(Self(context));
+                        if (!context.group.GetPull().extraPackWarned)
+                            Warn(context, 0);
+                    }),
                 Rule{"go to the shoot spot", P + 77,
                     [](BotContext const& context) {
-                        return GoesToShoot(context) && DistanceToShootSpot(context) > SpotYards;
+                        return GoesToShoot(context) && DistanceToShootSpot(context) > AtSpotYards;
                     },
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().shootSpot); }}},
@@ -260,13 +283,13 @@ namespace Bots
                             // sight: closer, until the tank sees the target.
                             Guid const target = PickPullTarget(context);
                             context.group.CountRangeChase(Self(context), context.view.IsMoving(Self(context)));
-                            if (context.view.GetSpellDistance(target) > MaxShootYards)
+                            if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooFar)
                                 context.actions.ChaseToRange(target, ShootStandYards);
                             else
                                 context.actions.Chase(target);
                         }}},
                 // Else the fallback: run in and hit the target once, then
-                // walk back ("walk back to the pull spot").
+                // walk back ("walk back to the fight spot").
                 MeleeRule("run to the pull target", P + 70,
                     [](BotContext const& context) {
                         // A ranged chase made the target the victim, with no
@@ -280,18 +303,18 @@ namespace Bots
                                 || (!InCombat(context) && context.view.GetChase().target != target));
                     },
                     PickPullTarget),
-                Bookkeeping("back at the pull spot", P + 69,
+                Bookkeeping("back at the fight spot", P + 69,
                     [](BotContext const& context) {
-                        return HoldsPull(context) && context.group.GetPull().hasSpot && DistanceToSpot(context) <= SpotYards;
+                        return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) <= AtSpotYards;
                     },
-                    [](BotContext const& context) { context.group.ClearPullSpot(Self(context)); }),
-                Rule{"walk back to the pull spot", P + 68,
+                    [](BotContext const& context) { context.group.ClearFightSpot(Self(context)); }),
+                Rule{"walk back to the fight spot", P + 68,
                     [](BotContext const& context) {
-                        return HoldsPull(context) && context.group.GetPull().hasSpot && DistanceToSpot(context) > SpotYards
+                        return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) > AtSpotYards
                             && !TauntDue(context);
                     },
                     {[](BotContext const&) { return true; },
-                        [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().spot); }}},
+                        [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().fightSpot); }}},
 
                 // An enemy attacks the bot or another group member outside
                 // a pull: it becomes the focus target. This is no pull of its

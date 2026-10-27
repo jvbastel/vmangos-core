@@ -96,7 +96,7 @@ struct BotLine
     // A line of the chat service: the id of its event (ChatClient::Post),
     // for the result of a scripted run. 0 for a line of the bot itself.
     uint64 eventId = 0;
-    // The extra pack warn of the tank (BotActions::WarnExtraPacks), for the
+    // The extra pack warn of the tank (Bots::WarnExtraPacks), for the
     // result of a scripted run (jvbastel/WOWAI#103).
     bool extraPackWarn = false;
 };

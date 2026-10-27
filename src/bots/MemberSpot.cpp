@@ -55,20 +55,10 @@ namespace Bots
                 return Distance3d(spot, other) >= MemberSpreadYards;
             });
         }
-
-        // The enemies of all packs but the target's.
-        std::vector<NearEnemy> OtherPacks(std::vector<NearEnemy> const& enemies, Guid target)
-        {
-            std::vector<NearEnemy> others;
-            for (std::vector<NearEnemy> const& pack : SplitIntoPacks(enemies))
-                if (std::none_of(pack.begin(), pack.end(), [target](NearEnemy const& enemy) { return enemy.guid == target; }))
-                    others.insert(others.end(), pack.begin(), pack.end());
-            return others;
-        }
     }
 
     bool FindMemberSpot(BotView const& view, BotRole role, Position const& fightSpot,
-        std::vector<Position> const& trail, Guid tank, Guid target, std::vector<Position> const& taken,
+        std::vector<Position> const& trail, Guid target, std::vector<Position> const& taken,
         Position& spot)
     {
         Position const self = view.GetPosition(view.GetSelf());
@@ -84,7 +74,8 @@ namespace Bots
         std::vector<Position> spots;
         if (role == BotRole::Melee)
         {
-            rules.enemies = OtherPacks(enemies, target);
+            for (std::vector<NearEnemy> const& pack : SplitTargetPack(enemies, target, view.GetPosition(target)).others)
+                rules.enemies.insert(rules.enemies.end(), pack.begin(), pack.end());
             for (float degrees : {0.0f, 90.0f, -90.0f})
                 spots.push_back(Along(view, fightSpot, dx, dy, degrees, MeleeBackYards));
             spots.push_back(fightSpot);
@@ -92,8 +83,9 @@ namespace Bots
         else
         {
             rules.enemies = enemies;
+            // The healer heals the tank at its fight spot.
             if (role == BotRole::Healer)
-                rules.inSightOf = {tank};
+                rules.inSightOfPlaces = {fightSpot};
             // The cleared way first, from the fight spot back.
             for (auto point = trail.rbegin(); point != trail.rend(); ++point)
                 if (InBand(*point, fightSpot))
@@ -112,13 +104,30 @@ namespace Bots
         return FirstSafePlace(view, spots, rules, spot);
     }
 
+    namespace
+    {
+        // The bot joins a pull now: it lives, is in no fight, and is not
+        // told to come.
+        bool JoinsPulls(BotContext const& context)
+        {
+            Guid const self = context.view.GetSelf();
+            return IsAlive(context.view, self) && !context.view.IsInCombat(self)
+                && context.command != CommandState::Come;
+        }
+    }
+
+    void NoteForPulls(BotContext const& context)
+    {
+        context.group.NoteBot(context.view.GetSelf(), context.nowMs, JoinsPulls(context));
+    }
+
     std::vector<Guid> MembersNotInPlace(BotContext const& context)
     {
         Guid const self = context.view.GetSelf();
         std::vector<Guid> const members = context.view.GetGroupMembers();
         std::vector<MemberSpot> const spots = context.group.GetMemberSpots();
         std::vector<Guid> waited;
-        for (Guid bot : context.group.GetBots())
+        for (Guid bot : context.group.GetPullMembers(context.nowMs, BotNoteMs))
         {
             if (bot == self || std::find(members.begin(), members.end(), bot) == members.end()
                 || !IsAlive(context.view, bot))
@@ -135,7 +144,7 @@ namespace Bots
     bool TankWaitsForTheGroup(BotContext const& context)
     {
         PullState const pull = context.group.GetPull();
-        return pull.phase == PullPhase::Pulling && pull.puller == context.view.GetSelf() && pull.hasSpot
+        return pull.phase == PullPhase::Pulling && pull.puller == context.view.GetSelf() && pull.hasFightSpot
             && context.nowMs - pull.waitFromMs < GroupWaitMs && !MembersNotInPlace(context).empty();
     }
 
@@ -143,6 +152,11 @@ namespace Bots
     {
         return "Waiting for " + std::to_string(members) + (members == 1 ? " member" : " members")
             + " to get in place.";
+    }
+
+    std::string PullWithoutLine(std::uint32_t members)
+    {
+        return "Pulling without " + std::to_string(members) + (members == 1 ? " member." : " members.");
     }
 
     namespace
@@ -166,9 +180,7 @@ namespace Bots
         {
             PullState const pull = context.group.GetPull();
             Guid const self = context.view.GetSelf();
-            if (pull.phase != PullPhase::Pulling || !pull.hasSpot || pull.puller == self
-                || context.command == CommandState::Come || !IsAlive(context.view, self)
-                || context.view.IsInCombat(self))
+            if (pull.phase != PullPhase::Pulling || !pull.hasFightSpot || pull.puller == self || !JoinsPulls(context))
                 return false;
             MemberSpot mine;
             return !MySpot(context, mine) || (mine.found && !mine.inPlace);
@@ -177,22 +189,16 @@ namespace Bots
         void GoToMemberSpot(BotContext const& context, BotRole role)
         {
             Guid const self = context.view.GetSelf();
-            MemberSpot mine;
-            if (!MySpot(context, mine))
-            {
-                PullState const pull = context.group.GetPull();
-                std::vector<Position> taken;
-                for (MemberSpot const& other : context.group.GetMemberSpots())
-                    if (other.bot != self && other.found)
-                        taken.push_back(other.spot);
-                mine.bot = self;
-                mine.found = FindMemberSpot(context.view, role, pull.spot, context.group.GetTrail(), pull.puller,
-                    pull.target, taken, mine.spot);
-                context.group.SetMemberSpot(self, mine.found, mine.spot);
-                if (!mine.found)
-                    return;
-            }
-            if (Distance2d(context.view.GetPosition(self), mine.spot) <= MemberInPlaceYards)
+            // The trail holds still while the pull is on (Trail.h).
+            std::vector<Position> const trail = context.group.GetTrail();
+            MemberSpot const mine = context.group.ClaimMemberSpot(self,
+                [&context, role, &trail](PullState const& pull, std::vector<Position> const& taken, Position& spot) {
+                    return pull.hasFightSpot
+                        && FindMemberSpot(context.view, role, pull.fightSpot, trail, pull.target, taken, spot);
+                });
+            if (!mine.found)
+                return;
+            if (Distance2d(context.view.GetPosition(self), mine.spot) <= AtSpotYards)
             {
                 context.group.SetMemberInPlace(self);
                 return;
@@ -205,7 +211,7 @@ namespace Bots
     {
         PullState const pull = context.group.GetPull();
         MemberSpot mine;
-        return pull.phase == PullPhase::Pulling && pull.hasSpot && pull.puller != context.view.GetSelf()
+        return pull.phase == PullPhase::Pulling && pull.hasFightSpot && pull.puller != context.view.GetSelf()
             && MySpot(context, mine) && mine.found && mine.inPlace;
     }
 
@@ -214,7 +220,7 @@ namespace Bots
         if (role == BotRole::Tank)
             return nullptr;
         Rule rule;
-        rule.name = "go to the member spot";
+        rule.name = GoToMemberSpotRule;
         rule.priority = Priority::Command + 33;
         rule.trigger = GoesToMemberSpot;
         rule.action.canDo = [](BotContext const&) { return true; };

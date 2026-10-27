@@ -1,5 +1,6 @@
 #include "FightSpot.h"
 #include "BotGeometry.h"
+#include "Ranged.h"
 
 #include <algorithm>
 
@@ -11,9 +12,6 @@ namespace Bots
         float const EnemySearchYards = FightSpotSearchYards + 60.0f;
         // A trail spot this near to the last one is the same spot.
         float const SameSpotYards = 0.5f;
-        // A shot from a spot: the least range plus this, for the bodies
-        // that the center distance of a spot leaves out.
-        float const ShotBodyYards = 2.0f;
 
         bool Near(std::vector<NearEnemy> const& pack, Position const& at, float yards)
         {
@@ -47,13 +45,6 @@ namespace Bots
             return spots;
         }
 
-        // A shot from `at` reaches the target at `target`. Without the
-        // bodies: the center distance is at least the distance between them.
-        bool InShotFrom(BotView const& view, Position const& at, Guid target, Position const& targetAt, ShotRange shot)
-        {
-            float const distance = Distance3d(at, targetAt);
-            return distance >= shot.minYards + ShotBodyYards && distance <= shot.maxYards && view.CanSeeFrom(at, target);
-        }
     }
 
     std::vector<std::vector<NearEnemy>> SplitIntoPacks(std::vector<NearEnemy> const& enemies)
@@ -85,25 +76,32 @@ namespace Bots
         return result;
     }
 
-    FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target, ShotRange shot)
+    TargetPack SplitTargetPack(std::vector<NearEnemy> const& enemies, Guid target, Position const& targetAt)
     {
-        Guid const self = view.GetSelf();
-        Position const selfAt = view.GetPosition(self);
-        Position const targetAt = view.GetPosition(target);
-
-        // The target's pack, and the others.
-        std::vector<NearEnemy> targetPack = {{targetAt, 0.0f, target}};
-        std::vector<std::vector<NearEnemy>> others;
-        for (std::vector<NearEnemy>& pack : SplitIntoPacks(view.GetEnemiesNear(EnemySearchYards)))
+        TargetPack split;
+        split.pack = {{targetAt, 0.0f, target}};
+        for (std::vector<NearEnemy>& pack : SplitIntoPacks(enemies))
         {
             bool const isTarget = std::any_of(pack.begin(), pack.end(), [target](NearEnemy const& enemy) {
                 return enemy.guid == target;
             });
             if (isTarget)
-                targetPack = std::move(pack);
+                split.pack = std::move(pack);
             else
-                others.push_back(std::move(pack));
+                split.others.push_back(std::move(pack));
         }
+        return split;
+    }
+
+    FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target)
+    {
+        Guid const self = view.GetSelf();
+        Position const selfAt = view.GetPosition(self);
+        Position const targetAt = view.GetPosition(target);
+
+        TargetPack const split = SplitTargetPack(view.GetEnemiesNear(EnemySearchYards), target, targetAt);
+        std::vector<NearEnemy> const& targetPack = split.pack;
+        std::vector<std::vector<NearEnemy>> const& others = split.others;
         std::vector<NearEnemy> otherEnemies;
         std::uint32_t assisting = 0;
         std::vector<std::vector<NearEnemy> const*> avoidable;
@@ -122,16 +120,17 @@ namespace Bots
         // newest trail spot in shot that pulls no other pack, else from a
         // safe place round the target.
         FightSpot result;
-        bool canShoot = view.GetSpellDistance(target) >= shot.minYards
-            && view.GetSpellDistance(target) <= shot.maxYards && view.CanSeeFrom(selfAt, target);
+        bool canShoot = InShotFrom(view, selfAt, target);
         for (std::size_t i = 1; !canShoot && i < spots.size(); ++i)
-            if (InShotFrom(view, spots[i], target, targetAt, shot) && !PullsAnEnemy(otherEnemies, spots[i]))
+            if (InShotFrom(view, spots[i], target) && !PullsAnEnemy(otherEnemies, spots[i]))
             {
                 canShoot = true;
                 result.hasShootSpot = true;
                 result.shootSpot = spots[i];
             }
-        if (!canShoot && FindSafeCastPlace(view, target, shot.maxYards, result.shootSpot, nullptr, shot.minYards + ShotBodyYards))
+        if (!canShoot
+            && FindSafeCastPlace(view, target, ShotMaxYards, result.shootSpot, nullptr,
+                [&view, target](Position const& at) { return InShotFrom(view, at, target); }))
         {
             canShoot = true;
             result.hasShootSpot = true;

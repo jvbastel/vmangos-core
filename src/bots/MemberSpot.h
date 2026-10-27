@@ -19,7 +19,7 @@
 //   back from the fight spot, toward the cleared way (the tank's trail, else
 //   away from the target), at least MemberSpreadYards from the spot of each
 //   other member, so one area attack cannot hit them all;
-// - the healer's spot sees the tank.
+// - the healer's spot sees the fight spot, where it heals the tank.
 // Each spot, and the path to it, keeps out of the aggro distance of each
 // enemy and the margin (the safe place rule, SafePlace.h). Melee keeps out
 // of the other packs only: it fights the target's pack at the fight spot.
@@ -38,8 +38,6 @@ namespace Bots
     // A spot on ground more than this over or under the fight spot does not
     // count: a ledge needs a long way round.
     float const MemberHeightYards = 5.0f;
-    // Nearer than this to its spot, a bot is in place.
-    float const MemberInPlaceYards = 2.0f;
     // The longest wait of the tank for the group.
     std::int64_t const GroupWaitMs = 10 * 1000;
     // A wait this long, or longer, the tank says in party chat (once a
@@ -50,13 +48,24 @@ namespace Bots
     // tank's fight spot `fightSpot` and its trail `trail` (oldest first).
     // `taken`: the spots of the other members. False when no spot is safe.
     bool FindMemberSpot(BotView const& view, BotRole role, Position const& fightSpot,
-        std::vector<Position> const& trail, Guid tank, Guid target, std::vector<Position> const& taken,
+        std::vector<Position> const& trail, Guid target, std::vector<Position> const& taken,
         Position& spot);
 
+    // A bot that has not noted itself for this long (NoteForPulls) is gone
+    // from the pull: logged out, in another place, or far away (a far bot
+    // thinks each 3 s).
+    std::int64_t const BotNoteMs = 5 * 1000;
+
+    // Each bot, on each think: it notes itself in the coordinator, and
+    // whether it joins a pull now (it lives, is in no fight, and is not
+    // told to come), so the tank waits only for bots that go to a member
+    // spot (GroupCoordinator::NoteBot).
+    void NoteForPulls(BotContext const& context);
+
     // The bots that the puller waits for: each living bot of its group that
-    // the coordinator knows (GroupCoordinator::NoteBot), but the puller,
-    // that is not in place at its member spot, and has found one or not yet
-    // looked for one.
+    // joins pulls (NoteForPulls, within BotNoteMs), but the puller, that is
+    // not in place at its member spot, and has found one or not yet looked
+    // for one.
     std::vector<Guid> MembersNotInPlace(BotContext const& context);
 
     // The tank waits for the group: a pull with a fight spot, with a member
@@ -64,8 +73,10 @@ namespace Bots
     // fight spot. A bot once in place is not waited for again.
     bool TankWaitsForTheGroup(BotContext const& context);
 
-    // The party line of the tank that waits for `members` members.
+    // The party line of the tank that waits for `members` members, and the
+    // one when it pulls without them after GroupWaitMs.
     std::string GroupWaitLine(std::uint32_t members);
+    std::string PullWithoutLine(std::uint32_t members);
 
     // The bot stands at its member spot in the pull that is on: it holds
     // there, so the follow rules (FollowTank.h, "follow the player") and the
@@ -77,6 +88,7 @@ namespace Bots
     // (a move ends the meal; the bot rests again at its spot), the follow
     // rules, and the loot, and under the class rules. Null for the tank.
     std::shared_ptr<Strategy const> MakeMemberSpotStrategy(BotRole role);
+    char const* const GoToMemberSpotRule = "go to the member spot";
 }
 
 #endif
