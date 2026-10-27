@@ -160,11 +160,14 @@ namespace Bots
             }
 
             // In a pull, before the tank engaged or within HealDelayMs after
-            // it, while no member is in danger: the healer waits.
+            // it, while no member is in danger: the healer waits. When the
+            // pull target attacks someone other than the tank, the tank
+            // never engages it, and the healer does not wait for that.
             bool WaitsForTheTank(BotContext const& context)
             {
                 PullState const pull = context.group.GetPull();
-                bool const early = pull.phase == PullPhase::Pulling
+                Guid const victim = pull.phase == PullPhase::Pulling ? context.view.GetVictim(pull.target) : NoGuid;
+                bool const early = (pull.phase == PullPhase::Pulling && (victim == NoGuid || victim == pull.puller))
                     || (pull.phase == PullPhase::Holding && context.nowMs - pull.engagedMs < HealDelayMs);
                 return early && MostHurtMember(context, DangerBelow, AnyMember) == NoGuid;
             }

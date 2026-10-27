@@ -470,6 +470,21 @@ TEST(PriestHealerDelay, TheDelayStartsWhenTheTankEngagesNotAtThePullCommand)
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Tank)}));
 }
 
+TEST(PriestHealerDelay, DoesNotWaitWhenThePullTargetAttacksAnotherMember)
+{
+    // The kobold attacks the healer, not the tank: the tank never engages.
+    PriestHealer priest;
+    priest.group.StartPull(Tank, Kobold);
+    priest.InFight();
+    priest.fake.SetVictim(Kobold, Healer);
+    priest.fake.SetHealth(Healer, 400, 600);
+    priest.nowMs = 5000;
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Healer)}));
+}
+
 TEST(PriestHealerDelay, HealsAtOnceInAFightWithoutAPull)
 {
     PriestHealer priest;
