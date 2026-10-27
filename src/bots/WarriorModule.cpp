@@ -1,6 +1,11 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
+#include "BotGeometry.h"
+#include "ExtraPackWatch.h"
+#include "FightSpot.h"
 #include "GroupRules.h"
+#include "MemberSpot.h"
+#include "Ranged.h"
 #include "SpellBook.h"
 
 namespace Bots
@@ -14,6 +19,14 @@ namespace Bots
             std::uint32_t const SpareRage = 45;
             // The range of Taunt.
             float const TauntYards = 20.0f;
+            // Out of shooting range (Ranged.h), the tank walks to this.
+            float const ShootStandYards = 25.0f;
+            // A chase into shooting range counts as ended only after this
+            // many thinks in a row with no move: right after the order (or
+            // a new path) the tank does not move yet.
+            std::uint32_t const StillChaseThinks = 3;
+            // Nearer than this, the focus is in melee reach.
+            float const MeleeYards = 5.0f;
 
             Guid Self(BotContext const& context)
             {
@@ -38,6 +51,80 @@ namespace Bots
                 return pull.phase == PullPhase::Pulling && pull.puller == Self(context);
             }
 
+            bool IsCasting(BotContext const& context)
+            {
+                return context.view.GetCurrentCast(Self(context)) != NoSpell;
+            }
+
+            // The ammo the tank tops up now for its ranged weapon and level.
+            AmmoTopUp AmmoPlan(BotContext const& context)
+            {
+                return PlanAmmoTopUp(context.view.GetRangedWeapon(), context.view.GetLevel(Self(context)));
+            }
+
+            // The pull target is out of the range or the sight of a shot
+            // (InShotFrom, Ranged.h): too far, too near, or out of sight.
+            bool OutOfShot(BotContext const& context)
+            {
+                return !InShotFrom(context.view, context.view.GetPosition(Self(context)), PickPullTarget(context));
+            }
+
+            // The tank pulls from range: it wears a ranged weapon with ammo,
+            // knows its shoot spell, and the target is not too near for it,
+            // or the fight spot search found it a shoot spot (FightSpot.h).
+            // Not when its chase into range ended out of shot (the path
+            // cannot get nearer; StillChaseThinks), nor once it ran in
+            // to hit (a melee attack of the target): then the pull is the
+            // fallback.
+            bool PullsFromRange(BotContext const& context)
+            {
+                RangedWeapon const weapon = context.view.GetRangedWeapon();
+                Guid const target = PickPullTarget(context);
+                if (!CanFire(weapon) || !context.view.KnowsSpell(ShootSpell(weapon.kind)))
+                    return false;
+                if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooNear
+                    && !context.group.GetPull().hasShootSpot)
+                    return false;
+                if (context.view.GetVictim(Self(context)) == target && context.view.IsMeleeAttacking())
+                    return false;
+                return !(context.view.GetChase().target == target && !context.view.IsMoving(Self(context))
+                    && context.group.GetPull().stillChaseThinks >= StillChaseThinks && OutOfShot(context));
+            }
+
+            // The pulled pack holds on the puller: the tank is the puller of
+            // a held pull.
+            bool HoldsPull(BotContext const& context)
+            {
+                PullState const pull = context.group.GetPull();
+                return pull.phase == PullPhase::Holding && pull.puller == Self(context);
+            }
+
+            float DistanceToSpot(BotContext const& context)
+            {
+                return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().fightSpot);
+            }
+
+            float DistanceToShootSpot(BotContext const& context)
+            {
+                return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().shootSpot);
+            }
+
+            // The tank pulls from range from its shoot spot, and stands
+            // out of shot.
+            bool GoesToShoot(BotContext const& context)
+            {
+                return IsPulling(context) && context.group.GetPull().hasShootSpot && !IsCasting(context)
+                    && PullsFromRange(context) && OutOfShot(context);
+            }
+
+            // The focus target attacks the tank and runs to it: the tank
+            // waits for it where it stands.
+            bool FocusComes(BotContext const& context)
+            {
+                Guid const focus = PickFocusTarget(context);
+                return context.view.GetVictim(focus) == Self(context) && context.view.IsMoving(focus);
+            }
+
             // The fight on the focus target goes on: the bot is in combat,
             // and the focus target lives.
             bool FightsFocus(BotContext const& context)
@@ -57,6 +144,30 @@ namespace Bots
             Guid PickLooseEnemy(BotContext const& context)
             {
                 return PickMemberAttacker(context, Self(context), context.group.GetFocusTarget());
+            }
+
+            // A taunt is due and ready: the focus or another enemy hits a
+            // member, and the tank can taunt it now. The walk back waits
+            // for it, so that no member holds an enemy of the pull.
+            bool TauntDue(BotContext const& context)
+            {
+                SpellId const taunt = HighestKnownRank(context.view, Taunt);
+                if (taunt == NoSpell || !FightsFocus(context))
+                    return false;
+                Guid const focus = PickFocusTarget(context);
+                Guid const victim = context.view.GetVictim(focus);
+                if (victim != NoGuid && victim != Self(context) && context.view.CanCast(taunt, focus))
+                    return true;
+                Guid const loose = PickLooseEnemy(context);
+                return loose != NoGuid && context.view.CanCast(taunt, loose);
+            }
+
+            // The tank warns in party chat that the pull brings `packs`
+            // extra packs (0: may bring), once a pull.
+            void Warn(BotContext const& context, std::uint32_t packs)
+            {
+                WarnExtraPacks(context.actions, packs);
+                context.group.NoteExtraPackWarn(Self(context));
             }
 
             Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
@@ -89,22 +200,121 @@ namespace Bots
                     },
                     [](BotContext const& context) { context.group.HoldPull(Self(context)); }),
 
-                // The pull: Charge in Battle Stance, else run to the target.
-                CastRule("battle stance to charge", P + 80,
+                // The pull. The tank picks its fight spot on its cleared way
+                // (FightSpot.h), and the pack comes to it there. With no
+                // clean spot it warns about the extra packs, once a pull.
+                // No Charge: it stuns the target in place.
+                Bookkeeping(NoteFightSpotRule, P + 80,
+                    [](BotContext const& context) { return IsPulling(context) && !context.group.GetPull().hasFightSpot; },
                     [](BotContext const& context) {
-                        return IsPulling(context) && !InCombat(context)
-                            && !context.view.HasAura(Self(context), BattleStance)
-                            && context.view.KnowsSpell(Charge);
+                        FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(), PickPullTarget(context));
+                        context.group.SetFightSpot(Self(context), fight.spot);
+                        context.group.StartGroupWait(Self(context), context.nowMs);
+                        if (fight.hasShootSpot)
+                            context.group.SetShootSpot(Self(context), fight.shootSpot);
+                        if (!fight.clean)
+                            Warn(context, fight.extraPacks);
+                    }),
+                // The group goes to its member spots (MemberSpot.h): the tank
+                // pulls when each bot is in place, or after GroupWaitMs. It
+                // may walk to its shoot spot meanwhile. A wait of
+                // GroupWaitSayMs it says in party chat, once a pull.
+                Rule{WaitForTheGroupRule, P + 76, TankWaitsForTheGroup,
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) {
+                            PullState const pull = context.group.GetPull();
+                            if (pull.waitSaid != GroupWaitSaid::Nothing || context.nowMs - pull.waitFromMs < GroupWaitSayMs)
+                                return;
+                            context.actions.SayParty(GroupWaitLine(std::uint32_t(MembersNotInPlace(context).size())), PartyLine::Plain);
+                            context.group.NoteGroupWaitSaid(Self(context), GroupWaitSaid::Waits);
+                        }}},
+                // The wait ended with bots not in place: the tank says that
+                // it pulls without them, once a pull.
+                Bookkeeping("pull without the group", P + 79,
+                    [](BotContext const& context) {
+                        PullState const pull = context.group.GetPull();
+                        return IsPulling(context) && pull.hasFightSpot && pull.waitSaid != GroupWaitSaid::PullsWithout
+                            && context.nowMs - pull.waitFromMs >= GroupWaitMs && !MembersNotInPlace(context).empty();
                     },
-                    BattleStance, PickSelf),
-                CastRule("charge the pull target", P + 75,
-                    [](BotContext const& context) { return IsPulling(context) && !InCombat(context); },
-                    Charge, PickPullTarget),
+                    [](BotContext const& context) {
+                        context.actions.SayParty(PullWithoutLine(std::uint32_t(MembersNotInPlace(context).size())), PartyLine::Plain);
+                        context.group.NoteGroupWaitSaid(Self(context), GroupWaitSaid::PullsWithout);
+                    }),
+                // The tank cannot shoot from where it stands: it walks to
+                // its shoot spot. No shot from there either (the sight of
+                // the game): it pulls as without one.
+                Bookkeeping("no shot from the shoot spot", P + 78,
+                    [](BotContext const& context) {
+                        return GoesToShoot(context) && DistanceToShootSpot(context) <= AtSpotYards;
+                    },
+                    [](BotContext const& context) {
+                        // Its chase to the target from here is no checked
+                        // way (FightSpot.h): the tank warns, once a pull.
+                        context.group.ClearShootSpot(Self(context));
+                        if (!context.group.GetPull().extraPackWarned)
+                            Warn(context, 0);
+                    }),
+                Rule{"go to the shoot spot", P + 77,
+                    [](BotContext const& context) {
+                        return GoesToShoot(context) && DistanceToShootSpot(context) > AtSpotYards;
+                    },
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().shootSpot); }}},
+                // From range: a shot with the ranged weapon.
+                Rule{"shoot the pull target", P + 75,
+                    [](BotContext const& context) {
+                        return IsPulling(context) && !IsCasting(context) && PullsFromRange(context) && !OutOfShot(context);
+                    },
+                    {[](BotContext const& context) {
+                         return context.view.CanCast(ShootSpell(context.view.GetRangedWeapon().kind), PickPullTarget(context));
+                     },
+                        [](BotContext const& context) {
+                            // No chase may move the tank out of its cast.
+                            context.actions.Stand();
+                            context.actions.CastSpell(ShootSpell(context.view.GetRangedWeapon().kind), PickPullTarget(context));
+                        }}},
+                Rule{"go into shooting range", P + 74,
+                    [](BotContext const& context) {
+                        return IsPulling(context) && !IsCasting(context) && PullsFromRange(context) && OutOfShot(context);
+                    },
+                    {[](BotContext const& context) { return IsAlive(context.view, PickPullTarget(context)); },
+                        [](BotContext const& context) {
+                            // Too far: to shooting range. In range but out of
+                            // sight: closer, until the tank sees the target.
+                            Guid const target = PickPullTarget(context);
+                            context.group.CountRangeChase(Self(context), context.view.IsMoving(Self(context)));
+                            if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooFar)
+                                context.actions.ChaseToRange(target, ShootStandYards);
+                            else
+                                context.actions.Chase(target);
+                        }}},
+                // Else the fallback: run in and hit the target once, then
+                // walk back ("walk back to the fight spot").
                 MeleeRule("run to the pull target", P + 70,
                     [](BotContext const& context) {
-                        return IsPulling(context) && context.view.GetVictim(Self(context)) != PickPullTarget(context);
+                        // A ranged chase made the target the victim, with no
+                        // melee swing: that is no hit yet. A melee victim out
+                        // of combat with no chase is none either: a hit that
+                        // started no fight (run 12 of jvbastel/WOWAI#103,
+                        // pack4), where the tank would wait for good.
+                        Guid const target = PickPullTarget(context);
+                        return IsPulling(context) && !IsCasting(context) && !PullsFromRange(context)
+                            && (context.view.GetVictim(Self(context)) != target || !context.view.IsMeleeAttacking()
+                                || (!InCombat(context) && context.view.GetChase().target != target));
                     },
                     PickPullTarget),
+                Bookkeeping("back at the fight spot", P + 69,
+                    [](BotContext const& context) {
+                        return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) <= AtSpotYards;
+                    },
+                    [](BotContext const& context) { context.group.ClearFightSpot(Self(context)); }),
+                Rule{"walk back to the fight spot", P + 68,
+                    [](BotContext const& context) {
+                        return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) > AtSpotYards
+                            && !TauntDue(context);
+                    },
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().fightSpot); }}},
 
                 // An enemy attacks the bot or another group member outside
                 // a pull: it becomes the focus target. This is no pull of its
@@ -132,12 +342,32 @@ namespace Bots
                     },
                     [](BotContext const& context) { context.group.GiveUpTaunt(PickFocusTarget(context)); }),
 
-                // The fight on the focus target.
-                MeleeRule("attack the focus target", P + 62,
+                // The fight on the focus target. A focus that runs to the
+                // tank finds it where it stands; else the tank runs to it.
+                Rule{"attack the focus target", P + 62,
                     [](BotContext const& context) {
-                        return FightsFocus(context) && context.view.GetVictim(Self(context)) != PickFocusTarget(context);
+                        Guid const focus = PickFocusTarget(context);
+                        if (!FightsFocus(context))
+                            return false;
+                        // The pull rules move the tank until the pull holds.
+                        if (IsPulling(context))
+                            return false;
+                        ChaseState const chase = context.view.GetChase();
+                        // The ranged chase of the pull attacks with no melee swing.
+                        if (context.view.GetVictim(Self(context)) != focus || !context.view.IsMeleeAttacking())
+                            return true;
+                        return context.view.GetDistance(focus) > MeleeYards && chase.target != focus
+                            && !FocusComes(context);
                     },
-                    PickFocusTarget),
+                    {[](BotContext const& context) { return IsAlive(context.view, PickFocusTarget(context)); },
+                        [](BotContext const& context) {
+                            Guid const focus = PickFocusTarget(context);
+                            context.actions.Attack(focus);
+                            if (FocusComes(context) && context.view.GetDistance(focus) > MeleeYards)
+                                context.actions.Stand();
+                            else
+                                context.actions.Chase(focus);
+                        }}},
                 CastRule("defensive stance", P + 60,
                     [](BotContext const& context) {
                         return FightsFocus(context) && !context.view.HasAura(Self(context), DefensiveStance);
@@ -163,6 +393,21 @@ namespace Bots
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) >= SpareRage; },
                     HeroicStrike, PickFocusTarget),
                 CastRule("sunder armor", P + 30, FightsFocus, SunderArmor, PickFocusTarget),
+                Rule{"top up the ammo", P + 20,
+                    [](BotContext const& context) {
+                        return !InCombat(context)
+                            && AmmoPlan(context).count > 0;
+                    },
+                    // Full bags: the rule waits, and lower rules such as
+                    // the follow go on.
+                    {[](BotContext const& context) {
+                         return context.view.HasRoomFor(
+                             AmmoPlan(context));
+                     },
+                        [](BotContext const& context) {
+                            context.actions.TopUpAmmo(
+                                AmmoPlan(context));
+                        }}},
                 CastRule("battle shout", P + 25,
                     [](BotContext const& context) {
                         return FightsFocus(context) && !context.view.HasAura(Self(context), BattleShout);

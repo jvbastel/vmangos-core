@@ -2,7 +2,7 @@
 """The scripted runs over SOAP (spec section 10, Results).
 
     wowai/test-realm/runs.py --ticket <N> full [<count>]     <count> full runs (default 3)
-    wowai/test-realm/runs.py --ticket <N> scenario <name>    one scenario
+    wowai/test-realm/runs.py --ticket <N> scenario <name> [<count>]   <count> runs of a scenario (default 1)
 
 Options:
     --shared            The shared test realm instead of the realm of a ticket.
@@ -46,8 +46,6 @@ POLL_SECONDS = 10
 # and the wait for the chat of the run. A scenario has its own limits.
 FULL_RUN_SECONDS = 50 * 60
 SCENARIO_SECONDS = 15 * 60
-# The watch page stays this long after the last run, for its end line.
-WATCH_LINGER_SECONDS = 10 * 60
 
 OVER = re.compile(r"^Run \d+ \S+ \S+: (passed|failed|aborted) after ", re.M)
 RESULT = re.compile(r"Result: (\S+\.json)")
@@ -73,6 +71,11 @@ def summary(result):
         result["script"], result["scenario"], result["run"], result["result"], result["duration_s"],
         len(result["bosses_killed"]), len(result["wipes"]), deaths, len(result["threat_losses"]),
         len(result["lost_mobs"]))
+    # The packs that joined a pull besides its own (jvbastel/WOWAI#103).
+    extra = [pack for pull in result.get("pulls", []) for pack in pull.get("extra_packs", [])]
+    line += ", extra packs %d" % len(extra)
+    if extra:
+        line += " (warned %d)" % sum(1 for pack in extra if pack["warned"])
     if result["reason"]:
         line += ": " + result["reason"]
     return line
@@ -92,6 +95,14 @@ FIRE_NOVA_ROLES = ("ranged", "healer")
 # talk with the player).
 EVENTS_WITH_A_LINE = ("boss_kill", "wipe", "loot_roll")
 NO_GAME_EVENTS = ("player_message", "session_end")
+
+
+def run_plan(kind, arg, count, noquests):
+    """The scenario, the number of runs, and the time limit of one run:
+    `full [<count>]` (default 3) or `scenario <name> [<count>]` (default 1)."""
+    if kind == "full":
+        return ("full_noquests" if noquests else "full"), int(arg or 3), FULL_RUN_SECONDS
+    return arg, int(count or 1), SCENARIO_SECONDS
 
 
 def percent(share):
@@ -246,12 +257,7 @@ def watch_command(realm_args, port, count, runs_dir, ntfy):
 
 
 def stop_watch(watcher):
-    """Keeps the watch page up for a while after the last run, then stops it."""
-    print("The watch page stays up for %d minutes. Ctrl+C stops it." % (WATCH_LINGER_SECONDS // 60), flush=True)
-    try:
-        watcher.wait(WATCH_LINGER_SECONDS)
-    except (subprocess.TimeoutExpired, KeyboardInterrupt):
-        pass
+    """Stops the watch page right after the last run."""
     watcher.terminate()
     watcher.wait()
 
@@ -269,16 +275,14 @@ def main():
     parser.add_argument("--ntfy")
     parser.add_argument("kind", choices=["full", "scenario"])
     parser.add_argument("arg", nargs="?")
+    parser.add_argument("count", nargs="?")
     args = parser.parse_args(watch_port_argv(sys.argv[1:]))
 
-    if args.kind == "full":
-        scenario = "full_noquests" if args.noquests else "full"
-        count = int(args.arg or 3)
-        limit = FULL_RUN_SECONDS
-    else:
-        if not args.arg:
-            parser.error("scenario needs a name")
-        scenario, count, limit = args.arg, 1, SCENARIO_SECONDS
+    if args.kind == "scenario" and not args.arg:
+        parser.error("scenario needs a name")
+    if args.kind == "full" and args.count:
+        parser.error("full takes one count: full [<count>]")
+    scenario, count, limit = run_plan(args.kind, args.arg, args.count, args.noquests)
 
     from kit import Realm
     realm = Realm("shared" if args.shared else args.ticket)

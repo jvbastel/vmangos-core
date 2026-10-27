@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_GROUP_COORDINATOR_H
 
 #include "BotTypes.h"
+#include "Trail.h"
 
 #include <cstdint>
 #include <functional>
@@ -20,11 +21,52 @@ namespace Bots
         Holding, // The target attacks the puller: the tank holds threat.
     };
 
+    // What the puller said in party chat of its wait for the group
+    // (MemberSpot.h).
+    enum class GroupWaitSaid
+    {
+        Nothing,
+        Waits,        // GroupWaitLine.
+        PullsWithout, // PullWithoutLine: the wait ended.
+    };
+
     struct PullState
     {
         PullPhase phase;
         Guid puller; // The tank. NoGuid without a pull.
         Guid target; // NoGuid without a pull.
+        // The fight spot (FightSpot.h): where the puller holds the pack.
+        // Set by the puller (SetFightSpot); cleared when it is back there.
+        bool hasFightSpot = false;
+        Position fightSpot = {0, 0, 0};
+        // Where the puller shoots the target from, when it cannot from
+        // where it stood (SetShootSpot).
+        bool hasShootSpot = false;
+        Position shootSpot = {0, 0, 0};
+        // The thinks in a row in which the puller ordered its chase into
+        // shooting range and stood still (CountRangeChase). A chase that
+        // just started or found a new path does not move yet: a stop counts
+        // only after a few thinks.
+        std::uint32_t stillChaseThinks = 0;
+        // The tank's wait for the group (MemberSpot.h): it starts when the
+        // puller notes its fight spot (StartGroupWait). `waitSaid`: what the
+        // puller said of it in party chat.
+        std::int64_t waitFromMs = 0;
+        GroupWaitSaid waitSaid = GroupWaitSaid::Nothing;
+        // The puller warned about extra packs in this pull
+        // (NoteExtraPackWarn): it warns once a pull.
+        bool extraPackWarned = false;
+    };
+
+    // The member spot of a bot in the pull (MemberSpot.h).
+    struct MemberSpot
+    {
+        Guid bot = NoGuid;
+        // The bot found a safe spot. Without one it stays out of the wait.
+        bool found = false;
+        Position spot = {0, 0, 0};
+        // The bot stands at its spot.
+        bool inPlace = false;
     };
 
     // A bot will interrupt the cast of spell `spell` by enemy `caster`.
@@ -101,6 +143,48 @@ namespace Bots
         void StartPull(Guid puller, Guid target);
         // The target attacks the puller now. Only the puller can call it.
         void HoldPull(Guid puller);
+        // The puller notes where it stands at the start of its pull, or
+        // clears the spot when it is back there. Only the puller can.
+        void SetFightSpot(Guid puller, Position spot);
+        void ClearFightSpot(Guid puller);
+        // The puller notes where it pulls from range, or clears it when no
+        // shot goes from there. Only the puller can.
+        void SetShootSpot(Guid puller, Position spot);
+        void ClearShootSpot(Guid puller);
+        // The puller orders its chase into shooting range in one more think,
+        // and stands still or moves (which starts the count again). Only the
+        // puller can.
+        void CountRangeChase(Guid puller, bool moving);
+        // The puller starts its wait for the group at `nowMs`, or notes what
+        // it said of it. Only the puller can.
+        void StartGroupWait(Guid puller, std::int64_t nowMs);
+        void NoteGroupWaitSaid(Guid puller, GroupWaitSaid said);
+        // The puller warned about extra packs (WarnExtraPacks). Only the
+        // puller can.
+        void NoteExtraPackWarn(Guid puller);
+        // The member spots of the pull that is on: each bot claims its own
+        // spot (`found` false: none is safe), and then notes that it is in place;
+        // it stays in place for the rest of the pull.
+        // A new pull or the end of the pull forgets them.
+        // Bot `bot` takes its member spot, so that two bots never take one
+        // spot: when it has none yet, `find` runs with the pull and the
+        // spots that the other members found, and its answer (a spot, or
+        // false for none) is noted. `find` runs outside the lock (it asks
+        // the game for paths and sight); when another bot took a spot, or a
+        // new pull began meanwhile, it runs again with the new state.
+        // Returns the bot's member spot.
+        using MemberSpotFinder =
+            std::function<bool(PullState const& pull, std::vector<Position> const& taken, Position& spot)>;
+        MemberSpot ClaimMemberSpot(Guid bot, MemberSpotFinder const& find);
+        void SetMemberInPlace(Guid bot);
+        std::vector<MemberSpot> GetMemberSpots() const;
+        // The bots of the group: each bot notes itself on each think
+        // (NoteForPulls, MemberSpot.h) at `nowMs`, and whether it joins a
+        // pull now, so that the tank knows whom to wait for. A player is no
+        // bot. GetPullMembers: the bots that join pulls, noted within
+        // `maxAgeMs` before `nowMs`.
+        void NoteBot(Guid bot, std::int64_t nowMs, bool joinsPulls);
+        std::vector<Guid> GetPullMembers(std::int64_t nowMs, std::int64_t maxAgeMs) const;
         // The fight of the pull ends: no pull and no focus target.
         void EndPull();
         // True when the tank holds threat on the focus target: the target of
@@ -130,6 +214,13 @@ namespace Bots
         // on each think. For the chase limit (GroupRules.h).
         Guid GetTank() const;
         void SetTank(Guid tank);
+
+        // The tank's trail since the last fight (Trail.h): the cleared way of
+        // its fight spot (FightSpot.h). The tank notes where it stands on
+        // each think (WatchTrail); `fights`: it fights or is dead, so the
+        // trail is empty. While a pull is on, the trail does not grow.
+        void KeepTrail(Position at, bool fights);
+        std::vector<Position> GetTrail() const;
 
         // The enemy healers: the enemies that cast a heal in a fight. The
         // damage bots attack them first (GroupRules.h).
@@ -197,6 +288,8 @@ namespace Bots
         std::vector<GroupEvent> TakeEvents();
 
     private:
+        // A pull is on, and `puller` is its puller. The caller holds the lock.
+        bool PullsNow(Guid puller) const;
         // True for the first note of `key` within GroupEventMemoryMs.
         bool FirstNote(std::pair<Guid, std::int64_t> key, std::int64_t nowMs);
 
@@ -213,6 +306,16 @@ namespace Bots
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;
+        Trail m_trail;
+        std::vector<MemberSpot> m_memberSpots;
+        // Counts each change of m_memberSpots but the in-place notes.
+        std::uint64_t m_memberSpotsVersion = 0;
+        struct BotNote
+        {
+            std::int64_t atMs;
+            bool joinsPulls;
+        };
+        std::map<Guid, BotNote> m_bots;
         std::vector<Guid> m_enemyHealers;                 // In mark order.
         BossFight m_bossFight = {NoGuid, 0};
     };

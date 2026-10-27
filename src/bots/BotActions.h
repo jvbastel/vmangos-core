@@ -2,9 +2,21 @@
 #define WOWAI_BOTS_BOT_ACTIONS_H
 
 #include "BotTypes.h"
+#include "Ranged.h"
+
+#include <string>
 
 namespace Bots
 {
+    // The kind of a party chat line (BotActions::SayParty).
+    enum class PartyLine
+    {
+        Plain,
+        // The tank warns that a pull brings extra packs (WarnExtraPacks,
+        // bots/ExtraPackWatch.h): a scripted run records it per pull.
+        ExtraPackWarn,
+    };
+
     // The deeds of one bot in the game. With BotView, the only way from the
     // decision library to the game (ADR 0002 of WOWAI).
     class BotActions
@@ -30,6 +42,8 @@ namespace Bots
         // Run to unit `target` until it is `yards` away, and stay about that
         // far from it: the chase of a ranged bot.
         virtual void ChaseToRange(Guid target, float yards) = 0;
+        // Stop where the bot stands: no walk and no chase.
+        virtual void Stand() = 0;
         // The pet of the bot attacks unit `target`.
         virtual void PetAttack(Guid target) = 0;
         // Follow unit `unit` at a short distance.
@@ -52,6 +66,12 @@ namespace Bots
         virtual void Eat() = 0;
         // Sit and drink the water of the bot's level. It refills silently.
         virtual void Drink() = 0;
+        // Say `line` in party chat.
+        virtual void SayParty(std::string const& line, PartyLine kind) = 0;
+        // Bring the ammo up to `topUp` silently, from nothing: no vendor
+        // and no money (Ranged.h). The arrows or bullets go in the bags and
+        // become the ammo of the ammo slot; a thrown stack grows in place.
+        virtual void TopUpAmmo(AmmoTopUp const& topUp) = 0;
     };
 }
 

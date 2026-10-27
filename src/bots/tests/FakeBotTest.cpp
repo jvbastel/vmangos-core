@@ -1,4 +1,5 @@
 #include "FakeBot.h"
+#include "ExtraPackWatch.h"
 
 #include <gtest/gtest.h>
 
@@ -39,4 +40,14 @@ TEST(FakeBot, RecordsDeedsInOrder)
         "cast 133 on 0xf130000302000022",
         "move to -10.5 20 3.25",
     }));
+}
+
+// The warn hook of jvbastel/WOWAI#105 (bots/ExtraPackWatch.h).
+TEST(FakeBot, RecordsAnExtraPackWarn)
+{
+    Bots::Tests::FakeBot fake(Self);
+
+    Bots::WarnExtraPacks(fake, 2);
+
+    EXPECT_EQ(fake.Deeds(), (std::vector<std::string>{"warn Careful: this pull brings 2 more packs."}));
 }

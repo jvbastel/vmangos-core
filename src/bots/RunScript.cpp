@@ -54,7 +54,7 @@ namespace Bots
             if (keyword == "target")
                 return "use: target <entry> | target <pack>";
             if (keyword == "clear")
-                return "use: clear <yards> [<pack>]";
+                return "use: clear <yards> [<pack> ...]";
             if (keyword == "refill")
                 return "use: refill";
             if (keyword == "wait")
@@ -118,10 +118,9 @@ namespace Bots
             if (keyword == "clear")
             {
                 c.kind = ScriptCommandKind::Clear;
-                if (n < 2 || n > 3 || !ReadFloat(w[1], c.yards) || c.yards <= 0.0f)
+                if (n < 2 || !ReadFloat(w[1], c.yards) || c.yards <= 0.0f)
                     return false;
-                if (n == 3)
-                    c.name = w[2];
+                c.packs.assign(w.begin() + 2, w.end());
                 return true;
             }
             if (keyword == "refill")
@@ -301,12 +300,14 @@ namespace Bots
                 std::string const at = "line " + std::to_string(c.line) + ": the route " + route.name;
                 bool const point = c.kind == ScriptCommandKind::Teleport || c.kind == ScriptCommandKind::Move;
                 bool const pack = !c.name.empty() && (c.kind == ScriptCommandKind::Target ||
-                    c.kind == ScriptCommandKind::Clear || c.kind == ScriptCommandKind::ExpectPackDead ||
-                    c.kind == ScriptCommandKind::Fight);
+                    c.kind == ScriptCommandKind::ExpectPackDead || c.kind == ScriptCommandKind::Fight);
                 if (point && !FindPoint(route, c.name))
                     return at + " has no point named " + c.name;
                 if (pack && !FindPack(route, c.name))
                     return at + " has no pack named " + c.name;
+                for (std::string const& kept : c.packs)
+                    if (!FindPack(route, kept))
+                        return at + " has no pack named " + kept;
             }
         return "";
     }

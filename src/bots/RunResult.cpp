@@ -114,10 +114,18 @@ namespace Bots
         j["deaths"] = deaths;
 
         Json pulls = Json::array();
+        std::size_t extraPacks = 0;
         for (RunPull const& pull : r.pulls)
+        {
+            Json extra = Json::array();
+            for (RunExtraPack const& pack : pull.extraPacks)
+                extra.push_back({{"pack", pack.pack}, {"time_s", Seconds(pack.ms)}, {"warned", pack.warned}});
+            extraPacks += pull.extraPacks.size();
             pulls.push_back({{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)},
-                {"again", pull.again}});
+                {"again", pull.again}, {"extra_packs", extra}});
+        }
         j["pulls"] = pulls;
+        j["extra_packs"] = extraPacks; // Of all pulls.
 
         Json fights = Json::array();
         for (FightSummary const& fight : r.fights)

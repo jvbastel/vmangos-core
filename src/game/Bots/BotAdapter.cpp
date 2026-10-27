@@ -290,6 +290,17 @@ float BotAdapter::GetSpellDistance(Bots::Guid unit) const
     return found ? me->GetCombatDistance(found) : std::numeric_limits<float>::max();
 }
 
+float BotAdapter::GetSpellDistanceFrom(Bots::Position const& place, Bots::Guid unit) const
+{
+    // GetCombatDistance with the bot on the ground at the place.
+    Unit const* found = Find(unit);
+    if (!found)
+        return std::numeric_limits<float>::max();
+    float const ground = GetGround(place).z;
+    float const centers = found->GetDistance3dToCenter(place.x, place.y, ground);
+    return std::max(0.0f, centers - me->GetCombatReach() - found->GetCombatReach());
+}
+
 float BotAdapter::GetDistanceBetween(Bots::Guid a, Bots::Guid b) const
 {
     Unit const* first = Find(a);
@@ -712,6 +723,13 @@ bool BotAdapter::CanSeeFrom(Bots::Position const& place, Bots::Guid unit) const
     return me->IsWithinLOSAtPosition(place.x, place.y, ground, x, y, z, true, 0.0f);
 }
 
+bool BotAdapter::CanSeeBetween(Bots::Position const& from, Bots::Position const& to) const
+{
+    // As CanSeeFrom, to a bot of the bot's height on the ground at `to`.
+    return me->IsWithinLOSAtPosition(from.x, from.y, GetGround(from).z, to.x, to.y, GetGround(to).z, true,
+        me->GetCollisionHeight());
+}
+
 Unit const* BotAdapter::FindAnywhere(Bots::Guid unit) const
 {
     if (Unit const* found = Find(unit))
@@ -895,4 +913,117 @@ void BotAdapter::Eat()
 void BotAdapter::Drink()
 {
     UseRestItem(RestItemFor(me->GetLevel()).drink);
+}
+
+void BotAdapter::SayParty(std::string const& text, Bots::PartyLine kind)
+{
+    // A party line like the refusals of BotAI: BotMgr::SendLines says it on
+    // the world thread, and a scripted run notes an extra pack warn there.
+    BotLine line{me->GetObjectGuid(), CHAT_MSG_PARTY, ObjectGuid(), text};
+    line.extraPackWarn = kind == Bots::PartyLine::ExtraPackWarn;
+    sBotMgr.QueueLine(std::move(line));
+}
+
+Bots::RangedWeapon BotAdapter::GetRangedWeapon() const
+{
+    Bots::RangedWeapon weapon;
+    Item const* item = me->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED);
+    ItemPrototype const* proto = item ? item->GetProto() : nullptr;
+    if (!proto || proto->Class != ITEM_CLASS_WEAPON)
+        return weapon;
+    switch (proto->SubClass)
+    {
+        case ITEM_SUBCLASS_WEAPON_THROWN: weapon.kind = Bots::RangedKind::Thrown; break;
+        case ITEM_SUBCLASS_WEAPON_BOW: weapon.kind = Bots::RangedKind::Bow; break;
+        case ITEM_SUBCLASS_WEAPON_GUN: weapon.kind = Bots::RangedKind::Gun; break;
+        case ITEM_SUBCLASS_WEAPON_CROSSBOW: weapon.kind = Bots::RangedKind::Crossbow; break;
+        default: return weapon; // A wand needs no pull rules.
+    }
+    weapon.entry = proto->ItemId;
+    if (weapon.kind == Bots::RangedKind::Thrown)
+    {
+        // Each throw uses up one of the worn stack (Spell::TakeAmmo).
+        weapon.ammoEntry = proto->ItemId;
+        weapon.ammoCount = item->GetCount();
+        return weapon;
+    }
+    // The ammo of the ammo slot, when it fits the weapon: arrows for a bow
+    // or a crossbow, bullets for a gun.
+    uint32 const ammo = me->GetUInt32Value(PLAYER_AMMO_ID);
+    ItemPrototype const* ammoProto = ammo ? sObjectMgr.GetItemPrototype(ammo) : nullptr;
+    if (ammoProto && ammoProto->SubClass == proto->AmmoType)
+    {
+        weapon.ammoEntry = ammo;
+        weapon.ammoCount = me->GetItemCount(ammo);
+    }
+    return weapon;
+}
+
+uint32 BotAdapter::GetLevel(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    return found ? found->GetLevel() : 0;
+}
+
+bool BotAdapter::IsMoving(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    return found && (found->IsMoving() || !found->movespline->Finalized());
+}
+
+bool BotAdapter::HasRoomFor(Bots::AmmoTopUp const& topUp) const
+{
+    if (!topUp.entry)
+        return false;
+    Item const* ranged = me->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED);
+    if (ranged && ranged->GetEntry() == topUp.entry)
+        return ranged->GetCount() < std::min(topUp.count, ranged->GetMaxStackCount());
+    uint32 const have = me->GetItemCount(topUp.entry);
+    if (have >= topUp.count)
+        return me->GetUInt32Value(PLAYER_AMMO_ID) != topUp.entry;
+    ItemPosCountVec dest;
+    return me->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, topUp.entry, topUp.count - have) == EQUIP_ERR_OK;
+}
+
+void BotAdapter::TopUpAmmo(Bots::AmmoTopUp const& topUp)
+{
+    if (!topUp.entry || !topUp.count)
+        return;
+    // A thrown stack grows in place, silently.
+    Item* ranged = me->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED);
+    if (ranged && ranged->GetEntry() == topUp.entry)
+    {
+        uint32 const count = std::min(topUp.count, ranged->GetMaxStackCount());
+        if (ranged->GetCount() < count)
+        {
+            ranged->SetCount(count);
+            ranged->SetState(ITEM_CHANGED, me);
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s tops up its thrown weapon %u silently to %u", me->GetName(),
+                topUp.entry, count);
+        }
+        return;
+    }
+    // Arrows or bullets: into the bags, silently, then into the ammo slot.
+    uint32 const have = me->GetItemCount(topUp.entry);
+    if (have < topUp.count)
+    {
+        ItemPosCountVec dest;
+        if (me->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, topUp.entry, topUp.count - have) == EQUIP_ERR_OK
+            && me->StoreNewItem(dest, topUp.entry, true))
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s tops up ammo %u silently to %u", me->GetName(), topUp.entry,
+                topUp.count);
+    }
+    me->SetAmmo(topUp.entry);
+}
+
+void BotAdapter::Stand()
+{
+    me->StopMoving();
+    me->GetMotionMaster()->Clear(false, true);
+    me->GetMotionMaster()->MoveIdle();
+}
+
+bool BotAdapter::IsMeleeAttacking() const
+{
+    return me->GetVictim() && me->HasUnitState(UNIT_STATE_MELEE_ATTACKING);
 }

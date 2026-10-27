@@ -48,7 +48,33 @@ class Summary(unittest.TestCase):
         }
         self.assertEqual(runs.summary(result),
                          "ragefire_chasm full run 3: failed after 1234 s, bosses 1, wipes 2, deaths 3, "
-                         "threat losses 1, lost mobs 0: the second wipe")
+                         "threat losses 1, lost mobs 0, extra packs 0: the second wipe")
+
+    def test_counts_the_extra_packs_of_each_pull_and_the_warned_ones(self):
+        """jvbastel/WOWAI#103: the packs that joined a pull, and the tank's warns."""
+        result = {
+            "run": 4, "script": "ragefire_chasm", "scenario": "two_packs", "result": "passed", "reason": None,
+            "duration_s": 61.0, "bosses_killed": [], "wipes": [], "deaths": {"Ezzra": []},
+            "threat_losses": [], "lost_mobs": [],
+            "pulls": [{"pack": "pack48", "extra_packs": [{"pack": "pack49", "time_s": 30.0, "warned": False}]},
+                      {"pack": "pack1", "extra_packs": [{"pack": "pack2", "time_s": 90.0, "warned": True},
+                                                        {"pack": "pack3", "time_s": 91.0, "warned": False}]}],
+        }
+        self.assertEqual(runs.summary(result),
+                         "ragefire_chasm two_packs run 4: passed after 61 s, bosses 0, wipes 0, deaths 0, "
+                         "threat losses 0, lost mobs 0, extra packs 3 (warned 1)")
+
+
+class Plan(unittest.TestCase):
+    def test_full_runs_default_to_three(self):
+        self.assertEqual(runs.run_plan("full", None, None, False), ("full", 3, runs.FULL_RUN_SECONDS))
+        self.assertEqual(runs.run_plan("full", "2", None, True), ("full_noquests", 2, runs.FULL_RUN_SECONDS))
+
+    def test_a_scenario_runs_once_or_the_given_count(self):
+        self.assertEqual(runs.run_plan("scenario", "two_packs", None, False),
+                         ("two_packs", 1, runs.SCENARIO_SECONDS))
+        self.assertEqual(runs.run_plan("scenario", "two_packs", "10", False),
+                         ("two_packs", 10, runs.SCENARIO_SECONDS))
 
 
 def a_full_run_that_passes():

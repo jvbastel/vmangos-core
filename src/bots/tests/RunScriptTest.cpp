@@ -122,7 +122,7 @@ TEST(RunScript, ReadsTheOtherCommands)
     std::vector<ScriptCommand> const& c = Bots::FindScenario(result.script, "shamans")->commands;
     ASSERT_EQ(c.size(), 9u);
     EXPECT_EQ(c[1].kind, ScriptCommandKind::Clear);
-    EXPECT_EQ(c[1].name, "shamans1");
+    EXPECT_EQ(c[1].packs, (std::vector<std::string>{"shamans1"}));
     EXPECT_EQ(c[2].kind, ScriptCommandKind::Move);
     EXPECT_EQ(c[2].name, "shaman_pull");
     EXPECT_EQ(c[3].kind, ScriptCommandKind::WaitArrive);
@@ -268,6 +268,23 @@ TEST(RunScript, ChecksThePackOfAFight)
     EXPECT_EQ(Bots::CheckRunScript(script.script, route.route), "line 6: the route ragefire_chasm has no pack named nopack");
 }
 
+// The two-pack scenario of jvbastel/WOWAI#103 keeps two packs.
+TEST(RunScript, AClearKeepsEachNamedPack)
+{
+    RunScriptResult const result = ParseRunScript(Head + "clear 30 shamans1 shamans2\nclear 20\n");
+    ASSERT_TRUE(result.ok) << result.error;
+
+    std::vector<ScriptCommand> const& c = result.script.scenarios[0].commands;
+    EXPECT_EQ(c[0].yards, 30.0f);
+    EXPECT_EQ(c[0].packs, (std::vector<std::string>{"shamans1", "shamans2"}));
+    EXPECT_TRUE(c[1].packs.empty());
+
+    Bots::RouteResult const route = Bots::ParseRoute(RouteText);
+    ASSERT_TRUE(route.ok);
+    EXPECT_EQ(Bots::CheckRunScript(result.script, route.route),
+        "line 6: the route ragefire_chasm has no pack named shamans2");
+}
+
 TEST(RunScript, KeepsAllWordsOfAChatLine)
 {
     RunScriptResult const result = ParseRunScript(Head + "command Grukk pull\nwhisper Hela how are you\n");
@@ -286,7 +303,7 @@ TEST(RunScript, RefusesABrokenLineWithItsNumber)
     EXPECT_EQ(ErrorOf(Head + "wait soon\n"),
         "line 6: use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]");
     EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive");
-    EXPECT_EQ(ErrorOf(Head + "clear -3\n"), "line 6: use: clear <yards> [<pack>]");
+    EXPECT_EQ(ErrorOf(Head + "clear -3\n"), "line 6: use: clear <yards> [<pack> ...]");
     EXPECT_EQ(ErrorOf(Head + "whisper Hela\n"), "line 6: use: whisper <bot> <text>");
 }
 

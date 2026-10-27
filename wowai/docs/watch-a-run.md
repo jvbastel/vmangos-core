@@ -17,7 +17,7 @@ Start the runs and the page with one command:
 wowai/test-realm/runs.py --ticket <N> --watch full 3
 ```
 
-`--watch` takes a port (default 8098). The script prints the address to open, for example `Watch the runs at http://192.168.1.20:8098/`. The page stays up for 10 minutes after the last run. Ctrl+C stops it at once.
+`--watch` takes a port (default 8098). The script prints the address to open, for example `Watch the runs at http://192.168.1.20:8098/`. The page stops when the last run ends. Ctrl+C stops it at once.
 
 To watch runs that something else starts, run the watch script alone:
 

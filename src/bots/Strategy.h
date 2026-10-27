@@ -7,6 +7,7 @@
 #include "CommandState.h"
 #include "GroupCoordinator.h"
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -35,6 +36,9 @@ namespace Bots
         // The bot waits its start delay (StartDelay.h): it does not start to
         // follow yet.
         bool startWaits = false;
+        // A steady clock in milliseconds, for the tank's wait for the group
+        // (MemberSpot.h). Any start: only differences count.
+        std::int64_t nowMs = 0;
         // The bot is the test driver of a scripted run: it loots no corpses
         // (jvbastel/WOWAI#99).
         bool testDriver = false;

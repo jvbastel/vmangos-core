@@ -4,6 +4,7 @@
 #include "BotActions.h"
 #include "BotGeometry.h"
 #include "BotView.h"
+#include "GroupCoordinator.h"
 
 #include <algorithm>
 #include <cmath>
@@ -139,6 +140,9 @@ namespace Bots
             int GroundPaths() const { return m_groundPaths; }
             // From each place with x >= `x`, the bot does not see `unit`.
             void AddBlindToFromX(Guid unit, float x) { m_blindToFromX.push_back({unit, x}); }
+            // Sight is blocked along x = `x`: no place sees a place on its
+            // other side (CanSeeBetween).
+            void AddSightWallAtX(float x) { m_sightWallsAtX.push_back(x); }
             void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
             void SetGroupLeader(Guid unit) { m_leader = unit; }
             void SetCanResurrect(Guid unit, bool can = true)
@@ -166,6 +170,11 @@ namespace Bots
             // The level of unit `target` is too low for rank `rank` of a
             // buff (BotView::LevelAllowsRank).
             void SetLevelTooLowFor(SpellId rank, Guid target) { m_levelTooLow.insert({rank, target}); }
+            void SetRangedWeapon(RangedWeapon const& weapon) { m_ranged = weapon; }
+            void SetLevel(Guid unit, std::uint32_t level) { m_level[unit] = level; }
+            void SetMoving(Guid unit, bool moving = true) { m_moving[unit] = moving; }
+            // The bags are full: no ammo top-up has room (HasRoomFor).
+            void SetBagsFull(bool full = true) { m_bagsFull = full; }
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -206,6 +215,15 @@ namespace Bots
             {
                 auto found = m_spellDistance.find(unit);
                 return found == m_spellDistance.end() ? GetDistance(unit) : found->second;
+            }
+            // From the bot's own place: GetSpellDistance. Else the distance
+            // between the centers (the fake has no bodies).
+            float GetSpellDistanceFrom(Position const& place, Guid unit) const override
+            {
+                Position const here = GetPosition(m_self);
+                if (place.x == here.x && place.y == here.y && place.z == here.z)
+                    return GetSpellDistance(unit);
+                return Distance3d(place, GetPosition(unit));
             }
             float GetDistanceBetween(Guid a, Guid b) const override
             {
@@ -302,6 +320,13 @@ namespace Bots
                         return true;
                 return false;
             }
+            bool CanSeeBetween(Position const& from, Position const& to) const override
+            {
+                for (float x : m_sightWallsAtX)
+                    if ((from.x < x) != (to.x < x))
+                        return false;
+                return true;
+            }
             bool CanSeeFrom(Position const& place, Guid unit) const override
             {
                 for (float x : m_blindFromX)
@@ -358,6 +383,20 @@ namespace Bots
                 return near;
             }
 
+            RangedWeapon GetRangedWeapon() const override { return m_ranged; }
+            std::uint32_t GetLevel(Guid unit) const override
+            {
+                auto found = m_level.find(unit);
+                return found == m_level.end() ? 0 : found->second;
+            }
+            bool HasRoomFor(AmmoTopUp const&) const override { return !m_bagsFull; }
+            bool IsMeleeAttacking() const override { return GetVictim(m_self) != NoGuid && !m_noMeleeSwing; }
+            bool IsMoving(Guid unit) const override
+            {
+                auto found = m_moving.find(unit);
+                return found != m_moving.end() && found->second;
+            }
+
             // BotActions
             void CastSpell(SpellId spell, Guid target) override
             {
@@ -380,7 +419,11 @@ namespace Bots
                 m_deeds.push_back(deed.str());
             }
 
-            void Attack(Guid target) override { AddDeed("attack", target); }
+            void Attack(Guid target) override
+            {
+                AddDeed("attack", target);
+                m_noMeleeSwing = false;
+            }
             void Chase(Guid target) override
             {
                 AddDeed("chase", target);
@@ -398,6 +441,15 @@ namespace Bots
                 range << " to " << yards << " yards";
                 m_deeds.back() += range.str();
                 m_chase = {target, false};
+                // Like the real chase: the target becomes the victim,
+                // with no melee swing.
+                m_victim[m_self] = target;
+                m_noMeleeSwing = true;
+            }
+            void Stand() override
+            {
+                m_deeds.push_back("stand");
+                m_chase = {NoGuid, false};
             }
             void PetAttack(Guid target) override { AddDeed("pet attack", target); }
             void Follow(Guid unit) override
@@ -410,6 +462,16 @@ namespace Bots
             void WalkAsGhost() override { m_deeds.push_back("walk as a ghost"); }
             void Eat() override { m_deeds.push_back("eat"); }
             void Drink() override { m_deeds.push_back("drink"); }
+            // "say <line>", or "warn <line>" for an extra pack warn.
+            void SayParty(std::string const& line, PartyLine kind) override
+            {
+                m_deeds.push_back((kind == PartyLine::ExtraPackWarn ? "warn " : "say ") + line);
+            }
+
+            void TopUpAmmo(AmmoTopUp const& topUp) override
+            {
+                m_deeds.push_back("top up ammo " + std::to_string(topUp.entry) + " to " + std::to_string(topUp.count));
+            }
 
         private:
             void AddDeed(char const* verb, Guid unit)
@@ -456,6 +518,7 @@ namespace Bots
             std::vector<float> m_noPathFromX;
             std::vector<NearEnemy> m_enemies;
             std::vector<float> m_blindFromX;
+            std::vector<float> m_sightWallsAtX;
             std::vector<std::pair<Guid, float>> m_blindToFromX;
             mutable int m_groundPaths = 0;
             std::map<Guid, LifeState> m_lifeState;
@@ -470,8 +533,23 @@ namespace Bots
             std::set<std::pair<SpellId, Guid>> m_levelTooLow;
             bool m_stunned = false;
             bool m_silenced = false;
+            RangedWeapon m_ranged;
+            std::map<Guid, std::uint32_t> m_level;
+            std::map<Guid, bool> m_moving;
+            bool m_bagsFull = false;
+            bool m_noMeleeSwing = false;
             std::vector<std::string> m_deeds;
         };
+
+        // A member spot finder (GroupCoordinator::ClaimMemberSpot) that
+        // answers `spot`, or none for `found` false.
+        inline GroupCoordinator::MemberSpotFinder SpotAt(bool found, Position spot)
+        {
+            return [found, spot](PullState const&, std::vector<Position> const&, Position& at) {
+                at = spot;
+                return found;
+            };
+        }
     }
 }
 

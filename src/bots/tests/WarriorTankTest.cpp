@@ -2,6 +2,7 @@
 #include "DamageRules.h"
 #include "WarriorModule.h"
 #include "FakeBot.h"
+#include "MemberSpot.h"
 
 #include <gtest/gtest.h>
 
@@ -33,6 +34,8 @@ namespace
         FakeBot fake{Tank};
         GroupCoordinator group;
         StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Warrior, Bots::BotRole::Tank);
+        // The clock of the think (BotContext::nowMs).
+        std::int64_t nowMs = 0;
 
         WarriorTank()
         {
@@ -48,7 +51,8 @@ namespace
 
         std::string Think(Bots::CommandState command = Bots::CommandState::None, Bots::Guid player = NoGuid)
         {
-            BotContext const context{fake, fake, group, command, player};
+            BotContext context{fake, fake, group, command, player};
+            context.nowMs = nowMs;
             return stack.Think(context);
         }
 
@@ -56,6 +60,7 @@ namespace
         void InFightWithKobold()
         {
             group.StartPull(Tank, Kobold);
+            fake.SetDistance(Kobold, 2.0f);
             fake.SetVictim(Tank, Kobold);
             fake.SetVictim(Kobold, Tank);
             group.HoldPull(Tank);
@@ -74,37 +79,488 @@ TEST(WarriorTank, NeverPullsOnItsOwn)
     EXPECT_TRUE(tank.fake.Deeds().empty());
 }
 
-TEST(WarriorTank, ChargesThePullTarget)
+namespace
 {
-    WarriorTank tank;
+    std::uint32_t const WornShortbow = 2504;
+    std::uint32_t const RoughArrow = 2512;
+    std::uint32_t const RazorArrow = 3030;
+    Bots::SpellId const ShootBow = 2480;
+
+    Bots::RangedWeapon Shortbow(std::uint32_t arrows, std::uint32_t arrow = RoughArrow)
+    {
+        Bots::RangedWeapon weapon;
+        weapon.kind = Bots::RangedKind::Bow;
+        weapon.entry = WornShortbow;
+        weapon.ammoEntry = arrows ? arrow : 0;
+        weapon.ammoCount = arrows;
+        return weapon;
+    }
+
+    // A tank with a bow and arrows at (0, 0, 0), told to pull the kobold
+    // 20 yards away. Its first think notes where it stands.
+    struct BowTank : WarriorTank
+    {
+        BowTank()
+        {
+            fake.SetKnownSpell(ShootBow);
+            fake.SetRangedWeapon(Shortbow(200));
+            fake.SetPosition(Tank, {0, 0, 0});
+        }
+
+        void Pull()
+        {
+            group.StartPull(Tank, Kobold);
+            Think();
+            fake.ClearDeeds();
+        }
+    };
+}
+
+TEST(WarriorTank, NotesWhereItStandsWhenAPullBegins)
+{
+    BowTank tank;
+    tank.fake.SetPosition(Tank, {3, 4, 5});
     tank.group.StartPull(Tank, Kobold);
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Charge, Kobold)}));
+    Bots::PullState const pull = tank.group.GetPull();
+    EXPECT_TRUE(pull.hasFightSpot);
+    EXPECT_EQ(3.0f, pull.fightSpot.x);
+    EXPECT_EQ(4.0f, pull.fightSpot.y);
+    EXPECT_TRUE(tank.fake.Deeds().empty());
 }
 
-TEST(WarriorTank, TakesBattleStanceToCharge)
+TEST(WarriorTank, ShootsThePullTargetFromRangeInsteadOfCharging)
 {
-    WarriorTank tank;
-    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
-    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
-    tank.group.StartPull(Tank, Kobold);
+    BowTank tank;
+    tank.Pull();
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::BattleStance, Tank)}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
 }
 
-TEST(WarriorTank, RunsToThePullTargetWhenItCannotCharge)
+TEST(WarriorTank, GoesIntoShootingRangeOfAFarPullTarget)
 {
-    WarriorTank tank;
-    tank.fake.SetCannotCast(Warrior::Charge);
-    tank.group.StartPull(Tank, Kobold);
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 45.0f);
+    // No safe place to shoot from (no ground path): the ranged chase.
+    tank.fake.AddNoPathFromX(-1000.0f);
+    tank.Pull();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
+}
+
+// In range but out of sight: the tank walks to a safe place round the
+// target from which it sees it (FightSpot.h), not into the pack.
+TEST(WarriorTank, GoesToASafePlaceToShootFromWhenItCannotSeeThePullTarget)
+{
+    BowTank tank;
+    tank.fake.SetPosition(Kobold, {20, 0, 0});
+    tank.fake.AddBlindToFromX(Kobold, -1.0f);
+    tank.Pull();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -7 0 0"}));
+}
+
+// With no place to shoot from, a ranged chase can stop where it still sees
+// nothing: the tank closes in until it sees the target.
+TEST(WarriorTank, ClosesInWhenItCannotSeeThePullTargetFromAnywhere)
+{
+    BowTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+    tank.Pull();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
+// The chase into shooting range ended, and the tank still cannot shoot (a
+// target out of reach of the path): it runs in instead.
+TEST(WarriorTank, RunsInWhenItsChaseIntoRangeEndsOutOfShot)
+{
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 45.0f);
+    // No safe place to shoot from (no ground path): the ranged chase.
+    tank.fake.AddNoPathFromX(-1000.0f);
+    tank.Pull();
+    tank.fake.SetMoving(Tank);
+    for (int think = 0; think < 3; ++think)
+        tank.Think();
+    tank.fake.SetMoving(Tank, false);
+    for (int think = 0; think < 3; ++think)
+        tank.Think();
+    tank.fake.ClearDeeds();
 
     tank.Think();
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+// The think right after the chase order: the chase is on, but the tank does
+// not move yet. That is no end of the chase (the two_packs scenario of
+// jvbastel/WOWAI#105, where the tank ran in each time).
+TEST(WarriorTank, KeepsChasingOnTheThinkAfterItsChaseOrder)
+{
+    BowTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+    tank.Pull();
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+    tank.fake.ClearDeeds();
+    tank.fake.SetMoving(Tank, false);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
+// A chase that moved and pauses for one think (a new path) has not ended:
+// only a few thinks in a row with no move end it.
+TEST(WarriorTank, KeepsChasingWhenItsMovingChasePausesForOneThink)
+{
+    BowTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+    tank.Pull();
+    tank.fake.SetMoving(Tank);
+    for (int think = 0; think < 5; ++think)
+        tank.Think();
+    tank.fake.ClearDeeds();
+    tank.fake.SetMoving(Tank, false);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
+// A chase that never moves (the path gets no nearer) ends after a few
+// thinks: the tank runs in and does not wait for good.
+TEST(WarriorTank, RunsInWhenItsChaseNeverMoves)
+{
+    BowTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+    tank.Pull();
+    tank.fake.SetMoving(Tank, false);
+    for (int think = 0; think < 3; ++think)
+        tank.Think();
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+TEST(WarriorTank, KeepsChasingIntoRangeWhileItMoves)
+{
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 45.0f);
+    // No safe place to shoot from (no ground path): the ranged chase.
+    tank.fake.AddNoPathFromX(-1000.0f);
+    tank.Pull();
+    tank.fake.ChaseToRange(Kobold, 25.0f);
+    tank.fake.ClearDeeds();
+    tank.fake.SetMoving(Tank);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
+}
+
+// The shot is out and the tank is in combat, but the kobold does not
+// attack it yet: the tank stays and does not run to it.
+TEST(WarriorTank, DoesNotRunToThePullTargetAfterItsShot)
+{
+    BowTank tank;
+    tank.Pull();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetCannotCast(ShootBow);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+    {
+        EXPECT_EQ(std::string::npos, deed.find("attack")) << deed;
+        EXPECT_EQ(std::string::npos, deed.find("chase")) << deed;
+    }
+}
+
+TEST(WarriorTank, WaitsWhileItsShotGoesOut)
+{
+    BowTank tank;
+    tank.Pull();
+    tank.fake.SetCurrentCast(Tank, ShootBow);
+    tank.fake.SetCannotCast(ShootBow);
+
+    tank.Think();
+
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+}
+
+TEST(WarriorTank, WaitsForItsNextShotRatherThanRunningIn)
+{
+    BowTank tank;
+    tank.Pull();
+    tank.fake.SetCannotCast(ShootBow);
+
+    tank.Think();
+
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+}
+
+TEST(WarriorTank, WithNoRangedWeaponRunsInToHitThePullTarget)
+{
+    BowTank tank;
+    tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
+    tank.Pull();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+TEST(WarriorTank, WithNoAmmoRunsInToHitThePullTarget)
+{
+    BowTank tank;
+    tank.fake.SetRangedWeapon(Shortbow(0));
+    tank.Pull();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+// Too near to shoot, and no place to shoot from (no ground path): the
+// tank runs in.
+TEST(WarriorTank, TooCloseToShootRunsInToHitThePullTarget)
+{
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 6.0f);
+    tank.fake.AddNoPathFromX(-1000.0f);
+    tank.Pull();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+// The full run 12 of jvbastel/WOWAI#103 at pack4: the tank attacked the pull
+// target (its melee victim from an earlier run-in or charge), but no fight
+// started, and the next pull of it waited 60 s. Out of combat, no chase, the
+// target 3.5 yd away (too near to shoot), and the target attacks nobody.
+TEST(WarriorTank, RunsToThePullTargetItAttacksWithoutAFight)
+{
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 3.5f);
+    tank.Pull();
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetInCombat(Tank, false);
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+TEST(WarriorTank, RunsToThePullTargetOnlyOnce)
+{
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 3.5f);
+    tank.fake.AddNoPathFromX(-1000.0f);
+    tank.Pull();
+    tank.Think();
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetInCombat(Tank, false);
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+}
+
+TEST(WarriorTank, NeverChargesThePullTarget)
+{
+    BowTank tank;
+    tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
+    tank.Pull();
+
+    for (int think = 0; think < 3; ++think)
+        tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_EQ(std::string::npos, deed.find(CastOn(Warrior::Charge, Kobold))) << deed;
+}
+
+// The fallback pull: the tank ran in and hit the kobold once. Now the
+// kobold attacks it, and the tank walks back to where it started.
+TEST(WarriorTank, WalksBackToWhereItStartedAfterTheHit)
+{
+    BowTank tank;
+    tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
+    tank.fake.SetPosition(Tank, {10, 20, 0});
+    tank.Pull();
+    tank.fake.SetPosition(Tank, {28, 20, 0});
+    tank.fake.SetDistance(Kobold, 2.0f);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetVictim(Kobold, Tank);
+
+    tank.Think(); // Holds the pull.
+    tank.Think();
+
+    EXPECT_EQ(Bots::PullPhase::Holding, tank.group.GetPull().phase);
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to 10 20 0"}));
+}
+
+// An enemy of the pack hits a member while the tank walks back: the tank
+// taunts it off first, and walks on after.
+TEST(WarriorTank, TauntsAnEnemyOffAMemberBeforeItWalksBack)
+{
+    BowTank tank;
+    tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
+    tank.fake.SetGroupMembers({Healer});
+    tank.fake.SetPosition(Tank, {10, 20, 0});
+    tank.Pull();
+    tank.fake.SetPosition(Tank, {28, 20, 0});
+    tank.fake.SetDistance(Kobold, 2.0f);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetDistance(Wolf, 10.0f);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    tank.Think(); // Holds the pull.
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Wolf)}));
+}
+
+TEST(WarriorTank, BackAtItsSpotItStopsWalkingBack)
+{
+    BowTank tank;
+    tank.Pull();
+    tank.fake.SetPosition(Tank, {1, 0, 0});
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.Think(); // Holds the pull.
+
+    tank.Think();
+
+    EXPECT_FALSE(tank.group.GetPull().hasFightSpot);
+}
+
+// After the shot, the kobold runs to the tank: the tank waits for it where
+// it stands, and does not run to meet it.
+TEST(WarriorTank, WaitsForThePulledTargetToComeToIt)
+{
+    BowTank tank;
+    tank.Pull();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.fake.SetMoving(Kobold);
+    tank.fake.SetDistance(Kobold, 15.0f);
+    tank.group.HoldPull(Tank);
+    tank.group.ClearFightSpot(Tank);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "stand"}));
+}
+
+// The tank went into shooting range with a ranged chase, which attacks
+// without a melee swing. The kobold came: the tank hits it in melee now.
+TEST(WarriorTank, AfterARangedPullMeleesTheFocus)
+{
+    BowTank tank;
+    tank.Pull();
+    tank.fake.ChaseToRange(Kobold, 25.0f);
+    tank.fake.ClearDeeds();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetDistance(Kobold, 2.0f);
+    tank.group.HoldPull(Tank);
+    tank.group.ClearFightSpot(Tank);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+// An enemy that attacks the tank but stays away, such as a caster, gets
+// the tank's chase as before.
+TEST(WarriorTank, RunsToAFocusThatStaysAway)
+{
+    BowTank tank;
+    tank.Pull();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetDistance(Kobold, 15.0f);
+    tank.group.HoldPull(Tank);
+    tank.group.ClearFightSpot(Tank);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+TEST(WarriorTank, TopsUpItsArrowsOutOfCombatWithoutBuying)
+{
+    BowTank tank;
+    tank.fake.SetLevel(Tank, 30);
+    tank.fake.SetRangedWeapon(Shortbow(20, RazorArrow));
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"top up ammo 3030 to 200"}));
+}
+
+TEST(WarriorTank, WithFullBagsTriesNoAmmoTopUp)
+{
+    BowTank tank;
+    tank.fake.SetLevel(Tank, 30);
+    tank.fake.SetRangedWeapon(Shortbow(20, RazorArrow));
+    tank.fake.SetBagsFull();
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_EQ(std::string::npos, deed.find("top up")) << deed;
+}
+
+TEST(WarriorTank, DoesNotTopUpItsAmmoInAFight)
+{
+    BowTank tank;
+    tank.fake.SetLevel(Tank, 30);
+    tank.fake.SetRangedWeapon(Shortbow(20, RazorArrow));
+    tank.InFightWithKobold();
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_EQ(std::string::npos, deed.find("top up")) << deed;
 }
 
 TEST(WarriorTank, OnlyThePullerPulls)
@@ -405,4 +861,243 @@ TEST(WarriorTank, TakesTheEnemyOnAMemberAsFocusWhenTheFocusDies)
     rogue.SetVictim(Wolf, Healer);
     BotContext const context{rogue, rogue, tank.group, Bots::CommandState::Follow, 0x1};
     EXPECT_EQ(Bots::PickDamageTarget(context), Wolf);
+}
+
+namespace
+{
+    // A bow tank at (0, 0, 0) that walked along the x axis from x = -30,
+    // with the kobold 25 yards ahead in a pack of its own.
+    struct TrailTank : BowTank
+    {
+        TrailTank()
+        {
+            for (float x = -30.0f; x <= 0.0f; x += 2.0f)
+                group.KeepTrail({x, 0, 0}, false);
+            AddEnemy(Kobold, {25, 0, 0}, 10.0f);
+            fake.SetDistance(Kobold, 25.0f);
+        }
+
+        void AddEnemy(Bots::Guid enemy, Bots::Position at, float aggroYards)
+        {
+            fake.SetPosition(enemy, at);
+            fake.AddEnemy(enemy, at, aggroYards);
+        }
+    };
+}
+
+// jvbastel/WOWAI#105: the tank holds the pack on its cleared way, where
+// no other pack joins.
+TEST(WarriorTank, HoldsThePullAtTheFightSpotBackOnItsTrail)
+{
+    TrailTank tank;
+    // The wolf's reach (aggro 10 and the margin) ends between x = -6 and -8.
+    tank.AddEnemy(Wolf, {5, 8, 0}, 10.0f);
+    tank.group.StartPull(Tank, Kobold);
+
+    tank.Think();
+
+    Bots::PullState const pull = tank.group.GetPull();
+    ASSERT_TRUE(pull.hasFightSpot);
+    EXPECT_EQ(pull.fightSpot.x, -8.0f);
+    EXPECT_FALSE(pull.hasShootSpot);
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+}
+
+TEST(WarriorTank, WarnsInPartyChatWhenThePullBringsAnotherPackAnyway)
+{
+    TrailTank tank;
+    // Within the assistance radius of the kobold: it joins wherever the
+    // tank fights.
+    tank.AddEnemy(Wolf, {25, 9.5f, 0}, 10.0f);
+    tank.group.StartPull(Tank, Kobold);
+
+    tank.Think();
+
+    EXPECT_TRUE(tank.group.GetPull().hasFightSpot);
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"warn Careful: this pull brings 1 more pack."}));
+    tank.fake.ClearDeeds();
+    tank.Think();
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, "warn Careful: this pull brings 1 more pack.");
+}
+
+// The review of jvbastel/WOWAI#100: no spot passes only for lack of a shot.
+// The tank pulls anyway, and warns once.
+TEST(WarriorTank, WarnsWhenNoSpotHasAShot)
+{
+    TrailTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+    tank.fake.AddNoPathFromX(-1000.0f);
+    tank.group.StartPull(Tank, Kobold);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(),
+        (std::vector<std::string>{"warn Careful: I cannot pull this pack from a safe spot; more packs may come."}));
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
+// A clean pull whose target walked out of shot (during the group wait): the
+// chase into range is no failed fight spot, so no warn.
+TEST(WarriorTank, NoWarnWhenACleanPullsTargetWalksOutOfShot)
+{
+    BowTank tank;
+    tank.fake.AddNoPathFromX(-1000.0f);
+    tank.Pull();
+    tank.fake.SetDistance(Kobold, 45.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
+}
+
+TEST(WarriorTank, WalksBackAlongItsTrailToAShootSpotWhenItCannotSeeThePullTarget)
+{
+    TrailTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -3.0f);
+    tank.Pull();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -4 0 0"}));
+
+    // There, it sees the kobold and shoots.
+    tank.fake.SetPosition(Tank, {-4, 0, 0});
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
+}
+
+// The review of jvbastel/WOWAI#100: a tank within the least shot range of
+// the target does not run in when its fight spot search found a shoot spot
+// on the trail: it walks there and shoots.
+TEST(WarriorTank, TooNearToShootItWalksToItsShootSpotOnTheTrail)
+{
+    TrailTank tank;
+    tank.fake.SetPosition(Tank, {19, 0, 0});
+    tank.fake.SetDistance(Kobold, 6.0f);
+    tank.Pull();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to 0 0 0"}));
+}
+
+// The shoot spot was wrong (the sight of the real game differs): the tank
+// pulls as without one.
+TEST(WarriorTank, AtItsShootSpotOutOfSightItPullsAsWithoutOne)
+{
+    TrailTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -3.0f);
+    tank.Pull();
+    tank.fake.SetPosition(Tank, {-4, 0, 0});
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+
+    tank.Think();
+    tank.Think();
+
+    // Its chase to the target is no checked way: it warns, once.
+    EXPECT_FALSE(tank.group.GetPull().hasShootSpot);
+    EXPECT_EQ(tank.fake.Deeds(),
+        (std::vector<std::string>{"warn Careful: I cannot pull this pack from a safe spot; more packs may come.",
+            "chase 0xf130000302000022"}));
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
+// jvbastel/WOWAI#106: the tank pulls when each bot of the group is at its
+// member spot, or after 10 seconds.
+namespace
+{
+    struct GroupTank : TrailTank
+    {
+        GroupTank()
+        {
+            fake.SetHealth(Healer, 600, 600);
+            fake.SetGroupMembers({Healer});
+            group.NoteBot(Tank, 1000, true);
+            group.NoteBot(Healer, 1000, true);
+            group.StartPull(Tank, Kobold);
+            nowMs = 1000;
+            Think();
+            fake.ClearDeeds();
+        }
+    };
+}
+
+TEST(WarriorTank, WaitsForTheGroupBeforeItShoots)
+{
+    GroupTank tank;
+    tank.nowMs = 1500;
+
+    EXPECT_EQ(tank.Think(), "wait for the group");
+
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+}
+
+TEST(WarriorTank, ShootsOnceEachBotIsInPlace)
+{
+    GroupTank tank;
+    tank.group.ClaimMemberSpot(Healer, Bots::Tests::SpotAt(true, {-16, 0, 0}));
+    tank.group.SetMemberInPlace(Healer);
+    tank.nowMs = 1500;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
+}
+
+TEST(WarriorTank, SaysInPartyChatThatItWaitsOnABotAndShootsAfterTenSeconds)
+{
+    GroupTank tank;
+
+    tank.nowMs = 1000 + Bots::GroupWaitSayMs;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"say Waiting for 1 member to get in place."}));
+    tank.fake.ClearDeeds();
+    tank.nowMs += 500;
+    tank.Think();
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+
+    // At 10 s it pulls without the bot, and says so.
+    tank.nowMs = 1000 + Bots::GroupWaitMs;
+    tank.group.NoteBot(Healer, tank.nowMs, true);
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"say Pulling without 1 member."}));
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
+}
+
+TEST(WarriorTank, DoesNotWaitForThePlayer)
+{
+    GroupTank tank;
+    Bots::Guid const Player = 0x05;
+    tank.fake.SetHealth(Player, 600, 600);
+    // The player is a member, but no bot: the coordinator does not know it.
+    tank.fake.SetGroupMembers({Player});
+    tank.nowMs = 1500;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
+}
+
+TEST(WarriorTank, WalksToItsShootSpotWhileTheGroupGetsInPlace)
+{
+    TrailTank tank;
+    tank.fake.SetHealth(Healer, 600, 600);
+    tank.fake.SetGroupMembers({Healer});
+    tank.group.NoteBot(Healer, 1000, true);
+    tank.fake.AddBlindToFromX(Kobold, -3.0f);
+    tank.group.StartPull(Tank, Kobold);
+    tank.Think();
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -4 0 0"}));
 }

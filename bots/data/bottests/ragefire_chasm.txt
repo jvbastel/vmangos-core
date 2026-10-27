@@ -116,3 +116,37 @@ target pack10
 command pull
 wait combat_end 300
 expect pack_dead pack10
+
+# Two-pack scenario of jvbastel/WOWAI#103: two standing packs 9.5 yd apart,
+# one Searing Blade Enforcer each. The group fights pack48 at its own place,
+# so pack49 is expected to join. The result lists it as an extra pack of the
+# pull (pulls[].extra_packs); the run does not fail on it.
+scenario two_packs
+teleport pull_pack48
+clear 50 pack48 pack49  # only the two packs stay
+command follow
+wait 20
+command stay
+refill
+wait 3
+fight pack48
+expect pack_dead pack48
+
+# Two packs apart, for the fight spot of jvbastel/WOWAI#105: pack52 and
+# pack54, one standing Searing Blade Cultist each, 11.9 yd apart (more than
+# the assistance radius of 10 yd and the bodies, unlike two_packs). The
+# group walks from pull_pack51 to pull_pack52, so the tank has a trail.
+# The tank holds pack52 at a fight spot on that trail where pack54 does
+# not join.
+scenario two_packs_apart
+teleport pull_pack51
+clear 60 pack52 pack54  # only the two packs stay
+command follow
+wait 20
+move pull_pack52
+wait arrive
+command stay
+refill
+wait 3
+fight pack52
+expect pack_dead pack52

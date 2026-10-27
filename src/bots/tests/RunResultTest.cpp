@@ -99,12 +99,28 @@ TEST(RunResult, WritesThePullsTheThreatLossesAndTheLostMobs)
 
     // A `command pull` of a scenario has no pack.
     // A fight again of a pack that lived after its fight is marked.
-    EXPECT_EQ(j["pulls"], Json::parse(R"([{"pack": "pack1", "target": "Earthborer", "time_s": 61.5, "again": false},
-        {"pack": "pack1", "target": "Earthborer", "time_s": 120.0, "again": true},
-        {"pack": null, "target": "Taragaman the Hungerer", "time_s": 900.0, "again": false}])"));
+    EXPECT_EQ(j["pulls"], Json::parse(R"([{"pack": "pack1", "target": "Earthborer", "time_s": 61.5, "again": false,
+        "extra_packs": []},
+        {"pack": "pack1", "target": "Earthborer", "time_s": 120.0, "again": true, "extra_packs": []},
+        {"pack": null, "target": "Taragaman the Hungerer", "time_s": 900.0, "again": false, "extra_packs": []}])"));
     EXPECT_EQ(j["threat_losses"],
         Json::parse(R"([{"enemy": "Earthborer", "member": "Hela", "time_s": 62.0, "seconds": 5.0}])"));
     EXPECT_EQ(j["lost_mobs"], Json::array());
+}
+
+// jvbastel/WOWAI#103: the packs that joined the fight of a pull, and
+// whether the tank warned about them in party chat.
+TEST(RunResult, WritesTheExtraPacksOfEachPull)
+{
+    RunResult r = AFailedFullRun();
+    r.pulls[0].extraPacks = {{"pack2", 64000, true}, {"pack3", 70500, false}};
+
+    Json const j = Json::parse(Bots::RunResultJson(r));
+
+    EXPECT_EQ(j["pulls"][0]["extra_packs"], Json::parse(R"([{"pack": "pack2", "time_s": 64.0, "warned": true},
+        {"pack": "pack3", "time_s": 70.5, "warned": false}])"));
+    EXPECT_EQ(j["pulls"][1]["extra_packs"], Json::array());
+    EXPECT_EQ(j["extra_packs"], 2);
 }
 
 // The scripted moves of the test driver that stopped before they arrived

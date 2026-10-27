@@ -36,6 +36,15 @@ namespace Bots
         std::int64_t ms;
     };
 
+    // A pack of the route that joined the fight of a pull, but is not the
+    // pack of the pull (jvbastel/WOWAI#103, bots/ExtraPackWatch.h).
+    struct RunExtraPack
+    {
+        std::string pack;
+        std::int64_t ms = 0; // When the group first fought a mob of it.
+        bool warned = false; // The tank warned in party chat in that pull.
+    };
+
     // A `fight` of a pack, or a `command pull` of a scenario (no pack).
     struct RunPull
     {
@@ -43,6 +52,7 @@ namespace Bots
         std::string target; // The unit that the test driver selected.
         std::int64_t ms;
         bool again = false; // A fight again of a pack that lived after its fight.
+        std::vector<RunExtraPack> extraPacks;
     };
 
     // A threat loss or a lost mob: the enemy hit the member from start to end.
