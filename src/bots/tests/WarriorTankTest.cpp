@@ -1105,3 +1105,356 @@ TEST(WarriorTank, WalksToItsShootSpotWhileTheGroupGetsInPlace)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -4 0 0"}));
 }
+
+// jvbastel/WOWAI#116: Shield Block.
+namespace
+{
+    // A tank in Defensive Stance with a shield, 20 rage, Shield Block
+    // known, and the kobold hitting it in melee. Revenge is not ready.
+    struct ShieldTank : WarriorTank
+    {
+        ShieldTank()
+        {
+            fake.SetKnownSpell(Warrior::ShieldBlock);
+            InFightWithKobold();
+            fake.SetPower(Tank, 20, 100);
+            fake.SetCannotCast(Warrior::Revenge);
+        }
+    };
+}
+
+TEST(WarriorTank, UsesShieldBlockWhenAnEnemyHitsItInMelee)
+{
+    ShieldTank tank;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+TEST(WarriorTank, NoShieldBlockOutsideDefensiveStance)
+{
+    ShieldTank tank;
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance, false);
+    tank.fake.SetAura(Tank, Warrior::BattleStance);
+    // The stance change cannot come now (its cooldown).
+    tank.fake.SetCannotCast(Warrior::DefensiveStance);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, NoShieldBlockBelowTenRage)
+{
+    ShieldTank tank;
+    tank.fake.SetPower(Tank, 9, 100);
+    // Bloodrage is on its cooldown.
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, UsesShieldBlockAtTenRage)
+{
+    ShieldTank tank;
+    tank.fake.SetPower(Tank, 10, 100);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+TEST(WarriorTank, NoShieldBlockWhenNoEnemyHitsIt)
+{
+    ShieldTank tank;
+    // The kobold is stunned and hits nobody.
+    tank.fake.SetVictim(Kobold, NoGuid);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, NoShieldBlockWhenAnEnemyHitsItOnlyFromRange)
+{
+    ShieldTank tank;
+    tank.fake.SetVictim(Kobold, NoGuid);
+    // An enemy hits the tank from 30 yards (out of melee reach): a shield cannot block it.
+    tank.fake.SetHealth(Wolf, 200, 200);
+    tank.fake.SetDistance(Wolf, 30.0f);
+    tank.fake.SetVictim(Wolf, Tank);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, UsesShieldBlockWhenAnotherEnemyHitsItInMelee)
+{
+    ShieldTank tank;
+    tank.fake.SetVictim(Kobold, NoGuid);
+    tank.fake.SetHealth(Wolf, 200, 200);
+    tank.fake.SetDistance(Wolf, 2.0f);
+    tank.fake.SetVictim(Wolf, Tank);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+// The cast check of the game fails with no shield equipped.
+TEST(WarriorTank, NoShieldBlockWithNoShield)
+{
+    ShieldTank tank;
+    tank.fake.SetCannotCast(Warrior::ShieldBlock);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+// The cast check of the game fails on the cooldown too.
+TEST(WarriorTank, NoShieldBlockOnItsCooldown)
+{
+    ShieldTank tank;
+    tank.fake.SetCannotCastOn(Warrior::ShieldBlock, Tank);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, NoShieldBlockBeforeItKnowsIt)
+{
+    ShieldTank tank;
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock, false);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, PrefersReadyRevengeToShieldBlock)
+{
+    // As ShieldTank, but Revenge is ready.
+    WarriorTank tank;
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock);
+    tank.InFightWithKobold();
+    tank.fake.SetPower(Tank, 20, 100);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Kobold)}));
+}
+
+TEST(WarriorTank, PrefersShieldBlockToHeroicStrike)
+{
+    ShieldTank tank;
+    tank.fake.SetPower(Tank, 60, 100);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+TEST(WarriorTank, PrefersShieldBlockToSunderArmor)
+{
+    ShieldTank tank;
+    // Sunder Armor is ready and its rage is there: with Shield Block on
+    // its cooldown, the tank sunders.
+    tank.fake.SetCannotCast(Warrior::ShieldBlock);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+
+    ShieldTank ready;
+
+    ready.Think();
+
+    EXPECT_EQ(ready.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+// jvbastel/WOWAI#114: the opener and Demoralizing Shout.
+namespace
+{
+    // A tank that knows Demoralizing Shout, in a fight with the kobold and
+    // the wolf. Both stand next to it and attack it.
+    struct ShoutTank : WarriorTank
+    {
+        // Two more enemies, out of the fight unless a test says so.
+        static Bots::Guid const Boar = 0xF130000302000066;
+        static Bots::Guid const Raptor = 0xF130000302000077;
+
+        ShoutTank()
+        {
+            fake.SetKnownSpell(Warrior::DemoralizingShout);
+            InFightWithKobold();
+            fake.SetPosition(Tank, {0, 0, 0});
+            fake.AddEnemy(Kobold, {2, 0, 0}, 10.0f);
+            fake.AddEnemy(Wolf, {0, 3, 0}, 10.0f);
+            fake.SetHealth(Wolf, 200, 200);
+            fake.SetVictim(Wolf, Tank);
+            // Rage for each action but Bloodrage and Heroic Strike.
+            fake.SetPower(Tank, 25, 100);
+        }
+
+        // The think of one deed, which then has its effect on the fake.
+        std::string Next()
+        {
+            fake.ClearDeeds();
+            Think();
+            std::vector<std::string> const deeds = fake.Deeds();
+            return deeds.empty() ? "" : deeds.back();
+        }
+    };
+}
+
+// The tank charged the kobold in Battle Stance (Charge gave it rage). It
+// takes Defensive Stance at once, which drops all its rage with no Tactical
+// Mastery. Then Bloodrage gives it rage, and with that rage it shouts.
+TEST(WarriorTank, AfterChargeTakesDefensiveStanceThenBloodrageThenDemoralizingShout)
+{
+    ShoutTank tank;
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance, false);
+    tank.fake.SetAura(Tank, Warrior::BattleStance);
+    tank.fake.SetPower(Tank, 9, 100);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::DefensiveStance, Tank));
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetPower(Tank, 0, 100);
+    // Demoralizing Shout costs 10 rage: the game refuses it with less.
+    tank.fake.SetCannotCastOn(Warrior::DemoralizingShout, Tank);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::Bloodrage, Tank));
+    tank.fake.SetPower(Tank, 10, 100);
+    tank.fake.SetCanCastOn(Warrior::DemoralizingShout, Tank);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
+}
+
+TEST(WarriorTank, WithoutChargeOpensWithBloodrageThenDemoralizingShout)
+{
+    ShoutTank tank;
+    tank.fake.SetPower(Tank, 0, 100);
+    tank.fake.SetCannotCastOn(Warrior::DemoralizingShout, Tank);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::Bloodrage, Tank));
+    tank.fake.SetPower(Tank, 10, 100);
+    tank.fake.SetCanCastOn(Warrior::DemoralizingShout, Tank);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
+}
+
+TEST(WarriorTank, ShoutsWhenTwoEnemiesNearLackTheDebuff)
+{
+    ShoutTank tank;
+    tank.fake.SetAura(Kobold, Warrior::DemoralizingShout);
+    tank.fake.SetAura(Wolf, Warrior::DemoralizingShout);
+    tank.fake.AddEnemy(ShoutTank::Boar, {5, 0, 0}, 10.0f);
+    tank.fake.AddEnemy(ShoutTank::Raptor, {0, 5, 0}, 10.0f);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
+}
+
+// The wolf came late, or its debuff ran out.
+TEST(WarriorTank, ShoutsWhenOneEnemyInTheFightLacksTheDebuff)
+{
+    ShoutTank tank;
+    tank.fake.SetAura(Kobold, Warrior::DemoralizingShout);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
+}
+
+TEST(WarriorTank, NoShoutWhenEachEnemyNearHasTheDebuff)
+{
+    ShoutTank tank;
+    tank.fake.SetAura(Kobold, Warrior::DemoralizingShout);
+    tank.fake.SetAura(Wolf, Warrior::DemoralizingShout);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::Revenge, Kobold));
+}
+
+TEST(WarriorTank, NoShoutForOneEnemyOutOfTheFight)
+{
+    ShoutTank tank;
+    tank.fake.SetAura(Kobold, Warrior::DemoralizingShout);
+    tank.fake.SetAura(Wolf, Warrior::DemoralizingShout);
+    tank.fake.AddEnemy(ShoutTank::Boar, {5, 0, 0}, 10.0f);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::Revenge, Kobold));
+}
+
+TEST(WarriorTank, NoShoutForEnemiesBeyondItsReach)
+{
+    ShoutTank tank;
+    tank.fake.SetAura(Kobold, Warrior::DemoralizingShout);
+    tank.fake.SetAura(Wolf, Warrior::DemoralizingShout);
+    tank.fake.AddEnemy(ShoutTank::Boar, {11, 0, 0}, 10.0f);
+    tank.fake.AddEnemy(ShoutTank::Raptor, {0, 11, 0}, 10.0f);
+    tank.fake.SetVictim(ShoutTank::Raptor, Tank);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::Revenge, Kobold));
+}
+
+// Below level 14 the tank knows no Demoralizing Shout.
+TEST(WarriorTank, WithoutDemoralizingShoutItStillPicksItsOtherActions)
+{
+    ShoutTank tank;
+    tank.fake.SetKnownSpell(Warrior::DemoralizingShout, false);
+    tank.fake.SetPower(Tank, 0, 100);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::Bloodrage, Tank));
+    tank.fake.SetPower(Tank, 25, 100);
+
+    EXPECT_EQ(tank.Next(), CastOn(Warrior::Revenge, Kobold));
+}
+
+// With no Tactical Mastery (before level 51), their stance change would drop
+// all its rage.
+TEST(WarriorTank, NeverCastsThunderClapOrMockingBlow)
+{
+    ShoutTank tank;
+    tank.fake.SetKnownSpell(Warrior::ThunderClap);
+    tank.fake.SetKnownSpell(Warrior::MockingBlow);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance, false);
+    tank.fake.SetAura(Tank, Warrior::BattleStance);
+    tank.fake.SetPower(Tank, 60, 100);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetGroupMembers({Healer});
+    tank.fake.SetVictim(Kobold, Healer);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+
+    std::vector<std::string> deeds;
+    for (int think = 0; think < 8; ++think)
+    {
+        deeds.push_back(tank.Next());
+        tank.fake.SetCannotCast(Warrior::DefensiveStance);
+        tank.fake.SetCannotCast(Warrior::DemoralizingShout);
+        tank.fake.SetCannotCast(Warrior::Revenge);
+        tank.fake.SetCannotCast(Warrior::HeroicStrike);
+    }
+
+    for (std::string const& deed : deeds)
+    {
+        EXPECT_EQ(std::string::npos, deed.find("cast " + std::to_string(Warrior::ThunderClap) + " ")) << deed;
+        EXPECT_EQ(std::string::npos, deed.find("cast " + std::to_string(Warrior::MockingBlow) + " ")) << deed;
+    }
+}
+
+// Out of combat (no fight with the focus) the shout would pull the enemies
+// near.
+TEST(WarriorTank, NoShoutOutOfCombat)
+{
+    ShoutTank tank;
+    tank.fake.SetInCombat(Tank, false);
+    tank.fake.AddEnemy(ShoutTank::Boar, {5, 0, 0}, 10.0f);
+    tank.fake.AddEnemy(ShoutTank::Raptor, {0, 5, 0}, 10.0f);
+
+    EXPECT_NE(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
+}
