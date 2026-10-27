@@ -1271,3 +1271,15 @@ TEST(WarriorTank, NeverCastsThunderClapOrMockingBlow)
         EXPECT_EQ(std::string::npos, deed.find("cast " + std::to_string(Warrior::MockingBlow) + " ")) << deed;
     }
 }
+
+// Out of combat (no fight with the focus) the shout would pull the enemies
+// near.
+TEST(WarriorTank, NoShoutOutOfCombat)
+{
+    ShoutTank tank;
+    tank.fake.SetInCombat(Tank, false);
+    tank.fake.AddEnemy(ShoutTank::Boar, {5, 0, 0}, 10.0f);
+    tank.fake.AddEnemy(ShoutTank::Raptor, {0, 5, 0}, 10.0f);
+
+    EXPECT_NE(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
+}

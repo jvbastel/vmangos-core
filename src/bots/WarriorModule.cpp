@@ -8,6 +8,8 @@
 #include "Ranged.h"
 #include "SpellBook.h"
 
+#include <algorithm>
+
 namespace Bots
 {
     namespace Warrior
@@ -169,20 +171,21 @@ namespace Bots
             }
 
             // Demoralizing Shout is due: ShoutEnemies or more enemies within
-            // ShoutYards lack its debuff, or an enemy in the fight (it
-            // attacks a group member) lacks it: a late arrival, or an
-            // expired debuff. Not for one enemy out of the fight.
+            // ShoutYards lack its debuff, or an enemy in the fight
+            // (EnemiesInFight: the focus, or an attacker of a group member)
+            // lacks it: a late arrival, or an expired debuff. Not for one
+            // enemy out of the fight.
             bool ShoutDue(BotContext const& context)
             {
                 if (!FightsFocus(context))
                     return false;
+                std::vector<Guid> const inFight = EnemiesInFight(context);
                 std::size_t lacking = 0;
                 for (NearEnemy const& enemy : context.view.GetEnemiesNear(ShoutYards))
                 {
                     if (context.view.HasAura(enemy.guid, DemoralizingShout))
                         continue;
-                    Guid const victim = context.view.GetVictim(enemy.guid);
-                    if (victim != NoGuid && IsGroupMember(context.view, victim))
+                    if (std::find(inFight.begin(), inFight.end(), enemy.guid) != inFight.end())
                         return true;
                     ++lacking;
                 }
