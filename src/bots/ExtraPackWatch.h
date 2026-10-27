@@ -1,6 +1,7 @@
 #ifndef WOWAI_BOTS_EXTRA_PACK_WATCH_H
 #define WOWAI_BOTS_EXTRA_PACK_WATCH_H
 
+#include "BotActions.h"
 #include "RunResult.h"
 
 #include <cstdint>
@@ -12,7 +13,7 @@
 // The extra packs of a pull in a scripted run (jvbastel/WOWAI#103): the
 // packs of the route that joined the fight of the pull, other than the pack
 // of the pull itself, and whether the tank warned about them in party chat
-// (BotActions::WarnExtraPacks). A mob of no pack of the route (a roaming mob)
+// (WarnExtraPacks). A mob of no pack of the route (a roaming mob)
 // counts for no pack.
 namespace Bots
 {
@@ -47,9 +48,15 @@ namespace Bots
 
     // The warn hook of jvbastel/WOWAI#105: the line of the tank in party
     // chat when a pull will bring `packs` extra packs. A rule warns through
-    // BotActions::WarnExtraPacks, which says this line; a scripted run
+    // WarnExtraPacks, which says this line; a scripted run
     // records the warn for the extra packs of the pull.
+    // `packs` 0: the pull goes out with no clean way to the target (no shot
+    // from a checked spot), so packs may join.
     std::string ExtraPackWarnLine(std::uint32_t packs);
+
+    // The warn: the tank says ExtraPackWarnLine(packs) in party chat, as a
+    // PartyLine::ExtraPackWarn.
+    void WarnExtraPacks(BotActions& actions, std::uint32_t packs);
 }
 
 #endif

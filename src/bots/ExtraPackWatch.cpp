@@ -45,6 +45,13 @@ namespace Bots
 
     std::string ExtraPackWarnLine(std::uint32_t packs)
     {
+        if (packs == 0)
+            return "Careful: I cannot pull this pack from a safe spot; more packs may come.";
         return "Careful: this pull brings " + std::to_string(packs) + (packs == 1 ? " more pack." : " more packs.");
+    }
+
+    void WarnExtraPacks(BotActions& actions, std::uint32_t packs)
+    {
+        actions.SayParty(ExtraPackWarnLine(packs), PartyLine::ExtraPackWarn);
     }
 }

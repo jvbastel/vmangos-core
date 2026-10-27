@@ -1,4 +1,5 @@
 #include "FakeBot.h"
+#include "ExtraPackWatch.h"
 
 #include <gtest/gtest.h>
 
@@ -46,8 +47,7 @@ TEST(FakeBot, RecordsAnExtraPackWarn)
 {
     Bots::Tests::FakeBot fake(Self);
 
-    BotActions& actions = fake;
-    actions.WarnExtraPacks(2);
+    Bots::WarnExtraPacks(fake, 2);
 
-    EXPECT_EQ(fake.Deeds(), (std::vector<std::string>{"warn extra packs 2"}));
+    EXPECT_EQ(fake.Deeds(), (std::vector<std::string>{"warn Careful: this pull brings 2 more packs."}));
 }

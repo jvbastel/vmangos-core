@@ -449,14 +449,10 @@ namespace Bots
             void WalkAsGhost() override { m_deeds.push_back("walk as a ghost"); }
             void Eat() override { m_deeds.push_back("eat"); }
             void Drink() override { m_deeds.push_back("drink"); }
-            void WarnExtraPacks(std::uint32_t packs) override
+            // "say <line>", or "warn <line>" for an extra pack warn.
+            void SayParty(std::string const& line, PartyLine kind) override
             {
-                m_deeds.push_back("warn extra packs " + std::to_string(packs));
-            }
-
-            void SayGroupWait(std::uint32_t members) override
-            {
-                m_deeds.push_back("say group wait " + std::to_string(members));
+                m_deeds.push_back((kind == PartyLine::ExtraPackWarn ? "warn " : "say ") + line);
             }
 
             void TopUpAmmo(AmmoTopUp const& topUp) override

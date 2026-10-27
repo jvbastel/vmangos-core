@@ -914,11 +914,11 @@ TEST(WarriorTank, WarnsInPartyChatWhenThePullBringsAnotherPackAnyway)
     tank.Think();
 
     EXPECT_TRUE(tank.group.GetPull().hasSpot);
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"warn extra packs 1"}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"warn Careful: this pull brings 1 more pack."}));
     tank.fake.ClearDeeds();
     tank.Think();
     for (std::string const& deed : tank.fake.Deeds())
-        EXPECT_NE(deed, "warn extra packs 1");
+        EXPECT_NE(deed, "warn Careful: this pull brings 1 more pack.");
 }
 
 TEST(WarriorTank, WalksBackAlongItsTrailToAShootSpotWhenItCannotSeeThePullTarget)
@@ -1018,7 +1018,7 @@ TEST(WarriorTank, SaysInPartyChatThatItWaitsOnABotAndShootsAfterTenSeconds)
 
     tank.nowMs = 1000 + Bots::GroupWaitSayMs;
     tank.Think();
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"say group wait 1"}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"say Waiting for 1 member to get in place."}));
     tank.fake.ClearDeeds();
     tank.nowMs += 500;
     tank.Think();

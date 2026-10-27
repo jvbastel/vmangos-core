@@ -1,6 +1,7 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
 #include "BotGeometry.h"
+#include "ExtraPackWatch.h"
 #include "FightSpot.h"
 #include "GroupRules.h"
 #include "MemberSpot.h"
@@ -206,7 +207,7 @@ namespace Bots
                         if (fight.hasShootSpot)
                             context.group.SetShootSpot(Self(context), fight.shootSpot);
                         if (fight.extraPacks > 0)
-                            context.actions.WarnExtraPacks(fight.extraPacks);
+                            WarnExtraPacks(context.actions, fight.extraPacks);
                     }),
                 // The group goes to its member spots (MemberSpot.h): the tank
                 // pulls when each bot is in place, or after GroupWaitMs. It
@@ -218,7 +219,7 @@ namespace Bots
                             PullState const pull = context.group.GetPull();
                             if (pull.waitSaid || context.nowMs - pull.waitFromMs < GroupWaitSayMs)
                                 return;
-                            context.actions.SayGroupWait(std::uint32_t(MembersNotInPlace(context).size()));
+                            context.actions.SayParty(GroupWaitLine(std::uint32_t(MembersNotInPlace(context).size())), PartyLine::Plain);
                             context.group.NoteGroupWaitSaid(Self(context));
                         }}},
                 // The tank cannot shoot from where it stands: it walks to
