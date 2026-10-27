@@ -1458,3 +1458,31 @@ TEST(WarriorTank, NoShoutOutOfCombat)
 
     EXPECT_NE(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
 }
+
+// jvbastel/WOWAI#122: a pull target on a ledge that no safe place sees
+// (two_packs, pack48). The tank warns, walks up its path to the first point
+// with a shot, and shoots from there.
+TEST(WarriorTank, ClosesInAlongItsPathToAShotAtATargetOnALedge)
+{
+    BowTank tank;
+    tank.fake.SetPosition(Kobold, {25, 0, 0});
+    // Every place round the kobold is within its aggro distance and margin.
+    tank.fake.AddEnemy(Kobold, {25, 0, 0}, 25.0f);
+    tank.fake.AddBlindToBelowX(Kobold, 15.0f);
+    tank.group.StartPull(Tank, Kobold);
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(),
+        (std::vector<std::string>{"warn Careful: I cannot pull this pack from a safe spot; more packs may come."}));
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to 15 0 0"}));
+
+    // There, it sees the kobold and shoots.
+    tank.fake.SetPosition(Tank, {15, 0, 0});
+    tank.fake.SetDistance(Kobold, 10.0f);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
+}

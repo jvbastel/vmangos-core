@@ -16,7 +16,9 @@
 // - the spot is more than AssistanceYards from each enemy of another pack;
 // - the tank can pull the target from range (InShotFrom, Ranged.h): from
 //   where it stands, from a spot of the trail, or from a safe place round
-//   the target (SafePlace.h).
+//   the target (SafePlace.h). Else from the first point of its ground path
+//   to the target with a shot (FindShotOnPath, Ranged.h, for a target on a
+//   ledge): no checked way, so the spot is not clean.
 // A pack within the assistance radius of the target's pack answers its
 // call for help at the pull (Creature::CallAssistance), wherever the tank
 // fights: it counts for each spot, so no spot is clean then.

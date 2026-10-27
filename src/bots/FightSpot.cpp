@@ -135,6 +135,11 @@ namespace Bots
             canShoot = true;
             result.hasShootSpot = true;
         }
+        // Last, a target on a ledge that no safe place sees (#122): the
+        // tank closes in along its path until it has a shot. No checked
+        // way, so the spot is not clean.
+        if (!canShoot)
+            result.hasShootSpot = FindShotOnPath(view, target, result.shootSpot);
 
         bool found = false;
         for (Position const& spot : spots)
