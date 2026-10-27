@@ -157,18 +157,18 @@ TEST(CommandStrategy, TheTestDriverOfAScriptedRunLootsNoCorpse)
     EXPECT_TRUE(bot.fake.Deeds().empty());
 }
 
-TEST(ClassModules, TheWarriorTankHasTheCommandRestGroupClassAndDeathStrategies)
+TEST(ClassModules, TheWarriorTankHasTheCommandRestGroupKeepOutClassAndDeathStrategies)
 {
     StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Warrior, Bots::BotRole::Tank);
 
-    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "rest", "group rules", "warrior tank", "death"}));
+    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "rest", "group rules", "keep out", "warrior tank", "death"}));
 }
 
 TEST(ClassModules, AClassAndRoleWithoutAModuleHaveNoClassStrategy)
 {
     StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Druid, Bots::BotRole::Healer);
 
-    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "member spot", "rest", "group rules", "death"}));
+    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "member spot", "rest", "group rules", "keep out", "death"}));
 }
 
 TEST(CommandStrategy, ABotThatWaitsItsStartDelayDoesNotFollowYet)

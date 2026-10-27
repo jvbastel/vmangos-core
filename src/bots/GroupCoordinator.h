@@ -70,6 +70,10 @@ namespace Bots
         // The puller warned about extra packs in this pull
         // (NoteExtraPackWarn): it warns once a pull.
         bool extraPackWarned = false;
+        // jvbastel/WOWAI#121: the puller goes in to a caster that stayed
+        // away (GoIn). The keep-out rule (KeepOut.h) then lets it step
+        // near other packs, after its warn.
+        bool goesIn = false;
     };
 
     // The member spot of a bot in the pull (MemberSpot.h).
@@ -189,6 +193,9 @@ namespace Bots
         // The puller warned about extra packs (WarnExtraPacks). Only the
         // puller can.
         void NoteExtraPackWarn(Guid puller);
+        // The puller goes in to a caster that stayed away (PullState::goesIn).
+        // Only the puller can.
+        void GoIn(Guid puller);
         // The member spots of the pull that is on: each bot claims its own
         // spot (`found` false: none is safe), and then notes that it is in place;
         // it stays in place for the rest of the pull.

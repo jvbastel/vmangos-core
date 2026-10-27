@@ -360,6 +360,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_wipeWatch = Bots::WipeWatch();
     m_alive.clear();
     m_enemyHealth.clear();
+    m_fleeing.clear();
     m_driverSeen = false;
     ++m_number;
 
@@ -1445,6 +1446,19 @@ void BotRun::WatchEnemies(int64 nowMs)
             it = m_enemyHealth.erase(it);
             continue;
         }
+        // A flee: from fear, for assistance, or at low health.
+        MovementGeneratorType const motion = enemy->GetMotionMaster()->GetCurrentMovementGeneratorType();
+        bool const flees = enemy->HasUnitState(UNIT_STATE_FLEEING) || motion == FLEEING_MOTION_TYPE
+            || motion == TIMED_FLEEING_MOTION_TYPE || motion == ASSISTANCE_MOTION_TYPE;
+        if (flees && m_fleeing.insert(it->first).second)
+        {
+            std::string const line = Bots::FleeLine(UnitText(enemy),
+                {enemy->GetPositionX(), enemy->GetPositionY(), enemy->GetPositionZ()});
+            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, line.c_str());
+            m_trace.Add(nowMs, line);
+        }
+        else if (!flees)
+            m_fleeing.erase(it->first);
         // Damage dealt.
         if (enemy->GetHealth() < it->second)
             m_judge->NoteProgress(nowMs);
