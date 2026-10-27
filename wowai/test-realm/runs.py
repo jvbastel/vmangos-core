@@ -46,8 +46,6 @@ POLL_SECONDS = 10
 # and the wait for the chat of the run. A scenario has its own limits.
 FULL_RUN_SECONDS = 50 * 60
 SCENARIO_SECONDS = 15 * 60
-# The watch page stays this long after the last run, for its end line.
-WATCH_LINGER_SECONDS = 10 * 60
 
 OVER = re.compile(r"^Run \d+ \S+ \S+: (passed|failed|aborted) after ", re.M)
 RESULT = re.compile(r"Result: (\S+\.json)")
@@ -259,12 +257,7 @@ def watch_command(realm_args, port, count, runs_dir, ntfy):
 
 
 def stop_watch(watcher):
-    """Keeps the watch page up for a while after the last run, then stops it."""
-    print("The watch page stays up for %d minutes. Ctrl+C stops it." % (WATCH_LINGER_SECONDS // 60), flush=True)
-    try:
-        watcher.wait(WATCH_LINGER_SECONDS)
-    except (subprocess.TimeoutExpired, KeyboardInterrupt):
-        pass
+    """Stops the watch page right after the last run."""
     watcher.terminate()
     watcher.wait()
 
