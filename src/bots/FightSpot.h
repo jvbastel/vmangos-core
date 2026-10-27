@@ -24,6 +24,13 @@
 // fights: it counts for each spot, so no spot is clean then.
 // With no clean spot, the spot that brings the fewest extra packs counts,
 // the newest of them first; the tank pulls anyway and warns.
+// A caster pack (an enemy with mana, jvbastel/WOWAI#121) does not come to
+// the tank: its caster stays at its spawn and casts. For it the tank first
+// looks for a line-of-sight pull: a spot that passes the rules above, that
+// the caster cannot see from its spawn (BotView::CanSeeBetween), with a shot
+// from within LineOfSightShotYards of it. The caster then has to come round
+// to see the tank. With no such spot, the area round the caster's spawn
+// counts for each spot as well: the fight may go there.
 namespace Bots
 {
     // The core's assistance radius (CreatureFamilyAssistanceRadius). The
@@ -38,6 +45,9 @@ namespace Bots
     float const AtSpotYards = 2.0f;
     // The trail spots that count: at most this far from the tank.
     float const FightSpotSearchYards = 40.0f;
+    // The shot of a line-of-sight pull goes from at most this far from its
+    // fight spot, so the tank is back there before the caster sees it.
+    float const LineOfSightShotYards = 10.0f;
 
     struct FightSpot
     {
@@ -50,6 +60,9 @@ namespace Bots
         // Where the tank pulls from, when it cannot from where it stands.
         bool hasShootSpot = false;
         Position shootSpot = {0, 0, 0};
+        // A line-of-sight pull of a caster pack (jvbastel/WOWAI#121): the
+        // target cannot see the spot from its spawn.
+        bool lineOfSight = false;
     };
 
     // `enemies` in packs: enemies within PackLinkYards of each other, also
@@ -65,6 +78,9 @@ namespace Bots
         std::vector<std::vector<NearEnemy>> others;
     };
     TargetPack SplitTargetPack(std::vector<NearEnemy> const& enemies, Guid target, Position const& targetAt);
+
+    // A caster pack: an enemy of `pack` has mana (jvbastel/WOWAI#121).
+    bool IsCasterPack(BotView const& view, std::vector<NearEnemy> const& pack);
 
     // The fight spot of the bot's pull of `target`. `trail`: the cleared
     // way, oldest first (GroupCoordinator::GetTrail). The bot's own place
