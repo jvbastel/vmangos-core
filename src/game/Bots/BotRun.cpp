@@ -1459,7 +1459,11 @@ void BotRun::WatchEnemies(int64 nowMs)
             it = m_enemyHealth.erase(it);
             continue;
         }
-        // A flee: from fear, for assistance, or at low health.
+        // A flee: from fear, or at low health. The low-health flee
+        // (Creature::DoFleeToGetAssistance) runs to the nearest ally with
+        // MoveSeekAssistance (ASSISTANCE_MOTION_TYPE) when one is in reach,
+        // else flees in place for a time (TIMED_FLEEING_MOTION_TYPE): both
+        // are the flee, and the first is the one that brings a pack.
         MovementGeneratorType const motion = enemy->GetMotionMaster()->GetCurrentMovementGeneratorType();
         bool const flees = enemy->HasUnitState(UNIT_STATE_FLEEING) || motion == FLEEING_MOTION_TYPE
             || motion == TIMED_FLEEING_MOTION_TYPE || motion == ASSISTANCE_MOTION_TYPE;
