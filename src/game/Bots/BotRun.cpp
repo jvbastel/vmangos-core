@@ -213,6 +213,19 @@ namespace
         return bool(out);
     }
 
+    // The trace of the running run, line by line as it goes: the watch
+    // script reads it (jvbastel/WOWAI#98). A new run starts it empty.
+    char const* const LiveTraceFile = "live.trace.txt";
+
+    void MakeDir(std::string const& dir)
+    {
+#if PLATFORM == PLATFORM_WINDOWS
+        _mkdir(dir.c_str());
+#else
+        mkdir(dir.c_str(), 0775);
+#endif
+    }
+
     // "<name> <guid counter>" of a unit, for the trace.
     std::string UnitText(Unit const* unit)
     {
@@ -307,6 +320,10 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_aborted = false;
     m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0));
     m_trace = Bots::RunTrace();
+    m_fight = Bots::FightWatch();
+    MakeDir(sBotMgr.GetSettings().runDir);
+    if (!WriteFile(sBotMgr.GetSettings().runDir + "/" + LiveTraceFile, ""))
+        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] cannot write %s/%s", sBotMgr.GetSettings().runDir.c_str(), LiveTraceFile);
     m_quests.reset(new Bots::QuestProgress(m_route));
     m_releaseMs = Bots::WipeReviveDelayMs;
     m_releaseNever = false;
@@ -332,6 +349,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     sBotMgr.SetTestDriver(sObjectMgr.GetPlayerGuidByName(m_script.driver));
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s %s starts, test driver %s", m_number, m_script.name.c_str(),
         m_scenario.c_str(), m_script.driver.c_str());
+    m_trace.Add(0, "run " + std::to_string(m_number) + " " + m_script.name + " " + m_scenario + " starts");
     SetPhase(Phase::LoginFirst);
     return true;
 }
@@ -373,7 +391,9 @@ void BotRun::NoteBossKill(uint32 groupId, uint32 entry)
     m_judge->NoteBossKill(entry, now);
     CreatureInfo const* info = sObjectMgr.GetCreatureTemplate(entry);
     m_record.bossKills.push_back({entry, info ? info->name : "", now});
-    m_trace.Add(now, "boss_kill " + std::to_string(entry) + (info ? std::string(" ") + info->name : ""));
+    std::string const kill = "boss_kill " + std::to_string(entry) + (info ? std::string(" ") + info->name : "");
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, kill.c_str());
+    m_trace.Add(now, kill);
 }
 
 int64 BotRun::RunMs() const
@@ -395,7 +415,10 @@ void BotRun::Fail(std::string const& reason)
 void BotRun::Finish(bool passed, std::string const& reason)
 {
     // 1. The result. A threat loss does not fail the run: the spec allows
-    // some (spec section 10). The result counts them.
+    // some (spec section 10). The result counts them. A fight that still
+    // runs ends here, with what its members did so far.
+    if (m_fight.Running())
+        EndFight(RunMs());
     m_passed = passed;
     std::ostringstream line;
     line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": "
@@ -498,6 +521,8 @@ bool BotRun::AllOffline() const
 
 void BotRun::Update()
 {
+    // The lines of the last update, and the result line of a stop.
+    WriteLiveTrace();
     // The combat notes count only in the script phase (WatchCombat).
     if (m_phase != Phase::Script)
         m_combatNotes.Drain();
@@ -1260,6 +1285,7 @@ void BotRun::WatchRun(int64 nowMs)
     }
 
     TraceMembers(nowMs);
+    WatchFight(nowMs);
 
     Bots::RunVerdict const verdict = m_judge->Judge(nowMs);
     if (verdict.kind == Bots::RunVerdictKind::Passed)
@@ -1391,6 +1417,64 @@ void BotRun::RecordPull(Bots::ScriptCommand const& command)
     // The pack of a `fight`; none for a `command pull`.
     std::string const pack = command.kind == Bots::ScriptCommandKind::Fight ? command.name : "";
     m_record.pulls.push_back({pack, target ? target->GetName() : "", RunMs(), command.again > 0});
+    // A new pull ends the fight of the last one.
+    if (m_fight.Running())
+        EndFight(RunMs());
+    std::vector<std::pair<std::string, Bots::Guid>> members;
+    for (Player const* member : Members())
+        members.emplace_back(member->GetName(), member->GetObjectGuid().GetRawValue());
+    m_fight.Start(uint32(m_record.pulls.size()), pack, command.again > 0, RunMs(), members);
+}
+
+void BotRun::WatchFight(int64 nowMs)
+{
+    if (!m_fight.Running())
+        return;
+    std::set<Bots::Guid> enemies;
+    for (auto const& enemy : m_enemyHealth)
+        enemies.insert(enemy.first.GetRawValue());
+    std::vector<Bots::FightMemberSeen> seen;
+    for (Player* member : Members())
+    {
+        if (!InWorldAndStill(member))
+            continue;
+        // The attacks of the threat watch, and the cast of the interrupts.
+        Bots::MemberAttacks const attacks = BotAdapter::AttacksOf(member, true);
+        Bots::CastInfo const cast = BotAdapter::CastOf(member);
+        // The victim of the member itself: a pet that fights for a member
+        // that only follows is no part of the member (jvbastel/WOWAI#93).
+        Bots::FightMemberSeen state = {member->GetName(), attacks.victim, cast.spell, Bots::NoGuid, cast.kind};
+        // The first spell target is that of the cast. With no cast, it is
+        // that of an auto-repeat spell (a wand's Shoot): an attack.
+        if (!attacks.spellTargets.empty())
+        {
+            if (cast.spell != Bots::NoSpell)
+                state.spellTarget = attacks.spellTargets.front();
+            else if (state.victim == Bots::NoGuid)
+                state.victim = attacks.spellTargets.front();
+        }
+        seen.push_back(state);
+    }
+    if (m_fight.Observe(nowMs, Facts().groupInCombat, enemies, seen))
+        EndFight(nowMs);
+}
+
+void BotRun::EndFight(int64 nowMs)
+{
+    m_record.fights.push_back(m_fight.End(nowMs));
+    std::string const text = Bots::FightText(m_record.fights.back());
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
+    m_trace.Add(nowMs, text);
+}
+
+void BotRun::WriteLiveTrace()
+{
+    std::vector<std::string> const lines = m_trace.TakeNew();
+    if (lines.empty())
+        return;
+    std::ofstream out(sBotMgr.GetSettings().runDir + "/" + LiveTraceFile, std::ios::binary | std::ios::app);
+    for (std::string const& line : lines)
+        out << line << "\n";
 }
 
 void BotRun::WriteResultFiles()
@@ -1408,11 +1492,7 @@ void BotRun::WriteResultFiles()
     RecordCombat();
 
     std::string const dir = sBotMgr.GetSettings().runDir;
-#if PLATFORM == PLATFORM_WINDOWS
-    _mkdir(dir.c_str());
-#else
-    mkdir(dir.c_str(), 0775);
-#endif
+    MakeDir(dir);
     std::string const stem = Bots::RunFileStem(m_record);
     std::string const path = dir + "/" + stem;
     m_record.traceFile.clear();

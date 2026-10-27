@@ -214,5 +214,25 @@ class Thresholds(unittest.TestCase):
         self.assertEqual(self.fails(result), [])
 
 
+class Watch(unittest.TestCase):
+    def test_the_watch_script_watches_the_same_realm_and_runs_folder(self):
+        command = runs.watch_command(["--ticket", "98"], 8098, 3, "runs-x", None)
+
+        self.assertTrue(command[1].endswith("watch.py"))
+        self.assertEqual(command[2:], ["--ticket", "98", "--port", "8098", "--count", "3", "--runs-dir", "runs-x",
+                                       "--status"])
+
+    def test_watch_takes_a_port_only_when_one_follows(self):
+        self.assertEqual(runs.watch_port_argv(["--ticket", "98", "--watch", "full", "3"]),
+                         ["--ticket", "98", "--watch=8098", "full", "3"])
+        self.assertEqual(runs.watch_port_argv(["--watch", "8198", "full"]), ["--watch", "8198", "full"])
+        self.assertEqual(runs.watch_port_argv(["full", "--watch"]), ["full", "--watch=8098"])
+
+    def test_passes_the_ntfy_topic_on(self):
+        command = runs.watch_command(["--shared"], 9000, 1, "runs-x", "wowai-7f3k")
+
+        self.assertEqual(command[-2:], ["--ntfy", "wowai-7f3k"])
+
+
 if __name__ == "__main__":
     unittest.main()
