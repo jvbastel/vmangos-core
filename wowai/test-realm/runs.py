@@ -26,7 +26,9 @@ until the run ends, and stops a run that takes too long. mangosd writes each
 result file, and the trace of a run that did not pass, to the folder runs/ of
 its logs, which the realm mounts at <realm folder>/storage/mangosd/logs/runs.
 The script copies them from there to the out folder and prints one line per
-run. A full run passes when the run passed and its result file meets the
+run, and one line per pull: its threat losses, the healer's, and whether it
+was clean. At the end it prints the measurement over all first pulls
+(jvbastel/WOWAI#118). A full run passes when the run passed and its result file meets the
 pass thresholds of spec section 10 (threshold_failures). It ends with exit
 code 0 when every run passed.
 """
@@ -139,6 +141,59 @@ def clean_pull_share(result):
         before = [i for i, pull in enumerate(pulls) if pull["time_s"] <= loss["time_s"]]
         lossy.add(before[-1] if before else first[0])
     return 1.0 - len(lossy.intersection(first)) / len(first)
+
+
+def pull_reports(result):
+    """Each pull of a result file, in time order (jvbastel/WOWAI#118): its
+    threat losses, those on a healer, and whether it was clean (no threat
+    loss). A loss belongs to the last pull before it, as in
+    clean_pull_share. `again` marks a fight again of a pack, which is no
+    first pull."""
+    pulls = sorted(result.get("pulls", []), key=lambda pull: pull["time_s"])
+    healers = set(result.get("healers", []))
+    reports = [{"pull": i + 1, "pack": pull.get("pack"), "target": pull.get("target", ""),
+                "again": pull.get("again", False), "threat_losses": 0, "healer_threat_losses": 0}
+               for i, pull in enumerate(pulls)]
+    for loss in result["threat_losses"] if reports else []:
+        before = [i for i, pull in enumerate(pulls) if pull["time_s"] <= loss["time_s"]]
+        report = reports[before[-1] if before else 0]
+        report["threat_losses"] += 1
+        report["healer_threat_losses"] += loss["member"] in healers
+    for report in reports:
+        report["clean"] = report["threat_losses"] == 0
+    return reports
+
+
+def pull_line(report):
+    """One line for a pull report."""
+    name = ", ".join(part for part in (report["pack"], report["target"]) if part)
+    return "pull %d%s%s: threat losses %d (healer %d), %s" % (
+        report["pull"], " (%s)" % name if name else "", " again" if report["again"] else "",
+        report["threat_losses"], report["healer_threat_losses"], "clean" if report["clean"] else "not clean")
+
+
+def measurement(reports):
+    """The measurement over the first pulls of the reports (one or more
+    runs): the healer's threat losses per pull, the share of pulls with no
+    healer threat loss, and the share of clean pulls. None with no pull."""
+    first = [report for report in reports if not report["again"]]
+    if not first:
+        return None
+    healer = sum(report["healer_threat_losses"] for report in first)
+    return {
+        "pulls": len(first),
+        "healer_threat_losses": healer,
+        "healer_threat_loss_rate": healer / len(first),
+        "no_healer_threat_loss_share": sum(1 for r in first if r["healer_threat_losses"] == 0) / len(first),
+        "clean_share": sum(1 for r in first if r["clean"]) / len(first),
+    }
+
+
+def measurement_line(m):
+    return ("Measurement over %d pulls: healer threat losses %d (%.2f per pull), "
+            "pulls with no healer threat loss %s, clean pulls %s" % (
+                m["pulls"], m["healer_threat_losses"], m["healer_threat_loss_rate"],
+                percent(m["no_healer_threat_loss_share"]), percent(m["clean_share"])))
 
 
 def chat_failures(result):
@@ -302,6 +357,7 @@ def main():
         print(watcher.stdout.readline().rstrip(), flush=True)
 
     passed = 0
+    all_reports = []
     for n in range(1, count + 1):
         answer = realm.soap(".wowai run start %s %s" % (args.script, scenario))
         print("Run %d of %d: %s" % (n, count, answer), flush=True)
@@ -313,11 +369,18 @@ def main():
             print("No result file: " + status, flush=True)
             continue
         print(summary(result), flush=True)
+        reports = pull_reports(result)
+        for report in reports:
+            print("  " + pull_line(report), flush=True)
+        all_reports += reports
         failures = threshold_failures(result)
         for failure in failures:
             print("  threshold: " + failure, flush=True)
         passed += result["result"] == "passed" and not failures
 
+    m = measurement(all_reports)
+    if m:
+        print(measurement_line(m), flush=True)
     print("%d of %d runs passed. The result files are in %s." % (passed, count, os.path.abspath(out)), flush=True)
     if watcher:
         stop_watch(watcher)

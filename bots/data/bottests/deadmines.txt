@@ -1,0 +1,25 @@
+# The scripted runs of the Deadmines. The format is in src/bots/RunScript.h,
+# the route in routes/deadmines.txt. wowai/test-realm/runs.py starts them:
+#   wowai/test-realm/runs.py --ticket <N> --script deadmines scenario three_enemies 10
+script deadmines deadmines
+driver Ezzra
+group Grukk Hela Shanka Morzul
+outside 1 1811.78 -4410.50 -18.47   # the group waits in Orgrimmar, as in ragefire_chasm
+level 18                            # the pack is level 17-18
+
+# The three-enemy pack of jvbastel/WOWAI#118 (spec #102): one fixed pack of
+# three Defias Miners (level 17-18, melee, standing; 8 to 17 yd apart, so
+# each one joins the pull). No ranged pull, no patrol, no crowd control:
+# the group holds its place and the tank pulls. The result file reports the
+# threat losses of the pull, the healer's threat losses, and runs.py says
+# whether the pull was clean. 10 runs are one measurement.
+scenario three_enemies
+teleport pull_miners
+clear 60 miners         # only the pack stays
+command follow
+wait 20                 # the buffs
+command stay
+refill                  # full health and mana after the buffs
+wait 3                  # a bot that drank stands up: the group rests no more
+fight miners
+expect pack_dead miners
