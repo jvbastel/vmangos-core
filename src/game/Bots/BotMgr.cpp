@@ -406,6 +406,12 @@ bool BotMgr::BotRoleOf(Player const* player, Bots::BotRole& role) const
     return RoleOfOurBot(player, name) && Bots::ParseRoleName(name, role);
 }
 
+bool BotMgr::IsHealerBot(Player const* player) const
+{
+    Bots::BotRole role;
+    return BotRoleOf(player, role) && role == Bots::BotRole::Healer;
+}
+
 bool BotMgr::IsBotCharacter(ObjectGuid guid) const
 {
     return guid.IsPlayer() && m_bots.count(guid.GetCounter()) != 0;

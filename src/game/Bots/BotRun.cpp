@@ -871,7 +871,7 @@ void BotRun::WatchThreat(int64 nowMs)
         bool const hasRole = sBotMgr.BotRoleOf(member, role);
         bool const tank = hasRole && role == Bots::BotRole::Tank;
         Bots::Guid const guid = member->GetObjectGuid().GetRawValue();
-        if (member != driver && hasRole && role == Bots::BotRole::Healer &&
+        if (sBotMgr.IsHealerBot(member) &&
             std::find(m_record.healers.begin(), m_record.healers.end(), member->GetName()) == m_record.healers.end())
             m_record.healers.push_back(member->GetName());
         if (tank && member->GetVictim())
