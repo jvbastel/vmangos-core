@@ -107,6 +107,39 @@ TEST(WarriorTank, RunsToThePullTargetWhenItCannotCharge)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
 }
 
+// The full run 12 of jvbastel/WOWAI#103 at pack4: the charge landed, the
+// Earthborer did not fight, and the next pull of it waited 60 s. The tank
+// still attacked the pull target (its victim since the charge), out of
+// combat, with no chase and Charge not castable (cooldown, or the target
+// nearer than its least range): no pull rule fired.
+TEST(WarriorTank, RunsToThePullTargetItAttacksWithoutAFight)
+{
+    WarriorTank tank;
+    tank.fake.SetCannotCast(Warrior::Charge);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetInCombat(Tank, false);
+    tank.group.StartPull(Tank, Kobold);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+TEST(WarriorTank, RunsToThePullTargetOnlyOnce)
+{
+    WarriorTank tank;
+    tank.fake.SetCannotCast(Warrior::Charge);
+    tank.group.StartPull(Tank, Kobold);
+    tank.Think();
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetInCombat(Tank, false);
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+}
+
 TEST(WarriorTank, OnlyThePullerPulls)
 {
     WarriorTank tank;

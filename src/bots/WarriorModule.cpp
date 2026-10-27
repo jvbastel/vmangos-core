@@ -100,9 +100,15 @@ namespace Bots
                 CastRule("charge the pull target", P + 75,
                     [](BotContext const& context) { return IsPulling(context) && !InCombat(context); },
                     Charge, PickPullTarget),
+                // Also when the bot attacks the target but does not chase it:
+                // after a charge that started no fight, Charge cannot come
+                // again (cooldown, or the target is too near), and the bot
+                // would wait for good.
                 MeleeRule("run to the pull target", P + 70,
                     [](BotContext const& context) {
-                        return IsPulling(context) && context.view.GetVictim(Self(context)) != PickPullTarget(context);
+                        Guid const target = PickPullTarget(context);
+                        return IsPulling(context) && (context.view.GetVictim(Self(context)) != target
+                            || (!InCombat(context) && context.view.GetChase().target != target));
                     },
                     PickPullTarget),
 
