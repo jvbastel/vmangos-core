@@ -76,6 +76,88 @@ class Summary(unittest.TestCase):
                          "threat losses 3 (healer 2), lost mobs 0, extra packs 0")
 
 
+def a_three_enemy_run(losses):
+    """A run of the three-enemy scenario (jvbastel/WOWAI#118): one pull of
+    the miners at 30 s, and the threat losses (member, time_s) after it."""
+    return {
+        "run": 1, "script": "deadmines", "scenario": "three_enemies", "result": "passed", "reason": None,
+        "healers": ["Hela"],
+        "pulls": [{"pack": "miners", "target": "Defias Miner", "time_s": 30.0, "again": False, "extra_packs": []}],
+        "threat_losses": [{"enemy": "Defias Miner", "member": member, "time_s": t, "seconds": 5.0}
+                          for member, t in losses],
+    }
+
+
+class PullReport(unittest.TestCase):
+    """jvbastel/WOWAI#118: each pull reports its threat losses, the healer's
+    threat losses, and whether it was clean (no threat loss)."""
+
+    def test_a_pull_with_no_threat_loss_is_clean(self):
+        self.assertEqual(runs.pull_reports(a_three_enemy_run([])),
+                         [{"pull": 1, "pack": "miners", "target": "Defias Miner", "again": False,
+                           "threat_losses": 0, "healer_threat_losses": 0, "clean": True}])
+
+    def test_counts_the_losses_of_the_pull_and_those_on_the_healer(self):
+        report = runs.pull_reports(a_three_enemy_run([("Hela", 35.0), ("Ezzra", 36.0), ("Hela", 40.0)]))
+        self.assertEqual([(r["threat_losses"], r["healer_threat_losses"], r["clean"]) for r in report],
+                         [(3, 2, False)])
+
+    def test_a_loss_belongs_to_the_last_pull_before_it(self):
+        result = a_three_enemy_run([("Hela", 35.0), ("Shanka", 95.0)])
+        result["pulls"].append({"pack": "pack2", "target": "Defias Miner", "time_s": 90.0, "again": False})
+        report = runs.pull_reports(result)
+        self.assertEqual([(r["pull"], r["pack"], r["threat_losses"], r["healer_threat_losses"]) for r in report],
+                         [(1, "miners", 1, 1), (2, "pack2", 1, 0)])
+
+    def test_a_loss_before_any_pull_belongs_to_the_first_pull_that_is_no_fight_again(self):
+        result = a_three_enemy_run([("Hela", 5.0)])
+        result["pulls"].insert(0, {"pack": "miners", "target": "Defias Miner", "time_s": 10.0, "again": True})
+        report = runs.pull_reports(result)
+        self.assertEqual([(r["again"], r["threat_losses"]) for r in report], [(True, 0), (False, 1)])
+        self.assertEqual(runs.clean_pull_share(result), runs.measurement(report)["clean_share"])
+
+    def test_a_result_with_no_threat_losses_field_has_clean_pulls(self):
+        result = a_three_enemy_run([])
+        del result["threat_losses"]
+        self.assertTrue(runs.pull_reports(result)[0]["clean"])
+
+    def test_one_line_per_pull(self):
+        report = runs.pull_reports(a_three_enemy_run([("Hela", 35.0), ("Ezzra", 36.0)]))
+        self.assertEqual(runs.pull_line(report[0]),
+                         "pull 1 (miners, Defias Miner): threat losses 2 (healer 1), not clean")
+        report = runs.pull_reports(a_three_enemy_run([]))
+        self.assertEqual(runs.pull_line(report[0]),
+                         "pull 1 (miners, Defias Miner): threat losses 0 (healer 0), clean")
+
+
+class Measurement(unittest.TestCase):
+    """jvbastel/WOWAI#118: the measurement over the first pulls of all runs
+    (10 runs of the three-enemy scenario)."""
+
+    def test_the_healer_rate_and_the_shares_of_the_pulls(self):
+        reports = []
+        for losses in ([], [("Hela", 35.0)], [("Hela", 35.0), ("Hela", 45.0)], [("Ezzra", 35.0)]):
+            reports += runs.pull_reports(a_three_enemy_run(losses))
+        m = runs.measurement(reports)
+        self.assertEqual(m["pulls"], 4)
+        self.assertEqual(m["healer_threat_losses"], 3)
+        self.assertAlmostEqual(m["healer_threat_loss_rate"], 0.75)
+        self.assertAlmostEqual(m["no_healer_threat_loss_share"], 0.5)
+        self.assertAlmostEqual(m["clean_share"], 0.25)
+        self.assertEqual(runs.measurement_line(m),
+                         "Measurement over 4 pulls: healer threat losses 3 (0.75 per pull), "
+                         "pulls with no healer threat loss 50%, clean pulls 25%")
+
+    def test_a_fight_again_is_no_first_pull(self):
+        result = a_three_enemy_run([("Hela", 95.0)])
+        result["pulls"].append({"pack": "miners", "target": "Defias Miner", "time_s": 90.0, "again": True})
+        m = runs.measurement(runs.pull_reports(result))
+        self.assertEqual((m["pulls"], m["healer_threat_losses"], m["clean_share"]), (1, 0, 1.0))
+
+    def test_no_pull_no_measurement(self):
+        self.assertIsNone(runs.measurement([]))
+
+
 class Plan(unittest.TestCase):
     def test_full_runs_default_to_three(self):
         self.assertEqual(runs.run_plan("full", None, None, False), ("full", 3, runs.FULL_RUN_SECONDS))

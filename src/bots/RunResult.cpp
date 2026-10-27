@@ -95,6 +95,7 @@ namespace Bots
         j["reason"] = TextOrNull(r.reason);
         j["driver"] = r.driver;
         j["group"] = r.group;
+        j["healers"] = r.healers;
 
         Json bosses = Json::array();
         for (RunBossKill const& kill : r.bossKills)

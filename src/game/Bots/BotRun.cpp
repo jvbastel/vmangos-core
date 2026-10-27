@@ -769,8 +769,9 @@ void BotRun::ResetMember(Player* member)
     }
     member->CombatStop(true);
     member->SetSelectionGuid(ObjectGuid());
-    // Level 16 with zero experience, then the level routine (with the gear).
-    uint32 const level = Bots::Version1BotLevel;
+    // The level of the script (default 16) with zero experience, then the
+    // level routine (with the gear).
+    uint32 const level = m_script.level;
     if (member->GetLevel() != level)
     {
         member->GiveLevel(level);

@@ -1,0 +1,13 @@
+# A short route of Shadowfang Keep for the three-enemy scenario of
+# jvbastel/WOWAI#118 (bots/data/bottests/shadowfang_keep.txt). Written by
+# hand, not by .route generate: one pull point and one pack. The pull point
+# is the arrival place of the entrance (areatrigger 145), 27 yd from
+# Rethilgore and 30-32 yd from his two worgs, so the test driver selects
+# Rethilgore. The three stand within 9.2 yd of each other, so all three
+# join the pull.
+route shadowfang_keep 33
+point pull_rethilgore -228.19 2111.41 76.89 0.50
+pack rethilgore -255.78 2124.26 81.26
+mob 16242 3914 # Rethilgore (level 20, elite)
+mob 13353 3861 # Bleak Worg (level 18-19, elite)
+mob 13352 3861 # Bleak Worg (level 18-19, elite)

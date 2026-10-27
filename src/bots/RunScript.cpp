@@ -11,6 +11,9 @@ namespace Bots
 {
     namespace
     {
+        // The highest level of a vanilla character.
+        std::uint32_t const MaxRunLevel = 60;
+
         bool ReadNumber(std::string const& word, std::uint32_t& value)
         {
             if (word.empty() || word.size() > 9)
@@ -75,6 +78,8 @@ namespace Bots
                 return "use: group <bot> ...";
             if (keyword == "outside")
                 return "use: outside <map> <x> <y> <z>";
+            if (keyword == "level")
+                return "use: level <1-60>";
             return "use: scenario <name>";
         }
 
@@ -247,6 +252,11 @@ namespace Bots
                     !ReadFloat(w[3], script.outside.y) || !ReadFloat(w[4], script.outside.z))
                     return Fail(line.number, Usage(keyword));
                 haveOutside = true;
+            }
+            else if (keyword == "level")
+            {
+                if (w.size() != 2 || !ReadNumber(w[1], script.level) || script.level < 1 || script.level > MaxRunLevel)
+                    return Fail(line.number, Usage(keyword));
             }
             else if (keyword == "scenario")
             {

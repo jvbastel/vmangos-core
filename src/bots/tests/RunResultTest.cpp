@@ -258,3 +258,13 @@ TEST(RunResult, AGroupWithNoHealerHasNoHealerThreatLoss)
 
     EXPECT_EQ(Json::parse(Bots::RunResultJson(r))["healer_threat_losses"], 0);
 }
+
+// jvbastel/WOWAI#118: the result names the healers, so that runs.py can count
+// the healer's threat losses of each pull.
+TEST(RunResult, NamesTheHealers)
+{
+    RunResult r = AFailedFullRun();
+    r.healers = {"Hela"};
+
+    EXPECT_EQ(Json::parse(Bots::RunResultJson(r))["healers"], Json::parse(R"(["Hela"])"));
+}
