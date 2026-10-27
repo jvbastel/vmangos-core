@@ -229,7 +229,7 @@ TEST(CasterPack, TheTankWaitsForACasterThatStaysAway)
     CasterTank tank;
     tank.PullAndHold();
 
-    tank.nowMs += Warrior::CasterComeMs - 1000;
+    tank.nowMs += Bots::CasterComeMs - 1000;
     tank.Think();
     tank.Think();
 
@@ -244,7 +244,7 @@ TEST(CasterPack, ACasterThatStaysInACleanAreaGetsTheTankWithNoWarn)
     tank.PullAndHold();
     tank.fake.SetPosition(Shaman, {-236.0f, -34.0f, -56.5f});
 
-    tank.nowMs += Warrior::CasterComeMs;
+    tank.nowMs += Bots::CasterComeMs;
     tank.Think();
     tank.Think();
 
@@ -260,7 +260,7 @@ TEST(CasterPack, ACasterThatStaysNearOtherPacksGetsTheTankAfterAWarn)
     CasterTank tank;
     tank.PullAndHold();
 
-    tank.nowMs += Warrior::CasterComeMs;
+    tank.nowMs += Bots::CasterComeMs;
     tank.Think();
     std::vector<std::string> const first = tank.fake.Deeds();
     tank.fake.ClearDeeds();
@@ -286,7 +286,7 @@ TEST(CasterPack, APullThatWarnedBeforeGoesInWithNoSecondWarn)
     tank.Think();
     tank.Think();
 
-    tank.nowMs += Warrior::CasterComeMs;
+    tank.nowMs += Bots::CasterComeMs;
     tank.Think();
     tank.Think();
 
@@ -358,7 +358,7 @@ TEST(CasterPack, TheTankThatGoesInAfterAWarnMayStepNearOtherPacks)
 {
     CasterTank tank;
     tank.PullAndHold();
-    tank.nowMs += Warrior::CasterComeMs;
+    tank.nowMs += Bots::CasterComeMs;
     tank.Think(); // Warns, and goes in.
     tank.fake.SetPosition(Tank, NearPack11);
     tank.fake.ClearDeeds();

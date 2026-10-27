@@ -78,6 +78,25 @@ TEST(GroupCoordinator, ThePullerHoldsThreatAfterTheTimeLimitWithNoContact)
     EXPECT_TRUE(group.TankHoldsThreat(1000 + Bots::HoldLimitMs));
 }
 
+// Review of jvbastel/WOWAI#127 and #121 (T2): the two clocks from the
+// engage. The tank goes in to a caster that stays away CasterComeMs after
+// it, once back at its fight spot; the damage bots open on a target that
+// never comes HoldLimitMs after it, also once the tank is back. So they
+// never open on a caster before the tank went in.
+TEST(GroupCoordinator, TheTimeLimitWaitsForTheTankBackAtItsFightSpot)
+{
+    static_assert(Bots::CasterComeMs < Bots::HoldLimitMs, "the tank goes in before the damage bots open");
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.SetFightSpot(Tank, {10, 0, 0});
+    group.HoldPull(Tank, 1000);
+
+    EXPECT_FALSE(group.TankHoldsThreat(1000 + Bots::HoldLimitMs + 3000));
+
+    group.ClearFightSpot(Tank);
+    EXPECT_EQ(group.TankHoldsThreatBy(1000 + Bots::HoldLimitMs + 3000), Bots::ThreatHeld::TimeLimit);
+}
+
 TEST(GroupCoordinator, ANewPullForgetsTheMeleeContact)
 {
     GroupCoordinator group;

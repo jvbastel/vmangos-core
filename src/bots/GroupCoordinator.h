@@ -137,14 +137,24 @@ namespace Bots
     // kill or roll after this time, so that a respawned creature counts again.
     std::int64_t const GroupEventMemoryMs = 60 * 1000;
 
-    // jvbastel/WOWAI#127: a held pull is the tank's (TankHoldsThreat)
-    // HoldContactMs after the target came into melee contact with the
-    // tank (a few swings and a Sunder Armor), once the tank is back at its
-    // fight spot. A target that never comes into melee (a caster) is the
-    // tank's HoldLimitMs after the tank engaged: the ranged pull, the run
-    // of the target to the tank and the contact delay fit in it.
+    // The clocks of a held pull, both from the engage (PullState::engagedMs)
+    // and both once the tank is back at its fight spot
+    // (PullState::backAtFightSpot), in this order:
+    // - jvbastel/WOWAI#121: a caster that stays away (it does not come to
+    //   the tank, nor into melee) CasterComeMs after the engage gets the
+    //   tank: it goes in to the caster's spawn area (WarriorModule.h).
+    // - jvbastel/WOWAI#127: a held pull is the tank's (TankHoldsThreat)
+    //   HoldContactMs after the target came into melee contact with the
+    //   tank (a few swings and a Sunder Armor). A target that never comes
+    //   into melee (a caster) is the tank's HoldLimitMs after the engage:
+    //   the ranged pull, the run of the target to the tank and the contact
+    //   delay fit in it.
+    // CasterComeMs is the shorter: the damage bots never open on a caster
+    // before the tank went in to it.
+    std::int64_t const CasterComeMs = 6000;
     std::int64_t const HoldContactMs = 2000;
     std::int64_t const HoldLimitMs = 8000;
+    static_assert(CasterComeMs < HoldLimitMs, "the tank goes in to a caster before the damage bots open on it");
 
     // Why the tank holds threat on the focus now (TankHoldsThreatBy).
     enum class ThreatHeld

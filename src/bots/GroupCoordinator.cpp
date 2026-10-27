@@ -218,7 +218,9 @@ namespace Bots
             return m_focusTarget != NoGuid ? ThreatHeld::OutsideAPull : ThreatHeld::No;
         if (m_pull.phase != PullPhase::Holding)
             return ThreatHeld::No;
-        if (m_pull.backAtFightSpot && m_pull.hasContact && nowMs - m_pull.contactMs >= HoldContactMs)
+        if (!m_pull.backAtFightSpot)
+            return ThreatHeld::No;
+        if (m_pull.hasContact && nowMs - m_pull.contactMs >= HoldContactMs)
             return ThreatHeld::MeleeContact;
         if (nowMs - m_pull.engagedMs >= HoldLimitMs)
             return ThreatHeld::TimeLimit;

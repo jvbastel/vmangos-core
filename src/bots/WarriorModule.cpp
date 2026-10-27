@@ -75,7 +75,7 @@ namespace Bots
             float const PickUpYards = 40.0f;
 
             // jvbastel/WOWAI#121: the caster pack. The rule priorities
-            // (P + N); the caster wait is CasterComeMs (WarriorModule.h).
+            // (P + N); the caster wait is CasterComeMs (GroupCoordinator.h).
             int const WarnWhenAPackJoins = 88;
             int const GoInToTheCaster = 72;
 
