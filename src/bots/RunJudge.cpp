@@ -69,34 +69,73 @@ namespace Bots
         }
     }
 
-    ExtraPackMark MarkExtraPack(BotView const& tank, std::vector<Position> const& trail, Guid target,
-        std::vector<Guid> const& pack)
+    PullChoices FindPullChoices(BotView const& tank, std::vector<Position> const& trail, Guid target,
+        std::vector<RoutePackAtPull> const& packs)
     {
-        std::vector<NearEnemy> const enemies = tank.GetEnemiesNear(FightSpotEnemyYards);
-        TargetPack const split = SplitTargetPack(enemies, target, tank.GetPosition(target));
-        std::vector<NearEnemy> kept = split.pack;
-        bool seen = false;
-        for (NearEnemy const& enemy : split.pack)
-            if (Has(pack, enemy.guid))
-                return {false, "it is one pack with the target: within " + std::to_string(int(PackLinkYards)) +
-                    " yd of it"};
-        for (NearEnemy const& enemy : enemies)
-            if (Has(pack, enemy.guid))
+        PullOptions const options = FindPullOptions(tank, trail, target);
+        // The route packs of the enemies of a pack of the search.
+        auto const routePacksOf = [&packs](std::vector<NearEnemy> const& enemies) {
+            std::set<std::string> names;
+            for (NearEnemy const& enemy : enemies)
+                for (RoutePackAtPull const& pack : packs)
+                    if (Has(pack.enemies, enemy.guid))
+                        names.insert(pack.name);
+            return names;
+        };
+        PullChoices result;
+        result.withTarget = routePacksOf(options.split.pack);
+        result.searched = result.withTarget;
+        std::vector<std::set<std::string>> others;
+        for (std::vector<NearEnemy> const& pack : options.split.others)
+        {
+            others.push_back(routePacksOf(pack));
+            result.searched.insert(others.back().begin(), others.back().end());
+        }
+        for (PullOption const& option : options.options)
+        {
+            PullChoice choice;
+            switch (option.way)
             {
-                kept.push_back(enemy);
-                seen = true;
+                case PullWay::FightSpot:
+                    choice.way = "a fight spot at " + Place(option.spot) + " on the cleared way";
+                    break;
+                case PullWay::LineOfSight:
+                    choice.way = "a line-of-sight pull at " + Place(option.spot);
+                    break;
+                case PullWay::SpawnArea:
+                    choice.way = "the clean area round the caster's spawn";
+                    break;
             }
-        if (!seen)
-            return {true, "it was out of the fight spot search at the pull: the fight went to it"};
+            choice.brings = result.withTarget;
+            for (std::size_t pack : option.packs)
+                choice.brings.insert(others[pack].begin(), others[pack].end());
+            result.choices.push_back(choice);
+        }
+        return result;
+    }
 
-        FightSpot const spot = FindFightSpot(tank, trail, target, kept);
-        if (spot.clean && spot.lineOfSight)
-            return {true, "a line-of-sight pull at " + Place(spot.spot) + " keeps it out"};
-        if (spot.clean)
-            return {true, "a fight spot at " + Place(spot.spot) + " on the cleared way keeps it out"};
-        if (IsCasterPack(tank, split.pack))
-            return {false, "no line-of-sight pull, and the caster's spawn area or each fight spot pulls it"};
-        return {false, "no fight spot on the cleared way keeps it out"};
+    ExtraPackMark MarkExtraPack(PullChoices const& choices, std::string const& pack, std::size_t got)
+    {
+        if (choices.withTarget.count(pack))
+            return {false, "it is one pack with the target: within " + std::to_string(int(PackLinkYards)) +
+                " yd of it"};
+        if (!choices.searched.count(pack))
+            return {true, "it was out of the fight spot search at the pull: the fight went to it"};
+        // The pull that keeps the pack out with the fewest extra packs, the
+        // first of a tie.
+        PullChoice const* best = nullptr;
+        for (PullChoice const& choice : choices.choices)
+            if (!choice.brings.count(pack) && choice.brings.size() <= got
+                && (!best || choice.brings.size() < best->brings.size()))
+                best = &choice;
+        if (!best)
+            return {false, "no fight spot, line-of-sight pull or spawn area keeps it out with at most " +
+                std::to_string(got) + (got == 1 ? " extra pack" : " extra packs")};
+        std::string reason = best->way + " keeps it out";
+        if (!best->brings.empty())
+            reason += ", with " + std::to_string(best->brings.size()) + " other extra pack" +
+                (best->brings.size() == 1 ? "" : "s");
+        return {true, reason};
     }
 
     ExtraPackMark JudgeExtraPack(bool pullJudged, ExtraPackMark const* atPull, ExtraPackCause const& cause)

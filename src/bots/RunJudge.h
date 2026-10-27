@@ -86,13 +86,46 @@ namespace Bots
         std::string reason;
     };
 
-    // The rules of FightSpot.h again for the other pack `pack` (its enemies)
-    // of the pull of `target`, with the real packs as `tank` sees them at the
-    // pull and its cleared way `trail` (GroupCoordinator::GetTrail). Only the
-    // target's pack and `pack` count: a spot that keeps `pack` out marks it
-    // avoidable, whatever other packs that spot brings.
-    ExtraPackMark MarkExtraPack(BotView const& tank, std::vector<Position> const& trail, Guid target,
-        std::vector<Guid> const& pack);
+    // A pack of the route round a pull: its name and its living enemies.
+    struct RoutePackAtPull
+    {
+        std::string name;
+        std::vector<Guid> enemies;
+    };
+
+    // One pull that the tank could have made, and the route packs it
+    // brings besides the pull's own.
+    struct PullChoice
+    {
+        std::string way; // "a fight spot at X on the cleared way", ...
+        std::set<std::string> brings;
+    };
+
+    // The pulls of `target` that the tank could have made, as the judge
+    // sees them at the pull, in route packs.
+    struct PullChoices
+    {
+        // The route packs that are one pack with the target
+        // (SplitTargetPack, FightSpot.h): no pull keeps them out.
+        std::set<std::string> withTarget;
+        // The route packs that the search saw.
+        std::set<std::string> searched;
+        std::vector<PullChoice> choices;
+    };
+
+    // The rules of FightSpot.h again (FindPullOptions), with all the real
+    // packs as `tank` sees them at the pull and its cleared way `trail`
+    // (GroupCoordinator::GetTrail). `packs`: the route packs round the pull
+    // but its own. A pack of the search (SplitIntoPacks) counts as the route
+    // packs of its enemies: so a pull brings route packs, as the run counts
+    // them (ExtraPackWatch.h).
+    PullChoices FindPullChoices(BotView const& tank, std::vector<Position> const& trail, Guid target,
+        std::vector<RoutePackAtPull> const& packs);
+
+    // The mark of route pack `pack` of the pull, when the pull brought `got`
+    // extra packs in all: avoidable when a pull of `choices` kept it out and
+    // brought no more than `got` extra packs.
+    ExtraPackMark MarkExtraPack(PullChoices const& choices, std::string const& pack, std::size_t got);
 
     // An enemy that fled in the pull and is this near to an enemy of a pack
     // when the pack joins brought it: twice the assistance radius
@@ -111,8 +144,8 @@ namespace Bots
     };
 
     // The mark of an extra pack when it joins: `atPull`, the mark of
-    // MarkExtraPack at the pull, or null when the pack was out of reach of
-    // the search then. A flee or a patrol makes any pack unavoidable.
+    // MarkExtraPack with the choices at the pull, or null when the pack was
+    // out of reach of the search then. A flee or a patrol makes any pack unavoidable.
     // `pullJudged` is false when the run could not mark the packs at the
     // pull (no living tank, no target): then a pack with no flee or patrol
     // is "not judged", and not avoidable.

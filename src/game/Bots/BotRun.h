@@ -190,9 +190,10 @@ class BotRun
         // The packs of the route that join the fight of the last pull
         // (Bots::ExtraPackWatch), into the result, the trace, and the log.
         void WatchExtraPacks(int64 nowMs);
-        // At a pull: the judge's mark (Bots::MarkExtraPack) of each other
-        // pack of the route round it, on the real packs and from the tank's
-        // cleared way at the pull (jvbastel/WOWAI#123).
+        // At a pull: the pulls the tank could have made (Bots::
+        // FindPullChoices), with each other pack of the route round it, on
+        // the real packs and from the tank's cleared way at the pull
+        // (jvbastel/WOWAI#123). A pack that joins is marked from them.
         void MarkPullPacks(Unit const* target, std::string const& pullPack);
         // What brought pack `pack` when it joined: a flee or a patrol.
         Bots::ExtraPackCause CauseOf(std::string const& pack) const;
@@ -310,9 +311,11 @@ class BotRun
         // trace event (Bots::FleeLine, jvbastel/WOWAI#121).
         std::set<ObjectGuid> m_fleeing;
         // The enemies that fled in the last pull, with their trace text, and
-        // the judge's mark of each pack round it (MarkPullPacks).
+        // the pulls the tank could have made (MarkPullPacks), and what
+        // brought each extra pack when it joined (CauseOf).
         std::map<ObjectGuid, std::string> m_pullFled;
-        std::map<std::string, Bots::ExtraPackMark> m_pullMarks;
+        Bots::PullChoices m_pullChoices;
+        std::map<std::string, Bots::ExtraPackCause> m_joinCause;
         // MarkPullPacks saw a living tank and the target at the last pull.
         bool m_pullJudged = false;
         // Where the test driver stood at its last move along the route.

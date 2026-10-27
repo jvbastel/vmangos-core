@@ -364,7 +364,8 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_enemyHealth.clear();
     m_fleeing.clear();
     m_pullFled.clear();
-    m_pullMarks.clear();
+    m_pullChoices = Bots::PullChoices();
+    m_joinCause.clear();
     m_pullJudged = false;
     m_driverSeen = false;
     ++m_number;
@@ -1614,13 +1615,28 @@ void BotRun::WatchExtraPacks(int64 nowMs)
     std::size_t const known = m_extraPacks.ExtraPacks().size();
     m_extraPacks.Observe(nowMs, spawns);
     RecordExtraPacks();
+    if (m_extraPacks.ExtraPacks().size() == known)
+        return;
+    // The cause of each new pack, as it joins. Then the marks of all the
+    // extra packs of the pull again: a pull that kept a pack out counts only
+    // when it brought no more extra packs than the pull did
+    // (Bots::MarkExtraPack).
     for (std::size_t i = known; i < m_extraPacks.ExtraPacks().size(); ++i)
     {
+        std::string const& name = m_extraPacks.ExtraPacks()[i].pack;
+        m_joinCause[name] = CauseOf(name);
+    }
+    std::size_t const got = m_extraPacks.ExtraPacks().size();
+    for (std::size_t i = 0; i < got; ++i)
+    {
         std::string const name = m_extraPacks.ExtraPacks()[i].pack;
-        auto const atPull = m_pullMarks.find(name);
+        Bots::ExtraPackMark const atPull = Bots::MarkExtraPack(m_pullChoices, name, got);
         m_extraPacks.Mark(name, Bots::JudgeExtraPack(m_pullJudged,
-            atPull == m_pullMarks.end() ? nullptr : &atPull->second, CauseOf(name)));
-        RecordExtraPacks();
+            m_pullChoices.searched.count(name) ? &atPull : nullptr, m_joinCause[name]));
+    }
+    RecordExtraPacks();
+    for (std::size_t i = known; i < got; ++i)
+    {
         Bots::RunExtraPack const& extra = m_extraPacks.ExtraPacks()[i];
         std::string const text = "extra pack " + extra.pack + " joins pull " + std::to_string(m_record.pulls.size()) +
             (extra.warned ? " (warned)" : " (no warn)") + (extra.avoidable ? ", avoidable: " : ", unavoidable: ") +
@@ -1633,7 +1649,8 @@ void BotRun::WatchExtraPacks(int64 nowMs)
 void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
 {
     m_pullFled.clear();
-    m_pullMarks.clear();
+    m_pullChoices = Bots::PullChoices();
+    m_joinCause.clear();
     m_pullJudged = false;
     Player* driver = Driver();
     if (!target || !driver)
@@ -1652,6 +1669,7 @@ void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
     BotAdapter const view(tank);
     std::vector<Bots::Position> const trail = CoordinatorOf(tank)->GetTrail();
     m_pullJudged = true;
+    std::vector<Bots::RoutePackAtPull> packs;
     for (Bots::RoutePack const& pack : m_route.packs)
     {
         if (pack.name == pullPack)
@@ -1663,8 +1681,9 @@ void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
                     enemies.push_back(creature->GetObjectGuid().GetRawValue());
         // A pack out of the search gets no mark: Bots::JudgeExtraPack.
         if (!enemies.empty())
-            m_pullMarks[pack.name] = Bots::MarkExtraPack(view, trail, target->GetObjectGuid().GetRawValue(), enemies);
+            packs.push_back({pack.name, enemies});
     }
+    m_pullChoices = Bots::FindPullChoices(view, trail, target->GetObjectGuid().GetRawValue(), packs);
 }
 
 Bots::ExtraPackCause BotRun::CauseOf(std::string const& pack) const

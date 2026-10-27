@@ -157,9 +157,17 @@ namespace
             fake.AddEnemy(enemy, at, aggroYards);
         }
 
-        ExtraPackMark Mark(std::vector<Bots::Guid> const& pack) const
+        // The pull choices with the route packs `packs` round the pull.
+        Bots::PullChoices Choices(std::vector<Bots::RoutePackAtPull> const& packs) const
         {
-            return Bots::MarkExtraPack(fake, trail, Target, pack);
+            return Bots::FindPullChoices(fake, trail, Target, packs);
+        }
+
+        // The mark of the one route pack `pack`, when the pull brought
+        // `got` extra packs.
+        ExtraPackMark Mark(std::vector<Bots::Guid> const& pack, std::size_t got = 1) const
+        {
+            return Bots::MarkExtraPack(Choices({{"other", pack}}), "other", got);
         }
     };
 }
@@ -187,19 +195,32 @@ TEST(ExtraPackJudge, AnExtraPackThatAnswersTheCallForHelpOfTheTargetIsUnavoidabl
     ExtraPackMark const mark = pull.Mark({Other});
 
     EXPECT_FALSE(mark.avoidable);
-    EXPECT_EQ(mark.reason, "no fight spot on the cleared way keeps it out");
+    EXPECT_EQ(mark.reason, "no fight spot, line-of-sight pull or spawn area keeps it out with at most 1 extra pack");
 }
 
-TEST(ExtraPackJudge, OnlyThePackItselfCountsNotTheOtherPacksRoundThePull)
+// The judge runs the search with all the packs round the pull, as the tank
+// did (review of jvbastel/WOWAI#123, C3): a pack is avoidable only when a
+// pull kept it out with no more extra packs in all than the tank got.
+TEST(ExtraPackJudge, APackIsAvoidableOnlyByAPullWithNoMoreExtraPacksThanTheTankGot)
 {
-    // A third pack that assists the target makes no spot clean, but a
-    // spot keeps the judged pack out.
+    // Pack A stands in reach of the spots near the tank (x > -7.7). Each
+    // spot farther back on the way pulls packs B and C.
+    Bots::Guid const A = 0xF130000302000044;
+    Bots::Guid const B = 0xF130000302000055;
+    Bots::Guid const C = 0xF130000302000066;
     PullAt pull;
-    pull.AddEnemy(Other, {5, 8, 0}, 10.0f);
-    pull.AddEnemy(0xF130000302000044, {25, -9, 0}, 10.0f);
+    pull.AddEnemy(A, {5, 8, 0}, 10.0f);
+    pull.AddEnemy(B, {-14, 10, 0}, 15.0f);
+    pull.AddEnemy(C, {-26, 10, 0}, 20.0f);
 
-    EXPECT_TRUE(pull.Mark({Other}).avoidable);
-    EXPECT_FALSE(pull.Mark({0xF130000302000044}).avoidable);
+    Bots::PullChoices const choices = pull.Choices({{"packA", {A}}, {"packB", {B}}, {"packC", {C}}});
+
+    ExtraPackMark const alone = Bots::MarkExtraPack(choices, "packA", 1);
+    EXPECT_FALSE(alone.avoidable);
+    EXPECT_EQ(alone.reason, "no fight spot, line-of-sight pull or spawn area keeps it out with at most 1 extra pack");
+    ExtraPackMark const withMore = Bots::MarkExtraPack(choices, "packA", 3);
+    EXPECT_TRUE(withMore.avoidable);
+    EXPECT_EQ(withMore.reason, "a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out, with 2 other extra packs");
 }
 
 TEST(ExtraPackJudge, APackOutOfTheSearchAtThePullIsAvoidable)
@@ -242,7 +263,7 @@ namespace
             trail.push_back({P17.x + (PullPack9.x - P17.x) * t, P17.y + (PullPack9.y - P17.y) * t,
                 P17.z + (PullPack9.z - P17.z) * t});
         }
-        return Bots::MarkExtraPack(fake, trail, Shaman, {Shaman10});
+        return Bots::MarkExtraPack(Bots::FindPullChoices(fake, trail, Shaman, {{"pack10", {Shaman10}}}), "pack10", 1);
     }
 }
 
@@ -259,7 +280,7 @@ TEST(ExtraPackJudge, ACasterPackWithNoSpotOutOfSightAndAnUnsafeSpawnAreaMakesItU
     ExtraPackMark const mark = MarkPack10AtPullPack9(0.0f);
 
     EXPECT_FALSE(mark.avoidable);
-    EXPECT_EQ(mark.reason, "no line-of-sight pull, and the caster's spawn area or each fight spot pulls it");
+    EXPECT_EQ(mark.reason, "no fight spot, line-of-sight pull or spawn area keeps it out with at most 1 extra pack");
 }
 
 TEST(ExtraPackJudge, AFleeOrAPatrolMakesAnExtraPackUnavoidable)
