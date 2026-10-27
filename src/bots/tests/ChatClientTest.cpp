@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -19,18 +20,37 @@ namespace
         std::mutex mutex;
         std::condition_variable changed;
         std::vector<std::string> bodies;
+        std::vector<std::string> paths;
         ChatPostResult answer;
+        ChatPostResult rosterAnswer = OkRoster();
         bool hold = false;
+        bool holdRoster = false;
         int inFlight = 0;
         int connections = 0;
         // The clock jumps to this time when a request ends (a slow service).
         std::int64_t answerAt = -1;
         std::atomic<std::int64_t>* clock = nullptr;
 
-        ChatPostResult Post(std::string const& body)
+        static ChatPostResult OkRoster()
+        {
+            ChatPostResult result;
+            result.answered = true;
+            result.status = 200;
+            result.body = R"({"contract_version":1,"deleted_bot_guids":[]})";
+            return result;
+        }
+
+        ChatPostResult Post(std::string const& path, std::string const& body)
         {
             std::unique_lock<std::mutex> lock(mutex);
             bodies.push_back(body);
+            paths.push_back(path);
+            if (path == ChatRosterPath)
+            {
+                changed.notify_all();
+                changed.wait(lock, [this]() { return !holdRoster; });
+                return rosterAnswer;
+            }
             ++inFlight;
             changed.notify_all();
             changed.wait(lock, [this]() { return !hold; });
@@ -65,7 +85,7 @@ namespace
     {
     public:
         explicit FakeConnection(FakeService& service) : m_service(service) {}
-        ChatPostResult Post(std::string const& body) override { return m_service.Post(body); }
+        ChatPostResult Post(std::string const& path, std::string const& body) override { return m_service.Post(path, body); }
 
     private:
         FakeService& m_service;
@@ -130,6 +150,13 @@ namespace
             for (int i = 0; i < 500 && client->Pending() > 0; ++i)
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             ASSERT_EQ(client->Pending(), 0u);
+        }
+
+        // The paths that the service got, in order.
+        std::vector<std::string> Paths()
+        {
+            std::lock_guard<std::mutex> lock(service.mutex);
+            return service.paths;
         }
 
         std::vector<std::string> Log()
@@ -343,4 +370,142 @@ TEST_F(ClientTest, TheClientStopsWhileARequestWaits)
 
     // The queued request is not sent after the stop.
     EXPECT_EQ(service.bodies.size(), 1u);
+}
+
+TEST_F(ClientTest, TheRosterOfTheBotGuidsGoesFirst)
+{
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    Start();
+
+    client->SetRoster({101, 102});
+    client->Post(PartyMessage());
+
+    ASSERT_TRUE(service.WaitForRequests(2));
+    EXPECT_EQ(service.paths[0], ChatRosterPath);
+    EXPECT_EQ(service.bodies[0], EncodeChatRoster({101, 102}));
+    EXPECT_EQ(service.paths[1], ChatEventsPath);
+}
+
+TEST_F(ClientTest, TheRosterGoesOnceWhileTheServiceAnswers)
+{
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    Start(2);
+
+    client->SetRoster({101});
+    ASSERT_TRUE(service.WaitForRequests(1));
+    client->SetRoster({101, 103}); // a new bot
+    client->Post(PartyMessage());
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    std::vector<std::string> const paths = Paths();
+    EXPECT_EQ(std::count(paths.begin(), paths.end(), ChatRosterPath), 1);
+    EXPECT_EQ(paths.size(), 3u);
+}
+
+TEST_F(ClientTest, AfterTheServiceWasDownTheNextCallSendsTheNewestRosterAgain)
+{
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    service.rosterAnswer.answered = false;
+    service.rosterAnswer.error = "Connection";
+    Start();
+
+    client->SetRoster({101});
+    ASSERT_TRUE(service.WaitForRequests(1));
+    // No loop while the service is down: the roster waits for the next call.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(Paths().size(), 1u);
+
+    service.rosterAnswer = FakeService::OkRoster();
+    client->SetRoster({101, 103});
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    std::vector<std::string> const paths = Paths();
+    ASSERT_EQ(paths.size(), 3u);
+    EXPECT_EQ(paths[1], ChatRosterPath);
+    EXPECT_EQ(service.bodies[1], EncodeChatRoster({101, 103}));
+    EXPECT_EQ(paths[2], ChatEventsPath);
+}
+
+TEST_F(ClientTest, AnEventWithNoAnswerMakesTheRosterGoAgain)
+{
+    service.answer.answered = false;
+    service.answer.error = "Connection";
+    Start();
+    client->SetRoster({101});
+    client->Post(PartyMessage()); // the service went down after the roster
+    WaitIdle();
+    ASSERT_EQ(Paths().size(), 2u);
+
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    std::vector<std::string> const paths = Paths();
+    ASSERT_EQ(paths.size(), 4u);
+    EXPECT_EQ(paths[2], ChatRosterPath);
+    EXPECT_EQ(paths[3], ChatEventsPath);
+}
+
+TEST_F(ClientTest, AServiceWithNoRosterRouteGivesOneLogLineAndNoRetry)
+{
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    service.rosterAnswer = Answer(R"({"detail":"Not Found"})", 404);
+    Start();
+
+    client->SetRoster({101});
+    client->Post(PartyMessage());
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    std::vector<std::string> const paths = Paths();
+    EXPECT_EQ(std::count(paths.begin(), paths.end(), ChatRosterPath), 1);
+    std::vector<std::string> const log = Log();
+    ASSERT_EQ(log.size(), 1u);
+    EXPECT_NE(log[0].find("roster"), std::string::npos) << log[0];
+}
+
+TEST_F(ClientTest, WhileTheServiceIsDownTheEventsStillGoInTurn)
+{
+    service.answer.answered = false;
+    service.answer.error = "Connection";
+    service.rosterAnswer.answered = false;
+    service.rosterAnswer.error = "Connection";
+    Start();
+
+    client->SetRoster({101});
+    client->Post(PartyMessage());
+    client->Post(PartyMessage());
+    WaitIdle();
+
+    std::vector<std::string> const paths = Paths();
+    EXPECT_EQ(std::count(paths.begin(), paths.end(), ChatEventsPath), 2);
+}
+
+TEST_F(ClientTest, NoEventGoesWhileTheRosterIsSent)
+{
+    // An event of a bot made after the roster was taken must not reach the
+    // service before the roster: the roster would delete the new rows.
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    service.holdRoster = true;
+    Start(2);
+
+    client->SetRoster({101});
+    ASSERT_TRUE(service.WaitForRequests(1));
+    client->SetRoster({101, 103}); // a new bot
+    client->Post(PartyMessage());
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(Paths().size(), 1u);
+
+    {
+        std::lock_guard<std::mutex> lock(service.mutex);
+        service.holdRoster = false;
+    }
+    service.changed.notify_all();
+    WaitIdle();
+
+    std::vector<std::string> const paths = Paths();
+    ASSERT_EQ(paths.size(), 2u);
+    EXPECT_EQ(paths[1], ChatEventsPath);
 }

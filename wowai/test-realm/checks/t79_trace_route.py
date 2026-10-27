@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """In-game check of ticket #79 (the GM trace and the route build), on the check kit.
 
-    wowai/test-realm/realm.sh --ticket N up
+    wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t79_trace_route.py
 
 1. trace: the GM Thrallson walks in Ragefire Chasm (client movement packets

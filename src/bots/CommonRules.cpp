@@ -18,9 +18,20 @@ namespace Bots
         return context.group.GetPull().target;
     }
 
+    std::uint32_t Percent(std::uint32_t current, std::uint32_t max)
+    {
+        return max == 0 ? 0 : current * 100 / max;
+    }
+
     bool IsAlive(BotView const& view, Guid unit)
     {
         return unit != NoGuid && view.GetHealth(unit).current > 0 && view.GetLifeState(unit) == LifeState::Alive;
+    }
+
+    bool SeenDead(BotView const& view, Guid unit)
+    {
+        Health const health = view.GetHealth(unit);
+        return health.max > 0 && health.current == 0;
     }
 
     bool IsGroupInCombat(BotView const& view)
@@ -38,12 +49,12 @@ namespace Bots
         rule.priority = priority;
         rule.trigger = std::move(trigger);
         rule.action.canDo = [firstRank, target](BotContext const& context) {
-            SpellId const rank = HighestKnownRank(context.view, firstRank);
             Guid const unit = target(context);
-            return rank != NoSpell && unit != NoGuid && context.view.CanCast(rank, unit);
+            return unit != NoGuid && CastableRank(context.view, firstRank, unit) != NoSpell;
         };
         rule.action.run = [firstRank, target](BotContext const& context) {
-            context.actions.CastSpell(HighestKnownRank(context.view, firstRank), target(context));
+            Guid const unit = target(context);
+            context.actions.CastSpell(RankForTarget(context.view, firstRank, unit), unit);
         };
         return rule;
     }

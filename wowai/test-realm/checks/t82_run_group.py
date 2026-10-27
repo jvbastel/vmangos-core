@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """In-game check of ticket #82 (the members leave the run group when a scripted run ends), on the check kit.
 
-    wowai/test-realm/realm.sh --ticket N up
+    wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t82_run_group.py
 
 1. pass: the scenario `short` passes. Then the run group is gone, in the game

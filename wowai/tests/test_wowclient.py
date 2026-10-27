@@ -139,6 +139,13 @@ class TeleportAckTest(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<QI", body), (GRUKK, 7))
 
 
+class CinematicTest(unittest.TestCase):
+    def test_the_intro_of_a_new_character_is_skipped(self):
+        c = client(self)
+        c.client._observe(wowclient.SMSG_TRIGGER_CINEMATIC, struct.pack("<I", 21))
+        self.assertEqual([opcode for opcode, _ in c.sent()], [wowclient.CMSG_COMPLETE_CINEMATIC])
+
+
 class EchoTest(unittest.TestCase):
     """A check prints the bot chat that follows each command."""
 

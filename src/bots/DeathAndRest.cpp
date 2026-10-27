@@ -95,7 +95,7 @@ namespace Bots
                 },
                 Always([](BotContext const& context) {
                     context.actions.Release();
-                    context.group.NoteRevive(context.view.GetSelf());
+                    context.group.NoteReleaseToRunBack(context.view.GetSelf());
                 })},
 
             // No bot revives at its corpse on its own: a ghost runs back.
@@ -139,6 +139,11 @@ namespace Bots
         group.SetWiped(!SomeoneLives(view));
         if (IsAlive(view, view.GetSelf()))
             group.ClearGivenUpResurrect(view.GetSelf());
+        // The bot that resurrects judges the blockers. A blocker counts as
+        // dead only when the bot sees its dead body: a bot on another map
+        // finds no unit (no health), and that does not end the give-up.
+        if (view.CanResurrect(view.GetSelf()))
+            group.RetryResurrects([&view](Guid enemy) { return !SeenDead(view, enemy); });
 
         group.SetResting(view.GetSelf(), RestReasonOf(view));
     }

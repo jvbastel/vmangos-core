@@ -1,4 +1,5 @@
 #include "ClassModules.h"
+#include "CoordinatorRegistry.h"
 #include "DeathAndRest.h"
 #include "FakeBot.h"
 #include "PriestModule.h"
@@ -26,16 +27,20 @@ namespace
 
     // A bot of a group of four: the player (the leader), a tank, a Priest
     // healer, and a mage. Everyone is alive and at full health and mana,
-    // nobody fights, and the bot follows the player.
+    // nobody fights, and the bot follows the player. `coordinator`: the
+    // coordinator that the bot AI gives the bot, by default one of its own.
     struct GroupBot
     {
         FakeBot fake;
-        GroupCoordinator group;
+        std::shared_ptr<GroupCoordinator> coordinator;
+        GroupCoordinator& group;
         StrategyStack stack;
         Bots::Guid self;
 
-        GroupBot(Bots::Guid self, Bots::BotClass botClass, Bots::BotRole role) :
-            fake(self), stack(Bots::MakeStrategyStack(botClass, role)), self(self)
+        GroupBot(Bots::Guid self, Bots::BotClass botClass, Bots::BotRole role,
+            std::shared_ptr<GroupCoordinator> coordinator = std::make_shared<GroupCoordinator>()) :
+            fake(self), coordinator(std::move(coordinator)), group(*this->coordinator),
+            stack(Bots::MakeStrategyStack(botClass, role)), self(self)
         {
             std::vector<Bots::Guid> others;
             for (Bots::Guid member : {Player, Tank, Healer, Mage})
@@ -74,7 +79,11 @@ namespace
 
     struct DeadMage : GroupBot
     {
-        DeadMage() : GroupBot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged) { Die(Mage); }
+        explicit DeadMage(std::shared_ptr<GroupCoordinator> coordinator = std::make_shared<GroupCoordinator>()) :
+            GroupBot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged, std::move(coordinator))
+        {
+            Die(Mage);
+        }
     };
 
     bool IsRest(GroupEvent const& event, Bots::Guid bot, RestReason reason)
@@ -250,7 +259,8 @@ namespace
     // Resurrection.
     struct GroupPriest : GroupBot
     {
-        GroupPriest() : GroupBot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer)
+        explicit GroupPriest(std::shared_ptr<GroupCoordinator> coordinator = std::make_shared<GroupCoordinator>()) :
+            GroupBot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer, std::move(coordinator))
         {
             fake.SetKnownSpell(Priest::Resurrection);
             fake.SetCastsOnDead(Priest::Resurrection);
@@ -346,11 +356,96 @@ TEST(Resurrect, ThePriestStopsAndGivesUpWhenThePlaceIsNoLongerSafe)
     bot.fake.ClearDeeds();
 
     // A pack with a long aggro distance came to the corpse.
-    bot.fake.AddEnemy({50.0f, 0.0f, 0.0f}, 30.0f);
+    bot.fake.AddEnemy(0x900, {50.0f, 0.0f, 0.0f}, 30.0f);
     bot.Think();
 
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"move to 1 2 3"}));
     EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+}
+
+// The pack that kept the Priest from the corpse dies: the give-up ends, and
+// the Priest walks to the corpse and resurrects the member.
+TEST(Resurrect, ThePriestTriesAgainWhenTheEnemiesThatBlockedItDie)
+{
+    Bots::Guid const Pack = 0x900;
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+    bot.fake.SetHealth(Pack, 800, 800);
+    bot.fake.AddEnemy(Pack, {50.0f, 0.0f, 0.0f}, 30.0f);
+    bot.Watch();
+    bot.Think();
+    ASSERT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+
+    bot.fake.SetHealth(Pack, 0, 800);
+    bot.Watch();
+    EXPECT_FALSE(bot.group.IsResurrectGivenUp(Mage));
+    EXPECT_EQ(bot.Think(), "go to a corpse out of reach");
+
+    // At the cast place, the corpse is in reach.
+    bot.fake.SetDistance(Mage, 23.4f);
+    bot.fake.SetCanCastOn(Priest::Resurrection, Mage);
+    bot.fake.ClearDeeds();
+    EXPECT_EQ(bot.Think(), "resurrect a member");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"cast 2006 on 0x0000000000000013"}));
+}
+
+// Another enemy dies: the give-up stays.
+TEST(Resurrect, TheGiveUpStaysWhileTheEnemiesThatBlockedItLive)
+{
+    Bots::Guid const Pack = 0x900;
+    Bots::Guid const Other = 0x901;
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+    bot.fake.SetHealth(Pack, 800, 800);
+    bot.fake.AddEnemy(Pack, {50.0f, 0.0f, 0.0f}, 30.0f);
+    bot.Think();
+    ASSERT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+
+    // An enemy far away, outside the search, dies.
+    bot.fake.SetHealth(Other, 800, 800);
+    bot.fake.AddEnemy(Other, {400.0f, 0.0f, 0.0f}, 30.0f);
+    bot.fake.SetHealth(Other, 0, 800);
+    bot.Watch();
+    EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+}
+
+// A bot that does not find the blockers (on another map, so with no health
+// for them) does not take them for dead: the give-up stays.
+TEST(Resurrect, TheGiveUpStaysWhenTheBlockersAreNotFound)
+{
+    Bots::Guid const Pack = 0x900;
+    GroupPriest bot;
+    bot.DieOutOfReach(Mage);
+    bot.fake.SetHealth(Pack, 800, 800);
+    bot.fake.AddEnemy(Pack, {50.0f, 0.0f, 0.0f}, 30.0f);
+    bot.Think();
+    ASSERT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+
+    bot.fake.SetHealth(Pack, 0, 0);
+    bot.Watch();
+    EXPECT_TRUE(bot.group.IsResurrectGivenUp(Mage));
+}
+
+// The leader left the instance (a hearth, or a release that put his ghost
+// at the graveyard outside). The Priest inside gives up a resurrect: the dead
+// bot inside sees the give-up, because the bots in one place share the
+// coordinator of that place, and releases.
+TEST(Resurrect, WithTheLeaderOnAnotherMapTheDeadBotSeesTheGiveUpOfThePriest)
+{
+    Bots::Guid const Pack = 0x900;
+    Bots::CoordinatorRegistry registry;
+    std::uint32_t const group = 7;
+    Bots::MapPlace const ragefireChasm = {389, 7};
+    Bots::LeaderPlace const leaderOutside = Bots::LeaderPlace::On({1, 0});
+    GroupPriest priest(registry.For(group, ragefireChasm, leaderOutside, 0));
+    DeadMage mage(registry.For(group, ragefireChasm, leaderOutside, 0));
+    priest.DieOutOfReach(Mage);
+    priest.fake.SetHealth(Pack, 800, 800);
+    priest.fake.AddEnemy(Pack, {50.0f, 0.0f, 0.0f}, 30.0f);
+    priest.Think();
+    ASSERT_TRUE(priest.group.IsResurrectGivenUp(Mage));
+
+    EXPECT_EQ(mage.Think(), "release when no resurrect comes");
 }
 
 TEST(Resurrect, ThePriestDoesNotResurrectAMemberThatItGaveUp)

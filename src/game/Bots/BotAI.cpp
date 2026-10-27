@@ -9,6 +9,7 @@
 #include "BotMgr.h"
 #include "BotAdapter.h"
 #include "ClassModules.h"
+#include "CoordinatorChoice.h"
 #include "DeathAndRest.h"
 #include "Group.h"
 #include "ObjectAccessor.h"
@@ -158,10 +159,11 @@ void BotAI::HandlePacket(WorldPacket const& packet)
         case SMSG_LOOT_ROLL_WON:
         {
             // Each bot of the group sees the roll end: the coordinator makes
-            // one `loot_roll` event of it.
+            // one `loot_roll` event of it. A bot away from the leader ignores
+            // the group coordinator.
             BotLootRollWon const won = m_loot.OnRollWon(me, packet);
-            if (Group* group = me->GetGroup())
-                sBotMgr.GetCoordinator(group->GetId())->NoteRollWon(won.lootedTarget.GetRawValue(), won.itemSlot,
+            if (UsesGroupCoordinator())
+                Coordinator()->NoteRollWon(won.lootedTarget.GetRawValue(), won.itemSlot,
                     won.itemEntry, won.winner.GetRawValue(), SteadyMs());
             return;
         }
@@ -186,10 +188,9 @@ void BotAI::OnPartyKill(WorldPacket const& packet)
     WorldPacket data(packet);
     ObjectGuid killer, victim;
     data >> killer >> victim;
-    Group* group = me->GetGroup();
-    if (!group || !victim.IsCreature() || !sBotMgr.IsBoss(me->GetMapId(), victim.GetEntry()))
+    if (!UsesGroupCoordinator() || !victim.IsCreature() || !sBotMgr.IsBoss(me->GetMapId(), victim.GetEntry()))
         return;
-    sBotMgr.GetCoordinator(group->GetId())->NoteBossKill(victim.GetRawValue(), victim.GetEntry(), SteadyMs());
+    Coordinator()->NoteBossKill(victim.GetRawValue(), victim.GetEntry(), SteadyMs());
 }
 
 void BotAI::HandleCommand(BotCommandMessage const& message)
@@ -333,11 +334,39 @@ void BotAI::StartPull(Player* player)
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s pulls %s", me->GetName(), target.GetString().c_str());
 }
 
+Bots::CoordinatorChoice BotAI::CoordinatorChoiceNow() const
+{
+    Group const* group = me->GetGroup();
+    return Bots::ChooseCoordinator(group != nullptr, BotPlace(), PlaceOfLeader());
+}
+
+Bots::MapPlace BotAI::BotPlace() const
+{
+    return {me->GetMapId(), me->GetInstanceId()};
+}
+
+Bots::LeaderPlace BotAI::PlaceOfLeader() const
+{
+    Group const* group = me->GetGroup();
+    if (!group)
+        return Bots::LeaderPlace::Unknown();
+    // The leader can sit on another map thread: only its map and instance
+    // ids are read.
+    Player const* player = ObjectAccessor::FindPlayer(group->GetLeaderGuid());
+    return player ? Bots::LeaderPlace::On({player->GetMapId(), player->GetInstanceId()}) : Bots::LeaderPlace::Unknown();
+}
+
+bool BotAI::UsesGroupCoordinator() const
+{
+    return CoordinatorChoiceNow() == Bots::CoordinatorChoice::Group;
+}
+
 std::shared_ptr<Bots::GroupCoordinator> BotAI::Coordinator()
 {
-    if (Group* group = me->GetGroup())
-        return sBotMgr.GetCoordinator(group->GetId());
-    // No owner: the coordinator is a member of this AI.
+    if (Group const* group = me->GetGroup())
+        return sBotMgr.GetCoordinator(group->GetId(), BotPlace(), PlaceOfLeader(), SteadyMs());
+    // No owner: the coordinator of a bot without a group is a member of this
+    // AI.
     return std::shared_ptr<Bots::GroupCoordinator>(std::shared_ptr<Bots::GroupCoordinator>(), &m_soloCoordinator);
 }
 
@@ -424,6 +453,11 @@ void BotAI::Think()
         me->SetStandState(UNIT_STAND_STATE_STAND);
 
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
+    bool const away = CoordinatorChoiceNow() == Bots::CoordinatorChoice::Place;
+    if (away != m_awayFromLeader)
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s uses the %s coordinator (map %u, instance %u)", me->GetName(),
+            away ? "place" : "group", me->GetMapId(), me->GetInstanceId());
+    m_awayFromLeader = away;
     // For the chase limit of the damage bots (GroupRules.h).
     if (m_role == Bots::BotRole::Tank)
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
@@ -446,8 +480,8 @@ void BotAI::Think()
     context.startWaits = m_startGate.Waiting();
     std::string const rule = m_strategies.Think(context);
     // A bot without a group has no chat session: its own coordinator drops
-    // the events.
-    if (!me->GetGroup())
+    // the events. The bot manager drops the events of a place coordinator.
+    if (coordinator.get() == &m_soloCoordinator)
         m_soloCoordinator.TakeEvents();
     if (!rule.empty() && rule != m_lastRule)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());

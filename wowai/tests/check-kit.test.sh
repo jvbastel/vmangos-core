@@ -2,34 +2,30 @@
 # shellcheck disable=SC2329 # check (lib.sh) runs the functions that the test passes to it.
 # Test of the in-game check kit: `wowai/test-realm/realm.sh --ticket N ...`.
 #
-# The first part runs no container: the ticket guard and the names, folders,
-# and ports that the kit takes from the ticket number. The second part brings
-# up two realms at the same time, for the fake tickets 998 and 999, in a
-# temporary kit folder, and runs up, wait, soap, sql, mark, log, restart, and
-# down on them. At the end it removes them. It does not touch the shared test
-# realm. The second part takes several minutes (a dev build and two fresh
-# databases).
+# The first part runs no container: the ticket guard. (realm-pool.test.sh
+# tests the leases with no container.) The second part leases two slots of
+# the real pool at the same time, for the fake tickets 998 and 999, and runs
+# acquire, wait, soap, sql, mark, log, restart, check, and release on them.
+# Then the fake ticket 997 leases the slot of 998 again, and gets the
+# baseline database. At the end it releases the slots. It does not touch the
+# shared test realm. The second part takes several minutes (a dev build, and
+# a baseline if the pool has none), and needs two free slots.
 #
 #   wowai/tests/check-kit.test.sh           Both parts.
 #   wowai/tests/check-kit.test.sh --quick   The first part only.
 #
-# A dev install to copy, so that the test does not build:
-# WOWAI_TEST_INSTALL=<folder>. It must match the tree of this test.
-# Keep the realms for a look by hand: WOWAI_TEST_KEEP=1.
+# Keep the slots leased for a look by hand: WOWAI_TEST_KEEP=1.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 kit="$here/../test-realm/realm.sh"
 
 tmp="$(mktemp -d)"
-export WOWAI_KIT_DIR="$tmp/kit"
+pool="$(realpath -m "${WOWAI_POOL_DIR:-$HOME/wowai/slots}")"
 # The defaults of the shared test realm.
 # shellcheck source=../test-realm/defaults.sh
 . "$here/../test-realm/defaults.sh"
 shared_project="${realm_defaults[WOWAI_REALM_PROJECT]}"
-shared_dir="${realm_defaults[WOWAI_REALM_DIR]}"
-shared_install="${realm_defaults[WOWAI_DEV_INSTALL]}"
-shared_soap="${realm_defaults[WOWAI_REALM_SOAP_PORT]}"
 # The kit must not read these. A check of the guard below sets them.
 unset "${!realm_defaults[@]}"
 
@@ -45,12 +41,12 @@ contains() { [[ "$1" == *"$2"* ]]; }
 started=()
 cleanup() {
   if [ "${WOWAI_TEST_KEEP:-0}" = "1" ]; then
-    echo "Kept the realms of the tickets ${started[*]:-} in $tmp."
+    echo "The tickets ${started[*]:-} keep their slots. Release them with: realm.sh --ticket <N> release"
     return
   fi
   local ticket
   for ticket in "${started[@]}"; do
-    "$kit" --ticket "$ticket" down >/dev/null 2>&1 || true
+    "$kit" --ticket "$ticket" release >/dev/null 2>&1 || true
   done
   rm -rf "$tmp"
 }
@@ -69,32 +65,10 @@ for bad in abc 0 1000 -3; do
   check "the ticket number '$bad' is refused" test "$code" -ne 0
 done
 
-# A realm setting in the environment does not move the kit to another realm.
-code=0
-out="$(WOWAI_REALM_DIR="$shared_dir" WOWAI_REALM_PROJECT="$shared_project" \
-  WOWAI_REALM_SOAP_PORT="$shared_soap" WOWAI_DEV_INSTALL="$shared_install" "$kit" --ticket 998 env 2>&1)" || code=$?
-check "the kit ignores the realm settings of the environment" \
-  bash -c "[ $code -eq 0 ] && ! grep -qxF -e 'WOWAI_REALM_PROJECT=$shared_project' -e 'WOWAI_REALM_DIR=$shared_dir' \
-    -e 'WOWAI_DEV_INSTALL=$shared_install' -e 'WOWAI_REALM_SOAP_PORT=$shared_soap' <<<'$out'"
-
-run_kit --ticket 998 env
-env998="$out"
-run_kit --ticket 999 env
-env999="$out"
-value() { sed -n "s/^$2=//p" <<<"$1"; }
-check "the Compose project comes from the ticket" test "$(value "$env998" WOWAI_REALM_PROJECT)" = wowai-t998-realm
-check "the realm folder comes from the ticket" test "$(value "$env998" WOWAI_REALM_DIR)" = "$WOWAI_KIT_DIR/t998-realm"
-check "the dev install comes from the ticket" test "$(value "$env998" WOWAI_DEV_INSTALL)" = "$WOWAI_KIT_DIR/install-t998"
-for name in WOWAI_REALM_PROJECT WOWAI_REALM_DIR WOWAI_DEV_INSTALL WOWAI_REALM_LOGIN_PORT WOWAI_REALM_WORLD_PORT WOWAI_REALM_SOAP_PORT; do
-  check "two tickets get two values of $name" \
-    bash -c "[ -n '$(value "$env998" "$name")' ] && [ '$(value "$env998" "$name")' != '$(value "$env999" "$name")' ]"
-done
-ports() { printf '%s\n' "$(value "$1" WOWAI_REALM_LOGIN_PORT)" "$(value "$1" WOWAI_REALM_WORLD_PORT)" "$(value "$1" WOWAI_REALM_SOAP_PORT)"; }
-check "the ports of two tickets do not overlap" \
-  test "$( (ports "$env998"; ports "$env999"; printf '%s\n' "${realm_defaults[WOWAI_REALM_LOGIN_PORT]}" "${realm_defaults[WOWAI_REALM_WORLD_PORT]}" "$shared_soap") | sort -u | wc -l)" = 9
-
 run_kit --shared env
 check "--shared names the shared realm" bash -c "[ $code -eq 0 ] && grep -qxF 'WOWAI_REALM_PROJECT=$shared_project' <<<'$out'"
+run_kit --ticket 998 env
+check "a ticket with no slot gets an error" test "$code" -ne 0
 run_kit --shared down
 check "--shared does not remove the shared realm" bash -c "[ $code -ne 0 ] && grep -q 'shared' <<<'$out'"
 
@@ -102,27 +76,24 @@ if [ "${1:-}" = "--quick" ]; then
   finish
 fi
 
-# --- Part 2: two realms ---
+# --- Part 2: two slots ---
 
 kit_out() { "$kit" "$@" 2>&1 | tr -d '\r'; }
-project_of() { echo "wowai-t$1-realm"; }
-containers_of() { docker ps --all --quiet --filter "label=com.docker.compose.project=$(project_of "$1")"; }
-soap_port_of() { echo $((22000 + $1)); }
-
-# A dev install for each realm: a copy of WOWAI_TEST_INSTALL, or one build.
-install_for() {
-  local ticket="$1" from="$2"
-  mkdir -p "$WOWAI_KIT_DIR"
-  [ -n "$from" ] && cp -a "$from" "$WOWAI_KIT_DIR/install-t$ticket"
-}
+slot_of() { kit_out --ticket "$1" env | sed -n 's/^WOWAI_REALM_PROJECT=wowai-test-//p'; }
+project_of() { echo "wowai-test-$(slot_of "$1")"; }
+containers_of() { docker ps --all --quiet --filter "label=com.docker.compose.project=$1"; }
+running_of() { docker ps --quiet --filter "label=com.docker.compose.project=$1"; }
+soap_port_of() { echo $((7880 + $(slot_of "$1"))); }
 
 started=(998 999)
-install_for 998 "${WOWAI_TEST_INSTALL:-}"
-echo "Bringing up the realm of the ticket 998..."
-"$kit" --ticket 998 up
-install_for 999 "$WOWAI_KIT_DIR/install-t998"
-echo "Bringing up the realm of the ticket 999..."
-"$kit" --ticket 999 up
+echo "Acquiring a slot for the ticket 998..."
+"$kit" --ticket 998 acquire
+echo "Acquiring a slot for the ticket 999..."
+"$kit" --ticket 999 acquire
+slot998="$(slot_of 998)"
+project998="$(project_of 998)"
+realm998="$pool/$slot998"
+logs998="$pool/logs/t998"
 
 for ticket in 998 999; do
   check "the realm $ticket is its own Compose project" \
@@ -131,7 +102,7 @@ for ticket in 998 999; do
     bash -c "curl --silent --max-time 5 http://127.0.0.1:$(soap_port_of "$ticket")/ >/dev/null; [ \$? -ne 7 ]"
   check "wait returns at once on the running realm $ticket" "$kit" --ticket "$ticket" wait 30
 done
-check "the two realms have two database volumes" \
+check "the two slots have two database volumes" \
   test "$(docker volume ls --quiet --filter "label=com.docker.compose.project=$(project_of 998)") $(docker volume ls --quiet --filter "label=com.docker.compose.project=$(project_of 999)")" \
   = "$(project_of 998)_database $(project_of 999)_database"
 
@@ -172,7 +143,7 @@ check "after restart an offline bot stays offline" test "$(online 998 Hela)" = 0
 out="$(kit_out --ticket 998 soap 'server info')"
 check "after restart mangosd runs GM commands" contains "$out" "Players online"
 check "restart keeps the Server.log of before" \
-  bash -c "grep -q 'Shanka logs in' '$WOWAI_KIT_DIR'/t998-logs/*-restart/Server.log"
+  bash -c "grep -q 'Shanka logs in' '$logs998'/*-restart/Server.log"
 
 # check runs a script with the kit's client and keeps a pid file.
 script="$tmp/kit-check.py"
@@ -191,43 +162,60 @@ if len(sys.argv) > 1:
 PY
 out="$(kit_out --ticket 998 check "$script")" || true
 echo "$out"
-check "check runs the script on the realm of the ticket" contains "$out" "PORT 21998"
+check "check runs the script on the slot of the ticket" contains "$out" "PORT $((8090 + slot998))"
 check "the script runs GM commands over the kit" contains "$out" "Players online"
 check "the script logs a player in with the client" grep -q "^LOGGED IN [1-9]" <<<"$out"
 check "check removes its pid file at the end" \
-  bash -c "[ -z \"\$(ls '$WOWAI_KIT_DIR/t998-realm/pids' 2>/dev/null)\" ]"
+  bash -c "[ -z \"\$(ls '$realm998/pids' 2>/dev/null)\" ]"
 "$kit" --ticket 998 check "$script" sleep >/dev/null 2>&1 &
 runner=$!
 for _ in $(seq 1 30); do
-  pidfile="$(find "$WOWAI_KIT_DIR/t998-realm/pids" -name '*.pid' 2>/dev/null | head -n 1 || true)"
+  pidfile="$(find "$realm998/pids" -name '*.pid' 2>/dev/null | head -n 1 || true)"
   [ -n "$pidfile" ] && break
   sleep 1
 done
 sleeper="$(cut -d' ' -f1 "$pidfile" 2>/dev/null || true)"
 check "a running check has a pid file" test -n "$sleeper"
 
-# Before down: no file of another user in the realm folder.
+# Before release: no file of another user in the realm folder.
 check "the realm folder has only files of the user" \
-  test -z "$(find "$WOWAI_KIT_DIR/t998-realm" ! -user "$(id -u)" | head -n 1)"
+  test -z "$(find "$realm998" ! -user "$(id -u)" | head -n 1)"
 
-"$kit" --ticket 998 down
+# A migration of the ticket, to see that the next lease does not get it.
+"$kit" --ticket 998 sql characters "INSERT INTO migrations (id) VALUES ('29991231000000')" >/dev/null
+
+"$kit" --ticket 998 release
 wait "$runner" 2>/dev/null || true
-check "down stops the check of the pid file" bash -c "! kill -0 '$sleeper' 2>/dev/null"
-check "down leaves the shell of the test running" kill -0 $$
-check "down removes the containers" test -z "$(containers_of 998)"
-check "down removes the database volume" \
-  test -z "$(docker volume ls --quiet --filter "label=com.docker.compose.project=$(project_of 998)")"
-check "down removes the realm folder" test ! -e "$WOWAI_KIT_DIR/t998-realm"
-kept="$(find "$WOWAI_KIT_DIR/t998-logs" -mindepth 1 -maxdepth 1 -type d ! -name "*-restart" 2>/dev/null | sort | tail -n 1)"
-check "down keeps Server.log" bash -c "[ -n '$kept' ] && grep -q 'Grukk logs in' '$kept/mangosd/Server.log'"
-check "the kept logs belong to the user" test -z "$(find "$WOWAI_KIT_DIR/t998-logs" ! -user "$(id -u)" | head -n 1)"
+check "release stops the check of the pid file" bash -c "! kill -0 '$sleeper' 2>/dev/null"
+check "release leaves the shell of the test running" kill -0 $$
+check "release keeps the containers of the slot" test -n "$(containers_of "$project998")"
+check "release stops the slot" test -z "$(running_of "$project998")"
+check "release keeps the database volume" \
+  test -n "$(docker volume ls --quiet --filter "label=com.docker.compose.project=$project998")"
+check "release removes the lease" test ! -e "$pool/$slot998.lease"
+kept="$(find "$logs998" -mindepth 1 -maxdepth 1 -type d ! -name "*-restart" 2>/dev/null | sort | tail -n 1)"
+check "release keeps Server.log" bash -c "[ -n '$kept' ] && grep -q 'Grukk logs in' '$kept/mangosd/Server.log'"
+check "the kept logs belong to the user" test -z "$(find "$logs998" ! -user "$(id -u)" | head -n 1)"
 out="$(kit_out --ticket 999 soap 'server info')"
-check "the other realm still runs" contains "$out" "Players online"
+check "the other slot still runs" contains "$out" "Players online"
 
-"$kit" --ticket 999 down
-check "down of the second realm removes it" test -z "$(containers_of 999)"
+# The next ticket on the slot starts from the baseline.
+started=(999 997)
+echo "Acquiring a slot for the ticket 997..."
+"$kit" --ticket 997 acquire
+check "the next ticket gets the free slot" test "$(slot_of 997)" = "$slot998"
+check "the slot has no character of the last ticket" \
+  test -z "$(kit_out --ticket 997 sql characters "SELECT name FROM characters WHERE name = 'Thrallson'")"
+check "the slot has no migration of the last ticket" \
+  test -z "$(kit_out --ticket 997 sql characters "SELECT id FROM migrations WHERE id = '29991231000000'")"
+check "the slot has the bots again" test "$(kit_out --ticket 997 sql characters "SELECT name FROM characters WHERE name = 'Grukk'")" = Grukk
+check "the slot runs GM commands" contains "$(kit_out --ticket 997 soap 'server info')" "Players online"
+
+for ticket in 997 999; do
+  "$kit" --ticket "$ticket" release
+done
 started=()
-check "nothing in the kit folder belongs to another user" \
-  test -z "$(find "$WOWAI_KIT_DIR" ! -user "$(id -u)" | head -n 1)"
+check "the logs of the pool belong to the user" \
+  test -z "$(find "$pool/logs" ! -user "$(id -u)" | head -n 1)"
 
 finish

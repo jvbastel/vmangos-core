@@ -47,7 +47,7 @@ namespace Bots
         rule.name = "run into casting range";
         rule.priority = priority;
         rule.trigger = [](BotContext const& context) {
-            return HasDamageTarget(context) && context.view.GetDistance(PickDamageTarget(context)) > CastingRangeYards;
+            return HasDamageTarget(context) && context.view.GetSpellDistance(PickDamageTarget(context)) > CastingRangeYards;
         };
         rule.action.canDo = [](BotContext const&) { return true; };
         rule.action.run = [](BotContext const& context) {

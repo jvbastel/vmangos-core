@@ -1,5 +1,6 @@
 #include "BossReactions.h"
 #include "ClassModules.h"
+#include "CoordinatorRegistry.h"
 #include "MageModule.h"
 #include "TaragamanReaction.h"
 #include "FakeBot.h"
@@ -29,14 +30,19 @@ namespace
 
     // One bot of the group in the fight with Taragaman, who stands at the
     // origin and attacks the tank. Only the boss reaction is on the stack.
+    // `coordinator`: the coordinator that the bot AI gives the bot, by
+    // default one of its own.
     struct InFight
     {
         FakeBot fake;
-        GroupCoordinator group;
+        std::shared_ptr<GroupCoordinator> coordinator;
+        GroupCoordinator& group;
         StrategyStack stack;
         BotRole role;
 
-        InFight(Bots::Guid self, BotRole role, Position where) : fake(self), role(role)
+        InFight(Bots::Guid self, BotRole role, Position where,
+            std::shared_ptr<GroupCoordinator> coordinator = std::make_shared<GroupCoordinator>()) :
+            fake(self), coordinator(std::move(coordinator)), group(*this->coordinator), role(role)
         {
             fake.SetGroupMembers({Tank, Healer, Mage, Rogue});
             for (Bots::Guid member : {Tank, Healer, Mage, Rogue})
@@ -72,6 +78,15 @@ TEST(TaragamanReaction, TheHealerInFireNovaRangeMovesOut)
 
     EXPECT_EQ(healer.Think(), "stay out of fire nova");
     EXPECT_EQ(healer.fake.Deeds(), Moves("move to 0 -16 2"));
+}
+
+TEST(TaragamanReaction, TheMoveOutSearchesForThePlaceOncePerThink)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+
+    EXPECT_EQ(mage.Think(), "stay out of fire nova");
+    // The first place is safe: one ground path for the whole think.
+    EXPECT_EQ(mage.fake.GroundPaths(), 1);
 }
 
 TEST(TaragamanReaction, ARangedBotMoreThanTenYardsAwayStays)
@@ -133,6 +148,45 @@ TEST(TaragamanReaction, ARangedBotMovesOutOnlyToAPlaceInSightOfHim)
 
     EXPECT_EQ(mage.Think(), "stay out of fire nova");
     EXPECT_EQ(mage.fake.Deeds(), Moves("move to 8 13.86 0"));
+}
+
+TEST(TaragamanReaction, TheHealerMovesOutOnlyToAPlaceInSightOfTheTank)
+{
+    InFight healer(Healer, BotRole::Healer, {5, 0, 0});
+    healer.group.SetTank(Tank);
+    // From the places 16 yards straight out and 30 degrees off, the healer
+    // sees him but not the tank, and could not heal it.
+    healer.fake.AddBlindToFromX(Tank, 10);
+
+    EXPECT_EQ(healer.Think(), "stay out of fire nova");
+    EXPECT_EQ(healer.fake.Deeds(), Moves("move to 8 13.86 0"));
+}
+
+// The leader is outside the instance. The tank's bot AI sets the tank in
+// the coordinator of its place, and the healer in the same place reads it
+// there: its Fire Nova place still sees the tank.
+TEST(TaragamanReaction, WithTheLeaderOnAnotherMapTheHealerMovesOutOnlyToAPlaceInSightOfTheTank)
+{
+    Bots::CoordinatorRegistry registry;
+    std::uint32_t const group = 7;
+    Bots::MapPlace const ragefireChasm = {389, 7};
+    Bots::LeaderPlace const leaderOutside = Bots::LeaderPlace::On({1, 0});
+    registry.For(group, ragefireChasm, leaderOutside, 0)->SetTank(Tank);
+    InFight healer(Healer, BotRole::Healer, {5, 0, 0}, registry.For(group, ragefireChasm, leaderOutside, 0));
+    healer.fake.AddBlindToFromX(Tank, 10);
+
+    EXPECT_EQ(healer.Think(), "stay out of fire nova");
+    EXPECT_EQ(healer.fake.Deeds(), Moves("move to 8 13.86 0"));
+}
+
+TEST(TaragamanReaction, ARangedBotNeedNotSeeTheTank)
+{
+    InFight mage(Mage, BotRole::Ranged, {5, 0, 0});
+    mage.group.SetTank(Tank);
+    mage.fake.AddBlindToFromX(Tank, 10);
+
+    EXPECT_EQ(mage.Think(), "stay out of fire nova");
+    EXPECT_EQ(mage.fake.Deeds(), Moves("move to 16 0 0"));
 }
 
 TEST(TaragamanReaction, ARangedBotWithOnlyLavaAroundStays)

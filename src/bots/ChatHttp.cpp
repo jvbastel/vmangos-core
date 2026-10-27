@@ -23,11 +23,11 @@ namespace
             m_client.set_max_timeout(timeout);
         }
 
-        Bots::ChatPostResult Post(std::string const& body) override
+        Bots::ChatPostResult Post(std::string const& path, std::string const& body) override
         {
             Bots::ChatPostResult result;
             auto const start = std::chrono::steady_clock::now();
-            httplib::Result const answer = m_client.Post("/v1/events", body, "application/json");
+            httplib::Result const answer = m_client.Post(path, body, "application/json");
             if (!answer)
             {
                 result.error = httplib::to_string(answer.error());
