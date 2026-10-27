@@ -4,6 +4,7 @@
 #include "FollowTank.h"
 #include "GroupRules.h"
 #include "MageModule.h"
+#include "MemberSpot.h"
 #include "PriestModule.h"
 #include "RogueModule.h"
 #include "WarlockModule.h"
@@ -55,6 +56,8 @@ namespace Bots
                 && !FollowsAMemberInTheFight(context)
                 // Near the tank of a pull (FollowTank.h).
                 && !StaysNearThePull(context)
+                // At its member spot (MemberSpot.h).
+                && !HoldsMemberSpot(context)
                 && context.view.GetFollowTarget() != context.commandPlayer;
         }
 
@@ -68,7 +71,8 @@ namespace Bots
         bool ShouldLoot(BotContext const& context)
         {
             Guid const self = context.view.GetSelf();
-            return !context.view.IsInCombat(self) && context.group.GetPull().puller != self;
+            return !context.view.IsInCombat(self) && context.group.GetPull().puller != self
+                && !HoldsMemberSpot(context);
         }
     }
 
@@ -117,6 +121,8 @@ namespace Bots
     {
         StrategyStack stack;
         stack.Push(MakeCommandStrategy());
+        if (std::shared_ptr<Strategy const> spot = MakeMemberSpotStrategy(role))
+            stack.Push(spot);
         stack.Push(MakeRestStrategy());
         stack.Push(MakeGroupStrategy(role));
         if (std::shared_ptr<Strategy const> strategy = MakeClassStrategy(botClass, role))

@@ -30,6 +30,7 @@ namespace Bots
     {
         Lock lock(m_mutex);
         m_pull = {PullPhase::Pulling, puller, target};
+        m_memberSpots.clear();
         m_focusTarget = target;
         m_tauntGivenUp = NoGuid;
     }
@@ -85,8 +86,63 @@ namespace Bots
     {
         Lock lock(m_mutex);
         m_pull = {PullPhase::None, NoGuid, NoGuid};
+        m_memberSpots.clear();
         m_focusTarget = NoGuid;
         m_tauntGivenUp = NoGuid;
+    }
+
+    void GroupCoordinator::StartGroupWait(Guid puller, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+            return;
+        m_pull.waitFromMs = nowMs;
+        m_pull.waitSaid = false;
+    }
+
+    void GroupCoordinator::NoteGroupWaitSaid(Guid puller)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.phase != PullPhase::None && m_pull.puller == puller)
+            m_pull.waitSaid = true;
+    }
+
+    void GroupCoordinator::SetMemberSpot(Guid bot, bool found, Position spot)
+    {
+        Lock lock(m_mutex);
+        for (MemberSpot& member : m_memberSpots)
+            if (member.bot == bot)
+            {
+                member = {bot, found, spot, false};
+                return;
+            }
+        m_memberSpots.push_back({bot, found, spot, false});
+    }
+
+    void GroupCoordinator::SetMemberInPlace(Guid bot)
+    {
+        Lock lock(m_mutex);
+        for (MemberSpot& member : m_memberSpots)
+            if (member.bot == bot)
+                member.inPlace = true;
+    }
+
+    std::vector<MemberSpot> GroupCoordinator::GetMemberSpots() const
+    {
+        Lock lock(m_mutex);
+        return m_memberSpots;
+    }
+
+    void GroupCoordinator::NoteBot(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_bots.insert(bot);
+    }
+
+    std::vector<Guid> GroupCoordinator::GetBots() const
+    {
+        Lock lock(m_mutex);
+        return std::vector<Guid>(m_bots.begin(), m_bots.end());
     }
 
     bool GroupCoordinator::TankHoldsThreat() const

@@ -11,6 +11,7 @@
 #include "ClassModules.h"
 #include "CoordinatorChoice.h"
 #include "DeathAndRest.h"
+#include "MemberSpot.h"
 #include "Group.h"
 #include "ObjectAccessor.h"
 #include "SpellMgr.h"
@@ -519,6 +520,8 @@ void BotAI::Think()
         else
         {
             m_strategies.Push(Bots::MakeCommandStrategy());
+            if (std::shared_ptr<Bots::Strategy const> spot = Bots::MakeMemberSpotStrategy(m_role))
+                m_strategies.Push(spot);
             m_strategies.Push(Bots::MakeRestStrategy());
             m_strategies.Push(Bots::MakeDeathStrategy());
         }
@@ -565,6 +568,7 @@ void BotAI::Think()
     Bots::BotContext context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};
     context.startWaits = m_startGate.Waiting();
+    context.nowMs = SteadyMs();
     std::string const rule = m_strategies.Think(context);
     // A bot without a group has no chat session: its own coordinator drops
     // the events. The bot manager drops the events of a place coordinator.
@@ -572,6 +576,22 @@ void BotAI::Think()
         m_soloCoordinator.TakeEvents();
     if (!rule.empty() && rule != m_lastRule)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());
+    // The member spots of a pull (MemberSpot.h), for the log: the spot of
+    // a bot that sets out to it, and the bots that the tank did not wait for
+    // any more when its wait ended.
+    if (rule == "go to the member spot" && rule != m_lastRule)
+        for (Bots::MemberSpot const& spot : coordinator->GetMemberSpots())
+            if (spot.bot == me->GetObjectGuid().GetRawValue())
+                sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s member spot %.2f %.2f %.2f (%.1f yd away)", me->GetName(),
+                    spot.spot.x, spot.spot.y, spot.spot.z,
+                    me->GetDistance(spot.spot.x, spot.spot.y, spot.spot.z));
+    if (m_lastRule == "wait for the group" && rule != m_lastRule)
+        for (Bots::Guid bot : Bots::MembersNotInPlace(context))
+        {
+            Player const* member = me->GetMap()->GetPlayer(ObjectGuid(bot));
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s pulls without %s: not in place at its member spot",
+                me->GetName(), member ? member->GetName() : "?");
+        }
     if (!rule.empty())
         m_lastRule = rule;
     // The fight spot of the tank's pull (FightSpot.h), for the log.

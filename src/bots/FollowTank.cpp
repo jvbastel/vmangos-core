@@ -2,6 +2,7 @@
 #include "BotGeometry.h"
 #include "CommonRules.h"
 #include "GroupRules.h"
+#include "MemberSpot.h"
 #include "SafePlace.h"
 
 #include <algorithm>
@@ -43,7 +44,7 @@ namespace Bots
         bool ShouldFollowTank(BotContext const& context)
         {
             Guid tank = NoGuid;
-            return PullToFollow(context, tank) && !FollowsAMember(context)
+            return PullToFollow(context, tank) && !FollowsAMember(context) && !HoldsMemberSpot(context)
                 && context.view.GetDistance(tank) > FollowTankYards;
         }
 

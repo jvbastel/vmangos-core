@@ -39,6 +39,22 @@ namespace Bots
         // just started or found a new path does not move yet: a stop counts
         // only after a few thinks.
         std::uint32_t stillChaseThinks = 0;
+        // The tank's wait for the group (MemberSpot.h): it starts when the
+        // puller notes its fight spot (StartGroupWait). `waitSaid`: the
+        // puller said in party chat that it waits.
+        std::int64_t waitFromMs = 0;
+        bool waitSaid = false;
+    };
+
+    // The member spot of a bot in the pull (MemberSpot.h).
+    struct MemberSpot
+    {
+        Guid bot = NoGuid;
+        // The bot found a safe spot. Without one it stays out of the wait.
+        bool found = false;
+        Position spot = {0, 0, 0};
+        // The bot stands at its spot.
+        bool inPlace = false;
     };
 
     // A bot will interrupt the cast of spell `spell` by enemy `caster`.
@@ -127,6 +143,22 @@ namespace Bots
         // and stands still or moves (which starts the count again). Only the
         // puller can.
         void CountRangeChase(Guid puller, bool moving);
+        // The puller starts its wait for the group at `nowMs`, or notes that
+        // it said it waits. Only the puller can.
+        void StartGroupWait(Guid puller, std::int64_t nowMs);
+        void NoteGroupWaitSaid(Guid puller);
+        // The member spots of the pull that is on: each bot notes its own
+        // spot (`found` false: none is safe), and then that it is in place;
+        // it stays in place for the rest of the pull.
+        // A new pull or the end of the pull forgets them.
+        void SetMemberSpot(Guid bot, bool found, Position spot);
+        void SetMemberInPlace(Guid bot);
+        std::vector<MemberSpot> GetMemberSpots() const;
+        // The bots of the group: each bot notes itself on each think
+        // (WatchGroup), so that the tank knows whom to wait for. A player
+        // is no bot.
+        void NoteBot(Guid bot);
+        std::vector<Guid> GetBots() const;
         // The fight of the pull ends: no pull and no focus target.
         void EndPull();
         // True when the tank holds threat on the focus target: the target of
@@ -247,6 +279,8 @@ namespace Bots
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;
         Trail m_trail;
+        std::vector<MemberSpot> m_memberSpots;
+        std::set<Guid> m_bots;
         std::vector<Guid> m_enemyHealers;                 // In mark order.
         BossFight m_bossFight = {NoGuid, 0};
     };

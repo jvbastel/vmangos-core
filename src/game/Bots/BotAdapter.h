@@ -108,6 +108,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void Eat() override;
         void Drink() override;
         void WarnExtraPacks(uint32 packs) override;
+        void SayGroupWait(uint32 members) override;
         void TopUpAmmo(Bots::AmmoTopUp const& topUp) override;
 
     private:
