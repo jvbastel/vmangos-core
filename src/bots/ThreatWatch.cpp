@@ -56,7 +56,7 @@ namespace Bots
         for (EnemyOnMember const& hit : hits)
         {
             if ((holder != NoGuid && hit.member == holder)
-                || std::find(attacked.begin(), attacked.end(), hit.enemy) != attacked.end()
+                || Contains(attacked, hit.enemy)
                 || std::any_of(next.begin(), next.end(), [&](Unattacked const& kept) { return kept.enemy == hit.enemy; }))
                 continue;
             auto found = std::find_if(m_unattacked.begin(), m_unattacked.end(),

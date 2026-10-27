@@ -119,7 +119,7 @@ namespace Bots
             std::vector<Guid> const healers = context.group.GetEnemyHealers();
             for (Guid enemy : EnemiesInFight(context))
                 if (context.view.GetCast(enemy).kind == CastKind::Heal
-                    && std::find(healers.begin(), healers.end(), enemy) == healers.end())
+                    && !Contains(healers, enemy))
                     return enemy;
             return NoGuid;
         }
@@ -225,7 +225,7 @@ namespace Bots
             if (member != skipMember && IsAlive(context.view, member))
                 for (Guid attacker : context.view.GetAttackers(member))
                     if (attacker != skipEnemy && IsAlive(context.view, attacker)
-                        && std::find(attackers.begin(), attackers.end(), attacker) == attackers.end())
+                        && !Contains(attackers, attacker))
                         attackers.push_back(attacker);
         return attackers;
     }
@@ -252,7 +252,7 @@ namespace Bots
     {
         std::vector<Guid> const enemies = EnemiesInFight(context);
         for (Guid healer : context.group.GetEnemyHealers())
-            if (std::find(enemies.begin(), enemies.end(), healer) != enemies.end() && IsInChaseLimit(context, healer))
+            if (Contains(enemies, healer) && IsInChaseLimit(context, healer))
                 return healer;
         return NoGuid;
     }

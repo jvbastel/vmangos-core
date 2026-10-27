@@ -35,7 +35,7 @@ namespace Bots
                 if (IsAlive(context.view, member) && !(tankLives && member == tank))
                     for (Guid attacker : context.view.GetAttackers(member))
                         if (attacker != skip && IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker)
-                            && std::find(enemies.begin(), enemies.end(), attacker) == enemies.end())
+                            && !Contains(enemies, attacker))
                             enemies.push_back(attacker);
             return enemies;
         }
@@ -69,7 +69,7 @@ namespace Bots
             if (enemies.empty())
                 return NoGuid;
             Guid const own = context.view.GetVictim(context.view.GetSelf());
-            bool const ownIsLoose = std::find(enemies.begin(), enemies.end(), own) != enemies.end();
+            bool const ownIsLoose = Contains(enemies, own);
             if (ownIsLoose && !AnotherMemberAttacks(context, own, Members::LowerGuid))
                 return own;
             for (Guid enemy : enemies)

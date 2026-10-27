@@ -48,7 +48,7 @@ namespace Bots
     bool IsGroupMember(BotView const& view, Guid unit)
     {
         std::vector<Guid> const members = view.GetGroupMembers();
-        return unit != NoGuid && std::find(members.begin(), members.end(), unit) != members.end();
+        return unit != NoGuid && Contains(members, unit);
     }
 
     std::vector<Guid> UnitsWithin(BotView const& view, std::vector<Guid> const& units, float yards)

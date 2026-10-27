@@ -32,7 +32,7 @@ namespace Bots
 
         bool OnHealer(RunResult const& r, RunHit const& loss)
         {
-            return std::find(r.healers.begin(), r.healers.end(), loss.member) != r.healers.end();
+            return Contains(r.healers, loss.member);
         }
 
         Json Hits(std::vector<RunHit> const& hits)
