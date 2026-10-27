@@ -30,7 +30,8 @@ namespace Bots
     // too, at Priority::Group + 82. While a pull holds, or the bot is in combat, a bot
     // that stands within the aggro distance and AggroMarginYards of an
     // enemy outside the fight of the group's focus steps out to a safe place
-    // (FirstSafePlace, SafePlace.h), or stands when it finds none. The one
+    // (FirstSafePlace, SafePlace.h). With no safe place the rule does not
+    // fire: the bot keeps its fight rather than freeze. The one
     // exception: the puller that goes in to a caster (PullState::goesIn,
     // WarriorModule.h).
     std::shared_ptr<Strategy const> MakeKeepOutStrategy();

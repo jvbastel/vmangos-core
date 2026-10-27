@@ -225,8 +225,9 @@ namespace Bots
             // first), when Taunt cannot go out on it now (out of range, on
             // its cooldown, out of Defensive Stance, or not known). NoGuid
             // when Taunt can, when no enemy is loose or none is in
-            // PickUpYards, or when the focus hits another member: the focus
-            // comes first (spec #102).
+            // PickUpYards, when the enemy stands in the reach of a pack
+            // outside the fight, or when the focus hits another member: the
+            // focus comes first (spec #102).
             Guid PickUpTarget(BotContext const& context)
             {
                 if (!FightsFocus(context))
@@ -235,8 +236,13 @@ namespace Bots
                 if (focusVictim != NoGuid && focusVictim != Self(context))
                     return NoGuid;
                 Guid const loose = PickLooseEnemy(context);
+                // jvbastel/WOWAI#121: not into the reach of a pack outside
+                // the fight (KeepOut.h): the keep-out rule would step the
+                // tank out again. The member that the enemy hits steps out
+                // itself, and brings it along.
                 return loose != NoGuid && context.view.GetDistance(loose) <= PickUpYards
                         && CastableRank(context.view, Taunt, loose) == NoSpell
+                        && PacksPulledAt(context.view, context.view.GetPosition(loose), context.group.GetFocusTarget()) == 0
                     ? loose
                     : NoGuid;
             }

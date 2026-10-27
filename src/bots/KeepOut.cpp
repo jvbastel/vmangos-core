@@ -95,23 +95,34 @@ namespace Bots
                 places.push_back(pull.fightSpot);
             return places;
         }
+
+        // The safe place to step out to (FirstSafePlace). False when the bot
+        // stands out of reach, or finds no safe place: it then keeps its
+        // fight, so that a member never freezes in place.
+        bool FindStepOut(BotContext const& context, Position& place)
+        {
+            std::vector<NearEnemy> const tooNear = EnemiesTooNear(context);
+            if (tooNear.empty())
+                return false;
+            SafeMoveRules rules;
+            rules.enemies = EnemiesOutsideTheFight(context.view,
+                context.view.GetPosition(context.view.GetSelf()), FightTarget(context));
+            return FirstSafePlace(context.view, StepOutPlaces(context, tooNear), rules, place);
+        }
     }
 
     std::shared_ptr<Strategy const> MakeKeepOutStrategy()
     {
         Rule keepOut{KeepOutRule, Priority::Group + 82,
-            [](BotContext const& context) { return !EnemiesTooNear(context).empty(); },
+            [](BotContext const& context) {
+                Position place{};
+                return FindStepOut(context, place);
+            },
             {[](BotContext const&) { return true; },
                 [](BotContext const& context) {
-                    std::vector<NearEnemy> const tooNear = EnemiesTooNear(context);
-                    SafeMoveRules rules;
-                    rules.enemies = EnemiesOutsideTheFight(context.view,
-                        context.view.GetPosition(context.view.GetSelf()), FightTarget(context));
                     Position place{};
-                    if (FirstSafePlace(context.view, StepOutPlaces(context, tooNear), rules, place))
+                    if (FindStepOut(context, place))
                         context.actions.MoveTo(place);
-                    else
-                        context.actions.Stand();
                 }}};
         return std::make_shared<Strategy const>(Strategy{"keep out", {keepOut}});
     }

@@ -1966,7 +1966,10 @@ TEST(WarriorTank, HoldsItsWalkBackForALooseEnemyOutOfTauntRange)
     tank.fake.SetSpellRange(Warrior::Taunt, 20.0f);
     tank.fake.SetDistance(Wolf, 28.0f);
     tank.fake.SetVictim(Wolf, Healer);
+    // The wolf joined the pull: the tank warns first (jvbastel/WOWAI#121).
+    ASSERT_EQ(tank.Think(), "warn when a pack joins");
     ASSERT_EQ(tank.Think(), "hold the pull");
+    tank.fake.ClearDeeds();
 
     tank.Think();
 
@@ -2068,6 +2071,26 @@ TEST(WarriorTank, DoesNotPickUpALooseEnemyBeyondThePickUpReach)
 {
     BatOnTheFarHealer tank;
     tank.fake.SetDistance(Bat, 45.0f);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+    {
+        EXPECT_NE(deed, Attack(Bat));
+        EXPECT_NE(deed, Chase(Bat));
+    }
+}
+
+// jvbastel/WOWAI#121 merge review: the keep-out rule (KeepOut.h) and the
+// pick-up of #126. The bat on the healer stands in the reach of a rat that
+// is in no fight. The tank does not go to it: the keep-out rule would step
+// it out again, and it would pull the rat. It stays on the focus.
+TEST(WarriorTank, DoesNotPickUpALooseEnemyInTheReachOfAnotherPack)
+{
+    BatOnTheFarHealer tank;
+    tank.fake.SetPosition(Tank, {0, 0, 0});
+    tank.fake.SetPosition(Bat, {28, 0, 0});
+    tank.fake.AddEnemy(Rat, {36, 0, 0}, 10.0f);
 
     tank.Think();
 

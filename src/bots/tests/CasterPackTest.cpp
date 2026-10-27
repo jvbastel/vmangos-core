@@ -418,3 +418,16 @@ TEST(CasterPack, NoKeepOutOutOfAFight)
 
     EXPECT_NE(stack.Think(context), Bots::KeepOutRule);
 }
+
+// Plan item 5, merge review: with no safe place to step out to, the
+// keep-out rule leaves the think to the other rules: the tank keeps its
+// fight and does not freeze.
+TEST(CasterPack, WithNoSafePlaceTheKeepOutRuleDoesNotFreezeTheTank)
+{
+    CasterTank tank;
+    tank.PullAndHold();
+    tank.fake.SetPosition(Tank, NearPack11);
+    tank.fake.AddNoPathFromX(-10000.0f);
+
+    EXPECT_NE(tank.Think(), Bots::KeepOutRule);
+}
