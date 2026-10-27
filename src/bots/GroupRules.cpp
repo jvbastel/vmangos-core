@@ -207,15 +207,10 @@ namespace Bots
 
     std::vector<Guid> EnemiesInFight(BotContext const& context)
     {
-        std::vector<Guid> enemies;
-        auto add = [&](Guid unit) {
-            if (IsAlive(context.view, unit) && std::find(enemies.begin(), enemies.end(), unit) == enemies.end())
-                enemies.push_back(unit);
-        };
-        add(context.group.GetFocusTarget());
-        for (Guid member : context.view.GetGroupMembers())
-            for (Guid attacker : context.view.GetAttackers(member))
-                add(attacker);
+        Guid const focus = context.group.GetFocusTarget();
+        std::vector<Guid> enemies = MemberAttackers(context, NoGuid, focus);
+        if (IsAlive(context.view, focus))
+            enemies.insert(enemies.begin(), focus);
         return enemies;
     }
 

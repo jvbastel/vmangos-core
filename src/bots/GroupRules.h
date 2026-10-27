@@ -31,8 +31,9 @@ namespace Bots
     // interrupt spell of the group rules (Kick, Shield Bash).
     bool IsInterruptSpell(SpellId firstRank);
 
-    // The living enemies in the fight of the group: the focus target and the
-    // units that attack a group member.
+    // The living enemies in the fight of the group: the focus target first,
+    // then MemberAttackers. An enemy that attacks only a dead member is in
+    // the fight again once it attacks a living one.
     std::vector<Guid> EnemiesInFight(BotContext const& context);
 
     // The living attackers of the living group members, each once, in the
