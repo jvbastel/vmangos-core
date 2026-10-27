@@ -305,14 +305,23 @@ namespace
     Position const Pack9 = {-253.89f, -38.88f, -60.46f};
     Position const Pack10 = {-266.73f, -28.03f, -60.61f};
 
-    ExtraPackMark MarkPack10AtPullPack9(float rockX)
+    // The Ragefire Trogg of pack10 nearest to pack9 (creature 48660), 12.3 yd
+    // from the shaman's spawn: out of its assistance reach.
+    Bots::Guid const Trogg10 = 0xF130002C0A00BCB4; // pack10
+    Position const Trogg10At = {-262.22f, -29.89f, -60.61f};
+
+    // `shamanAt`: where the shaman of pack9 stands at the pull. It wanders up
+    // to 5 yd round its spawn (wander_distance 5).
+    ExtraPackMark MarkPack10AtPullPack9(float rockX, Position const& shamanAt = Pack9)
     {
         FakeBot fake{Tank};
         fake.SetPosition(Tank, PullPack9);
-        fake.SetPosition(Shaman, Pack9);
-        fake.AddEnemy(Shaman, Pack9, 15.0f);
+        fake.SetPosition(Shaman, shamanAt);
+        fake.AddEnemy(Shaman, shamanAt, 15.0f);
         fake.SetPosition(Shaman10, Pack10);
         fake.AddEnemy(Shaman10, Pack10, 15.0f);
+        fake.SetPosition(Trogg10, Trogg10At);
+        fake.AddEnemy(Trogg10, Trogg10At, 15.0f);
         fake.SetMana(Shaman, 400, 400);
         if (rockX != 0.0f)
             fake.AddSightWall({rockX, -40.0f, 0.0f}, {rockX, -31.0f, 0.0f});
@@ -323,7 +332,7 @@ namespace
             trail.push_back({P17.x + (PullPack9.x - P17.x) * t, P17.y + (PullPack9.y - P17.y) * t,
                 P17.z + (PullPack9.z - P17.z) * t});
         }
-        return Bots::MarkExtraPack(Bots::FindPullChoices(fake, trail, Shaman, {{"pack10", {Shaman10}}}), "pack10", 1);
+        return Bots::MarkExtraPack(Bots::FindPullChoices(fake, trail, Shaman, {{"pack10", {Shaman10, Trogg10}}}), "pack10", 1);
     }
 }
 
@@ -343,6 +352,17 @@ TEST(ExtraPackJudge, AtPack9WithNoSpotOutOfSightTheFightSpotOnTheWayStillKeepsPa
 
     EXPECT_TRUE(mark.avoidable);
     EXPECT_EQ(mark.reason, "a fight spot at -225.9 -32.9 -55.4 on the cleared way keeps it out");
+}
+
+TEST(ExtraPackJudge, AtPack9AShamanThatWanderedNearPack10MakesPack10Unavoidable)
+{
+    // caster_pack run 190110 of t102-review-fix-2: the shaman stood 4.3 yd
+    // from its spawn, toward pack10, at the pull. pack10 is then in its
+    // assistance reach (8 yd from the trogg): each pull brings it.
+    ExtraPackMark const mark = MarkPack10AtPullPack9(0.0f, {-256.5f, -35.5f, -60.5f});
+
+    EXPECT_FALSE(mark.avoidable);
+    EXPECT_EQ(mark.reason, "no fight spot, line-of-sight pull or spawn area keeps it out with at most 1 extra pack");
 }
 
 TEST(ExtraPackJudge, AFleeOrAPatrolMakesAnExtraPackUnavoidable)
