@@ -32,10 +32,11 @@ namespace Bots
             float const MeleeYards = 5.0f;
 
             // jvbastel/WOWAI#114: Demoralizing Shout reaches the enemies
-            // within ShoutYards. The tank shouts when ShoutEnemies or more
-            // of them lack the debuff, or one in the fight lacks it.
-            float const ShoutYards = 10.0f;
-            std::size_t const ShoutEnemies = 2;
+            // within DemoralizingShoutYards. The tank shouts when
+            // DemoralizingShoutEnemies or more of them lack the debuff, or
+            // one in the fight lacks it.
+            float const DemoralizingShoutYards = 10.0f;
+            std::size_t const DemoralizingShoutEnemies = 2;
 
             // jvbastel/WOWAI#116: Shield Block.
             // Rage for Shield Block from it.
@@ -300,8 +301,9 @@ namespace Bots
                 return loose != NoGuid && context.view.CanCast(taunt, loose);
             }
 
-            // Demoralizing Shout is due: ShoutEnemies or more enemies within
-            // ShoutYards lack its debuff, or an enemy in the fight
+            // Demoralizing Shout is due: DemoralizingShoutEnemies or more
+            // enemies within DemoralizingShoutYards lack its debuff, or an
+            // enemy in the fight
             // (EnemiesInFight: the focus, or an attacker of a group member)
             // lacks it: a late arrival, or an expired debuff. Not for one
             // enemy out of the fight.
@@ -311,7 +313,7 @@ namespace Bots
                     return false;
                 std::vector<Guid> const inFight = EnemiesInFight(context);
                 std::size_t lacking = 0;
-                for (NearEnemy const& enemy : context.view.GetEnemiesNear(ShoutYards))
+                for (NearEnemy const& enemy : context.view.GetEnemiesNear(DemoralizingShoutYards))
                 {
                     if (context.view.HasAura(enemy.guid, DemoralizingShout))
                         continue;
@@ -319,7 +321,7 @@ namespace Bots
                         return true;
                     ++lacking;
                 }
-                return lacking >= ShoutEnemies;
+                return lacking >= DemoralizingShoutEnemies;
             }
 
             // The tank warns in party chat that the pull brings `packs`
