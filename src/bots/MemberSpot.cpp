@@ -183,15 +183,15 @@ namespace Bots
                 || (pull.phase == PullPhase::Holding && !TankHoldsThreat(context));
         }
 
-        // A pull is on, the tank had its fight spot, and it does not hold
-        // threat yet (PullNotHeldYet). Not for the puller, a bot in a
+        // A pull is on, the tank has its fight spot or holds the pull (it
+        // clears the spot once back there), and it does not hold threat yet
+        // (PullNotHeldYet). Not for the puller, a bot in a
         // fight, nor a bot told to come; nor once the bot found no safe
         // spot.
         bool GoesToMemberSpot(BotContext const& context)
         {
             PullState const pull = context.group.GetPull();
             Guid const self = context.view.GetSelf();
-            // The tank clears its fight spot when it is back there.
             bool const hadFightSpot = pull.hasFightSpot || pull.phase == PullPhase::Holding;
             if (!hadFightSpot || pull.puller == self || !JoinsPulls(context) || !PullNotHeldYet(context, pull))
                 return false;

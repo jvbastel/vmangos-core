@@ -48,6 +48,7 @@ namespace Bots
         {
             m_pull.phase = PullPhase::Holding;
             m_pull.engagedMs = nowMs;
+            m_pull.backAtFightSpot = !m_pull.hasFightSpot;
         }
     }
 
@@ -73,8 +74,11 @@ namespace Bots
     void GroupCoordinator::ClearFightSpot(Guid puller)
     {
         Lock lock(m_mutex);
-        if (m_pull.puller == puller)
-            m_pull.hasFightSpot = false;
+        if (m_pull.puller != puller)
+            return;
+        m_pull.hasFightSpot = false;
+        if (m_pull.phase == PullPhase::Holding)
+            m_pull.backAtFightSpot = true;
     }
 
     void GroupCoordinator::SetShootSpot(Guid puller, Position spot)
@@ -202,10 +206,8 @@ namespace Bots
             return m_focusTarget != NoGuid;
         if (m_pull.phase != PullPhase::Holding)
             return false;
-        // The puller clears its fight spot when it is back there.
-        bool const backAtFightSpot = !m_pull.hasFightSpot;
         return nowMs - m_pull.engagedMs >= HoldLimitMs
-            || (backAtFightSpot && m_pull.hasContact && nowMs - m_pull.contactMs >= HoldContactMs);
+            || (m_pull.backAtFightSpot && m_pull.hasContact && nowMs - m_pull.contactMs >= HoldContactMs);
     }
 
     void GroupCoordinator::GiveUpTaunt(Guid enemy)

@@ -62,6 +62,11 @@ namespace Bots
         // holds threat HoldContactMs after it (jvbastel/WOWAI#127).
         bool hasContact = false;
         std::int64_t contactMs = 0;
+        // The puller is back at its fight spot in the held pull: the rule
+        // "back at the fight spot" cleared it (ClearFightSpot), or the pull
+        // was held with no fight spot, so with no walk back
+        // (jvbastel/WOWAI#127).
+        bool backAtFightSpot = false;
         // The puller warned about extra packs in this pull
         // (NoteExtraPackWarn): it warns once a pull.
         bool extraPackWarned = false;

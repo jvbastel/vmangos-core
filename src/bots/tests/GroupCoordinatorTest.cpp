@@ -328,3 +328,39 @@ TEST(GroupCoordinator, AMemberSpotSearchMayAskTheCoordinator)
 
     EXPECT_TRUE(spot.found);
 }
+
+// jvbastel/WOWAI#127: the tank is back at its fight spot once the rule
+// "back at the fight spot" clears it; a pull held with no fight spot has no
+// walk back.
+TEST(GroupCoordinator, TheTankIsBackAtItsFightSpotOnceItClearsIt)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.SetFightSpot(Tank, {1.0f, 2.0f, 3.0f});
+    group.HoldPull(Tank, 1000);
+    EXPECT_FALSE(group.GetPull().backAtFightSpot);
+
+    group.ClearFightSpot(Tank);
+
+    EXPECT_TRUE(group.GetPull().backAtFightSpot);
+}
+
+TEST(GroupCoordinator, APullHeldWithNoFightSpotIsBackAtOnce)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 1000);
+
+    EXPECT_TRUE(group.GetPull().backAtFightSpot);
+}
+
+TEST(GroupCoordinator, ANewPullIsNotBackAtItsFightSpot)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 1000);
+    group.EndPull();
+    group.StartPull(Tank, Other);
+
+    EXPECT_FALSE(group.GetPull().backAtFightSpot);
+}

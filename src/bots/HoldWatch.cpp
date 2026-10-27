@@ -17,10 +17,9 @@ namespace Bots
         if (pull.hasContact && !m_contact)
             lines.push_back("the pull target reaches the tank");
         m_contact = pull.hasContact;
-        // The puller clears its fight spot when it is back there.
-        if (!pull.hasFightSpot && !m_back)
+        if (pull.backAtFightSpot && !m_back)
             lines.push_back("the tank is back at its fight spot");
-        m_back = !pull.hasFightSpot;
+        m_back = pull.backAtFightSpot;
         bool const held = group.TankHoldsThreat(nowMs);
         if (held && !m_held)
         {
