@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_GROUP_COORDINATOR_H
 
 #include "BotTypes.h"
+#include "Trail.h"
 
 #include <cstdint>
 #include <functional>
@@ -139,6 +140,13 @@ namespace Bots
         Guid GetTank() const;
         void SetTank(Guid tank);
 
+        // The tank's trail since the last fight (Trail.h): the cleared way of
+        // its fight spot (FightSpot.h). The tank notes where it stands on
+        // each think (WatchTrail); `fights`: it fights or is dead, so the
+        // trail is empty.
+        void KeepTrail(Position at, bool fights);
+        std::vector<Position> GetTrail() const;
+
         // The enemy healers: the enemies that cast a heal in a fight. The
         // damage bots attack them first (GroupRules.h).
         void MarkEnemyHealer(Guid enemy);
@@ -221,6 +229,7 @@ namespace Bots
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;
+        Trail m_trail;
         std::vector<Guid> m_enemyHealers;                 // In mark order.
         BossFight m_bossFight = {NoGuid, 0};
     };

@@ -148,6 +148,21 @@ namespace Bots
         m_tank = tank;
     }
 
+    void GroupCoordinator::KeepTrail(Position at, bool fights)
+    {
+        Lock lock(m_mutex);
+        if (fights)
+            m_trail.Clear();
+        else
+            m_trail.Note(at);
+    }
+
+    std::vector<Position> GroupCoordinator::GetTrail() const
+    {
+        Lock lock(m_mutex);
+        return m_trail.Points();
+    }
+
     BossFight GroupCoordinator::GetBossFight() const
     {
         Lock lock(m_mutex);
