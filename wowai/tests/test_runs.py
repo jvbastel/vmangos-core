@@ -5,8 +5,10 @@ Bots::RunResultJson.
 
     python3 wowai/tests/test_runs.py
 """
+import json
 import os
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "test-realm"))
@@ -351,6 +353,35 @@ class Watch(unittest.TestCase):
         command = runs.watch_command(["--shared"], 9000, 1, "runs-x", "wowai-7f3k")
 
         self.assertEqual(command[-2:], ["--ntfy", "wowai-7f3k"])
+
+
+class Collect(unittest.TestCase):
+    """jvbastel/WOWAI#119: the trace of each run, also of a passed one, to
+    see what the tank did."""
+
+    def collect(self, trace):
+        runs_dir = tempfile.mkdtemp()
+        out = tempfile.mkdtemp()
+        name = "shadowfang_keep-three_enemies-20261027-150000.json"
+        with open(os.path.join(runs_dir, name), "w") as f:
+            json.dump({"result": "failed" if trace else "passed", "trace": trace}, f)
+        if trace:
+            with open(os.path.join(runs_dir, trace), "w") as f:
+                f.write("61.4 the last 3 minutes\n")
+        with open(os.path.join(runs_dir, runs.LIVE_TRACE), "w") as f:
+            f.write("0.0 run 7 starts\n")
+        runs.collect(runs_dir, "Run 7 x y: passed after 9 s. Result: " + name, out)
+        return sorted(os.listdir(out))
+
+    def test_keeps_the_live_trace_of_a_passed_run(self):
+        self.assertEqual(self.collect(""), ["shadowfang_keep-three_enemies-20261027-150000.json",
+                                            "shadowfang_keep-three_enemies-20261027-150000.live.trace.txt"])
+
+    def test_keeps_both_traces_of_a_failed_run(self):
+        self.assertEqual(self.collect("shadowfang_keep-three_enemies-20261027-150000.trace.txt"),
+                         ["shadowfang_keep-three_enemies-20261027-150000.json",
+                          "shadowfang_keep-three_enemies-20261027-150000.live.trace.txt",
+                          "shadowfang_keep-three_enemies-20261027-150000.trace.txt"])
 
 
 if __name__ == "__main__":
