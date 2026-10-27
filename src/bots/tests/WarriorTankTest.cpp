@@ -168,9 +168,11 @@ TEST(WarriorTank, GoesToASafePlaceToShootFromWhenItCannotSeeThePullTarget)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -7 0 0"}));
 }
 
-// With no place to shoot from, a ranged chase can stop where it still sees
-// nothing: the tank closes in until it sees the target.
-TEST(WarriorTank, ClosesInWhenItCannotSeeThePullTargetFromAnywhere)
+// With no place to shoot from, the tank closes in until it sees the target:
+// a ranged chase, whose path ends at the first point in range and in sight.
+// Not a melee chase: the core moves a chase only toward the bot's victim, so
+// a melee chase with no attack never moved (jvbastel/WOWAI#122, two_packs).
+TEST(WarriorTank, ClosesInWithARangedChaseWhenItCannotSeeThePullTargetFromAnywhere)
 {
     BowTank tank;
     tank.fake.AddBlindToFromX(Kobold, -1000.0f);
@@ -178,7 +180,9 @@ TEST(WarriorTank, ClosesInWhenItCannotSeeThePullTargetFromAnywhere)
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
+    EXPECT_EQ(tank.fake.GetVictim(Tank), Kobold);
+    EXPECT_FALSE(tank.fake.IsMeleeAttacking());
 }
 
 // The chase into shooting range ended, and the tank still cannot shoot (a
@@ -212,13 +216,13 @@ TEST(WarriorTank, KeepsChasingOnTheThinkAfterItsChaseOrder)
     tank.fake.AddBlindToFromX(Kobold, -1000.0f);
     tank.Pull();
     tank.Think();
-    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
     tank.fake.ClearDeeds();
     tank.fake.SetMoving(Tank, false);
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
 }
 
 // A chase that moved and pauses for one think (a new path) has not ended:
@@ -236,7 +240,7 @@ TEST(WarriorTank, KeepsChasingWhenItsMovingChasePausesForOneThink)
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
 }
 
 // A chase that never moves (the path gets no nearer) ends after a few
@@ -936,7 +940,7 @@ TEST(WarriorTank, WarnsWhenNoSpotHasAShot)
         (std::vector<std::string>{"warn Careful: I cannot pull this pack from a safe spot; more packs may come."}));
     tank.fake.ClearDeeds();
     tank.Think();
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
 }
 
 // A clean pull whose target walked out of shot (during the group wait): the
@@ -1002,10 +1006,10 @@ TEST(WarriorTank, AtItsShootSpotOutOfSightItPullsAsWithoutOne)
     EXPECT_FALSE(tank.group.GetPull().hasShootSpot);
     EXPECT_EQ(tank.fake.Deeds(),
         (std::vector<std::string>{"warn Careful: I cannot pull this pack from a safe spot; more packs may come.",
-            "chase 0xf130000302000022"}));
+            "chase 0xf130000302000022 to 25 yards"}));
     tank.fake.ClearDeeds();
     tank.Think();
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
 }
 
 // jvbastel/WOWAI#106: the tank pulls when each bot of the group is at its
@@ -1466,6 +1470,34 @@ TEST(WarriorTank, NoShoutOutOfCombat)
     tank.fake.AddEnemy(ShoutTank::Raptor, {0, 5, 0}, 10.0f);
 
     EXPECT_NE(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
+}
+
+// jvbastel/WOWAI#122: a pull target on a ledge that no safe place sees
+// (two_packs, pack48). The tank warns, walks up its path to the first point
+// with a shot, and shoots from there.
+TEST(WarriorTank, ClosesInAlongItsPathToAShotAtATargetOnALedge)
+{
+    BowTank tank;
+    tank.fake.SetPosition(Kobold, {25, 0, 0});
+    // Every place round the kobold is within its aggro distance and margin.
+    tank.fake.AddEnemy(Kobold, {25, 0, 0}, 25.0f);
+    tank.fake.AddBlindToBelowX(Kobold, 15.0f);
+    tank.group.StartPull(Tank, Kobold);
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(),
+        (std::vector<std::string>{"warn Careful: I cannot pull this pack from a safe spot; more packs may come."}));
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to 15 0 0"}));
+
+    // There, it sees the kobold and shoots.
+    tank.fake.SetPosition(Tank, {15, 0, 0});
+    tank.fake.SetDistance(Kobold, 10.0f);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
 }
 
 // jvbastel/WOWAI#115: healer-first Taunt and Challenging Shout.

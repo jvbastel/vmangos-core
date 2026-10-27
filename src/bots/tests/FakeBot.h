@@ -143,6 +143,9 @@ namespace Bots
             int GroundPaths() const { return m_groundPaths; }
             // From each place with x >= `x`, the bot does not see `unit`.
             void AddBlindToFromX(Guid unit, float x) { m_blindToFromX.push_back({unit, x}); }
+            // From each place with x < `x`, the bot does not see `unit`, as
+            // from below a ledge.
+            void AddBlindToBelowX(Guid unit, float x) { m_blindToBelowX.push_back({unit, x}); }
             // Sight is blocked along x = `x`: no place sees a place on its
             // other side (CanSeeBetween).
             void AddSightWallAtX(float x) { m_sightWallsAtX.push_back(x); }
@@ -343,6 +346,9 @@ namespace Bots
                 for (auto const& blind : m_blindToFromX)
                     if (blind.first == unit && place.x >= blind.second)
                         return false;
+                for (auto const& blind : m_blindToBelowX)
+                    if (blind.first == unit && place.x < blind.second)
+                        return false;
                 return true;
             }
             LifeState GetLifeState(Guid unit) const override
@@ -529,6 +535,7 @@ namespace Bots
             std::vector<float> m_blindFromX;
             std::vector<float> m_sightWallsAtX;
             std::vector<std::pair<Guid, float>> m_blindToFromX;
+            std::vector<std::pair<Guid, float>> m_blindToBelowX;
             mutable int m_groundPaths = 0;
             std::map<Guid, LifeState> m_lifeState;
             Guid m_leader = NoGuid;

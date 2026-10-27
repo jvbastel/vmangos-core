@@ -46,6 +46,32 @@ namespace Bots
             length += Distance3d(path[i - 1], path[i]);
         return length;
     }
+
+    // The first point of `path` from which `found` is true, checked at each
+    // corner and about each `stepYards` between corners (a leg shorter than
+    // two steps is checked at its ends only). Puts it in `at`. False if no
+    // point matches.
+    template <typename Predicate>
+    bool FindPointOnPath(std::vector<Position> const& path, float stepYards, Predicate found, Position& at)
+    {
+        for (std::size_t i = 1; i < path.size(); ++i)
+        {
+            Position const& a = path[i - 1];
+            Position const& b = path[i];
+            int const steps = std::max(1, int(Distance2d(a, b) / stepYards));
+            for (int k = 0; k <= steps; ++k)
+            {
+                float const t = float(k) / float(steps);
+                Position const step{a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t};
+                if (found(step))
+                {
+                    at = step;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 }
 
 #endif

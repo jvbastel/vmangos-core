@@ -443,14 +443,18 @@ namespace Bots
                     },
                     {[](BotContext const& context) { return IsAlive(context.view, PickPullTarget(context)); },
                         [](BotContext const& context) {
-                            // Too far: to shooting range. In range but out of
-                            // sight: closer, until the tank sees the target.
+                            // Too far, or in range but out of sight: a ranged
+                            // chase. The core ends its path at the first point
+                            // within ShootStandYards that the target sees (on
+                            // a ledge that can be a point with no shot; then
+                            // FindShotOnPath gives the shoot spot). A melee
+                            // chase would not do: the core moves a
+                            // chase only toward the bot's victim, and the
+                            // ranged chase makes the target the victim with
+                            // no melee swing (jvbastel/WOWAI#122).
                             Guid const target = PickPullTarget(context);
                             context.group.CountRangeChase(Self(context), context.view.IsMoving(Self(context)));
-                            if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooFar)
-                                context.actions.ChaseToRange(target, ShootStandYards);
-                            else
-                                context.actions.Chase(target);
+                            context.actions.ChaseToRange(target, ShootStandYards);
                         }}},
                 // Else the fallback: run in and hit the target once, then
                 // walk back ("walk back to the fight spot").
