@@ -16,7 +16,9 @@
 #include "Chat.h"
 #include "Corpse.h"
 #include "Creature.h"
+#include "CreatureGroups.h"
 #include "ExtraPackWatch.h"
+#include "FightSpot.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "Group.h"
@@ -361,6 +363,8 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_alive.clear();
     m_enemyHealth.clear();
     m_fleeing.clear();
+    m_pullFled.clear();
+    m_pullMarks.clear();
     m_driverSeen = false;
     ++m_number;
 
@@ -443,13 +447,25 @@ void BotRun::Fail(std::string const& reason)
     Finish(false, reason);
 }
 
-void BotRun::Finish(bool passed, std::string const& reason)
+void BotRun::Finish(bool passed, std::string const& givenReason)
 {
     // 1. The result. A threat loss does not fail the run: the spec allows
     // some (spec section 10). The result counts them. A fight that still
     // runs ends here, with what its members did so far.
     if (m_fight.Running())
         EndFight(RunMs());
+    // A pull with an unwarned or an avoidable extra pack fails the run at
+    // its end (Bots::JudgePulls, jvbastel/WOWAI#123).
+    std::string reason = givenReason;
+    if (passed)
+    {
+        Bots::RunVerdict const pulls = Bots::JudgePulls(m_record.pulls);
+        if (pulls.kind == Bots::RunVerdictKind::Failed)
+        {
+            passed = false;
+            reason = pulls.reason;
+        }
+    }
     m_passed = passed;
     // The result line counts the healer's losses from the record.
     RecordHits();
@@ -1452,6 +1468,7 @@ void BotRun::WatchEnemies(int64 nowMs)
             || motion == TIMED_FLEEING_MOTION_TYPE || motion == ASSISTANCE_MOTION_TYPE;
         if (flees && m_fleeing.insert(it->first).second)
         {
+            m_pullFled[it->first] = UnitText(enemy);
             std::string const line = Bots::FleeLine(UnitText(enemy),
                 {enemy->GetPositionX(), enemy->GetPositionY(), enemy->GetPositionZ()});
             sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, line.c_str());
@@ -1543,7 +1560,9 @@ void BotRun::RecordPull(Bots::ScriptCommand const& command)
     // The pack of the pull for the extra packs: that of the target of a
     // `command pull` too.
     Creature const* creature = target ? target->ToCreature() : nullptr;
-    m_extraPacks.Start(!pack.empty() || !creature ? pack : m_extraPacks.PackOf(creature->GetDBTableGUIDLow()));
+    std::string const pullPack = !pack.empty() || !creature ? pack : m_extraPacks.PackOf(creature->GetDBTableGUIDLow());
+    m_extraPacks.Start(pullPack);
+    MarkPullPacks(target, pullPack);
     // A new pull ends the fight of the last one.
     if (m_fight.Running())
         EndFight(RunMs());
@@ -1601,12 +1620,86 @@ void BotRun::WatchExtraPacks(int64 nowMs)
     RecordExtraPacks();
     for (std::size_t i = known; i < m_extraPacks.ExtraPacks().size(); ++i)
     {
+        std::string const name = m_extraPacks.ExtraPacks()[i].pack;
+        auto const atPull = m_pullMarks.find(name);
+        m_extraPacks.Mark(name, Bots::JudgeExtraPack(atPull == m_pullMarks.end() ? nullptr : &atPull->second,
+            CauseOf(name)));
+        RecordExtraPacks();
         Bots::RunExtraPack const& extra = m_extraPacks.ExtraPacks()[i];
         std::string const text = "extra pack " + extra.pack + " joins pull " + std::to_string(m_record.pulls.size()) +
-            (extra.warned ? " (warned)" : " (no warn)");
+            (extra.warned ? " (warned)" : " (no warn)") + (extra.avoidable ? ", avoidable: " : ", unavoidable: ") +
+            extra.reason;
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
         m_trace.Add(nowMs, text);
     }
+}
+
+void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
+{
+    m_pullFled.clear();
+    m_pullMarks.clear();
+    Player* driver = Driver();
+    if (!target || !driver)
+        return;
+    Player* tank = nullptr;
+    for (Player* member : Members())
+    {
+        Bots::BotRole role;
+        if (IsLivingMember(member) && sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank)
+            tank = member;
+    }
+    if (!tank || tank->GetMap() != target->GetMap())
+        return;
+    // The world thread runs after the maps updated (World::Update), so the
+    // adapter's queries of the map are safe here.
+    BotAdapter const view(tank);
+    std::vector<Bots::Position> const trail = CoordinatorOf(tank)->GetTrail();
+    for (Bots::RoutePack const& pack : m_route.packs)
+    {
+        if (pack.name == pullPack)
+            continue;
+        std::vector<Bots::Guid> enemies;
+        for (Bots::RouteMob const& mob : pack.mobs)
+            if (Creature const* creature = SpawnOf(tank, mob))
+                if (creature->IsAlive() && tank->IsWithinDistInMap(creature, Bots::FightSpotEnemyYards))
+                    enemies.push_back(creature->GetObjectGuid().GetRawValue());
+        // A pack out of the search gets no mark: Bots::JudgeExtraPack.
+        if (!enemies.empty())
+            m_pullMarks[pack.name] = Bots::MarkExtraPack(view, trail, target->GetObjectGuid().GetRawValue(), enemies);
+    }
+}
+
+Bots::ExtraPackCause BotRun::CauseOf(std::string const& pack) const
+{
+    Bots::ExtraPackCause cause;
+    Player const* driver = Driver();
+    if (!driver)
+        return cause;
+    auto const it = std::find_if(m_route.packs.begin(), m_route.packs.end(),
+        [&pack](Bots::RoutePack const& routePack) { return routePack.name == pack; });
+    if (it == m_route.packs.end())
+        return cause;
+    for (Bots::RouteMob const& mob : it->mobs)
+    {
+        Creature* creature = SpawnOf(driver, mob);
+        if (!creature)
+            continue;
+        // A patrol (jvbastel/WOWAI#108): the spawn walks waypoints, or
+        // follows the leader of its group who does.
+        Creature const* leader = creature;
+        if (CreatureGroup const* group = creature->GetCreatureGroup())
+            if (Creature const* groupLeader = creature->GetMap()->GetCreature(group->GetLeaderGuid()))
+                leader = groupLeader;
+        if (creature->GetDefaultMovementType() == WAYPOINT_MOTION_TYPE
+            || leader->GetDefaultMovementType() == WAYPOINT_MOTION_TYPE)
+            cause.patrol = true;
+        // A flee: an enemy that fled in this pull is near the pack now.
+        for (auto const& fled : m_pullFled)
+            if (Creature const* enemy = creature->GetMap()->GetCreature(fled.first))
+                if (enemy->IsWithinDistInMap(creature, Bots::FleeBringsYards))
+                    cause.fleeing = fled.second;
+    }
+    return cause;
 }
 
 void BotRun::WatchHold(int64 nowMs)

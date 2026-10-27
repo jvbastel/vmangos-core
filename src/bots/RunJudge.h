@@ -92,6 +92,11 @@ namespace Bots
     ExtraPackMark MarkExtraPack(BotView const& tank, std::vector<Position> const& trail, Guid target,
         std::vector<Guid> const& pack);
 
+    // An enemy that fled in the pull and is this near to an enemy of a pack
+    // when the pack joins brought it: twice the assistance radius
+    // (FightSpot.h), for the flee and the call for help at its end.
+    float const FleeBringsYards = 20.0f;
+
     // What the game layer saw bring the extra pack when it joined.
     struct ExtraPackCause
     {
