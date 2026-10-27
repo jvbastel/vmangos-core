@@ -109,6 +109,18 @@ class PullReport(unittest.TestCase):
         self.assertEqual([(r["pull"], r["pack"], r["threat_losses"], r["healer_threat_losses"]) for r in report],
                          [(1, "miners", 1, 1), (2, "pack2", 1, 0)])
 
+    def test_a_loss_before_any_pull_belongs_to_the_first_pull_that_is_no_fight_again(self):
+        result = a_three_enemy_run([("Hela", 5.0)])
+        result["pulls"].insert(0, {"pack": "miners", "target": "Defias Miner", "time_s": 10.0, "again": True})
+        report = runs.pull_reports(result)
+        self.assertEqual([(r["again"], r["threat_losses"]) for r in report], [(True, 0), (False, 1)])
+        self.assertEqual(runs.clean_pull_share(result), runs.measurement(report)["clean_share"])
+
+    def test_a_result_with_no_threat_losses_field_has_clean_pulls(self):
+        result = a_three_enemy_run([])
+        del result["threat_losses"]
+        self.assertTrue(runs.pull_reports(result)[0]["clean"])
+
     def test_one_line_per_pull(self):
         report = runs.pull_reports(a_three_enemy_run([("Hela", 35.0), ("Ezzra", 36.0)]))
         self.assertEqual(runs.pull_line(report[0]),

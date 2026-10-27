@@ -129,34 +129,30 @@ def bot_deaths_outside_wipe(result):
 
 
 def clean_pull_share(result):
-    """The share of first pulls with no threat loss. A loss belongs to the
-    last pull before it. A fight again of a pack that lived after its fight
-    (`again`) takes its own losses, but is no first pull."""
-    pulls = sorted(result["pulls"], key=lambda pull: pull["time_s"])
-    first = [i for i, pull in enumerate(pulls) if not pull.get("again", False)]
+    """The share of first pulls with no threat loss (see pull_reports). A
+    fight again of a pack that lived after its fight (`again`) takes its own
+    losses, but is no first pull."""
+    first = [report for report in pull_reports(result) if not report["again"]]
     if not first:
         return 1.0
-    lossy = set()
-    for loss in result["threat_losses"]:
-        before = [i for i, pull in enumerate(pulls) if pull["time_s"] <= loss["time_s"]]
-        lossy.add(before[-1] if before else first[0])
-    return 1.0 - len(lossy.intersection(first)) / len(first)
+    return sum(1 for report in first if report["clean"]) / len(first)
 
 
 def pull_reports(result):
     """Each pull of a result file, in time order (jvbastel/WOWAI#118): its
     threat losses, those on a healer, and whether it was clean (no threat
-    loss). A loss belongs to the last pull before it, as in
-    clean_pull_share. `again` marks a fight again of a pack, which is no
+    loss). A loss belongs to the last pull before it, and a loss before any
+    pull to the first pull that is no fight again. `again` marks a fight again of a pack, which is no
     first pull."""
     pulls = sorted(result.get("pulls", []), key=lambda pull: pull["time_s"])
     healers = set(result.get("healers", []))
     reports = [{"pull": i + 1, "pack": pull.get("pack"), "target": pull.get("target", ""),
                 "again": pull.get("again", False), "threat_losses": 0, "healer_threat_losses": 0}
                for i, pull in enumerate(pulls)]
-    for loss in result["threat_losses"] if reports else []:
+    first = [i for i, report in enumerate(reports) if not report["again"]]
+    for loss in result.get("threat_losses", []) if reports else []:
         before = [i for i, pull in enumerate(pulls) if pull["time_s"] <= loss["time_s"]]
-        report = reports[before[-1] if before else 0]
+        report = reports[before[-1] if before else (first or [0])[0]]
         report["threat_losses"] += 1
         report["healer_threat_losses"] += loss["member"] in healers
     for report in reports:
