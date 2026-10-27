@@ -1,4 +1,5 @@
 #include "RunResult.h"
+#include "RunJudge.h"
 
 #include <algorithm>
 
@@ -129,17 +130,31 @@ namespace Bots
 
         Json pulls = Json::array();
         std::size_t extraPacks = 0;
+        std::size_t avoidable = 0;
         for (RunPull const& pull : r.pulls)
         {
             Json extra = Json::array();
             for (RunExtraPack const& pack : pull.extraPacks)
-                extra.push_back({{"pack", pack.pack}, {"time_s", Seconds(pack.ms)}, {"warned", pack.warned}});
+            {
+                extra.push_back({{"pack", pack.pack}, {"time_s", Seconds(pack.ms)}, {"warned", pack.warned},
+                    {"avoidable", pack.avoidable}, {"reason", pack.reason}});
+                if (pack.avoidable)
+                    ++avoidable;
+            }
             extraPacks += pull.extraPacks.size();
-            pulls.push_back({{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)},
-                {"again", pull.again}, {"extra_packs", extra}});
+            // The verdict of the pull (RunJudge.h, jvbastel/WOWAI#123).
+            std::string const failure = PullFailure(pull);
+            Json written = {{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)},
+                {"again", pull.again}, {"extra_packs", extra}, {"passed", failure.empty()}};
+            if (!failure.empty())
+                written["failure"] = failure;
+            pulls.push_back(written);
         }
         j["pulls"] = pulls;
-        j["extra_packs"] = extraPacks; // Of all pulls.
+        // Of all pulls: the score of the run counts each extra pack, warned,
+        // avoidable or not.
+        j["extra_packs"] = extraPacks;
+        j["avoidable_extra_packs"] = avoidable;
 
         Json fights = Json::array();
         for (FightSummary const& fight : r.fights)

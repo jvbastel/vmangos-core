@@ -100,9 +100,10 @@ TEST(RunResult, WritesThePullsTheThreatLossesAndTheLostMobs)
     // A `command pull` of a scenario has no pack.
     // A fight again of a pack that lived after its fight is marked.
     EXPECT_EQ(j["pulls"], Json::parse(R"([{"pack": "pack1", "target": "Earthborer", "time_s": 61.5, "again": false,
-        "extra_packs": []},
-        {"pack": "pack1", "target": "Earthborer", "time_s": 120.0, "again": true, "extra_packs": []},
-        {"pack": null, "target": "Taragaman the Hungerer", "time_s": 900.0, "again": false, "extra_packs": []}])"));
+        "extra_packs": [], "passed": true},
+        {"pack": "pack1", "target": "Earthborer", "time_s": 120.0, "again": true, "extra_packs": [], "passed": true},
+        {"pack": null, "target": "Taragaman the Hungerer", "time_s": 900.0, "again": false, "extra_packs": [],
+        "passed": true}])"));
     EXPECT_EQ(j["threat_losses"],
         Json::parse(R"([{"enemy": "Earthborer", "member": "Hela", "time_s": 62.0, "seconds": 5.0, "healer": false}])"));
     EXPECT_EQ(j["lost_mobs"], Json::array());
@@ -117,10 +118,34 @@ TEST(RunResult, WritesTheExtraPacksOfEachPull)
 
     Json const j = Json::parse(Bots::RunResultJson(r));
 
-    EXPECT_EQ(j["pulls"][0]["extra_packs"], Json::parse(R"([{"pack": "pack2", "time_s": 64.0, "warned": true},
-        {"pack": "pack3", "time_s": 70.5, "warned": false}])"));
+    EXPECT_EQ(j["pulls"][0]["extra_packs"], Json::parse(R"([
+        {"pack": "pack2", "time_s": 64.0, "warned": true, "avoidable": true, "reason": "not judged"},
+        {"pack": "pack3", "time_s": 70.5, "warned": false, "avoidable": true, "reason": "not judged"}])"));
     EXPECT_EQ(j["pulls"][1]["extra_packs"], Json::array());
     EXPECT_EQ(j["extra_packs"], 2);
+}
+
+// jvbastel/WOWAI#123: the mark of each extra pack with its reason, and the
+// verdict of each pull. Each extra pack counts in the score, failed or not.
+TEST(RunResult, WritesTheMarkOfEachExtraPackAndWhetherThePullPassed)
+{
+    RunResult r = AFailedFullRun();
+    r.pulls[0].extraPacks = {{"pack2", 64000, true}};
+    r.pulls[0].extraPacks[0].avoidable = false;
+    r.pulls[0].extraPacks[0].reason = "a patrol brought it";
+    r.pulls[1].extraPacks = {{"pack3", 70500, true}};
+    r.pulls[1].extraPacks[0].reason = "a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out";
+
+    Json const j = Json::parse(Bots::RunResultJson(r));
+
+    EXPECT_EQ(j["pulls"][0]["extra_packs"], Json::parse(R"([{"pack": "pack2", "time_s": 64.0, "warned": true,
+        "avoidable": false, "reason": "a patrol brought it"}])"));
+    EXPECT_EQ(j["pulls"][0]["passed"], true);
+    EXPECT_EQ(j["pulls"][1]["passed"], false);
+    EXPECT_EQ(j["pulls"][1]["failure"],
+        "extra pack pack3 was avoidable: a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out");
+    EXPECT_EQ(j["extra_packs"], 2);
+    EXPECT_EQ(j["avoidable_extra_packs"], 1);
 }
 
 // The scripted moves of the test driver that stopped before they arrived

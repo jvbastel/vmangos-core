@@ -8,8 +8,6 @@ namespace Bots
 {
     namespace
     {
-        // The enemies round the trail spots that count.
-        float const EnemySearchYards = FightSpotSearchYards + 60.0f;
         // A trail spot this near to the last one is the same spot.
         float const SameSpotYards = 0.5f;
 
@@ -102,11 +100,17 @@ namespace Bots
 
     FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target)
     {
+        return FindFightSpot(view, trail, target, view.GetEnemiesNear(FightSpotEnemyYards));
+    }
+
+    FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target,
+        std::vector<NearEnemy> const& enemies)
+    {
         Guid const self = view.GetSelf();
         Position const selfAt = view.GetPosition(self);
         Position const targetAt = view.GetPosition(target);
 
-        TargetPack const split = SplitTargetPack(view.GetEnemiesNear(EnemySearchYards), target, targetAt);
+        TargetPack const split = SplitTargetPack(enemies, target, targetAt);
         std::vector<NearEnemy> const& targetPack = split.pack;
         std::vector<std::vector<NearEnemy>> const& others = split.others;
         std::vector<NearEnemy> otherEnemies;
