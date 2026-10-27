@@ -6,6 +6,11 @@ namespace Bots
 {
     using Lock = std::lock_guard<std::mutex>;
 
+    bool GroupCoordinator::PullsNow(Guid puller) const
+    {
+        return m_pull.phase != PullPhase::None && m_pull.puller == puller;
+    }
+
     Guid GroupCoordinator::GetFocusTarget() const
     {
         Lock lock(m_mutex);
@@ -42,26 +47,26 @@ namespace Bots
             m_pull.phase = PullPhase::Holding;
     }
 
-    void GroupCoordinator::SetPullSpot(Guid puller, Position spot)
+    void GroupCoordinator::SetFightSpot(Guid puller, Position spot)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+        if (!PullsNow(puller))
             return;
-        m_pull.hasSpot = true;
-        m_pull.spot = spot;
+        m_pull.hasFightSpot = true;
+        m_pull.fightSpot = spot;
     }
 
-    void GroupCoordinator::ClearPullSpot(Guid puller)
+    void GroupCoordinator::ClearFightSpot(Guid puller)
     {
         Lock lock(m_mutex);
         if (m_pull.puller == puller)
-            m_pull.hasSpot = false;
+            m_pull.hasFightSpot = false;
     }
 
     void GroupCoordinator::SetShootSpot(Guid puller, Position spot)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+        if (!PullsNow(puller))
             return;
         m_pull.hasShootSpot = true;
         m_pull.shootSpot = spot;
@@ -77,7 +82,7 @@ namespace Bots
     void GroupCoordinator::CountRangeChase(Guid puller, bool moving)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+        if (!PullsNow(puller))
             return;
         m_pull.stillChaseThinks = moving ? 0 : m_pull.stillChaseThinks + 1;
     }
@@ -94,7 +99,7 @@ namespace Bots
     void GroupCoordinator::StartGroupWait(Guid puller, std::int64_t nowMs)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+        if (!PullsNow(puller))
             return;
         m_pull.waitFromMs = nowMs;
         m_pull.waitSaid = GroupWaitSaid::Nothing;
@@ -103,14 +108,14 @@ namespace Bots
     void GroupCoordinator::NoteGroupWaitSaid(Guid puller, GroupWaitSaid said)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase != PullPhase::None && m_pull.puller == puller)
+        if (PullsNow(puller))
             m_pull.waitSaid = said;
     }
 
     void GroupCoordinator::NoteExtraPackWarn(Guid puller)
     {
         Lock lock(m_mutex);
-        if (m_pull.phase != PullPhase::None && m_pull.puller == puller)
+        if (PullsNow(puller))
             m_pull.warned = true;
     }
 

@@ -125,9 +125,9 @@ TEST(WarriorTank, NotesWhereItStandsWhenAPullBegins)
     tank.Think();
 
     Bots::PullState const pull = tank.group.GetPull();
-    EXPECT_TRUE(pull.hasSpot);
-    EXPECT_EQ(3.0f, pull.spot.x);
-    EXPECT_EQ(4.0f, pull.spot.y);
+    EXPECT_TRUE(pull.hasFightSpot);
+    EXPECT_EQ(3.0f, pull.fightSpot.x);
+    EXPECT_EQ(4.0f, pull.fightSpot.y);
     EXPECT_TRUE(tank.fake.Deeds().empty());
 }
 
@@ -458,7 +458,7 @@ TEST(WarriorTank, BackAtItsSpotItStopsWalkingBack)
 
     tank.Think();
 
-    EXPECT_FALSE(tank.group.GetPull().hasSpot);
+    EXPECT_FALSE(tank.group.GetPull().hasFightSpot);
 }
 
 // After the shot, the kobold runs to the tank: the tank waits for it where
@@ -472,7 +472,7 @@ TEST(WarriorTank, WaitsForThePulledTargetToComeToIt)
     tank.fake.SetMoving(Kobold);
     tank.fake.SetDistance(Kobold, 15.0f);
     tank.group.HoldPull(Tank);
-    tank.group.ClearPullSpot(Tank);
+    tank.group.ClearFightSpot(Tank);
     tank.fake.SetAura(Tank, Warrior::BattleStance, false);
     tank.fake.SetAura(Tank, Warrior::DefensiveStance);
     tank.fake.SetAura(Tank, Warrior::BattleShout);
@@ -495,7 +495,7 @@ TEST(WarriorTank, AfterARangedPullMeleesTheFocus)
     tank.fake.SetVictim(Tank, Kobold);
     tank.fake.SetDistance(Kobold, 2.0f);
     tank.group.HoldPull(Tank);
-    tank.group.ClearPullSpot(Tank);
+    tank.group.ClearFightSpot(Tank);
     tank.fake.SetAura(Tank, Warrior::BattleStance, false);
     tank.fake.SetAura(Tank, Warrior::DefensiveStance);
     tank.fake.SetAura(Tank, Warrior::BattleShout);
@@ -516,7 +516,7 @@ TEST(WarriorTank, RunsToAFocusThatStaysAway)
     tank.fake.SetVictim(Tank, Kobold);
     tank.fake.SetDistance(Kobold, 15.0f);
     tank.group.HoldPull(Tank);
-    tank.group.ClearPullSpot(Tank);
+    tank.group.ClearFightSpot(Tank);
     tank.fake.SetAura(Tank, Warrior::BattleStance, false);
     tank.fake.SetAura(Tank, Warrior::DefensiveStance);
     tank.fake.SetAura(Tank, Warrior::BattleShout);
@@ -897,8 +897,8 @@ TEST(WarriorTank, HoldsThePullAtTheFightSpotBackOnItsTrail)
     tank.Think();
 
     Bots::PullState const pull = tank.group.GetPull();
-    ASSERT_TRUE(pull.hasSpot);
-    EXPECT_EQ(pull.spot.x, -8.0f);
+    ASSERT_TRUE(pull.hasFightSpot);
+    EXPECT_EQ(pull.fightSpot.x, -8.0f);
     EXPECT_FALSE(pull.hasShootSpot);
     EXPECT_TRUE(tank.fake.Deeds().empty());
 }
@@ -913,7 +913,7 @@ TEST(WarriorTank, WarnsInPartyChatWhenThePullBringsAnotherPackAnyway)
 
     tank.Think();
 
-    EXPECT_TRUE(tank.group.GetPull().hasSpot);
+    EXPECT_TRUE(tank.group.GetPull().hasFightSpot);
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"warn Careful: this pull brings 1 more pack."}));
     tank.fake.ClearDeeds();
     tank.Think();

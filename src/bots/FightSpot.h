@@ -31,6 +31,9 @@ namespace Bots
     // Enemies this near to each other are one pack, as the packs of the
     // route generator (RouteGenerator.h, clusterDistance).
     float const PackLinkYards = 8.0f;
+    // Nearer than this to a spot of the pull (the fight spot, the shoot
+    // spot, a member spot, MemberSpot.h), a bot is there.
+    float const AtSpotYards = 2.0f;
     // The trail spots that count: at most this far from the tank.
     float const FightSpotSearchYards = 40.0f;
 

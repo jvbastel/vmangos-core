@@ -193,7 +193,7 @@ namespace
                 group.KeepTrail(point, false);
             group.SetTank(Tank);
             group.StartPull(Tank, Kobold);
-            group.SetPullSpot(Tank, {0, 0, 0});
+            group.SetFightSpot(Tank, {0, 0, 0});
         }
 
         std::string Think(Bots::CommandState command = Bots::CommandState::Follow)
@@ -294,7 +294,7 @@ TEST(MemberSpotRule, NotBeforeTheTankHasItsFightSpotNorOnceThePullHolds)
     bot.group.StartPull(Tank, Kobold);
     EXPECT_NE(bot.Think(), "go to the member spot");
 
-    bot.group.SetPullSpot(Tank, {0, 0, 0});
+    bot.group.SetFightSpot(Tank, {0, 0, 0});
     bot.group.HoldPull(Tank);
     EXPECT_NE(bot.Think(), "go to the member spot");
 }
@@ -330,7 +330,7 @@ namespace
             group.NoteBot(Self, 1000, true);
             group.NoteBot(Other, 1000, true);
             group.StartPull(Tank, Kobold);
-            group.SetPullSpot(Tank, {0, 0, 0});
+            group.SetFightSpot(Tank, {0, 0, 0});
             group.StartGroupWait(Tank, 1000);
         }
 

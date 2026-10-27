@@ -36,9 +36,9 @@ namespace Bots
         Guid puller; // The tank. NoGuid without a pull.
         Guid target; // NoGuid without a pull.
         // The fight spot (FightSpot.h): where the puller holds the pack.
-        // Set by the puller (SetPullSpot); cleared when it is back there.
-        bool hasSpot = false;
-        Position spot = {0, 0, 0};
+        // Set by the puller (SetFightSpot); cleared when it is back there.
+        bool hasFightSpot = false;
+        Position fightSpot = {0, 0, 0};
         // Where the puller shoots the target from, when it cannot from
         // where it stood (SetShootSpot).
         bool hasShootSpot = false;
@@ -145,8 +145,8 @@ namespace Bots
         void HoldPull(Guid puller);
         // The puller notes where it stands at the start of its pull, or
         // clears the spot when it is back there. Only the puller can.
-        void SetPullSpot(Guid puller, Position spot);
-        void ClearPullSpot(Guid puller);
+        void SetFightSpot(Guid puller, Position spot);
+        void ClearFightSpot(Guid puller);
         // The puller notes where it pulls from range, or clears it when no
         // shot goes from there. Only the puller can.
         void SetShootSpot(Guid puller, Position spot);
@@ -285,6 +285,8 @@ namespace Bots
         std::vector<GroupEvent> TakeEvents();
 
     private:
+        // A pull is on, and `puller` is its puller. The caller holds the lock.
+        bool PullsNow(Guid puller) const;
         // True for the first note of `key` within GroupEventMemoryMs.
         bool FirstNote(std::pair<Guid, std::int64_t> key, std::int64_t nowMs);
 

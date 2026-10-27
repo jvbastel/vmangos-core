@@ -38,8 +38,6 @@ namespace Bots
     // A spot on ground more than this over or under the fight spot does not
     // count: a ledge needs a long way round.
     float const MemberHeightYards = 5.0f;
-    // Nearer than this to its spot, a bot is in place.
-    float const MemberInPlaceYards = 2.0f;
     // The longest wait of the tank for the group.
     std::int64_t const GroupWaitMs = 10 * 1000;
     // A wait this long, or longer, the tank says in party chat (once a
@@ -90,6 +88,7 @@ namespace Bots
     // (a move ends the meal; the bot rests again at its spot), the follow
     // rules, and the loot, and under the class rules. Null for the tank.
     std::shared_ptr<Strategy const> MakeMemberSpotStrategy(BotRole role);
+    char const* const GoToMemberSpotRule = "go to the member spot";
 }
 
 #endif

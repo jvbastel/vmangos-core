@@ -144,7 +144,7 @@ namespace Bots
     bool TankWaitsForTheGroup(BotContext const& context)
     {
         PullState const pull = context.group.GetPull();
-        return pull.phase == PullPhase::Pulling && pull.puller == context.view.GetSelf() && pull.hasSpot
+        return pull.phase == PullPhase::Pulling && pull.puller == context.view.GetSelf() && pull.hasFightSpot
             && context.nowMs - pull.waitFromMs < GroupWaitMs && !MembersNotInPlace(context).empty();
     }
 
@@ -180,7 +180,7 @@ namespace Bots
         {
             PullState const pull = context.group.GetPull();
             Guid const self = context.view.GetSelf();
-            if (pull.phase != PullPhase::Pulling || !pull.hasSpot || pull.puller == self || !JoinsPulls(context))
+            if (pull.phase != PullPhase::Pulling || !pull.hasFightSpot || pull.puller == self || !JoinsPulls(context))
                 return false;
             MemberSpot mine;
             return !MySpot(context, mine) || (mine.found && !mine.inPlace);
@@ -193,11 +193,11 @@ namespace Bots
             std::vector<Position> const trail = context.group.GetTrail();
             MemberSpot const mine = context.group.ClaimMemberSpot(self,
                 [&context, role, &pull, &trail](std::vector<Position> const& taken, Position& spot) {
-                    return FindMemberSpot(context.view, role, pull.spot, trail, pull.target, taken, spot);
+                    return FindMemberSpot(context.view, role, pull.fightSpot, trail, pull.target, taken, spot);
                 });
             if (!mine.found)
                 return;
-            if (Distance2d(context.view.GetPosition(self), mine.spot) <= MemberInPlaceYards)
+            if (Distance2d(context.view.GetPosition(self), mine.spot) <= AtSpotYards)
             {
                 context.group.SetMemberInPlace(self);
                 return;
@@ -210,7 +210,7 @@ namespace Bots
     {
         PullState const pull = context.group.GetPull();
         MemberSpot mine;
-        return pull.phase == PullPhase::Pulling && pull.hasSpot && pull.puller != context.view.GetSelf()
+        return pull.phase == PullPhase::Pulling && pull.hasFightSpot && pull.puller != context.view.GetSelf()
             && MySpot(context, mine) && mine.found && mine.inPlace;
     }
 
@@ -219,7 +219,7 @@ namespace Bots
         if (role == BotRole::Tank)
             return nullptr;
         Rule rule;
-        rule.name = "go to the member spot";
+        rule.name = GoToMemberSpotRule;
         rule.priority = Priority::Command + 33;
         rule.trigger = GoesToMemberSpot;
         rule.action.canDo = [](BotContext const&) { return true; };

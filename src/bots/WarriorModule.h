@@ -23,6 +23,11 @@ namespace Bots
         // Interrupts a cast, with a shield: a generic group rule (GroupRules.h).
         SpellId const ShieldBash = 72;
 
+        // The names of the tank rules that the game layer logs more for
+        // (BotAI.cpp): one name for the rule and its log.
+        char const* const NoteFightSpotRule = "note the fight spot";
+        char const* const WaitForTheGroupRule = "wait for the group";
+
         // The tank: it pulls the pull target of the group coordinator when it
         // is the puller, holds threat on the focus target, and fights back an
         // enemy that attacks it. It never picks a target of its own.

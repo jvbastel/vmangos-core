@@ -21,8 +21,6 @@ namespace Bots
             float const TauntYards = 20.0f;
             // Out of shooting range (Ranged.h), the tank walks to this.
             float const ShootStandYards = 25.0f;
-            // Nearer than this to its pull spot, the tank is back.
-            float const SpotYards = 2.0f;
             // A chase into shooting range counts as ended only after this
             // many thinks in a row with no move: right after the order (or
             // a new path) the tank does not move yet.
@@ -103,7 +101,7 @@ namespace Bots
 
             float DistanceToSpot(BotContext const& context)
             {
-                return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().spot);
+                return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().fightSpot);
             }
 
             float DistanceToShootSpot(BotContext const& context)
@@ -206,11 +204,11 @@ namespace Bots
                 // (FightSpot.h), and the pack comes to it there. With no
                 // clean spot it warns about the extra packs, once a pull.
                 // No Charge: it stuns the target in place.
-                Bookkeeping("note the pull spot", P + 80,
-                    [](BotContext const& context) { return IsPulling(context) && !context.group.GetPull().hasSpot; },
+                Bookkeeping(NoteFightSpotRule, P + 80,
+                    [](BotContext const& context) { return IsPulling(context) && !context.group.GetPull().hasFightSpot; },
                     [](BotContext const& context) {
                         FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(), PickPullTarget(context));
-                        context.group.SetPullSpot(Self(context), fight.spot);
+                        context.group.SetFightSpot(Self(context), fight.spot);
                         context.group.StartGroupWait(Self(context), context.nowMs);
                         if (fight.hasShootSpot)
                             context.group.SetShootSpot(Self(context), fight.shootSpot);
@@ -221,7 +219,7 @@ namespace Bots
                 // pulls when each bot is in place, or after GroupWaitMs. It
                 // may walk to its shoot spot meanwhile. A wait of
                 // GroupWaitSayMs it says in party chat, once a pull.
-                Rule{"wait for the group", P + 76, TankWaitsForTheGroup,
+                Rule{WaitForTheGroupRule, P + 76, TankWaitsForTheGroup,
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) {
                             PullState const pull = context.group.GetPull();
@@ -235,7 +233,7 @@ namespace Bots
                 Bookkeeping("pull without the group", P + 79,
                     [](BotContext const& context) {
                         PullState const pull = context.group.GetPull();
-                        return IsPulling(context) && pull.hasSpot && pull.waitSaid != GroupWaitSaid::PullsWithout
+                        return IsPulling(context) && pull.hasFightSpot && pull.waitSaid != GroupWaitSaid::PullsWithout
                             && context.nowMs - pull.waitFromMs >= GroupWaitMs && !MembersNotInPlace(context).empty();
                     },
                     [](BotContext const& context) {
@@ -247,12 +245,12 @@ namespace Bots
                 // the game): it pulls as without one.
                 Bookkeeping("no shot from the shoot spot", P + 78,
                     [](BotContext const& context) {
-                        return GoesToShoot(context) && DistanceToShootSpot(context) <= SpotYards;
+                        return GoesToShoot(context) && DistanceToShootSpot(context) <= AtSpotYards;
                     },
                     [](BotContext const& context) { context.group.ClearShootSpot(Self(context)); }),
                 Rule{"go to the shoot spot", P + 77,
                     [](BotContext const& context) {
-                        return GoesToShoot(context) && DistanceToShootSpot(context) > SpotYards;
+                        return GoesToShoot(context) && DistanceToShootSpot(context) > AtSpotYards;
                     },
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().shootSpot); }}},
@@ -289,7 +287,7 @@ namespace Bots
                                 context.actions.Chase(target);
                         }}},
                 // Else the fallback: run in and hit the target once, then
-                // walk back ("walk back to the pull spot").
+                // walk back ("walk back to the fight spot").
                 MeleeRule("run to the pull target", P + 70,
                     [](BotContext const& context) {
                         // A ranged chase made the target the victim, with no
@@ -303,18 +301,18 @@ namespace Bots
                                 || (!InCombat(context) && context.view.GetChase().target != target));
                     },
                     PickPullTarget),
-                Bookkeeping("back at the pull spot", P + 69,
+                Bookkeeping("back at the fight spot", P + 69,
                     [](BotContext const& context) {
-                        return HoldsPull(context) && context.group.GetPull().hasSpot && DistanceToSpot(context) <= SpotYards;
+                        return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) <= AtSpotYards;
                     },
-                    [](BotContext const& context) { context.group.ClearPullSpot(Self(context)); }),
-                Rule{"walk back to the pull spot", P + 68,
+                    [](BotContext const& context) { context.group.ClearFightSpot(Self(context)); }),
+                Rule{"walk back to the fight spot", P + 68,
                     [](BotContext const& context) {
-                        return HoldsPull(context) && context.group.GetPull().hasSpot && DistanceToSpot(context) > SpotYards
+                        return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) > AtSpotYards
                             && !TauntDue(context);
                     },
                     {[](BotContext const&) { return true; },
-                        [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().spot); }}},
+                        [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().fightSpot); }}},
 
                 // An enemy attacks the bot or another group member outside
                 // a pull: it becomes the focus target. This is no pull of its
