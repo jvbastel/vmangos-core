@@ -28,6 +28,10 @@ namespace Bots
             // Nearer than this, the focus is in melee reach.
             float const MeleeYards = 5.0f;
 
+            // jvbastel/WOWAI#116: Shield Block.
+            // Rage for Shield Block from it.
+            std::uint32_t const ShieldBlockRage = 10;
+
             Guid Self(BotContext const& context)
             {
                 return context.view.GetSelf();
@@ -144,6 +148,16 @@ namespace Bots
             Guid PickLooseEnemy(BotContext const& context)
             {
                 return PickMemberAttacker(context, Self(context), context.group.GetFocusTarget());
+            }
+
+            // A living enemy hits the tank in melee reach: a hit that a
+            // shield can block.
+            bool HitInMelee(BotContext const& context)
+            {
+                for (Guid const attacker : context.view.GetAttackers(Self(context)))
+                    if (IsAlive(context.view, attacker) && context.view.GetDistance(attacker) <= MeleeYards)
+                        return true;
+                return false;
             }
 
             // A taunt is due and ready: the focus or another enemy hits a
@@ -389,6 +403,14 @@ namespace Bots
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
                 CastRule("revenge", P + 40, FightsFocus, Revenge, PickFocusTarget),
+                // Below Revenge: more blocks give more Revenge. The cast
+                // check covers the shield and the cooldown.
+                CastRule("shield block", P + 38,
+                    [](BotContext const& context) {
+                        return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
+                            && Rage(context) >= ShieldBlockRage && HitInMelee(context);
+                    },
+                    ShieldBlock, PickSelf),
                 CastRule("heroic strike", P + 35,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) >= SpareRage; },
                     HeroicStrike, PickFocusTarget),
