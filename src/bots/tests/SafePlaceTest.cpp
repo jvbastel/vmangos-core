@@ -213,3 +213,16 @@ TEST(FirstSafePlace, TheAggroMarginIsMeasuredFromTheEnemysCenter)
     ASSERT_TRUE(FirstSafePlace(fake, {{10.5f, 0.0f, 0.0f}, {9.5f, 0.0f, 0.0f}}, rules, place));
     ExpectAt(place, 9.5f, 0.0f);
 }
+
+TEST(SafeCastPlace, NoRingNearerThanTheLeastRange)
+{
+    Walker walker;
+    // Next to the corpse: the inner ring is nearest.
+    walker.fake.SetPosition(Self, {0.0f, -1.0f, 0.0f});
+    Position place{};
+
+    ASSERT_TRUE(walker.Find(place));
+    ExpectAt(place, 0.0f, -9.0f);
+    ASSERT_TRUE(FindSafeCastPlace(walker.fake, Corpse, 30.0f, place, nullptr, 20.0f));
+    ExpectAt(place, 0.0f, -27.0f);
+}

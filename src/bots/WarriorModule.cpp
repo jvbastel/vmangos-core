@@ -1,6 +1,7 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
 #include "BotGeometry.h"
+#include "FightSpot.h"
 #include "GroupRules.h"
 #include "Ranged.h"
 #include "SpellBook.h"
@@ -23,6 +24,10 @@ namespace Bots
             float const ShootStandYards = 25.0f;
             // Nearer than this to its pull spot, the tank is back.
             float const SpotYards = 2.0f;
+            // A chase into shooting range counts as ended only after this
+            // many thinks in a row with no move: right after the order (or
+            // a new path) the tank does not move yet.
+            std::uint32_t const StillChaseThinks = 3;
             // Nearer than this, the focus is in melee reach.
             float const MeleeYards = 5.0f;
 
@@ -71,8 +76,9 @@ namespace Bots
             // The tank pulls from range: it wears a ranged weapon with ammo,
             // knows its shoot spell, and the target is not too near for it.
             // Not when its chase into range ended out of shot (the path
-            // cannot get nearer), nor once it ran in to hit (a melee attack
-            // of the target): then the pull is the fallback.
+            // cannot get nearer; StillChaseThinks), nor once it ran in
+            // to hit (a melee attack of the target): then the pull is the
+            // fallback.
             bool PullsFromRange(BotContext const& context)
             {
                 RangedWeapon const weapon = context.view.GetRangedWeapon();
@@ -83,7 +89,7 @@ namespace Bots
                 if (context.view.GetVictim(Self(context)) == target && context.view.IsMeleeAttacking())
                     return false;
                 return !(context.view.GetChase().target == target && !context.view.IsMoving(Self(context))
-                    && OutOfShot(context));
+                    && context.group.GetPull().stillChaseThinks >= StillChaseThinks && OutOfShot(context));
             }
 
             // The pulled pack holds on the puller: the tank is the puller of
@@ -97,6 +103,19 @@ namespace Bots
             float DistanceToSpot(BotContext const& context)
             {
                 return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().spot);
+            }
+
+            float DistanceToShootSpot(BotContext const& context)
+            {
+                return Distance2d(context.view.GetPosition(Self(context)), context.group.GetPull().shootSpot);
+            }
+
+            // The tank pulls from range from its shoot spot, and stands
+            // out of shot.
+            bool GoesToShoot(BotContext const& context)
+            {
+                return IsPulling(context) && context.group.GetPull().hasShootSpot && !IsCasting(context)
+                    && PullsFromRange(context) && OutOfShot(context);
             }
 
             // The focus target attacks the tank and runs to it: the tank
@@ -174,13 +193,35 @@ namespace Bots
                     },
                     [](BotContext const& context) { context.group.HoldPull(Self(context)); }),
 
-                // The pull. The tank notes where it stands, and the pack
-                // comes to it there. No Charge: it stuns the target in place.
+                // The pull. The tank picks its fight spot on its cleared way
+                // (FightSpot.h), and the pack comes to it there. With no
+                // clean spot it warns about the extra packs, once a pull.
+                // No Charge: it stuns the target in place.
                 Bookkeeping("note the pull spot", P + 80,
                     [](BotContext const& context) { return IsPulling(context) && !context.group.GetPull().hasSpot; },
                     [](BotContext const& context) {
-                        context.group.SetPullSpot(Self(context), context.view.GetPosition(Self(context)));
+                        FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(),
+                            PickPullTarget(context), ShotRange{MinShootYards, MaxShootYards});
+                        context.group.SetPullSpot(Self(context), fight.spot);
+                        if (fight.hasShootSpot)
+                            context.group.SetShootSpot(Self(context), fight.shootSpot);
+                        if (fight.extraPacks > 0)
+                            context.actions.WarnExtraPacks(fight.extraPacks);
                     }),
+                // The tank cannot shoot from where it stands: it walks to
+                // its shoot spot. No shot from there either (the sight of
+                // the game): it pulls as without one.
+                Bookkeeping("no shot from the shoot spot", P + 78,
+                    [](BotContext const& context) {
+                        return GoesToShoot(context) && DistanceToShootSpot(context) <= SpotYards;
+                    },
+                    [](BotContext const& context) { context.group.ClearShootSpot(Self(context)); }),
+                Rule{"go to the shoot spot", P + 77,
+                    [](BotContext const& context) {
+                        return GoesToShoot(context) && DistanceToShootSpot(context) > SpotYards;
+                    },
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().shootSpot); }}},
                 // From range: a shot with the ranged weapon.
                 Rule{"shoot the pull target", P + 75,
                     [](BotContext const& context) {
@@ -203,6 +244,7 @@ namespace Bots
                             // Too far: to shooting range. In range but out of
                             // sight: closer, until the tank sees the target.
                             Guid const target = PickPullTarget(context);
+                            context.group.CountRangeChase(Self(context), context.view.IsMoving(Self(context)));
                             if (context.view.GetSpellDistance(target) > MaxShootYards)
                                 context.actions.ChaseToRange(target, ShootStandYards);
                             else

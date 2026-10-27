@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_GROUP_COORDINATOR_H
 
 #include "BotTypes.h"
+#include "Trail.h"
 
 #include <cstdint>
 #include <functional>
@@ -25,10 +26,19 @@ namespace Bots
         PullPhase phase;
         Guid puller; // The tank. NoGuid without a pull.
         Guid target; // NoGuid without a pull.
-        // Where the puller stood when the pull began: it holds the pack
-        // there. Set by the puller (SetPullSpot); cleared when it is back.
+        // The fight spot (FightSpot.h): where the puller holds the pack.
+        // Set by the puller (SetPullSpot); cleared when it is back there.
         bool hasSpot = false;
         Position spot = {0, 0, 0};
+        // Where the puller shoots the target from, when it cannot from
+        // where it stood (SetShootSpot).
+        bool hasShootSpot = false;
+        Position shootSpot = {0, 0, 0};
+        // The thinks in a row in which the puller ordered its chase into
+        // shooting range and stood still (CountRangeChase). A chase that
+        // just started or found a new path does not move yet: a stop counts
+        // only after a few thinks.
+        std::uint32_t stillChaseThinks = 0;
     };
 
     // A bot will interrupt the cast of spell `spell` by enemy `caster`.
@@ -109,6 +119,14 @@ namespace Bots
         // clears the spot when it is back there. Only the puller can.
         void SetPullSpot(Guid puller, Position spot);
         void ClearPullSpot(Guid puller);
+        // The puller notes where it pulls from range, or clears it when no
+        // shot goes from there. Only the puller can.
+        void SetShootSpot(Guid puller, Position spot);
+        void ClearShootSpot(Guid puller);
+        // The puller orders its chase into shooting range in one more think,
+        // and stands still or moves (which starts the count again). Only the
+        // puller can.
+        void CountRangeChase(Guid puller, bool moving);
         // The fight of the pull ends: no pull and no focus target.
         void EndPull();
         // True when the tank holds threat on the focus target: the target of
@@ -138,6 +156,13 @@ namespace Bots
         // on each think. For the chase limit (GroupRules.h).
         Guid GetTank() const;
         void SetTank(Guid tank);
+
+        // The tank's trail since the last fight (Trail.h): the cleared way of
+        // its fight spot (FightSpot.h). The tank notes where it stands on
+        // each think (WatchTrail); `fights`: it fights or is dead, so the
+        // trail is empty.
+        void KeepTrail(Position at, bool fights);
+        std::vector<Position> GetTrail() const;
 
         // The enemy healers: the enemies that cast a heal in a fight. The
         // damage bots attack them first (GroupRules.h).
@@ -221,6 +246,7 @@ namespace Bots
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;
+        Trail m_trail;
         std::vector<Guid> m_enemyHealers;                 // In mark order.
         BossFight m_bossFight = {NoGuid, 0};
     };

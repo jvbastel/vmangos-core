@@ -57,6 +57,30 @@ namespace Bots
             m_pull.hasSpot = false;
     }
 
+    void GroupCoordinator::SetShootSpot(Guid puller, Position spot)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+            return;
+        m_pull.hasShootSpot = true;
+        m_pull.shootSpot = spot;
+    }
+
+    void GroupCoordinator::ClearShootSpot(Guid puller)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.puller == puller)
+            m_pull.hasShootSpot = false;
+    }
+
+    void GroupCoordinator::CountRangeChase(Guid puller, bool moving)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.phase == PullPhase::None || m_pull.puller != puller)
+            return;
+        m_pull.stillChaseThinks = moving ? 0 : m_pull.stillChaseThinks + 1;
+    }
+
     void GroupCoordinator::EndPull()
     {
         Lock lock(m_mutex);
@@ -146,6 +170,21 @@ namespace Bots
     {
         Lock lock(m_mutex);
         m_tank = tank;
+    }
+
+    void GroupCoordinator::KeepTrail(Position at, bool fights)
+    {
+        Lock lock(m_mutex);
+        if (fights)
+            m_trail.Clear();
+        else
+            m_trail.Note(at);
+    }
+
+    std::vector<Position> GroupCoordinator::GetTrail() const
+    {
+        Lock lock(m_mutex);
+        return m_trail.Points();
     }
 
     BossFight GroupCoordinator::GetBossFight() const

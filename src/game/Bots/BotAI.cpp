@@ -15,6 +15,7 @@
 #include "ObjectAccessor.h"
 #include "SpellMgr.h"
 #include "TaragamanReaction.h"
+#include "Trail.h"
 #include "Pet.h"
 #include "Player.h"
 #include "MotionMaster.h"
@@ -541,8 +542,12 @@ void BotAI::Think()
             away ? "place" : "group", me->GetMapId(), me->GetInstanceId());
     m_awayFromLeader = away;
     // For the chase limit of the damage bots (GroupRules.h).
+    // And the tank's trail, the cleared way of its fight spot (Trail.h).
     if (m_role == Bots::BotRole::Tank)
+    {
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
+        Bots::WatchTrail(adapter, *coordinator);
+    }
     std::string const reaction = m_bossReaction.Active();
     switch (m_bossReaction.Update(adapter, *coordinator, m_strategies, m_role))
     {
@@ -569,6 +574,18 @@ void BotAI::Think()
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());
     if (!rule.empty())
         m_lastRule = rule;
+    // The fight spot of the tank's pull (FightSpot.h), for the log.
+    if (rule == "note the pull spot")
+    {
+        Bots::PullState const pull = coordinator->GetPull();
+        if (pull.hasShootSpot)
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s fights at %.2f %.2f %.2f, shoots from %.2f %.2f %.2f (trail %u points)",
+                me->GetName(), pull.spot.x, pull.spot.y, pull.spot.z, pull.shootSpot.x, pull.shootSpot.y,
+                pull.shootSpot.z, uint32(coordinator->GetTrail().size()));
+        else
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s fights at %.2f %.2f %.2f (trail %u points)", me->GetName(),
+                pull.spot.x, pull.spot.y, pull.spot.z, uint32(coordinator->GetTrail().size()));
+    }
 
     // Out of combat, a bot that is not busy with a corpse puts on a clear
     // upgrade that it looted.

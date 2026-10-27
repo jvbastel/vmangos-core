@@ -26,11 +26,13 @@ namespace Bots
         // The tank: it pulls the pull target of the group coordinator when it
         // is the puller, holds threat on the focus target, and fights back an
         // enemy that attacks it. It never picks a target of its own.
-        // The pull: from where it stands, with its ranged weapon (Ranged.h),
-        // so that the pack comes to it there. With no ranged weapon or no
-        // ammo, or too near for a shot, it runs in, hits the target once,
-        // and walks back to where it started. Never Charge: it stuns the
-        // target in place. Out of combat it tops up its ammo for free.
+        // The pull: it picks a fight spot on its cleared way (FightSpot.h),
+        // shoots the target with its ranged weapon (Ranged.h) from where it
+        // stands or from its shoot spot, and walks back to the fight spot,
+        // where it holds the pack. With no clean fight spot it warns in
+        // party chat. With no ranged weapon or no ammo, or too near for a
+        // shot, it runs in, hits the target once, and walks back. Never
+        // Charge: it stuns the target in place. Out of combat it tops up its ammo for free.
         std::shared_ptr<Strategy const> MakeTankStrategy();
     }
 }
