@@ -208,9 +208,7 @@ namespace Bots
                 // The tie-break needs a living healer in the group: the
                 // coordinator does not clear a healer that died or left.
                 Guid healer = context.group.GetHealer();
-                std::vector<Guid> const members = context.view.GetGroupMembers();
-                if (!IsAlive(context.view, healer)
-                    || std::find(members.begin(), members.end(), healer) == members.end())
+                if (!IsAlive(context.view, healer) || !IsGroupMember(context.view, healer))
                     healer = NoGuid;
                 Guid best = NoGuid;
                 float bestRatio = 0.0f;
