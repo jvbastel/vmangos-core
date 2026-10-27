@@ -21,13 +21,6 @@ namespace Bots
         ++m_wipes;
     }
 
-    void RunJudge::NoteThreatLoss(bool onHealer)
-    {
-        ++m_threatLosses;
-        if (onHealer)
-            ++m_healerThreatLosses;
-    }
-
     void RunJudge::NoteProgress(std::int64_t nowMs)
     {
         m_progressMs = std::max(m_progressMs, nowMs);

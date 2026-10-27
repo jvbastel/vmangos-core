@@ -120,21 +120,3 @@ TEST(RunJudge, TheLastBossKillWinsOverALimitOfTheSameUpdate)
     EXPECT_EQ(judge.Judge(2 * Minute).kind, RunVerdictKind::Passed);
 }
 
-// jvbastel/WOWAI#113: a threat loss never fails a run, on the healer or not.
-// The judge counts them for the result.
-TEST(RunJudge, NoNumberOfThreatLossesFailsARun)
-{
-    RunJudge scenario({}, 0);
-    RunJudge full(RfcBosses, 0);
-    for (int i = 0; i < 100; ++i)
-    {
-        scenario.NoteThreatLoss(i % 2 == 0);
-        full.NoteThreatLoss(i % 2 == 0);
-    }
-
-    EXPECT_EQ(scenario.Judge(Minute).kind, RunVerdictKind::Running);
-    EXPECT_EQ(scenario.AtScriptEnd().kind, RunVerdictKind::Passed);
-    EXPECT_EQ(full.Judge(Minute).kind, RunVerdictKind::Running);
-    EXPECT_EQ(scenario.ThreatLosses(), 100u);
-    EXPECT_EQ(scenario.HealerThreatLosses(), 50u);
-}

@@ -328,7 +328,6 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_threat = Bots::ThreatWatch();
     m_lostMobs = Bots::LostMobWatch(sBotMgr.GetSettings().lostMobMs);
     m_threatNames.clear();
-    m_healers.clear();
     m_lostMobNames.clear();
     m_interrupts = Bots::InterruptWatch();
     m_chases = Bots::ChaseWatch();
@@ -451,6 +450,8 @@ void BotRun::Finish(bool passed, std::string const& reason)
     if (m_fight.Running())
         EndFight(RunMs());
     m_passed = passed;
+    // The result line counts the healer's losses from the record.
+    RecordHits();
     std::ostringstream line;
     line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": "
          << (passed ? "passed" : m_aborted ? "aborted" : "failed") << " after " << RunMs() / 1000 << " s";
@@ -871,11 +872,8 @@ void BotRun::WatchThreat(int64 nowMs)
         bool const tank = hasRole && role == Bots::BotRole::Tank;
         Bots::Guid const guid = member->GetObjectGuid().GetRawValue();
         if (member != driver && hasRole && role == Bots::BotRole::Healer &&
-            std::find(m_healers.begin(), m_healers.end(), guid) == m_healers.end())
-        {
-            m_healers.push_back(guid);
+            std::find(m_record.healers.begin(), m_record.healers.end(), member->GetName()) == m_record.healers.end())
             m_record.healers.push_back(member->GetName());
-        }
         if (tank && member->GetVictim())
             holder = guid;
         for (Unit* attacker : member->GetAttackers())
@@ -898,7 +896,6 @@ void BotRun::WatchThreat(int64 nowMs)
     {
         Bots::ThreatLoss const& loss = m_threat.Losses()[i];
         m_threatNames.push_back(HitNames(loss.enemy, loss.member));
-        m_judge->NoteThreatLoss(std::find(m_healers.begin(), m_healers.end(), loss.member) != m_healers.end());
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s for more than %u s", m_number,
             loss.name.c_str(), uint32(Bots::ThreatLossMs / 1000));
         m_trace.Add(nowMs, "threat loss: " + loss.name);
@@ -931,7 +928,7 @@ std::pair<std::string, std::string> BotRun::HitNames(Bots::Guid enemy, Bots::Gui
 std::string BotRun::WatchText() const
 {
     return Bots::HitListText("threat losses", m_threat.Losses()) + ", healer threat losses " +
-        std::to_string(m_threat.LossesOn(m_healers)) + Bots::HitListText("lost mobs", m_lostMobs.LostMobs());
+        std::to_string(Bots::HealerThreatLosses(m_record)) + Bots::HitListText("lost mobs", m_lostMobs.LostMobs());
 }
 
 bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
@@ -1625,14 +1622,7 @@ void BotRun::WriteResultFiles()
 {
     if (m_quests)
         m_record.questProgress = m_quests->Objectives();
-    m_record.threatLosses.clear();
-    for (std::size_t i = 0; i < m_threat.Losses().size(); ++i)
-        m_record.threatLosses.push_back({m_threatNames[i].first, m_threatNames[i].second, m_threat.Losses()[i].startMs,
-            m_threat.Losses()[i].endMs});
-    m_record.lostMobs.clear();
-    for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
-        m_record.lostMobs.push_back({m_lostMobNames[i].first, m_lostMobNames[i].second, m_lostMobs.LostMobs()[i].startMs,
-            m_lostMobs.LostMobs()[i].endMs});
+    RecordHits();
     RecordCombat();
 
     std::string const dir = sBotMgr.GetSettings().runDir;
@@ -1660,6 +1650,18 @@ void BotRun::WriteResultFiles()
 bool BotRun::WriteResultJson() const
 {
     return WriteFile(sBotMgr.GetSettings().runDir + "/" + Bots::RunFileStem(m_record) + ".json", Bots::RunResultJson(m_record));
+}
+
+void BotRun::RecordHits()
+{
+    m_record.threatLosses.clear();
+    for (std::size_t i = 0; i < m_threat.Losses().size(); ++i)
+        m_record.threatLosses.push_back({m_threatNames[i].first, m_threatNames[i].second, m_threat.Losses()[i].startMs,
+            m_threat.Losses()[i].endMs});
+    m_record.lostMobs.clear();
+    for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
+        m_record.lostMobs.push_back({m_lostMobNames[i].first, m_lostMobNames[i].second, m_lostMobs.LostMobs()[i].startMs,
+            m_lostMobs.LostMobs()[i].endMs});
 }
 
 void BotRun::RecordCombat()

@@ -32,13 +32,6 @@ namespace Bots
         m_hits = std::move(next);
     }
 
-    std::size_t ThreatWatch::LossesOn(std::vector<Guid> const& members) const
-    {
-        return static_cast<std::size_t>(std::count_if(m_losses.begin(), m_losses.end(), [&](ThreatLoss const& loss) {
-            return std::find(members.begin(), members.end(), loss.member) != members.end();
-        }));
-    }
-
     std::vector<Guid> AttackedEnemies(std::vector<MemberAttacks> const& members)
     {
         std::vector<Guid> attacked;
