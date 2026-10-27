@@ -20,6 +20,13 @@ namespace Bots
         SpellId const Revenge = 6572;
         SpellId const BattleShout = 6673;
         SpellId const Bloodrage = 2687;
+        SpellId const DemoralizingShout = 1160;
+        SpellId const ChallengingShout = 1161;
+        SpellId const ShieldBlock = 2565;
+        // Never cast before level 51: with no Tactical Mastery, the stance
+        // change they need drops all rage (jvbastel/WOWAI#102).
+        SpellId const ThunderClap = 6343;
+        SpellId const MockingBlow = 694;
         // Interrupts a cast, with a shield: a generic group rule (GroupRules.h).
         SpellId const ShieldBash = 72;
 
