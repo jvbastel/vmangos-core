@@ -38,6 +38,7 @@
 #include "Utilities/Random.h"
 #include "WorldSession.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <ctime>
@@ -327,6 +328,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_threat = Bots::ThreatWatch();
     m_lostMobs = Bots::LostMobWatch(sBotMgr.GetSettings().lostMobMs);
     m_threatNames.clear();
+    m_healers.clear();
     m_lostMobNames.clear();
     m_interrupts = Bots::InterruptWatch();
     m_chases = Bots::ChaseWatch();
@@ -865,6 +867,13 @@ void BotRun::WatchThreat(int64 nowMs)
         attacks.push_back(BotAdapter::AttacksOf(member, member != driver));
         Bots::BotRole role;
         bool const tank = sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank;
+        Bots::Guid const guid = member->GetObjectGuid().GetRawValue();
+        if (member != driver && sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Healer &&
+            std::find(m_healers.begin(), m_healers.end(), guid) == m_healers.end())
+        {
+            m_healers.push_back(guid);
+            m_record.healers.push_back(member->GetName());
+        }
         if (tank && member->GetVictim())
             holder = member->GetObjectGuid().GetRawValue();
         for (Unit* attacker : member->GetAttackers())
@@ -887,6 +896,7 @@ void BotRun::WatchThreat(int64 nowMs)
     {
         Bots::ThreatLoss const& loss = m_threat.Losses()[i];
         m_threatNames.push_back(HitNames(loss.enemy, loss.member));
+        m_judge->NoteThreatLoss(std::find(m_healers.begin(), m_healers.end(), loss.member) != m_healers.end());
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s for more than %u s", m_number,
             loss.name.c_str(), uint32(Bots::ThreatLossMs / 1000));
         m_trace.Add(nowMs, "threat loss: " + loss.name);
@@ -918,7 +928,8 @@ std::pair<std::string, std::string> BotRun::HitNames(Bots::Guid enemy, Bots::Gui
 
 std::string BotRun::WatchText() const
 {
-    return Bots::HitListText("threat losses", m_threat.Losses()) + Bots::HitListText("lost mobs", m_lostMobs.LostMobs());
+    return Bots::HitListText("threat losses", m_threat.Losses()) + ", healer threat losses " +
+        std::to_string(m_threat.LossesOn(m_healers)) + Bots::HitListText("lost mobs", m_lostMobs.LostMobs());
 }
 
 bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)

@@ -67,10 +67,13 @@ def result_file(status):
 def summary(result):
     """One line for a result file (a dict)."""
     deaths = sum(len(times) for times in result["deaths"].values())
-    line = "%s %s run %d: %s after %.0f s, bosses %d, wipes %d, deaths %d, threat losses %d, lost mobs %d" % (
+    line = "%s %s run %d: %s after %.0f s, bosses %d, wipes %d, deaths %d, threat losses %d" % (
         result["script"], result["scenario"], result["run"], result["result"], result["duration_s"],
-        len(result["bosses_killed"]), len(result["wipes"]), deaths, len(result["threat_losses"]),
-        len(result["lost_mobs"]))
+        len(result["bosses_killed"]), len(result["wipes"]), deaths, len(result["threat_losses"]))
+    # The healer's share (jvbastel/WOWAI#113). A result file of an older core has none.
+    if "healer_threat_losses" in result:
+        line += " (healer %d)" % result["healer_threat_losses"]
+    line += ", lost mobs %d" % len(result["lost_mobs"])
     # The packs that joined a pull besides its own (jvbastel/WOWAI#103).
     extra = [pack for pull in result.get("pulls", []) for pack in pull.get("extra_packs", [])]
     line += ", extra packs %d" % len(extra)

@@ -64,6 +64,17 @@ class Summary(unittest.TestCase):
                          "ragefire_chasm two_packs run 4: passed after 61 s, bosses 0, wipes 0, deaths 0, "
                          "threat losses 0, lost mobs 0, extra packs 3 (warned 1)")
 
+    def test_shows_the_threat_losses_of_the_healer(self):
+        """jvbastel/WOWAI#113: the healer's threat losses next to all of them."""
+        result = {
+            "run": 5, "script": "ragefire_chasm", "scenario": "enforcers", "result": "passed", "reason": None,
+            "duration_s": 80.0, "bosses_killed": [], "wipes": [], "deaths": {"Ezzra": []},
+            "threat_losses": [{}, {}, {}], "healer_threat_losses": 2, "lost_mobs": [],
+        }
+        self.assertEqual(runs.summary(result),
+                         "ragefire_chasm enforcers run 5: passed after 80 s, bosses 0, wipes 0, deaths 0, "
+                         "threat losses 3 (healer 2), lost mobs 0, extra packs 0")
+
 
 class Plan(unittest.TestCase):
     def test_full_runs_default_to_three(self):
