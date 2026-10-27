@@ -55,7 +55,7 @@ namespace
         void TankHoldsKobold()
         {
             group.StartPull(Tank, Kobold);
-            group.HoldPull(Tank);
+            Bots::Tests::HoldThreat(group, Tank);
             fake.SetVictim(Kobold, Tank);
         }
     };

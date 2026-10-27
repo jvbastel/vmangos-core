@@ -1,6 +1,7 @@
 #include "MemberSpot.h"
 #include "BotGeometry.h"
 #include "CommonRules.h"
+#include "DamageRules.h"
 #include "FightSpot.h"
 #include "SafePlace.h"
 
@@ -173,14 +174,26 @@ namespace Bots
             return false;
         }
 
-        // A pull is on, the tank has its fight spot, and the pack does not
-        // hold on it yet. Not for the puller, a bot in a fight, nor a bot
-        // told to come; nor once the bot found no safe spot.
+        // A pull is on, and the tank does not hold threat on its target yet
+        // (DamageRules.h): the target can still come to the tank
+        // (jvbastel/WOWAI#127).
+        bool PullNotHeldYet(BotContext const& context, PullState const& pull)
+        {
+            return pull.phase == PullPhase::Pulling
+                || (pull.phase == PullPhase::Holding && !TankHoldsThreat(context));
+        }
+
+        // A pull is on, the tank has its fight spot or holds the pull (it
+        // clears the spot once back there), and it does not hold threat yet
+        // (PullNotHeldYet). Not for the puller, a bot in a
+        // fight, nor a bot told to come; nor once the bot found no safe
+        // spot.
         bool GoesToMemberSpot(BotContext const& context)
         {
             PullState const pull = context.group.GetPull();
             Guid const self = context.view.GetSelf();
-            if (pull.phase != PullPhase::Pulling || !pull.hasFightSpot || pull.puller == self || !JoinsPulls(context))
+            bool const hadFightSpot = pull.hasFightSpot || pull.phase == PullPhase::Holding;
+            if (!hadFightSpot || pull.puller == self || !JoinsPulls(context) || !PullNotHeldYet(context, pull))
                 return false;
             MemberSpot mine;
             return !MySpot(context, mine) || (mine.found && !mine.inPlace);
@@ -211,8 +224,8 @@ namespace Bots
     {
         PullState const pull = context.group.GetPull();
         MemberSpot mine;
-        return pull.phase == PullPhase::Pulling && pull.hasFightSpot && pull.puller != context.view.GetSelf()
-            && MySpot(context, mine) && mine.found && mine.inPlace;
+        return pull.puller != context.view.GetSelf() && MySpot(context, mine) && mine.found && mine.inPlace
+            && PullNotHeldYet(context, pull);
     }
 
     std::shared_ptr<Strategy const> MakeMemberSpotStrategy(BotRole role)

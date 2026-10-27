@@ -107,7 +107,7 @@ namespace
                 fake.SetPower(fake.GetSelf(), 100, 100);
             }
             group.StartPull(Tank, Kobold);
-            group.HoldPull(Tank);
+            Bots::Tests::HoldThreat(group, Tank);
             World([](FakeBot& fake) {
                 fake.SetVictim(Kobold, Tank);
                 fake.SetVictim(Tank, Kobold);

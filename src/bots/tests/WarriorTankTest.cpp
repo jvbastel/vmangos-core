@@ -581,7 +581,9 @@ TEST(WarriorTank, OnlyThePullerPulls)
     EXPECT_TRUE(tank.fake.Deeds().empty());
 }
 
-TEST(WarriorTank, HoldsThreatWhenThePullTargetAttacksIt)
+// jvbastel/WOWAI#127: the pull target that attacks the tank holds the
+// pull, but the damage bots wait for the melee contact (DamageRules.h).
+TEST(WarriorTank, HoldsThePullWhenThePullTargetAttacksIt)
 {
     WarriorTank tank;
     tank.group.StartPull(Tank, Kobold);
@@ -589,7 +591,9 @@ TEST(WarriorTank, HoldsThreatWhenThePullTargetAttacksIt)
 
     tank.Think();
 
-    EXPECT_TRUE(tank.group.TankHoldsThreat());
+    Bots::PullState const pull = tank.group.GetPull();
+    EXPECT_EQ(Bots::PullPhase::Holding, pull.phase);
+    EXPECT_FALSE(tank.group.TankHoldsThreat(pull.engagedMs));
 }
 
 TEST(WarriorTank, TakesDefensiveStanceInTheFight)

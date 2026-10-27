@@ -18,7 +18,8 @@ namespace Bots
     //    follows. It takes the enemy that only it attacks, else one that no
     //    member attacks, so that no enemy stays lost. Not the focus that the
     //    bot waits a taunt for;
-    // 4. the focus target, once the tank holds threat on it, while it is in
+    // 4. the focus target, once the tank holds threat on it
+    //    (TankHoldsThreat below), while it is in
     //    the chase limit (GroupRules.h). Outside a pull, not while it hits
     //    another member and the tank lives: the bot waits for the taunt,
     //    unless the tank gave it up (GroupCoordinator::GiveUpTaunt).
@@ -26,6 +27,16 @@ namespace Bots
 
     // True when the bot has a damage target now.
     bool HasDamageTarget(BotContext const& context);
+
+    // jvbastel/WOWAI#127: the tank holds threat on the focus now
+    // (GroupCoordinator::TankHoldsThreat). In a held pull, the bot first
+    // notes the melee contact when it sees the pull target attack the
+    // puller within MeleeContactYards: a ranged-pulled target that runs to
+    // the tank is not the tank's yet.
+    bool TankHoldsThreat(BotContext const& context);
+    // The distance between the edges of the pull target and the tank
+    // (BotView::GetDistanceBetween) that counts as melee contact.
+    float const MeleeContactYards = 5.0f;
 
     // The casting range of a ranged damage bot, and its distance from the
     // damage target when it runs closer. The casting range counts by

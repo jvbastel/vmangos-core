@@ -78,9 +78,10 @@ namespace Bots
     std::string GroupWaitLine(std::uint32_t members);
     std::string PullWithoutLine(std::uint32_t members);
 
-    // The bot stands at its member spot in the pull that is on: it holds
-    // there, so the follow rules (FollowTank.h, "follow the player") and the
-    // corpse loot leave it; a rest may go on there.
+    // The bot stands at its member spot in the pull that is on, and the
+    // tank does not hold threat yet (TankHoldsThreat, DamageRules.h): it
+    // holds there, so the follow rules (FollowTank.h, "follow the player")
+    // and the corpse loot leave it; a rest may go on there.
     bool HoldsMemberSpot(BotContext const& context);
 
     // The strategy "member spot" of a bot of role `role`: its rule "go to

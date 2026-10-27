@@ -57,6 +57,16 @@ namespace Bots
         // engaged. The healer waits for the tank's threat from then
         // (jvbastel/WOWAI#111).
         std::int64_t engagedMs = 0;
+        // When a member first saw the target in melee contact with the
+        // puller, after the tank engaged (NoteFocusContact). The tank
+        // holds threat HoldContactMs after it (jvbastel/WOWAI#127).
+        bool hasContact = false;
+        std::int64_t contactMs = 0;
+        // The puller is back at its fight spot in the held pull: the rule
+        // "back at the fight spot" cleared it (ClearFightSpot), or the pull
+        // was held with no fight spot, so with no walk back
+        // (jvbastel/WOWAI#127).
+        bool backAtFightSpot = false;
         // The puller warned about extra packs in this pull
         // (NoteExtraPackWarn): it warns once a pull.
         bool extraPackWarned = false;
@@ -123,6 +133,15 @@ namespace Bots
     // kill or roll after this time, so that a respawned creature counts again.
     std::int64_t const GroupEventMemoryMs = 60 * 1000;
 
+    // jvbastel/WOWAI#127: a held pull is the tank's (TankHoldsThreat)
+    // HoldContactMs after the target came into melee contact with the
+    // tank (a few swings and a Sunder Armor), once the tank is back at its
+    // fight spot. A target that never comes into melee (a caster) is the
+    // tank's HoldLimitMs after the tank engaged: the ranged pull, the run
+    // of the target to the tank and the contact delay fit in it.
+    std::int64_t const HoldContactMs = 2000;
+    std::int64_t const HoldLimitMs = 8000;
+
     // Tells if enemy `enemy` still lives, as the asking bot sees it.
     using EnemyLives = std::function<bool(Guid enemy)>;
 
@@ -148,6 +167,9 @@ namespace Bots
         // The target attacks the puller now, at `nowMs`: the tank engages.
         // Only the puller can call it.
         void HoldPull(Guid puller, std::int64_t nowMs = 0);
+        // A member sees the target of the held pull in melee contact with
+        // the puller at `nowMs`. The first note of a pull counts.
+        void NoteFocusContact(std::int64_t nowMs);
         // The puller notes where it stands at the start of its pull, or
         // clears the spot when it is back there. Only the puller can.
         void SetFightSpot(Guid puller, Position spot);
@@ -192,10 +214,13 @@ namespace Bots
         std::vector<Guid> GetPullMembers(std::int64_t nowMs, std::int64_t maxAgeMs) const;
         // The fight of the pull ends: no pull and no focus target.
         void EndPull();
-        // True when the tank holds threat on the focus target: the target of
-        // the pull attacks the tank, or the tank fights back an enemy outside
-        // a pull. The damage bots wait for it.
-        bool TankHoldsThreat() const;
+        // True at `nowMs` when the tank holds threat on the focus target:
+        // the tank fights back an enemy outside a pull; or in a held pull,
+        // the tank is back at its fight spot and HoldContactMs passed since
+        // the melee contact (NoteFocusContact), or HoldLimitMs since the tank
+        // engaged. The damage bots wait for it (DamageRules.h), and the
+        // members hold their member spots until it (MemberSpot.h).
+        bool TankHoldsThreat(std::int64_t nowMs) const;
         // The tank cannot taunt enemy `enemy` off another member now: it
         // knows no Taunt, or the taunt cannot go out in range (cooldown). The
         // damage bots stop their wait for the taunt (DamageRules.h). A new

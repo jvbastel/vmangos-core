@@ -57,7 +57,7 @@ namespace
         {
             group.StartPull(Tank, Kobold);
             fake.SetVictim(Kobold, Tank);
-            group.HoldPull(Tank);
+            Bots::Tests::HoldThreat(group, Tank);
         }
 
         // The Rogue hits the kobold from behind.

@@ -566,6 +566,16 @@ namespace Bots
                 return found;
             };
         }
+
+        // The puller holds the pull that is on, and at `nowMs` the target
+        // has been in melee contact with it for HoldContactMs: the tank
+        // holds threat (GroupCoordinator::TankHoldsThreat,
+        // jvbastel/WOWAI#127).
+        inline void HoldThreat(GroupCoordinator& group, Guid puller, std::int64_t nowMs = 0)
+        {
+            group.HoldPull(puller, nowMs - HoldContactMs);
+            group.NoteFocusContact(nowMs - HoldContactMs);
+        }
     }
 }
 
