@@ -15,8 +15,7 @@
 //   with no progress: no kill, no damage dealt, and no movement along the
 //   route. (A lost mob fails it too: bots/ThreatWatch.h.)
 // - A threat loss never fails it, on the healer or not: the judge does not
-//   see them. The result counts them (RunResult.h). A lost mob fails it
-//   (BotRun, bots/ThreatWatch.h).
+//   see them. The result counts them (RunResult.h).
 // The game layer tells the judge the facts, then asks for the verdict.
 namespace Bots
 {

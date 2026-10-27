@@ -190,9 +190,12 @@ namespace Bots
             }
 
             // The tank's visits to its threat target: its own choice, no
-            // group state. An ability on the focus ends a visit.
+            // group state. An ability on the focus ends a visit. A visit
+            // belongs to one focus: a new focus (a new fight, after any end
+            // of the last one) starts with a new visit.
             struct ThreatVisit
             {
+                Guid focus = NoGuid;         // The focus of this visit.
                 std::uint32_t abilities = 0; // On the threat target, this visit.
             };
             using ThreatVisitPtr = std::shared_ptr<ThreatVisit>;
@@ -235,7 +238,9 @@ namespace Bots
             // in reach.
             bool ThreatVisitDue(BotContext const& context, ThreatVisit const& visit)
             {
-                return FightsFocus(context) && visit.abilities < AbilitiesPerVisit
+                Guid const focus = context.group.GetFocusTarget();
+                std::uint32_t const abilities = visit.focus == focus ? visit.abilities : 0;
+                return FightsFocus(context) && abilities < AbilitiesPerVisit
                     && context.view.GetThreatRatio(Self(context), context.group.GetFocusTarget()) >= ThreatTargetLead
                     && PickThreatTarget(context) != NoGuid;
             }
@@ -269,8 +274,14 @@ namespace Bots
             {
                 std::function<void(BotContext const&)> const run = rule.action.run;
                 rule.action.run = [run, target, visit](BotContext const& context) {
-                    bool const onFocus = target(context) == context.group.GetFocusTarget();
+                    Guid const focus = context.group.GetFocusTarget();
+                    bool const onFocus = target(context) == focus;
                     run(context);
+                    if (visit->focus != focus)
+                    {
+                        visit->focus = focus;
+                        visit->abilities = 0;
+                    }
                     if (onFocus)
                         visit->abilities = 0;
                     else

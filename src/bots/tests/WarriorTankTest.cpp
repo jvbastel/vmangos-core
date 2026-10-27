@@ -1845,6 +1845,24 @@ TEST(WarriorTank, ANewFightStartsWithANewVisit)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
 }
 
+// A fight can end on other paths than "end the fight" (a wipe, the Stop
+// command, the tank's death): a new focus starts with a new visit too.
+TEST(WarriorTank, ANewFocusStartsWithANewVisit)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.5f);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+
+    tank.group.EndPull();
+    tank.group.SetFocusTarget(Lynx);
+    tank.fake.SetVictim(Tank, Lynx);
+    tank.fake.ClearDeeds();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
 // Spec story 11: the lead on the focus drops below 150% in a visit, before
 // its ability: the next action goes to the focus.
 TEST(WarriorTank, GoesBackToTheFocusWhenItsLeadDropsInAVisit)
