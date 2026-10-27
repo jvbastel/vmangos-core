@@ -2,8 +2,12 @@
 # builds.
 name: CI Build
 
+# The full matrix is slow and mostly repeats WOWAI CI, so for now it runs only
+# on pull requests into wowai, not on every push.
 on:
-  push:
+  pull_request:
+    branches:
+      - wowai
     paths-ignore:
       - '.github/ISSUE_TEMPLATE.md'
       - '.github/ISSUE_TEMPLATE/**'
@@ -16,9 +20,7 @@ on:
       - 'README.md'
       - 'sql/**'
 
-# Only a push starts this workflow, so a commit is built once, also on a branch
-# with an open pull request: the pull request shows the checks of its head commit.
-# A newer commit on the same branch cancels the older run.
+# A newer commit on the same pull request cancels the older run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true

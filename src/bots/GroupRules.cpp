@@ -49,8 +49,8 @@ namespace Bots
         {
             for (SpellId firstRank : InterruptSpells)
             {
-                SpellId const rank = HighestKnownRank(context.view, firstRank);
-                if (rank != NoSpell && context.view.CanCast(rank, caster))
+                SpellId const rank = CastableRank(context.view, firstRank, caster);
+                if (rank != NoSpell)
                     return rank;
             }
             return NoSpell;
@@ -192,12 +192,14 @@ namespace Bots
                     return {NoGuid, NoSpell};
             for (DispelSpell const& dispel : DispelSpells)
             {
-                SpellId const rank = HighestKnownRank(context.view, dispel.firstRank);
-                if (rank == NoSpell)
-                    continue;
                 for (Guid member : members)
-                    if (context.view.HasDebuff(member, dispel.kind) && context.view.CanCast(rank, member))
+                {
+                    if (!context.view.HasDebuff(member, dispel.kind))
+                        continue;
+                    SpellId const rank = CastableRank(context.view, dispel.firstRank, member);
+                    if (rank != NoSpell)
                         return {member, rank};
+                }
             }
             return {NoGuid, NoSpell};
         }

@@ -12,7 +12,8 @@
 // about 10 yards around him, and Uppercut, a knockback of the tank.
 // - The ranged bots and the healer stay more than 10 yards from him. They
 //   never go into lava or through it, nor out of his sight (WOWAI#74,
-//   SafePlace.h). With no such place,
+//   SafePlace.h); the healer nor out of the tank's sight (WOWAI#84). With
+//   no such place,
 //   they stay and take Fire Nova.
 // - When a wall is near, the tank stands with its back to it, so that
 //   Uppercut does not knock it into other enemies.

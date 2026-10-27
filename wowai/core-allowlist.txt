@@ -41,3 +41,6 @@ src/game/Server/WorldSession.cpp
 # adapter lives for one think, so it cannot remember the chase angle itself,
 # and the chase generator is the only true source of it.
 src/game/Movement/TargetedMovementGenerator.h
+# Spec hook 10: TemporarySummon::ResetLifetime, so a route walk wisp that moves
+# to a new point stays its full time there (WOWAI#90). m_timer is private.
+src/game/Objects/TemporarySummon.h

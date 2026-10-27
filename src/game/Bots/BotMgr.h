@@ -16,6 +16,7 @@
 #include "BotLevelRoutine.h"
 #include "BotRecipe.h"
 #include "BotRun.h"
+#include "CoordinatorRegistry.h"
 #include "GroupCoordinator.h"
 #include "GroupCommand.h"
 #include "Route.h"
@@ -159,10 +160,12 @@ class BotMgr
         // Runs the level routine after a level-up of one of our bots.
         void OnLevelUp(Player* player);
 
-        // From any map thread: the group coordinator of the group with the
-        // id `groupId`. The bot manager makes it at the first call, and drops
-        // it when the group is gone.
-        std::shared_ptr<Bots::GroupCoordinator> GetCoordinator(uint32 groupId);
+        // From any map thread: the coordinator of a bot of the group with
+        // the id `groupId`, in place `bot`, with its leader in place `leader`
+        // (bots/CoordinatorRegistry.h). The bot manager makes it at the first
+        // call, and drops it when the group is gone.
+        std::shared_ptr<Bots::GroupCoordinator> GetCoordinator(uint32 groupId, Bots::MapPlace bot,
+            Bots::LeaderPlace leader, int64 nowMs);
         // Bot chat. Its QueuePlayerMessage works from any thread.
         BotChat& Chat() { return m_chat; }
         // From any map thread: the random source of the bots, for their
@@ -202,11 +205,13 @@ class BotMgr
         // The group plays a scripted run: its leader is the test driver.
         // The run (BotRun) then revives the dead itself. From any thread.
         bool IsScriptedRunGroup(Group const* group) const;
-        // The next GetCoordinator of the group makes a new coordinator.
+        // The next GetCoordinator of the group makes new coordinators.
         void DropCoordinator(uint32 groupId);
 
     private:
         BotRecord* FindByName(std::string const& name);
+        // The GUIDs of all our bot characters, for the roster of bot chat.
+        std::vector<Bots::Guid> BotGuids() const;
         uint32 ChooseAccount(std::string& error);
         uint32 CreateAccount(std::string const& name, std::string& error);
         void StartLogin(BotRecord& record, WorldSession* session);
@@ -235,8 +240,7 @@ class BotMgr
         Bots::Inbox<GroupCommandMessage> m_groupCommands;
         BotGear m_gear;
         // The bots of one group can sit on two map threads.
-        std::mutex m_coordinatorsMutex;
-        std::map<uint32 /*group id*/, std::shared_ptr<Bots::GroupCoordinator>> m_coordinators;
+        Bots::CoordinatorRegistry m_coordinators;
         BotChat m_chat;
         Bots::BossList m_bosses;
         std::map<uint32 /*dungeon map*/, Bots::Route> m_ghostRoutes;

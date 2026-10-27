@@ -104,7 +104,7 @@ namespace Bots
                 return false;
             float const length = PathLength(path);
             SafeMoveRules rules;
-            rules.inSightOf = tank;
+            rules.inSightOf = {tank};
             rules.enemies = EnemiesToKeepOff(context, std::min(length + SearchMarginYards, MaxSearchYards));
             return FirstSafePlace(context.view, SpotsBehindTank(context, path), rules, place);
         }

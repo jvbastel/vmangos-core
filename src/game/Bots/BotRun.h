@@ -12,6 +12,7 @@
 #include "ChaseWatch.h"
 #include "Common.h"
 #include "FightWatch.h"
+#include "GroupCoordinator.h"
 #include "Inbox.h"
 #include "InterruptWatch.h"
 #include "ObjectGuid.h"
@@ -23,6 +24,7 @@
 #include "RunTrace.h"
 #include "ScriptRunner.h"
 #include "ThreatWatch.h"
+#include "WipeRevive.h"
 
 #include <map>
 #include <memory>
@@ -184,6 +186,9 @@ class BotRun
         Bots::RunChatEvent* ChatEventOf(uint64 id);
         // A living bot of the group eats or drinks.
         bool GroupResting() const;
+        // The coordinator of the run group that bot `member` uses where it
+        // is now, with the test driver as the leader (BotMgr::GetCoordinator).
+        std::shared_ptr<Bots::GroupCoordinator> CoordinatorOf(Player const* member) const;
         // A living mob of the pack near the test driver, or null.
         Creature* LivingMobOf(std::string const& pack) const;
         bool Fight(Bots::ScriptCommand const& command, std::string& detail);
@@ -216,7 +221,8 @@ class BotRun
         // The revive rule of the scripted runs (jvbastel/WOWAI#72): the run
         // cuts the ghost run short. Out of combat, a released member
         // revives at once at the living member nearest to its corpse. In a
-        // wipe, every member revives at the dungeon entrance.
+        // wipe, every member in the world revives at the dungeon entrance
+        // (WipeRevive.h).
         void ReviveTheDead();
         void ReviveAt(Player* member, uint32 mapId, float x, float y, float z, float o);
         void NoteWipe();
@@ -269,8 +275,7 @@ class BotRun
         float m_moveX = 0.0f, m_moveY = 0.0f, m_moveRadius = 0.0f;
         std::string m_movePoint;
         bool m_visited = false; // The quests know that the driver reached m_movePoint.
-        // The start of the wipe, or 0 while a member lives.
-        int64 m_wipeMs = 0;
+        Bots::WipeWatch m_wipeWatch;
 };
 
 #endif

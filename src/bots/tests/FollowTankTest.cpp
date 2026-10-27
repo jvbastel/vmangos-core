@@ -73,7 +73,7 @@ TEST(FollowTank, TheBotStopsOutOfTheAggroDistanceOfThePack)
     Bot bot;
     // The tank is 10 yards from the kobold, which pulls a bot from 20 yards.
     bot.fake.SetPosition(Tank, {0.0f, 60.0f, 0.0f});
-    bot.fake.AddEnemy({0.0f, 70.0f, 0.0f}, 20.0f);
+    bot.fake.AddEnemy(0x900, {0.0f, 70.0f, 0.0f}, 20.0f);
 
     EXPECT_EQ(bot.Think(CommandState::Stay), "follow the tank to the pull");
     // 25 yards from the kobold: its aggro distance and the margin.
@@ -85,7 +85,7 @@ TEST(FollowTank, InTheFightTheBotComesNearToThePackOnTheTank)
     Bot bot;
     bot.fake.SetPosition(Tank, {0.0f, 60.0f, 0.0f});
     bot.fake.SetPosition(Kobold, {0.0f, 62.0f, 0.0f});
-    bot.fake.AddEnemy({0.0f, 62.0f, 0.0f}, 20.0f);
+    bot.fake.AddEnemy(0x900, {0.0f, 62.0f, 0.0f}, 20.0f);
     bot.fake.SetVictim(Kobold, Tank);
     bot.group.HoldPull(Tank);
 
@@ -101,7 +101,7 @@ TEST(FollowTank, AnotherPackNearTheTankStillCounts)
     bot.fake.SetVictim(Kobold, Tank);
     bot.group.HoldPull(Tank);
     // A pack that is not in the fight, 12 yards west of the tank's path.
-    bot.fake.AddEnemy({-12.0f, 45.0f, 0.0f}, 10.0f);
+    bot.fake.AddEnemy(0x900, {-12.0f, 45.0f, 0.0f}, 10.0f);
 
     bot.Think(CommandState::Stay);
     // The first spot whose walk stays 15 yards from it.
@@ -178,7 +178,7 @@ TEST(FollowTank, WithNoSafeSpotTheBotStays)
 {
     Bot bot;
     // The kobold pulls a bot from 66 yards: no spot on the way is safe.
-    bot.fake.AddEnemy({0.0f, 70.0f, 0.0f}, 66.0f);
+    bot.fake.AddEnemy(0x900, {0.0f, 70.0f, 0.0f}, 66.0f);
 
     EXPECT_EQ(bot.Think(CommandState::Stay), "");
 }

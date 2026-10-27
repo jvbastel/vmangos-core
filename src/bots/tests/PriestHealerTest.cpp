@@ -116,6 +116,39 @@ TEST(PriestHealer, HealsWithLesserHealWhenItCannotCastHeal)
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(LesserHeal3, Tank)}));
 }
 
+TEST(PriestHealer, DoesNotTryToCastWhileStunned)
+{
+    PriestHealer priest;
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 250, 600);
+    priest.Think();
+    ASSERT_FALSE(priest.fake.Deeds().empty()) << "without the lock the priest casts";
+    priest.fake.ClearDeeds();
+    priest.fake.SetStunned();
+
+    priest.Think();
+
+    for (std::string const& deed : priest.fake.Deeds())
+        EXPECT_EQ(deed.find("cast"), std::string::npos) << deed;
+}
+
+TEST(PriestHealer, DoesNotTryToCastWhileSilenced)
+{
+    PriestHealer priest;
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 100, 600);
+    priest.fake.SetAura(Tank, Priest::PowerWordFortitude, false);
+    priest.Think();
+    ASSERT_FALSE(priest.fake.Deeds().empty()) << "without the lock the priest casts";
+    priest.fake.ClearDeeds();
+    priest.fake.SetSilenced();
+
+    priest.Think();
+
+    for (std::string const& deed : priest.fake.Deeds())
+        EXPECT_EQ(deed.find("cast"), std::string::npos) << deed;
+}
+
 TEST(PriestHealer, ShieldsAMemberNearDeath)
 {
     PriestHealer priest;
@@ -281,6 +314,39 @@ TEST(PriestHealer, BuffsTheGroupWithFortitudeOutOfCombat)
     priest.Think();
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordFortitude, Mage)}));
+}
+
+TEST(PriestHealer, BuffsALowLevelMemberWithTheHighestRankItsLevelAllows)
+{
+    // Fortitude rank 2 (1244) and rank 3 (1245) are too high for a level 1
+    // player: the game refuses them with SPELL_FAILED_LOWLEVEL.
+    Bots::SpellId const Rank2 = 1244;
+    Bots::SpellId const Rank3 = 1245;
+    PriestHealer priest;
+    priest.fake.SetSpellChain({Priest::PowerWordFortitude, Rank2, Rank3});
+    priest.fake.SetKnownSpell(Rank2);
+    priest.fake.SetKnownSpell(Rank3);
+    priest.fake.SetLevelTooLowFor(Rank2, Mage);
+    priest.fake.SetLevelTooLowFor(Rank3, Mage);
+    priest.fake.SetAura(Mage, Priest::PowerWordFortitude, false);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordFortitude, Mage)}));
+}
+
+TEST(PriestHealer, BuffsAMemberOfHighEnoughLevelWithTheHighestKnownRank)
+{
+    Bots::SpellId const Rank2 = 1244;
+    PriestHealer priest;
+    priest.fake.SetSpellChain({Priest::PowerWordFortitude, Rank2});
+    priest.fake.SetKnownSpell(Rank2);
+    priest.fake.SetLevelTooLowFor(Rank2, Tank);
+    priest.fake.SetAura(Mage, Priest::PowerWordFortitude, false);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Rank2, Mage)}));
 }
 
 TEST(PriestHealer, PutsOnInnerFireOutOfCombat)

@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_TESTS_FAKE_BOT_H
 
 #include "BotActions.h"
+#include "BotGeometry.h"
 #include "BotView.h"
 
 #include <algorithm>
@@ -63,6 +64,11 @@ namespace Bots
             void SetCannotCast(SpellId spell) { m_cannotCast.insert(spell); }
             void SetPower(Guid unit, std::uint32_t current, std::uint32_t max) { m_power[unit] = Power{current, max}; }
             void SetDistance(Guid unit, float yards) { m_distance[unit] = yards; }
+            // The distance as spell ranges measure it. Unset: GetDistance.
+            void SetSpellDistance(Guid unit, float yards) { m_spellDistance[unit] = yards; }
+            // CanCast refuses spell `spell` on a unit beyond `yards`
+            // (GetSpellDistance). Unset: any range.
+            void SetSpellRange(SpellId spell, float yards) { m_spellRange[spell] = yards; }
             void SetInCombat(Guid unit, bool inCombat = true) { m_inCombat[unit] = inCombat; }
             void SetVictim(Guid unit, Guid victim)
             {
@@ -118,13 +124,21 @@ namespace Bots
             // No ground path leads to a place with x >= `x`. Else a path is
             // the straight line.
             void AddNoPathFromX(float x) { m_noPathFromX.push_back(x); }
-            // A living hostile creature at `position` (GetEnemiesNear).
-            void AddEnemy(Position position, float aggroYards, float radiusYards = 0.0f)
+            // Hostile creature `enemy` at `position` (GetEnemiesNear). Like
+            // the real adapter, GetEnemiesNear lists it only while it lives
+            // (SetHealth). Without a health of its own, it lives.
+            void AddEnemy(Guid enemy, Position position, float aggroYards)
             {
-                m_enemies.push_back({position, aggroYards, radiusYards});
+                if (!m_health.count(enemy))
+                    SetHealth(enemy, 800, 800);
+                m_enemies.push_back({position, aggroYards, enemy});
             }
             // From each place with x >= `x`, the bot sees no unit.
             void AddBlindFromX(float x) { m_blindFromX.push_back(x); }
+            // How many ground paths the bot asked for (FindGroundPath).
+            int GroundPaths() const { return m_groundPaths; }
+            // From each place with x >= `x`, the bot does not see `unit`.
+            void AddBlindToFromX(Guid unit, float x) { m_blindToFromX.push_back({unit, x}); }
             void SetLifeState(Guid unit, LifeState state) { m_lifeState[unit] = state; }
             void SetGroupLeader(Guid unit) { m_leader = unit; }
             void SetCanResurrect(Guid unit, bool can = true)
@@ -142,6 +156,15 @@ namespace Bots
             // The bot cannot cast spell `spell` on unit `target` now, for
             // example out of range.
             void SetCannotCastOn(SpellId spell, Guid target) { m_cannotCastOn.insert({spell, target}); }
+            // Undoes SetCannotCastOn: the bot can cast it again.
+            void SetCanCastOn(SpellId spell, Guid target) { m_cannotCastOn.erase({spell, target}); }
+            // A stun, or a silence, keeps the bot from casting any spell
+            // (BotView::IsCastLocked).
+            void SetStunned(bool stunned = true) { m_stunned = stunned; }
+            void SetSilenced(bool silenced = true) { m_silenced = silenced; }
+            // The level of unit `target` is too low for rank `rank` of a
+            // buff (BotView::LevelAllowsRank).
+            void SetLevelTooLowFor(SpellId rank, Guid target) { m_levelTooLow.insert({rank, target}); }
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -175,8 +198,13 @@ namespace Bots
                 auto here = m_position.find(m_self);
                 auto there = m_position.find(unit);
                 if (here != m_position.end() && there != m_position.end())
-                    return std::hypot(there->second.x - here->second.x, there->second.y - here->second.y);
+                    return Distance2d(here->second, there->second);
                 return unit == m_self || GetHealth(unit).max ? 5.0f : 100000.0f;
+            }
+            float GetSpellDistance(Guid unit) const override
+            {
+                auto found = m_spellDistance.find(unit);
+                return found == m_spellDistance.end() ? GetDistance(unit) : found->second;
             }
             float GetDistanceBetween(Guid a, Guid b) const override
             {
@@ -214,11 +242,19 @@ namespace Bots
             {
                 if (!KnowsSpell(spell) || m_cannotCast.count(spell) || m_cannotCastOn.count({spell, target}))
                     return false;
+                auto range = m_spellRange.find(spell);
+                if (range != m_spellRange.end() && target != m_self && GetSpellDistance(target) > range->second)
+                    return false;
                 if (m_castsOnDead.count(spell))
                     return GetLifeState(target) == LifeState::Dead;
                 return GetHealth(target).current > 0 && GetLifeState(target) == LifeState::Alive;
             }
             bool KnowsSpell(SpellId spell) const override { return m_known.count(spell) != 0; }
+            bool IsCastLocked(SpellId) const override { return m_stunned || m_silenced; }
+            bool LevelAllowsRank(SpellId rank, Guid target) const override
+            {
+                return m_levelTooLow.count({rank, target}) == 0;
+            }
             SpellId GetNextRank(SpellId spell) const override
             {
                 auto found = m_nextRank.find(spell);
@@ -265,10 +301,13 @@ namespace Bots
                         return true;
                 return false;
             }
-            bool CanSeeFrom(Position const& place, Guid) const override
+            bool CanSeeFrom(Position const& place, Guid unit) const override
             {
                 for (float x : m_blindFromX)
                     if (place.x >= x)
+                        return false;
+                for (auto const& blind : m_blindToFromX)
+                    if (blind.first == unit && place.x >= blind.second)
                         return false;
                 return true;
             }
@@ -299,6 +338,7 @@ namespace Bots
             }
             bool FindGroundPath(Position const& from, Position const& to, std::vector<Position>& path) const override
             {
+                ++m_groundPaths;
                 path.clear();
                 for (float x : m_noPathFromX)
                     if (to.x >= x)
@@ -311,7 +351,7 @@ namespace Bots
                 Position const self = GetPosition(m_self);
                 std::vector<NearEnemy> near;
                 for (NearEnemy const& enemy : m_enemies)
-                    if (std::hypot(enemy.position.x - self.x, enemy.position.y - self.y) <= yards)
+                    if (GetHealth(enemy.guid).current > 0 && Distance2d(self, enemy.position) <= yards)
                         near.push_back(enemy);
                 return near;
             }
@@ -388,6 +428,8 @@ namespace Bots
             std::set<SpellId> m_cannotCast;
             std::map<Guid, Power> m_power;
             std::map<Guid, float> m_distance;
+            std::map<Guid, float> m_spellDistance;
+            std::map<SpellId, float> m_spellRange;
             std::map<Guid, bool> m_inCombat;
             std::map<Guid, Guid> m_victim;
             std::set<std::pair<Guid, SpellId>> m_auras;
@@ -412,6 +454,8 @@ namespace Bots
             std::vector<float> m_noPathFromX;
             std::vector<NearEnemy> m_enemies;
             std::vector<float> m_blindFromX;
+            std::vector<std::pair<Guid, float>> m_blindToFromX;
+            mutable int m_groundPaths = 0;
             std::map<Guid, LifeState> m_lifeState;
             Guid m_leader = NoGuid;
             std::set<Guid> m_resurrecters;
@@ -420,6 +464,9 @@ namespace Bots
             bool m_drinking = false;
             std::set<SpellId> m_castsOnDead;
             std::set<std::pair<SpellId, Guid>> m_cannotCastOn;
+            std::set<std::pair<SpellId, Guid>> m_levelTooLow;
+            bool m_stunned = false;
+            bool m_silenced = false;
             std::vector<std::string> m_deeds;
         };
     }

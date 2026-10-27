@@ -16,8 +16,11 @@ Python path. The script then writes only its scenario:
     results.finish()
 
 pos(client, guid) and stat(client, guid) read a unit with GM commands.
+dist(a, b), kill(client, guid), and revive_all(realm, client, bots) are the
+small helpers that the checks share.
 Realm(62) works outside the check command too.
 """
+import math
 import os
 import re
 import subprocess
@@ -123,6 +126,23 @@ def stat(client, guid):
         if m:
             values[m.group(1)] = int(m.group(2))
     return values.get("Health", -1), values.get("Max Health", -1), values.get("Mana", -1), values.get("Max Mana", -1)
+
+
+def dist(a, b):
+    """The ground distance between two (x, y, ...) places, without z."""
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def kill(client, guid):
+    """Kills the unit with a GM `.die`; the GM answer lines."""
+    return client.gm(".die", select=guid, wait=1.0)
+
+
+def revive_all(realm, client, bots):
+    """Revives the bots (names) over SOAP, and the GM character of `client`."""
+    for bot in bots:
+        realm.soap(".revive %s" % bot)
+    client.gm(".revive", select=client.guid)
 
 
 class Results:

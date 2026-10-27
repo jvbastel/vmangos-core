@@ -24,6 +24,7 @@
 // bosses. With a character on the map of the route, it also runs the walk
 // check of the navmesh.
 
+#include "BotGeometry.h"
 #include "BotMgr.h"
 #include "Chat.h"
 #include "Database/DatabaseEnv.h"
@@ -57,14 +58,6 @@ namespace
     // loads the terrain this often along the straight line.
     float const GhostSpacingYards = 15.0f;
     float const GhostTileStepYards = 30.0f;
-
-    float PathLength(std::vector<Bots::Position> const& path)
-    {
-        float length = 0.0f;
-        for (std::size_t i = 1; i < path.size(); ++i)
-            length += std::hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
-        return length;
-    }
 
     std::vector<std::string> Words(char const* args)
     {
@@ -354,7 +347,7 @@ bool GenerateGhostRoute(ChatHandler& handler, std::string const& name, uint32 du
     Bots::Position const to{exit->destination.x, exit->destination.y, exit->destination.z};
     // The navmesh tiles load with the terrain of their grid.
     TerrainInfo const* terrain = character->GetTerrain();
-    float const length = std::hypot(to.x - from.x, to.y - from.y);
+    float const length = Bots::Distance2d(from, to);
     for (float along = 0.0f; along <= length + GhostTileStepYards; along += GhostTileStepYards)
     {
         float const t = length > 0.0f ? std::min(1.0f, along / length) : 1.0f;
@@ -366,7 +359,7 @@ bool GenerateGhostRoute(ChatHandler& handler, std::string const& name, uint32 du
         std::ostringstream line;
         line << "No walk on the navmesh from here to the portal (" << to.x << " " << to.y << " " << to.z << ")";
         if (!path.empty())
-            line << ": it ends after " << uint32(PathLength(path)) << " yards at " << path.back().x << " " << path.back().y << " "
+            line << ": it ends after " << uint32(Bots::PathLength(path)) << " yards at " << path.back().x << " " << path.back().y << " "
                  << path.back().z;
         return Fail(handler, line.str() + ".");
     }
@@ -377,7 +370,7 @@ bool GenerateGhostRoute(ChatHandler& handler, std::string const& name, uint32 du
     if (!RouteFiles::Write(file, text))
         return Fail(handler, "Cannot write " + file + ".");
     handler.PSendSysMessage("Ghost route %s: %u points, %.0f yards of path, in %s.", name.c_str(), uint32(route.points.size()),
-        PathLength(path), file.c_str());
+        Bots::PathLength(path), file.c_str());
     return true;
 }
 

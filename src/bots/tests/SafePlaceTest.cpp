@@ -1,3 +1,4 @@
+#include "BotGeometry.h"
 #include "SafePlace.h"
 #include "FakeBot.h"
 
@@ -19,6 +20,7 @@ namespace
 {
     Bots::Guid const Self = 0x12;
     Bots::Guid const Corpse = 0x13;
+    Bots::Guid const Enemy = 0x900;
 
     // The bot 40 yards south of a corpse at the origin.
     struct Walker
@@ -118,12 +120,11 @@ TEST(SafeCastPlace, APlaceNearAnEnemyDoesNotCount)
     Walker walker;
     // Aggro 5 yards and the margin of 5: the outer ring spot south of the
     // corpse is 7 yards from it.
-    walker.fake.AddEnemy({7.0f, -27.0f, 0.0f}, 5.0f);
+    walker.fake.AddEnemy(Enemy, {7.0f, -27.0f, 0.0f}, 5.0f);
     Position place{};
 
     ASSERT_TRUE(walker.Find(place));
-    float const dx = place.x - 7.0f, dy = place.y + 27.0f;
-    EXPECT_GE(dx * dx + dy * dy, 10.0f * 10.0f);
+    EXPECT_GE(Bots::Distance2d(place, {7.0f, -27.0f, 0.0f}), 10.0f);
 }
 
 TEST(SafeCastPlace, AWalkAwayFromAnEnemyTheBotStandsNearIsFine)
@@ -132,7 +133,7 @@ TEST(SafeCastPlace, AWalkAwayFromAnEnemyTheBotStandsNearIsFine)
     walker.fake.SetPosition(Self, {0.0f, -30.0f, 0.0f});
     // 8 yards behind the bot: inside the aggro distance and the margin, but
     // the walk goes no nearer to it.
-    walker.fake.AddEnemy({0.0f, -38.0f, 0.0f}, 5.0f);
+    walker.fake.AddEnemy(Enemy, {0.0f, -38.0f, 0.0f}, 5.0f);
     Position place{};
 
     ASSERT_TRUE(walker.Find(place));
@@ -145,7 +146,7 @@ TEST(SafeCastPlace, AWalkThatPassesNearAnEnemyDoesNotCount)
     // East of the way: the walk south to north would pass 6 yards from it,
     // inside its aggro distance of 3 and the margin. The two nearest spots
     // are south and south-east; the walk to the south-west spot keeps away.
-    walker.fake.AddEnemy({6.0f, -33.0f, 0.0f}, 3.0f);
+    walker.fake.AddEnemy(Enemy, {6.0f, -33.0f, 0.0f}, 3.0f);
     Position place{};
 
     ASSERT_TRUE(walker.Find(place));
@@ -167,7 +168,7 @@ TEST(SafeCastPlace, TheBotLooksForEnemiesAroundTheWholeWay)
     walker.fake.SetPosition(Self, {0.0f, -40.0f, 0.0f});
     // Near the corpse, 40 yards from the bot: a pack with a long aggro
     // distance covers the whole cast range.
-    walker.fake.AddEnemy({0.0f, 0.0f, 0.0f}, 40.0f);
+    walker.fake.AddEnemy(Enemy, {0.0f, 0.0f, 0.0f}, 40.0f);
     Position place{};
 
     EXPECT_FALSE(walker.Find(place));
@@ -194,4 +195,21 @@ TEST(FirstSafePlace, WithNoSafeSpotThereIsNoPlace)
     Position place{};
 
     EXPECT_FALSE(FirstSafePlace(fake, {{10.0f, 0.0f, 0.0f}}, SafeMoveRules{}, place));
+}
+
+// The one aggro rule: the game pulls a creature when a player comes within
+// its aggro distance of its center (BasicAI::MoveInLineOfSight, no body
+// size), so a safe place keeps the aggro distance and the margin from the
+// enemy's center. The bot's body and the enemy's body do not count.
+TEST(FirstSafePlace, TheAggroMarginIsMeasuredFromTheEnemysCenter)
+{
+    FakeBot fake(Self);
+    fake.SetPosition(Self, {0.0f, 0.0f, 0.0f});
+    // Aggro 5 and the margin of 5: 10 yards from its center.
+    SafeMoveRules rules;
+    rules.enemies = {{{20.0f, 0.0f, 0.0f}, 5.0f}};
+    Position place{};
+
+    ASSERT_TRUE(FirstSafePlace(fake, {{10.5f, 0.0f, 0.0f}, {9.5f, 0.0f, 0.0f}}, rules, place));
+    ExpectAt(place, 9.5f, 0.0f);
 }
