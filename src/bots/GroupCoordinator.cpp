@@ -41,11 +41,14 @@ namespace Bots
         m_tauntGivenUp = NoGuid;
     }
 
-    void GroupCoordinator::HoldPull(Guid puller)
+    void GroupCoordinator::HoldPull(Guid puller, std::int64_t nowMs)
     {
         Lock lock(m_mutex);
         if (m_pull.phase == PullPhase::Pulling && m_pull.puller == puller)
+        {
             m_pull.phase = PullPhase::Holding;
+            m_pull.engagedMs = nowMs;
+        }
     }
 
     void GroupCoordinator::SetFightSpot(Guid puller, Position spot)

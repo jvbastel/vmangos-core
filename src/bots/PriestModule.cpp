@@ -15,6 +15,14 @@ namespace Bots
             float const LesserHealBelow = 0.7f;
             float const RenewBelow = 0.9f;
 
+            // jvbastel/WOWAI#111: in a pull, the healer waits this long
+            // after the tank engages (HoldPull) before its first heal, so
+            // that the tank has threat on every enemy first: heal threat
+            // goes to every enemy in the fight. A member below DangerBelow
+            // gets a heal at once.
+            std::int64_t const HealDelayMs = 2000;
+            float const DangerBelow = 0.5f;
+
             // The heals reach 40 yards. The bot goes nearer to a hurt member
             // beyond this distance.
             float const HealReachYards = 36.0f;
@@ -151,6 +159,16 @@ namespace Bots
                 return member != NoGuid && context.view.GetDistance(member) > HealReachYards ? member : NoGuid;
             }
 
+            // In a pull, before the tank engaged or within HealDelayMs after
+            // it, while no member is in danger: the healer waits.
+            bool WaitsForTheTank(BotContext const& context)
+            {
+                PullState const pull = context.group.GetPull();
+                bool const early = pull.phase == PullPhase::Pulling
+                    || (pull.phase == PullPhase::Holding && context.nowMs - pull.engagedMs < HealDelayMs);
+                return early && MostHurtMember(context, DangerBelow, AnyMember) == NoGuid;
+            }
+
             TargetPicker HurtMember(float below, MemberFilter filter = AnyMember)
             {
                 return [below, filter](BotContext const& context) { return MostHurtMember(context, below, filter); };
@@ -159,7 +177,7 @@ namespace Bots
             Trigger SomeoneBelow(float below, MemberFilter filter = AnyMember)
             {
                 return [below, filter](BotContext const& context) {
-                    return MostHurtMember(context, below, filter) != NoGuid;
+                    return !WaitsForTheTank(context) && MostHurtMember(context, below, filter) != NoGuid;
                 };
             }
         }
