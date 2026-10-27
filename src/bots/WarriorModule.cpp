@@ -213,10 +213,14 @@ namespace Bots
                 MeleeRule("run to the pull target", P + 70,
                     [](BotContext const& context) {
                         // A ranged chase made the target the victim, with no
-                        // melee swing: that is no hit yet.
+                        // melee swing: that is no hit yet. A melee victim out
+                        // of combat with no chase is none either: a hit that
+                        // started no fight (run 12 of jvbastel/WOWAI#103,
+                        // pack4), where the tank would wait for good.
+                        Guid const target = PickPullTarget(context);
                         return IsPulling(context) && !IsCasting(context) && !PullsFromRange(context)
-                            && (context.view.GetVictim(Self(context)) != PickPullTarget(context)
-                                || !context.view.IsMeleeAttacking());
+                            && (context.view.GetVictim(Self(context)) != target || !context.view.IsMeleeAttacking()
+                                || (!InCombat(context) && context.view.GetChase().target != target));
                     },
                     PickPullTarget),
                 Bookkeeping("back at the pull spot", P + 69,

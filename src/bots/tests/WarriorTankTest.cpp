@@ -268,6 +268,39 @@ TEST(WarriorTank, TooCloseToShootRunsInToHitThePullTarget)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
 }
 
+// The full run 12 of jvbastel/WOWAI#103 at pack4: the tank attacked the pull
+// target (its melee victim from an earlier run-in or charge), but no fight
+// started, and the next pull of it waited 60 s. Out of combat, no chase, the
+// target 3.5 yd away (too near to shoot), and the target attacks nobody.
+TEST(WarriorTank, RunsToThePullTargetItAttacksWithoutAFight)
+{
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 3.5f);
+    tank.Pull();
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetInCombat(Tank, false);
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase 0xf130000302000022"}));
+}
+
+TEST(WarriorTank, RunsToThePullTargetOnlyOnce)
+{
+    BowTank tank;
+    tank.fake.SetDistance(Kobold, 3.5f);
+    tank.Pull();
+    tank.Think();
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetInCombat(Tank, false);
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+}
+
 TEST(WarriorTank, NeverChargesThePullTarget)
 {
     BowTank tank;
