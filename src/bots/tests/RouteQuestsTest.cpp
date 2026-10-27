@@ -94,7 +94,8 @@ TEST(RagefireChasmRoute, TheCommittedFileHasTheBossesTheQuestsAndTheirKills)
     Bots::Route const& route = result.route;
 
     EXPECT_EQ(route.mapId, 389u);
-    EXPECT_TRUE(route.hasSeed);
+    // .route build made the file from the GM trace, so it has no seed.
+    EXPECT_FALSE(route.hasSeed);
     EXPECT_EQ(route.bosses, (std::vector<std::uint32_t>{11517, 11520, 11518, 11519}));
     std::vector<std::uint32_t> quests;
     for (Bots::RouteQuest const& quest : route.quests)
