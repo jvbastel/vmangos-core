@@ -1101,3 +1101,37 @@ TEST(WarriorTank, WalksToItsShootSpotWhileTheGroupGetsInPlace)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -4 0 0"}));
 }
+
+// jvbastel/WOWAI#115: healer-first Taunt and Challenging Shout.
+namespace
+{
+    Bots::Guid const Rogue = 0x0000000000000013;
+    Bots::Guid const Bat = 0xF130000302000044;
+    Bots::Guid const Rat = 0xF130000302000055;
+
+    // The tank holds the kobold, and the group has a rogue and a healer
+    // (the rogue first in the member order).
+    struct GroupInFight : WarriorTank
+    {
+        GroupInFight()
+        {
+            fake.SetGroupMembers({Rogue, Healer});
+            group.SetHealer(Healer);
+            InFightWithKobold();
+            fake.SetInCombat(Tank);
+            for (Bots::Guid unit : {Rogue, Healer, Wolf, Bat, Rat})
+                fake.SetHealth(unit, 300, 300);
+        }
+    };
+}
+
+TEST(WarriorTank, TauntsTheEnemyOnTheHealerFirst)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+}
