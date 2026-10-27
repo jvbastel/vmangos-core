@@ -14,6 +14,7 @@
 #include "ExtraPackWatch.h"
 #include "FightWatch.h"
 #include "GroupCoordinator.h"
+#include "HoldWatch.h"
 #include "Inbox.h"
 #include "InterruptWatch.h"
 #include "ObjectGuid.h"
@@ -189,6 +190,9 @@ class BotRun
         // The packs of the route that join the fight of the last pull
         // (Bots::ExtraPackWatch), into the result, the trace, and the log.
         void WatchExtraPacks(int64 nowMs);
+        // The held pull (Bots::HoldWatch) into the trace and the log
+        // (jvbastel/WOWAI#127).
+        void WatchHold(int64 nowMs);
         // The extra packs of the watch into the last pull of the result.
         void RecordExtraPacks();
         // The new lines of the trace, appended to the live trace file
@@ -285,6 +289,7 @@ class BotRun
         Bots::RunTrace m_trace;
         Bots::FightWatch m_fight;
         Bots::ExtraPackWatch m_extraPacks;
+        Bots::HoldWatch m_hold;
         Bots::RunResult m_record; // The result file.
         std::unique_ptr<Bots::QuestProgress> m_quests;
         // `release`: in a wipe, the test driver releases this long after the

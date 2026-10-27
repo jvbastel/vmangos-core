@@ -1393,6 +1393,7 @@ void BotRun::WatchRun(int64 nowMs)
     }
 
     TraceMembers(nowMs);
+    WatchHold(nowMs);
     WatchFight(nowMs);
 
     Bots::RunVerdict const verdict = m_judge->Judge(nowMs);
@@ -1589,6 +1590,18 @@ void BotRun::WatchExtraPacks(int64 nowMs)
         Bots::RunExtraPack const& extra = m_extraPacks.ExtraPacks()[i];
         std::string const text = "extra pack " + extra.pack + " joins pull " + std::to_string(m_record.pulls.size()) +
             (extra.warned ? " (warned)" : " (no warn)");
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
+        m_trace.Add(nowMs, text);
+    }
+}
+
+void BotRun::WatchHold(int64 nowMs)
+{
+    if (!m_groupId)
+        return;
+    // The coordinator counts on the clock of the bots.
+    for (std::string const& text : m_hold.Observe(*CoordinatorOf(Driver()), SteadyMs()))
+    {
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
         m_trace.Add(nowMs, text);
     }
