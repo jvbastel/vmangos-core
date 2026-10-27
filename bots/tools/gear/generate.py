@@ -68,6 +68,7 @@ class Role:
     weapons: dict     # slot -> set of weapon types (mainhand, offhand, twohand, ranged)
     weights: dict
     armor: set        # The armor types of the armor slots. Empty: all that the class wears.
+    fill: tuple = ()  # The slots that hold an item at every level after their first item.
 
 
 @dataclass(frozen=True)
@@ -113,7 +114,11 @@ class Settings:
             for armor_type in armor:
                 if armor_type not in CLASSES[class_name][0]:
                     raise ValueError(f"role {name}: a {class_name} cannot wear {armor_type}")
-            roles[name] = Role(name, class_name, role, shapes, weapons, dict(entry["weights"]), armor)
+            fill = tuple(entry.get("fill", []))
+            for slot in fill:
+                if slot not in SLOTS:
+                    raise ValueError(f"role {name}: cannot fill {slot}, which is no slot")
+            roles[name] = Role(name, class_name, role, shapes, weapons, dict(entry["weights"]), armor, fill)
         sources = data["sources"]
         return Settings(
             min_level=data["levels"]["min"], max_level=data["levels"]["max"],
@@ -278,12 +283,36 @@ def _prune(settings, lines):
     return [line for line in lines if id(line) in used]
 
 
+def _fill(settings, role, lines):
+    """A slot to fill keeps its best item past the window, up to the level
+    at which the next item comes, in each patch. So the slot is never
+    empty after its first item, for example the ranged weapon of the
+    Warrior tank, which pulls with it."""
+    lines = list(lines)
+    for slot in role.fill:
+        for patch in gear_data.PATCHES:
+            for level in range(settings.min_level + 1, settings.max_level + 1):
+                def worn(at):
+                    return [i for i, line in enumerate(lines) if line.slot == slot and line.min_patch <= patch
+                            and line.min_level <= at <= line.max_level]
+                if worn(level):
+                    continue
+                before = worn(level - 1)
+                if not before:
+                    continue
+                best = max(before, key=lambda i: (lines[i].score, -lines[i].entry))
+                line = lines[best]
+                lines[best] = Line(line.slot, line.entry, line.min_level, level, line.min_patch, line.score)
+    return lines
+
+
 def build_lines(world, settings, role_name, bans):
     """The item lines of the generated template of a role."""
     role = settings.roles[role_name]
     lines = _candidate_lines(world, settings, role, bans)
     lines = _apply_blue_caps(world, settings, lines)
     lines = _prune(settings, lines)
+    lines = _fill(settings, role, lines)
     return sorted(lines, key=lambda line: (SLOTS.index(line.slot), line.min_level, line.entry, line.min_patch))
 
 
