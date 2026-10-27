@@ -416,6 +416,10 @@ TEST(WarriorTank, WalksBackToWhereItStartedAfterTheHit)
     tank.fake.SetInCombat(Tank);
     tank.fake.SetVictim(Tank, Kobold);
     tank.fake.SetVictim(Kobold, Tank);
+    // The opener is done: it fires on the way otherwise.
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetPower(Tank, 20, 100);
 
     tank.Think(); // Holds the pull.
     tank.Think();
@@ -1765,4 +1769,59 @@ TEST(WarriorTank, IgnoresADeadHealerInTheTieBreak)
 
     // The distances to the corpse do not change the pick.
     EXPECT_EQ(swapped.fake.Deeds(), deadHealer);
+}
+
+// jvbastel/WOWAI#102 review: the opener on the walk back, the visits.
+namespace
+{
+    // After a ranged pull the kobold hits the tank, which walks back from
+    // (28, 20) to its fight spot at (10, 20). It is in Battle Stance with
+    // no rage, and knows Demoralizing Shout.
+    struct WalkBackTank : BowTank
+    {
+        WalkBackTank()
+        {
+            fake.SetKnownSpell(Warrior::DemoralizingShout);
+            fake.SetPosition(Tank, {10, 20, 0});
+            Pull();
+            fake.SetPosition(Tank, {28, 20, 0});
+            fake.AddEnemy(Kobold, {29, 20, 0}, 10.0f);
+            fake.SetDistance(Kobold, 2.0f);
+            fake.SetInCombat(Tank);
+            fake.SetVictim(Tank, Kobold);
+            fake.SetVictim(Kobold, Tank);
+            Think(); // Holds the pull.
+            fake.ClearDeeds();
+        }
+
+        std::vector<std::string> Next()
+        {
+            fake.ClearDeeds();
+            Think();
+            return fake.Deeds();
+        }
+    };
+}
+
+// Spec story 3: with no Charge, the tank opens with Defensive Stance,
+// Bloodrage and Demoralizing Shout, and walks on meanwhile.
+TEST(WarriorTank, OpensWhileItWalksBackAfterARangedPull)
+{
+    WalkBackTank tank;
+    std::string const walk = "keep move to 10 20 0";
+
+    EXPECT_EQ(tank.Next(), (std::vector<std::string>{CastOn(Warrior::DefensiveStance, Tank), walk}));
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetCannotCastOn(Warrior::DemoralizingShout, Tank);
+
+    EXPECT_EQ(tank.Next(), (std::vector<std::string>{CastOn(Warrior::Bloodrage, Tank), walk}));
+    tank.fake.SetPower(Tank, 10, 100);
+    tank.fake.SetCanCastOn(Warrior::DemoralizingShout, Tank);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    EXPECT_EQ(tank.Next(), (std::vector<std::string>{CastOn(Warrior::DemoralizingShout, Tank), walk}));
+    tank.fake.SetAura(Kobold, Warrior::DemoralizingShout);
+
+    EXPECT_EQ(tank.Next(), (std::vector<std::string>{walk}));
 }

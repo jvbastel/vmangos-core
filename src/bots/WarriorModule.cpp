@@ -332,6 +332,16 @@ namespace Bots
                 context.group.NoteExtraPackWarn(Self(context));
             }
 
+            // The first rule of `rules` whose trigger fires and which the
+            // tank can do now, or null.
+            Rule const* FirstDue(std::vector<Rule> const& rules, BotContext const& context)
+            {
+                for (Rule const& rule : rules)
+                    if (rule.trigger(context) && rule.action.canDo(context))
+                        return &rule;
+                return nullptr;
+            }
+
             Rule Bookkeeping(std::string name, int priority, Trigger trigger, std::function<void(BotContext const&)> run)
             {
                 Rule rule;
@@ -349,6 +359,21 @@ namespace Bots
             int const P = Priority::Class;
             // Each strategy, so each tank, has its own visits.
             ThreatVisitPtr const visit = std::make_shared<ThreatVisit>();
+            // The opener, highest first: Defensive Stance, then a due
+            // Demoralizing Shout (jvbastel/WOWAI#114: threat on each enemy
+            // near), and Bloodrage with little rage, which gives the rage.
+            // Each is instant, so it also fires on the walk back.
+            std::vector<Rule> const opener = {
+                CastRule("defensive stance", P + 60,
+                    [](BotContext const& context) {
+                        return FightsFocus(context) && !context.view.HasAura(Self(context), DefensiveStance);
+                    },
+                    DefensiveStance, PickSelf),
+                CastRule("demoralizing shout", P + 50, ShoutDue, DemoralizingShout, PickSelf),
+                CastRule("bloodrage", P + 45,
+                    [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
+                    Bloodrage, PickSelf),
+            };
             std::vector<Rule> rules = {
                 // The pull and the fight end when the focus target dies or
                 // the bot cannot see it any more.
@@ -476,13 +501,19 @@ namespace Bots
                         return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) <= AtSpotYards;
                     },
                     [](BotContext const& context) { context.group.ClearFightSpot(Self(context)); }),
+                // A due opener ability (after a ranged pull, spec story 3)
+                // fires on the way, and the walk goes on in the same think.
                 Rule{"walk back to the fight spot", P + 68,
                     [](BotContext const& context) {
                         return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) > AtSpotYards
                             && !TauntDue(context);
                     },
                     {[](BotContext const&) { return true; },
-                        [](BotContext const& context) { context.actions.KeepMovingTo(context.group.GetPull().fightSpot); }}},
+                        [opener](BotContext const& context) {
+                            if (Rule const* due = FirstDue(opener, context))
+                                due->action.run(context);
+                            context.actions.KeepMovingTo(context.group.GetPull().fightSpot);
+                        }}},
 
                 // An enemy attacks the bot or another group member outside
                 // a pull: it becomes the focus target. This is no pull of its
@@ -536,11 +567,6 @@ namespace Bots
                             else
                                 context.actions.Chase(focus);
                         }}},
-                CastRule("defensive stance", P + 60,
-                    [](BotContext const& context) {
-                        return FightsFocus(context) && !context.view.HasAura(Self(context), DefensiveStance);
-                    },
-                    DefensiveStance, PickSelf),
                 // Over the attack: a new focus that hits another member is
                 // taunted off at once, from up to 20 yards, before the walk
                 // to it.
@@ -559,13 +585,6 @@ namespace Bots
                         return FightsFocus(context) && LooseEnemiesInShoutRange(context) >= ShoutLooseEnemies;
                     },
                     ChallengingShout, PickSelf),
-                // jvbastel/WOWAI#114: threat on each enemy near, from the
-                // opener on (after Defensive Stance and Bloodrage, which
-                // give it the rage).
-                CastRule("demoralizing shout", P + 50, ShoutDue, DemoralizingShout, PickSelf),
-                CastRule("bloodrage", P + 45,
-                    [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
-                    Bloodrage, PickSelf),
                 // A ready Revenge goes to the threat target on a visit
                 // (jvbastel/WOWAI#117), and counts as its ability there. On
                 // the focus, it ends the visit.
@@ -632,6 +651,7 @@ namespace Bots
                     },
                     BattleShout, PickSelf),
             };
+            rules.insert(rules.end(), opener.begin(), opener.end());
             return std::make_shared<Strategy const>(Strategy{"warrior tank", std::move(rules)});
         }
     }
