@@ -9,6 +9,7 @@
 #include "SpellBook.h"
 
 #include <algorithm>
+#include <vector>
 
 namespace Bots
 {
@@ -39,6 +40,13 @@ namespace Bots
             // jvbastel/WOWAI#116: Shield Block.
             // Rage for Shield Block from it.
             std::uint32_t const ShieldBlockRage = 10;
+
+            // jvbastel/WOWAI#115: Challenging Shout from this many loose
+            // enemies.
+            std::size_t const ShoutLooseEnemies = 3;
+            // The radius of Challenging Shout: it counts only the loose
+            // enemies this near.
+            float const ChallengingShoutYards = 10.0f;
 
             Guid Self(BotContext const& context)
             {
@@ -151,11 +159,29 @@ namespace Bots
                 return PickMemberAttacker(context);
             }
 
-            // An enemy that hits another group member and is not the focus
-            // target: the tank taunts it off.
+            // The living enemies that hit a living group member other than the
+            // tank and are not the focus target: the loose enemies. The
+            // enemies on the healer come first (jvbastel/WOWAI#115), then the
+            // rest in the order of the group members.
+            std::vector<Guid> LooseEnemies(BotContext const& context)
+            {
+                return MemberAttackers(context, Self(context), context.group.GetFocusTarget(), context.group.GetHealer());
+            }
+
+            // The loose enemies that a Challenging Shout reaches.
+            std::size_t LooseEnemiesInShoutRange(BotContext const& context)
+            {
+                std::vector<Guid> const loose = LooseEnemies(context);
+                return std::count_if(loose.begin(), loose.end(),
+                    [&](Guid enemy) { return context.view.GetDistance(enemy) <= ChallengingShoutYards; });
+            }
+
+            // The loose enemy that the tank taunts off: one on the healer
+            // first.
             Guid PickLooseEnemy(BotContext const& context)
             {
-                return PickMemberAttacker(context, Self(context), context.group.GetFocusTarget());
+                std::vector<Guid> const loose = LooseEnemies(context);
+                return loose.empty() ? NoGuid : loose.front();
             }
 
             // A living enemy hits the tank in melee reach: a hit that a
@@ -429,6 +455,12 @@ namespace Bots
                 CastRule("taunt an enemy off a member", P + 54,
                     [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
                     Taunt, PickLooseEnemy),
+                // A broken pull: too many loose enemies to taunt one by one.
+                CastRule("challenging shout", P + 52,
+                    [](BotContext const& context) {
+                        return FightsFocus(context) && LooseEnemiesInShoutRange(context) >= ShoutLooseEnemies;
+                    },
+                    ChallengingShout, PickSelf),
                 // jvbastel/WOWAI#114: threat on each enemy near, from the
                 // opener on (after Defensive Stance and Bloodrage, which
                 // give it the rage).

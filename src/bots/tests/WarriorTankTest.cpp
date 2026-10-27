@@ -1454,3 +1454,109 @@ TEST(WarriorTank, NoShoutOutOfCombat)
 
     EXPECT_NE(tank.Next(), CastOn(Warrior::DemoralizingShout, Tank));
 }
+
+// jvbastel/WOWAI#115: healer-first Taunt and Challenging Shout.
+namespace
+{
+    Bots::Guid const Rogue = 0x0000000000000013;
+    Bots::Guid const Bat = 0xF130000302000044;
+    Bots::Guid const Rat = 0xF130000302000055;
+
+    // The tank holds the kobold, and the group has a rogue and a healer
+    // (the rogue first in the member order).
+    struct GroupInFight : WarriorTank
+    {
+        GroupInFight()
+        {
+            fake.SetGroupMembers({Rogue, Healer});
+            group.SetHealer(Healer);
+            InFightWithKobold();
+            fake.SetInCombat(Tank);
+            for (Bots::Guid unit : {Rogue, Healer, Wolf, Bat, Rat})
+                fake.SetHealth(unit, 300, 300);
+        }
+    };
+}
+
+TEST(WarriorTank, TauntsTheEnemyOnTheHealerFirst)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+}
+
+TEST(WarriorTank, TauntsTheFocusBeforeTheEnemyOnTheHealer)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Kobold, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Kobold)}));
+}
+
+TEST(WarriorTank, ShoutsAtThreeLooseEnemies)
+{
+    GroupInFight tank;
+    tank.fake.SetKnownSpell(Warrior::ChallengingShout);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Rat, Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ChallengingShout, Tank)}));
+}
+
+TEST(WarriorTank, DoesNotShoutAtTwoLooseEnemies)
+{
+    GroupInFight tank;
+    tank.fake.SetKnownSpell(Warrior::ChallengingShout);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::ChallengingShout, Tank));
+}
+
+// Below level 26 the tank knows no Challenging Shout: it taunts the loose
+// enemies one by one, the one on the healer first.
+TEST(WarriorTank, WithoutChallengingShoutTauntsLooseEnemiesOneByOne)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Rat, Rogue);
+
+    tank.Think();
+    tank.fake.SetVictim(Bat, Tank);
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(),
+        (std::vector<std::string>{CastOn(Warrior::Taunt, Bat), CastOn(Warrior::Taunt, Wolf)}));
+}
+
+TEST(WarriorTank, DoesNotShoutWhenALooseEnemyIsOutOfShoutRange)
+{
+    GroupInFight tank;
+    tank.fake.SetKnownSpell(Warrior::ChallengingShout);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Rat, Healer);
+    tank.fake.SetDistance(Rat, 15.0f);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::ChallengingShout, Tank));
+}
