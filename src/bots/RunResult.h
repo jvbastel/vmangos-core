@@ -43,6 +43,10 @@ namespace Bots
         std::string pack;
         std::int64_t ms = 0; // When the group first fought a mob of it.
         bool warned = false; // The tank warned in party chat in that pull.
+        // No better pull could have kept it out, and why (RunJudge.h,
+        // jvbastel/WOWAI#123). Unjudged, a pack counts as avoidable.
+        bool avoidable = true;
+        std::string reason = "not judged";
     };
 
     // A `fight` of a pack, or a `command pull` of a scenario (no pack).

@@ -83,7 +83,13 @@ def summary(result):
     extra = [pack for pull in result.get("pulls", []) for pack in pull.get("extra_packs", [])]
     line += ", extra packs %d" % len(extra)
     if extra:
-        line += " (warned %d)" % sum(1 for pack in extra if pack["warned"])
+        line += " (warned %d" % sum(1 for pack in extra if pack["warned"])
+        # The judge's mark of each pack (jvbastel/WOWAI#123). An older result file has none.
+        marks = ["%s %s" % (pack["pack"], "avoidable" if pack["avoidable"] else "unavoidable")
+                 for pack in extra if "avoidable" in pack]
+        if marks:
+            line += "; " + ", ".join(marks)
+        line += ")"
     if result["reason"]:
         line += ": " + result["reason"]
     return line

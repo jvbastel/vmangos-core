@@ -48,6 +48,8 @@ namespace Bots
     // The shot of a line-of-sight pull goes from at most this far from its
     // fight spot, so the tank is back there before the caster sees it.
     float const LineOfSightShotYards = 10.0f;
+    // The enemies round the trail spots that count.
+    float const FightSpotEnemyYards = FightSpotSearchYards + 60.0f;
 
     struct FightSpot
     {
@@ -90,6 +92,11 @@ namespace Bots
     // way, oldest first (GroupCoordinator::GetTrail). The bot's own place
     // counts first, then the trail from its newest point.
     FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target);
+    // The same with only `enemies` round the pull, of those within
+    // FightSpotEnemyYards: the judge of the extra packs (RunJudge.h,
+    // jvbastel/WOWAI#123) asks it for one pack at a time.
+    FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target,
+        std::vector<NearEnemy> const& enemies);
 }
 
 #endif

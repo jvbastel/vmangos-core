@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_EXTRA_PACK_WATCH_H
 
 #include "BotActions.h"
+#include "RunJudge.h"
 #include "RunResult.h"
 
 #include <cstdint>
@@ -33,6 +34,9 @@ namespace Bots
         // The tank warned about extra packs in party chat: each extra pack of
         // the pull counts as warned, also one that joins later.
         void NoteWarn();
+        // The judge's mark of extra pack `pack` of the pull (RunJudge.h,
+        // jvbastel/WOWAI#123).
+        void Mark(std::string const& pack, ExtraPackMark const& mark);
 
         // The extra packs of the pull, in the order they joined.
         std::vector<RunExtraPack> const& ExtraPacks() const { return m_extra; }

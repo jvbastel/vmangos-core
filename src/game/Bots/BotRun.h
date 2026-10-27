@@ -190,6 +190,12 @@ class BotRun
         // The packs of the route that join the fight of the last pull
         // (Bots::ExtraPackWatch), into the result, the trace, and the log.
         void WatchExtraPacks(int64 nowMs);
+        // At a pull: the judge's mark (Bots::MarkExtraPack) of each other
+        // pack of the route round it, on the real packs and from the tank's
+        // cleared way at the pull (jvbastel/WOWAI#123).
+        void MarkPullPacks(Unit const* target, std::string const& pullPack);
+        // What brought pack `pack` when it joined: a flee or a patrol.
+        Bots::ExtraPackCause CauseOf(std::string const& pack) const;
         // The held pull (Bots::HoldWatch) into the trace and the log
         // (jvbastel/WOWAI#127).
         void WatchHold(int64 nowMs);
@@ -303,6 +309,12 @@ class BotRun
         // The enemies of the fight that flee now: each start of a flee is a
         // trace event (Bots::FleeLine, jvbastel/WOWAI#121).
         std::set<ObjectGuid> m_fleeing;
+        // The enemies that fled in the last pull, with their trace text, and
+        // the judge's mark of each pack round it (MarkPullPacks).
+        std::map<ObjectGuid, std::string> m_pullFled;
+        std::map<std::string, Bots::ExtraPackMark> m_pullMarks;
+        // MarkPullPacks saw a living tank and the target at the last pull.
+        bool m_pullJudged = false;
         // Where the test driver stood at its last move along the route.
         bool m_driverSeen = false;
         float m_driverX = 0.0f, m_driverY = 0.0f, m_driverZ = 0.0f;

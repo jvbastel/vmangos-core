@@ -66,6 +66,24 @@ class Summary(unittest.TestCase):
                          "ragefire_chasm two_packs run 4: passed after 61 s, bosses 0, wipes 0, deaths 0, "
                          "threat losses 0, lost mobs 0, extra packs 3 (warned 1)")
 
+    def test_marks_each_extra_pack_avoidable_or_unavoidable(self):
+        """jvbastel/WOWAI#123: the judge's mark of each extra pack. An older result file has none."""
+        result = {
+            "run": 6, "script": "ragefire_chasm", "scenario": "two_packs", "result": "failed",
+            "reason": "pull 2 (pack1) failed: extra pack pack2 was avoidable: a fight spot keeps it out",
+            "duration_s": 95.0, "bosses_killed": [], "wipes": [], "deaths": {"Ezzra": []},
+            "threat_losses": [], "lost_mobs": [],
+            "pulls": [{"pack": "pack48", "extra_packs": [{"pack": "pack49", "time_s": 30.0, "warned": True,
+                                                          "avoidable": False, "reason": "no fight spot"}]},
+                      {"pack": "pack1", "extra_packs": [{"pack": "pack2", "time_s": 90.0, "warned": True,
+                                                         "avoidable": True, "reason": "a fight spot"}]}],
+        }
+        self.assertEqual(runs.summary(result),
+                         "ragefire_chasm two_packs run 6: failed after 95 s, bosses 0, wipes 0, deaths 0, "
+                         "threat losses 0, lost mobs 0, extra packs 2 (warned 2; pack49 unavoidable, "
+                         "pack2 avoidable): pull 2 (pack1) failed: extra pack pack2 was avoidable: "
+                         "a fight spot keeps it out")
+
     def test_shows_the_threat_losses_of_the_healer(self):
         """jvbastel/WOWAI#113: the healer's threat losses next to all of them."""
         result = {

@@ -37,6 +37,16 @@ namespace Bots
             extra.warned = true;
     }
 
+    void ExtraPackWatch::Mark(std::string const& pack, ExtraPackMark const& mark)
+    {
+        for (RunExtraPack& extra : m_extra)
+            if (extra.pack == pack)
+            {
+                extra.avoidable = mark.avoidable;
+                extra.reason = mark.reason;
+            }
+    }
+
     std::string ExtraPackWatch::PackOf(std::uint32_t spawnGuid) const
     {
         auto const it = m_packOf.find(spawnGuid);
