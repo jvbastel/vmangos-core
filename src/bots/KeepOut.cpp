@@ -73,6 +73,14 @@ namespace Bots
             // warn, and the tank that goes in for the healer after its warn.
             if ((pull.goesIn && pull.puller == member) || TankHitsAnAddOfTheHealer(context, member))
                 return {};
+            // One reach rule with the fight spot search (FightSpot.h): it
+            // chose the puller's fight spot and its shot, and warned when
+            // they bring extra packs. While the puller has its fight spot (it
+            // pulls, or walks back to it), keep-out leaves it to that choice:
+            // else the two rules switch back and forth (t93-final2: 239
+            // switches with the walk back).
+            if (pull.phase != PullPhase::None && pull.puller == member && pull.hasFightSpot)
+                return {};
             Position const at = context.view.GetPosition(member);
             if (!InOtherPacksReach(context, at))
                 return {};

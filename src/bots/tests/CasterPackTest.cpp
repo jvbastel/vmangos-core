@@ -470,3 +470,26 @@ TEST(CasterPack, AMeleeDamageBotDoesNotChaseATargetInThePlaceOfAPackOutsideTheFi
     for (std::string const& deed : fake.Deeds())
         EXPECT_EQ(deed.find("chase"), std::string::npos) << deed;
 }
+
+// Full runs on b1e729403 (t93-final2): the tank switched 239 times between
+// "walk back to the fight spot" (68) and "keep out of other packs" (82).
+// One reach rule: the fight spot search chose the spot and the way back to
+// it (and warned when it brings extra packs), so keep-out does not fire on
+// the tank while it walks back to it. Here the walk back passes the place
+// of pack11.
+TEST(CasterPack, KeepOutDoesNotFireOnTheTanksWalkBackToItsFightSpot)
+{
+    CasterTank tank;
+    tank.group.StartPull(Tank, Shaman);
+    tank.Think();
+    ASSERT_TRUE(tank.group.GetPull().hasFightSpot);
+    tank.fake.SetPosition(Tank, NearPack11);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetInCombat(Shaman);
+    tank.fake.SetVictim(Shaman, Tank);
+    tank.group.KeepTrail(NearPack11, true);
+    tank.group.HoldPull(Tank, tank.nowMs);
+
+    for (int i = 0; i < 3; ++i)
+        EXPECT_EQ(tank.Think(), "walk back to the fight spot");
+}

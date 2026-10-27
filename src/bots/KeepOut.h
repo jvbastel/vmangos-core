@@ -53,7 +53,9 @@ namespace Bots
     // (FirstSafePlace, SafePlace.h). With no safe place the rule does not
     // fire: the bot keeps its fight rather than freeze. The exceptions: the
     // puller that goes in to a caster (PullState::goesIn, WarriorModule.h),
-    // and the tank that hits an add of TankGoesInForTheHealer.
+    // the tank that hits an add of TankGoesInForTheHealer, and the puller
+    // while it has its fight spot (it pulls, or walks back there): the
+    // fight spot search chose that way.
     std::shared_ptr<Strategy const> MakeKeepOutStrategy();
     char const* const KeepOutRule = "keep out of other packs";
 }
