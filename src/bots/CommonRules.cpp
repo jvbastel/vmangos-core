@@ -51,6 +51,14 @@ namespace Bots
         return unit != NoGuid && std::find(members.begin(), members.end(), unit) != members.end();
     }
 
+    bool IsHitInMelee(BotContext const& context, float yards)
+    {
+        for (Guid attacker : context.view.GetAttackers(context.view.GetSelf()))
+            if (IsAlive(context.view, attacker) && context.view.GetDistance(attacker) <= yards)
+                return true;
+        return false;
+    }
+
     bool FollowsAMember(BotContext const& context)
     {
         Guid const target = context.view.GetFollowTarget();

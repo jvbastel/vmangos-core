@@ -28,6 +28,11 @@ namespace Bots
     // True when unit `unit` is a member of the bot's group.
     bool IsGroupMember(BotView const& view, Guid unit);
 
+    // True when a living enemy that attacks the bot is at most `yards` from
+    // it: a melee hit, for Shield Block (WarriorModule.cpp) or Frost Nova
+    // (MageModule.cpp).
+    bool IsHitInMelee(BotContext const& context, float yards);
+
     // True when the bot follows a living group member other than the
     // player, such as the healer on its way to a hurt member (PriestModule).
     bool FollowsAMember(BotContext const& context);

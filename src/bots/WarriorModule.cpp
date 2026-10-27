@@ -275,16 +275,6 @@ namespace Bots
                 return rule;
             }
 
-            // A living enemy hits the tank in melee reach: a hit that a
-            // shield can block.
-            bool HitInMelee(BotContext const& context)
-            {
-                for (Guid const attacker : context.view.GetAttackers(Self(context)))
-                    if (IsAlive(context.view, attacker) && context.view.GetDistance(attacker) <= MeleeYards)
-                        return true;
-                return false;
-            }
-
             // A taunt is due and ready: the focus or another enemy hits a
             // member, and the tank can taunt it now. The walk back waits
             // for it, so that no member holds an enemy of the pull.
@@ -610,7 +600,7 @@ namespace Bots
                 CastRule("shield block", P + 38,
                     [](BotContext const& context) {
                         return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
-                            && Rage(context) >= ShieldBlockRage && HitInMelee(context);
+                            && Rage(context) >= ShieldBlockRage && IsHitInMelee(context, MeleeYards);
                     },
                     ShieldBlock, PickSelf),
                 // jvbastel/WOWAI#117: one Sunder Armor on the threat target
