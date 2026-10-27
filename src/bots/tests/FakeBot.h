@@ -165,6 +165,11 @@ namespace Bots
             // The level of unit `target` is too low for rank `rank` of a
             // buff (BotView::LevelAllowsRank).
             void SetLevelTooLowFor(SpellId rank, Guid target) { m_levelTooLow.insert({rank, target}); }
+            void SetRangedWeapon(RangedWeapon const& weapon) { m_ranged = weapon; }
+            void SetLevel(Guid unit, std::uint32_t level) { m_level[unit] = level; }
+            void SetMoving(Guid unit, bool moving = true) { m_moving[unit] = moving; }
+            // The bags are full: no ammo top-up has room (HasRoomFor).
+            void SetBagsFull(bool full = true) { m_bagsFull = full; }
             std::vector<std::string> const& Deeds() const { return m_deeds; }
 
             // BotView
@@ -356,6 +361,20 @@ namespace Bots
                 return near;
             }
 
+            RangedWeapon GetRangedWeapon() const override { return m_ranged; }
+            std::uint32_t GetLevel(Guid unit) const override
+            {
+                auto found = m_level.find(unit);
+                return found == m_level.end() ? 0 : found->second;
+            }
+            bool HasRoomFor(AmmoTopUp const&) const override { return !m_bagsFull; }
+            bool IsMeleeAttacking() const override { return GetVictim(m_self) != NoGuid && !m_noMeleeSwing; }
+            bool IsMoving(Guid unit) const override
+            {
+                auto found = m_moving.find(unit);
+                return found != m_moving.end() && found->second;
+            }
+
             // BotActions
             void CastSpell(SpellId spell, Guid target) override
             {
@@ -378,7 +397,11 @@ namespace Bots
                 m_deeds.push_back(deed.str());
             }
 
-            void Attack(Guid target) override { AddDeed("attack", target); }
+            void Attack(Guid target) override
+            {
+                AddDeed("attack", target);
+                m_noMeleeSwing = false;
+            }
             void Chase(Guid target) override
             {
                 AddDeed("chase", target);
@@ -396,6 +419,15 @@ namespace Bots
                 range << " to " << yards << " yards";
                 m_deeds.back() += range.str();
                 m_chase = {target, false};
+                // Like the real chase: the target becomes the victim,
+                // with no melee swing.
+                m_victim[m_self] = target;
+                m_noMeleeSwing = true;
+            }
+            void Stand() override
+            {
+                m_deeds.push_back("stand");
+                m_chase = {NoGuid, false};
             }
             void PetAttack(Guid target) override { AddDeed("pet attack", target); }
             void Follow(Guid unit) override
@@ -411,6 +443,11 @@ namespace Bots
             void WarnExtraPacks(std::uint32_t packs) override
             {
                 m_deeds.push_back("warn extra packs " + std::to_string(packs));
+            }
+
+            void TopUpAmmo(AmmoTopUp const& topUp) override
+            {
+                m_deeds.push_back("top up ammo " + std::to_string(topUp.entry) + " to " + std::to_string(topUp.count));
             }
 
         private:
@@ -471,6 +508,11 @@ namespace Bots
             std::set<std::pair<SpellId, Guid>> m_levelTooLow;
             bool m_stunned = false;
             bool m_silenced = false;
+            RangedWeapon m_ranged;
+            std::map<Guid, std::uint32_t> m_level;
+            std::map<Guid, bool> m_moving;
+            bool m_bagsFull = false;
+            bool m_noMeleeSwing = false;
             std::vector<std::string> m_deeds;
         };
     }

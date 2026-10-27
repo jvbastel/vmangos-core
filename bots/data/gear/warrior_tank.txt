@@ -1109,7 +1109,7 @@ item ranged 15327 35-41 0 14.67  # Wicked Throwing Dagger, white, vendor
 item ranged 9400 36-42 0 13.22  # Baelog's Shortbow, white, dungeon
 item ranged 10508 36-42 0 17.34  # Mithril Blunderbuss, green, craft
 item ranged 11307 42-48 0 17.57  # Massive Longbow, green, vendor
-item ranged 11308 44-50 0 18.20  # Sylvan Shortbow, green, vendor
+item ranged 11308 44-60 0 18.20  # Sylvan Shortbow, green, vendor
 item ranged 18460 55-60 1 27.04  # Unsophisticated Hand Cannon, green, dungeon
 item ranged 20599 60-60 6 43.77  # Polished Ironwood Crossbow, epic, world
 item ranged 21272 60-60 7 47.85  # Blessed Qiraji Musket, epic, quest

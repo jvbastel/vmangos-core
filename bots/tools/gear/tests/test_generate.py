@@ -258,3 +258,29 @@ def test_a_role_can_keep_to_its_armor_types():
     found = generate.build_lines(world, generate.Settings.from_dict(data), "rogue_melee", set())
     assert {line.entry for line in found} == {101}
     assert {line.entry for line in lines(world, "rogue_melee")} == {100, 101}
+
+
+def test_a_slot_to_fill_keeps_its_best_item_until_the_next_item_comes():
+    # The tank pulls with its ranged weapon at every level.
+    world = quest_world(
+        item(100, required_level=10, item_class=2, subclass=2, inventory_type=15, dmg=(5, 7), delay=2000),
+        item(101, required_level=30, item_class=2, subclass=2, inventory_type=15, dmg=(15, 20), delay=2000))
+    role = copy.deepcopy(BASE["roles"]["warrior_tank"])
+    role["fill"] = ["ranged"]
+
+    found = by_entry(lines(world, roles__warrior_tank=role))
+    assert (found[100].min_level, found[100].max_level) == (10, 29)
+    assert (found[101].min_level, found[101].max_level) == (30, 60)
+
+
+def test_a_slot_without_fill_keeps_the_window():
+    world = quest_world(item(100, required_level=10, item_class=2, subclass=2, inventory_type=15, dmg=(5, 7), delay=2000))
+
+    assert by_entry(lines(world))[100].max_level == 16
+
+
+def test_a_slot_to_fill_must_be_a_slot_of_the_template():
+    role = copy.deepcopy(BASE["roles"]["warrior_tank"])
+    role["fill"] = ["nose"]
+    with pytest.raises(ValueError):
+        settings(roles__warrior_tank=role)

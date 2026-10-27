@@ -95,3 +95,15 @@ TEST(GearData, TheWarriorTankWearsAShieldAndTheRogueTwoWeapons)
         EXPECT_TRUE(Positions(melee).count(Bots::GearPosition::OffHand)) << "guid " << guid;
     }
 }
+
+TEST(GearData, AWarriorTankWearsARangedWeaponAtEveryLevel)
+{
+    // The tank pulls with it (WarriorModule.h). Patch 0 (1.2) is the patch
+    // of the realms; the last patch is checked too.
+    Bots::GearTemplateResult const result = ReadTemplate("warrior_tank");
+    ASSERT_TRUE(result.ok) << result.error;
+    for (std::uint32_t patch : {0u, 10u})
+        for (std::uint32_t level = 1; level <= 60; ++level)
+            EXPECT_TRUE(Positions(Bots::DrawGear(result.gearTemplate, 42, level, patch)).count(Bots::GearPosition::Ranged))
+                << "no ranged weapon at level " << level << ", patch " << patch;
+}
