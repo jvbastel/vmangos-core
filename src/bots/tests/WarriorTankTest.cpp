@@ -1179,7 +1179,7 @@ TEST(WarriorTank, NoShieldBlockWhenAnEnemyHitsItOnlyFromRange)
 {
     ShieldTank tank;
     tank.fake.SetVictim(Kobold, NoGuid);
-    // A caster hits the tank from 30 yards: a shield cannot block it.
+    // An enemy hits the tank from 30 yards (out of melee reach): a shield cannot block it.
     tank.fake.SetHealth(Wolf, 200, 200);
     tank.fake.SetDistance(Wolf, 30.0f);
     tank.fake.SetVictim(Wolf, Tank);
@@ -1255,4 +1255,20 @@ TEST(WarriorTank, PrefersShieldBlockToHeroicStrike)
     tank.Think();
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+TEST(WarriorTank, PrefersShieldBlockToSunderArmor)
+{
+    ShieldTank tank;
+    // Sunder Armor is ready and its rage is there: with Shield Block on
+    // its cooldown, the tank sunders.
+    tank.fake.SetCannotCast(Warrior::ShieldBlock);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+
+    ShieldTank ready;
+
+    ready.Think();
+
+    EXPECT_EQ(ready.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
 }
