@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_RUN_JUDGE_H
 
 #include "BotView.h"
+#include "FightSpot.h"
 #include "RunResult.h"
 
 #include <cstddef>
@@ -130,7 +131,7 @@ namespace Bots
     // An enemy that fled in the pull and is this near to an enemy of a pack
     // when the pack joins brought it: twice the assistance radius
     // (FightSpot.h), for the flee and the call for help at its end.
-    float const FleeBringsYards = 20.0f;
+    float const FleeBringsYards = 2 * AssistanceYards;
 
     // What the game layer saw bring the extra pack when it joined.
     struct ExtraPackCause
