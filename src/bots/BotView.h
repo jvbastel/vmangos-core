@@ -159,6 +159,10 @@ namespace Bots
         virtual bool IsEating() const = 0;
         // True when the bot drinks now: it has the aura of its drink.
         virtual bool IsDrinking() const = 0;
+        // True while a scripted move of the test driver walks: the bot is
+        // the test driver of a scripted run, and its `move` has not arrived
+        // or stopped yet. Then the script decides, and the bot does not rest.
+        virtual bool IsScriptedMoveInProgress() const = 0;
         // Places to move to, for the safe places of SafePlace.h.
         // `place` on the ground near its height z, as MoveTo puts it.
         virtual Position GetGround(Position const& place) const = 0;

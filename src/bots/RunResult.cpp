@@ -134,6 +134,7 @@ namespace Bots
         j["fights"] = fights;
         j["threat_losses"] = Hits(r.threatLosses);
         j["lost_mobs"] = Hits(r.lostMobs);
+        j["moves_stopped"] = r.movesStopped;
 
         Json interrupts = Json::array();
         for (RunInterrupt const& i : r.interrupts)

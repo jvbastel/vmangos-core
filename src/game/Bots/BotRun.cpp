@@ -26,6 +26,7 @@
 #include "ObjectMgr.h"
 #include "Pet.h"
 #include "Player.h"
+#include "PointMovementGenerator.h"
 #include "GroupRules.h"
 #include "RouteFiles.h"
 #include "SharedDefines.h"
@@ -62,6 +63,24 @@ namespace
     // The test driver arrived when it is this much past the radius of the
     // place of its `move`.
     float const ArriveSlackYards = 1.5f;
+
+    // The motion that took the test driver off its scripted move, for the
+    // stop reason when no rule of its bot AI did it.
+    std::string MotionName(MovementGeneratorType type)
+    {
+        switch (type)
+        {
+            case IDLE_MOTION_TYPE: return "idle";
+            case CONFUSED_MOTION_TYPE: return "confused";
+            case CHASE_MOTION_TYPE: return "chase";
+            case POINT_MOTION_TYPE: return "another point";
+            case FLEEING_MOTION_TYPE:
+            case TIMED_FLEEING_MOTION_TYPE: return "fleeing";
+            case FOLLOW_MOTION_TYPE: return "follow";
+            case EFFECT_MOTION_TYPE: return "effect";
+            default: return "type " + std::to_string(int(type));
+        }
+    }
 
     int64 SteadyMs()
     {
@@ -317,6 +336,8 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_teleportRest = false;
     m_moving = false;
     m_visited = false;
+    m_move = Bots::ScriptedMove();
+    EndMove();
     m_aborted = false;
     m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0));
     m_trace = Bots::RunTrace();
@@ -430,7 +451,10 @@ void BotRun::Finish(bool passed, std::string const& reason)
     m_result = line.str();
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
     m_trace.Add(RunMs(), m_result);
+    // The driver may rest again.
+    EndMove();
     // 2. The result file, and the trace of a run that did not pass.
+    m_record.movesStopped = m_move.StopCount();
     m_record.durationMs = RunMs();
     m_record.outcome = passed ? Bots::RunOutcome::Passed : m_aborted ? Bots::RunOutcome::Aborted : Bots::RunOutcome::Failed;
     m_record.reason = passed ? "" : reason;
@@ -807,12 +831,17 @@ Bots::RunFacts BotRun::Facts() const
         facts.fightPackAlive = !InWorldAndStill(driver) || LivingMobOf(pack);
     if (driver && driver->IsInWorld())
         facts.driverAt = {driver->GetPositionX(), driver->GetPositionY(), driver->GetPositionZ()};
-    if (m_moving && driver && driver->IsInWorld())
-    {
-        Bots::Position const at{driver->GetPositionX(), driver->GetPositionY(), 0.0f};
-        facts.driverArrived = Bots::Distance2d(at, {m_moveX, m_moveY, 0.0f}) <= m_moveRadius + ArriveSlackYards;
-    }
+    facts.driverArrived = DriverArrived(driver);
+    facts.driverMoveStop = m_move.StopReason();
     return facts;
+}
+
+bool BotRun::DriverArrived(Player const* driver) const
+{
+    if (!m_moving || !driver || !driver->IsInWorld())
+        return false;
+    Bots::Position const at{driver->GetPositionX(), driver->GetPositionY(), 0.0f};
+    return Bots::Distance2d(at, {m_moveX, m_moveY, 0.0f}) <= m_moveRadius + ArriveSlackYards;
 }
 
 void BotRun::WatchThreat(int64 nowMs)
@@ -968,6 +997,7 @@ bool BotRun::Teleport(Bots::RoutePoint const& point, std::string& detail)
         return false;
     }
     m_moving = false;
+    EndMove();
     m_teleportRest = true;
     m_teleportPoint = point;
     return true;
@@ -1000,6 +1030,8 @@ bool BotRun::Move(Bots::RoutePoint const& point, std::string& detail)
     Bots::RoutePlace const place = PickPlace(point, driver->GetName(), x, y);
     // The one ground height helper of the bots (BotAdapter::GetGround).
     float const z = BotAdapter(driver).GetGround({x, y, place.position.z}).z;
+    // A driver that still sits stands up: a walk ends its meal.
+    driver->SetStandState(UNIT_STAND_STATE_STAND);
     driver->GetMotionMaster()->Clear();
     driver->GetMotionMaster()->MovePoint(0, x, y, z, MOVE_PATHFINDING | MOVE_RUN_MODE);
     m_moving = true;
@@ -1008,7 +1040,64 @@ bool BotRun::Move(Bots::RoutePoint const& point, std::string& detail)
     m_moveRadius = place.radius;
     m_movePoint = point.name;
     m_visited = false;
+    // While the move is in progress, the driver does not rest. Nothing sends
+    // a stopped move again (jvbastel/WOWAI#99).
+    EndMove();
+    std::string const line = m_move.Start(driver->GetName(), point.name);
+    m_moveInProgress = true;
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, line.c_str());
+    m_trace.Add(RunMs(), line);
     return true;
+}
+
+void BotRun::NoteDriverMoveRule(std::string const& rule)
+{
+    std::lock_guard<std::mutex> lock(m_moveRuleMutex);
+    m_moveRule = rule;
+}
+
+bool BotRun::OnScriptedMove(Player* driver) const
+{
+    MotionMaster const* motion = driver->GetMotionMaster();
+    if (motion->empty())
+        return false;
+    auto const point = dynamic_cast<PointMovementGenerator<Player> const*>(motion->GetCurrent());
+    float x, y, z;
+    return point && point->GetDestination(x, y, z) && x == m_moveX && y == m_moveY;
+}
+
+void BotRun::WatchMove(Player* driver, int64 nowMs)
+{
+    if (!m_move.InProgress())
+        return;
+    std::string line;
+    if (DriverArrived(driver))
+        line = m_move.Arrive();
+    else if (!OnScriptedMove(driver))
+    {
+        // A rule of the driver's bot AI, else the core: for example a stun,
+        // a death, or the end of a point move that fell short.
+        std::string rule;
+        {
+            std::lock_guard<std::mutex> lock(m_moveRuleMutex);
+            rule = m_moveRule;
+        }
+        line = m_move.Stop(!rule.empty() ? "the rule " + rule
+            : "the core's motion change to " + MotionName(driver->GetMotionMaster()->GetCurrentMovementGeneratorType()));
+    }
+    if (line.empty())
+        return;
+    m_moveInProgress = m_move.InProgress();
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, line.c_str());
+    m_trace.Add(nowMs, line);
+}
+
+void BotRun::EndMove()
+{
+    m_move.End();
+    m_moveInProgress = false;
+    std::lock_guard<std::mutex> lock(m_moveRuleMutex);
+    m_moveRule.clear();
 }
 
 bool BotRun::Say(uint32 chatType, Player* receiver, std::string const& text)
@@ -1277,11 +1366,12 @@ void BotRun::WatchRun(int64 nowMs)
             m_driverY = driver->GetPositionY();
             m_driverZ = driver->GetPositionZ();
         }
-        if (m_moving && !m_visited && Facts().driverArrived)
+        if (m_moving && !m_visited && DriverArrived(driver))
         {
             m_visited = true;
             m_quests->OnVisit(m_movePoint);
         }
+        WatchMove(driver, nowMs);
     }
 
     TraceMembers(nowMs);

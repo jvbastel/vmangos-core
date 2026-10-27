@@ -50,6 +50,14 @@ namespace Bots
                 && context.group.GetPull().puller != self;
         }
 
+        // The bot may rest: after a fight, and not while the script walks it
+        // (a scripted move of the test driver, jvbastel/WOWAI#99). A drink
+        // would stop the move, and nothing sends it again.
+        bool MayRest(BotContext const& context)
+        {
+            return AfterFight(context) && !context.view.IsScriptedMoveInProgress();
+        }
+
         // Why the bot rests now: its meal still fills it. Eating comes first.
         RestReason RestReasonOf(BotView const& view)
         {
@@ -116,21 +124,21 @@ namespace Bots
             Rule{"eat", P + 32,
                 [](BotContext const& context) {
                     Health const health = context.view.GetHealth(context.view.GetSelf());
-                    return AfterFight(context) && !context.view.IsEating() && (Below(health.current, health.max) ||
+                    return MayRest(context) && !context.view.IsEating() && (Below(health.current, health.max) ||
                         (context.group.RestsUntilFull(context.view.GetSelf()) && health.current < health.max));
                 },
                 Always([](BotContext const& context) { context.actions.Eat(); })},
             Rule{"drink", P + 31,
                 [](BotContext const& context) {
                     Power const mana = context.view.GetMana(context.view.GetSelf());
-                    return AfterFight(context) && !context.view.IsDrinking() && (Below(mana.current, mana.max) ||
+                    return MayRest(context) && !context.view.IsDrinking() && (Below(mana.current, mana.max) ||
                         (context.group.RestsUntilFull(context.view.GetSelf()) && mana.current < mana.max));
                 },
                 Always([](BotContext const& context) { context.actions.Drink(); })},
             // Over the corpse loot and the follow rule: a move stands the
             // bot up and ends its meal.
             Rule{"keep resting", P + 30,
-                [](BotContext const& context) { return AfterFight(context) && RestsNow(context.view); },
+                [](BotContext const& context) { return MayRest(context) && RestsNow(context.view); },
                 Always(Nothing)},
         };
         return std::make_shared<Strategy const>(Strategy{"rest", std::move(rules)});

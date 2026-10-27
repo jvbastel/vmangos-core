@@ -151,6 +151,7 @@ namespace Bots
             void SetMana(Guid unit, std::uint32_t current, std::uint32_t max) { m_mana[unit] = Power{current, max}; }
             void SetEating(bool eating = true) { m_eating = eating; }
             void SetDrinking(bool drinking = true) { m_drinking = drinking; }
+            void SetScriptedMove(bool moving = true) { m_scriptedMove = moving; }
             // Spell `spell` targets dead units, for example a resurrect.
             void SetCastsOnDead(SpellId spell) { m_castsOnDead.insert(spell); }
             // The bot cannot cast spell `spell` on unit `target` now, for
@@ -328,6 +329,7 @@ namespace Bots
             }
             bool IsEating() const override { return m_eating; }
             bool IsDrinking() const override { return m_drinking; }
+            bool IsScriptedMoveInProgress() const override { return m_scriptedMove; }
             Position GetGround(Position const& place) const override
             {
                 Position ground = place;
@@ -462,6 +464,7 @@ namespace Bots
             std::map<Guid, Power> m_mana;
             bool m_eating = false;
             bool m_drinking = false;
+            bool m_scriptedMove = false;
             std::set<SpellId> m_castsOnDead;
             std::set<std::pair<SpellId, Guid>> m_cannotCastOn;
             std::set<std::pair<SpellId, Guid>> m_levelTooLow;

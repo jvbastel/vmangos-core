@@ -120,6 +120,20 @@ TEST(ScriptRunner, WaitArriveFailsAfterItsLimit)
     EXPECT_EQ(step.reason, "line 6: wait arrive: the test driver did not arrive in 60 s");
 }
 
+// The run never sends a stopped move again: the fail names why the move of
+// the test driver stopped (jvbastel/WOWAI#99).
+TEST(ScriptRunner, WaitArriveNamesTheStopOfTheMove)
+{
+    ScriptRunner runner(Commands("wait arrive\n"));
+    RunFacts stopped;
+    stopped.driverMoveStop = "the rule drink";
+    runner.Update(stopped, 0);
+
+    RunStep const step = runner.Update(stopped, Bots::ArriveLimitMs);
+    EXPECT_EQ(step.kind, RunStepKind::Failed);
+    EXPECT_EQ(step.reason, "line 6: wait arrive: the test driver did not arrive in 60 s, its move stopped: the rule drink");
+}
+
 TEST(ScriptRunner, WaitCombatEndWaitsForAFightAndItsEnd)
 {
     ScriptRunner runner(Commands("wait combat_end\nrefill\n"));
