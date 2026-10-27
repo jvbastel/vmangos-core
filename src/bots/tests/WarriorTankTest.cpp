@@ -134,7 +134,7 @@ TEST(WarriorTank, ShootsThePullTargetFromRangeInsteadOfCharging)
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(ShootBow, Kobold)}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
 }
 
 TEST(WarriorTank, GoesIntoShootingRangeOfAFarPullTarget)
@@ -148,7 +148,9 @@ TEST(WarriorTank, GoesIntoShootingRangeOfAFarPullTarget)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
 }
 
-TEST(WarriorTank, GoesIntoShootingRangeWhenItCannotSeeThePullTarget)
+// In range but out of sight, a ranged chase can stop where it still sees
+// nothing: the tank closes in until it sees the target.
+TEST(WarriorTank, ClosesInWhenItCannotSeeThePullTarget)
 {
     BowTank tank;
     tank.fake.AddBlindToFromX(Kobold, -1.0f);
@@ -156,7 +158,28 @@ TEST(WarriorTank, GoesIntoShootingRangeWhenItCannotSeeThePullTarget)
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
+// The shot is out and the tank is in combat, but the kobold does not
+// attack it yet: the tank stays and does not run to it.
+TEST(WarriorTank, DoesNotRunToThePullTargetAfterItsShot)
+{
+    BowTank tank;
+    tank.Pull();
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetCannotCast(ShootBow);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+    {
+        EXPECT_EQ(std::string::npos, deed.find("attack")) << deed;
+        EXPECT_EQ(std::string::npos, deed.find("chase")) << deed;
+    }
 }
 
 TEST(WarriorTank, WaitsWhileItsShotGoesOut)

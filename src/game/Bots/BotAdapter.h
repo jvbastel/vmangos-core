@@ -89,6 +89,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         uint32 GetLevel(Bots::Guid unit) const override;
         bool IsMoving(Bots::Guid unit) const override;
         bool HasRoomFor(Bots::AmmoTopUp const& topUp) const override;
+        bool IsMeleeAttacking() const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;

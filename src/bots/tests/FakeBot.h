@@ -368,6 +368,7 @@ namespace Bots
                 return found == m_level.end() ? 0 : found->second;
             }
             bool HasRoomFor(AmmoTopUp const&) const override { return !m_bagsFull; }
+            bool IsMeleeAttacking() const override { return GetVictim(m_self) != NoGuid && !m_noMeleeSwing; }
             bool IsMoving(Guid unit) const override
             {
                 auto found = m_moving.find(unit);
@@ -396,7 +397,11 @@ namespace Bots
                 m_deeds.push_back(deed.str());
             }
 
-            void Attack(Guid target) override { AddDeed("attack", target); }
+            void Attack(Guid target) override
+            {
+                AddDeed("attack", target);
+                m_noMeleeSwing = false;
+            }
             void Chase(Guid target) override
             {
                 AddDeed("chase", target);
@@ -413,7 +418,8 @@ namespace Bots
                 std::ostringstream range;
                 range << " to " << yards << " yards";
                 m_deeds.back() += range.str();
-                m_chase = {target, false, true};
+                m_chase = {target, false};
+                m_noMeleeSwing = true;
             }
             void Stand() override
             {
@@ -498,6 +504,7 @@ namespace Bots
             std::map<Guid, std::uint32_t> m_level;
             std::map<Guid, bool> m_moving;
             bool m_bagsFull = false;
+            bool m_noMeleeSwing = false;
             std::vector<std::string> m_deeds;
         };
     }

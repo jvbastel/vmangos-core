@@ -159,6 +159,8 @@ namespace Bots
                          return context.view.CanCast(ShootSpell(context.view.GetRangedWeapon().kind), PickPullTarget(context));
                      },
                         [](BotContext const& context) {
+                            // No chase may move the tank out of its cast.
+                            context.actions.Stand();
                             context.actions.CastSpell(ShootSpell(context.view.GetRangedWeapon().kind), PickPullTarget(context));
                         }}},
                 Rule{"go into shooting range", P + 74,
@@ -167,7 +169,13 @@ namespace Bots
                     },
                     {[](BotContext const& context) { return IsAlive(context.view, PickPullTarget(context)); },
                         [](BotContext const& context) {
-                            context.actions.ChaseToRange(PickPullTarget(context), ShootStandYards);
+                            // Too far: to shooting range. In range but out of
+                            // sight: closer, until the tank sees the target.
+                            Guid const target = PickPullTarget(context);
+                            if (context.view.GetSpellDistance(target) > MaxShootYards)
+                                context.actions.ChaseToRange(target, ShootStandYards);
+                            else
+                                context.actions.Chase(target);
                         }}},
                 // Else the fallback: run in and hit the target once, then
                 // walk back ("walk back to the pull spot").
@@ -222,9 +230,12 @@ namespace Bots
                         Guid const focus = PickFocusTarget(context);
                         if (!FightsFocus(context))
                             return false;
+                        // The pull rules move the tank until the pull holds.
+                        if (IsPulling(context))
+                            return false;
                         ChaseState const chase = context.view.GetChase();
-                        // A ranged chase from the pull attacks with no melee swing.
-                        if (context.view.GetVictim(Self(context)) != focus || (chase.target == focus && chase.ranged))
+                        // The ranged chase of the pull attacks with no melee swing.
+                        if (context.view.GetVictim(Self(context)) != focus || !context.view.IsMeleeAttacking())
                             return true;
                         return context.view.GetDistance(focus) > MeleeYards && chase.target != focus
                             && !FocusComes(context);

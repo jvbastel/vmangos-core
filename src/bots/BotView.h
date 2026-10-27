@@ -19,9 +19,7 @@ namespace Bots
         Guid target; // NoGuid when the bot chases no unit.
         bool behind; // The bot runs behind the unit (BotActions::ChaseBehind).
         // A chase from BotActions::ChaseToRange is not behind.
-        // A chase from ChaseToRange: the bot stays at range and attacks
-        // without a melee swing.
-        bool ranged = false;
+
     };
 
     // The spell that a unit casts now.
@@ -183,6 +181,10 @@ namespace Bots
         // True when unit `unit` moves now, for example a pulled enemy on its
         // way to the tank.
         virtual bool IsMoving(Guid unit) const = 0;
+        // True when the bot swings at its victim in melee. The attack of
+        // BotActions::ChaseToRange has no melee swing; BotActions::Attack
+        // starts it.
+        virtual bool IsMeleeAttacking() const = 0;
         // True when BotActions::TopUpAmmo(topUp) has room: in the bags for
         // the missing arrows or bullets, or in the worn thrown stack.
         virtual bool HasRoomFor(AmmoTopUp const& topUp) const = 0;
