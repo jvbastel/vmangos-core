@@ -44,6 +44,12 @@ namespace Bots
         bool m_warned = false;
         std::vector<RunExtraPack> m_extra;
     };
+
+    // The warn hook of jvbastel/WOWAI#105: the line of the tank in party
+    // chat when a pull will bring `packs` extra packs. A rule warns through
+    // BotActions::WarnExtraPacks, which says this line; a scripted run
+    // records the warn for the extra packs of the pull.
+    std::string ExtraPackWarnLine(std::uint32_t packs);
 }
 
 #endif

@@ -95,3 +95,11 @@ TEST(ExtraPackWatch, ThePackOfASpawn)
     EXPECT_EQ(watch.PackOf(Pack14B), "pack14");
     EXPECT_EQ(watch.PackOf(Roamer), "");
 }
+
+// The warn hook of jvbastel/WOWAI#105: the line that the tank says in party
+// chat when a pull brings extra packs.
+TEST(ExtraPackWatch, TheWarnLineNamesTheNumberOfExtraPacks)
+{
+    EXPECT_EQ(Bots::ExtraPackWarnLine(1), "Careful: this pull brings 1 more pack.");
+    EXPECT_EQ(Bots::ExtraPackWarnLine(2), "Careful: this pull brings 2 more packs.");
+}

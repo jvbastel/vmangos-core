@@ -42,4 +42,9 @@ namespace Bots
         auto const it = m_packOf.find(spawnGuid);
         return it == m_packOf.end() ? std::string() : it->second;
     }
+
+    std::string ExtraPackWarnLine(std::uint32_t packs)
+    {
+        return "Careful: this pull brings " + std::to_string(packs) + (packs == 1 ? " more pack." : " more packs.");
+    }
 }
