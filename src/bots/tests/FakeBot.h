@@ -542,7 +542,7 @@ namespace Bots
         // answers `spot`, or none for `found` false.
         inline GroupCoordinator::MemberSpotFinder SpotAt(bool found, Position spot)
         {
-            return [found, spot](std::vector<Position> const&, Position& at) {
+            return [found, spot](PullState const&, std::vector<Position> const&, Position& at) {
                 at = spot;
                 return found;
             };

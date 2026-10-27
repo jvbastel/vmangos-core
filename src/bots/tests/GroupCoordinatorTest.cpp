@@ -223,7 +223,7 @@ namespace
     Bots::Guid const Ranged = 0x12;
     Bots::Guid const Healer = 0x13;
 
-    bool FirstFree(std::vector<Bots::Position> const& taken, Bots::Position& spot)
+    bool FirstFree(PullState const&, std::vector<Bots::Position> const& taken, Bots::Position& spot)
     {
         for (float x : {-16.0f, -22.0f})
             if (std::none_of(taken.begin(), taken.end(), [x](Bots::Position const& other) { return other.x == x; }))
@@ -253,9 +253,9 @@ TEST(GroupCoordinator, ABotWithAMemberSpotKeepsIt)
     group.ClaimMemberSpot(Ranged, FirstFree);
     int finds = 0;
 
-    Bots::MemberSpot const again = group.ClaimMemberSpot(Ranged, [&finds](std::vector<Bots::Position> const& taken, Bots::Position& spot) {
+    Bots::MemberSpot const again = group.ClaimMemberSpot(Ranged, [&finds](PullState const& pull, std::vector<Bots::Position> const& taken, Bots::Position& spot) {
         ++finds;
-        return FirstFree(taken, spot);
+        return FirstFree(pull, taken, spot);
     });
 
     EXPECT_EQ(finds, 0);
@@ -273,4 +273,19 @@ TEST(GroupCoordinator, TwoBotsAtOnceNeverClaimOneMemberSpot)
         other.join();
         ASSERT_NE(ranged.spot.x, healer.spot.x);
     }
+}
+
+// The search runs outside the lock: it may ask the coordinator, and it gets
+// the pull that is on.
+TEST(GroupCoordinator, AMemberSpotSearchMayAskTheCoordinator)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+
+    Bots::MemberSpot const spot = group.ClaimMemberSpot(Ranged,
+        [&group](PullState const& pull, std::vector<Bots::Position> const& taken, Bots::Position& at) {
+            return pull.target == Kobold && group.GetPull().target == Kobold && FirstFree(pull, taken, at);
+        });
+
+    EXPECT_TRUE(spot.found);
 }

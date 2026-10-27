@@ -247,7 +247,13 @@ namespace Bots
                     [](BotContext const& context) {
                         return GoesToShoot(context) && DistanceToShootSpot(context) <= AtSpotYards;
                     },
-                    [](BotContext const& context) { context.group.ClearShootSpot(Self(context)); }),
+                    [](BotContext const& context) {
+                        // Its chase to the target from here is no checked
+                        // way (FightSpot.h): the tank warns, once a pull.
+                        context.group.ClearShootSpot(Self(context));
+                        if (!context.group.GetPull().extraPackWarned)
+                            Warn(context, 0);
+                    }),
                 Rule{"go to the shoot spot", P + 77,
                     [](BotContext const& context) {
                         return GoesToShoot(context) && DistanceToShootSpot(context) > AtSpotYards;
@@ -275,11 +281,7 @@ namespace Bots
                         [](BotContext const& context) {
                             // Too far: to shooting range. In range but out of
                             // sight: closer, until the tank sees the target.
-                            // No fight spot checked this way to the target
-                            // (no shoot spot): the tank warns.
                             Guid const target = PickPullTarget(context);
-                            if (!context.group.GetPull().warned)
-                                Warn(context, 0);
                             context.group.CountRangeChase(Self(context), context.view.IsMoving(Self(context)));
                             if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooFar)
                                 context.actions.ChaseToRange(target, ShootStandYards);

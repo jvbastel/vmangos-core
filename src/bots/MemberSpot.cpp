@@ -189,11 +189,12 @@ namespace Bots
         void GoToMemberSpot(BotContext const& context, BotRole role)
         {
             Guid const self = context.view.GetSelf();
-            PullState const pull = context.group.GetPull();
+            // The trail holds still while the pull is on (Trail.h).
             std::vector<Position> const trail = context.group.GetTrail();
             MemberSpot const mine = context.group.ClaimMemberSpot(self,
-                [&context, role, &pull, &trail](std::vector<Position> const& taken, Position& spot) {
-                    return FindMemberSpot(context.view, role, pull.fightSpot, trail, pull.target, taken, spot);
+                [&context, role, &trail](PullState const& pull, std::vector<Position> const& taken, Position& spot) {
+                    return pull.hasFightSpot
+                        && FindMemberSpot(context.view, role, pull.fightSpot, trail, pull.target, taken, spot);
                 });
             if (!mine.found)
                 return;

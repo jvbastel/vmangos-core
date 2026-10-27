@@ -939,6 +939,20 @@ TEST(WarriorTank, WarnsWhenNoSpotHasAShot)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
 }
 
+// A clean pull whose target walked out of shot (during the group wait): the
+// chase into range is no failed fight spot, so no warn.
+TEST(WarriorTank, NoWarnWhenACleanPullsTargetWalksOutOfShot)
+{
+    BowTank tank;
+    tank.fake.AddNoPathFromX(-1000.0f);
+    tank.Pull();
+    tank.fake.SetDistance(Kobold, 45.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022 to 25 yards"}));
+}
+
 TEST(WarriorTank, WalksBackAlongItsTrailToAShootSpotWhenItCannotSeeThePullTarget)
 {
     TrailTank tank;

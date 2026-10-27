@@ -128,15 +128,12 @@ namespace Bots
                 result.hasShootSpot = true;
                 result.shootSpot = spots[i];
             }
-        // The safe place search measures its rings between the centers: the
-        // shot rule has the last word on the place it finds.
-        Position place;
-        if (!canShoot && FindSafeCastPlace(view, target, ShotMaxYards, place, nullptr, ShotMinYards)
-            && InShotFrom(view, place, target))
+        if (!canShoot
+            && FindSafeCastPlace(view, target, ShotMaxYards, result.shootSpot, nullptr,
+                [&view, target](Position const& at) { return InShotFrom(view, at, target); }))
         {
             canShoot = true;
             result.hasShootSpot = true;
-            result.shootSpot = place;
         }
 
         bool found = false;

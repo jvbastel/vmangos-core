@@ -55,7 +55,7 @@ namespace Bots
         GroupWaitSaid waitSaid = GroupWaitSaid::Nothing;
         // The puller warned about extra packs in this pull
         // (NoteExtraPackWarn): it warns once a pull.
-        bool warned = false;
+        bool extraPackWarned = false;
     };
 
     // The member spot of a bot in the pull (MemberSpot.h).
@@ -166,12 +166,15 @@ namespace Bots
         // spot (`found` false: none is safe), and then notes that it is in place;
         // it stays in place for the rest of the pull.
         // A new pull or the end of the pull forgets them.
-        // Bot `bot` takes its member spot in one step under the lock, so two
-        // bots never take one spot: when it has none yet, `find` runs with
-        // the spots that the other members found, and its answer (a spot,
-        // or false for none) is noted. `find` must not call the
-        // coordinator. Returns the bot's member spot.
-        using MemberSpotFinder = std::function<bool(std::vector<Position> const& taken, Position& spot)>;
+        // Bot `bot` takes its member spot, so that two bots never take one
+        // spot: when it has none yet, `find` runs with the pull and the
+        // spots that the other members found, and its answer (a spot, or
+        // false for none) is noted. `find` runs outside the lock (it asks
+        // the game for paths and sight); when another bot took a spot, or a
+        // new pull began meanwhile, it runs again with the new state.
+        // Returns the bot's member spot.
+        using MemberSpotFinder =
+            std::function<bool(PullState const& pull, std::vector<Position> const& taken, Position& spot)>;
         MemberSpot ClaimMemberSpot(Guid bot, MemberSpotFinder const& find);
         void SetMemberInPlace(Guid bot);
         std::vector<MemberSpot> GetMemberSpots() const;
@@ -305,6 +308,8 @@ namespace Bots
         Guid m_tank = NoGuid;
         Trail m_trail;
         std::vector<MemberSpot> m_memberSpots;
+        // Counts each change of m_memberSpots but the in-place notes.
+        std::uint64_t m_memberSpotsVersion = 0;
         struct BotNote
         {
             std::int64_t atMs;

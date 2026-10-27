@@ -36,6 +36,7 @@ namespace Bots
         Lock lock(m_mutex);
         m_pull = {PullPhase::Pulling, puller, target};
         m_memberSpots.clear();
+        ++m_memberSpotsVersion;
         m_focusTarget = target;
         m_tauntGivenUp = NoGuid;
     }
@@ -92,6 +93,7 @@ namespace Bots
         Lock lock(m_mutex);
         m_pull = {PullPhase::None, NoGuid, NoGuid};
         m_memberSpots.clear();
+        ++m_memberSpotsVersion;
         m_focusTarget = NoGuid;
         m_tauntGivenUp = NoGuid;
     }
@@ -116,25 +118,38 @@ namespace Bots
     {
         Lock lock(m_mutex);
         if (PullsNow(puller))
-            m_pull.warned = true;
+            m_pull.extraPackWarned = true;
     }
 
     MemberSpot GroupCoordinator::ClaimMemberSpot(Guid bot, MemberSpotFinder const& find)
     {
-        Lock lock(m_mutex);
-        std::vector<Position> taken;
-        for (MemberSpot const& member : m_memberSpots)
+        for (;;)
         {
-            if (member.bot == bot)
-                return member;
-            if (member.found)
-                taken.push_back(member.spot);
+            PullState pull;
+            std::vector<Position> taken;
+            std::uint64_t version = 0;
+            {
+                Lock lock(m_mutex);
+                for (MemberSpot const& member : m_memberSpots)
+                {
+                    if (member.bot == bot)
+                        return member;
+                    if (member.found)
+                        taken.push_back(member.spot);
+                }
+                pull = m_pull;
+                version = m_memberSpotsVersion;
+            }
+            MemberSpot mine;
+            mine.bot = bot;
+            mine.found = find(pull, taken, mine.spot);
+            Lock lock(m_mutex);
+            if (version != m_memberSpotsVersion)
+                continue;
+            m_memberSpots.push_back(mine);
+            ++m_memberSpotsVersion;
+            return mine;
         }
-        MemberSpot mine;
-        mine.bot = bot;
-        mine.found = find(taken, mine.spot);
-        m_memberSpots.push_back(mine);
-        return mine;
     }
 
     void GroupCoordinator::SetMemberInPlace(Guid bot)
