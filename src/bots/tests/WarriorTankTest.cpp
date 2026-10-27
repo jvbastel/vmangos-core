@@ -189,8 +189,10 @@ TEST(WarriorTank, RunsInWhenItsChaseIntoRangeEndsOutOfShot)
     tank.fake.SetMoving(Tank);
     for (int think = 0; think < 3; ++think)
         tank.Think();
-    tank.fake.ClearDeeds();
     tank.fake.SetMoving(Tank, false);
+    for (int think = 0; think < 3; ++think)
+        tank.Think();
+    tank.fake.ClearDeeds();
 
     tank.Think();
 
@@ -207,6 +209,24 @@ TEST(WarriorTank, KeepsChasingOnTheThinkAfterItsChaseOrder)
     tank.Pull();
     tank.Think();
     ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+    tank.fake.ClearDeeds();
+    tank.fake.SetMoving(Tank, false);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
+// A chase that moved and pauses for one think (a new path) has not ended:
+// only a few thinks in a row with no move end it.
+TEST(WarriorTank, KeepsChasingWhenItsMovingChasePausesForOneThink)
+{
+    BowTank tank;
+    tank.fake.AddBlindToFromX(Kobold, -1000.0f);
+    tank.Pull();
+    tank.fake.SetMoving(Tank);
+    for (int think = 0; think < 5; ++think)
+        tank.Think();
     tank.fake.ClearDeeds();
     tank.fake.SetMoving(Tank, false);
 

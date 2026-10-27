@@ -31,8 +31,8 @@ namespace Bots
         // stands or from its shoot spot, and walks back to the fight spot,
         // where it holds the pack. With no clean fight spot it warns in
         // party chat. With no ranged weapon or no ammo, or too near for a
-        // shot, it runs in, hits the target once, and walks back. Never Charge: it stuns the
-        // target in place. Out of combat it tops up its ammo for free.
+        // shot, it runs in, hits the target once, and walks back. Never
+        // Charge: it stuns the target in place. Out of combat it tops up its ammo for free.
         std::shared_ptr<Strategy const> MakeTankStrategy();
     }
 }

@@ -34,10 +34,11 @@ namespace Bots
         // where it stood (SetShootSpot).
         bool hasShootSpot = false;
         Position shootSpot = {0, 0, 0};
-        // The thinks in which the puller ordered its chase into shooting
-        // range (CountRangeChase). A chase that just started does not move
-        // yet: a stop counts only after a few thinks.
-        std::uint32_t rangeChaseThinks = 0;
+        // The thinks in a row in which the puller ordered its chase into
+        // shooting range and stood still (CountRangeChase). A chase that
+        // just started or found a new path does not move yet: a stop counts
+        // only after a few thinks.
+        std::uint32_t stillChaseThinks = 0;
     };
 
     // A bot will interrupt the cast of spell `spell` by enemy `caster`.
@@ -122,9 +123,10 @@ namespace Bots
         // shot goes from there. Only the puller can.
         void SetShootSpot(Guid puller, Position spot);
         void ClearShootSpot(Guid puller);
-        // The puller orders its chase into shooting range in one more think.
-        // Only the puller can.
-        void CountRangeChase(Guid puller);
+        // The puller orders its chase into shooting range in one more think,
+        // and stands still or moves (which starts the count again). Only the
+        // puller can.
+        void CountRangeChase(Guid puller, bool moving);
         // The fight of the pull ends: no pull and no focus target.
         void EndPull();
         // True when the tank holds threat on the focus target: the target of
