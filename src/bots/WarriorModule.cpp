@@ -4,11 +4,15 @@
 #include "ExtraPackWatch.h"
 #include "FightSpot.h"
 #include "GroupRules.h"
+#include "KeepOut.h"
 #include "MemberSpot.h"
 #include "Ranged.h"
 #include "SpellBook.h"
 
 #include <algorithm>
+#include <map>
+#include <set>
+#include <utility>
 #include <vector>
 
 namespace Bots
@@ -54,6 +58,9 @@ namespace Bots
             // turns to its threat target, for this many abilities a visit.
             float const ThreatTargetLead = 1.5f;
             std::uint32_t const AbilitiesPerVisit = 1;
+
+            // jvbastel/WOWAI#121: the caster wait is CasterComeMs
+            // (WarriorModule.h).
 
             Guid Self(BotContext const& context)
             {
@@ -326,6 +333,53 @@ namespace Bots
                     >= std::ptrdiff_t(DemoralizingShoutEnemies);
             }
 
+            // The focus is a caster that stays away (jvbastel/WOWAI#121):
+            // the tank holds the pull back at its fight spot, has not gone
+            // in yet, and the focus has mana or casts, is out of melee
+            // reach, and does not come.
+            bool CasterStaysAway(BotContext const& context)
+            {
+                PullState const pull = context.group.GetPull();
+                if (!HoldsPull(context) || pull.hasFightSpot || pull.goesIn || !FightsFocus(context))
+                    return false;
+                Guid const focus = PickFocusTarget(context);
+                bool const caster = context.view.GetMana(focus).max > 0 || context.view.GetCurrentCast(focus) != NoSpell;
+                return caster && context.view.GetDistance(focus) > MeleeYards && !FocusComes(context);
+            }
+
+            // The packs round the tank's pull, for the warn when one joins
+            // its fight (jvbastel/WOWAI#121): the tank's own record, no
+            // group state. Set when it notes its fight spot.
+            struct PullPacks
+            {
+                Guid target = NoGuid;
+                // The pack of each enemy round the pull: 0 for the target's.
+                std::map<Guid, int> packOf;
+                // The packs warned: a pack index, or an enemy of no pack
+                // (a roaming mob) by its guid.
+                std::set<std::pair<int, Guid>> warned;
+            };
+            using PullPacksPtr = std::shared_ptr<PullPacks>;
+
+            // The packs of the enemies in the fight that joined the fight
+            // of the pull and have no warn yet. None out of the pull.
+            std::set<std::pair<int, Guid>> JoinedPacks(BotContext const& context, PullPacks const& packs)
+            {
+                std::set<std::pair<int, Guid>> joined;
+                PullState const pull = context.group.GetPull();
+                if (pull.phase == PullPhase::None || pull.puller != Self(context) || pull.target != packs.target)
+                    return joined;
+                for (Guid enemy : EnemiesInFight(context))
+                {
+                    auto const found = packs.packOf.find(enemy);
+                    std::pair<int, Guid> const key =
+                        found == packs.packOf.end() ? std::make_pair(-1, enemy) : std::make_pair(found->second, NoGuid);
+                    if (key.first != 0 && !packs.warned.count(key))
+                        joined.insert(key);
+                }
+                return joined;
+            }
+
             // The tank warns in party chat that the pull brings `packs`
             // extra packs (0: may bring), once a pull.
             void Warn(BotContext const& context, std::uint32_t packs)
@@ -361,6 +415,7 @@ namespace Bots
             int const P = Priority::Class;
             // Each strategy, so each tank, has its own visits.
             ThreatVisitPtr const visit = std::make_shared<ThreatVisit>();
+            PullPacksPtr const pullPacks = std::make_shared<PullPacks>();
             TargetPicker const revengeTarget = [visit](BotContext const& context) {
                 return PickRevengeTarget(context, *visit);
             };
@@ -398,15 +453,32 @@ namespace Bots
                     },
                     [](BotContext const& context) { context.group.HoldPull(Self(context), context.nowMs); }),
 
+                // Another pack joins the fight of the pull: the tank warns at
+                // once, once a pack, whatever brought it (jvbastel/WOWAI#121).
+                Bookkeeping("warn when a pack joins", P + 88,
+                    [pullPacks](BotContext const& context) { return !JoinedPacks(context, *pullPacks).empty(); },
+                    [pullPacks](BotContext const& context) {
+                        std::set<std::pair<int, Guid>> const joined = JoinedPacks(context, *pullPacks);
+                        Warn(context, std::uint32_t(joined.size()));
+                        pullPacks->warned.insert(joined.begin(), joined.end());
+                    }),
+
                 // The pull. The tank picks its fight spot on its cleared way
                 // (FightSpot.h), and the pack comes to it there. With no
                 // clean spot it warns about the extra packs, once a pull.
                 // No Charge: it stuns the target in place.
                 Bookkeeping(NoteFightSpotRule, P + 80,
                     [](BotContext const& context) { return IsPulling(context) && !context.group.GetPull().hasFightSpot; },
-                    [](BotContext const& context) {
+                    [pullPacks](BotContext const& context) {
                         FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(), PickPullTarget(context));
                         context.group.SetFightSpot(Self(context), fight.spot);
+                        *pullPacks = PullPacks{};
+                        pullPacks->target = PickPullTarget(context);
+                        for (Guid enemy : fight.targetPack)
+                            pullPacks->packOf[enemy] = 0;
+                        for (std::size_t pack = 0; pack < fight.otherPacks.size(); ++pack)
+                            for (Guid enemy : fight.otherPacks[pack])
+                                pullPacks->packOf[enemy] = int(pack) + 1;
                         context.group.StartGroupWait(Self(context), context.nowMs);
                         if (fight.hasShootSpot)
                             context.group.SetShootSpot(Self(context), fight.shootSpot);
@@ -524,6 +596,22 @@ namespace Bots
                             context.actions.KeepMovingTo(context.group.GetPull().fightSpot);
                         }}},
 
+                // A caster that stays away (CasterStaysAway) gets the tank
+                // after CasterComeMs: it goes in to the caster's spawn area.
+                // When a fight there pulls other packs (KeepOut.h), the tank
+                // warns first, unless it warned in this pull already.
+                Bookkeeping("go in to the caster's spawn area", P + 72,
+                    [](BotContext const& context) {
+                        return CasterStaysAway(context) && context.nowMs - context.group.GetPull().engagedMs >= CasterComeMs;
+                    },
+                    [](BotContext const& context) {
+                        Guid const focus = PickFocusTarget(context);
+                        std::uint32_t const packs = PacksPulledAt(context.view, context.view.GetPosition(focus), focus);
+                        if (packs > 0 && !context.group.GetPull().extraPackWarned)
+                            Warn(context, packs);
+                        context.group.GoIn(Self(context));
+                    }),
+
                 // An enemy attacks the bot or another group member outside
                 // a pull: it becomes the focus target. This is no pull of its
                 // own: the enemy is in the fight already.
@@ -558,7 +646,8 @@ namespace Bots
                         if (!FightsFocus(context))
                             return false;
                         // The pull rules move the tank until the pull holds.
-                        if (IsPulling(context))
+                        // A caster that stays away it waits for.
+                        if (IsPulling(context) || CasterStaysAway(context))
                             return false;
                         ChaseState const chase = context.view.GetChase();
                         // The ranged chase of the pull attacks with no melee swing.

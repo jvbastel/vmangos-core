@@ -133,6 +133,14 @@ namespace Bots
         };
 
         FightSpot result;
+        for (NearEnemy const& enemy : targetPack)
+            result.targetPack.push_back(enemy.guid);
+        for (std::vector<NearEnemy> const& pack : others)
+        {
+            result.otherPacks.emplace_back();
+            for (NearEnemy const& enemy : pack)
+                result.otherPacks.back().push_back(enemy.guid);
+        }
         bool const casterPack = IsCasterPack(view, targetPack);
         // The line-of-sight pull of a caster pack (jvbastel/WOWAI#121): the
         // first clean spot that the caster cannot see from its spawn, with

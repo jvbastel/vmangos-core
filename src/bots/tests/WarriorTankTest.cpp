@@ -450,6 +450,10 @@ TEST(WarriorTank, TauntsAnEnemyOffAMemberBeforeItWalksBack)
     tank.fake.SetVictim(Wolf, Healer);
 
     tank.Think(); // Holds the pull.
+    // The wolf joined the pull: the tank warns first (jvbastel/WOWAI#121).
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"warn Careful: this pull brings 1 more pack."}));
+    tank.fake.ClearDeeds();
     tank.Think();
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Wolf)}));

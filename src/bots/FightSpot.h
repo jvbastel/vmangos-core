@@ -63,6 +63,10 @@ namespace Bots
         // A line-of-sight pull of a caster pack (jvbastel/WOWAI#121): the
         // target cannot see the spot from its spawn.
         bool lineOfSight = false;
+        // The target's pack, and the other packs round the pull, for the
+        // warn when one of them joins the fight (WarriorModule.h).
+        std::vector<Guid> targetPack;
+        std::vector<std::vector<Guid>> otherPacks;
     };
 
     // `enemies` in packs: enemies within PackLinkYards of each other, also

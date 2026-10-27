@@ -1,7 +1,11 @@
 #include "BotGeometry.h"
+#include "ClassModules.h"
 #include "FightSpot.h"
 #include "FakeBot.h"
+#include "GroupCoordinator.h"
+#include "WarriorModule.h"
 
+#include <algorithm>
 #include <gtest/gtest.h>
 
 using Bots::FightSpot;
@@ -139,4 +143,177 @@ TEST(CasterPack, ASpotOutOfSightNeedsAShotWithin10Yards)
 
     EXPECT_FALSE(spot.lineOfSight);
     EXPECT_FALSE(spot.clean);
+}
+
+namespace
+{
+    namespace Warrior = Bots::Warrior;
+
+    // The tank of the group at pull_pack9, with a bow, that walked the way
+    // of the full run (its trail).
+    struct CasterTank : CasterPull
+    {
+        Bots::GroupCoordinator group;
+        Bots::StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Warrior, Bots::BotRole::Tank);
+        std::int64_t nowMs = 1000;
+
+        explicit CasterTank(float rockX = -219.0f) : CasterPull(rockX)
+        {
+            for (Bots::SpellId spell : {Warrior::BattleStance, Warrior::DefensiveStance, Warrior::Taunt,
+                     Warrior::HeroicStrike, Warrior::SunderArmor, Warrior::Revenge, Warrior::BattleShout,
+                     Warrior::Bloodrage, Bots::ShootSpell(Bots::RangedKind::Bow)})
+                fake.SetKnownSpell(spell);
+            Bots::RangedWeapon bow;
+            bow.kind = Bots::RangedKind::Bow;
+            bow.entry = 2504;
+            bow.ammoEntry = 2512;
+            bow.ammoCount = 200;
+            fake.SetRangedWeapon(bow);
+            fake.SetHealth(Tank, 600, 600);
+            fake.SetPower(Tank, 50, 100);
+            fake.SetAura(Tank, Warrior::DefensiveStance);
+            fake.SetAura(Tank, Warrior::BattleShout);
+            for (Position const& point : trail)
+                group.KeepTrail(point, false);
+        }
+
+        std::string Think()
+        {
+            Bots::BotContext context{fake, fake, group, Bots::CommandState::None, Bots::NoGuid};
+            context.nowMs = nowMs;
+            return stack.Think(context);
+        }
+
+        // The pull of the shaman: the tank notes its fight spot, the shot
+        // hits, the shaman attacks the tank, and the tank is back at its
+        // fight spot. The shaman stays at its spawn and casts.
+        void PullAndHold()
+        {
+            group.StartPull(Tank, Shaman);
+            Think();
+            ASSERT_TRUE(group.GetPull().hasFightSpot);
+            fake.SetPosition(Tank, group.GetPull().fightSpot);
+            fake.SetInCombat(Tank);
+            fake.SetInCombat(Shaman);
+            fake.SetVictim(Shaman, Tank);
+            // In a fight the tank's trail is empty (Trail.h).
+            group.KeepTrail(group.GetPull().fightSpot, true);
+            Think(); // Holds the pull.
+            Think(); // Back at the fight spot.
+            ASSERT_EQ(group.GetPull().phase, Bots::PullPhase::Holding);
+            ASSERT_FALSE(group.GetPull().hasFightSpot);
+            fake.ClearDeeds();
+        }
+
+        bool Chases() const
+        {
+            return std::any_of(fake.Deeds().begin(), fake.Deeds().end(),
+                [](std::string const& deed) { return deed.compare(0, 5, "chase") == 0; });
+        }
+
+        long Warns() const
+        {
+            return std::count_if(fake.Deeds().begin(), fake.Deeds().end(),
+                [](std::string const& deed) { return deed.compare(0, 5, "warn ") == 0; });
+        }
+    };
+}
+
+// Plan item 3: the shaman stays at its spawn. For CasterComeMs the tank
+// waits for it at its fight spot, and does not run to it.
+TEST(CasterPack, TheTankWaitsForACasterThatStaysAway)
+{
+    CasterTank tank;
+    tank.PullAndHold();
+
+    tank.nowMs += Warrior::CasterComeMs - 1000;
+    tank.Think();
+    tank.Think();
+
+    EXPECT_FALSE(tank.Chases());
+}
+
+// Plan item 3: the shaman came round the rock, where no other pack is
+// near, and stays there: after CasterComeMs the tank goes in, with no warn.
+TEST(CasterPack, ACasterThatStaysInACleanAreaGetsTheTankWithNoWarn)
+{
+    CasterTank tank;
+    tank.PullAndHold();
+    tank.fake.SetPosition(Shaman, {-236.0f, -34.0f, -56.5f});
+
+    tank.nowMs += Warrior::CasterComeMs;
+    tank.Think();
+    tank.Think();
+
+    EXPECT_TRUE(tank.Chases());
+    EXPECT_EQ(tank.Warns(), 0);
+    EXPECT_TRUE(tank.group.GetPull().goesIn);
+}
+
+// Plan item 3: the shaman stays at its spawn, in reach of pack10 and pack11:
+// after CasterComeMs the tank warns first, then goes in.
+TEST(CasterPack, ACasterThatStaysNearOtherPacksGetsTheTankAfterAWarn)
+{
+    CasterTank tank;
+    tank.PullAndHold();
+
+    tank.nowMs += Warrior::CasterComeMs;
+    tank.Think();
+    std::vector<std::string> const first = tank.fake.Deeds();
+    tank.fake.ClearDeeds();
+    tank.Think();
+
+    EXPECT_EQ(first, (std::vector<std::string>{"warn Careful: this pull brings 2 more packs."}));
+    EXPECT_TRUE(tank.Chases());
+}
+
+// The pull warned already (no line-of-sight spot): the tank goes in with no
+// second warn.
+TEST(CasterPack, APullThatWarnedBeforeGoesInWithNoSecondWarn)
+{
+    CasterTank tank(0.0f);
+    tank.group.StartPull(Tank, Shaman);
+    tank.Think();
+    EXPECT_EQ(tank.Warns(), 1);
+    tank.fake.ClearDeeds();
+    tank.fake.SetPosition(Tank, tank.group.GetPull().fightSpot);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetInCombat(Shaman);
+    tank.fake.SetVictim(Shaman, Tank);
+    tank.Think();
+    tank.Think();
+
+    tank.nowMs += Warrior::CasterComeMs;
+    tank.Think();
+    tank.Think();
+
+    EXPECT_EQ(tank.Warns(), 0);
+    EXPECT_TRUE(tank.Chases());
+}
+
+// Plan item 4: the tank warns the moment another pack joins the fight,
+// once a pack, whatever brought it.
+TEST(CasterPack, TheTankWarnsTheMomentAnotherPackJoinsOnceAPack)
+{
+    CasterTank tank;
+    tank.PullAndHold();
+    std::string const warnOne = "warn Careful: this pull brings 1 more pack.";
+    auto warns = [&tank, &warnOne]() {
+        return std::count(tank.fake.Deeds().begin(), tank.fake.Deeds().end(), warnOne);
+    };
+
+    tank.fake.SetInCombat(Trogg11);
+    tank.fake.SetVictim(Trogg11, Tank);
+    tank.Think();
+    tank.Think();
+    EXPECT_EQ(warns(), 1);
+
+    tank.fake.SetInCombat(Shaman10);
+    tank.fake.SetVictim(Shaman10, Tank);
+    tank.Think();
+    tank.fake.SetInCombat(Trogg10);
+    tank.fake.SetVictim(Trogg10, Tank);
+    tank.Think();
+    tank.Think();
+    EXPECT_EQ(warns(), 2);
 }

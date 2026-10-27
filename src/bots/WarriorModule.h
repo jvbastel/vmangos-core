@@ -35,6 +35,12 @@ namespace Bots
         char const* const NoteFightSpotRule = "note the fight spot";
         char const* const WaitForTheGroupRule = "wait for the group";
 
+        // jvbastel/WOWAI#121: a caster that stays away (it does not come to
+        // the tank, nor into melee) this long after the pull holds gets the
+        // tank: it goes in to the caster's spawn area, after a warn when
+        // the fight there pulls other packs (KeepOut.h).
+        std::int64_t const CasterComeMs = 6 * 1000;
+
         // The tank: it pulls the pull target of the group coordinator when it
         // is the puller, holds threat on the focus target, and fights back an
         // enemy that attacks it. It never picks a target of its own.
@@ -50,6 +56,10 @@ namespace Bots
         // Demoralizing Shout on the enemies near. It shouts again for an
         // enemy in the fight that lacks the debuff (jvbastel/WOWAI#114).
         // It never casts Thunder Clap or Mocking Blow.
+        // A caster pack (jvbastel/WOWAI#121): the tank waits at its fight
+        // spot for a caster that stays away, then goes in (CasterComeMs).
+        // It warns the moment another pack joins the fight of its pull,
+        // once a pack, whatever brought it.
         std::shared_ptr<Strategy const> MakeTankStrategy();
     }
 }

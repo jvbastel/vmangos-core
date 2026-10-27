@@ -124,6 +124,13 @@ namespace Bots
             m_pull.extraPackWarned = true;
     }
 
+    void GroupCoordinator::GoIn(Guid puller)
+    {
+        Lock lock(m_mutex);
+        if (PullsNow(puller))
+            m_pull.goesIn = true;
+    }
+
     MemberSpot GroupCoordinator::ClaimMemberSpot(Guid bot, MemberSpotFinder const& find)
     {
         for (;;)
