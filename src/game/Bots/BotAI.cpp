@@ -562,12 +562,16 @@ void BotAI::Think()
     context.startWaits = m_startGate.Waiting();
     context.testDriver = sBotMgr.IsTestDriver(me->GetObjectGuid());
     // A rule that takes the test driver off its scripted move is the stop
-    // reason of the move (BotRun::WatchMove, jvbastel/WOWAI#99).
+    // reason of the move (BotRun::WatchMove, jvbastel/WOWAI#99): it puts
+    // another motion on top, or it stops the walk, as a cast with a cast
+    // time does (BotAdapter::Cast).
     MotionMaster const* motion = me->GetMotionMaster();
     MovementGenerator const* moveBefore =
         adapter.IsScriptedMoveInProgress() && !motion->empty() ? motion->GetCurrent() : nullptr;
+    bool const walkedBefore = moveBefore && !me->movespline->Finalized();
     std::string const rule = m_strategies.Think(context);
-    if (moveBefore && !rule.empty() && (motion->empty() || motion->GetCurrent() != moveBefore))
+    if (moveBefore && !rule.empty() && (motion->empty() || motion->GetCurrent() != moveBefore ||
+        (walkedBefore && me->movespline->Finalized())))
         sBotMgr.Run().NoteDriverMoveRule(rule);
     // A bot without a group has no chat session: its own coordinator drops
     // the events. The bot manager drops the events of a place coordinator.
