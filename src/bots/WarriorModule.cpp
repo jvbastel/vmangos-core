@@ -261,14 +261,20 @@ namespace Bots
                 return PickFocusTarget(context);
             }
 
-            // A rule of an ability on the focus: it ends a visit to the
-            // threat target.
-            Rule EndsThreatVisit(Rule rule, ThreatVisitPtr const& visit)
+            // A rule of an ability on the unit that `target` picks: on the
+            // focus it ends a visit to the threat target, on another enemy
+            // it counts as an ability of the visit. Each ability on the
+            // focus goes through it, or the visits never end.
+            Rule CountsInThreatVisit(Rule rule, TargetPicker target, ThreatVisitPtr const& visit)
             {
                 std::function<void(BotContext const&)> const run = rule.action.run;
-                rule.action.run = [run, visit](BotContext const& context) {
+                rule.action.run = [run, target, visit](BotContext const& context) {
+                    bool const onFocus = target(context) == context.group.GetFocusTarget();
                     run(context);
-                    visit->abilities = 0;
+                    if (onFocus)
+                        visit->abilities = 0;
+                    else
+                        ++visit->abilities;
                 };
                 return rule;
             }
@@ -344,6 +350,9 @@ namespace Bots
             int const P = Priority::Class;
             // Each strategy, so each tank, has its own visits.
             ThreatVisitPtr const visit = std::make_shared<ThreatVisit>();
+            TargetPicker const revengeTarget = [visit](BotContext const& context) {
+                return PickRevengeTarget(context, *visit);
+            };
             // The opener, highest first: Defensive Stance, then a due
             // Demoralizing Shout (jvbastel/WOWAI#114: threat on each enemy
             // near), and Bloodrage with little rage, which gives the rage.
@@ -577,19 +586,7 @@ namespace Bots
                 // A ready Revenge goes to the threat target on a visit
                 // (jvbastel/WOWAI#117), and counts as its ability there. On
                 // the focus, it ends the visit.
-                Rule{"revenge", P + 40, FightsFocus,
-                    {[visit](BotContext const& context) {
-                         Guid const target = PickRevengeTarget(context, *visit);
-                         return target != NoGuid && CastableRank(context.view, Revenge, target) != NoSpell;
-                     },
-                        [visit](BotContext const& context) {
-                            Guid const target = PickRevengeTarget(context, *visit);
-                            context.actions.CastSpell(RankForTarget(context.view, Revenge, target), target);
-                            if (target == context.group.GetFocusTarget())
-                                visit->abilities = 0;
-                            else
-                                ++visit->abilities;
-                        }}},
+                CountsInThreatVisit(CastRule("revenge", P + 40, FightsFocus, Revenge, revengeTarget), revengeTarget, visit),
                 // Below Revenge: more blocks give more Revenge. The cast
                 // check covers the shield and the cooldown.
                 CastRule("shield block", P + 38,
@@ -599,26 +596,19 @@ namespace Bots
                     },
                     ShieldBlock, PickSelf),
                 // jvbastel/WOWAI#117: one Sunder Armor on the threat target
-                // (a ready Revenge goes there through the revenge rule), then
-                // the focus again. The focus of the group stays.
-                Rule{"threat target", P + 37,
-                    [visit](BotContext const& context) { return ThreatVisitDue(context, *visit); },
-                    {[](BotContext const& context) {
-                         Guid const target = PickThreatTarget(context);
-                         return target != NoGuid
-                             && CastableRank(context.view, ThreatTargetAbility(context, target), target) != NoSpell;
-                     },
-                        [visit](BotContext const& context) {
-                            Guid const target = PickThreatTarget(context);
-                            context.actions.CastSpell(
-                                RankForTarget(context.view, ThreatTargetAbility(context, target), target), target);
-                            ++visit->abilities;
-                        }}},
-                EndsThreatVisit(CastRule("heroic strike", P + 35,
-                                    [](BotContext const& context) { return FightsFocus(context) && Rage(context) >= SpareRage; },
-                                    HeroicStrike, PickFocusTarget),
-                    visit),
-                EndsThreatVisit(CastRule("sunder armor", P + 30, FightsFocus, SunderArmor, PickFocusTarget), visit),
+                // (a ready Revenge goes there through the revenge rule, so
+                // this rule only sunders), then the focus again. The focus
+                // of the group stays.
+                CountsInThreatVisit(CastRule("threat target", P + 37,
+                                        [visit](BotContext const& context) { return ThreatVisitDue(context, *visit); },
+                                        SunderArmor, PickThreatTarget),
+                    PickThreatTarget, visit),
+                CountsInThreatVisit(CastRule("heroic strike", P + 35,
+                                        [](BotContext const& context) { return FightsFocus(context) && Rage(context) >= SpareRage; },
+                                        HeroicStrike, PickFocusTarget),
+                    PickFocusTarget, visit),
+                CountsInThreatVisit(CastRule("sunder armor", P + 30, FightsFocus, SunderArmor, PickFocusTarget),
+                    PickFocusTarget, visit),
                 Rule{"top up the ammo", P + 20,
                     [](BotContext const& context) {
                         return !InCombat(context)
