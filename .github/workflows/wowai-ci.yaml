@@ -1,9 +1,9 @@
 # The CI of the WOWAI fork. On each pull request into wowai it builds the
 # fork with the code tests of the bot decision library (src/bots), runs them
 # with ctest, and makes sure that src/bots builds alone, without game headers
-# (ADR 0002 of WOWAI). `wowai/dev test` runs the same `wowai/bots-test.sh` locally. The
-# fork-rules job runs `wowai/fork-check.sh`: changed core files must be on
-# `wowai/core-allowlist.txt`, and the bot code has no DEBUG lines.
+# (ADR 0002 of WOWAI). `wowai/dev test` runs the same `wowai/bots-test.sh`
+# locally. The fork-rules job runs `wowai/fork-check.sh`: changed core files
+# must be on `wowai/core-allowlist.txt`, and the bot code has no DEBUG lines.
 #
 # The bots job runs in the base image of the dev container and of the
 # vmangos-deploy build stage, with the same packages as
