@@ -1,10 +1,13 @@
 # A short route of the Deadmines for the three-enemy scenario of
 # jvbastel/WOWAI#118 (bots/data/bottests/deadmines.txt). Written by hand,
-# not by .route generate: one pull point and one pack. The pull point is the
-# spawn place of the Defias Overseer 79170 (a place on the ground of the
-# mine); the scenario clears him away.
+# not by .route generate: one pull point and one pack. The three miners
+# stand in a line, 8 yd apart: only a pull of the middle one (79184) brings
+# the two others (assistance radius 10 yd). The test driver selects the pack
+# mob nearest to it, so the pull point is nearer to 79184 (24 yd) than to
+# the two others (26.5 yd), with a small radius. It lies between the spawn
+# places of the Defias Miners 79176 and 79173, on the ground of the mine.
 route deadmines 36
-point pull_miners -185.33 -481.71 54.13 2.00
+point pull_miners -215.88 -489.82 50.00 0.50
 pack miners -206.48 -512.78 52.18
 mob 79180 598 # Defias Miner
 mob 79184 598 # Defias Miner
