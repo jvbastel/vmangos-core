@@ -35,6 +35,11 @@ namespace Bots
         std::vector<NearEnemy> enemies;
     };
 
+    // A bot at `at` pulls one of `enemies`: it stands within the aggro
+    // distance and AggroMarginYards of the enemy (from its center). The
+    // place rule of FirstSafePlace, also for the fight spot (FightSpot.h).
+    bool PullsAnEnemy(std::vector<NearEnemy> const& enemies, Position const& at);
+
     // The first of `spots`, in their order, that is safe for the bot to
     // move to. False when none is.
     bool FirstSafePlace(BotView const& view, std::vector<Position> const& spots, SafeMoveRules const& rules,

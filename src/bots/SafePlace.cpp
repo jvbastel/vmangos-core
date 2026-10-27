@@ -75,6 +75,11 @@ namespace Bots
         }
     }
 
+    bool PullsAnEnemy(std::vector<NearEnemy> const& enemies, Position const& at)
+    {
+        return Pulls(enemies, at, nullptr);
+    }
+
     bool FirstSafePlace(BotView const& view, std::vector<Position> const& spots, SafeMoveRules const& rules,
         Position& place)
     {
