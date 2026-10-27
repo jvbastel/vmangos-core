@@ -39,6 +39,9 @@ namespace Bots
     float const MemberInPlaceYards = 2.0f;
     // The longest wait of the tank for the group.
     std::int64_t const GroupWaitMs = 10 * 1000;
+    // A wait this long, or longer, the tank says in party chat (once a
+    // pull). A shorter one goes by unnoticed.
+    std::int64_t const GroupWaitSayMs = 3 * 1000;
 
     // The spot of the bot of role `role` for the pull of `target`, with the
     // tank's fight spot `fightSpot` and its trail `trail` (oldest first).
@@ -53,8 +56,9 @@ namespace Bots
     // looked for one.
     std::vector<Guid> MembersNotInPlace(BotContext const& context);
 
-    // The tank waits for the group: a pull with a fight spot, whose wait
-    // has not ended, with a member not in place, for less than GroupWaitMs.
+    // The tank waits for the group: a pull with a fight spot, with a member
+    // not in place, for less than GroupWaitMs since the puller noted its
+    // fight spot. A bot once in place is not waited for again.
     bool TankWaitsForTheGroup(BotContext const& context);
 
     // The party line of the tank that waits for `members` members.

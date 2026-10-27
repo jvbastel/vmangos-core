@@ -2,6 +2,7 @@
 #include "DamageRules.h"
 #include "WarriorModule.h"
 #include "FakeBot.h"
+#include "MemberSpot.h"
 
 #include <gtest/gtest.h>
 
@@ -33,6 +34,8 @@ namespace
         FakeBot fake{Tank};
         GroupCoordinator group;
         StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Warrior, Bots::BotRole::Tank);
+        // The clock of the think (BotContext::nowMs).
+        std::int64_t nowMs = 0;
 
         WarriorTank()
         {
@@ -48,7 +51,8 @@ namespace
 
         std::string Think(Bots::CommandState command = Bots::CommandState::None, Bots::Guid player = NoGuid)
         {
-            BotContext const context{fake, fake, group, command, player};
+            BotContext context{fake, fake, group, command, player};
+            context.nowMs = nowMs;
             return stack.Think(context);
         }
 
@@ -945,4 +949,93 @@ TEST(WarriorTank, AtItsShootSpotOutOfSightItPullsAsWithoutOne)
 
     EXPECT_FALSE(tank.group.GetPull().hasShootSpot);
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"chase 0xf130000302000022"}));
+}
+
+// jvbastel/WOWAI#106: the tank pulls when each bot of the group is at its
+// member spot, or after 10 seconds.
+namespace
+{
+    struct GroupTank : TrailTank
+    {
+        GroupTank()
+        {
+            fake.SetHealth(Healer, 600, 600);
+            fake.SetGroupMembers({Healer});
+            group.NoteBot(Tank);
+            group.NoteBot(Healer);
+            group.StartPull(Tank, Kobold);
+            nowMs = 1000;
+            Think();
+            fake.ClearDeeds();
+        }
+    };
+}
+
+TEST(WarriorTank, WaitsForTheGroupBeforeItShoots)
+{
+    GroupTank tank;
+    tank.nowMs = 1500;
+
+    EXPECT_EQ(tank.Think(), "wait for the group");
+
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+}
+
+TEST(WarriorTank, ShootsOnceEachBotIsInPlace)
+{
+    GroupTank tank;
+    tank.group.SetMemberSpot(Healer, true, {-16, 0, 0});
+    tank.group.SetMemberInPlace(Healer);
+    tank.nowMs = 1500;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
+}
+
+TEST(WarriorTank, SaysInPartyChatThatItWaitsOnABotAndShootsAfterTenSeconds)
+{
+    GroupTank tank;
+
+    tank.nowMs = 1000 + Bots::GroupWaitSayMs;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"say group wait 1"}));
+    tank.fake.ClearDeeds();
+    tank.nowMs += 500;
+    tank.Think();
+    EXPECT_TRUE(tank.fake.Deeds().empty());
+
+    tank.nowMs = 1000 + Bots::GroupWaitMs;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
+}
+
+TEST(WarriorTank, DoesNotWaitForThePlayer)
+{
+    GroupTank tank;
+    Bots::Guid const Player = 0x05;
+    tank.fake.SetHealth(Player, 600, 600);
+    // The player is a member, but no bot: the coordinator does not know it.
+    tank.fake.SetGroupMembers({Player});
+    tank.nowMs = 1500;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"stand", CastOn(ShootBow, Kobold)}));
+}
+
+TEST(WarriorTank, WalksToItsShootSpotWhileTheGroupGetsInPlace)
+{
+    TrailTank tank;
+    tank.fake.SetHealth(Healer, 600, 600);
+    tank.fake.SetGroupMembers({Healer});
+    tank.group.NoteBot(Healer);
+    tank.fake.AddBlindToFromX(Kobold, -3.0f);
+    tank.group.StartPull(Tank, Kobold);
+    tank.Think();
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -4 0 0"}));
 }

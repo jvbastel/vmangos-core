@@ -13,6 +13,7 @@
 #include "GhostWalk.h"
 #include "CastResult.h"
 #include "ExtraPackWatch.h"
+#include "MemberSpot.h"
 #include "Bag.h"
 #include "Corpse.h"
 #include "Group.h"
@@ -898,6 +899,11 @@ void BotAdapter::WarnExtraPacks(uint32 packs)
     BotLine line{me->GetObjectGuid(), CHAT_MSG_PARTY, ObjectGuid(), Bots::ExtraPackWarnLine(packs)};
     line.extraPackWarn = true;
     sBotMgr.QueueLine(std::move(line));
+}
+
+void BotAdapter::SayGroupWait(uint32 members)
+{
+    sBotMgr.QueueLine({me->GetObjectGuid(), CHAT_MSG_PARTY, ObjectGuid(), Bots::GroupWaitLine(members)});
 }
 
 Bots::RangedWeapon BotAdapter::GetRangedWeapon() const

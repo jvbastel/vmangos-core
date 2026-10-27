@@ -31,7 +31,8 @@ namespace Bots
     std::vector<SpellId> PetAutocastSpells(BotClass botClass);
 
     // The strategy stack of a bot, bottom first: the command strategy, the
-    // rest after a fight, the generic group rules (GroupRules.h), the class
+    // member spot of a pull (MemberSpot.h, not for the tank), the rest after
+    // a fight, the generic group rules (GroupRules.h), the class
     // and role strategy, and the death strategy (DeathAndRest.h). The boss
     // reactions come on top during a boss fight.
     StrategyStack MakeStrategyStack(BotClass botClass, BotRole role);

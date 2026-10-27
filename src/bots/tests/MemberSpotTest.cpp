@@ -1,5 +1,6 @@
 #include "BotGeometry.h"
 #include "FakeBot.h"
+#include "ClassModules.h"
 #include "MemberSpot.h"
 
 #include <gtest/gtest.h>
@@ -145,4 +146,230 @@ TEST(MemberSpot, NoSpotWhenNoneIsSafe)
 
     EXPECT_FALSE(spots.Find(BotRole::Ranged, spot));
     EXPECT_FALSE(spots.Find(BotRole::Melee, spot));
+}
+
+// The rule "go to the member spot": on the pull, once the tank has its fight
+// spot, the bot walks to its spot and holds there until the pull holds.
+namespace
+{
+    Bots::Guid const Player = 0x05;
+    Bots::Guid const Other = 0x13;
+
+    struct MemberBot
+    {
+        Spots spots;
+        Bots::GroupCoordinator group;
+        Bots::StrategyStack stack;
+
+        explicit MemberBot(BotRole role = BotRole::Ranged)
+        {
+            stack.Push(Bots::MakeCommandStrategy());
+            stack.Push(Bots::MakeMemberSpotStrategy(role));
+            FakeBot& fake = spots.fake;
+            fake.SetHealth(Self, 600, 600);
+            fake.SetHealth(Tank, 600, 600);
+            fake.SetHealth(Player, 600, 600);
+            fake.SetPosition(Player, {-31, 0, 0});
+            fake.SetGroupMembers({Tank, Player});
+            for (Position const& point : spots.trail)
+                group.KeepTrail(point, false);
+            group.SetTank(Tank);
+            group.StartPull(Tank, Kobold);
+            group.SetPullSpot(Tank, {0, 0, 0});
+        }
+
+        std::string Think(Bots::CommandState command = Bots::CommandState::Follow)
+        {
+            Bots::BotContext const context{spots.fake, spots.fake, group, command, Player};
+            return stack.Think(context);
+        }
+
+        Bots::MemberSpot Mine() const
+        {
+            for (Bots::MemberSpot const& spot : group.GetMemberSpots())
+                if (spot.bot == Self)
+                    return spot;
+            return {};
+        }
+    };
+}
+
+TEST(MemberSpotRule, OnThePullTheBotWalksToItsSpot)
+{
+    MemberBot bot;
+
+    EXPECT_EQ(bot.Think(), "go to the member spot");
+
+    EXPECT_EQ(bot.spots.fake.Deeds(), (std::vector<std::string>{"keep move to -16 0 0"}));
+    EXPECT_TRUE(bot.Mine().found);
+    EXPECT_FALSE(bot.Mine().inPlace);
+}
+
+TEST(MemberSpotRule, ABotThatStaysGoesToItsSpotToo)
+{
+    MemberBot bot;
+
+    EXPECT_EQ(bot.Think(Bots::CommandState::Stay), "go to the member spot");
+}
+
+TEST(MemberSpotRule, AtItsSpotTheBotIsInPlaceAndHoldsThere)
+{
+    MemberBot bot;
+    bot.Think();
+    bot.spots.fake.SetPosition(Self, {-16.5f, 0, 0});
+    bot.spots.fake.ClearDeeds();
+
+    // Not the follow of the player: the bot holds its spot.
+    EXPECT_EQ(bot.Think(), "go to the member spot");
+
+    EXPECT_TRUE(bot.spots.fake.Deeds().empty());
+    EXPECT_TRUE(bot.Mine().inPlace);
+}
+
+TEST(MemberSpotRule, TheSecondRangedBotTakesASpotAwayFromTheFirst)
+{
+    MemberBot bot;
+    bot.group.SetMemberSpot(Other, true, {-16, 0, 0});
+
+    bot.Think();
+
+    Bots::MemberSpot const mine = bot.Mine();
+    ASSERT_TRUE(mine.found);
+    EXPECT_GE(Distance3d(mine.spot, {-16, 0, 0}), Bots::MemberSpreadYards);
+}
+
+TEST(MemberSpotRule, WithNoSafeSpotTheBotFollowsAsBefore)
+{
+    MemberBot bot;
+    bot.spots.fake.AddLavaFromX(-1000.0f);
+
+    bot.Think();
+
+    EXPECT_FALSE(bot.Mine().found);
+    EXPECT_NE(bot.Think(), "go to the member spot");
+}
+
+TEST(MemberSpotRule, NotBeforeTheTankHasItsFightSpotNorOnceThePullHolds)
+{
+    MemberBot bot;
+    bot.group.StartPull(Tank, Kobold);
+    EXPECT_NE(bot.Think(), "go to the member spot");
+
+    bot.group.SetPullSpot(Tank, {0, 0, 0});
+    bot.group.HoldPull(Tank);
+    EXPECT_NE(bot.Think(), "go to the member spot");
+}
+
+TEST(MemberSpotRule, ABotToldToComeDoesNotGo)
+{
+    MemberBot bot;
+
+    EXPECT_NE(bot.Think(Bots::CommandState::Come), "go to the member spot");
+}
+
+TEST(MemberSpotRule, TheTankHasNoMemberSpot)
+{
+    EXPECT_EQ(Bots::MakeMemberSpotStrategy(BotRole::Tank), nullptr);
+}
+
+// The tank's wait for the group (TankWaitsForTheGroup).
+namespace
+{
+    struct Waiting
+    {
+        FakeBot fake{Tank};
+        Bots::GroupCoordinator group;
+
+        Waiting()
+        {
+            fake.SetHealth(Tank, 600, 600);
+            fake.SetHealth(Self, 600, 600);
+            fake.SetHealth(Other, 600, 600);
+            fake.SetHealth(Player, 600, 600);
+            fake.SetGroupMembers({Self, Other, Player});
+            group.NoteBot(Tank);
+            group.NoteBot(Self);
+            group.NoteBot(Other);
+            group.StartPull(Tank, Kobold);
+            group.SetPullSpot(Tank, {0, 0, 0});
+            group.StartGroupWait(Tank, 1000);
+        }
+
+        bool Waits(std::int64_t nowMs)
+        {
+            Bots::BotContext context{fake, fake, group, Bots::CommandState::Follow, Player};
+            context.nowMs = nowMs;
+            return Bots::TankWaitsForTheGroup(context);
+        }
+    };
+}
+
+TEST(GroupWait, TheTankWaitsForEachBotUntilItIsInPlace)
+{
+    Waiting wait;
+    EXPECT_TRUE(wait.Waits(1500));
+
+    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.SetMemberInPlace(Self);
+    EXPECT_TRUE(wait.Waits(1500));
+
+    wait.group.SetMemberSpot(Other, true, {-22, 0, 0});
+    wait.group.SetMemberInPlace(Other);
+    EXPECT_FALSE(wait.Waits(1500));
+}
+
+TEST(GroupWait, ABotWithNoSpotIsNotWaitedFor)
+{
+    Waiting wait;
+    wait.group.SetMemberSpot(Self, false, {});
+    wait.group.SetMemberSpot(Other, false, {});
+
+    EXPECT_FALSE(wait.Waits(1500));
+}
+
+TEST(GroupWait, NotForTheDeadNorForABotOutOfTheGroup)
+{
+    Waiting wait;
+    wait.fake.SetLifeState(Self, Bots::LifeState::Dead);
+    wait.fake.SetGroupMembers({Self, Player});
+
+    EXPECT_FALSE(wait.Waits(1500));
+}
+
+TEST(GroupWait, TheWaitEndsAfterTenSeconds)
+{
+    Waiting wait;
+
+    EXPECT_TRUE(wait.Waits(1000 + Bots::GroupWaitMs - 1));
+    EXPECT_FALSE(wait.Waits(1000 + Bots::GroupWaitMs));
+}
+
+TEST(GroupWait, ABotOnceInPlaceIsNotWaitedForAgain)
+{
+    Waiting wait;
+    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+    wait.group.SetMemberInPlace(Self);
+    wait.group.SetMemberSpot(Other, true, {-22, 0, 0});
+    wait.group.SetMemberInPlace(Other);
+
+    // Self walks off its spot (a fight, a push): the pull goes on.
+    wait.fake.SetPosition(Self, {-40, 0, 0});
+
+    EXPECT_FALSE(wait.Waits(1500));
+}
+
+TEST(GroupWait, ANewPullForgetsTheMemberSpots)
+{
+    Waiting wait;
+    wait.group.SetMemberSpot(Self, true, {-16, 0, 0});
+
+    wait.group.StartPull(Tank, Kobold);
+
+    EXPECT_TRUE(wait.group.GetMemberSpots().empty());
+}
+
+TEST(GroupWait, TheWaitLineNamesTheCount)
+{
+    EXPECT_EQ(Bots::GroupWaitLine(1), "Waiting for 1 member to get in place.");
+    EXPECT_EQ(Bots::GroupWaitLine(2), "Waiting for 2 members to get in place.");
 }

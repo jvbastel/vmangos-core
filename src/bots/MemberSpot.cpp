@@ -1,5 +1,6 @@
 #include "MemberSpot.h"
 #include "BotGeometry.h"
+#include "CommonRules.h"
 #include "FightSpot.h"
 #include "SafePlace.h"
 
@@ -108,5 +109,108 @@ namespace Bots
                 spots.end());
         }
         return FirstSafePlace(view, spots, rules, spot);
+    }
+
+    std::vector<Guid> MembersNotInPlace(BotContext const& context)
+    {
+        Guid const self = context.view.GetSelf();
+        std::vector<Guid> const members = context.view.GetGroupMembers();
+        std::vector<MemberSpot> const spots = context.group.GetMemberSpots();
+        std::vector<Guid> waited;
+        for (Guid bot : context.group.GetBots())
+        {
+            if (bot == self || std::find(members.begin(), members.end(), bot) == members.end()
+                || !IsAlive(context.view, bot))
+                continue;
+            auto const spot = std::find_if(spots.begin(), spots.end(), [bot](MemberSpot const& member) {
+                return member.bot == bot;
+            });
+            if (spot == spots.end() || (spot->found && !spot->inPlace))
+                waited.push_back(bot);
+        }
+        return waited;
+    }
+
+    bool TankWaitsForTheGroup(BotContext const& context)
+    {
+        PullState const pull = context.group.GetPull();
+        return pull.phase == PullPhase::Pulling && pull.puller == context.view.GetSelf() && pull.hasSpot
+            && context.nowMs - pull.waitFromMs < GroupWaitMs && !MembersNotInPlace(context).empty();
+    }
+
+    std::string GroupWaitLine(std::uint32_t members)
+    {
+        return "Waiting for " + std::to_string(members) + (members == 1 ? " member" : " members")
+            + " to get in place.";
+    }
+
+    namespace
+    {
+        // The bot's member spot in the pull, if it noted one.
+        bool MySpot(BotContext const& context, MemberSpot& mine)
+        {
+            for (MemberSpot const& spot : context.group.GetMemberSpots())
+                if (spot.bot == context.view.GetSelf())
+                {
+                    mine = spot;
+                    return true;
+                }
+            return false;
+        }
+
+        // A pull is on, the tank has its fight spot, and the pack does not
+        // hold on it yet. Not for the puller, a bot in a fight, nor a bot
+        // told to come; nor once the bot found no safe spot.
+        bool GoesToMemberSpot(BotContext const& context)
+        {
+            PullState const pull = context.group.GetPull();
+            Guid const self = context.view.GetSelf();
+            if (pull.phase != PullPhase::Pulling || !pull.hasSpot || pull.puller == self
+                || context.command == CommandState::Come || !IsAlive(context.view, self)
+                || context.view.IsInCombat(self))
+                return false;
+            MemberSpot mine;
+            return !MySpot(context, mine) || mine.found;
+        }
+
+        void GoToMemberSpot(BotContext const& context, BotRole role)
+        {
+            Guid const self = context.view.GetSelf();
+            MemberSpot mine;
+            if (!MySpot(context, mine))
+            {
+                PullState const pull = context.group.GetPull();
+                std::vector<Position> taken;
+                for (MemberSpot const& other : context.group.GetMemberSpots())
+                    if (other.bot != self && other.found)
+                        taken.push_back(other.spot);
+                mine.bot = self;
+                mine.found = FindMemberSpot(context.view, role, pull.spot, context.group.GetTrail(), pull.puller,
+                    pull.target, taken, mine.spot);
+                context.group.SetMemberSpot(self, mine.found, mine.spot);
+                if (!mine.found)
+                    return;
+            }
+            if (Distance2d(context.view.GetPosition(self), mine.spot) <= MemberInPlaceYards)
+            {
+                if (!mine.inPlace)
+                    context.group.SetMemberInPlace(self);
+                return;
+            }
+            context.actions.KeepMovingTo(mine.spot);
+        }
+    }
+
+    std::shared_ptr<Strategy const> MakeMemberSpotStrategy(BotRole role)
+    {
+        if (role == BotRole::Tank)
+            return nullptr;
+        Rule rule;
+        rule.name = "go to the member spot";
+        rule.priority = Priority::Command + 30;
+        rule.trigger = GoesToMemberSpot;
+        rule.action.canDo = [](BotContext const&) { return true; };
+        rule.action.run = [role](BotContext const& context) { GoToMemberSpot(context, role); };
+        return std::make_shared<Strategy const>(Strategy{"member spot", {rule}});
     }
 }

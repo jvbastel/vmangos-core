@@ -445,6 +445,11 @@ namespace Bots
                 m_deeds.push_back("warn extra packs " + std::to_string(packs));
             }
 
+            void SayGroupWait(std::uint32_t members) override
+            {
+                m_deeds.push_back("say group wait " + std::to_string(members));
+            }
+
             void TopUpAmmo(AmmoTopUp const& topUp) override
             {
                 m_deeds.push_back("top up ammo " + std::to_string(topUp.entry) + " to " + std::to_string(topUp.count));

@@ -154,7 +154,7 @@ TEST(ClassModules, AClassAndRoleWithoutAModuleHaveNoClassStrategy)
 {
     StrategyStack stack = Bots::MakeStrategyStack(Bots::BotClass::Druid, Bots::BotRole::Healer);
 
-    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "rest", "group rules", "death"}));
+    EXPECT_EQ(stack.Names(), (std::vector<std::string>{"command", "member spot", "rest", "group rules", "death"}));
 }
 
 TEST(CommandStrategy, ABotThatWaitsItsStartDelayDoesNotFollowYet)

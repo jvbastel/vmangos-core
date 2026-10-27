@@ -3,6 +3,7 @@
 #include "BotGeometry.h"
 #include "FightSpot.h"
 #include "GroupRules.h"
+#include "MemberSpot.h"
 #include "Ranged.h"
 #include "SpellBook.h"
 
@@ -203,11 +204,25 @@ namespace Bots
                         FightSpot const fight = FindFightSpot(context.view, context.group.GetTrail(),
                             PickPullTarget(context), ShotRange{MinShootYards, MaxShootYards});
                         context.group.SetPullSpot(Self(context), fight.spot);
+                        context.group.StartGroupWait(Self(context), context.nowMs);
                         if (fight.hasShootSpot)
                             context.group.SetShootSpot(Self(context), fight.shootSpot);
                         if (fight.extraPacks > 0)
                             context.actions.WarnExtraPacks(fight.extraPacks);
                     }),
+                // The group goes to its member spots (MemberSpot.h): the tank
+                // pulls when each bot is in place, or after GroupWaitMs. It
+                // may walk to its shoot spot meanwhile. A wait of
+                // GroupWaitSayMs it says in party chat, once a pull.
+                Rule{"wait for the group", P + 76, TankWaitsForTheGroup,
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) {
+                            PullState const pull = context.group.GetPull();
+                            if (pull.waitSaid || context.nowMs - pull.waitFromMs < GroupWaitSayMs)
+                                return;
+                            context.actions.SayGroupWait(std::uint32_t(MembersNotInPlace(context).size()));
+                            context.group.NoteGroupWaitSaid(Self(context));
+                        }}},
                 // The tank cannot shoot from where it stands: it walks to
                 // its shoot spot. No shot from there either (the sight of
                 // the game): it pulls as without one.

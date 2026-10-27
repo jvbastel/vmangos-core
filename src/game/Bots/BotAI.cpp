@@ -11,6 +11,7 @@
 #include "ClassModules.h"
 #include "CoordinatorChoice.h"
 #include "DeathAndRest.h"
+#include "MemberSpot.h"
 #include "Group.h"
 #include "ObjectAccessor.h"
 #include "SpellMgr.h"
@@ -519,6 +520,8 @@ void BotAI::Think()
         else
         {
             m_strategies.Push(Bots::MakeCommandStrategy());
+            if (std::shared_ptr<Bots::Strategy const> spot = Bots::MakeMemberSpotStrategy(m_role))
+                m_strategies.Push(spot);
             m_strategies.Push(Bots::MakeRestStrategy());
             m_strategies.Push(Bots::MakeDeathStrategy());
         }
@@ -565,6 +568,7 @@ void BotAI::Think()
     Bots::BotContext context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};
     context.startWaits = m_startGate.Waiting();
+    context.nowMs = SteadyMs();
     std::string const rule = m_strategies.Think(context);
     // A bot without a group has no chat session: its own coordinator drops
     // the events. The bot manager drops the events of a place coordinator.

@@ -59,6 +59,10 @@ namespace Bots
         // packs (ExtraPackWarnLine, bots/ExtraPackWatch.h). The warn hook of
         // jvbastel/WOWAI#105; a scripted run records it per pull.
         virtual void WarnExtraPacks(std::uint32_t packs) = 0;
+        // The tank says in party chat that it waits for `members` bots to
+        // get to their member spots before it pulls (GroupWaitLine,
+        // bots/MemberSpot.h, jvbastel/WOWAI#106).
+        virtual void SayGroupWait(std::uint32_t members) = 0;
         // Bring the ammo up to `topUp` silently, from nothing: no vendor
         // and no money (Ranged.h). The arrows or bullets go in the bags and
         // become the ammo of the ammo slot; a thrown stack grows in place.
