@@ -20,12 +20,11 @@ namespace Bots
         if (pull.backAtFightSpot && !m_back)
             lines.push_back("the tank is back at its fight spot");
         m_back = pull.backAtFightSpot;
-        bool const held = group.TankHoldsThreat(nowMs);
+        ThreatHeld const by = group.TankHoldsThreatBy(nowMs);
+        bool const held = by != ThreatHeld::No;
         if (held && !m_held)
-        {
-            bool const byContact = m_back && m_contact && nowMs - pull.contactMs >= HoldContactMs;
-            lines.push_back(std::string("the tank holds threat: ") + (byContact ? "melee contact" : "time limit"));
-        }
+            lines.push_back(std::string("the tank holds threat: ") +
+                (by == ThreatHeld::MeleeContact ? "melee contact" : "time limit"));
         m_held = held;
         return lines;
     }

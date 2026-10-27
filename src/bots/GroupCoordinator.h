@@ -146,6 +146,15 @@ namespace Bots
     std::int64_t const HoldContactMs = 2000;
     std::int64_t const HoldLimitMs = 8000;
 
+    // Why the tank holds threat on the focus now (TankHoldsThreatBy).
+    enum class ThreatHeld
+    {
+        No,
+        OutsideAPull, // The tank fights back an enemy outside a pull.
+        MeleeContact, // HoldContactMs after the melee contact.
+        TimeLimit,    // HoldLimitMs after the engage.
+    };
+
     // Tells if enemy `enemy` still lives, as the asking bot sees it.
     using EnemyLives = std::function<bool(Guid enemy)>;
 
@@ -228,6 +237,9 @@ namespace Bots
         // engaged. The damage bots wait for it (DamageRules.h), and the
         // members hold their member spots until it (MemberSpot.h).
         bool TankHoldsThreat(std::int64_t nowMs) const;
+        // The same, with the reason: melee contact before the time limit
+        // when both hold. The trace of the hold says it (HoldWatch.h).
+        ThreatHeld TankHoldsThreatBy(std::int64_t nowMs) const;
         // The tank cannot taunt enemy `enemy` off another member now: it
         // knows no Taunt, or the taunt cannot go out in range (cooldown). The
         // damage bots stop their wait for the taunt (DamageRules.h). A new
