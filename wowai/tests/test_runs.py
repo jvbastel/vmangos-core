@@ -69,20 +69,30 @@ class Summary(unittest.TestCase):
     def test_marks_each_extra_pack_avoidable_or_unavoidable(self):
         """jvbastel/WOWAI#123: the judge's mark of each extra pack. An older result file has none."""
         result = {
-            "run": 6, "script": "ragefire_chasm", "scenario": "two_packs", "result": "failed",
-            "reason": "pull 2 (pack1) failed: extra pack pack2 was avoidable: a fight spot keeps it out",
+            "run": 6, "script": "ragefire_chasm", "scenario": "two_packs", "result": "passed", "reason": None,
             "duration_s": 95.0, "bosses_killed": [], "wipes": [], "deaths": {"Ezzra": []},
             "threat_losses": [], "lost_mobs": [],
             "pulls": [{"pack": "pack48", "extra_packs": [{"pack": "pack49", "time_s": 30.0, "warned": True,
-                                                          "avoidable": False, "reason": "no fight spot"}]},
+                                                          "avoidable": False, "reason": "no fight spot"}],
+                       "passed": True},
                       {"pack": "pack1", "extra_packs": [{"pack": "pack2", "time_s": 90.0, "warned": True,
-                                                         "avoidable": True, "reason": "a fight spot"}]}],
+                                                         "avoidable": True, "reason": "a fight spot"}],
+                       "passed": False, "failure": "extra pack pack2 was avoidable: a fight spot"}],
         }
         self.assertEqual(runs.summary(result),
-                         "ragefire_chasm two_packs run 6: failed after 95 s, bosses 0, wipes 0, deaths 0, "
+                         "ragefire_chasm two_packs run 6: passed after 95 s, bosses 0, wipes 0, deaths 0, "
                          "threat losses 0, lost mobs 0, extra packs 2 (warned 2; pack49 unavoidable, "
-                         "pack2 avoidable): pull 2 (pack1) failed: extra pack pack2 was avoidable: "
-                         "a fight spot keeps it out")
+                         "pack2 avoidable), failed pulls 1 (pull 2: extra pack pack2 was avoidable: "
+                         "a fight spot)")
+
+    def test_a_failed_pull_is_shown_on_a_passed_run(self):
+        """User decision (2026-10-27): a failed pull is counted and shown, but the run passes."""
+        result = dict(a_three_enemy_run([]), duration_s=40.0, bosses_killed=[], wipes=[], deaths={}, lost_mobs=[])
+        result["pulls"][0].update({"passed": False, "failure": "extra pack pack2 joined with no warn"})
+        self.assertEqual(runs.summary(result),
+                         "deadmines three_enemies run 1: passed after 40 s, bosses 0, wipes 0, deaths 0, "
+                         "threat losses 0, lost mobs 0, extra packs 0, failed pulls 1 "
+                         "(pull 1: extra pack pack2 joined with no warn)")
 
     def test_shows_the_threat_losses_of_the_healer(self):
         """jvbastel/WOWAI#113: the healer's threat losses next to all of them."""

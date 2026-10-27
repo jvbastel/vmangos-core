@@ -3,6 +3,7 @@
 #include "CommonRules.h"
 #include "DamageRules.h"
 #include "FightSpot.h"
+#include "KeepOut.h"
 #include "SafePlace.h"
 
 #include <algorithm>
@@ -192,8 +193,10 @@ namespace Bots
         {
             PullState const pull = context.group.GetPull();
             Guid const self = context.view.GetSelf();
-            bool const hadFightSpot = pull.hasFightSpot || pull.phase == PullPhase::Holding;
-            if (!hadFightSpot || pull.puller == self || !JoinsPulls(context) || !PullNotHeldYet(context, pull))
+            // The tank noted its fight spot: it still has it, or it holds the pull
+            // (it clears the spot once back there, PullState::backAtFightSpot).
+            bool const fightSpotNoted = pull.hasFightSpot || pull.phase == PullPhase::Holding;
+            if (!fightSpotNoted || pull.puller == self || !JoinsPulls(context) || !PullNotHeldYet(context, pull))
                 return false;
             MemberSpot mine;
             return !MySpot(context, mine) || (mine.found && !mine.inPlace);
@@ -207,13 +210,22 @@ namespace Bots
             MemberSpot const mine = context.group.ClaimMemberSpot(self,
                 [&context, role, &trail](PullState const& pull, std::vector<Position> const& taken, Position& spot) {
                     return pull.hasFightSpot
-                        && FindMemberSpot(context.view, role, pull.fightSpot, trail, pull.target, taken, spot);
+                        && FindMemberSpot(context.view, role, pull.fightSpot, trail, pull.target, taken, spot)
+                        && !InOtherPacksReach(context, spot);
                 });
             if (!mine.found)
                 return;
             if (Distance2d(context.view.GetPosition(self), mine.spot) <= AtSpotYards)
             {
                 context.group.SetMemberInPlace(self);
+                return;
+            }
+            // A pack outside the fight came within reach of the spot after
+            // the claim (KeepOut.h, jvbastel/WOWAI#121): the bot does not
+            // walk into it, and holds where it stands.
+            if (InOtherPacksReach(context, mine.spot))
+            {
+                context.actions.Stand();
                 return;
             }
             context.actions.KeepMovingTo(mine.spot);

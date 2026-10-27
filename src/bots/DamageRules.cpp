@@ -1,6 +1,7 @@
 #include "DamageRules.h"
 #include "CommonRules.h"
 #include "GroupRules.h"
+#include "KeepOut.h"
 
 #include <algorithm>
 #include <vector>
@@ -95,6 +96,12 @@ namespace Bots
             && IsInChaseLimit(context, focus))
             return focus;
         return NoGuid;
+    }
+
+    Guid PickMeleeDamageTarget(BotContext const& context)
+    {
+        Guid const target = PickDamageTarget(context);
+        return target != NoGuid && InOtherPacksReach(context, context.view.GetPosition(target)) ? NoGuid : target;
     }
 
     bool TankHoldsThreat(BotContext const& context)

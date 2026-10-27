@@ -6,6 +6,11 @@
 // Small parts that the class modules share to build their rules.
 namespace Bots
 {
+    // Two units this near are in melee contact: the pull target and the
+    // tank for the hold (DamageRules.h, jvbastel/WOWAI#127), the tank and
+    // the enemy it melees or the caster that stays away (WarriorModule.cpp).
+    float const MeleeContactYards = 5.0f;
+
     // Picks the unit of a rule on one think, for example the focus target.
     using TargetPicker = std::function<Guid(BotContext const&)>;
 

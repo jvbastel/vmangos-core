@@ -92,11 +92,31 @@ namespace Bots
     // way, oldest first (GroupCoordinator::GetTrail). The bot's own place
     // counts first, then the trail from its newest point.
     FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target);
-    // The same with only `enemies` round the pull, of those within
-    // FightSpotEnemyYards: the judge of the extra packs (RunJudge.h,
-    // jvbastel/WOWAI#123) asks it for one pack at a time.
-    FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target,
-        std::vector<NearEnemy> const& enemies);
+
+    // The pulls that the tank could make of `target` (jvbastel/WOWAI#123):
+    // the judge of the extra packs (RunJudge.h) asks for them with the real
+    // packs at the pull. Each way, and the other packs that it brings.
+    enum class PullWay
+    {
+        FightSpot,   // A fight spot on the cleared way.
+        LineOfSight, // A line-of-sight pull of a caster pack.
+        SpawnArea,   // The area round a caster's spawn (the go-in).
+    };
+    struct PullOption
+    {
+        PullWay way;
+        Position spot;
+        // The packs of PullOptions::split.others that this pull brings, in
+        // order.
+        std::vector<std::size_t> packs;
+    };
+    struct PullOptions
+    {
+        // The enemies round the pull: the target's pack and the others.
+        TargetPack split;
+        std::vector<PullOption> options;
+    };
+    PullOptions FindPullOptions(BotView const& view, std::vector<Position> const& trail, Guid target);
 }
 
 #endif

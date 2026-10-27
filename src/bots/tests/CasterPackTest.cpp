@@ -229,7 +229,7 @@ TEST(CasterPack, TheTankWaitsForACasterThatStaysAway)
     CasterTank tank;
     tank.PullAndHold();
 
-    tank.nowMs += Warrior::CasterComeMs - 1000;
+    tank.nowMs += Bots::CasterComeMs - 1000;
     tank.Think();
     tank.Think();
 
@@ -244,7 +244,7 @@ TEST(CasterPack, ACasterThatStaysInACleanAreaGetsTheTankWithNoWarn)
     tank.PullAndHold();
     tank.fake.SetPosition(Shaman, {-236.0f, -34.0f, -56.5f});
 
-    tank.nowMs += Warrior::CasterComeMs;
+    tank.nowMs += Bots::CasterComeMs;
     tank.Think();
     tank.Think();
 
@@ -260,7 +260,7 @@ TEST(CasterPack, ACasterThatStaysNearOtherPacksGetsTheTankAfterAWarn)
     CasterTank tank;
     tank.PullAndHold();
 
-    tank.nowMs += Warrior::CasterComeMs;
+    tank.nowMs += Bots::CasterComeMs;
     tank.Think();
     std::vector<std::string> const first = tank.fake.Deeds();
     tank.fake.ClearDeeds();
@@ -286,7 +286,7 @@ TEST(CasterPack, APullThatWarnedBeforeGoesInWithNoSecondWarn)
     tank.Think();
     tank.Think();
 
-    tank.nowMs += Warrior::CasterComeMs;
+    tank.nowMs += Bots::CasterComeMs;
     tank.Think();
     tank.Think();
 
@@ -358,7 +358,7 @@ TEST(CasterPack, TheTankThatGoesInAfterAWarnMayStepNearOtherPacks)
 {
     CasterTank tank;
     tank.PullAndHold();
-    tank.nowMs += Warrior::CasterComeMs;
+    tank.nowMs += Bots::CasterComeMs;
     tank.Think(); // Warns, and goes in.
     tank.fake.SetPosition(Tank, NearPack11);
     tank.fake.ClearDeeds();
@@ -430,4 +430,66 @@ TEST(CasterPack, WithNoSafePlaceTheKeepOutRuleDoesNotFreezeTheTank)
     tank.fake.AddNoPathFromX(-10000.0f);
 
     EXPECT_NE(tank.Think(), Bots::KeepOutRule);
+}
+
+// Review of jvbastel/WOWAI#121 (C2): the keep-out rule steps a melee damage
+// bot out, and its melee rule chased its target back in: a loop. As for the
+// tank's pick-up, the melee bot does not chase a target in the reach of a
+// pack outside the fight. The member that the enemy hits steps out itself.
+TEST(CasterPack, AMeleeDamageBotDoesNotChaseATargetInThePlaceOfAPackOutsideTheFight)
+{
+    Bots::Guid const Rogue = 0x13;
+    Bots::Guid const Healer = 0x12;
+    FakeBot fake{Rogue};
+    fake.SetHealth(Rogue, 500, 500);
+    fake.SetHealth(Tank, 600, 600);
+    fake.SetHealth(Healer, 400, 400);
+    fake.SetGroupMembers({Tank, Healer});
+    fake.SetPosition(Tank, PullPack9);
+    fake.SetPosition(Rogue, PullPack9);
+    fake.SetPosition(Healer, NearPack11);
+    fake.SetInCombat(Rogue);
+    fake.SetPosition(Trogg11, Pack11);
+    fake.AddEnemy(Trogg11, Pack11, AggroYards);
+    // The add hits the healer near pack11.
+    fake.SetPosition(Trogg10, NearPack11);
+    fake.AddEnemy(Trogg10, NearPack11, AggroYards);
+    fake.SetHealth(Trogg10, 300, 300);
+    fake.SetVictim(Trogg10, Healer);
+    fake.SetDistanceBetween(Trogg10, Healer, 1.0f);
+    Bots::GroupCoordinator group;
+    group.SetTank(Tank);
+    group.SetFocusTarget(Shaman);
+    fake.SetPosition(Shaman, Pack9);
+    fake.SetVictim(Shaman, Tank);
+    Bots::StrategyStack const stack = Bots::MakeStrategyStack(Bots::BotClass::Rogue, Bots::BotRole::Melee);
+    Bots::BotContext context{fake, fake, group, Bots::CommandState::None, Bots::NoGuid};
+
+    stack.Think(context);
+
+    for (std::string const& deed : fake.Deeds())
+        EXPECT_EQ(deed.find("chase"), std::string::npos) << deed;
+}
+
+// Full runs on b1e729403 (t93-final2): the tank switched 239 times between
+// "walk back to the fight spot" (68) and "keep out of other packs" (82).
+// One reach rule: the fight spot search chose the spot and the way back to
+// it (and warned when it brings extra packs), so keep-out does not fire on
+// the tank while it walks back to it. Here the walk back passes the place
+// of pack11.
+TEST(CasterPack, KeepOutDoesNotFireOnTheTanksWalkBackToItsFightSpot)
+{
+    CasterTank tank;
+    tank.group.StartPull(Tank, Shaman);
+    tank.Think();
+    ASSERT_TRUE(tank.group.GetPull().hasFightSpot);
+    tank.fake.SetPosition(Tank, NearPack11);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetInCombat(Shaman);
+    tank.fake.SetVictim(Shaman, Tank);
+    tank.group.KeepTrail(NearPack11, true);
+    tank.group.HoldPull(Tank, tank.nowMs);
+
+    for (int i = 0; i < 3; ++i)
+        EXPECT_EQ(tank.Think(), "walk back to the fight spot");
 }

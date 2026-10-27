@@ -130,6 +130,7 @@ namespace Bots
 
         Json pulls = Json::array();
         std::size_t extraPacks = 0;
+        std::size_t failedPulls = 0;
         std::size_t avoidable = 0;
         for (RunPull const& pull : r.pulls)
         {
@@ -147,7 +148,10 @@ namespace Bots
             Json written = {{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)},
                 {"again", pull.again}, {"extra_packs", extra}, {"passed", failure.empty()}};
             if (!failure.empty())
+            {
                 written["failure"] = failure;
+                ++failedPulls;
+            }
             pulls.push_back(written);
         }
         j["pulls"] = pulls;
@@ -155,6 +159,8 @@ namespace Bots
         // avoidable or not.
         j["extra_packs"] = extraPacks;
         j["avoidable_extra_packs"] = avoidable;
+        // A failed pull does not fail the run (user decision, 2026-10-27).
+        j["failed_pulls"] = failedPulls;
 
         Json fights = Json::array();
         for (FightSummary const& fight : r.fights)

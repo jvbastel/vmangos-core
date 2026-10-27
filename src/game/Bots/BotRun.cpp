@@ -364,7 +364,8 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_enemyHealth.clear();
     m_fleeing.clear();
     m_pullFled.clear();
-    m_pullMarks.clear();
+    m_pullChoices = Bots::PullChoices();
+    m_joinCause.clear();
     m_pullJudged = false;
     m_driverSeen = false;
     ++m_number;
@@ -448,25 +449,17 @@ void BotRun::Fail(std::string const& reason)
     Finish(false, reason);
 }
 
-void BotRun::Finish(bool passed, std::string const& givenReason)
+void BotRun::Finish(bool passed, std::string const& reason)
 {
     // 1. The result. A threat loss does not fail the run: the spec allows
     // some (spec section 10). The result counts them. A fight that still
     // runs ends here, with what its members did so far.
     if (m_fight.Running())
         EndFight(RunMs());
-    // A pull with an unwarned or an avoidable extra pack fails the run at
-    // its end (Bots::JudgePulls, jvbastel/WOWAI#123).
-    std::string reason = givenReason;
-    if (passed)
-    {
-        Bots::RunVerdict const pulls = Bots::JudgePulls(m_record.pulls);
-        if (pulls.kind == Bots::RunVerdictKind::Failed)
-        {
-            passed = false;
-            reason = pulls.reason;
-        }
-    }
+    // A pull with an unwarned or an avoidable extra pack fails (Bots::
+    // PullFailure, jvbastel/WOWAI#123). The result counts and shows it, but
+    // it does not fail the run (user decision, 2026-10-27).
+    std::size_t const failedPulls = Bots::FailedPulls(m_record.pulls);
     m_passed = passed;
     // The result line counts the healer's losses from the record.
     RecordHits();
@@ -476,7 +469,10 @@ void BotRun::Finish(bool passed, std::string const& givenReason)
     if (!passed)
         line << ": " << reason;
     line << ", bosses " << m_record.bossKills.size() << ", wipes " << m_record.wipes.size()
-         << ", deaths " << m_record.deaths.size() << WatchText();
+         << ", deaths " << m_record.deaths.size();
+    if (failedPulls)
+        line << ", failed pulls " << failedPulls;
+    line << WatchText();
     m_result = line.str();
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
     m_trace.Add(RunMs(), m_result);
@@ -1463,7 +1459,11 @@ void BotRun::WatchEnemies(int64 nowMs)
             it = m_enemyHealth.erase(it);
             continue;
         }
-        // A flee: from fear, for assistance, or at low health.
+        // A flee: from fear, or at low health. The low-health flee
+        // (Creature::DoFleeToGetAssistance) runs to the nearest ally with
+        // MoveSeekAssistance (ASSISTANCE_MOTION_TYPE) when one is in reach,
+        // else flees in place for a time (TIMED_FLEEING_MOTION_TYPE): both
+        // are the flee, and the first is the one that brings a pack.
         MovementGeneratorType const motion = enemy->GetMotionMaster()->GetCurrentMovementGeneratorType();
         bool const flees = enemy->HasUnitState(UNIT_STATE_FLEEING) || motion == FLEEING_MOTION_TYPE
             || motion == TIMED_FLEEING_MOTION_TYPE || motion == ASSISTANCE_MOTION_TYPE;
@@ -1619,13 +1619,28 @@ void BotRun::WatchExtraPacks(int64 nowMs)
     std::size_t const known = m_extraPacks.ExtraPacks().size();
     m_extraPacks.Observe(nowMs, spawns);
     RecordExtraPacks();
+    if (m_extraPacks.ExtraPacks().size() == known)
+        return;
+    // The cause of each new pack, as it joins. Then the marks of all the
+    // extra packs of the pull again: a pull that kept a pack out counts only
+    // when it brought no more extra packs than the pull did
+    // (Bots::MarkExtraPack).
     for (std::size_t i = known; i < m_extraPacks.ExtraPacks().size(); ++i)
     {
+        std::string const& name = m_extraPacks.ExtraPacks()[i].pack;
+        m_joinCause[name] = CauseOf(name);
+    }
+    std::size_t const got = m_extraPacks.ExtraPacks().size();
+    for (std::size_t i = 0; i < got; ++i)
+    {
         std::string const name = m_extraPacks.ExtraPacks()[i].pack;
-        auto const atPull = m_pullMarks.find(name);
+        Bots::ExtraPackMark const atPull = Bots::MarkExtraPack(m_pullChoices, name, got);
         m_extraPacks.Mark(name, Bots::JudgeExtraPack(m_pullJudged,
-            atPull == m_pullMarks.end() ? nullptr : &atPull->second, CauseOf(name)));
-        RecordExtraPacks();
+            m_pullChoices.searched.count(name) ? &atPull : nullptr, m_joinCause[name]));
+    }
+    RecordExtraPacks();
+    for (std::size_t i = known; i < got; ++i)
+    {
         Bots::RunExtraPack const& extra = m_extraPacks.ExtraPacks()[i];
         std::string const text = "extra pack " + extra.pack + " joins pull " + std::to_string(m_record.pulls.size()) +
             (extra.warned ? " (warned)" : " (no warn)") + (extra.avoidable ? ", avoidable: " : ", unavoidable: ") +
@@ -1638,7 +1653,8 @@ void BotRun::WatchExtraPacks(int64 nowMs)
 void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
 {
     m_pullFled.clear();
-    m_pullMarks.clear();
+    m_pullChoices = Bots::PullChoices();
+    m_joinCause.clear();
     m_pullJudged = false;
     Player* driver = Driver();
     if (!target || !driver)
@@ -1657,6 +1673,7 @@ void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
     BotAdapter const view(tank);
     std::vector<Bots::Position> const trail = CoordinatorOf(tank)->GetTrail();
     m_pullJudged = true;
+    std::vector<Bots::RoutePackAtPull> packs;
     for (Bots::RoutePack const& pack : m_route.packs)
     {
         if (pack.name == pullPack)
@@ -1668,8 +1685,9 @@ void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
                     enemies.push_back(creature->GetObjectGuid().GetRawValue());
         // A pack out of the search gets no mark: Bots::JudgeExtraPack.
         if (!enemies.empty())
-            m_pullMarks[pack.name] = Bots::MarkExtraPack(view, trail, target->GetObjectGuid().GetRawValue(), enemies);
+            packs.push_back({pack.name, enemies});
     }
+    m_pullChoices = Bots::FindPullChoices(view, trail, target->GetObjectGuid().GetRawValue(), packs);
 }
 
 Bots::ExtraPackCause BotRun::CauseOf(std::string const& pack) const

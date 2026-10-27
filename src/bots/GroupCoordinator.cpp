@@ -208,13 +208,23 @@ namespace Bots
 
     bool GroupCoordinator::TankHoldsThreat(std::int64_t nowMs) const
     {
+        return TankHoldsThreatBy(nowMs) != ThreatHeld::No;
+    }
+
+    ThreatHeld GroupCoordinator::TankHoldsThreatBy(std::int64_t nowMs) const
+    {
         Lock lock(m_mutex);
         if (m_pull.phase == PullPhase::None)
-            return m_focusTarget != NoGuid;
+            return m_focusTarget != NoGuid ? ThreatHeld::OutsideAPull : ThreatHeld::No;
         if (m_pull.phase != PullPhase::Holding)
-            return false;
-        return nowMs - m_pull.engagedMs >= HoldLimitMs
-            || (m_pull.backAtFightSpot && m_pull.hasContact && nowMs - m_pull.contactMs >= HoldContactMs);
+            return ThreatHeld::No;
+        if (!m_pull.backAtFightSpot)
+            return ThreatHeld::No;
+        if (m_pull.hasContact && nowMs - m_pull.contactMs >= HoldContactMs)
+            return ThreatHeld::MeleeContact;
+        if (nowMs - m_pull.engagedMs >= HoldLimitMs)
+            return ThreatHeld::TimeLimit;
+        return ThreatHeld::No;
     }
 
     void GroupCoordinator::GiveUpTaunt(Guid enemy)

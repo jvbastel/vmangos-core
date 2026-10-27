@@ -25,18 +25,23 @@ namespace Bots
     //    unless the tank gave it up (GroupCoordinator::GiveUpTaunt).
     Guid PickDamageTarget(BotContext const& context);
 
+    // The damage target of a melee bot (PickDamageTarget): not one in the
+    // reach of a pack outside the fight (KeepOut.h, jvbastel/WOWAI#121).
+    // The keep-out rule would step the bot out again, and its chase take it
+    // back in: a loop. The member that the enemy hits steps out itself and
+    // brings it along, as for the tank's pick-up.
+    Guid PickMeleeDamageTarget(BotContext const& context);
+
     // True when the bot has a damage target now.
     bool HasDamageTarget(BotContext const& context);
 
     // jvbastel/WOWAI#127: the tank holds threat on the focus now
     // (GroupCoordinator::TankHoldsThreat). In a held pull, the bot first
     // notes the melee contact when it sees the pull target attack the
-    // puller within MeleeContactYards: a ranged-pulled target that runs to
+    // puller within MeleeContactYards (CommonRules.h, between the edges,
+    // BotView::GetDistanceBetween): a ranged-pulled target that runs to
     // the tank is not the tank's yet.
     bool TankHoldsThreat(BotContext const& context);
-    // The distance between the edges of the pull target and the tank
-    // (BotView::GetDistanceBetween) that counts as melee contact.
-    float const MeleeContactYards = 5.0f;
 
     // The casting range of a ranged damage bot, and its distance from the
     // damage target when it runs closer. The casting range counts by

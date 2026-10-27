@@ -59,6 +59,9 @@ TEST(HoldWatch, TracesTheHoldAfterTheTimeLimit)
     HoldWatch watch;
     Engage(group, 1000);
     watch.Observe(group, 1000);
+    // The time limit counts once the tank is back (GroupCoordinator.h).
+    group.ClearFightSpot(Tank);
+    watch.Observe(group, 2000);
 
     EXPECT_EQ(watch.Observe(group, 1000 + HoldLimitMs), Lines({"the tank holds threat: time limit"}));
 }
