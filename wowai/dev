@@ -10,6 +10,10 @@ deploy_dir="${WOWAI_DEPLOY_DIR:-/mnt/c/Games/vmangos-deploy}"
 . "$script_dir/test-realm/defaults.sh"
 shared_install_dir="${realm_defaults[WOWAI_DEV_INSTALL]}"
 install_dir="${WOWAI_DEV_INSTALL:-$shared_install_dir}"
+# The make jobs of one build. The pool builds in up to five slots at the same
+# time, and the WSL VM has 16 processors, so a slot gets 3, not nproc.
+build_jobs="${WOWAI_BUILD_JOBS:-3}"
+[[ "$build_jobs" =~ ^[1-9][0-9]*$ ]] || { echo "wowai/dev: WOWAI_BUILD_JOBS must be a positive number, not '$build_jobs'" >&2; exit 1; }
 
 # The slot of the check kit whose lease names this source tree, or nothing.
 leased_slot() {
@@ -133,7 +137,8 @@ in_container() {
   local tty=()
   [ -t 0 ] && [ -t 1 ] && tty=(--interactive --tty)
   docker exec "${tty[@]}" --user "$(id -u):$(id -g)" --env HOME=/tmp \
-    --env WOWAI_DEV_TREE="$src" --workdir /build "$container" "$@"
+    --env WOWAI_DEV_TREE="$src" --env WOWAI_BUILD_JOBS="$build_jobs" \
+    --workdir /build "$container" "$@"
 }
 
 # Runs in the dev container. Arguments: the CMake options.
@@ -206,7 +211,7 @@ if [ ! -f CMakeCache.txt ] || [ "$(cat .wowai-cmake-options 2>/dev/null)" != "$o
 fi
 # A killed build leaves empty object files, which make takes as up to date.
 find /build/out -name '*.o' -size 0 -print -delete | sed 's/^/Deleted the empty object file /'
-make -j"$(nproc)" install
+make -j"$WOWAI_BUILD_JOBS" install
 SCRIPT
 
 # A build into the shared install folder replaces the build that the shared
@@ -287,6 +292,8 @@ Settings (environment variables):
   WOWAI_DEV_ID       The name of the dev container (wowai-dev-<ID>) and its
                      volume. Default: slot-<N> for a tree that leases slot N
                      of the check kit (WOWAI_POOL_DIR), else <tree>-<hash>.
+  WOWAI_BUILD_JOBS   The make jobs of one build or test. Default: 3, so that
+                     five slots that build at the same time stay in memory.
 
 A command waits while another command uses the same dev container.
 EOF
