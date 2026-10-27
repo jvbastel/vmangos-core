@@ -8,6 +8,9 @@
 #include "Ranged.h"
 #include "SpellBook.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace Bots
 {
     namespace Warrior
@@ -27,6 +30,10 @@ namespace Bots
             std::uint32_t const StillChaseThinks = 3;
             // Nearer than this, the focus is in melee reach.
             float const MeleeYards = 5.0f;
+
+            // jvbastel/WOWAI#115: Challenging Shout from this many loose
+            // enemies.
+            std::size_t const ShoutLooseEnemies = 3;
 
             // jvbastel/WOWAI#117: the threat target. From this threat lead
             // on the focus (BotView::GetThreatRatio; 1.5 is 150%), the tank
@@ -145,11 +152,34 @@ namespace Bots
                 return PickMemberAttacker(context);
             }
 
-            // An enemy that hits another group member and is not the focus
-            // target: the tank taunts it off.
+            // The living enemies that hit a living group member other than the
+            // tank and are not the focus target: the loose enemies. The
+            // enemies on the healer come first (jvbastel/WOWAI#115), then the
+            // rest in the order of the group members.
+            std::vector<Guid> LooseEnemies(BotContext const& context)
+            {
+                Guid const focus = context.group.GetFocusTarget();
+                Guid const healer = context.group.GetHealer();
+                std::vector<Guid> members = context.view.GetGroupMembers();
+                auto const at = std::find(members.begin(), members.end(), healer);
+                if (at != members.end())
+                    std::rotate(members.begin(), at, at + 1);
+                std::vector<Guid> loose;
+                for (Guid member : members)
+                    if (member != Self(context) && IsAlive(context.view, member))
+                        for (Guid attacker : context.view.GetAttackers(member))
+                            if (attacker != focus && IsAlive(context.view, attacker)
+                                && std::find(loose.begin(), loose.end(), attacker) == loose.end())
+                                loose.push_back(attacker);
+                return loose;
+            }
+
+            // The loose enemy that the tank taunts off: one on the healer
+            // first.
             Guid PickLooseEnemy(BotContext const& context)
             {
-                return PickMemberAttacker(context, Self(context), context.group.GetFocusTarget());
+                std::vector<Guid> const loose = LooseEnemies(context);
+                return loose.empty() ? NoGuid : loose.front();
             }
 
             // The tank's visits to its threat target: its own choice, no
@@ -459,6 +489,12 @@ namespace Bots
                 CastRule("taunt an enemy off a member", P + 54,
                     [](BotContext const& context) { return FightsFocus(context) && PickLooseEnemy(context) != NoGuid; },
                     Taunt, PickLooseEnemy),
+                // A broken pull: too many loose enemies to taunt one by one.
+                CastRule("challenging shout", P + 52,
+                    [](BotContext const& context) {
+                        return FightsFocus(context) && LooseEnemies(context).size() >= ShoutLooseEnemies;
+                    },
+                    ChallengingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),

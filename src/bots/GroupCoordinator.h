@@ -214,6 +214,11 @@ namespace Bots
         // on each think. For the chase limit (GroupRules.h).
         Guid GetTank() const;
         void SetTank(Guid tank);
+        // The healer of the group, or NoGuid. The bot AI of the healer sets
+        // it on each think. The tank taunts enemies off it first
+        // (WarriorModule.h).
+        Guid GetHealer() const;
+        void SetHealer(Guid healer);
 
         // The tank's trail since the last fight (Trail.h): the cleared way of
         // its fight spot (FightSpot.h). The tank notes where it stands on
@@ -306,6 +311,7 @@ namespace Bots
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;
+        Guid m_healer = NoGuid;
         Trail m_trail;
         std::vector<MemberSpot> m_memberSpots;
         // Counts each change of m_memberSpots but the in-place notes.
