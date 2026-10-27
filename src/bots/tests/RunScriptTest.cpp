@@ -210,10 +210,10 @@ TEST(RunScript, ARouteLineWalksEachStepOfTheRoute)
         "teleport p1",
         "move p1", "wait arrive",
         "move pull_pack1", "wait arrive",
-        "wait rested", "command stay", "fight pack1", "command follow",
+        "wait rested", "command stay", "fight pack1", "wait rested", "command follow",
         "move q5722_maur", "wait arrive",
-        "wait rested", "command stay", "fight pack2", "command follow",
-        "wait rested", "command stay", "fight boss", "command follow",
+        "wait rested", "command stay", "fight pack2", "wait rested", "command follow",
+        "wait rested", "command stay", "fight boss", "wait rested", "command follow",
         "expect alive"}));
     // Each step keeps the line of the route line, for the log and the result.
     EXPECT_EQ(c[1].line, 7u);
@@ -228,8 +228,12 @@ TEST(RunScript, ARouteLineWalksEachStepOfTheRoute)
     EXPECT_EQ(c[7].kind, ScriptCommandKind::Fight);
     EXPECT_EQ(c[7].name, "pack1");
     EXPECT_EQ(c[7].seconds, Bots::DefaultCombatEndSeconds);
-    EXPECT_EQ(c[8].kind, ScriptCommandKind::Command);
-    EXPECT_EQ(c[8].text, "follow");
+    // The group, the test driver too, rests after the fight and before the
+    // next `move` (jvbastel/WOWAI#99).
+    EXPECT_EQ(c[8].kind, ScriptCommandKind::WaitRested);
+    EXPECT_EQ(c[8].seconds, Bots::DefaultRestedSeconds);
+    EXPECT_EQ(c[9].kind, ScriptCommandKind::Command);
+    EXPECT_EQ(c[9].text, "follow");
 }
 
 TEST(RunScript, ARouteWithoutQuestsSkipsTheQuestSteps)
@@ -241,8 +245,8 @@ TEST(RunScript, ARouteWithoutQuestsSkipsTheQuestSteps)
     EXPECT_EQ(Sources(Bots::ExpandRoute(script.script.scenarios[0].commands, route.route)), (std::vector<std::string>{
         "move p1", "wait arrive",
         "move pull_pack1", "wait arrive",
-        "wait rested", "command stay", "fight pack1", "command follow",
-        "wait rested", "command stay", "fight boss", "command follow"}));
+        "wait rested", "command stay", "fight pack1", "wait rested", "command follow",
+        "wait rested", "command stay", "fight boss", "wait rested", "command follow"}));
 }
 
 TEST(RunScript, AScenarioWithARouteLineIsAFullRun)

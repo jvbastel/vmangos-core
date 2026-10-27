@@ -793,6 +793,13 @@ bool BotAdapter::IsDrinking() const
     return me->HasAuraType(SPELL_AURA_MOD_POWER_REGEN);
 }
 
+bool BotAdapter::IsScriptedMoveInProgress() const
+{
+    // The run keeps the move (BotRun::Move); the bot AI of the driver reads
+    // it on its map thread.
+    return sBotMgr.IsTestDriver(me->GetObjectGuid()) && sBotMgr.Run().IsScriptedMoveInProgress();
+}
+
 Bots::Position BotAdapter::GetGround(Bots::Position const& place) const
 {
     Bots::Position ground = place;

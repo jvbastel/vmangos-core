@@ -39,6 +39,9 @@ namespace Bots
         // A steady clock in milliseconds, for the tank's wait for the group
         // (MemberSpot.h). Any start: only differences count.
         std::int64_t nowMs = 0;
+        // The bot is the test driver of a scripted run: it loots no corpses
+        // (jvbastel/WOWAI#99).
+        bool testDriver = false;
     };
 
     using Trigger = std::function<bool(BotContext const&)>;

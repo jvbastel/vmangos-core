@@ -68,10 +68,12 @@ namespace Bots
             return context.command == CommandState::Follow || context.command == CommandState::None;
         }
 
+        // The test driver of a scripted run loots no corpses: a loot walk
+        // would stop its scripted move (jvbastel/WOWAI#99).
         bool ShouldLoot(BotContext const& context)
         {
             Guid const self = context.view.GetSelf();
-            return !context.view.IsInCombat(self) && context.group.GetPull().puller != self
+            return !context.testDriver && !context.view.IsInCombat(self) && context.group.GetPull().puller != self
                 && !HoldsMemberSpot(context);
         }
     }

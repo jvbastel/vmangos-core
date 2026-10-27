@@ -183,6 +183,9 @@ namespace Bots
         std::vector<FightSummary> fights; // Who took part in each fight that ended.
         std::vector<RunHit> threatLosses;
         std::vector<RunHit> lostMobs;
+        // The scripted moves of the test driver that stopped before they
+        // arrived (ScriptedMove.h).
+        std::uint32_t movesStopped = 0;
         std::vector<RunInterrupt> interrupts;
         std::vector<RunMissedCast> missedCasts;
         std::vector<RunDoubleInterrupt> doubleInterrupts;

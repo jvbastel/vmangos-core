@@ -123,6 +123,17 @@ TEST(RunResult, WritesTheExtraPacksOfEachPull)
     EXPECT_EQ(j["extra_packs"], 2);
 }
 
+// The scripted moves of the test driver that stopped before they arrived
+// (jvbastel/WOWAI#99).
+TEST(RunResult, CountsTheMovesThatStoppedBeforeTheyArrived)
+{
+    RunResult r = AFailedFullRun();
+    EXPECT_EQ(Json::parse(Bots::RunResultJson(r))["moves_stopped"], 0);
+
+    r.movesStopped = 2;
+    EXPECT_EQ(Json::parse(Bots::RunResultJson(r))["moves_stopped"], 2);
+}
+
 TEST(RunResult, WritesTheGearDrawsAndTheRandomChoices)
 {
     Json const j = Json::parse(Bots::RunResultJson(AFailedFullRun()));

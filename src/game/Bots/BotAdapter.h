@@ -82,6 +82,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::Power GetMana(Bots::Guid unit) const override;
         bool IsEating() const override;
         bool IsDrinking() const override;
+        bool IsScriptedMoveInProgress() const override;
         Bots::Position GetGround(Bots::Position const& place) const override;
         bool CanSeeBetween(Bots::Position const& from, Bots::Position const& to) const override;
         bool FindGroundPath(Bots::Position const& from, Bots::Position const& to,

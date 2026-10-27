@@ -98,7 +98,8 @@ namespace Bots
                             if (facts.driverArrived)
                                 done = true;
                             else if (waited >= ArriveLimitMs)
-                                return Fail("the test driver did not arrive in " + Seconds(ArriveLimitMs));
+                                return Fail("the test driver did not arrive in " + Seconds(ArriveLimitMs) +
+                                    (facts.driverMoveStop.empty() ? "" : ", its move stopped: " + facts.driverMoveStop));
                             break;
                         case ScriptCommandKind::WaitRested:
                             if (!facts.groupResting && !facts.memberDead)
