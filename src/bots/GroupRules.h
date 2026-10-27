@@ -16,9 +16,9 @@
 //   next cast to the other bot, so the bots take turns.
 // - Enemy healers: an enemy that casts a heal becomes an enemy healer of the
 //   group. The damage bots attack it first (PickDamageTarget), until it dies.
-// - Chase limit: a damage bot chases an enemy only up to ChaseLimitYards from
-//   the tank, and then comes back to the tank. Only the attack target of the
-//   player has no limit.
+// - Chase limit: a damage bot chases an enemy only up to ChaseEnemyYards from
+//   the tank, or from the other member that the enemy hits, and then comes
+//   back to the tank. Only the attack target of the player has no limit.
 // - Dispel: a bot that knows a dispel spell removes a debuff of that kind
 //   from a group member. At level 16 no bot of the group knows one.
 namespace Bots
@@ -26,6 +26,10 @@ namespace Bots
     // The strategy of the generic group rules, "group rules", for a bot of
     // role `role`.
     std::shared_ptr<Strategy const> MakeGroupStrategy(BotRole role);
+
+    // Whether `firstRank`, the spell ID of the first rank of a spell, is an
+    // interrupt spell of the group rules (Kick, Shield Bash).
+    bool IsInterruptSpell(SpellId firstRank);
 
     // The living enemies in the fight of the group: the focus target and the
     // units that attack a group member.
@@ -36,12 +40,21 @@ namespace Bots
     // `skipMember` and the enemy `skipEnemy`.
     Guid PickMemberAttacker(BotContext const& context, Guid skipMember = NoGuid, Guid skipEnemy = NoGuid);
 
+    // The chase limit of spec section 10: no bot chases more than this far
+    // from the tank. The run counts each chase beyond it (ChaseWatch.h), and
+    // writes it into the result file for wowai/test-realm/runs.py.
+    float const ChaseLimitYards = 25.0f;
     // A damage bot attacks an enemy only while that enemy is at most this far
-    // from the tank.
-    float const ChaseLimitYards = 20.0f;
+    // from the tank: a melee bot at the enemy then stays within
+    // ChaseLimitYards of the tank.
+    float const ChaseEnemyYards = ChaseLimitYards - 5.0f;
 
     // True when unit `unit` is in the chase limit: it is at most
-    // ChaseLimitYards from the tank, or the group has no living tank.
+    // ChaseEnemyYards from the tank, or the group has no living tank, or it
+    // hits a living group member other than the bot and is at most
+    // ChaseEnemyYards from it. A fleeing enemy leaves that member behind.
+    // An enemy on the bot itself has the limit of the tank: it follows the
+    // bot to the tank.
     bool IsInChaseLimit(BotContext const& context, Guid unit);
 
     // An enemy healer of the group that is alive, in the fight, and in the

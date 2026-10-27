@@ -32,6 +32,7 @@
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "SpellMgr.h"
+#include "SQLStorages.h"
 #include "TargetedMovementGenerator.h"
 #include "WorldSession.h"
 #include "Utilities/Random.h"
@@ -40,11 +41,25 @@
 #include <cmath>
 #include <limits>
 #include <list>
+#include <mutex>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
 {
+    // True the first time that bot `bot` is a ghost of `dungeon` with no
+    // ghost route, since the start of mangosd: WalkAsGhost logs it once.
+    // The bots think on the map threads, so a lock guards the memory.
+    bool FirstGhostWithoutRoute(Bots::Guid bot, uint32 dungeon)
+    {
+        static std::mutex mutex;
+        static std::set<std::pair<Bots::Guid, uint32>> logged;
+        std::lock_guard<std::mutex> lock(mutex);
+        return logged.emplace(bot, dungeon).second;
+    }
+
     // The bot library keeps its own copy of the SpellCastResult names
     // (bots/CastResult.h), for client build 1.12.1. Check the copy against the
     // real enum here. Older client builds have fewer results: they log only
@@ -205,15 +220,26 @@ Bots::SpellId BotAdapter::GetCurrentCast(Bots::Guid unit) const
 
 Bots::CastInfo BotAdapter::GetCast(Bots::Guid unit) const
 {
-    Unit const* found = Find(unit);
-    std::vector<CurrentSpell> const spells = found ? CurrentSpellsOf(found, false) : std::vector<CurrentSpell>();
+    return CastOf(Find(unit));
+}
+
+Bots::CastKind BotAdapter::CastKindOf(SpellEntry const* spell)
+{
+    if (!spell)
+        return Bots::CastKind::Other;
+    return spell->IsHealSpell() ? Bots::CastKind::Heal
+        : spell->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+}
+
+Bots::CastInfo BotAdapter::CastOf(Unit const* unit)
+{
+    std::vector<CurrentSpell> const spells = unit ? CurrentSpellsOf(unit, false) : std::vector<CurrentSpell>();
     if (spells.empty())
         return {Bots::NoSpell, Bots::CastKind::None, false};
     CurrentSpellTypes const type = spells.front().type;
     Spell const* spell = spells.front().spell;
     SpellEntry const* info = spell->m_spellInfo;
-    Bots::CastKind const kind = info->IsHealSpell() ? Bots::CastKind::Heal
-        : info->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+    Bots::CastKind const kind = CastKindOf(info);
     // The test of Spell::EffectInterruptCast, the effect of Kick and
     // Shield Bash.
     bool const casting = spell->getState() == SPELL_STATE_CASTING
@@ -255,6 +281,13 @@ float BotAdapter::GetDistance(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
     return found ? me->GetDistance(found) : std::numeric_limits<float>::max();
+}
+
+float BotAdapter::GetSpellDistance(Bots::Guid unit) const
+{
+    // The distance of Spell::CheckRange and of the range check of CanCast.
+    Unit const* found = Find(unit);
+    return found ? me->GetCombatDistance(found) : std::numeric_limits<float>::max();
 }
 
 float BotAdapter::GetDistanceBetween(Bots::Guid a, Bots::Guid b) const
@@ -342,6 +375,15 @@ Bots::ChaseState BotAdapter::GetChase() const
     if (!chase)
         return {Bots::NoGuid, false};
     return {GuidOf(chase->GetTarget()), chase->GetAngle() != 0.0f};
+}
+
+Unit* BotAdapter::ChaseTargetOf(Player const* player)
+{
+    MotionMaster const* motion = player->GetMotionMaster();
+    if (motion->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
+        return nullptr;
+    auto const* chase = dynamic_cast<ChaseMovementGenerator<Player> const*>(motion->GetCurrent());
+    return chase ? chase->GetTarget() : nullptr;
 }
 
 uint32 BotAdapter::GetComboPoints() const
@@ -445,6 +487,33 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     return true;
 }
 
+bool BotAdapter::LevelAllowsRank(Bots::SpellId rank, Bots::Guid target) const
+{
+    // Like the SPELL_FAILED_LOWLEVEL check of Spell::CheckTarget. A player
+    // gets a lower rank from WorldSession::HandleCastSpellOpcode, a bot not.
+    SpellEntry const* entry = sSpellMgr.GetSpellEntry(rank);
+    Unit const* unit = Find(target);
+    if (!entry || !unit || unit == me || entry->HasAttribute(SPELL_ATTR_EX2_ALLOW_LOW_LEVEL_BUFF))
+        return true;
+    return sSpellMgr.SelectAuraRankForLevel(entry, unit->GetLevel()) == entry;
+}
+
+bool BotAdapter::IsCastLocked(Bots::SpellId spell) const
+{
+    // Like the states of Spell::CheckCasterAuras, without the spells that
+    // grant an immunity to them (the bots cast none).
+    SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
+    if (!entry || entry->IsIgnoringCasterAndTargetRestrictions())
+        return false;
+    if (me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED | UNIT_FLAG_CONFUSED | UNIT_FLAG_FLEEING))
+        return true;
+    if (entry->PreventionType == SPELL_PREVENTION_TYPE_SILENCE)
+        return me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED) || me->CheckLockout(entry->GetSpellSchoolMask());
+    if (entry->PreventionType == SPELL_PREVENTION_TYPE_PACIFY)
+        return me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
+    return false;
+}
+
 std::vector<Bots::Guid> BotAdapter::GetGroupMembers() const
 {
     std::vector<Bots::Guid> members{GetSelf()};
@@ -469,7 +538,14 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         me->SetFacingToObject(unit);
         me->SetTargetGuid(unit->GetObjectGuid());
     }
+    // The cast that an interrupt stops, read before the interrupt lands.
+    uint32 const castToStop = entry->HasEffect(SPELL_EFFECT_INTERRUPT_CAST) ? CastOf(unit).spell : 0;
     SpellCastResult const result = me->CastSpell(unit, entry, false);
+    // An interrupt attempt of a member of a scripted run: the run counts
+    // the double interrupts (spec section 10, Results).
+    if (result == SPELL_CAST_OK && castToStop && sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::InterruptAttempt, me->GetObjectGuid(), unit->GetObjectGuid(),
+            castToStop, 0});
     // Like CombatBotBaseAI::DoCastSpell: a spell with a cast time ends when the
     // caster moves (for example when it follows or chases a unit), so stop the bot.
     if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
@@ -482,9 +558,8 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
 void BotAdapter::MoveTo(Bots::Position const& destination)
 {
     // The library keeps the height of the bot: put the place on the ground.
-    float z = destination.z;
-    me->UpdateAllowedPositionZ(destination.x, destination.y, z);
-    me->GetMotionMaster()->MovePoint(0, destination.x, destination.y, z, MOVE_PATHFINDING | MOVE_RUN_MODE);
+    Bots::Position const ground = GetGround(destination);
+    me->GetMotionMaster()->MovePoint(0, ground.x, ground.y, ground.z, MOVE_PATHFINDING | MOVE_RUN_MODE);
 }
 
 void BotAdapter::KeepMovingTo(Bots::Position const& destination)
@@ -617,8 +692,7 @@ bool BotAdapter::IsHarmfulGround(Bots::Position const& place) const
     // The ground under the place (as MoveTo puts it), and the liquid from a
     // bit above the higher of the two heights: a ground deep under the lava
     // is not found from the ground itself.
-    float ground = place.z;
-    me->UpdateAllowedPositionZ(place.x, place.y, ground);
+    float const ground = GetGround(place).z;
     float const top = std::max(place.z, ground) + BodyHeightYards;
     GridMapLiquidData liquid;
     GridMapLiquidStatus const status = me->GetTerrain()->getLiquidStatus(place.x, place.y, top,
@@ -632,8 +706,7 @@ bool BotAdapter::CanSeeFrom(Bots::Position const& place, Bots::Guid unit) const
     Unit const* target = Find(unit);
     if (!target)
         return false;
-    float ground = place.z;
-    me->UpdateAllowedPositionZ(place.x, place.y, ground);
+    float const ground = GetGround(place).z;
     float x, y, z;
     target->GetLosCheckPosition(x, y, z);
     return me->IsWithinLOSAtPosition(place.x, place.y, ground, x, y, z, true, 0.0f);
@@ -727,7 +800,7 @@ std::vector<Bots::NearEnemy> BotAdapter::GetEnemiesNear(float yards) const
     for (Creature const* creature : creatures)
         if (!creature->IsPet() && creature->IsHostileTo(me))
             enemies.push_back({{creature->GetPositionX(), creature->GetPositionY(), creature->GetPositionZ()},
-                creature->GetAttackDistance(me), creature->GetObjectBoundingRadius()});
+                creature->GetAttackDistance(me), creature->GetObjectGuid().GetRawValue()});
     return enemies;
 }
 
@@ -749,7 +822,17 @@ void BotAdapter::WalkAsGhost()
         return;
     uint32 const dungeon = corpse->GetMapId();
     Bots::Route const* route = sBotMgr.GhostRoute(dungeon);
-    if (!route || route->mapId != me->GetMapId())
+    if (!route)
+    {
+        if (FirstGhostWithoutRoute(GetSelf(), dungeon))
+        {
+            MapEntry const* entry = sMapStorage.LookupEntry<MapEntry>(dungeon);
+            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s is a ghost of map %u (%s), which has no ghost route: it stays at the graveyard",
+                me->GetName(), dungeon, entry && entry->name ? entry->name : "?");
+        }
+        return;
+    }
+    if (route->mapId != me->GetMapId())
         return;
 
     Bots::GhostStep const step = Bots::NextGhostStep(*route, GetPosition(GetSelf()));

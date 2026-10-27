@@ -1,12 +1,16 @@
 #include "ClassModules.h"
 #include "CommonRules.h"
 #include "DeathAndRest.h"
+#include "FollowTank.h"
 #include "GroupRules.h"
 #include "MageModule.h"
 #include "PriestModule.h"
 #include "RogueModule.h"
 #include "WarlockModule.h"
 #include "WarriorModule.h"
+
+#include <algorithm>
+#include <vector>
 
 namespace Bots
 {
@@ -30,6 +34,14 @@ namespace Bots
             {BotClass::Warlock, BotRole::Ranged, &Warlock::MakeRangedStrategy},
         };
 
+        // True when the bot follows a living group member other than the
+        // player while the group fights: the healer on its way to a hurt
+        // member. It stays with it until the fight ends.
+        bool FollowsAMemberInTheFight(BotContext const& context)
+        {
+            return FollowsAMember(context) && IsGroupInCombat(context.view);
+        }
+
         bool ShouldFollow(BotContext const& context)
         {
             Guid const self = context.view.GetSelf();
@@ -40,6 +52,9 @@ namespace Bots
                 && context.group.GetPull().puller != self
                 // A damage bot on its way to its target.
                 && !IsAlive(context.view, context.view.GetChase().target)
+                && !FollowsAMemberInTheFight(context)
+                // Near the tank of a pull (FollowTank.h).
+                && !StaysNearThePull(context)
                 && context.view.GetFollowTarget() != context.commandPlayer;
         }
 
@@ -77,7 +92,10 @@ namespace Bots
         loot.trigger = ShouldLoot;
         loot.action.canDo = [](BotContext const& context) { return context.view.HasLootWork(MayWalkToLoot(context)); };
         loot.action.run = [](BotContext const& context) { context.actions.Loot(MayWalkToLoot(context)); };
-        return std::make_shared<Strategy const>(Strategy{"command", {loot, follow}});
+        // Over the loot and the follow rule: while the tank pulls, the bot
+        // keeps up with it (FollowTank.h).
+        Rule const followTank = FollowTankRule(Priority::Command + 25);
+        return std::make_shared<Strategy const>(Strategy{"command", {followTank, loot, follow}});
     }
 
     std::shared_ptr<Strategy const> MakeClassStrategy(BotClass botClass, BotRole role)

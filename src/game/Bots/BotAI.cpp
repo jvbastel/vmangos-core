@@ -9,9 +9,12 @@
 #include "BotMgr.h"
 #include "BotAdapter.h"
 #include "ClassModules.h"
+#include "CoordinatorChoice.h"
 #include "DeathAndRest.h"
 #include "Group.h"
 #include "ObjectAccessor.h"
+#include "SpellMgr.h"
+#include "TaragamanReaction.h"
 #include "Pet.h"
 #include "Player.h"
 #include "MotionMaster.h"
@@ -83,8 +86,13 @@ void BotAI::PushCommand(BotCommandMessage const& message)
 
 void BotAI::OnPacketReceived(WorldPacket const* packet)
 {
-    // The opcode first: most packets are of no use to the bot.
-    if (!IsInboxOpcode(packet->GetOpcode()))
+    // The opcode first: most packets are of no use to the bot. The combat
+    // log counts only in a scripted run (OnSpellMissLog, OnSpellFailedOther,
+    // OnSpellDamageLog).
+    uint16 const opcode = packet->GetOpcode();
+    bool const runLog = (opcode == SMSG_SPELLLOGMISS || opcode == SMSG_SPELL_FAILED_OTHER ||
+        opcode == SMSG_SPELLNONMELEEDAMAGELOG) && sBotMgr.HasTestDriver();
+    if (!IsInboxOpcode(opcode) && !runLog)
         return;
     if (packet->GetOpcode() == SMSG_NEW_WORLD)
     {
@@ -120,6 +128,14 @@ void BotAI::UpdateAI(uint32 const diff)
     Bots::ThinkState state = Bots::ThinkStateFor(me->IsInCombat(), IsNearPlayer());
     if (m_thinkTimer.Advance(diff, state))
         Think();
+
+    // At each update, not only at the think: the group sees a meal start or
+    // end at once, so no pull goes out while a member sits down to eat.
+    if (me->GetGroup())
+    {
+        BotAdapter adapter(me);
+        Bots::WatchRest(adapter, *Coordinator());
+    }
 }
 
 void BotAI::KeepLevelCorrect()
@@ -158,15 +174,25 @@ void BotAI::HandlePacket(WorldPacket const& packet)
         case SMSG_LOOT_ROLL_WON:
         {
             // Each bot of the group sees the roll end: the coordinator makes
-            // one `loot_roll` event of it.
+            // one `loot_roll` event of it. A bot away from the leader ignores
+            // the group coordinator.
             BotLootRollWon const won = m_loot.OnRollWon(me, packet);
-            if (Group* group = me->GetGroup())
-                sBotMgr.GetCoordinator(group->GetId())->NoteRollWon(won.lootedTarget.GetRawValue(), won.itemSlot,
+            if (UsesGroupCoordinator())
+                Coordinator()->NoteRollWon(won.lootedTarget.GetRawValue(), won.itemSlot,
                     won.itemEntry, won.winner.GetRawValue(), SteadyMs());
             return;
         }
         case SMSG_PARTYKILLLOG:
             OnPartyKill(packet);
+            return;
+        case SMSG_SPELLLOGMISS:
+            OnSpellMissLog(packet);
+            return;
+        case SMSG_SPELL_FAILED_OTHER:
+            OnSpellFailedOther(packet);
+            return;
+        case SMSG_SPELLNONMELEEDAMAGELOG:
+            OnSpellDamageLog(packet);
             return;
         case SMSG_RESURRECT_REQUEST:
             AcceptResurrect(packet);
@@ -186,10 +212,66 @@ void BotAI::OnPartyKill(WorldPacket const& packet)
     WorldPacket data(packet);
     ObjectGuid killer, victim;
     data >> killer >> victim;
-    Group* group = me->GetGroup();
-    if (!group || !victim.IsCreature() || !sBotMgr.IsBoss(me->GetMapId(), victim.GetEntry()))
+    if (!UsesGroupCoordinator() || !victim.IsCreature() || !sBotMgr.IsBoss(me->GetMapId(), victim.GetEntry()))
         return;
-    sBotMgr.GetCoordinator(group->GetId())->NoteBossKill(victim.GetRawValue(), victim.GetEntry(), SteadyMs());
+    Coordinator()->NoteBossKill(victim.GetRawValue(), victim.GetEntry(), SteadyMs());
+}
+
+void BotAI::OnSpellMissLog(WorldPacket const& packet)
+{
+    // An interrupt of this bot that missed (a dodge, a parry), in a scripted
+    // run: another bot may try the cast again (spec section 10, Results).
+    if (!sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        return;
+    WorldPacket data(packet);
+    uint32 spell = 0, count = 0;
+    ObjectGuid caster;
+    uint8 extended = 0;
+    data >> spell >> caster >> extended >> count;
+    SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
+    if (caster != me->GetObjectGuid() || !entry || !entry->HasEffect(SPELL_EFFECT_INTERRUPT_CAST))
+        return;
+    for (uint32 i = 0; i < count; ++i)
+    {
+        ObjectGuid target;
+        uint8 missInfo = 0;
+        data >> target >> missInfo;
+        if (extended)
+            data.read_skip(2 * sizeof(float));
+        sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::InterruptMissed, me->GetObjectGuid(), target, 0, 0});
+    }
+}
+
+void BotAI::OnSpellFailedOther(WorldPacket const& packet)
+{
+    // An enemy cast that stopped before it went off, in a scripted run: an
+    // interrupt, a stun, or the death of the caster. Each member near gets
+    // it; the run counts it once (spec section 10, Results).
+    if (!sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        return;
+    WorldPacket data(packet);
+    ObjectGuid caster;
+    uint32 spell = 0;
+    data >> caster >> spell;
+    if (!caster.IsCreature())
+        return;
+    sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::CastStopped, me->GetObjectGuid(), caster, spell, 0});
+}
+
+void BotAI::OnSpellDamageLog(WorldPacket const& packet)
+{
+    // A Fire Nova of Taragaman that hit this bot, in a scripted run (spec
+    // section 10, Results). Each member near gets the log; only the target
+    // notes it.
+    if (!sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        return;
+    WorldPacket data(packet);
+    ObjectGuid target, attacker;
+    uint32 spell = 0, damage = 0;
+    data >> target.ReadAsPackedClientBuildAware() >> attacker.ReadAsPackedClientBuildAware() >> spell >> damage;
+    if (target != me->GetObjectGuid() || spell != Bots::Taragaman::FireNova || attacker.GetEntry() != Bots::Taragaman::Entry)
+        return;
+    sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::FireNovaHit, me->GetObjectGuid(), attacker, spell, damage});
 }
 
 void BotAI::HandleCommand(BotCommandMessage const& message)
@@ -333,11 +415,39 @@ void BotAI::StartPull(Player* player)
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s pulls %s", me->GetName(), target.GetString().c_str());
 }
 
+Bots::CoordinatorChoice BotAI::CoordinatorChoiceNow() const
+{
+    Group const* group = me->GetGroup();
+    return Bots::ChooseCoordinator(group != nullptr, BotPlace(), PlaceOfLeader());
+}
+
+Bots::MapPlace BotAI::BotPlace() const
+{
+    return {me->GetMapId(), me->GetInstanceId()};
+}
+
+Bots::LeaderPlace BotAI::PlaceOfLeader() const
+{
+    Group const* group = me->GetGroup();
+    if (!group)
+        return Bots::LeaderPlace::Unknown();
+    // The leader can sit on another map thread: only its map and instance
+    // ids are read.
+    Player const* player = ObjectAccessor::FindPlayer(group->GetLeaderGuid());
+    return player ? Bots::LeaderPlace::On({player->GetMapId(), player->GetInstanceId()}) : Bots::LeaderPlace::Unknown();
+}
+
+bool BotAI::UsesGroupCoordinator() const
+{
+    return CoordinatorChoiceNow() == Bots::CoordinatorChoice::Group;
+}
+
 std::shared_ptr<Bots::GroupCoordinator> BotAI::Coordinator()
 {
-    if (Group* group = me->GetGroup())
-        return sBotMgr.GetCoordinator(group->GetId());
-    // No owner: the coordinator is a member of this AI.
+    if (Group const* group = me->GetGroup())
+        return sBotMgr.GetCoordinator(group->GetId(), BotPlace(), PlaceOfLeader(), SteadyMs());
+    // No owner: the coordinator of a bot without a group is a member of this
+    // AI.
     return std::shared_ptr<Bots::GroupCoordinator>(std::shared_ptr<Bots::GroupCoordinator>(), &m_soloCoordinator);
 }
 
@@ -385,7 +495,8 @@ bool BotAI::GroupRests()
     for (Bots::Guid bot : Coordinator()->GetResting())
     {
         // Only a bot that is still here: a bot that logged out while it ate
-        // stays in the list of the coordinator.
+        // stays in the list of the coordinator until the run forgets it
+        // (BotRun::GroupResting).
         Player const* player = me->GetMap()->GetPlayer(ObjectGuid(bot));
         if (player && player->IsAlive() && player->GetGroup() == me->GetGroup())
             return true;
@@ -424,6 +535,11 @@ void BotAI::Think()
         me->SetStandState(UNIT_STAND_STATE_STAND);
 
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
+    bool const away = CoordinatorChoiceNow() == Bots::CoordinatorChoice::Place;
+    if (away != m_awayFromLeader)
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s uses the %s coordinator (map %u, instance %u)", me->GetName(),
+            away ? "place" : "group", me->GetMapId(), me->GetInstanceId());
+    m_awayFromLeader = away;
     // For the chase limit of the damage bots (GroupRules.h).
     if (m_role == Bots::BotRole::Tank)
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
@@ -446,8 +562,8 @@ void BotAI::Think()
     context.startWaits = m_startGate.Waiting();
     std::string const rule = m_strategies.Think(context);
     // A bot without a group has no chat session: its own coordinator drops
-    // the events.
-    if (!me->GetGroup())
+    // the events. The bot manager drops the events of a place coordinator.
+    if (coordinator.get() == &m_soloCoordinator)
         m_soloCoordinator.TakeEvents();
     if (!rule.empty() && rule != m_lastRule)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());

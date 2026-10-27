@@ -17,6 +17,7 @@
 class BotLoot;
 class Player;
 class Unit;
+class SpellEntry;
 
 // The real adapter of the decision library on one bot: BotView answers from
 // the Player and the units of its map, and BotActions acts as the Player.
@@ -35,6 +36,14 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         // the lost-mob watch of the scripted runs (Bots::MemberAttacks has
         // the rule). On the world thread, in BotRun.
         static Bots::MemberAttacks AttacksOf(Player const* member, bool bot);
+        // The spell that a unit casts now, as GetCast sees it. Also on the
+        // world thread, in BotRun (the interrupts of a scripted run).
+        static Bots::CastInfo CastOf(Unit const* unit);
+        // The kind of spell `spell` for the interrupts: Other without a spell.
+        static Bots::CastKind CastKindOf(SpellEntry const* spell);
+        // The unit that a player runs after (a chase), or null. Also on the
+        // world thread, in BotRun (the chases of a scripted run).
+        static Unit* ChaseTargetOf(Player const* player);
 
         // BotView
         Bots::Guid GetSelf() const override;
@@ -43,6 +52,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::CastInfo GetCast(Bots::Guid unit) const override;
         Bots::Power GetPower(Bots::Guid unit) const override;
         float GetDistance(Bots::Guid unit) const override;
+        float GetSpellDistance(Bots::Guid unit) const override;
         float GetDistanceBetween(Bots::Guid a, Bots::Guid b) const override;
         bool IsInCombat(Bots::Guid unit) const override;
         Bots::Guid GetVictim(Bots::Guid unit) const override;
@@ -57,6 +67,8 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool KnowsSpell(Bots::SpellId spell) const override;
         Bots::SpellId GetNextRank(Bots::SpellId spell) const override;
         bool CanCast(Bots::SpellId spell, Bots::Guid target) const override;
+        bool LevelAllowsRank(Bots::SpellId rank, Bots::Guid target) const override;
+        bool IsCastLocked(Bots::SpellId spell) const override;
         std::vector<Bots::Guid> GetGroupMembers() const override;
         uint32 GetEntry(Bots::Guid unit) const override;
         Bots::Position GetPosition(Bots::Guid unit) const override;

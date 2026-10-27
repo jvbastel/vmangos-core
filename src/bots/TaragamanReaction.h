@@ -12,7 +12,8 @@
 // about 10 yards around him, and Uppercut, a knockback of the tank.
 // - The ranged bots and the healer stay more than 10 yards from him. They
 //   never go into lava or through it, nor out of his sight (WOWAI#74,
-//   SafePlace.h). With no such place,
+//   SafePlace.h); the healer nor out of the tank's sight (WOWAI#84). With
+//   no such place,
 //   they stay and take Fire Nova.
 // - When a wall is near, the tank stands with its back to it, so that
 //   Uppercut does not knock it into other enemies.
@@ -21,6 +22,7 @@ namespace Bots
     namespace Taragaman
     {
         std::uint32_t const Entry = 11520;
+        std::uint32_t const FireNova = 11970; // His spell.
 
         // Distances in yards, from the center of the bot to his center.
         float const FireNovaYards = 12.0f; // The 10 yards of Fire Nova, and a margin.

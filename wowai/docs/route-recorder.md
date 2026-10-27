@@ -108,9 +108,11 @@ The build writes the route file again from the trace. A fix that you made with t
 | Command | What it does |
 |---|---|
 | `.route walk ragefire_chasm` | Loads the route file at its first step. |
-| `.route next` | Goes to the next step. It shows the next point and the next pack, with the distance and state of each mob, and puts waypoint markers on the places of the point for 2 minutes. |
-| `.route back` | Goes to the step before. |
+| `.route next` | Goes to the next step. It shows the next point and the next pack, with the distance and state of each mob, and puts waypoint markers (wisps) on the places of the point for 2 minutes. |
+| `.route back` | Goes to the step before, and puts wisps on its point in the same way. |
 | `.route go` | Teleports you to the current step. |
+
+The walk shows a trail of up to 100 wisps. A character may have only 100 summons, and a walk passes 100 points in less than 2 minutes. So when the trail is full, the oldest wisp moves to the new place, and its 2 minutes start again. A wisp that timed out leaves the trail, and the walk summons a new one. A new `.route walk` removes the wisps of your last walk. Each step answers with a line such as `Wisps: 0 new, 1 moved, 100 in the trail (at most 100); Thrallson has 100 of 100 summons.`
 
 Check that the route follows your trace and has the right packs. When a pack is wrong, fix it with the recorder: `.route start ragefire_chasm`, then select a creature and use `.route add mob <pack>` or `.route remove mob`. Then `.route stop`.
 
@@ -161,6 +163,6 @@ Stand in the dungeon (or name an online character in it), with flying off. Then:
 
 The generator reads the spawns, creature groups, patrols, quests, and quest drops that the server loaded, and the navmesh of the map. It writes `bots/data/routes/<route>.txt` and prints the packs in order, the quests with their objectives, and a walk check. Without `bosses=`, it takes the boss list of the existing file. The same seed gives the same file, and the file records its seed.
 
-Settings, all optional, as `name=value`: `seed`, `aggro` (20), `margin` (5), `cluster` (8), `spacing` (10), `radius` (2), `side` (3), `alt` (7), `gap` (3), `wide` (10), `wall` (1.5). `src/bots/RouteGenerator.h` says what each one does.
+Settings, all optional, as `name=value`: `seed`, `aggro` (20), `margin` (5), `pull` (35: the most path length from a pull point to its pack), `cluster` (8), `spacing` (10), `radius` (2), `side` (3), `alt` (7), `gap` (3), `wide` (10), `wall` (1.5). `src/bots/RouteGenerator.h` says what each one does.
 
 A generated file also has a quest list (`quest`, `kill`, `item`, `visit` lines), and `quest <id>` at the end of the point and pack lines that are only there for a quest. A run without quests skips those.

@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <sstream>
 
 INSTANTIATE_SINGLETON_1(BotMgr);
@@ -170,6 +171,15 @@ void BotMgr::LoadConfig()
     m_settings.startDelay.maxMs = sConfig.GetIntDefault("Bots.StartDelayMs.Max", 1500);
     m_settings.dataDir = sConfig.GetStringDefault("Bots.DataDir", "bots");
     m_settings.lostMobMs = std::max(1000, sConfig.GetIntDefault("Bots.Run.LostMobMs", int(Bots::LostMobMs)));
+    m_settings.runDir = sConfig.GetStringDefault("Bots.Run.ResultDir", "");
+    if (m_settings.runDir.empty())
+    {
+        // The same folder as Log.cpp: a mounted folder of the realm.
+        std::string logs = sConfig.GetStringDefault("LogsDir", "");
+        if (!logs.empty() && logs.back() != '/' && logs.back() != '\\')
+            logs += '/';
+        m_settings.runDir = logs + "runs";
+    }
     AccountMgr::normalizeString(m_settings.accountPrefix);
     m_chat.LoadConfig();
 
@@ -202,6 +212,16 @@ void BotMgr::Load()
     m_gear.Load(m_settings.dataDir + "/gear");
     LoadBossList();
     m_chat.Start();
+    m_chat.SetRoster(BotGuids());
+}
+
+std::vector<Bots::Guid> BotMgr::BotGuids() const
+{
+    // The same GUIDs as the bots in chat events (ObjectGuid::GetRawValue).
+    std::vector<Bots::Guid> guids;
+    for (auto const& pair : m_bots)
+        guids.push_back(ObjectGuid(HIGHGUID_PLAYER, pair.first).GetRawValue());
+    return guids;
 }
 
 void BotMgr::Update(uint32 diff)
@@ -212,6 +232,12 @@ void BotMgr::Update(uint32 diff)
     SendLines();
     DropOldCoordinators();
     TakeGroupEvents();
+    // The chat of a scripted run: the events sent (the player messages of
+    // the update, and the group events above), and the answers.
+    for (SentChatEvent const& sent : m_chat.TakeSent())
+        m_run.NoteChatSent(sent);
+    for (Bots::ChatEventOutcome const& outcome : m_chat.TakeOutcomes())
+        m_run.NoteChatOutcome(outcome);
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
     m_run.Update();
@@ -251,19 +277,15 @@ void BotMgr::Update(uint32 diff)
     }
 }
 
-std::shared_ptr<Bots::GroupCoordinator> BotMgr::GetCoordinator(uint32 groupId)
+std::shared_ptr<Bots::GroupCoordinator> BotMgr::GetCoordinator(uint32 groupId, Bots::MapPlace bot,
+    Bots::LeaderPlace leader, int64 nowMs)
 {
-    std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
-    std::shared_ptr<Bots::GroupCoordinator>& coordinator = m_coordinators[groupId];
-    if (!coordinator)
-        coordinator = std::make_shared<Bots::GroupCoordinator>();
-    return coordinator;
+    return m_coordinators.For(groupId, bot, leader, nowMs);
 }
 
 void BotMgr::DropCoordinator(uint32 groupId)
 {
-    std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
-    m_coordinators.erase(groupId);
+    m_coordinators.Drop(groupId);
 }
 
 BotOnlineState BotMgr::OnlineStateOf(std::string const& name)
@@ -281,27 +303,14 @@ BotOnlineState BotMgr::OnlineStateOf(std::string const& name)
 void BotMgr::DropOldCoordinators()
 {
     // On the world thread, after the maps. A bot holds its coordinator only
-    // during its think, so a group that is gone frees its coordinator here.
-    std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
-    for (auto it = m_coordinators.begin(); it != m_coordinators.end();)
-    {
-        if (!sObjectMgr.GetGroupById(it->first))
-            it = m_coordinators.erase(it);
-        else
-            ++it;
-    }
+    // during its think, so a group that is gone frees its coordinators here.
+    m_coordinators.DropOld([](uint32 groupId) { return sObjectMgr.GetGroupById(groupId) != nullptr; },
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 
 void BotMgr::TakeGroupEvents()
 {
-    std::vector<std::pair<uint32, Bots::GroupEvent>> events;
-    {
-        std::lock_guard<std::mutex> lock(m_coordinatorsMutex);
-        for (auto const& pair : m_coordinators)
-            for (Bots::GroupEvent const& event : pair.second->TakeEvents())
-                events.emplace_back(pair.first, event);
-    }
-    for (auto const& pair : events)
+    for (auto const& pair : m_coordinators.TakeEvents())
         OnGroupEvent(pair.first, pair.second);
 }
 
@@ -613,6 +622,7 @@ bool BotMgr::CreateBot(Bots::BotRecipe const& recipe, std::string& error)
     else
         sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] No gear template %s: %s keeps its starting gear", gearName.c_str(), name.c_str());
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Made the bot %s (GUID %u, account %u, %s)", name.c_str(), guid, accountId, role.c_str());
+    m_chat.SetRoster(BotGuids());
 
     StartLogin(record, session);
     return true;
@@ -800,6 +810,7 @@ void BotMgr::SendLines()
                 continue;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, line.text.c_str(), LANG_UNIVERSAL, bot->GetChatTag(), bot->GetObjectGuid(), bot->GetName());
             group->BroadcastPacket(&data, false, group->GetMemberGroup(bot->GetObjectGuid()));
+            m_run.NoteChatLine(line, bot);
         }
         else if (line.chatType == CHAT_MSG_WHISPER)
         {
@@ -808,6 +819,7 @@ void BotMgr::SendLines()
                 continue;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_WHISPER, line.text.c_str(), LANG_UNIVERSAL, bot->GetChatTag(), bot->GetObjectGuid(), bot->GetName());
             receiver->GetSession()->SendPacket(&data);
+            m_run.NoteChatLine(line, bot);
         }
     }
 }
@@ -840,7 +852,8 @@ void BotMgr::PutOnPendingGear(BotRecord& record)
     ApplyLevelRoutine(player);
 }
 
-bool BotMgr::EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error)
+bool BotMgr::EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error,
+    EquipReport* equipped)
 {
     std::string wanted = name;
     Player* player = normalizePlayerName(wanted) ? sObjectMgr.GetPlayer(wanted.c_str()) : nullptr;
@@ -882,6 +895,8 @@ bool BotMgr::EquipCharacter(std::string const& name, std::string const& template
     // A worn weapon without its skill leaves its slot at the next login.
     if (IsOurBot(player))
         ApplyLevelRoutine(player);
+    if (equipped)
+        *equipped = {gear->name, draw};
     report = wanted + " wears " + gear->name + (draw.shape.empty() ? "" : " (shape " + draw.shape + ")") + ": " +
         (draw.picks.empty() ? std::string("nothing") : DescribeGearDraw(draw));
     return true;

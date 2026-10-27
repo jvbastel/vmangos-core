@@ -15,20 +15,6 @@ namespace
         return Json(text).dump(-1, ' ', false, Json::error_handler_t::replace);
     }
 
-    char const* EventName(Bots::ChatEventKind kind)
-    {
-        switch (kind)
-        {
-            case Bots::ChatEventKind::PlayerMessage: return "player_message";
-            case Bots::ChatEventKind::BossKill: return "boss_kill";
-            case Bots::ChatEventKind::Wipe: return "wipe";
-            case Bots::ChatEventKind::LootRoll: return "loot_roll";
-            case Bots::ChatEventKind::Rest: return "rest";
-            case Bots::ChatEventKind::SessionEnd: break;
-        }
-        return "session_end";
-    }
-
     char const* ChannelName(Bots::ChatChannel channel)
     {
         return channel == Bots::ChatChannel::Whisper ? "whisper" : "party";
@@ -85,12 +71,26 @@ namespace
     }
 }
 
+char const* Bots::ChatEventName(ChatEventKind kind)
+{
+    switch (kind)
+    {
+        case ChatEventKind::PlayerMessage: return "player_message";
+        case ChatEventKind::BossKill: return "boss_kill";
+        case ChatEventKind::Wipe: return "wipe";
+        case ChatEventKind::LootRoll: return "loot_roll";
+        case ChatEventKind::Rest: return "rest";
+        case ChatEventKind::SessionEnd: break;
+    }
+    return "session_end";
+}
+
 std::string Bots::EncodeChatEvent(ChatEvent const& event)
 {
     // By hand, in the order of the schema: nlohmann::json sorts the keys.
     std::ostringstream out;
     out << "{\"contract_version\":" << ChatContractVersion
-        << ",\"event\":\"" << EventName(event.kind) << '"'
+        << ",\"event\":\"" << Bots::ChatEventName(event.kind) << '"'
         << ",\"group_id\":" << event.groupId
         << ",\"player\":{\"guid\":" << event.player.guid << ",\"name\":" << Quote(event.player.name) << '}'
         << ",\"bots\":[";
@@ -132,6 +132,50 @@ std::string Bots::EncodeChatEvent(ChatEvent const& event)
     }
     out << '}';
     return out.str();
+}
+
+std::string Bots::EncodeChatRoster(std::vector<Guid> const& botGuids)
+{
+    std::ostringstream out;
+    out << "{\"contract_version\":" << ChatContractVersion << ",\"bot_guids\":[";
+    for (std::size_t i = 0; i < botGuids.size(); ++i)
+        out << (i ? "," : "") << botGuids[i];
+    out << "]}";
+    return out.str();
+}
+
+bool Bots::DecodeChatRosterAnswer(std::string const& body, std::vector<Guid>& deleted, std::string& error)
+{
+    Json const json = Json::parse(body, nullptr, false);
+    if (json.is_discarded() || !json.is_object())
+    {
+        error = "the answer is no JSON object";
+        return false;
+    }
+    auto const version = json.find("contract_version");
+    if (version == json.end() || !version->is_number_integer() || version->get<int>() != ChatContractVersion)
+    {
+        error = "the answer has no contract_version " + std::to_string(ChatContractVersion);
+        return false;
+    }
+    auto const guids = json.find("deleted_bot_guids");
+    if (guids == json.end() || !guids->is_array())
+    {
+        error = "the answer has no deleted_bot_guids";
+        return false;
+    }
+    std::vector<Guid> decoded;
+    for (Json const& guid : *guids)
+    {
+        if (!guid.is_number_unsigned())
+        {
+            error = "the answer has a GUID that is no number";
+            return false;
+        }
+        decoded.push_back(guid.get<Guid>());
+    }
+    deleted = decoded;
+    return true;
 }
 
 bool Bots::DecodeChatResponse(std::string const& body, ChatResponse& response, std::string& error)

@@ -16,6 +16,7 @@
 #include "BotLoot.h"
 #include "BotRecipe.h"
 #include "CommandState.h"
+#include "CoordinatorChoice.h"
 #include "GroupCoordinator.h"
 #include "Inbox.h"
 #include "StartDelay.h"
@@ -59,6 +60,12 @@ class BotAI : public PlayerBotAI
         void HandlePacket(WorldPacket const& packet);
         // SMSG_PARTYKILLLOG: a boss kill of the group goes to the coordinator.
         void OnPartyKill(WorldPacket const& packet);
+        // The facts of a scripted run that only the combat log shows: an
+        // interrupt of this bot that missed, an enemy cast that stopped, and
+        // a Fire Nova that hit the bot.
+        void OnSpellMissLog(WorldPacket const& packet);
+        void OnSpellFailedOther(WorldPacket const& packet);
+        void OnSpellDamageLog(WorldPacket const& packet);
         void HandleCommand(BotCommandMessage const& message);
         void StartCommand(Player* player);
         // The start delay: begins and ends the waits of m_startGate.
@@ -69,7 +76,15 @@ class BotAI : public PlayerBotAI
         // Forgets the attack target when it died or the bot cannot see it.
         void CheckAttackTarget();
         bool IsInReach(Player const* player) const;
-        // The coordinator of the bot's group, or the bot's own one.
+        // Which coordinator the bot uses now (bots/CoordinatorChoice.h).
+        Bots::CoordinatorChoice CoordinatorChoiceNow() const;
+        // The map and instance of the bot, and of its group leader.
+        Bots::MapPlace BotPlace() const;
+        Bots::LeaderPlace PlaceOfLeader() const;
+        // False without a group, or on another map than the group leader.
+        bool UsesGroupCoordinator() const;
+        // The coordinator of the bot's group, of the group's bots in the
+        // bot's place away from the leader, or the bot's own one.
         std::shared_ptr<Bots::GroupCoordinator> Coordinator();
         void Think();
         // Accepts the resurrect of SMSG_RESURRECT_REQUEST.
@@ -104,6 +119,9 @@ class BotAI : public PlayerBotAI
         std::string m_lastRule;
         // The coordinator of a bot without a group.
         Bots::GroupCoordinator m_soloCoordinator;
+        // The bot is in a group but on another map than the leader: it uses
+        // the place coordinator. For the log line of a change.
+        bool m_awayFromLeader = false;
         // The level routine ran after the login (and so after the creation).
         bool m_levelRoutineDone = false;
         // The pet that has its pet spells. Empty without a pet.

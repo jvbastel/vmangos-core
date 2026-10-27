@@ -95,7 +95,7 @@ namespace Bots
                 },
                 Always([](BotContext const& context) {
                     context.actions.Release();
-                    context.group.NoteRevive(context.view.GetSelf());
+                    context.group.NoteReleaseToRunBack(context.view.GetSelf());
                 })},
 
             // No bot revives at its corpse on its own: a ghost runs back.
@@ -116,13 +116,15 @@ namespace Bots
             Rule{"eat", P + 32,
                 [](BotContext const& context) {
                     Health const health = context.view.GetHealth(context.view.GetSelf());
-                    return AfterFight(context) && !context.view.IsEating() && Below(health.current, health.max);
+                    return AfterFight(context) && !context.view.IsEating() && (Below(health.current, health.max) ||
+                        (context.group.RestsUntilFull(context.view.GetSelf()) && health.current < health.max));
                 },
                 Always([](BotContext const& context) { context.actions.Eat(); })},
             Rule{"drink", P + 31,
                 [](BotContext const& context) {
                     Power const mana = context.view.GetMana(context.view.GetSelf());
-                    return AfterFight(context) && !context.view.IsDrinking() && Below(mana.current, mana.max);
+                    return AfterFight(context) && !context.view.IsDrinking() && (Below(mana.current, mana.max) ||
+                        (context.group.RestsUntilFull(context.view.GetSelf()) && mana.current < mana.max));
                 },
                 Always([](BotContext const& context) { context.actions.Drink(); })},
             // Over the corpse loot and the follow rule: a move stands the
@@ -139,8 +141,23 @@ namespace Bots
         group.SetWiped(!SomeoneLives(view));
         if (IsAlive(view, view.GetSelf()))
             group.ClearGivenUpResurrect(view.GetSelf());
+        // The bot that resurrects judges the blockers. A blocker counts as
+        // dead only when the bot sees its dead body: a bot on another map
+        // finds no unit (no health), and that does not end the give-up.
+        if (view.CanResurrect(view.GetSelf()))
+            group.RetryResurrects([&view](Guid enemy) { return !SeenDead(view, enemy); });
 
+        WatchRest(view, group);
+    }
+
+    void WatchRest(BotView const& view, GroupCoordinator& group)
+    {
         group.SetResting(view.GetSelf(), RestReasonOf(view));
+        Guid const self = view.GetSelf();
+        Health const health = view.GetHealth(self);
+        Power const mana = view.GetMana(self);
+        if (IsAlive(view, self) && health.current >= health.max && mana.current >= mana.max)
+            group.ClearRestUntilFull(self);
     }
 
     bool RestsNow(BotView const& view)

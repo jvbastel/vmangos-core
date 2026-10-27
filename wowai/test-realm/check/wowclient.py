@@ -43,6 +43,8 @@ CMSG_SET_ACTIVE_MOVER = 618
 MSG_MOVE_STOP = 183
 MSG_MOVE_HEARTBEAT = 238
 SMSG_MONSTER_MOVE = 221
+SMSG_TRIGGER_CINEMATIC = 250
+CMSG_COMPLETE_CINEMATIC = 252
 MOVEFLAG_FORWARD = 0x1
 
 CHAT_MSG_SAY = 0x00
@@ -188,6 +190,11 @@ class WorldClient:
                 at = pos + 17 + {0: 0, 2: 12, 3: 8, 4: 4}.get(kind, 0)
                 duration = struct.unpack_from("<I", body, at + 4)[0]
             self.move_log.append((time.time(), guid, kind, duration))
+        elif opcode == SMSG_TRIGGER_CINEMATIC:
+            # The intro of a new character: skip it like a player who presses
+            # Escape. Until then the server summons a camera creature for the
+            # character each second, which takes its summon slots (WOWAI#90).
+            self.send(CMSG_COMPLETE_CINEMATIC)
         elif opcode == SMSG_NEW_WORLD:
             # Far teleport: ack it like a client, then the server adds us to the new map.
             self.send(MSG_MOVE_WORLDPORT_ACK)

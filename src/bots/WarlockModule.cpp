@@ -22,11 +22,6 @@ namespace Bots
                 return !context.view.IsInCombat(Self(context));
             }
 
-            std::uint32_t Percent(std::uint32_t current, std::uint32_t max)
-            {
-                return max ? current * 100 / max : 0;
-            }
-
             // A damage over time spell that the target does not have yet.
             Rule DotRule(std::string name, int priority, SpellId firstRank)
             {

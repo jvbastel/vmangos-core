@@ -4,6 +4,7 @@
 #include "BotTypes.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <set>
@@ -76,9 +77,13 @@ namespace Bots
     // kill or roll after this time, so that a respawned creature counts again.
     std::int64_t const GroupEventMemoryMs = 60 * 1000;
 
+    // Tells if enemy `enemy` still lives, as the asking bot sees it.
+    using EnemyLives = std::function<bool(Guid enemy)>;
+
     // The only shared state between the bots of one group. The bot manager
-    // keeps one per group. A bot without a group has one of its own, so that
-    // the strategies always have a coordinator.
+    // keeps one per group, and one for the group's bots in each other place
+    // than the leader's (CoordinatorRegistry.h). A bot without a group has
+    // one of its own, so that the strategies always have a coordinator.
     //
     // Threads: the bots of one group can briefly sit on two map threads, so
     // each call takes a small mutex. A call returns a copy, never a reference
@@ -102,6 +107,12 @@ namespace Bots
         // the pull attacks the tank, or the tank fights back an enemy outside
         // a pull. The damage bots wait for it.
         bool TankHoldsThreat() const;
+        // The tank cannot taunt enemy `enemy` off another member now: it
+        // knows no Taunt, or the taunt cannot go out in range (cooldown). The
+        // damage bots stop their wait for the taunt (DamageRules.h). A new
+        // focus target or pull forgets it.
+        void GiveUpTaunt(Guid enemy);
+        bool IsTauntGivenUp(Guid enemy) const;
 
         // The interrupt claims (GroupRules.h): two bots never interrupt the
         // same cast. An enemy casts one spell at a time, so a claim of a
@@ -144,19 +155,34 @@ namespace Bots
 
         // The bots that eat or drink now, after a fight: the group waits for
         // them. A bot that starts to rest adds a rest event. RestReason::None:
-        // the bot does not rest (any more).
+        // the bot does not rest (any more). GetResting also holds each bot
+        // that must rest until full.
         void SetResting(Guid bot, RestReason reason);
         std::vector<Guid> GetResting() const;
+        // A bot that a scripted run revived, at half health and mana: it
+        // eats and drinks until full, and the group waits for it from now
+        // on. WatchRest clears it when the bot is full.
+        void SetRestUntilFull(Guid bot);
+        bool RestsUntilFull(Guid bot) const;
+        void ClearRestUntilFull(Guid bot);
+        // Bot `bot` rests no more and is no longer waited for: it died, left
+        // the group, or logged out. The game layer calls it for a bot of
+        // GetResting that is not a living member in the world any more.
+        void ForgetRest(Guid bot);
         // A dead bot releases to run back, because no resurrect comes:
         // adds a rest event.
-        void NoteRevive(Guid bot);
+        void NoteReleaseToRunBack(Guid bot);
 
         // The resurrect of dead bot `bot` does not come: the Priest found
         // no safe place to cast it from. The bot releases instead. A bot
-        // that lives again clears it (ClearGivenUpResurrect).
-        void GiveUpResurrect(Guid bot);
+        // that lives again clears it (ClearGivenUpResurrect). `blockers`:
+        // the enemies that kept the Priest away. The give-up ends when one
+        // of them dies (RetryResurrects); with none, it lasts.
+        void GiveUpResurrect(Guid bot, std::vector<Guid> const& blockers = {});
         bool IsResurrectGivenUp(Guid bot) const;
         void ClearGivenUpResurrect(Guid bot);
+        // Ends each give-up with a blocker for which `lives` is false.
+        void RetryResurrects(EnemyLives const& lives);
 
         // A bot saw SMSG_PARTYKILLLOG with a victim of the boss list. The
         // first note of a kill adds a boss kill event. `nowMs`: any steady
@@ -177,11 +203,13 @@ namespace Bots
         mutable std::mutex m_mutex;
         bool m_wiped = false;
         std::map<Guid, RestReason> m_resting;
-        std::set<Guid> m_givenUpResurrects;
+        std::set<Guid> m_restUntilFull;
+        std::map<Guid, std::vector<Guid>> m_givenUpResurrects; // Bot: blockers.
         std::vector<GroupEvent> m_events;
         // The kills and rolls that made an event, with the time of the event.
         std::map<std::pair<Guid, std::int64_t>, std::int64_t> m_seen;
         Guid m_focusTarget = NoGuid;
+        Guid m_tauntGivenUp = NoGuid;
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;

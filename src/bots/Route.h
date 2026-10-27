@@ -168,6 +168,12 @@ namespace Bots
     RoutePack const* FindPack(Route const& route, std::string const& name);
     RouteQuest const* FindQuest(Route const& route, std::uint32_t id);
 
+    // The walk of the group back to pack `pack`, for a fight again: the
+    // points of the route before the pack, from the one nearest to `from`
+    // (the first place of each point) to the last one. Points that are only
+    // there for a quest are left out. Empty without such a pack or point.
+    std::vector<std::string> WalkBackPoints(Route const& route, Position const& from, std::string const& pack);
+
     // The edits of the GM route recorder. Each one returns an empty string
     // when it worked, or a short line for the GM.
     // With an empty name, AddPoint names the point p1, p2, ..., and AddPack

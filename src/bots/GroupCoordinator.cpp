@@ -15,6 +15,8 @@ namespace Bots
     void GroupCoordinator::SetFocusTarget(Guid target)
     {
         Lock lock(m_mutex);
+        if (target != m_focusTarget)
+            m_tauntGivenUp = NoGuid;
         m_focusTarget = target;
     }
 
@@ -29,6 +31,7 @@ namespace Bots
         Lock lock(m_mutex);
         m_pull = {PullPhase::Pulling, puller, target};
         m_focusTarget = target;
+        m_tauntGivenUp = NoGuid;
     }
 
     void GroupCoordinator::HoldPull(Guid puller)
@@ -43,6 +46,7 @@ namespace Bots
         Lock lock(m_mutex);
         m_pull = {PullPhase::None, NoGuid, NoGuid};
         m_focusTarget = NoGuid;
+        m_tauntGivenUp = NoGuid;
     }
 
     bool GroupCoordinator::TankHoldsThreat() const
@@ -51,6 +55,18 @@ namespace Bots
         if (m_pull.phase == PullPhase::None)
             return m_focusTarget != NoGuid;
         return m_pull.phase == PullPhase::Holding;
+    }
+
+    void GroupCoordinator::GiveUpTaunt(Guid enemy)
+    {
+        Lock lock(m_mutex);
+        m_tauntGivenUp = enemy;
+    }
+
+    bool GroupCoordinator::IsTauntGivenUp(Guid enemy) const
+    {
+        Lock lock(m_mutex);
+        return enemy != NoGuid && m_tauntGivenUp == enemy;
     }
 
     bool GroupCoordinator::ClaimInterrupt(Guid caster, SpellId spell, Guid bot)
@@ -170,19 +186,47 @@ namespace Bots
         std::vector<Guid> bots;
         for (auto const& pair : m_resting)
             bots.push_back(pair.first);
+        for (Guid bot : m_restUntilFull)
+            if (!m_resting.count(bot))
+                bots.push_back(bot);
         return bots;
     }
 
-    void GroupCoordinator::NoteRevive(Guid bot)
+    void GroupCoordinator::ForgetRest(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_resting.erase(bot);
+        m_restUntilFull.erase(bot);
+    }
+
+    void GroupCoordinator::SetRestUntilFull(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_restUntilFull.insert(bot);
+    }
+
+    bool GroupCoordinator::RestsUntilFull(Guid bot) const
+    {
+        Lock lock(m_mutex);
+        return m_restUntilFull.count(bot) != 0;
+    }
+
+    void GroupCoordinator::ClearRestUntilFull(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_restUntilFull.erase(bot);
+    }
+
+    void GroupCoordinator::NoteReleaseToRunBack(Guid bot)
     {
         Lock lock(m_mutex);
         m_events.push_back({GroupEventKind::Rest, bot, RestReason::Revive});
     }
 
-    void GroupCoordinator::GiveUpResurrect(Guid bot)
+    void GroupCoordinator::GiveUpResurrect(Guid bot, std::vector<Guid> const& blockers)
     {
         Lock lock(m_mutex);
-        m_givenUpResurrects.insert(bot);
+        m_givenUpResurrects[bot] = blockers;
     }
 
     bool GroupCoordinator::IsResurrectGivenUp(Guid bot) const
@@ -195,6 +239,19 @@ namespace Bots
     {
         Lock lock(m_mutex);
         m_givenUpResurrects.erase(bot);
+    }
+
+    void GroupCoordinator::RetryResurrects(EnemyLives const& lives)
+    {
+        Lock lock(m_mutex);
+        for (auto it = m_givenUpResurrects.begin(); it != m_givenUpResurrects.end();)
+        {
+            std::vector<Guid> const& blockers = it->second;
+            if (std::any_of(blockers.begin(), blockers.end(), [&lives](Guid enemy) { return !lives(enemy); }))
+                it = m_givenUpResurrects.erase(it);
+            else
+                ++it;
+        }
     }
 
     bool GroupCoordinator::FirstNote(std::pair<Guid, std::int64_t> key, std::int64_t nowMs)

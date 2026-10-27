@@ -12,17 +12,26 @@ namespace Bots
     // The damage target of the bot, or NoGuid:
     // 1. the attack target of the player (`attack`), at once;
     // 2. an enemy healer in the fight (GroupRules.h), until it dies;
-    // 3. the focus target, once the tank holds threat on it, while it is in
+    // 3. a loose enemy: an enemy in the chase limit that hits a group
+    //    member other than the living tank, the bot itself too. The bot
+    //    joins a fight that it did not see start, also when it stays or
+    //    follows. It takes the enemy that only it attacks, else one that no
+    //    member attacks, so that no enemy stays lost. Not the focus that the
+    //    bot waits a taunt for;
+    // 4. the focus target, once the tank holds threat on it, while it is in
     //    the chase limit (GroupRules.h). Outside a pull, not while it hits
-    //    another member and the tank lives: the bot waits for the taunt;
-    // 4. an enemy that attacks the bot itself, in the chase limit.
+    //    another member and the tank lives: the bot waits for the taunt,
+    //    unless the tank gave it up (GroupCoordinator::GiveUpTaunt).
     Guid PickDamageTarget(BotContext const& context);
 
     // True when the bot has a damage target now.
     bool HasDamageTarget(BotContext const& context);
 
     // The casting range of a ranged damage bot, and its distance from the
-    // damage target when it runs closer.
+    // damage target when it runs closer. The casting range counts by
+    // BotView::GetSpellDistance, as the range of a cast does: else, at the
+    // edge, Frostbolt (30 yards) fails and Fireball (35) goes instead. The
+    // stand distance is the chase distance of the movement, well inside it.
     float const CastingRangeYards = 30.0f;
     float const RangedStandYards = 25.0f;
 

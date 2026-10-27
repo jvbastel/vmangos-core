@@ -1,6 +1,7 @@
 #ifndef WOWAI_BOTS_SCRIPT_RUNNER_H
 #define WOWAI_BOTS_SCRIPT_RUNNER_H
 
+#include "Route.h"
 #include "RunScript.h"
 
 #include <cstdint>
@@ -23,6 +24,9 @@ namespace Bots
     // The group must be out of combat this long before a fight counts as
     // ended: a short gap between two enemies is no end.
     std::int64_t const CombatEndQuietMs = 3000;
+    // A pack that lives after its `fight` (the tank died, the pack reset)
+    // is fought again at most this many times. Then the run fails.
+    int const RefightLimit = 2;
     // At its end, a run holds its group at most this long for the chat of
     // the run: the HTTP timeout (5 s), the delays of the lines (about 7 s),
     // and the drop of a line that is more than 10 s late are each shorter.
@@ -46,6 +50,14 @@ namespace Bots
         bool teleporting = false;
         // The test driver stands at the end of its last `move`.
         bool driverArrived = false;
+        // A living bot of the group eats or drinks.
+        bool groupResting = false;
+        // A member in the world is dead.
+        bool memberDead = false;
+        // A mob of the pack of the running `fight` lives (FightPack).
+        bool fightPackAlive = false;
+        // Where the test driver stands, for the walk back of a fight again.
+        Position driverAt{0.0f, 0.0f, 0.0f};
     };
 
     enum class RunStepKind
@@ -66,15 +78,25 @@ namespace Bots
     class ScriptRunner
     {
     public:
-        explicit ScriptRunner(std::vector<ScriptCommand> commands);
+        // `route`: the route of the script, for the walk back of a fight
+        // again. Without the pack in it, the walk goes to the point of the
+        // last `move` before the fight.
+        explicit ScriptRunner(std::vector<ScriptCommand> commands, Route route = Route());
 
         RunStep Update(RunFacts const& facts, std::int64_t nowMs);
         // The result of the last Do. `detail` says why it did not work.
         void Done(bool ok, std::string const& detail, std::int64_t nowMs);
+        // The last Do found nothing to do, for example a `fight` of a pack
+        // that died in an earlier fight: the runner skips its wait.
+        void NothingToDo();
 
         // "line <n>: <command>" of the command that runs or comes next, or
         // "the end".
         std::string Current() const;
+
+        // The pack of the `fight` whose end the runner waits for, else empty.
+        // The game layer tells whether it lives in RunFacts::fightPackAlive.
+        std::string FightPack() const;
 
     private:
         enum class State
@@ -88,14 +110,22 @@ namespace Bots
 
         RunStep Fail(std::string const& why);
         void Start(std::int64_t nowMs);
+        // After the current `fight`: the group rests, walks back to the
+        // pack (WalkBack), and pulls the same pack again.
+        void FightAgain();
+        // Replaces the WalkBack command at m_index with a `move` and a
+        // `wait arrive` for each point of the walk from `from`.
+        void ExpandWalkBack(Position const& from);
 
         std::vector<ScriptCommand> m_commands;
+        Route m_route;
         std::size_t m_index = 0;
         State m_state = State::Next;
         std::int64_t m_since = 0;      // The start of the wait.
         bool m_fightSeen = false;      // wait combat_end: a fight started.
         std::int64_t m_quietSince = -1; // wait combat_end: out of combat since.
         std::string m_reason;
+
     };
 }
 

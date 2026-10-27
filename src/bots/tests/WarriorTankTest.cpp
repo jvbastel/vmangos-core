@@ -172,6 +172,71 @@ TEST(WarriorTank, TauntsANewFocusOffAMemberBeforeItWalksToIt)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Wolf)}));
 }
 
+namespace
+{
+    // Outside a pull, a new focus hits the healer, 15 yards from the tank.
+    struct FocusOnTheHealer : WarriorTank
+    {
+        FocusOnTheHealer()
+        {
+            fake.SetGroupMembers({Healer});
+            fake.SetInCombat(Tank);
+            fake.SetAura(Tank, Warrior::BattleStance, false);
+            fake.SetAura(Tank, Warrior::DefensiveStance);
+            fake.SetAura(Tank, Warrior::BattleShout);
+            fake.SetHealth(Healer, 300, 300);
+            fake.SetHealth(Wolf, 300, 300);
+            fake.SetDistance(Wolf, 15.0f);
+            fake.SetVictim(Wolf, Healer);
+            group.SetFocusTarget(Wolf);
+        }
+    };
+}
+
+// In taunt range, the taunt cannot go out (it was resisted and waits for
+// its cooldown): the tank tells the damage bots that no taunt comes, so
+// they attack the focus (WOWAI#93 review).
+TEST(WarriorTank, TellsTheGroupWhenTheTauntCannotCome)
+{
+    FocusOnTheHealer tank;
+    tank.fake.SetCannotCast(Warrior::Taunt);
+
+    tank.Think();
+
+    EXPECT_TRUE(tank.group.IsTauntGivenUp(Wolf));
+}
+
+TEST(WarriorTank, ATankWithoutTauntTellsTheGroupToo)
+{
+    FocusOnTheHealer tank;
+    tank.fake.SetKnownSpell(Warrior::Taunt, false);
+
+    tank.Think();
+
+    EXPECT_TRUE(tank.group.IsTauntGivenUp(Wolf));
+}
+
+TEST(WarriorTank, AFocusOutOfTauntRangeStillGetsItsTaunt)
+{
+    FocusOnTheHealer tank;
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetDistance(Wolf, 35.0f);
+
+    tank.Think();
+
+    EXPECT_FALSE(tank.group.IsTauntGivenUp(Wolf));
+}
+
+TEST(WarriorTank, AReadyTauntIsNoGiveUp)
+{
+    FocusOnTheHealer tank;
+
+    tank.Think();
+
+    EXPECT_FALSE(tank.group.IsTauntGivenUp(Wolf));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Wolf)}));
+}
+
 TEST(WarriorTank, TauntsAnotherEnemyOffAGroupMember)
 {
     WarriorTank tank;

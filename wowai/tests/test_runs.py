@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""Tests of the run script (wowai/test-realm/runs.py). No realm: the status
+lines are those of BotRun::Status, and the result file that of
+Bots::RunResultJson.
+
+    python3 wowai/tests/test_runs.py
+"""
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "test-realm"))
+import runs  # noqa: E402
+
+PASSED = ("Run 2 ragefire_chasm full: passed after 1934 s, bosses 4, wipes 0, deaths 1, threat losses 0, "
+          "lost mobs 0. Result: ragefire_chasm-full-20261026-101500.json")
+FAILED = ("Run 3 ragefire_chasm taragaman: failed after 212 s: the second wipe, bosses 0, wipes 2, deaths 10, "
+          "threat losses 1 (Taragaman the Hungerer on Hela 5 s), lost mobs 0. "
+          "Result: ragefire_chasm-taragaman-20261026-110000.json")
+ABORTED = "Run 4 ragefire_chasm full: aborted after 30 s: stopped by a GM, bosses 0, wipes 0, deaths 0"
+RUNNING = "Run 5 ragefire_chasm full: running, script, line 45: route (120 s)"
+CLOSING = "Run 5 ragefire_chasm full: running, closing: the group waits for the chat of the run (1900 s)"
+
+
+class RunOutcome(unittest.TestCase):
+    def test_an_ended_run_says_how_it_ended(self):
+        self.assertEqual(runs.run_outcome(PASSED), "passed")
+        self.assertEqual(runs.run_outcome(FAILED), "failed")
+        self.assertEqual(runs.run_outcome(ABORTED), "aborted")
+
+    def test_a_run_that_runs_or_waits_for_its_chat_is_not_over(self):
+        self.assertIsNone(runs.run_outcome(RUNNING))
+        self.assertIsNone(runs.run_outcome(CLOSING))
+        self.assertIsNone(runs.run_outcome("No run yet."))
+
+    def test_finds_the_result_file_of_an_ended_run(self):
+        self.assertEqual(runs.result_file(PASSED), "ragefire_chasm-full-20261026-101500.json")
+        self.assertIsNone(runs.result_file(ABORTED))
+
+
+class Summary(unittest.TestCase):
+    def test_one_line_per_run(self):
+        result = {
+            "run": 3, "script": "ragefire_chasm", "scenario": "full", "result": "failed", "reason": "the second wipe",
+            "duration_s": 1234.5, "bosses_killed": [{"entry": 11517}], "wipes": [600.0, 1200.0],
+            "deaths": {"Ezzra": [], "Grukk": [600.0], "Hela": [590.0, 1199.0]},
+            "threat_losses": [{}], "lost_mobs": [],
+        }
+        self.assertEqual(runs.summary(result),
+                         "ragefire_chasm full run 3: failed after 1234 s, bosses 1, wipes 2, deaths 3, "
+                         "threat losses 1, lost mobs 0: the second wipe")
+
+
+def a_full_run_that_passes():
+    """A result file of a full run that meets every threshold of spec section 10."""
+    group = ["Grukk", "Hela", "Shanka", "Morzul"]
+    chat = [
+        {"event": "boss_kill", "to": None, "time_s": 300.0, "reached": True,
+         "lines": [{"bot": "Grukk", "time_s": 302.0}, {"bot": "Hela", "time_s": 303.0}]},
+        {"event": "loot_roll", "to": None, "time_s": 310.0, "reached": True,
+         "lines": [{"bot": "Shanka", "time_s": 312.0}]},
+        {"event": "rest", "to": None, "time_s": 320.0, "reached": True,
+         "lines": [{"bot": "Morzul", "time_s": 321.0}]},
+    ]
+    for bot in group:
+        chat.append({"event": "player_message", "to": bot, "time_s": 25.0, "reached": True,
+                     "lines": [{"bot": bot, "time_s": 27.0}]})
+    chat.append({"event": "player_message", "to": None, "time_s": 26.0, "reached": True,
+                 "lines": [{"bot": "Grukk", "time_s": 28.0}, {"bot": "Hela", "time_s": 29.0}]})
+    return {
+        "run": 1, "script": "ragefire_chasm", "scenario": "full", "full_run": True, "result": "passed",
+        "reason": None, "duration_s": 1900.0, "driver": "Ezzra", "group": group,
+        "bosses_killed": [{"entry": e, "name": "", "time_s": 300.0 * (i + 1)}
+                          for i, e in enumerate([11517, 11518, 11519, 11520])],
+        "wipes": [],
+        "deaths": {"Ezzra": [], "Grukk": [], "Hela": [500.0], "Shanka": [], "Morzul": []},
+        "pulls": [{"pack": "pack%d" % i, "target": "", "time_s": 100.0 * i, "again": False} for i in range(1, 11)],
+        "threat_losses": [{"enemy": "Earthborer", "member": "Hela", "time_s": 105.0, "seconds": 5.0}],
+        "lost_mobs": [],
+        "interrupts": [{"member": "Shanka", "enemy": "Cultist", "spell": 332, "spell_name": "Healing Wave",
+                        "kind": "heal", "time_s": 200.0}] * 7,
+        "missed_interrupts": [{"enemy": "Cultist", "spell": 332, "spell_name": "Healing Wave", "kind": "heal",
+                               "time_s": 210.0}] * 3,
+        "double_interrupts": [],
+        "chases": [],
+        "chase_limit_yards": 25.0,
+        "fire_nova_hits": [{"member": "Hela", "role": "healer", "fight": 1, "damage": 80, "time_s": 1200.0},
+                           {"member": "Grukk", "role": "tank", "fight": 1, "damage": 80, "time_s": 1201.0}],
+        "chat_events": chat,
+    }
+
+
+class Thresholds(unittest.TestCase):
+    """The pass thresholds of a full run, spec section 10."""
+
+    def fails(self, result):
+        return runs.threshold_failures(result)
+
+    def test_a_good_full_run_meets_every_threshold(self):
+        self.assertEqual(self.fails(a_full_run_that_passes()), [])
+
+    def test_a_failed_run_fails(self):
+        result = a_full_run_that_passes()
+        result["result"] = "failed"
+        result["reason"] = "after 45 minutes"
+        self.assertEqual(self.fails(result), ["the run failed: after 45 minutes"])
+
+    def test_all_four_bosses_with_at_most_one_wipe(self):
+        result = a_full_run_that_passes()
+        result["bosses_killed"] = result["bosses_killed"][:3]
+        self.assertEqual(self.fails(result), ["bosses killed 3 of 4"])
+        result = a_full_run_that_passes()
+        result["wipes"] = [600.0, 1200.0]
+        result["deaths"] = {name: [599.0, 1199.0] for name in result["deaths"]}
+        self.assertIn("wipes 2, at most 1", self.fails(result))
+
+    def test_at_least_80_percent_of_pulls_have_no_threat_loss(self):
+        result = a_full_run_that_passes()
+        # A loss belongs to the last pull before it: pulls 1 and 2 lose, 8 of 10 are clean.
+        result["threat_losses"].append({"enemy": "Earthborer", "member": "Hela", "time_s": 250.0, "seconds": 5.0})
+        result["threat_losses"].append({"enemy": "Earthborer", "member": "Hela", "time_s": 255.0, "seconds": 5.0})
+        self.assertEqual(self.fails(result), [])
+        result["threat_losses"].append({"enemy": "Earthborer", "member": "Hela", "time_s": 350.0, "seconds": 5.0})
+        self.assertEqual(self.fails(result), ["pulls with no threat loss 70%, at least 80%"])
+
+    def test_only_first_pulls_count_for_the_clean_pull_share(self):
+        result = a_full_run_that_passes()
+        # Pulls 1 and 2 lose threat: 8 of 10 first pulls are clean.
+        result["threat_losses"].append({"enemy": "Earthborer", "member": "Hela", "time_s": 250.0, "seconds": 5.0})
+        # A fight again of pack 5 that loses threat: no first pull, it does not count.
+        result["pulls"].append({"pack": "pack5", "target": "", "time_s": 550.0, "again": True})
+        result["threat_losses"].append({"enemy": "Earthborer", "member": "Hela", "time_s": 555.0, "seconds": 5.0})
+        self.assertEqual(self.fails(result), [])
+
+    def test_at_most_two_bots_die_outside_the_one_allowed_wipe(self):
+        result = a_full_run_that_passes()
+        # The wipe at 600: each member's last death up to it is part of the wipe.
+        result["wipes"] = [600.0]
+        result["deaths"] = {"Ezzra": [599.0], "Grukk": [100.0, 598.0], "Hela": [500.0, 597.0],
+                            "Shanka": [596.0], "Morzul": [595.0, 700.0]}
+        self.assertEqual(self.fails(result), ["bot deaths outside the wipe 3, at most 2"])
+        # The test driver is no bot.
+        result["deaths"]["Morzul"] = [595.0]
+        result["deaths"]["Ezzra"] = [50.0, 599.0]
+        self.assertEqual(self.fails(result), [])
+
+    def test_no_double_interrupt(self):
+        result = a_full_run_that_passes()
+        result["double_interrupts"] = [{"enemy": "Cultist", "spell": 332, "spell_name": "Healing Wave",
+                                        "first": "Shanka", "second": "Grukk", "time_s": 200.5}]
+        self.assertEqual(self.fails(result), ["double interrupts 1, none allowed"])
+
+    def test_the_bots_interrupt_at_least_70_percent_of_the_heals(self):
+        result = a_full_run_that_passes()
+        result["missed_interrupts"].append(dict(result["missed_interrupts"][0]))
+        self.assertEqual(self.fails(result), ["heals interrupted 64%, at least 70%"])
+        # A missed harmful cast does not count.
+        result = a_full_run_that_passes()
+        result["missed_interrupts"].append(dict(result["missed_interrupts"][0], kind="harm"))
+        self.assertEqual(self.fails(result), [])
+
+    def test_no_chase_beyond_the_limit(self):
+        result = a_full_run_that_passes()
+        result["chases"] = [{"member": "Shanka", "enemy": "Earthborer", "time_s": 80.0, "seconds": 2.5,
+                             "max_yards": 31.2}]
+        self.assertEqual(self.fails(result), ["chases more than 25 yards from the tank 1 (Shanka 31 yd)"])
+        # The limit comes from the result file, the one of the bots.
+        result["chase_limit_yards"] = 30.0
+        self.assertEqual(self.fails(result), ["chases more than 30 yards from the tank 1 (Shanka 31 yd)"])
+
+    def test_at_most_one_fire_nova_hit_on_ranged_and_healer_per_fight(self):
+        result = a_full_run_that_passes()
+        result["fire_nova_hits"].append({"member": "Ezzra", "role": "ranged", "fight": 1, "damage": 80,
+                                         "time_s": 1210.0})
+        self.assertEqual(self.fails(result), ["Fire Nova hits on ranged and healer in fight 1: 2, at most 1"])
+        result["fire_nova_hits"][-1]["fight"] = 2
+        self.assertEqual(self.fails(result), [])
+
+    def test_each_boss_kill_wipe_and_loot_roll_gets_a_line(self):
+        result = a_full_run_that_passes()
+        result["chat_events"].append({"event": "wipe", "to": None, "time_s": 600.0, "reached": True, "lines": []})
+        self.assertEqual(self.fails(result), ["wipe at 600 s got no line"])
+
+    def test_each_event_reaches_the_chat_service(self):
+        result = a_full_run_that_passes()
+        result["chat_events"][2]["reached"] = False
+        self.assertEqual(self.fails(result), ["rest at 320 s did not reach the chat service"])
+
+    def test_each_bot_says_a_line_for_a_game_event(self):
+        result = a_full_run_that_passes()
+        result["chat_events"][2]["lines"] = []
+        self.assertEqual(self.fails(result), ["no line for a game event from Morzul"])
+
+    def test_each_whisper_gets_an_answer_of_its_bot(self):
+        result = a_full_run_that_passes()
+        whisper = [e for e in result["chat_events"] if e["to"] == "Hela"][0]
+        whisper["lines"] = [{"bot": "Grukk", "time_s": 27.0}]
+        self.assertEqual(self.fails(result), ["the whisper to Hela got no answer from Hela"])
+        result["chat_events"].remove(whisper)
+        self.assertEqual(self.fails(result), ["the test driver whispered Hela 0 times, once expected"])
+
+    def test_the_party_message_gets_one_or_two_answers(self):
+        result = a_full_run_that_passes()
+        party = [e for e in result["chat_events"] if e["event"] == "player_message" and e["to"] is None][0]
+        party["lines"] = []
+        self.assertEqual(self.fails(result), ["the party message got 0 answers, 1 or 2 expected"])
+        result["chat_events"].remove(party)
+        self.assertEqual(self.fails(result), ["the test driver wrote 0 party messages, once expected"])
+
+    def test_a_scenario_has_no_thresholds(self):
+        result = a_full_run_that_passes()
+        result["full_run"] = False
+        result["bosses_killed"] = []
+        self.assertEqual(self.fails(result), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

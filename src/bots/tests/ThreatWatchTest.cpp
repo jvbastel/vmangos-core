@@ -269,3 +269,65 @@ TEST(LostMobWatch, TheTestDriverDoesNotHoldAnEnemy)
     ASSERT_EQ(watch.LostMobs().size(), 1u);
     EXPECT_EQ(watch.LostMobs()[0].enemy, Enforcer);
 }
+
+// Each threat loss and lost mob keeps its own name (WOWAI#87): the watch
+// asks for it once, when the loss starts, so a later loss or the end of the
+// enemy does not change it.
+namespace
+{
+    std::string NameOf(EnemyOnMember const& hit)
+    {
+        return std::string(hit.enemy == Enforcer ? "Enforcer" : "Other") + " on "
+            + (hit.member == Healer ? "Healer" : "Rogue");
+    }
+}
+
+TEST(ThreatWatch, EachLossKeepsTheNameOfItsHit)
+{
+    ThreatWatch watch;
+    int asked = 0;
+    auto const name = [&](EnemyOnMember const& hit) { ++asked; return NameOf(hit); };
+    watch.Update({{Enforcer, Healer}}, 0, name);
+    watch.Update({{Enforcer, Healer}, {Other, Rogue}}, 5000, name);
+    watch.Update({{Enforcer, Healer}, {Other, Rogue}}, 10000, name);
+
+    ASSERT_EQ(watch.Losses().size(), 2u);
+    EXPECT_EQ(watch.Losses()[0].name, "Enforcer on Healer");
+    EXPECT_EQ(watch.Losses()[1].name, "Other on Rogue");
+    EXPECT_EQ(asked, 2);
+}
+
+TEST(LostMobWatch, EachLostMobKeepsTheNameOfTheHitWhenItWasLost)
+{
+    Bots::LostMobWatch watch;
+    int asked = 0;
+    auto const name = [&](EnemyOnMember const& hit) { ++asked; return NameOf(hit); };
+    watch.Update({{Enforcer, Healer}}, {}, 0, Bots::NoGuid, name);
+    watch.Update({{Enforcer, Healer}}, {}, 10500, Bots::NoGuid, name);
+    watch.Update({{Enforcer, Rogue}}, {}, 11000, Bots::NoGuid, name);
+
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].name, "Enforcer on Healer");
+    EXPECT_EQ(asked, 1);
+}
+
+TEST(HitText, TheWholeSecondsOfAHit)
+{
+    EXPECT_EQ(Bots::HitSeconds(Bots::ThreatLoss{Enforcer, Healer, 1000, 12900, "Enforcer on Healer"}), 11);
+}
+
+// One text for the threat losses and the lost mobs of the result line.
+TEST(HitText, ANameAndItsWholeSeconds)
+{
+    EXPECT_EQ(Bots::HitText(Bots::LostMob{Enforcer, Healer, 1000, 12900, "Enforcer on Healer"}), "Enforcer on Healer 11 s");
+}
+
+TEST(HitText, TheCountAndEachHitOfAList)
+{
+    std::vector<Bots::ThreatLoss> const losses = {
+        {Enforcer, Healer, 0, 5000, "Enforcer on Healer"}, {Other, Rogue, 1000, 8000, "Other on Rogue"}};
+
+    EXPECT_EQ(Bots::HitListText("threat losses", losses),
+        ", threat losses 2 (Enforcer on Healer 5 s; Other on Rogue 7 s)");
+    EXPECT_EQ(Bots::HitListText("lost mobs", std::vector<Bots::LostMob>{}), ", lost mobs 0");
+}
