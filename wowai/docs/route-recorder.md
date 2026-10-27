@@ -163,6 +163,6 @@ Stand in the dungeon (or name an online character in it), with flying off. Then:
 
 The generator reads the spawns, creature groups, patrols, quests, and quest drops that the server loaded, and the navmesh of the map. It writes `bots/data/routes/<route>.txt` and prints the packs in order, the quests with their objectives, and a walk check. Without `bosses=`, it takes the boss list of the existing file. The same seed gives the same file, and the file records its seed.
 
-Settings, all optional, as `name=value`: `seed`, `aggro` (20), `margin` (5), `cluster` (8), `spacing` (10), `radius` (2), `side` (3), `alt` (7), `gap` (3), `wide` (10), `wall` (1.5). `src/bots/RouteGenerator.h` says what each one does.
+Settings, all optional, as `name=value`: `seed`, `aggro` (20), `margin` (5), `pull` (35: the most path length from a pull point to its pack), `cluster` (8), `spacing` (10), `radius` (2), `side` (3), `alt` (7), `gap` (3), `wide` (10), `wall` (1.5). `src/bots/RouteGenerator.h` says what each one does.
 
 A generated file also has a quest list (`quest`, `kill`, `item`, `visit` lines), and `quest <id>` at the end of the point and pack lines that are only there for a quest. A run without quests skips those.

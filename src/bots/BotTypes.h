@@ -15,6 +15,15 @@ namespace Bots
     using SpellId = std::uint32_t;
     SpellId const NoSpell = 0;
 
+    // The kind of spell that a unit casts, for the interrupts.
+    enum class CastKind
+    {
+        None,  // The unit casts nothing.
+        Heal,  // A heal.
+        Harm,  // A harmful spell, for example a damage spell.
+        Other, // For example a buff.
+    };
+
     struct Position
     {
         float x;

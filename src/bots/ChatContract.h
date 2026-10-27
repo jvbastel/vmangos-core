@@ -106,6 +106,8 @@ namespace Bots
         std::vector<ChatLine> lines;
     };
 
+    // The name of the event in the contract, for example "boss_kill".
+    char const* ChatEventName(ChatEventKind kind);
     // The routes of the chat service.
     char const* const ChatEventsPath = "/v1/events";
     char const* const ChatRosterPath = "/v1/roster";

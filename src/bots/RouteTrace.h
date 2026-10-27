@@ -207,7 +207,7 @@ namespace Bots
     // - The center line: the walks of the trace in order. A later walk that
     //   starts near the line is a branch: the route walks it out and back
     //   there. Any other later walk follows the end.
-    // - The packs, the "on the route" rule (FirstApproach), and the pack
+    // - The packs, the range rule of FirstApproach (no sight or level test), and the pack
     //   names of the route generator, on the center line.
     // - A pull point on the line where it first comes within aggro range
     //   plus the margin of each pack, outside its aggro range.

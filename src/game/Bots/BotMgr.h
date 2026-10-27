@@ -45,6 +45,9 @@ struct BotSettings
     // A scripted run fails when an enemy hits a member and no bot attacks
     // it for longer than this (a lost mob, bots/ThreatWatch.h).
     int64 lostMobMs = Bots::LostMobMs;
+    // The folder of the result files and traces of the scripted runs.
+    // Default: the folder runs/ of LogsDir.
+    std::string runDir;
 };
 
 // One persistent bot, from a row of the `bot_character` table.
@@ -67,6 +70,13 @@ struct BotRecord
     bool wasInGroup = false;
 };
 
+// The gear that EquipCharacter put on, for the result file of a run.
+struct EquipReport
+{
+    std::string gearTemplate;
+    Bots::GearDraw draw;
+};
+
 // An `invite` or `dismiss` from the chat of a player.
 struct GroupCommandMessage
 {
@@ -83,6 +93,9 @@ struct BotLine
     uint32 chatType;     // CHAT_MSG_PARTY: to the party of the bot. CHAT_MSG_WHISPER: to `receiver`.
     ObjectGuid receiver; // Only for a whisper.
     std::string text;
+    // A line of the chat service: the id of its event (ChatClient::Post),
+    // for the result of a scripted run. 0 for a line of the bot itself.
+    uint64 eventId = 0;
 };
 
 // Whether a bot is in the game, as the script controller needs it.
@@ -125,8 +138,10 @@ class BotMgr
 
         // Equips a character in the world from a gear template, by name. With
         // no template name, a bot wears the generated template of its class
-        // and role. Fills `report` with the picks.
-        bool EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error);
+        // and role. Fills `report` with the picks, and `equipped` (if given)
+        // with the template and the draw.
+        bool EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error,
+            EquipReport* equipped = nullptr);
 
         BotGear const& GetGear() const { return m_gear; }
         // The scores of the generated gear template of a bot's class and
@@ -185,6 +200,8 @@ class BotMgr
         // group, and bot chat sees it as the player). From any thread.
         void SetTestDriver(ObjectGuid guid) { m_testDriver = guid.GetRawValue(); }
         bool IsTestDriver(ObjectGuid guid) const { return !guid.IsEmpty() && m_testDriver == guid.GetRawValue(); }
+        // A scripted run has a test driver now. From any thread.
+        bool HasTestDriver() const { return m_testDriver != 0; }
         // The group plays a scripted run: its leader is the test driver.
         // The run (BotRun) then revives the dead itself. From any thread.
         bool IsScriptedRunGroup(Group const* group) const;

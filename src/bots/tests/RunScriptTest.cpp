@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <fstream>
+#include <set>
 #include <sstream>
 
 using Bots::ParseRunScript;
@@ -137,6 +138,132 @@ TEST(RunScript, ReadsTheOtherCommands)
     EXPECT_EQ(c[8].kind, ScriptCommandKind::ExpectAlive);
 }
 
+TEST(RunScript, ReadsTheCommandsOfAFullRun)
+{
+    RunScriptResult const result = ParseRunScript(Head +
+        "route\nroute noquests\nfight pack1\nfight pack2 200\nwait rested\nwait rested 90\nrelease 0\nrelease never\n");
+    ASSERT_TRUE(result.ok) << result.error;
+
+    std::vector<ScriptCommand> const& c = result.script.scenarios[0].commands;
+    ASSERT_EQ(c.size(), 8u);
+    EXPECT_EQ(c[0].kind, ScriptCommandKind::Route);
+    EXPECT_EQ(c[0].quests, Bots::RunQuests::Do);
+    EXPECT_EQ(c[1].kind, ScriptCommandKind::Route);
+    EXPECT_EQ(c[1].quests, Bots::RunQuests::Skip);
+    EXPECT_EQ(c[2].kind, ScriptCommandKind::Fight);
+    EXPECT_EQ(c[2].name, "pack1");
+    EXPECT_EQ(c[2].seconds, Bots::DefaultCombatEndSeconds);
+    EXPECT_EQ(c[3].seconds, 200u);
+    EXPECT_EQ(c[4].kind, ScriptCommandKind::WaitRested);
+    EXPECT_EQ(c[4].seconds, Bots::DefaultRestedSeconds);
+    EXPECT_EQ(c[5].seconds, 90u);
+    EXPECT_EQ(c[6].kind, ScriptCommandKind::Release);
+    EXPECT_EQ(c[6].seconds, 0u);
+    EXPECT_FALSE(c[6].never);
+    EXPECT_EQ(c[7].kind, ScriptCommandKind::Release);
+    EXPECT_TRUE(c[7].never);
+}
+
+TEST(RunScript, RefusesABrokenLineOfAFullRun)
+{
+    EXPECT_EQ(ErrorOf(Head + "route all\n"), "line 6: use: route [noquests]");
+    EXPECT_EQ(ErrorOf(Head + "fight\n"), "line 6: use: fight <pack> [<seconds>]");
+    EXPECT_EQ(ErrorOf(Head + "release soon\n"), "line 6: use: release <seconds> | release never");
+    EXPECT_EQ(ErrorOf(Head + "wait rested x\n"),
+        "line 6: use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]");
+}
+
+namespace
+{
+    char const* const QuestRouteText =
+        "route ragefire_chasm 389\n"
+        "boss 11520\n"
+        "quest 5722\n"
+        "visit q5722_maur\n"
+        "point p1 1 2 3 2\n"
+        "point pull_pack1 4 5 6 2\n"
+        "pack pack1 7 8 9\n"
+        "mob 1 11320\n"
+        "point q5722_maur 10 11 12 2 quest 5722\n"
+        "pack pack2 13 14 15 quest 5722\n"
+        "mob 2 11320\n"
+        "pack boss 16 17 18\n"
+        "mob 3 11520\n";
+
+    std::vector<std::string> Sources(std::vector<ScriptCommand> const& commands)
+    {
+        std::vector<std::string> sources;
+        for (ScriptCommand const& c : commands)
+            sources.push_back(c.source);
+        return sources;
+    }
+}
+
+TEST(RunScript, ARouteLineWalksEachStepOfTheRoute)
+{
+    RunScriptResult const script = ParseRunScript(Head + "teleport p1\nroute\nexpect alive\n");
+    Bots::RouteResult const route = Bots::ParseRoute(QuestRouteText);
+    ASSERT_TRUE(script.ok && route.ok) << script.error << route.error;
+
+    std::vector<ScriptCommand> const c = Bots::ExpandRoute(script.script.scenarios[0].commands, route.route);
+    EXPECT_EQ(Sources(c), (std::vector<std::string>{
+        "teleport p1",
+        "move p1", "wait arrive",
+        "move pull_pack1", "wait arrive",
+        "wait rested", "command stay", "fight pack1", "command follow",
+        "move q5722_maur", "wait arrive",
+        "wait rested", "command stay", "fight pack2", "command follow",
+        "wait rested", "command stay", "fight boss", "command follow",
+        "expect alive"}));
+    // Each step keeps the line of the route line, for the log and the result.
+    EXPECT_EQ(c[1].line, 7u);
+    EXPECT_EQ(c[1].kind, ScriptCommandKind::Move);
+    EXPECT_EQ(c[1].name, "p1");
+    EXPECT_EQ(c[2].kind, ScriptCommandKind::WaitArrive);
+    EXPECT_EQ(c[5].kind, ScriptCommandKind::WaitRested);
+    EXPECT_EQ(c[5].seconds, Bots::DefaultRestedSeconds);
+    // The group holds its place while the tank pulls, as in the scenarios.
+    EXPECT_EQ(c[6].kind, ScriptCommandKind::Command);
+    EXPECT_EQ(c[6].text, "stay");
+    EXPECT_EQ(c[7].kind, ScriptCommandKind::Fight);
+    EXPECT_EQ(c[7].name, "pack1");
+    EXPECT_EQ(c[7].seconds, Bots::DefaultCombatEndSeconds);
+    EXPECT_EQ(c[8].kind, ScriptCommandKind::Command);
+    EXPECT_EQ(c[8].text, "follow");
+}
+
+TEST(RunScript, ARouteWithoutQuestsSkipsTheQuestSteps)
+{
+    RunScriptResult const script = ParseRunScript(Head + "route noquests\n");
+    Bots::RouteResult const route = Bots::ParseRoute(QuestRouteText);
+    ASSERT_TRUE(script.ok && route.ok) << script.error << route.error;
+
+    EXPECT_EQ(Sources(Bots::ExpandRoute(script.script.scenarios[0].commands, route.route)), (std::vector<std::string>{
+        "move p1", "wait arrive",
+        "move pull_pack1", "wait arrive",
+        "wait rested", "command stay", "fight pack1", "command follow",
+        "wait rested", "command stay", "fight boss", "command follow"}));
+}
+
+TEST(RunScript, AScenarioWithARouteLineIsAFullRun)
+{
+    RunScriptResult const full = ParseRunScript(Head + "teleport p1\nroute\n");
+    RunScriptResult const boss = ParseRunScript(Head + "teleport p1\nfight boss\n");
+    ASSERT_TRUE(full.ok && boss.ok);
+
+    EXPECT_TRUE(Bots::IsFullRun(full.script.scenarios[0]));
+    EXPECT_FALSE(Bots::IsFullRun(boss.script.scenarios[0]));
+}
+
+TEST(RunScript, ChecksThePackOfAFight)
+{
+    Bots::RouteResult const route = Bots::ParseRoute(QuestRouteText);
+    RunScriptResult const script = ParseRunScript(Head + "fight nopack\n");
+    ASSERT_TRUE(script.ok && route.ok);
+
+    EXPECT_EQ(Bots::CheckRunScript(script.script, route.route), "line 6: the route ragefire_chasm has no pack named nopack");
+}
+
 TEST(RunScript, KeepsAllWordsOfAChatLine)
 {
     RunScriptResult const result = ParseRunScript(Head + "command Grukk pull\nwhisper Hela how are you\n");
@@ -152,7 +279,8 @@ TEST(RunScript, RefusesABrokenLineWithItsNumber)
 {
     EXPECT_EQ(ErrorOf(Head + "jump high\n"), "line 6: unknown command 'jump'");
     EXPECT_EQ(ErrorOf(Head + "teleport\n"), "line 6: use: teleport <point>");
-    EXPECT_EQ(ErrorOf(Head + "wait soon\n"), "line 6: use: wait <seconds> | wait arrive | wait combat_end [<seconds>]");
+    EXPECT_EQ(ErrorOf(Head + "wait soon\n"),
+        "line 6: use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]");
     EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive");
     EXPECT_EQ(ErrorOf(Head + "clear -3\n"), "line 6: use: clear <yards> [<pack>]");
     EXPECT_EQ(ErrorOf(Head + "whisper Hela\n"), "line 6: use: whisper <bot> <text>");
@@ -206,4 +334,26 @@ TEST(RunScriptData, TheRagefireChasmScriptFitsItsRouteFile)
     EXPECT_NE(Bots::FindScenario(script.script, "taragaman"), nullptr);
     EXPECT_NE(Bots::FindScenario(script.script, "enforcers"), nullptr);
     EXPECT_EQ(route.route.bosses, (std::vector<std::uint32_t>{11517, 11520, 11518, 11519}));
+}
+
+TEST(RunScriptData, TheFullRunsOfRagefireChasmFightEachBoss)
+{
+    RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/ragefire_chasm.txt"));
+    ASSERT_TRUE(script.ok) << script.error;
+    Bots::RouteResult const route = Bots::ParseRoute(ReadDataFile("routes/" + script.script.route + ".txt"));
+    ASSERT_TRUE(route.ok) << route.error;
+
+    for (char const* name : {"full", "full_noquests"})
+    {
+        Bots::ScriptScenario const* full = Bots::FindScenario(script.script, name);
+        ASSERT_NE(full, nullptr) << name;
+        EXPECT_TRUE(Bots::IsFullRun(*full)) << name;
+        std::set<std::uint32_t> fought;
+        for (ScriptCommand const& c : Bots::ExpandRoute(full->commands, route.route))
+            if (c.kind == ScriptCommandKind::Fight)
+                for (Bots::RouteMob const& mob : Bots::FindPack(route.route, c.name)->mobs)
+                    fought.insert(mob.entry);
+        for (std::uint32_t boss : {11517u, 11520u, 11518u, 11519u})
+            EXPECT_EQ(fought.count(boss), 1u) << name << " fights no pack with the boss " << boss;
+    }
 }

@@ -372,6 +372,67 @@ TEST_F(ClientTest, TheClientStopsWhileARequestWaits)
     EXPECT_EQ(service.bodies.size(), 1u);
 }
 
+// A scripted run ties each line to its event (spec section 10: each required
+// event reaches the chat service, and a line arrives in game chat).
+TEST_F(ClientTest, EachPostHasAnIdThatItsLinesCarry)
+{
+    service.answer = Answer(TwoLines);
+    Start();
+
+    std::uint64_t const first = client->Post(PartyMessage());
+    std::uint64_t const second = client->Post(PartyMessage());
+    WaitIdle();
+
+    EXPECT_NE(first, 0u);
+    EXPECT_NE(second, first);
+    std::vector<DueChatLine> const due = client->TakeDue(3000);
+    ASSERT_EQ(due.size(), 4u);
+    EXPECT_EQ(due[0].eventId, first);
+    EXPECT_EQ(due[0].eventKind, ChatEventKind::PlayerMessage);
+    // The first lines of both answers come before the second lines.
+    EXPECT_EQ(due[1].eventId, second);
+    EXPECT_EQ(due[2].eventId, first);
+}
+
+TEST_F(ClientTest, TellsWhichEventsTheServiceAnswered)
+{
+    service.answer = Answer(TwoLines);
+    Start();
+    std::uint64_t const answered = client->Post(PartyMessage());
+    WaitIdle();
+    service.answer.answered = false;
+    std::uint64_t const lost = client->Post(PartyMessage());
+    WaitIdle();
+
+    std::vector<ChatEventOutcome> const outcomes = client->TakeOutcomes();
+    ASSERT_EQ(outcomes.size(), 2u);
+    EXPECT_EQ(outcomes[0].eventId, answered);
+    EXPECT_TRUE(outcomes[0].reached);
+    EXPECT_EQ(outcomes[1].eventId, lost);
+    EXPECT_FALSE(outcomes[1].reached);
+    EXPECT_TRUE(client->TakeOutcomes().empty());
+}
+
+TEST_F(ClientTest, ADroppedRequestDidNotReachTheService)
+{
+    service.answer = Answer(R"({"contract_version":1,"lines":[]})");
+    service.hold = true;
+    Start(1, 1);
+
+    client->Post(PartyMessage("first"));
+    ASSERT_TRUE(service.WaitForRequests(1));
+    std::uint64_t const dropped = client->Post(PartyMessage("second"));
+    client->Post(PartyMessage("third"));
+    service.Release();
+    WaitIdle();
+
+    std::vector<ChatEventOutcome> const outcomes = client->TakeOutcomes();
+    auto const found = std::find_if(outcomes.begin(), outcomes.end(),
+        [dropped](ChatEventOutcome const& outcome) { return outcome.eventId == dropped; });
+    ASSERT_NE(found, outcomes.end());
+    EXPECT_FALSE(found->reached);
+}
+
 TEST_F(ClientTest, TheRosterOfTheBotGuidsGoesFirst)
 {
     service.answer = Answer(R"({"contract_version":1,"lines":[]})");

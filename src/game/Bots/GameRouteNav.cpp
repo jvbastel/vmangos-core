@@ -10,6 +10,7 @@
 #include "MoveMap.h"
 #include "MoveMapSharedDefines.h"
 #include "PathFinder.h"
+#include "Map.h"
 #include "Player.h"
 
 #include <algorithm>
@@ -111,6 +112,13 @@ Bots::Position GameRouteNav::Reach(Bots::Position const& from, float dx, float d
 bool GameRouteNav::OnMesh(Bots::Position const& position)
 {
     return Inside(position, m_ground);
+}
+
+bool GameRouteNav::LineOfSight(Bots::Position const& from, Bots::Position const& to)
+{
+    // The eye height of a player, as in WorldObject::IsWithinLOSAtPosition.
+    float const eyes = 2.0f;
+    return m_walker->GetMap()->isInLineOfSight(from.x, from.y, from.z + eyes, to.x, to.y, to.z + eyes);
 }
 
 bool GameRouteNav::OnLava(Bots::Position const& position)

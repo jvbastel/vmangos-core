@@ -13,3 +13,9 @@ TEST(Geometry, Distance2dIsTheSameBothWays)
     EXPECT_FLOAT_EQ(Bots::Distance2d({-3.0f, 0.0f, 0.0f}, {0.0f, 4.0f, 0.0f}), 5.0f);
     EXPECT_FLOAT_EQ(Bots::Distance2d({0.0f, 4.0f, 0.0f}, {-3.0f, 0.0f, 0.0f}), 5.0f);
 }
+
+TEST(BotGeometry, PathLengthAddsTheLegs)
+{
+    EXPECT_FLOAT_EQ(Bots::PathLength({{0, 0, 0}, {3, 4, 0}, {3, 4, 12}}), 17.0f);
+    EXPECT_FLOAT_EQ(Bots::PathLength({{1, 1, 1}}), 0.0f);
+}

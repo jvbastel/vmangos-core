@@ -708,3 +708,86 @@ TEST(Rest, ADeadBotDoesNotRest)
 
     EXPECT_FALSE(Bots::RestsNow(fake));
 }
+
+// A member that the run revives (the scripted rule) comes back at half
+// health and mana. It rests until full before the next pull.
+
+TEST(Rest, ABotRevivedByTheRunEatsAtHalfHealth)
+{
+    GroupBot bot(Tank, Bots::BotClass::Warrior, Bots::BotRole::Tank);
+    bot.fake.SetHealth(Tank, 300, 600);
+    bot.group.SetRestUntilFull(Tank);
+
+    EXPECT_EQ(bot.Think(), "eat");
+}
+
+TEST(Rest, ABotRevivedByTheRunDrinksAtHalfMana)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetMana(Mage, 200, 400);
+    bot.group.SetRestUntilFull(Mage);
+
+    EXPECT_EQ(bot.Think(), "drink");
+}
+
+TEST(GroupWatch, ABotRevivedByTheRunRestsBeforeItsFirstMeal)
+{
+    // The run waits for it from the revive on, not from its next think.
+    GroupBot bot(Tank, Bots::BotClass::Warrior, Bots::BotRole::Tank);
+    bot.fake.SetHealth(Tank, 300, 600);
+    bot.group.SetRestUntilFull(Tank);
+
+    EXPECT_EQ(bot.group.GetResting(), (std::vector<Bots::Guid>{Tank}));
+    bot.Watch();
+    EXPECT_EQ(bot.group.GetResting(), (std::vector<Bots::Guid>{Tank}));
+}
+
+TEST(GroupWatch, ABotRevivedByTheRunRestsOnlyUntilFull)
+{
+    GroupBot bot(Tank, Bots::BotClass::Warrior, Bots::BotRole::Tank);
+    bot.fake.SetHealth(Tank, 300, 600);
+    bot.group.SetRestUntilFull(Tank);
+    bot.fake.SetEating();
+    bot.Watch();
+
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.Watch();
+    EXPECT_TRUE(bot.group.GetResting().empty());
+
+    // The next time at half health it is a normal bot again.
+    bot.fake.SetEating(false);
+    bot.fake.SetHealth(Tank, 300, 600);
+    EXPECT_EQ(bot.Think(), "");
+}
+
+// The rest watch runs at each update of a bot, not only at its think: the
+// run sees a meal start and end at once (no `wait rested` race).
+
+TEST(GroupWatch, TheRestWatchSeesAMealStartAndEnd)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetHealth(Mage, 200, 600);
+    bot.fake.SetEating();
+
+    Bots::WatchRest(bot.fake, bot.group);
+    EXPECT_EQ(bot.group.GetResting(), (std::vector<Bots::Guid>{Mage}));
+
+    bot.fake.SetHealth(Mage, 600, 600);
+    Bots::WatchRest(bot.fake, bot.group);
+    EXPECT_TRUE(bot.group.GetResting().empty());
+}
+
+TEST(GroupWatch, TheRestWatchLeavesTheWipeAlone)
+{
+    DeadMage bot;
+    bot.fake.SetHealth(Player, 0, 600);
+    bot.fake.SetLifeState(Player, LifeState::Dead);
+    bot.fake.SetHealth(Tank, 0, 600);
+    bot.fake.SetLifeState(Tank, LifeState::Dead);
+    bot.fake.SetHealth(Healer, 0, 600);
+    bot.fake.SetLifeState(Healer, LifeState::Dead);
+
+    Bots::WatchRest(bot.fake, bot.group);
+
+    EXPECT_FALSE(bot.group.IsWiped());
+}

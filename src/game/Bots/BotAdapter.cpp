@@ -220,15 +220,26 @@ Bots::SpellId BotAdapter::GetCurrentCast(Bots::Guid unit) const
 
 Bots::CastInfo BotAdapter::GetCast(Bots::Guid unit) const
 {
-    Unit const* found = Find(unit);
-    std::vector<CurrentSpell> const spells = found ? CurrentSpellsOf(found, false) : std::vector<CurrentSpell>();
+    return CastOf(Find(unit));
+}
+
+Bots::CastKind BotAdapter::CastKindOf(SpellEntry const* spell)
+{
+    if (!spell)
+        return Bots::CastKind::Other;
+    return spell->IsHealSpell() ? Bots::CastKind::Heal
+        : spell->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+}
+
+Bots::CastInfo BotAdapter::CastOf(Unit const* unit)
+{
+    std::vector<CurrentSpell> const spells = unit ? CurrentSpellsOf(unit, false) : std::vector<CurrentSpell>();
     if (spells.empty())
         return {Bots::NoSpell, Bots::CastKind::None, false};
     CurrentSpellTypes const type = spells.front().type;
     Spell const* spell = spells.front().spell;
     SpellEntry const* info = spell->m_spellInfo;
-    Bots::CastKind const kind = info->IsHealSpell() ? Bots::CastKind::Heal
-        : info->IsPositiveSpell() ? Bots::CastKind::Other : Bots::CastKind::Harm;
+    Bots::CastKind const kind = CastKindOf(info);
     // The test of Spell::EffectInterruptCast, the effect of Kick and
     // Shield Bash.
     bool const casting = spell->getState() == SPELL_STATE_CASTING
@@ -364,6 +375,15 @@ Bots::ChaseState BotAdapter::GetChase() const
     if (!chase)
         return {Bots::NoGuid, false};
     return {GuidOf(chase->GetTarget()), chase->GetAngle() != 0.0f};
+}
+
+Unit* BotAdapter::ChaseTargetOf(Player const* player)
+{
+    MotionMaster const* motion = player->GetMotionMaster();
+    if (motion->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE)
+        return nullptr;
+    auto const* chase = dynamic_cast<ChaseMovementGenerator<Player> const*>(motion->GetCurrent());
+    return chase ? chase->GetTarget() : nullptr;
 }
 
 uint32 BotAdapter::GetComboPoints() const
@@ -518,7 +538,14 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         me->SetFacingToObject(unit);
         me->SetTargetGuid(unit->GetObjectGuid());
     }
+    // The cast that an interrupt stops, read before the interrupt lands.
+    uint32 const castToStop = entry->HasEffect(SPELL_EFFECT_INTERRUPT_CAST) ? CastOf(unit).spell : 0;
     SpellCastResult const result = me->CastSpell(unit, entry, false);
+    // An interrupt attempt of a member of a scripted run: the run counts
+    // the double interrupts (spec section 10, Results).
+    if (result == SPELL_CAST_OK && castToStop && sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::InterruptAttempt, me->GetObjectGuid(), unit->GetObjectGuid(),
+            castToStop, 0});
     // Like CombatBotBaseAI::DoCastSpell: a spell with a cast time ends when the
     // caster moves (for example when it follows or chases a unit), so stop the bot.
     if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))

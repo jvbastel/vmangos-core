@@ -20,15 +20,6 @@ namespace Bots
         // A chase from BotActions::ChaseToRange is not behind.
     };
 
-    // The kind of spell that a unit casts, for the interrupts.
-    enum class CastKind
-    {
-        None,  // The unit casts nothing.
-        Heal,  // A heal.
-        Harm,  // A harmful spell, for example a damage spell.
-        Other, // For example a buff.
-    };
-
     // The spell that a unit casts now.
     struct CastInfo
     {

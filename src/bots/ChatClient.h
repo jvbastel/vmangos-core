@@ -69,6 +69,18 @@ namespace Bots
         ChatLine line;
         std::uint32_t groupId = 0;
         Guid playerGuid = 0;
+        // The event of the answer, as Post gave it.
+        std::uint64_t eventId = 0;
+        ChatEventKind eventKind = ChatEventKind::PlayerMessage;
+    };
+
+    // Whether a posted event reached the chat service: it answered with
+    // lines (none is fine). False when the service was down, rejected it, or
+    // gave a broken answer, and when the full queue dropped it.
+    struct ChatEventOutcome
+    {
+        std::uint64_t eventId = 0;
+        bool reached = false;
     };
 
     class ChatClient
@@ -89,13 +101,18 @@ namespace Bots
         ChatClient& operator=(ChatClient const&) = delete;
 
         // Copies the event onto the request queue. When the queue is full,
-        // the oldest request drops.
-        void Post(ChatEvent const& event);
+        // the oldest request drops. The id of the event (never 0), for its
+        // lines and its outcome.
+        std::uint64_t Post(ChatEvent const& event);
 
         // The lines whose delay ended at `nowMs`, in the order of their due
         // time, and in speaking order within one answer. Lines that are more
         // than MaxChatLineLateMs late drop.
         std::vector<DueChatLine> TakeDue(std::int64_t nowMs);
+
+        // The outcome of each event that the client is done with, since the
+        // last call.
+        std::vector<ChatEventOutcome> TakeOutcomes();
 
         // The GUIDs of all bot characters. The first call makes a worker send
         // them to the service (POST /v1/roster), before the next event. They
@@ -119,6 +136,7 @@ namespace Bots
         {
             ChatEvent event;
             std::int64_t postedAt;
+            std::uint64_t id;
         };
 
         struct HeldLine
@@ -150,6 +168,8 @@ namespace Bots
         bool m_stopping = false;
         std::vector<HeldLine> m_lines;
         std::uint64_t m_nextOrder = 0;
+        std::uint64_t m_nextEventId = 1;
+        std::vector<ChatEventOutcome> m_outcomes;
         std::vector<Guid> m_roster;
         RosterState m_rosterState = RosterState::None;
 

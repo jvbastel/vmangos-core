@@ -72,3 +72,28 @@ TEST(WipeRevive, AfterTheReviveTheDelayStartsAgain)
 
     EXPECT_FALSE(watch.Update(members, 1000 + Bots::WipeReviveDelayMs + 1));
 }
+
+TEST(WipeRevive, TellsWhenAWipeBegins)
+{
+    WipeWatch watch;
+    std::vector<RunMember> const members = {Dead, Dead};
+
+    watch.Update(members, 1000);
+    EXPECT_TRUE(watch.Began());
+    watch.Update(members, 2000);
+    EXPECT_FALSE(watch.Began());
+}
+
+TEST(WipeRevive, TheScriptSetsTheDelayOrNoRevive)
+{
+    WipeWatch watch;
+    std::vector<RunMember> const members = {Dead, Dead};
+
+    watch.Update(members, 1000, 20000);
+    EXPECT_FALSE(watch.Update(members, 1000 + Bots::WipeReviveDelayMs, 20000));
+    EXPECT_TRUE(watch.Update(members, 21000, 20000));
+
+    WipeWatch never;
+    never.Update(members, 1000, Bots::NeverRevive);
+    EXPECT_FALSE(never.Update(members, 1000000, Bots::NeverRevive));
+}

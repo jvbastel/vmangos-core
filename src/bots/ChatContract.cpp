@@ -15,20 +15,6 @@ namespace
         return Json(text).dump(-1, ' ', false, Json::error_handler_t::replace);
     }
 
-    char const* EventName(Bots::ChatEventKind kind)
-    {
-        switch (kind)
-        {
-            case Bots::ChatEventKind::PlayerMessage: return "player_message";
-            case Bots::ChatEventKind::BossKill: return "boss_kill";
-            case Bots::ChatEventKind::Wipe: return "wipe";
-            case Bots::ChatEventKind::LootRoll: return "loot_roll";
-            case Bots::ChatEventKind::Rest: return "rest";
-            case Bots::ChatEventKind::SessionEnd: break;
-        }
-        return "session_end";
-    }
-
     char const* ChannelName(Bots::ChatChannel channel)
     {
         return channel == Bots::ChatChannel::Whisper ? "whisper" : "party";
@@ -85,12 +71,26 @@ namespace
     }
 }
 
+char const* Bots::ChatEventName(ChatEventKind kind)
+{
+    switch (kind)
+    {
+        case ChatEventKind::PlayerMessage: return "player_message";
+        case ChatEventKind::BossKill: return "boss_kill";
+        case ChatEventKind::Wipe: return "wipe";
+        case ChatEventKind::LootRoll: return "loot_roll";
+        case ChatEventKind::Rest: return "rest";
+        case ChatEventKind::SessionEnd: break;
+    }
+    return "session_end";
+}
+
 std::string Bots::EncodeChatEvent(ChatEvent const& event)
 {
     // By hand, in the order of the schema: nlohmann::json sorts the keys.
     std::ostringstream out;
     out << "{\"contract_version\":" << ChatContractVersion
-        << ",\"event\":\"" << EventName(event.kind) << '"'
+        << ",\"event\":\"" << Bots::ChatEventName(event.kind) << '"'
         << ",\"group_id\":" << event.groupId
         << ",\"player\":{\"guid\":" << event.player.guid << ",\"name\":" << Quote(event.player.name) << '}'
         << ",\"bots\":[";

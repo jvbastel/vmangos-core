@@ -243,7 +243,7 @@ void BotChat::PostPlayerMessage(PlayerChatMessage const& message)
 
     Bots::ChatEvent event = Bots::MakeChatEvent(view, Bots::ChatEventKind::PlayerMessage);
     event.message = chat;
-    m_client->Post(event);
+    Post(event, message.chatType == CHAT_MSG_WHISPER ? message.receiver : ObjectGuid());
 }
 
 void BotChat::UpdateSessions()
@@ -272,7 +272,7 @@ void BotChat::UpdateSessions()
             bots += (bots.empty() ? "" : ", ") + std::to_string(guid);
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[BotChat] session_end of group %u (%s): bots %s",
             end.groupId, reasons[int(end.reason)], bots.c_str());
-        m_client->Post(end);
+        Post(end);
     }
 }
 
@@ -301,7 +301,25 @@ void BotChat::PostGroupEvent(uint32 groupId, Bots::GroupEvent const& event)
     if (!Bots::MakeGroupChatEvent(ViewOf(group), event, name, chatEvent))
         return;
     sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[BotChat] post %s", Bots::EncodeChatEvent(chatEvent).c_str());
-    m_client->Post(chatEvent);
+    Post(chatEvent);
+}
+
+void BotChat::Post(Bots::ChatEvent const& event, ObjectGuid toBot)
+{
+    uint64 const id = m_client->Post(event);
+    m_sent.push_back({id, event.groupId, event.kind, toBot});
+}
+
+std::vector<SentChatEvent> BotChat::TakeSent()
+{
+    std::vector<SentChatEvent> sent;
+    sent.swap(m_sent);
+    return sent;
+}
+
+std::vector<Bots::ChatEventOutcome> BotChat::TakeOutcomes()
+{
+    return m_client ? m_client->TakeOutcomes() : std::vector<Bots::ChatEventOutcome>();
 }
 
 bool BotChat::MaySay(Bots::DueChatLine const& due, BotLine& line) const
@@ -321,6 +339,7 @@ bool BotChat::MaySay(Bots::DueChatLine const& due, BotLine& line) const
 
     line.bot = bot->GetObjectGuid();
     line.text = due.line.text;
+    line.eventId = due.eventId;
     if (due.line.channel == Bots::ChatChannel::Whisper)
     {
         line.chatType = CHAT_MSG_WHISPER;

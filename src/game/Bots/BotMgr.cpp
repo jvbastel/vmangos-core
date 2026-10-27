@@ -171,6 +171,15 @@ void BotMgr::LoadConfig()
     m_settings.startDelay.maxMs = sConfig.GetIntDefault("Bots.StartDelayMs.Max", 1500);
     m_settings.dataDir = sConfig.GetStringDefault("Bots.DataDir", "bots");
     m_settings.lostMobMs = std::max(1000, sConfig.GetIntDefault("Bots.Run.LostMobMs", int(Bots::LostMobMs)));
+    m_settings.runDir = sConfig.GetStringDefault("Bots.Run.ResultDir", "");
+    if (m_settings.runDir.empty())
+    {
+        // The same folder as Log.cpp: a mounted folder of the realm.
+        std::string logs = sConfig.GetStringDefault("LogsDir", "");
+        if (!logs.empty() && logs.back() != '/' && logs.back() != '\\')
+            logs += '/';
+        m_settings.runDir = logs + "runs";
+    }
     AccountMgr::normalizeString(m_settings.accountPrefix);
     m_chat.LoadConfig();
 
@@ -223,6 +232,12 @@ void BotMgr::Update(uint32 diff)
     SendLines();
     DropOldCoordinators();
     TakeGroupEvents();
+    // The chat of a scripted run: the events sent (the player messages of
+    // the update, and the group events above), and the answers.
+    for (SentChatEvent const& sent : m_chat.TakeSent())
+        m_run.NoteChatSent(sent);
+    for (Bots::ChatEventOutcome const& outcome : m_chat.TakeOutcomes())
+        m_run.NoteChatOutcome(outcome);
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
     m_run.Update();
@@ -795,6 +810,7 @@ void BotMgr::SendLines()
                 continue;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, line.text.c_str(), LANG_UNIVERSAL, bot->GetChatTag(), bot->GetObjectGuid(), bot->GetName());
             group->BroadcastPacket(&data, false, group->GetMemberGroup(bot->GetObjectGuid()));
+            m_run.NoteChatLine(line, bot);
         }
         else if (line.chatType == CHAT_MSG_WHISPER)
         {
@@ -803,6 +819,7 @@ void BotMgr::SendLines()
                 continue;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_WHISPER, line.text.c_str(), LANG_UNIVERSAL, bot->GetChatTag(), bot->GetObjectGuid(), bot->GetName());
             receiver->GetSession()->SendPacket(&data);
+            m_run.NoteChatLine(line, bot);
         }
     }
 }
@@ -835,7 +852,8 @@ void BotMgr::PutOnPendingGear(BotRecord& record)
     ApplyLevelRoutine(player);
 }
 
-bool BotMgr::EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error)
+bool BotMgr::EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error,
+    EquipReport* equipped)
 {
     std::string wanted = name;
     Player* player = normalizePlayerName(wanted) ? sObjectMgr.GetPlayer(wanted.c_str()) : nullptr;
@@ -877,6 +895,8 @@ bool BotMgr::EquipCharacter(std::string const& name, std::string const& template
     // A worn weapon without its skill leaves its slot at the next login.
     if (IsOurBot(player))
         ApplyLevelRoutine(player);
+    if (equipped)
+        *equipped = {gear->name, draw};
     report = wanted + " wears " + gear->name + (draw.shape.empty() ? "" : " (shape " + draw.shape + ")") + ": " +
         (draw.picks.empty() ? std::string("nothing") : DescribeGearDraw(draw));
     return true;

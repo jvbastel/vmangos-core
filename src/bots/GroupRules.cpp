@@ -232,7 +232,13 @@ namespace Bots
     bool IsInChaseLimit(BotContext const& context, Guid unit)
     {
         Guid const tank = context.group.GetTank();
-        return !IsAlive(context.view, tank) || context.view.GetDistanceBetween(unit, tank) <= ChaseLimitYards;
+        if (!IsAlive(context.view, tank) || context.view.GetDistanceBetween(unit, tank) <= ChaseEnemyYards)
+            return true;
+        // An enemy that hits another member: that member does not come to
+        // the tank, so the bot goes to it, while the enemy stays near it.
+        Guid const victim = context.view.GetVictim(unit);
+        return victim != Self(context) && IsAlive(context.view, victim) && IsGroupMember(context.view, victim)
+            && context.view.GetDistanceBetween(unit, victim) <= ChaseEnemyYards;
     }
 
     Guid PickEnemyHealer(BotContext const& context)
@@ -242,6 +248,11 @@ namespace Bots
             if (std::find(enemies.begin(), enemies.end(), healer) != enemies.end() && IsInChaseLimit(context, healer))
                 return healer;
         return NoGuid;
+    }
+
+    bool IsInterruptSpell(SpellId firstRank)
+    {
+        return std::find(std::begin(InterruptSpells), std::end(InterruptSpells), firstRank) != std::end(InterruptSpells);
     }
 
     std::shared_ptr<Strategy const> MakeGroupStrategy(BotRole role)

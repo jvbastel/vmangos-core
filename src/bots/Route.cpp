@@ -1,5 +1,6 @@
 #include "Route.h"
 
+#include "BotGeometry.h"
 #include "DataTokenizer.h"
 
 #include <cerrno>
@@ -189,6 +190,32 @@ namespace Bots
             if (quest.id == id)
                 return &quest;
         return nullptr;
+    }
+
+    std::vector<std::string> WalkBackPoints(Route const& route, Position const& from, std::string const& pack)
+    {
+        std::vector<RoutePoint const*> before;
+        bool found = false;
+        for (RouteStep const& step : route.steps)
+        {
+            if (step.kind == RouteStepKind::Pack && route.packs[step.index].name == pack)
+            {
+                found = true;
+                break;
+            }
+            if (step.kind == RouteStepKind::Point && route.points[step.index].quest == 0)
+                before.push_back(&route.points[step.index]);
+        }
+        std::vector<std::string> names;
+        if (!found || before.empty())
+            return names;
+        std::size_t nearest = 0;
+        for (std::size_t i = 1; i < before.size(); ++i)
+            if (Distance3d(from, before[i]->places[0].position) < Distance3d(from, before[nearest]->places[0].position))
+                nearest = i;
+        for (std::size_t i = nearest; i < before.size(); ++i)
+            names.push_back(before[i]->name);
+        return names;
     }
 
     std::string AddPoint(Route& route, std::string name, RoutePlace const& place)
