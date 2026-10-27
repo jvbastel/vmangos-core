@@ -246,6 +246,20 @@ namespace Bots
                 return CastableRank(context.view, Revenge, target) != NoSpell ? Revenge : SunderArmor;
             }
 
+            // Revenge goes to the threat target when a visit is due and
+            // Revenge is its ability, else to the focus. So Revenge keeps
+            // its place above Shield Block on a visit too.
+            Guid PickRevengeTarget(BotContext const& context, ThreatVisit const& visit)
+            {
+                if (ThreatVisitDue(context, visit))
+                {
+                    Guid const target = PickThreatTarget(context);
+                    if (ThreatTargetAbility(context, target) == Revenge)
+                        return target;
+                }
+                return PickFocusTarget(context);
+            }
+
             // A rule of an ability on the focus: it ends a visit to the
             // threat target.
             Rule EndsThreatVisit(Rule rule, ThreatVisitPtr const& visit)
@@ -544,15 +558,22 @@ namespace Bots
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
-                // A ready Revenge goes to the threat target on a visit.
-                EndsThreatVisit(CastRule("revenge", P + 40,
-                                    [visit](BotContext const& context) {
-                                        return FightsFocus(context)
-                                            && !(ThreatVisitDue(context, *visit)
-                                                && ThreatTargetAbility(context, PickThreatTarget(context)) == Revenge);
-                                    },
-                                    Revenge, PickFocusTarget),
-                    visit),
+                // A ready Revenge goes to the threat target on a visit
+                // (jvbastel/WOWAI#117), and counts as its ability there. On
+                // the focus, it ends the visit.
+                Rule{"revenge", P + 40, FightsFocus,
+                    {[visit](BotContext const& context) {
+                         Guid const target = PickRevengeTarget(context, *visit);
+                         return target != NoGuid && CastableRank(context.view, Revenge, target) != NoSpell;
+                     },
+                        [visit](BotContext const& context) {
+                            Guid const target = PickRevengeTarget(context, *visit);
+                            context.actions.CastSpell(RankForTarget(context.view, Revenge, target), target);
+                            if (target == context.group.GetFocusTarget())
+                                visit->abilities = 0;
+                            else
+                                ++visit->abilities;
+                        }}},
                 // Below Revenge: more blocks give more Revenge. The cast
                 // check covers the shield and the cooldown.
                 CastRule("shield block", P + 38,
@@ -561,9 +582,9 @@ namespace Bots
                             && Rage(context) >= ShieldBlockRage && HitInMelee(context);
                     },
                     ShieldBlock, PickSelf),
-                // jvbastel/WOWAI#117: one Revenge or Sunder Armor on the
-                // threat target, then the focus again. The focus of the
-                // group stays.
+                // jvbastel/WOWAI#117: one Sunder Armor on the threat target
+                // (a ready Revenge goes there through the revenge rule), then
+                // the focus again. The focus of the group stays.
                 Rule{"threat target", P + 37,
                     [visit](BotContext const& context) { return ThreatVisitDue(context, *visit); },
                     {[](BotContext const& context) {

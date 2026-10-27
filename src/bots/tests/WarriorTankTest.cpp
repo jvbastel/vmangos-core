@@ -1548,9 +1548,9 @@ TEST(WarriorTank, WithoutChallengingShoutTauntsLooseEnemiesOneByOne)
 // jvbastel/WOWAI#117: the threat target.
 namespace
 {
-    Bots::Guid const Boar = 0xF130000302000044;
+    Bots::Guid const Lynx = 0xF130000302000088;
 
-    // The tank fights the kobold (the focus), and the wolf and the boar
+    // The tank fights the kobold (the focus), and the wolf and the lynx
     // attack it too. The healer stands back. Revenge is not ready, unless
     // `revengeReady`.
     struct ThreeEnemyTank : WarriorTank
@@ -1565,18 +1565,18 @@ namespace
             fake.SetPower(Tank, 30, 100);
             if (!revengeReady)
                 fake.SetCannotCast(Warrior::Revenge);
-            for (Bots::Guid enemy : {Wolf, Boar})
+            for (Bots::Guid enemy : {Wolf, Lynx})
             {
                 fake.SetHealth(enemy, 300, 300);
                 fake.SetVictim(enemy, Tank);
             }
         }
 
-        void SetRatios(float kobold, float wolf, float boar)
+        void SetRatios(float kobold, float wolf, float lynx)
         {
             fake.SetThreatRatio(Tank, Kobold, kobold);
             fake.SetThreatRatio(Tank, Wolf, wolf);
-            fake.SetThreatRatio(Tank, Boar, boar);
+            fake.SetThreatRatio(Tank, Lynx, lynx);
         }
     };
 }
@@ -1598,7 +1598,7 @@ TEST(WarriorTank, AtA150PercentLeadSundersTheEnemyWithTheLowestThreatRatio)
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Boar)}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Lynx)}));
 }
 
 TEST(WarriorTank, UsesRevengeOnTheThreatTargetWhenItIsReady)
@@ -1616,11 +1616,11 @@ TEST(WarriorTank, BreaksATieOnTheThreatRatioByTheDistanceToTheHealer)
     ThreeEnemyTank tank;
     tank.SetRatios(2.0f, 1.0f, 1.0f);
     tank.fake.SetDistanceBetween(Wolf, Healer, 15.0f);
-    tank.fake.SetDistanceBetween(Boar, Healer, 8.0f);
+    tank.fake.SetDistanceBetween(Lynx, Healer, 8.0f);
 
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Boar)}));
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Lynx)}));
 }
 
 TEST(WarriorTank, GoesBackToTheFocusAfterOneAbilityOnTheThreatTarget)
@@ -1648,4 +1648,39 @@ TEST(WarriorTank, TheThreatTargetLeavesTheGroupsFocusAlone)
 
     ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
     EXPECT_EQ(tank.group.GetFocusTarget(), Kobold);
+}
+
+TEST(WarriorTank, OnAVisitPrefersReadyRevengeOnTheThreatTargetToShieldBlock)
+{
+    ThreeEnemyTank tank(true);
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock);
+    tank.SetRatios(3.0f, 1.1f, 2.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Wolf)}));
+}
+
+TEST(WarriorTank, AfterRevengeOnTheThreatTargetGoesBackToTheFocus)
+{
+    ThreeEnemyTank tank(true);
+    tank.SetRatios(3.0f, 1.1f, 2.0f);
+    tank.Think();
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Kobold)}));
+}
+
+TEST(WarriorTank, NoThreatTargetWhenNoOtherEnemyIsInReach)
+{
+    ThreeEnemyTank tank;
+    tank.SetRatios(2.0f, 1.0f, 1.0f);
+    tank.fake.SetCannotCastOn(Warrior::SunderArmor, Wolf);
+    tank.fake.SetCannotCastOn(Warrior::SunderArmor, Lynx);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
 }
