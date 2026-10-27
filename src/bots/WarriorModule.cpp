@@ -32,8 +32,6 @@ namespace Bots
             // many thinks in a row with no move: right after the order (or
             // a new path) the tank does not move yet.
             std::uint32_t const StillChaseThinks = 3;
-            // Nearer than this, the focus is in melee reach.
-            float const MeleeYards = 5.0f;
 
             // jvbastel/WOWAI#114: Demoralizing Shout reaches the enemies
             // within DemoralizingShoutYards. The tank shouts when
@@ -791,14 +789,14 @@ namespace Bots
                         // The ranged chase of the pull attacks with no melee swing.
                         if (context.view.GetVictim(Self(context)) != focus || !context.view.IsMeleeAttacking())
                             return true;
-                        return context.view.GetDistance(focus) > MeleeYards && chase.target != focus
+                        return context.view.GetDistance(focus) > MeleeContactYards && chase.target != focus
                             && !FocusComes(context);
                     },
                     {[](BotContext const& context) { return IsAlive(context.view, PickFocusTarget(context)); },
                         [](BotContext const& context) {
                             Guid const focus = PickFocusTarget(context);
                             context.actions.Attack(focus);
-                            if (FocusComes(context) && context.view.GetDistance(focus) > MeleeYards)
+                            if (FocusComes(context) && context.view.GetDistance(focus) > MeleeContactYards)
                                 context.actions.Stand();
                             else
                                 context.actions.Chase(focus);
@@ -859,7 +857,7 @@ namespace Bots
                 CastRule("shield block", P + 38,
                     [](BotContext const& context) {
                         return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
-                            && Rage(context) >= ShieldBlockRage && IsHitInMelee(context, MeleeYards);
+                            && Rage(context) >= ShieldBlockRage && IsHitInMelee(context, MeleeContactYards);
                     },
                     ShieldBlock, PickSelf),
                 // jvbastel/WOWAI#117: one Sunder Armor on the threat target
