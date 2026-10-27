@@ -1887,3 +1887,193 @@ TEST(WarriorTank, GoesBackToTheFocusWhenItsLeadDropsInAVisit)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
 }
+
+// jvbastel/WOWAI#126: the tank picks up a loose enemy that Taunt cannot reach.
+namespace
+{
+    std::string Attack(Bots::Guid target)
+    {
+        char text[64];
+        std::snprintf(text, sizeof(text), "attack 0x%016llx", static_cast<unsigned long long>(target));
+        return text;
+    }
+
+    std::string Chase(Bots::Guid target)
+    {
+        char text[64];
+        std::snprintf(text, sizeof(text), "chase 0x%016llx", static_cast<unsigned long long>(target));
+        return text;
+    }
+
+    // The bat hits the healer 28 yards from the tank, out of the 20 yards of
+    // Taunt (pack 8 of runs/t99-1027).
+    struct BatOnTheFarHealer : GroupInFight
+    {
+        BatOnTheFarHealer()
+        {
+            fake.SetSpellRange(Warrior::Taunt, 20.0f);
+            fake.SetVictim(Bat, Healer);
+            fake.SetDistance(Bat, 28.0f);
+        }
+    };
+}
+
+TEST(WarriorTank, GoesToALooseEnemyOnTheHealerOutOfTauntRangeAndAttacksIt)
+{
+    BatOnTheFarHealer tank;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+}
+
+// A second add hits a member while Taunt waits for its cooldown (it went out
+// on the first add).
+TEST(WarriorTank, AttacksASecondAddOnAMemberWhenTauntIsOnItsCooldown)
+{
+    GroupInFight tank;
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Tank);
+    tank.fake.SetVictim(Bat, Rogue);
+    tank.fake.SetDistance(Bat, 8.0f);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+}
+
+// The walk back after a fallback pull waits for a loose enemy out of Taunt
+// range too: the tank goes to it, not away from it.
+TEST(WarriorTank, HoldsItsWalkBackForALooseEnemyOutOfTauntRange)
+{
+    BowTank tank;
+    tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
+    tank.fake.SetGroupMembers({Healer});
+    tank.group.SetHealer(Healer);
+    tank.fake.SetPosition(Tank, {10, 20, 0});
+    tank.Pull();
+    tank.fake.SetPosition(Tank, {28, 20, 0});
+    tank.fake.SetDistance(Kobold, 2.0f);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+    tank.fake.SetPower(Tank, 20, 100);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetSpellRange(Warrior::Taunt, 20.0f);
+    tank.fake.SetDistance(Wolf, 28.0f);
+    tank.fake.SetVictim(Wolf, Healer);
+    ASSERT_EQ(tank.Think(), "hold the pull");
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Wolf), Chase(Wolf)}));
+}
+
+// After the taunt, the bat attacks the tank, but the healer's threat on it
+// equals the tank's (a taunt gives the top threat, no lead): the tank
+// sunders the bat until it leads on its threat, then goes back to the focus.
+TEST(WarriorTank, AfterATauntKeepsHittingTheTauntedEnemyUntilItHoldsIt)
+{
+    GroupInFight tank;
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.0f);
+
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+
+    tank.fake.SetThreatRatio(Tank, Bat, 1.5f);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTank, KeepsThreatOnTheTauntedEnemyWithAReadyRevenge)
+{
+    GroupInFight tank;
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.Think();
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.0f);
+
+    tank.fake.ClearDeeds();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Revenge, Bat)}));
+}
+
+// The picked-up enemy: the tank reached it and hits it. It sunders it, and
+// does not turn back to the focus while the enemy still hits the healer.
+TEST(WarriorTank, SundersThePickedUpEnemyUntilItHoldsIt)
+{
+    BatOnTheFarHealer tank;
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+    tank.fake.SetVictim(Tank, Bat);
+    tank.fake.SetDistance(Bat, 2.0f);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+
+    // It attacks the tank, which leads on its threat now: back to the focus.
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.5f);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
+}
+
+// jvbastel/WOWAI#126 review: the focus on a member comes before a loose add.
+// Taunt waits for its cooldown, and the focus hits the rogue: the tank stays
+// on the focus and does not go to the bat on the healer.
+TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItPicksUpALooseEnemy)
+{
+    GroupInFight tank;
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Kobold, Rogue);
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetDistance(Bat, 8.0f);
+    tank.fake.SetDistance(Kobold, 12.0f);
+
+    tank.Think();
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
+    for (std::string const& deed : tank.fake.Deeds())
+    {
+        EXPECT_NE(deed, Attack(Bat));
+        EXPECT_NE(deed, Chase(Bat));
+    }
+}
+
+// jvbastel/WOWAI#126 review: the tank does not run far from the fight to a
+// loose enemy (more packs wait on the way). It stays on the focus.
+TEST(WarriorTank, DoesNotPickUpALooseEnemyBeyondThePickUpReach)
+{
+    BatOnTheFarHealer tank;
+    tank.fake.SetDistance(Bat, 45.0f);
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+    {
+        EXPECT_NE(deed, Attack(Bat));
+        EXPECT_NE(deed, Chase(Bat));
+    }
+}
