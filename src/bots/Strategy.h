@@ -35,6 +35,9 @@ namespace Bots
         // The bot waits its start delay (StartDelay.h): it does not start to
         // follow yet.
         bool startWaits = false;
+        // The bot is the test driver of a scripted run: it loots no corpses
+        // (jvbastel/WOWAI#99).
+        bool testDriver = false;
     };
 
     using Trigger = std::function<bool(BotContext const&)>;

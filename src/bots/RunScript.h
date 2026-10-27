@@ -63,8 +63,9 @@
 //   group revives at the dungeon entrance. `never`: nobody releases.
 // - `route [noquests]`: the whole route, step by step (a full run). Each
 //   point is `move <point>` and `wait arrive`. Each pack is `wait rested`,
-//   `command stay`, `fight <pack>`, and `command follow`: the group holds
-//   its place while the tank pulls, as in the scenarios. `noquests` leaves out the steps that are only there for a
+//   `command stay`, `fight <pack>`, `wait rested`, and `command follow`: the
+//   group holds its place while the tank pulls, as in the scenarios, and the
+//   group, the test driver too, rests before the next move. `noquests` leaves out the steps that are only there for a
 //   quest. A scenario with a `route` line passes when the last boss of the
 //   route dies.
 namespace Bots

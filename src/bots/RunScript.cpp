@@ -349,6 +349,10 @@ namespace Bots
                     add(ScriptCommandKind::WaitRested, "", DefaultRestedSeconds, "wait rested");
                     say("stay");
                     add(ScriptCommandKind::Fight, pack, DefaultCombatEndSeconds, "fight " + pack);
+                    // The group, the test driver too, rests before the next
+                    // `move`: a scripted move does not wait for a drink
+                    // (jvbastel/WOWAI#99).
+                    add(ScriptCommandKind::WaitRested, "", DefaultRestedSeconds, "wait rested");
                     say("follow");
                 }
         }

@@ -560,7 +560,15 @@ void BotAI::Think()
     Bots::BotContext context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};
     context.startWaits = m_startGate.Waiting();
+    context.testDriver = sBotMgr.IsTestDriver(me->GetObjectGuid());
+    // A rule that takes the test driver off its scripted move is the stop
+    // reason of the move (BotRun::WatchMove, jvbastel/WOWAI#99).
+    MotionMaster const* motion = me->GetMotionMaster();
+    MovementGenerator const* moveBefore =
+        adapter.IsScriptedMoveInProgress() && !motion->empty() ? motion->GetCurrent() : nullptr;
     std::string const rule = m_strategies.Think(context);
+    if (moveBefore && !rule.empty() && (motion->empty() || motion->GetCurrent() != moveBefore))
+        sBotMgr.Run().NoteDriverMoveRule(rule);
     // A bot without a group has no chat session: its own coordinator drops
     // the events. The bot manager drops the events of a place coordinator.
     if (coordinator.get() == &m_soloCoordinator)
