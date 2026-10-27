@@ -3,9 +3,12 @@
 #include "FightSpot.h"
 #include "FakeBot.h"
 #include "GroupCoordinator.h"
+#include "KeepOut.h"
+#include "SafePlace.h"
 #include "WarriorModule.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <gtest/gtest.h>
 
 using Bots::FightSpot;
@@ -316,4 +319,102 @@ TEST(CasterPack, TheTankWarnsTheMomentAnotherPackJoinsOnceAPack)
     tank.Think();
     tank.Think();
     EXPECT_EQ(warns(), 2);
+}
+
+namespace
+{
+    // The place of a "move to x y z" deed (FakeBot), or false.
+    bool MovesTo(std::vector<std::string> const& deeds, Position& to)
+    {
+        for (std::string const& deed : deeds)
+            if (std::sscanf(deed.c_str(), "move to %f %f %f", &to.x, &to.y, &to.z) == 3)
+                return true;
+        return false;
+    }
+
+    // Near the shaman's spawn: 17.2 yd from pack11, in its aggro distance
+    // and margin (20 yd).
+    Position const NearPack11 = {-250.0f, -40.0f, -60.0f};
+}
+
+// Plan item 5: the tank has not gone in, and stands within the safe place
+// distance of pack11: it steps out first.
+TEST(CasterPack, TheTankStepsOutOfThePlaceOfAPackOutsideTheFight)
+{
+    CasterTank tank;
+    tank.PullAndHold();
+    tank.fake.SetPosition(Tank, NearPack11);
+
+    tank.Think();
+
+    Position to{};
+    ASSERT_TRUE(MovesTo(tank.fake.Deeds(), to));
+    for (Position const& pack : {Pack10, Pack11})
+        EXPECT_GT(Bots::Distance3d(to, pack), AggroYards + Bots::AggroMarginYards);
+}
+
+// Plan item 5, the one exception: the tank goes in after its warn.
+TEST(CasterPack, TheTankThatGoesInAfterAWarnMayStepNearOtherPacks)
+{
+    CasterTank tank;
+    tank.PullAndHold();
+    tank.nowMs += Warrior::CasterComeMs;
+    tank.Think(); // Warns, and goes in.
+    tank.fake.SetPosition(Tank, NearPack11);
+    tank.fake.ClearDeeds();
+
+    tank.Think();
+
+    Position to{};
+    EXPECT_FALSE(MovesTo(tank.fake.Deeds(), to));
+    EXPECT_TRUE(tank.Chases());
+}
+
+// Plan item 5: a damage bot in the fight of the pull steps out of the place
+// of pack11 too.
+TEST(CasterPack, AMemberStepsOutOfThePlaceOfAPackOutsideTheFight)
+{
+    Bots::Guid const Rogue = 0x13;
+    CasterPull pull;
+    FakeBot& fake = pull.fake;
+    fake = FakeBot{Rogue};
+    pull.AddEnemy(Shaman, Pack9);
+    pull.AddEnemy(Shaman10, Pack10);
+    pull.AddEnemy(Trogg11, Pack11);
+    fake.SetMana(Shaman, 400, 400);
+    fake.SetHealth(Rogue, 500, 500);
+    fake.SetHealth(Tank, 600, 600);
+    fake.SetGroupMembers({Tank});
+    fake.SetPosition(Tank, PullPack9);
+    fake.SetPosition(Rogue, NearPack11);
+    fake.SetInCombat(Rogue);
+    fake.SetVictim(Shaman, Tank);
+    Bots::GroupCoordinator group;
+    group.SetTank(Tank);
+    group.StartPull(Tank, Shaman);
+    group.HoldPull(Tank, 1000);
+    Bots::StrategyStack const stack = Bots::MakeStrategyStack(Bots::BotClass::Rogue, Bots::BotRole::Melee);
+    Bots::BotContext context{fake, fake, group, Bots::CommandState::None, Bots::NoGuid};
+
+    EXPECT_EQ(stack.Think(context), Bots::KeepOutRule);
+
+    Position to{};
+    ASSERT_TRUE(MovesTo(fake.Deeds(), to));
+    EXPECT_GT(Bots::Distance3d(to, Pack11), AggroYards + Bots::AggroMarginYards);
+}
+
+// Out of a pull and out of combat, the group walks the way: no keep-out.
+TEST(CasterPack, NoKeepOutOutOfAFight)
+{
+    Bots::Guid const Rogue = 0x13;
+    FakeBot fake{Rogue};
+    fake.SetHealth(Rogue, 500, 500);
+    fake.SetPosition(Rogue, NearPack11);
+    fake.SetPosition(Trogg11, Pack11);
+    fake.AddEnemy(Trogg11, Pack11, AggroYards);
+    Bots::GroupCoordinator group;
+    Bots::StrategyStack const stack = Bots::MakeStrategyStack(Bots::BotClass::Rogue, Bots::BotRole::Melee);
+    Bots::BotContext context{fake, fake, group, Bots::CommandState::None, Bots::NoGuid};
+
+    EXPECT_NE(stack.Think(context), Bots::KeepOutRule);
 }

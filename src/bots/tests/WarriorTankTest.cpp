@@ -1416,7 +1416,9 @@ TEST(WarriorTank, NoShoutForEnemiesBeyondItsReach)
     ShoutTank tank;
     tank.fake.SetAura(Kobold, Warrior::DemoralizingShout);
     tank.fake.SetAura(Wolf, Warrior::DemoralizingShout);
-    tank.fake.AddEnemy(ShoutTank::Boar, {11, 0, 0}, 10.0f);
+    // An aggro distance of 5: with 10, the boar out of the fight would
+    // make the tank step out of its reach first (KeepOut.h, #121).
+    tank.fake.AddEnemy(ShoutTank::Boar, {11, 0, 0}, 5.0f);
     tank.fake.AddEnemy(ShoutTank::Raptor, {0, 11, 0}, 10.0f);
     tank.fake.SetDistance(ShoutTank::Raptor, 11.0f);
     tank.fake.SetVictim(ShoutTank::Raptor, Tank);
