@@ -265,17 +265,15 @@ namespace Bots
                 && (i == 0 || !PullsAnEnemy(search.otherEnemies, search.spots[i]));
         canShoot = canShoot || FindSafeCastPlace(view, target, ShotMaxYards, shootAt, nullptr,
             [&view, target](Position const& at) { return InShotFrom(view, at, target); });
-        std::vector<std::size_t> const atSpawn =
-            search.casterPack ? search.ExtraAt(search.targetAt) : std::vector<std::size_t>();
+        // The three ways are alternatives (jvbastel/WOWAI#123): a fight
+        // spot counts with what it brings itself, and the area round a
+        // caster's spawn (where the fight goes when the caster stays away)
+        // is a way of its own.
         if (canShoot)
             for (Position const& spot : search.spots)
-            {
-                // The fight of a caster pack may go to its spawn.
-                std::vector<std::size_t> extra = search.ExtraAt(spot);
-                std::vector<std::size_t> both;
-                std::set_union(extra.begin(), extra.end(), atSpawn.begin(), atSpawn.end(), std::back_inserter(both));
-                result.options.push_back({PullWay::FightSpot, spot, both});
-            }
+                result.options.push_back({PullWay::FightSpot, spot, search.ExtraAt(spot)});
+        if (search.casterPack)
+            result.options.push_back({PullWay::SpawnArea, search.targetAt, search.ExtraAt(search.targetAt)});
         return result;
     }
 }

@@ -223,6 +223,40 @@ TEST(ExtraPackJudge, APackIsAvoidableOnlyByAPullWithNoMoreExtraPacksThanTheTankG
     EXPECT_EQ(withMore.reason, "a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out, with 2 other extra packs");
 }
 
+// The three ways of a caster pack are alternatives (review of
+// jvbastel/WOWAI#123, A1): a fight spot on the cleared way, a line-of-sight
+// pull, or the area round the caster's spawn. Any one that keeps the pack
+// out makes it avoidable.
+TEST(ExtraPackJudge, ACasterPackWithAnUnsafeSpawnAreaAndASpotThatKeepsThePackOutMakesItAvoidable)
+{
+    // 12.8 yd from the caster's spawn: in reach there, far from the tank.
+    PullAt pull;
+    pull.fake.SetMana(Target, 400, 400);
+    pull.AddEnemy(Other, {35, 8, 0}, 10.0f);
+
+    ExtraPackMark const mark = pull.Mark({Other});
+
+    EXPECT_TRUE(mark.avoidable);
+    EXPECT_EQ(mark.reason, "a fight spot at 0.0 0.0 0.0 on the cleared way keeps it out");
+}
+
+TEST(ExtraPackJudge, ACasterPackWhoseSpawnAreaKeepsThePackOutMakesItAvoidable)
+{
+    // In reach of each spot of the cleared way, 37 yd from the spawn.
+    PullAt pull;
+    pull.fake.SetMana(Target, 400, 400);
+    pull.AddEnemy(Other, {-12, 3, 0}, 25.0f);
+
+    ExtraPackMark const mark = pull.Mark({Other});
+
+    EXPECT_TRUE(mark.avoidable);
+    EXPECT_EQ(mark.reason, "the area round the caster's spawn keeps it out");
+    // Not so for a pack with no caster.
+    PullAt plain;
+    plain.AddEnemy(Other, {-12, 3, 0}, 25.0f);
+    EXPECT_FALSE(plain.Mark({Other}).avoidable);
+}
+
 TEST(ExtraPackJudge, APackOutOfTheSearchAtThePullIsAvoidable)
 {
     // Nothing of the rules of #121 saw it at the pull: the fight went to it.
@@ -275,12 +309,14 @@ TEST(ExtraPackJudge, ACasterPackWithASpotOutOfItsSightMakesTheOtherPackAvoidable
     EXPECT_EQ(mark.reason.rfind("a line-of-sight pull at ", 0), 0u) << mark.reason;
 }
 
-TEST(ExtraPackJudge, ACasterPackWithNoSpotOutOfSightAndAnUnsafeSpawnAreaMakesItUnavoidable)
+TEST(ExtraPackJudge, AtPack9WithNoSpotOutOfSightTheFightSpotOnTheWayStillKeepsPack10Out)
 {
+    // The spawn area of the shaman pulls pack10, but the fight spot where
+    // the tank stands does not: an alternative (A1), so pack10 is avoidable.
     ExtraPackMark const mark = MarkPack10AtPullPack9(0.0f);
 
-    EXPECT_FALSE(mark.avoidable);
-    EXPECT_EQ(mark.reason, "no fight spot, line-of-sight pull or spawn area keeps it out with at most 1 extra pack");
+    EXPECT_TRUE(mark.avoidable);
+    EXPECT_EQ(mark.reason, "a fight spot at -225.9 -32.9 -55.4 on the cleared way keeps it out");
 }
 
 TEST(ExtraPackJudge, AFleeOrAPatrolMakesAnExtraPackUnavoidable)

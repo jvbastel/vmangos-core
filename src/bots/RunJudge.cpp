@@ -103,7 +103,7 @@ namespace Bots
                     choice.way = "a line-of-sight pull at " + Place(option.spot);
                     break;
                 case PullWay::SpawnArea:
-                    choice.way = "the clean area round the caster's spawn";
+                    choice.way = "the area round the caster's spawn";
                     break;
             }
             choice.brings = result.withTarget;
