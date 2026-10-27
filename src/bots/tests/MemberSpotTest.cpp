@@ -475,3 +475,21 @@ TEST(MemberSpotRule, TheBotHoldsItsSpotWhileTheRangedPulledTargetRunsToTheTank)
     Bots::Tests::HoldThreat(bot.group, Tank);
     EXPECT_FALSE(Bots::HoldsMemberSpot(context));
 }
+
+// Review of jvbastel/WOWAI#121 (A3, plan item 5): the keep-out rule
+// (KeepOut.h) also stops a move into the reach of a pack outside the fight,
+// not only steps the bot out after it. A wolf that walked up to the claimed
+// spot after the claim keeps the bot from going on to it.
+TEST(MemberSpotRule, TheBotDoesNotWalkOnToItsSpotInTheReachOfAnotherPack)
+{
+    MemberBot bot;
+    bot.Think();
+    ASSERT_TRUE(bot.Mine().found);
+    bot.spots.fake.ClearDeeds();
+    bot.spots.AddEnemy(Wolf, {-16, 8, 0}, 10.0f);
+
+    bot.Think();
+
+    for (std::string const& deed : bot.spots.fake.Deeds())
+        EXPECT_EQ(deed.find("move to -16"), std::string::npos) << deed;
+}
