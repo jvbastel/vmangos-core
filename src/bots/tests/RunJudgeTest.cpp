@@ -3,6 +3,9 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <set>
+
 using Bots::RunJudge;
 using Bots::RunVerdict;
 using Bots::RunVerdictKind;
@@ -255,6 +258,29 @@ TEST(ExtraPackJudge, ACasterPackWhoseSpawnAreaKeepsThePackOutMakesItAvoidable)
     PullAt plain;
     plain.AddEnemy(Other, {-12, 3, 0}, 25.0f);
     EXPECT_FALSE(plain.Mark({Other}).avoidable);
+}
+
+// One meaning of a pack (review of jvbastel/WOWAI#121 and #123, T4): the
+// search splits the enemies into packs by PackLinkYards (the packs of the
+// tank's warn), the run counts the packs of the route. A pull that brings a
+// pack of the search brings each route pack of its enemies.
+TEST(ExtraPackJudge, APullThatBringsAPackOfTheSearchBringsEachRoutePackInIt)
+{
+    // Two route packs 6 yd apart: one pack of the search. Only the first is
+    // in reach of the spots near the tank (x > -7.7).
+    Bots::Guid const A = 0xF130000302000044;
+    Bots::Guid const B = 0xF130000302000055;
+    PullAt pull;
+    pull.AddEnemy(A, {5, 8, 0}, 10.0f);
+    pull.AddEnemy(B, {5, 14, 0}, 1.0f);
+
+    Bots::PullChoices const choices = pull.Choices({{"packA", {A}}, {"packB", {B}}});
+
+    auto const at = std::find_if(choices.choices.begin(), choices.choices.end(), [](Bots::PullChoice const& choice) {
+        return choice.way == "a fight spot at -4.0 0.0 0.0 on the cleared way";
+    });
+    ASSERT_NE(at, choices.choices.end());
+    EXPECT_EQ(at->brings, (std::set<std::string>{"packA", "packB"}));
 }
 
 TEST(ExtraPackJudge, APackOutOfTheSearchAtThePullIsAvoidable)

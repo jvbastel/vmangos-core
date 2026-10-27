@@ -454,6 +454,10 @@ namespace Bots
             {
                 Guid target = NoGuid;
                 // The pack of each enemy round the pull: 0 for the target's.
+                // A pack of the search (SplitIntoPacks, FightSpot.h). A
+                // scripted run counts the packs of the route; its judge maps
+                // a pack of the search to the route packs of its enemies
+                // (FindPullChoices, RunJudge.h).
                 std::map<Guid, int> packOf;
                 // The packs warned: a pack index, or an enemy of no pack
                 // (a roaming mob) by its guid.
