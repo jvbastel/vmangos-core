@@ -101,6 +101,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void WalkAsGhost() override;
         void Eat() override;
         void Drink() override;
+        void WarnExtraPacks(uint32 packs) override;
 
     private:
         // The unit on the map of the bot, in the world, or null.

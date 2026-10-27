@@ -52,6 +52,10 @@ namespace Bots
         virtual void Eat() = 0;
         // Sit and drink the water of the bot's level. It refills silently.
         virtual void Drink() = 0;
+        // The tank says in party chat that the pull brings `packs` extra
+        // packs (ExtraPackWarnLine, bots/ExtraPackWatch.h). The warn hook of
+        // jvbastel/WOWAI#105; a scripted run records it per pull.
+        virtual void WarnExtraPacks(std::uint32_t packs) = 0;
     };
 }
 

@@ -408,6 +408,10 @@ namespace Bots
             void WalkAsGhost() override { m_deeds.push_back("walk as a ghost"); }
             void Eat() override { m_deeds.push_back("eat"); }
             void Drink() override { m_deeds.push_back("drink"); }
+            void WarnExtraPacks(std::uint32_t packs) override
+            {
+                m_deeds.push_back("warn extra packs " + std::to_string(packs));
+            }
 
         private:
             void AddDeed(char const* verb, Guid unit)
