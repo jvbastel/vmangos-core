@@ -1101,3 +1101,16 @@ TEST(WarriorTank, WalksToItsShootSpotWhileTheGroupGetsInPlace)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"keep move to -4 0 0"}));
 }
+
+// jvbastel/WOWAI#111: the healer waits from the engage of the tank.
+TEST(WarriorTank, NotesWhenItEngages)
+{
+    WarriorTank tank;
+    tank.group.StartPull(Tank, Kobold);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.nowMs = 7000;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.group.GetPull().engagedMs, 7000);
+}

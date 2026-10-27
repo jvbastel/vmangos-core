@@ -423,3 +423,70 @@ TEST(PriestHealerDelay, DoesNotHealALightlyHurtTankRightAfterTheEngage)
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{}));
 }
+
+TEST(PriestHealerDelay, HealsAMemberInDangerAtOnce)
+{
+    PriestHealer priest;
+    Engage(priest, 1000);
+    priest.fake.SetHealth(Tank, 250, 600);
+
+    priest.nowMs = 1100;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Heal, Tank)}));
+}
+
+TEST(PriestHealerDelay, HealsALightlyHurtTankTwoSecondsAfterTheEngage)
+{
+    PriestHealer priest;
+    Engage(priest, 1000);
+    priest.fake.SetHealth(Tank, 400, 600);
+
+    priest.nowMs = 3000;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Tank)}));
+}
+
+TEST(PriestHealerDelay, TheDelayStartsWhenTheTankEngagesNotAtThePullCommand)
+{
+    // The tank waits for the group (MemberSpot.h) for 10 seconds before
+    // the kobold attacks it.
+    PriestHealer priest;
+    priest.group.StartPull(Tank, Kobold);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 400, 600);
+    priest.nowMs = 10000;
+    priest.Think();
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{}));
+
+    priest.group.HoldPull(Tank, 10000);
+    priest.nowMs = 11500;
+    priest.Think();
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{}));
+
+    priest.nowMs = 12000;
+    priest.Think();
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Tank)}));
+}
+
+TEST(PriestHealerDelay, HealsAtOnceInAFightWithoutAPull)
+{
+    PriestHealer priest;
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 400, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Tank)}));
+}
+
+TEST(GroupCoordinator, NotesWhenTheTankEngages)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 5000);
+    group.HoldPull(Tank, 9000);
+
+    EXPECT_EQ(group.GetPull().engagedMs, 5000);
+}
