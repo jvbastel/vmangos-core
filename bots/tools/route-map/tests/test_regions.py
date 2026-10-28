@@ -209,7 +209,7 @@ def test_regions_can_touch_at_their_borders(web):
 
 def test_the_page_loads_the_regions_part(web):
     assert '<script src="/map_regions.js">' in web.get("/").text
-    assert 'api("regions")' in web.get("/map_regions.js").text
+    assert 'call("regions")' in web.get("/map_regions.js").text
 
 
 def test_a_position_is_in_a_region_inside_its_outline_and_height_range_ends_included():
