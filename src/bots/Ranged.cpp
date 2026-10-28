@@ -74,6 +74,12 @@ namespace Bots
         return ShotReachAt(view.GetSpellDistanceFrom(at, target)) == ShotReach::InRange && view.CanSeeFrom(at, target);
     }
 
+    bool InWandShot(BotView const& view, Guid target)
+    {
+        return view.GetSpellDistance(target) <= ShotMaxYards
+            && view.CanSeeFrom(view.GetPosition(view.GetSelf()), target);
+    }
+
     bool FindShotOnPath(BotView const& view, Guid target, Position& spot)
     {
         std::vector<Position> path;

@@ -967,9 +967,12 @@ Bots::RangedWeapon BotAdapter::GetRangedWeapon() const
         case ITEM_SUBCLASS_WEAPON_BOW: weapon.kind = Bots::RangedKind::Bow; break;
         case ITEM_SUBCLASS_WEAPON_GUN: weapon.kind = Bots::RangedKind::Gun; break;
         case ITEM_SUBCLASS_WEAPON_CROSSBOW: weapon.kind = Bots::RangedKind::Crossbow; break;
-        default: return weapon; // A wand needs no pull rules.
+        case ITEM_SUBCLASS_WEAPON_WAND: weapon.kind = Bots::RangedKind::Wand; break;
+        default: return weapon;
     }
     weapon.entry = proto->ItemId;
+    if (weapon.kind == Bots::RangedKind::Wand)
+        return weapon; // A wand uses no ammo.
     if (weapon.kind == Bots::RangedKind::Thrown)
     {
         // Each throw uses up one of the worn stack (Spell::TakeAmmo).
@@ -987,6 +990,13 @@ Bots::RangedWeapon BotAdapter::GetRangedWeapon() const
         weapon.ammoCount = me->GetItemCount(ammo);
     }
     return weapon;
+}
+
+bool BotAdapter::IsShooting() const
+{
+    // The wand's Shoot sits in the auto-repeat slot until a cast of the
+    // generic slot stops it (Unit::SetCurrentCastedSpell).
+    return me->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL) != nullptr;
 }
 
 uint32 BotAdapter::GetLevel(Bots::Guid unit) const

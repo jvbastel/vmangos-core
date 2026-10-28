@@ -90,6 +90,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
             std::vector<Bots::Position>& path) const override;
         std::vector<Bots::NearEnemy> GetEnemiesNear(float yards) const override;
         Bots::RangedWeapon GetRangedWeapon() const override;
+        bool IsShooting() const override;
         uint32 GetLevel(Bots::Guid unit) const override;
         bool IsMoving(Bots::Guid unit) const override;
         bool HasRoomFor(Bots::AmmoTopUp const& topUp) const override;

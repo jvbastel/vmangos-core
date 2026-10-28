@@ -32,8 +32,11 @@ namespace Bots
         // The debuff of Power Word: Shield: no new shield while it lasts.
         SpellId const WeakenedSoul = 6788;
 
-        // The healer: it keeps the members of its group alive and only heals.
-        // It never attacks, not even an enemy that attacks it. At level 16 it
+        // The healer: it keeps the members of its group alive. It attacks
+        // only with its wand, and only the focus target (jvbastel/WOWAI#133):
+        // in a fight with nobody to heal, once the tank holds threat, it
+        // shoots between heals. Each heal comes first. It never fights back
+        // an enemy that attacks it: it fades and shields itself. At level 16 it
         // knows no dispel, so it heals through every debuff. After a fight
         // it resurrects each dead member in reach that has not released.
         // Then it walks to a corpse out of reach, to a safe place in cast

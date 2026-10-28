@@ -180,6 +180,8 @@ namespace Bots
             // buff (BotView::LevelAllowsRank).
             void SetLevelTooLowFor(SpellId rank, Guid target) { m_levelTooLow.insert({rank, target}); }
             void SetRangedWeapon(RangedWeapon const& weapon) { m_ranged = weapon; }
+            // A shot of the bot is going (IsShooting).
+            void SetShooting(bool shooting = true) { m_shooting = shooting; }
             void SetLevel(Guid unit, std::uint32_t level) { m_level[unit] = level; }
             void SetMoving(Guid unit, bool moving = true) { m_moving[unit] = moving; }
             // The bags are full: no ammo top-up has room (HasRoomFor).
@@ -401,6 +403,7 @@ namespace Bots
             }
 
             RangedWeapon GetRangedWeapon() const override { return m_ranged; }
+            bool IsShooting() const override { return m_shooting; }
             std::uint32_t GetLevel(Guid unit) const override
             {
                 auto found = m_level.find(unit);
@@ -567,6 +570,7 @@ namespace Bots
             bool m_stunned = false;
             bool m_silenced = false;
             RangedWeapon m_ranged;
+            bool m_shooting = false;
             std::map<Guid, std::uint32_t> m_level;
             std::map<Guid, bool> m_moving;
             bool m_bagsFull = false;

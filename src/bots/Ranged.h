@@ -91,6 +91,11 @@ namespace Bots
     // A bot at `at` can shoot unit `target`: in range and in sight.
     bool InShotFrom(BotView const& view, Position const& at, Guid target);
 
+    // jvbastel/WOWAI#133: the bot can shoot unit `target` with a wand from
+    // where it stands. Shoot (5019, spell range 4) reaches up to
+    // ShotMaxYards with no minimum, unlike the other shoot spells. In sight.
+    bool InWandShot(BotView const& view, Guid target);
+
     // The length of a step of the path search of FindShotOnPath.
     float const ShotPathStepYards = 1.0f;
 
