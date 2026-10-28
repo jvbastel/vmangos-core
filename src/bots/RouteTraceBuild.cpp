@@ -1,10 +1,10 @@
 #include "BotGeometry.h"
+#include "DataFields.h"
 #include "RouteHandOrder.h"
 #include "RouteLine.h"
 #include "RouteTrace.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <set>
 
 // `.route build`: the route around a GM trace (RouteTrace.h).
@@ -12,13 +12,6 @@ namespace Bots
 {
     namespace
     {
-        std::string Format(Position const& p)
-        {
-            char text[96];
-            std::snprintf(text, sizeof(text), "%.2f %.2f %.2f", p.x, p.y, p.z);
-            return text;
-        }
-
         // The center line: parts of joined points, one after the other. The
         // distance along it skips one yard between two parts, so that no
         // position of the line lies on a gap.
@@ -215,7 +208,7 @@ namespace Bots
             float const gap = Distance3d(from, to);
             if (gap > spacing)
                 result.warnings.push_back("the route goes straight across a gap of " + std::to_string(int(gap + 0.5f)) +
-                    " yards from " + Format(from) + " to " + Format(to) +
+                    " yards from " + DataFields::FormatPosition(from) + " to " + DataFields::FormatPosition(to) +
                     " that the GM did not walk: walk it with .route trace start, or check it");
         }
 
@@ -246,6 +239,10 @@ namespace Bots
             }
             onRoute[p] = approach[p] >= 0.0f;
         }
+        // A pack of the hand order is fought, on the trace or added, so its
+        // mobs count for the quests (WOWAI#151).
+        for (std::size_t p : hand.order)
+            onRoute[p] = true;
 
         // The bosses: the trace must pass each one within aggro range.
         std::vector<std::size_t> bossPacks;
@@ -481,7 +478,7 @@ namespace Bots
             for (std::size_t p = 0; p < packs.size(); ++p)
                 if (foughtAt[p] > e && DistanceToPack(event.center, packs[p], spawns) < settings.aggroRange)
                 {
-                    result.warnings.push_back("the point " + route.points.back().name + " at " + Format(event.center) +
+                    result.warnings.push_back("the point " + route.points.back().name + " at " + DataFields::FormatPosition(event.center) +
                         " is within aggro range of a pack that the route fights later");
                     break;
                 }

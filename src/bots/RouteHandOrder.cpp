@@ -1,5 +1,6 @@
 #include "RouteHandOrder.h"
 #include "BotGeometry.h"
+#include "DataFields.h"
 #include "RouteLine.h"
 #include "RouteSight.h"
 
@@ -12,13 +13,6 @@ namespace Bots
 {
     namespace
     {
-        std::string Format(Position const& p)
-        {
-            char text[96];
-            std::snprintf(text, sizeof(text), "%.2f %.2f %.2f", p.x, p.y, p.z);
-            return text;
-        }
-
         std::string PackOfSpawn(std::uint32_t guid)
         {
             return "the pack of spawn " + std::to_string(guid);
@@ -247,12 +241,12 @@ namespace Bots
                     step.dy = (leader.y - step.center.y) / length;
                     if (!added[p])
                         warnings.push_back("the hand order moves the pull point of " + pack + " to " +
-                            Format(step.center) + ": the pull point of the line pulls a pack fought later");
+                            DataFields::FormatPosition(step.center) + ": the pull point of the line pulls a pack fought later");
                 }
                 else if (!added[p])
                     warnings.push_back("the hand order: no pull point around " + pack +
                         " keeps out of the packs fought later; it keeps the pull point of the line at " +
-                        Format(step.center));
+                        DataFields::FormatPosition(step.center));
                 else if (hasLast && nav.Path(last, leader, path))
                 {
                     RouteLine const way(path);
@@ -260,7 +254,7 @@ namespace Bots
                     step.center = way.At(s);
                     way.Direction(s, step.dx, step.dy);
                     warnings.push_back("the hand order adds " + pack + " with the pull point " +
-                        Format(step.center) + " on the path to it: no spot around it keeps out of the packs "
+                        DataFields::FormatPosition(step.center) + " on the path to it: no spot around it keeps out of the packs "
                         "fought later");
                 }
                 else

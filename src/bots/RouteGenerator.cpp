@@ -1,5 +1,6 @@
 #include "RouteGenerator.h"
 #include "BotGeometry.h"
+#include "DataFields.h"
 #include "DataTokenizer.h"
 #include "RouteHandOrder.h"
 #include "RouteLine.h"
@@ -18,13 +19,6 @@ namespace Bots
 {
     namespace
     {
-        std::string Format(Position const& p)
-        {
-            char text[96];
-            std::snprintf(text, sizeof(text), "%.2f %.2f %.2f", p.x, p.y, p.z);
-            return text;
-        }
-
         using Event = RouteEvent;
         using EventKind = RouteEventKind;
 
@@ -239,7 +233,7 @@ namespace Bots
             if (!nav.Path(centerPoints.back(), spawn->position, leg) || leg.empty())
             {
                 result.error = "no navmesh path to the boss " + std::to_string(boss) + " at " +
-                    Format(spawn->position) + " from " + Format(centerPoints.back());
+                    DataFields::FormatPosition(spawn->position) + " from " + DataFields::FormatPosition(centerPoints.back());
                 return result;
             }
             centerPoints.insert(centerPoints.end(), leg.begin() + 1, leg.end());
@@ -506,7 +500,7 @@ namespace Bots
             if (!nav.Path(start, target, path) || path.size() < 1)
             {
                 result.warnings.push_back("quest " + std::to_string(detour.quest) + ": no navmesh path to the pack of " +
-                    std::to_string(spawns[packs[p].members[0]].guid) + " at " + Format(target));
+                    std::to_string(spawns[packs[p].members[0]].guid) + " at " + DataFields::FormatPosition(target));
                 onRoute[p] = false;
                 continue;
             }
@@ -581,7 +575,7 @@ namespace Bots
             GeneratorSpawn const& leader = spawns[packs[out.pack].members[0]];
             char head[120];
             std::snprintf(head, sizeof(head), "the pack of spawn %u at %s is off the route: ",
-                unsigned(leader.guid), Format(leader.position).c_str());
+                unsigned(leader.guid), DataFields::FormatPosition(leader.position).c_str());
             char reason[200];
             if (!out.seen)
                 std::snprintf(reason, sizeof(reason),
@@ -724,7 +718,7 @@ namespace Bots
                 offset = 0.0f;
                 first = event.center;
                 if (!allowed(first, e))
-                    result.warnings.push_back("a point at " + Format(first) + " is within aggro range of a pack");
+                    result.warnings.push_back("a point at " + DataFields::FormatPosition(first) + " is within aggro range of a pack");
             }
 
             std::string const name = event.kind == EventKind::Pull ? "pull_" + packName[event.pack] : "";
@@ -745,7 +739,7 @@ namespace Bots
                 char text[200];
                 std::snprintf(text, sizeof(text),
                     "%s has no pull point within %.0f yards by path on the line: the shortest is %.0f yards, at %s",
-                    packName[p].c_str(), settings.pullPathLimit, pullPath[p], Format(event.center).c_str());
+                    packName[p].c_str(), settings.pullPathLimit, pullPath[p], DataFields::FormatPosition(event.center).c_str());
                 result.warnings.push_back(text);
             }
         }
@@ -817,7 +811,7 @@ namespace Bots
             for (std::size_t k = 0; k < point->places.size(); ++k)
                 if (!nav.OnMesh(point->places[k].position))
                     problems.push_back("point " + point->name + ": the place " + std::to_string(k + 1) + " at " +
-                        Format(point->places[k].position) + " is not on the navmesh");
+                        DataFields::FormatPosition(point->places[k].position) + " is not on the navmesh");
 
         for (std::size_t i = 0; i + 1 < points.size(); ++i)
         {

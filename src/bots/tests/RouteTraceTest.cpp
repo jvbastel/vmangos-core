@@ -664,3 +664,30 @@ TEST(RouteTraceBuild, ASkippedPackLeavesTheRouteWithAWarningWhenTheTracePassesIn
     EXPECT_TRUE(HasWarning(built.warnings, "the route passes the skipped pack of spawn 1 at 15 yards"));
     EXPECT_FALSE(HasWarning(built.warnings, "the route passes the skipped pack of spawn 3 "));
 }
+
+TEST(RouteTraceBuild, AnAddedPackCountsForTheKillObjectiveOfAQuest)
+{
+    OpenNav nav;
+    TraceBuildInput input = Corridor();
+    input.spawns = {
+        Mob(1, 100, 30.0f, 10.0f), // On the route.
+        Mob(2, 100, 50.0f, 40.0f), // Off the route, 40 yards.
+        Mob(3, 100, 54.0f, 40.0f), // Its pack.
+    };
+    Bots::GeneratorQuest quest{5723, {}, {}};
+    Bots::QuestObjective kill{Bots::QuestObjectiveKind::Kill};
+    kill.entry = 100;
+    kill.count = 3;
+    quest.objectives.push_back(kill);
+    input.quests = {quest};
+    ASSERT_EQ(Bots::BuildTraceRoute(input).unmet.size(), 1u);
+
+    input.packOrder = {2};
+    input.nav = &nav;
+    TraceBuild const built = Bots::BuildTraceRoute(input);
+    ASSERT_TRUE(built.ok) << built.error;
+    EXPECT_EQ(built.route.packs.size(), 2u);
+    EXPECT_TRUE(built.unmet.empty());
+    ASSERT_EQ(built.objectives.size(), 1u);
+    EXPECT_EQ(built.objectives[0].have, 3u);
+}
