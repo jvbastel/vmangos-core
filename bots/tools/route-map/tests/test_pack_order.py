@@ -135,3 +135,10 @@ def test_an_empty_hand_order_gives_every_pack_back_to_the_generator(tmp_path):
 
     assert library_pack_order((tmp_path / "routes" / "fixture_cave.order.txt").read_text()) == []
     assert web.get("/api/maps/fixture_cave").json()["pack_order"]["generator"] == [501, 600]
+
+
+def test_the_page_loads_the_pack_order_part(tmp_path):
+    web = app(tmp_path)
+
+    assert '<script src="/pack_order.js">' in web.get("/").text
+    assert "/order" in web.get("/pack_order.js").text
