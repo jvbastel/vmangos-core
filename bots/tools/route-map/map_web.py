@@ -28,6 +28,7 @@ from fastapi.responses import HTMLResponse
 
 import floor_image
 import navmesh
+import route_draft
 import route_draw
 import route_file
 
@@ -147,6 +148,7 @@ def create_app(settings: Settings) -> FastAPI:
         }
 
     route_draw.add_routes(app, settings, load_route, load_navmesh)
+    route_draft.add_routes(app, settings, load_route)
     return app
 
 
