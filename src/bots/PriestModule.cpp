@@ -1,5 +1,7 @@
 #include "PriestModule.h"
 #include "CommonRules.h"
+#include "DamageRules.h"
+#include "Ranged.h"
 #include "SafePlace.h"
 #include "SpellBook.h"
 
@@ -102,6 +104,19 @@ namespace Bots
             bool OutOfCombat(BotContext const& context)
             {
                 return !context.view.IsInCombat(PickSelf(context));
+            }
+
+            // jvbastel/WOWAI#133: the bot shoots the focus target with its
+            // wand: in a fight, once the tank holds threat on it
+            // (TankHoldsThreat, DamageRules.h), with no enemy on the bot,
+            // the target in shot range and sight, and no shot going yet.
+            // Shoot costs no mana: the spirit regen goes on.
+            bool ShootsTheFocus(BotContext const& context)
+            {
+                Guid const focus = context.group.GetFocusTarget();
+                return context.view.IsInCombat(PickSelf(context)) && !IsAttacked(context)
+                    && context.view.GetRangedWeapon().kind == RangedKind::Wand && !context.view.IsShooting()
+                    && IsAlive(context.view, focus) && TankHoldsThreat(context) && InWandShot(context.view, focus);
             }
 
             // The first living member without Power Word: Fortitude, or NoGuid.
@@ -265,6 +280,10 @@ namespace Bots
                         return !IsGroupInCombat(context.view) && DeadMemberOutOfReach(context) != NoGuid;
                     },
                     BotAction{[](BotContext const&) { return true; }, GoToCorpse}},
+
+                // jvbastel/WOWAI#133: between heals, the wand on the focus
+                // target. Each heal comes first, and its cast stops the shot.
+                CastRule("shoot the focus target", P + 30, ShootsTheFocus, Shoot, PickFocusTarget),
 
                 // The buffs, out of combat only: in a fight the mana is for
                 // the heals.

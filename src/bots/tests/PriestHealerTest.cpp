@@ -661,6 +661,152 @@ TEST(PriestHealerRank, RenewKeepsItsHighestRankOnASmallWound)
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Renew2, Tank)}));
 }
 
+// jvbastel/WOWAI#133: the healer shoots the focus target with its wand
+// between heals.
+namespace
+{
+    std::uint32_t const LesserMagicWand = 11287;
+
+    void GiveWand(PriestHealer& priest)
+    {
+        Bots::RangedWeapon wand;
+        wand.kind = Bots::RangedKind::Wand;
+        wand.entry = LesserMagicWand;
+        priest.fake.SetRangedWeapon(wand);
+        priest.fake.SetKnownSpell(Priest::Shoot);
+        priest.fake.SetSpellDistance(Kobold, 20.0f);
+    }
+}
+
+TEST(PriestHealerWand, ShootsTheFocusTargetInAFightWithNobodyToHeal)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Shoot, Kobold)}));
+}
+
+TEST(PriestHealerWand, ShootsBetweenHeals)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.Think();
+    priest.fake.SetShooting();
+
+    // A heal comes first: its cast stops the shot.
+    priest.fake.SetHealth(Tank, 250, 600);
+    priest.Think();
+    priest.fake.SetShooting(false);
+    priest.fake.SetHealth(Tank, 600, 600);
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Shoot, Kobold),
+        CastOn(Priest::Heal, Tank), CastOn(Priest::Shoot, Kobold)}));
+}
+
+TEST(PriestHealerWand, DoesNotShootAgainWhileAShotIsGoing)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetShooting();
+
+    EXPECT_EQ(priest.Think(), "");
+    EXPECT_TRUE(priest.fake.Deeds().empty());
+}
+
+TEST(PriestHealerWand, DoesNotShootBeforeTheTankHoldsThreat)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    Engage(priest, 1000);
+
+    priest.nowMs = 1500;
+    priest.Think();
+
+    EXPECT_TRUE(priest.fake.Deeds().empty());
+}
+
+TEST(PriestHealerWand, DoesNotShootOutOfCombat)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetInCombat(Healer, false);
+
+    priest.Think();
+
+    EXPECT_TRUE(priest.fake.Deeds().empty());
+}
+
+TEST(PriestHealerWand, StandsStillWithoutAWand)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.fake.SetRangedWeapon(Bots::RangedWeapon{});
+    priest.InFight();
+
+    EXPECT_EQ(priest.Think(), "");
+    EXPECT_TRUE(priest.fake.Deeds().empty());
+}
+
+TEST(PriestHealerWand, DoesNotShootATargetOutOfShotRange)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetSpellDistance(Kobold, 31.0f);
+
+    priest.Think();
+
+    EXPECT_TRUE(priest.fake.Deeds().empty());
+}
+
+TEST(PriestHealerWand, ShootsATargetInMeleeReach)
+{
+    // A wand has no minimum range, unlike a bow (Ranged.h).
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetSpellDistance(Kobold, 2.0f);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Shoot, Kobold)}));
+}
+
+TEST(PriestHealerWand, DoesNotShootATargetOutOfSight)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetPosition(Healer, {0.0f, 0.0f, 0.0f});
+    priest.fake.SetPosition(Kobold, {20.0f, 0.0f, 0.0f});
+    priest.fake.AddSightWall({10.0f, -10.0f, 0.0f}, {10.0f, 10.0f, 0.0f});
+
+    priest.Think();
+
+    EXPECT_TRUE(priest.fake.Deeds().empty());
+}
+
+TEST(PriestHealerWand, NeverShootsAnEnemyThatAttacksIt)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetVictim(Kobold, Healer);
+    priest.fake.SetCannotCast(Priest::Fade);
+    priest.fake.SetAura(Healer, Priest::WeakenedSoul);
+
+    priest.Think();
+
+    EXPECT_TRUE(priest.fake.Deeds().empty());
+}
+
 // jvbastel/WOWAI#136: from level 40 the healer knows Greater Heal. It is the
 // heal of the badly hurt band, before Heal: it heals the most per mana.
 namespace
