@@ -20,13 +20,24 @@ namespace Bots
         return view.GetThreatRatio(tank, enemy) >= 1.0f;
     }
 
+    // jvbastel/WOWAI#191: the focus order. A mark counts only on an enemy in
+    // combat with the group, so a mark never makes a bot pull.
+    Guid PickPlayerTankFocus(BotView const& view, Guid tank)
+    {
+        BotView::GroupMarks const marks = view.GetGroupMarks();
+        for (Guid candidate : {marks.skull, marks.cross, view.GetTargetOf(tank)})
+            if (candidate != NoGuid && IsInCombatWithTheGroup(view, candidate))
+                return candidate;
+        return NoGuid;
+    }
+
     void WatchPlayerTank(BotView const& view, GroupCoordinator& group, std::int64_t nowMs)
     {
         if (!group.IsPlayerTankGroup())
             return;
         Guid const tank = group.GetTank();
-        Guid const target = view.GetTargetOf(tank);
-        if (target != NoGuid && IsInCombatWithTheGroup(view, target))
+        Guid const target = PickPlayerTankFocus(view, tank);
+        if (target != NoGuid)
             group.SetFocusTarget(target);
         Guid const focus = group.GetFocusTarget();
         // A bot that does not see the tank or the focus has no threat to

@@ -17,7 +17,8 @@ dep/include/httplib/**
 
 # Spec hook 1: World::Update and startup update and load the bot manager.
 src/game/World.cpp
-# Spec hook 2: WorldSession::HandleChatMessageOpcode calls BotHooks::OnPlayerChat.
+# Spec hook 2: WorldSession::HandleChatMessageOpcode calls BotHooks::OnPlayerChat, and
+# BotHooks::OnPartyAddonMessage for the role choice add-on (WOWAI#197).
 src/game/Handlers/ChatHandler.cpp
 # Spec hook 3: Player::GiveLevel calls BotHooks::OnLevelUp.
 src/game/Objects/Player.cpp

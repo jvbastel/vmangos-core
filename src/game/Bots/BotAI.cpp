@@ -20,6 +20,7 @@
 #include "SpellMgr.h"
 #include "TaragamanReaction.h"
 #include "Trail.h"
+#include "TrailFollow.h"
 #include "Pet.h"
 #include "Player.h"
 #include "MotionMaster.h"
@@ -188,9 +189,23 @@ void BotAI::HandlePacket(WorldPacket const& packet)
     switch (packet.GetOpcode())
     {
         case SMSG_GROUP_INVITE:
+        {
             // A normal /invite: the bot accepts, like the client of a player.
+            // jvbastel/WOWAI#197: a bot tank says no to a group whose human
+            // picked tank (never two tanks), with a party line to the leader.
+            Group const* invite = me->GetGroupInvite();
+            Player const* leader = invite ? ObjectAccessor::FindPlayer(invite->GetLeaderGuid()) : nullptr;
+            if (invite && m_role == Bots::BotRole::Tank && Bots::RefusesBotTank(sBotMgr.GroupMembersOf(invite, leader)))
+            {
+                me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(CMSG_GROUP_DECLINE));
+                sBotMgr.QueueLine({me->GetObjectGuid(), CHAT_MSG_PARTY, invite->GetLeaderGuid(), Bots::SecondTankRefusalLine});
+                sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s refuses the invite of %s: a second tank", me->GetName(),
+                    leader ? leader->GetName() : "?");
+                return;
+            }
             me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(CMSG_GROUP_ACCEPT));
             return;
+        }
         case SMSG_LOOT_START_ROLL:
             m_loot.OnStartRoll(me, packet);
             return;
@@ -520,7 +535,9 @@ Bots::Guid BotAI::GroupTankNow(Bots::Guid current, bool& playerTank) const
         // stands in for one: no bot role (BotMgr::BotRoleOf).
         Bots::BotRole role = Bots::BotRole::Ranged;
         bool const isBot = sBotMgr.BotRoleOf(player, role);
-        members.push_back({slot.guid.GetRawValue(), isBot, role});
+        // jvbastel/WOWAI#197: the role choice of a human.
+        members.push_back({slot.guid.GetRawValue(), isBot, role,
+            isBot ? Bots::RoleChoice::None : sBotMgr.RoleChoiceOf(slot.guid)});
     }
     // The current tank stays when it is a bot tank of this group, also on
     // another map (a bot tank that left the group does not stay).
@@ -650,6 +667,9 @@ void BotAI::Think()
         Bots::Guid const tank = GroupTankNow(coordinator->GetTank(), playerTank);
         if (tank != coordinator->GetTank() || playerTank != coordinator->IsPlayerTankGroup())
             coordinator->SetTank(tank, playerTank);
+        // jvbastel/WOWAI#192: the bots keep the human tank's trail
+        // (TrailFollow.h). Nothing in a bot-tank group.
+        Bots::WatchTankTrail(adapter, *coordinator);
     }
     // jvbastel/WOWAI#143: the Mage's peel nova reads the ranged members
     // from the roles (MageModule.cpp).
@@ -672,7 +692,9 @@ void BotAI::Think()
     }
     // jvbastel/WOWAI#189: with no bot command yet, a bot of a player-tank
     // group follows the tank (the follow rule of the command strategy).
-    if (!m_commanded)
+    // jvbastel/WOWAI#192: away from the leader the bot uses a place
+    // coordinator, which is no player-tank group: the bot keeps its state.
+    if (!m_commanded && !away)
     {
         Bots::CommandState const state = Bots::CommandStateNow(false, m_commandState, coordinator->IsPlayerTankGroup());
         if (state != m_commandState)
