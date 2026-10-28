@@ -52,8 +52,9 @@
 //   (each group member lives), `expect peel_nova` (the peel nova and the
 //   step back of jvbastel/WOWAI#145 passed, PeelWatch.h). A failed expect
 //   ends the run as failed.
-// - `loose <pack> healer`: a living mob of the pack attacks the healer, a
-//   loose enemy for the peel nova (jvbastel/WOWAI#145).
+// - `loose <pack> healer`: a living mob of the pack comes in next to the
+//   healer, on the side of its pack, and attacks it: a loose enemy in melee
+//   of the healer for the peel nova (jvbastel/WOWAI#145).
 // - `wait rested [<seconds>]`: each member lives, and no bot of the group
 //   eats or drinks any more; the run fails after the seconds.
 // - `fight <pack> [<seconds>]`: the test driver selects a living mob of the

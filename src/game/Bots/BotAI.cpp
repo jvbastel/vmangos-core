@@ -674,6 +674,12 @@ void BotAI::Think()
 
 bool BotAI::IsNearPlayer() const
 {
+    // The test driver sits in the player's seat: it is always near the
+    // player, so out of combat it thinks as often as a bot near a player
+    // (jvbastel/WOWAI#145: at the far think rate of 3 s, the peel nova of
+    // the Mage came up to 3 s late on an enemy that hit the healer).
+    if (sBotMgr.IsTestDriver(me->GetObjectGuid()))
+        return true;
     for (auto const& ref : me->GetMap()->GetPlayers())
     {
         Player const* player = ref.getSource();

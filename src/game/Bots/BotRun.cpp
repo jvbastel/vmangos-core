@@ -1993,6 +1993,9 @@ void BotRun::WatchPeel(int64 nowMs)
     }
 }
 
+// `loose`: the mob starts this far from the healer.
+static float const LooseStartYards = 3.0f;
+
 bool BotRun::Loose(Bots::ScriptCommand const& command, std::string& detail)
 {
     Creature* mob = LivingMobOf(command.name);
@@ -2014,6 +2017,12 @@ bool BotRun::Loose(Bots::ScriptCommand const& command, std::string& detail)
     }
     RememberName(mob);
     RememberName(healer);
+    // It comes in next to the healer, on the side of its pack: so it is in
+    // melee of the healer before the tank can take it on its way (run 2 and
+    // 3 of jvbastel/WOWAI#145: from its spawn, the tank took it as it came).
+    float x, y, z;
+    healer->GetNearPoint(mob, x, y, z, mob->GetObjectBoundingRadius(), LooseStartYards, healer->GetAngle(mob));
+    mob->NearTeleportTo(x, y, z, std::atan2(healer->GetPositionY() - y, healer->GetPositionX() - x));
     mob->AI()->AttackStart(healer);
     if (mob->GetVictim() != healer)
     {
