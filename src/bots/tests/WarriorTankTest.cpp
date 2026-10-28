@@ -1919,6 +1919,10 @@ namespace
         BatOnTheFarHealer()
         {
             fake.SetSpellRange(Warrior::Taunt, 20.0f);
+            // Melee reach (jvbastel/WOWAI#168: the abilities on the loose
+            // enemy).
+            fake.SetSpellRange(Warrior::SunderArmor, 5.0f);
+            fake.SetSpellRange(Warrior::Revenge, 5.0f);
             fake.SetVictim(Bat, Healer);
             fake.SetDistance(Bat, 28.0f);
         }
@@ -1940,6 +1944,8 @@ TEST(WarriorTank, AttacksASecondAddOnAMemberWhenTauntIsOnItsCooldown)
 {
     GroupInFight tank;
     tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetSpellRange(Warrior::SunderArmor, 5.0f);
+    tank.fake.SetSpellRange(Warrior::Revenge, 5.0f);
     tank.fake.SetVictim(Wolf, Tank);
     tank.fake.SetVictim(Bat, Rogue);
     tank.fake.SetDistance(Bat, 8.0f);
@@ -1971,6 +1977,8 @@ TEST(WarriorTank, HoldsItsWalkBackForALooseEnemyOutOfTauntRange)
     tank.fake.SetHealth(Healer, 300, 300);
     tank.fake.SetHealth(Wolf, 300, 300);
     tank.fake.SetSpellRange(Warrior::Taunt, 20.0f);
+    tank.fake.SetSpellRange(Warrior::SunderArmor, 5.0f);
+    tank.fake.SetSpellRange(Warrior::Revenge, 5.0f);
     tank.fake.SetDistance(Wolf, 28.0f);
     tank.fake.SetVictim(Wolf, Healer);
     // The wolf joined the pull: the tank warns first (jvbastel/WOWAI#121).
@@ -2181,4 +2189,150 @@ TEST(WarriorTank, PicksUpTheNextLooseEnemyWhenTheFirstIsInTheReachOfAnotherPack)
     tank.Think();
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Wolf), Chase(Wolf)}));
+}
+
+// jvbastel/WOWAI#168: the tank keeps one loose enemy, and picks it by who it
+// attacks: the healer, then damage bots in cloth, then the others; the
+// nearest of a rank first.
+namespace
+{
+    Bots::Guid const Mage = 0x0000000000000014;
+
+    // GroupInFight with a mage (cloth) after the rogue, and melee reach on
+    // Sunder Armor and Revenge. Taunt waits for its cooldown unless a test
+    // makes it ready.
+    struct LooseEnemiesTank : GroupInFight
+    {
+        LooseEnemiesTank()
+        {
+            fake.SetGroupMembers({Rogue, Mage, Healer});
+            fake.SetHealth(Mage, 300, 300);
+            fake.SetWearsCloth(Mage);
+            fake.SetWearsCloth(Healer);
+            fake.SetPower(Tank, 30, 100);
+            fake.SetSpellRange(Warrior::SunderArmor, 5.0f);
+            fake.SetSpellRange(Warrior::Revenge, 5.0f);
+            fake.SetCannotCast(Warrior::Taunt);
+            fake.SetCannotCast(Warrior::Revenge);
+            for (Bots::Guid enemy : {Wolf, Bat, Rat})
+                fake.SetDistance(enemy, 2.0f);
+        }
+
+        // The deeds of one think at `ms`.
+        std::vector<std::string> ThinkAt(std::int64_t ms)
+        {
+            nowMs = ms;
+            fake.ClearDeeds();
+            Think();
+            return fake.Deeds();
+        }
+    };
+}
+
+TEST(WarriorTankLooseEnemy, TakesTheEnemyOnAClothMemberBeforeOneOnAMemberInTougherArmour)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Mage);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+TEST(WarriorTankLooseEnemy, TakesTheEnemyOnTheHealerBeforeOneOnAClothMember)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Mage);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+TEST(WarriorTankLooseEnemy, TakesTheNearestOfTwoEnemiesOfOneRank)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Rogue);
+    tank.fake.SetDistance(Wolf, 4.0f);
+    tank.fake.SetDistance(Bat, 3.0f);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+// A loose enemy of a higher rank comes later: the tank stays on its enemy.
+TEST(WarriorTankLooseEnemy, KeepsItsLooseEnemyAcrossThinks)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetVictim(Bat, Healer);
+
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    EXPECT_EQ(tank.ThinkAt(3000), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+TEST(WarriorTankLooseEnemy, GivesUpItsLooseEnemyAfterAbout4Seconds)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetVictim(Bat, Rogue);
+    tank.fake.SetDistance(Bat, 1.0f);
+
+    EXPECT_EQ(tank.ThinkAt(4100), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+TEST(WarriorTankLooseEnemy, TakesTheNextLooseEnemyWhenItsEnemyAttacksTheTank)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Wolf, Tank);
+    tank.fake.SetThreatRatio(Tank, Wolf, 2.0f);
+
+    EXPECT_EQ(tank.ThinkAt(500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+TEST(WarriorTankLooseEnemy, TauntsItsLooseEnemyWhenTauntIsReady)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Mage);
+    tank.fake.SetCannotCast(Warrior::Taunt, false);
+    tank.fake.SetCannotCast(Warrior::Revenge, false);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+}
+
+// LooseEnemiesTank has no ready Taunt: Revenge when it is ready, else Sunder
+// Armor (the tests above).
+TEST(WarriorTankLooseEnemy, UsesRevengeOnItsLooseEnemyWhenTauntIsNotReady)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetCannotCast(Warrior::Revenge, false);
+    tank.fake.SetVictim(Bat, Mage);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::Revenge, Bat)}));
+}
+
+TEST(WarriorTankLooseEnemy, NeverUsesMockingBlow)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetKnownSpell(Warrior::MockingBlow);
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    tank.fake.SetVictim(Bat, Healer);
+
+    for (std::int64_t ms = 0; ms < 5000; ms += 500)
+        for (std::string const& deed : tank.ThinkAt(ms))
+            EXPECT_EQ(deed.find("cast 694 "), std::string::npos) << deed;
+}
+
+TEST(WarriorTankLooseEnemy, GoesBackToTheFocusWhenNoLooseEnemyIsLeft)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Mage);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+    tank.fake.SetHealth(Bat, 0, 300);
+    tank.fake.SetVictim(Bat, NoGuid);
+
+    EXPECT_EQ(tank.ThinkAt(500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
 }

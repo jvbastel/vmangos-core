@@ -295,6 +295,15 @@ Bots::PowerKind BotAdapter::GetPowerKind(Bots::Guid unit) const
     }
 }
 
+bool BotAdapter::WearsCloth(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found || found->GetTypeId() != TYPEID_PLAYER)
+        return false;
+    uint8 const playerClass = found->GetClass();
+    return playerClass == CLASS_MAGE || playerClass == CLASS_WARLOCK || playerClass == CLASS_PRIEST;
+}
+
 float BotAdapter::GetDistance(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);

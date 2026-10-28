@@ -52,6 +52,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::CastInfo GetCast(Bots::Guid unit) const override;
         Bots::Power GetPower(Bots::Guid unit) const override;
         Bots::PowerKind GetPowerKind(Bots::Guid unit) const override;
+        bool WearsCloth(Bots::Guid unit) const override;
         float GetDistance(Bots::Guid unit) const override;
         float GetSpellDistance(Bots::Guid unit) const override;
         float GetSpellDistanceFrom(Bots::Position const& place, Bots::Guid unit) const override;
