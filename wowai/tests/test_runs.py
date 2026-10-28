@@ -208,6 +208,27 @@ class Plan(unittest.TestCase):
                          ("two_packs", 10, runs.SCENARIO_SECONDS))
 
 
+class ScriptedPass(unittest.TestCase):
+    """A scripted pass needs 3 full runs in a row that pass, spec section 10."""
+
+    def test_three_passes_in_a_row_are_a_scripted_pass(self):
+        self.assertTrue(runs.scripted_pass([True, True, True]))
+        self.assertTrue(runs.scripted_pass([False, True, True, True, False]))
+
+    def test_three_passes_with_a_fail_between_them_are_none(self):
+        self.assertFalse(runs.scripted_pass([True, True, False, True]))
+
+    def test_fewer_than_three_runs_are_none(self):
+        self.assertFalse(runs.scripted_pass([True, True]))
+        self.assertFalse(runs.scripted_pass([]))
+
+    def test_the_line_says_the_longest_streak(self):
+        self.assertEqual(runs.scripted_pass_line([True, True, True, False]),
+                         "Scripted pass: 3 full runs in a row passed.")
+        self.assertEqual(runs.scripted_pass_line([True, False, True, True]),
+                         "No scripted pass: at most 2 full runs in a row passed, 3 needed.")
+
+
 def a_full_run_that_passes():
     """A result file of a full run that meets every threshold of spec section 10."""
     group = ["Grukk", "Hela", "Shanka", "Morzul"]

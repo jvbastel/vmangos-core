@@ -29,8 +29,10 @@ The script copies them from there to the out folder and prints one line per
 run, and one line per pull: its threat losses, the healer's, and whether it
 was clean. At the end it prints the measurement over all first pulls
 (jvbastel/WOWAI#118). A full run passes when the run passed and its result file meets the
-pass thresholds of spec section 10 (threshold_failures). It ends with exit
-code 0 when every run passed.
+pass thresholds of spec section 10 (threshold_failures). After full runs it
+says whether they make a scripted pass: 3 full runs in a row that pass
+(PASSES_IN_A_ROW). It ends with exit code 0 when every run passed, or when
+the full runs make a scripted pass.
 """
 import argparse
 import json
@@ -115,6 +117,8 @@ FIRE_NOVA_ROLES = ("ranged", "healer")
 # talk with the player).
 EVENTS_WITH_A_LINE = ("boss_kill", "wipe", "loot_roll")
 NO_GAME_EVENTS = ("player_message", "session_end")
+# A scripted pass needs this many full runs in a row that pass.
+PASSES_IN_A_ROW = 3
 
 
 def run_plan(kind, arg, count, noquests):
@@ -278,6 +282,27 @@ def threshold_failures(result):
     return failures + chat_failures(result)
 
 
+def longest_streak(passes):
+    """The most runs in a row that passed. `passes`: one bool per run."""
+    longest = streak = 0
+    for passed in passes:
+        streak = streak + 1 if passed else 0
+        longest = max(longest, streak)
+    return longest
+
+
+def scripted_pass(passes):
+    """True when PASSES_IN_A_ROW full runs in a row passed (spec section 10)."""
+    return longest_streak(passes) >= PASSES_IN_A_ROW
+
+
+def scripted_pass_line(passes):
+    if scripted_pass(passes):
+        return "Scripted pass: %d full runs in a row passed." % PASSES_IN_A_ROW
+    return "No scripted pass: at most %d full runs in a row passed, %d needed." % (
+        longest_streak(passes), PASSES_IN_A_ROW)
+
+
 def wait_for_end(realm, limit_seconds):
     """The status line once the run is over. Stops the run after the limit."""
     end = time.time() + limit_seconds
@@ -373,7 +398,7 @@ def main():
         # the start of the first run then gets its push.
         print(watcher.stdout.readline().rstrip(), flush=True)
 
-    passed = 0
+    passes = []
     all_reports = []
     for n in range(1, count + 1):
         answer = realm.soap(".wowai run start %s %s" % (args.script, scenario))
@@ -384,6 +409,7 @@ def main():
         result = collect(runs_dir, status, out)
         if result is None:
             print("No result file: " + status, flush=True)
+            passes.append(False)
             continue
         print(summary(result), flush=True)
         reports = pull_reports(result)
@@ -393,15 +419,19 @@ def main():
         failures = threshold_failures(result)
         for failure in failures:
             print("  threshold: " + failure, flush=True)
-        passed += result["result"] == "passed" and not failures
+        passes.append(result["result"] == "passed" and not failures)
 
     m = measurement(all_reports)
     if m:
         print(measurement_line(m), flush=True)
-    print("%d of %d runs passed. The result files are in %s." % (passed, count, os.path.abspath(out)), flush=True)
+    print("%d of %d runs passed. The result files are in %s." % (sum(passes), count, os.path.abspath(out)),
+          flush=True)
+    if args.kind == "full":
+        print(scripted_pass_line(passes), flush=True)
     if watcher:
         stop_watch(watcher)
-    return 0 if passed == count else 1
+    every_run_passed = len(passes) == count and all(passes)
+    return 0 if every_run_passed or (args.kind == "full" and scripted_pass(passes)) else 1
 
 
 if __name__ == "__main__":
