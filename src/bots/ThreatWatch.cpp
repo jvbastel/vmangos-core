@@ -92,3 +92,29 @@ namespace Bots
         return gated;
     }
 }
+
+// jvbastel/WOWAI#174: the lost-mob clock from the first real hit, with a
+// backstop.
+namespace Bots
+{
+    void RealHitLostMobWatch::Update(std::vector<EnemyOnMember> const& hits, RealHitGate const& gate,
+        std::vector<Guid> const& attacked, std::int64_t nowMs, Guid holder, HitNamer const& name)
+    {
+        std::set<Guid> members;
+        for (EnemyOnMember const& hit : hits)
+            members.insert(hit.member);
+        std::size_t const hitBefore = m_hitWatch.LostMobs().size(), backstopBefore = m_backstop.LostMobs().size();
+        m_hitWatch.Update(gate.Gate(hits, members), attacked, nowMs, holder, name);
+        m_backstop.Update(hits, attacked, nowMs, holder, name);
+        auto const add = [this](LostMob const& mob) {
+            for (LostMob const& lost : m_lost)
+                if (lost.enemy == mob.enemy)
+                    return;
+            m_lost.push_back(mob);
+        };
+        for (std::size_t i = hitBefore; i < m_hitWatch.LostMobs().size(); ++i)
+            add(m_hitWatch.LostMobs()[i]);
+        for (std::size_t i = backstopBefore; i < m_backstop.LostMobs().size(); ++i)
+            add(m_backstop.LostMobs()[i]);
+    }
+}

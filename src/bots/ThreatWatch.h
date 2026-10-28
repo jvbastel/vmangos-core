@@ -182,4 +182,33 @@ namespace Bots
     };
 }
 
+// jvbastel/WOWAI#174 (the player's second decision): the lost-mob clock
+// starts at the enemy's first real hit on the member (RealHitGate), in
+// scenarios and full runs. Backstop: an enemy that targets a member and never
+// hits it (it cannot reach it, or stands and waits), with no bot on it, is
+// lost after LostMobBackstopMs all the same. An enemy is lost once.
+namespace Bots
+{
+    std::int64_t const LostMobBackstopMs = 30000;
+
+    class RealHitLostMobWatch
+    {
+    public:
+        explicit RealHitLostMobWatch(std::int64_t limitMs = LostMobMs)
+            : m_hitWatch(limitMs), m_backstop(LostMobBackstopMs) {}
+        // As LostMobWatch::Update, with `hits` gated by the real hits of
+        // `gate` (every member), and ungated for the backstop.
+        void Update(std::vector<EnemyOnMember> const& hits, RealHitGate const& gate, std::vector<Guid> const& attacked,
+            std::int64_t nowMs, Guid holder = NoGuid, HitNamer const& name = nullptr);
+        // In the order they were lost.
+        std::vector<LostMob> const& LostMobs() const { return m_lost; }
+        std::int64_t LimitMs() const { return m_hitWatch.LimitMs(); }
+
+    private:
+        LostMobWatch m_hitWatch;
+        LostMobWatch m_backstop;
+        std::vector<LostMob> m_lost;
+    };
+}
+
 #endif

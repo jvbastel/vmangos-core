@@ -333,7 +333,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_bossKills.clear();
     m_threat = Bots::ThreatWatch();
     m_realHits = Bots::RealHitGate();
-    m_lostMobs = Bots::LostMobWatch(sBotMgr.GetSettings().lostMobMs);
+    m_lostMobs = Bots::RealHitLostMobWatch(sBotMgr.GetSettings().lostMobMs);
     m_threatNames.clear();
     m_lostMobNames.clear();
     m_interrupts = Bots::InterruptWatch();
@@ -937,7 +937,7 @@ void BotRun::WatchThreat(int64 nowMs)
     }
 
     std::size_t const lostBefore = m_lostMobs.LostMobs().size();
-    m_lostMobs.Update(hits, Bots::AttackedEnemies(attacks), nowMs, holder, name);
+    m_lostMobs.Update(hits, m_realHits, Bots::AttackedEnemies(attacks), nowMs, holder, name);
     for (std::size_t i = m_lostMobNames.size(); i < m_lostMobs.LostMobs().size(); ++i)
         m_lostMobNames.push_back(HitNames(m_lostMobs.LostMobs()[i].enemy, m_lostMobs.LostMobs()[i].member));
     if (m_lostMobs.LostMobs().size() > lostBefore)

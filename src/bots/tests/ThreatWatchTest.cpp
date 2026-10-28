@@ -374,3 +374,63 @@ TEST(RealHitGate, TheThreatLossOnTheHealerCountsFromTheRealHit)
     ASSERT_EQ(watch.Losses().size(), 1u);
     EXPECT_EQ(watch.Losses()[0].startMs, 5500);
 }
+
+// jvbastel/WOWAI#174 (the player's second decision): the lost-mob clock
+// (10 s) starts at the enemy's first real hit on the member, in scenarios
+// and full runs. A backstop still catches an enemy that never hits anyone:
+// one that targets a member, unattacked, for LostMobBackstopMs is lost too.
+TEST(RealHitLostMobWatch, AnEnemyOnItsWayIsNotLostBeforeItsFirstRealHit)
+{
+    Bots::RealHitGate gate;
+    Bots::RealHitLostMobWatch watch;
+    for (std::int64_t now = 0; now <= 9000; now += 500)
+        watch.Update({{Enforcer, Healer}}, gate, {}, now);
+    gate.NoteRealHit(Enforcer, Healer);
+    for (std::int64_t now = 9500; now <= 19000; now += 500)
+        watch.Update({{Enforcer, Healer}}, gate, {}, now);
+    EXPECT_TRUE(watch.LostMobs().empty());
+
+    watch.Update({{Enforcer, Healer}}, gate, {}, 19600);
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].startMs, 9500);
+}
+
+TEST(RealHitLostMobWatch, AnEnemyThatHitsAtOnceIsLostAfterTenSecondsAsBefore)
+{
+    Bots::RealHitGate gate;
+    gate.NoteRealHit(Enforcer, Rogue);
+    Bots::RealHitLostMobWatch watch;
+    watch.Update({{Enforcer, Rogue}}, gate, {}, 0);
+    watch.Update({{Enforcer, Rogue}}, gate, {}, 10500);
+
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+}
+
+// An enemy that targets a member and never hits it (it cannot reach it),
+// with no bot on it, is lost after the backstop.
+TEST(RealHitLostMobWatch, AnEnemyThatNeverHitsIsLostAfterTheBackstop)
+{
+    Bots::RealHitGate gate;
+    Bots::RealHitLostMobWatch watch;
+    for (std::int64_t now = 0; now < Bots::LostMobBackstopMs; now += 1000)
+        watch.Update({{Enforcer, Healer}}, gate, {}, now);
+    EXPECT_TRUE(watch.LostMobs().empty());
+
+    watch.Update({{Enforcer, Healer}}, gate, {}, Bots::LostMobBackstopMs + 500);
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].enemy, Enforcer);
+}
+
+// An enemy is lost once, whichever clock runs out first.
+TEST(RealHitLostMobWatch, AnEnemyIsLostOnce)
+{
+    Bots::RealHitGate gate;
+    Bots::RealHitLostMobWatch watch;
+    for (std::int64_t now = 0; now <= 5000; now += 1000)
+        watch.Update({{Enforcer, Healer}}, gate, {}, now);
+    gate.NoteRealHit(Enforcer, Healer);
+    for (std::int64_t now = 6000; now <= 40000; now += 1000)
+        watch.Update({{Enforcer, Healer}}, gate, {}, now);
+
+    EXPECT_EQ(watch.LostMobs().size(), 1u);
+}

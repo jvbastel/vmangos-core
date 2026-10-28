@@ -301,7 +301,8 @@ class BotRun
         // jvbastel/WOWAI#174: the real hits of enemies on members.
         Bots::RealHitGate m_realHits;
         std::vector<std::pair<std::string, std::string>> m_threatNames; // The enemy and the member of each loss.
-        Bots::LostMobWatch m_lostMobs;
+        // jvbastel/WOWAI#174: from the first real hit, with a backstop.
+        Bots::RealHitLostMobWatch m_lostMobs;
         std::vector<std::pair<std::string, std::string>> m_lostMobNames; // The enemy and the member of each lost mob.
         bool m_aborted = false; // A GM stopped the run.
         std::unique_ptr<Bots::RunJudge> m_judge;
