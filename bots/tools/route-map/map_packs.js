@@ -5,9 +5,10 @@
 // and the wander circle of each wandering mob. map_page.html sends the
 // "mapdata" event after it draws the route into its overlay, and the
 // "mapview" event with the yards per pixel at each zoom. The page sizes the
-// nodes with data-r and data-size; the arrows are sized here.
+// nodes with data-r, data-size and data-halo (map_common.js sizeMarks); the
+// arrows are sized here. Text strokes do not keep their size on screen (no
+// non-scaling-stroke on text in Chrome), so each label's halo is data-halo.
 (() => {
-  const SVG = "http://www.w3.org/2000/svg";
   const style = document.createElement("style");
   style.textContent = `
     .pk { stroke: #000; stroke-width: 1; vector-effect: non-scaling-stroke; }
@@ -38,14 +39,6 @@
 
   let groups = {};
   let yardsPerPixel = 1;
-  const sx = p => -p.y, sy = p => -p.x;
-
-  function el(name, attrs, parent) {
-    const node = document.createElementNS(SVG, name);
-    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
-    parent.appendChild(node);
-    return node;
-  }
 
   // A first word that 2 or more mob names of the map share ("Ragefire"
   // Trogg, Shaman, ...) is left out of the pack labels, as in the prototype.
@@ -77,12 +70,6 @@
            `L${x - c * d / 2 + s * w} ${y - s * d / 2 - c * w}Z`;
   }
 
-  // Text strokes do not keep their size on screen (no non-scaling-stroke on
-  // text in Chrome), so the halo of each label is set in yards at each zoom.
-  function sizeLabels() {
-    for (const node of document.querySelectorAll(".pk-label")) node.style.strokeWidth = 3 * yardsPerPixel;
-  }
-
   function sizeArrows() {
     for (const node of document.querySelectorAll(".patrol-arrow")) {
       const [x, y, a] = node.dataset.arrow.split(" ").map(Number);
@@ -112,7 +99,7 @@
       (pack.on_route ? `${pack.label} (#${pack.order} in the pack order)` : "Not on the route") +
       `\nkey ${pack.key}\n` + pack.mobs.map(m => `${m.name} (${m.entry}, guid ${m.guid})`).join("\n");
     const label = el("text", {class: `pk-label ${kind}`, x: sx(pack), y: sy(pack),
-                              "data-size": pack.on_route ? 12 : 10}, parent);
+                              "data-size": pack.on_route ? 12 : 10, "data-halo": 3}, parent);
     const first = pack.on_route ? `${pack.order} ${pack.label}` : (boss ? "" : mobSummary(pack));
     const lines = [];
     if (first) lines.push([first, ""]);
@@ -142,7 +129,6 @@
     for (const pack of data.packs) if (pack.on_route) drawPack(pack, groups.on);
     for (const [k, on] of Object.entries(shown)) groups[k].style.display = on ? "" : "none";
     sizeArrows();
-    sizeLabels();
   }
 
   controls.addEventListener("change", e => {
@@ -152,5 +138,5 @@
     if (groups[k]) groups[k].style.display = shown[k] ? "" : "none";
   });
   document.addEventListener("mapdata", e => draw(e.detail));
-  document.addEventListener("mapview", e => { yardsPerPixel = e.detail; sizeArrows(); sizeLabels(); });
+  document.addEventListener("mapview", e => { yardsPerPixel = e.detail; sizeArrows(); });
 })();

@@ -36,9 +36,9 @@
   <image id="floor"></image>
   <g id="overlay"></g>
 </svg>
+<script src="/map_common.js"></script>
 <script>
-// WoW positions to SVG: north (+x) up, west (+y) left. SVG x = -y, SVG y = -x.
-const SVG = "http://www.w3.org/2000/svg";
+// The shared helpers (SVG, el, sx, sy, toMap, sizeMarks) are in map_common.js.
 const map = document.getElementById("map");
 const overlay = document.getElementById("overlay");
 const status = document.getElementById("status");
@@ -46,31 +46,13 @@ const route = new URLSearchParams(location.search).get("route");
 let view = null;   // {x, y, w, h} of the viewBox, in yards
 let bounds = null;
 
-function el(name, attrs, parent) {
-  const node = document.createElementNS(SVG, name);
-  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
-  (parent || overlay).appendChild(node);
-  return node;
-}
-const sx = p => -p.y;
-const sy = p => -p.x;
-
 function setView(v) {
   view = v;
   map.setAttribute("viewBox", `${v.x} ${v.y} ${v.w} ${v.h}`);
   // Marks and labels keep their size on screen at every zoom.
   const yardsPerPixel = Math.max(v.w / map.clientWidth, v.h / map.clientHeight);
   overlay.style.setProperty("--k", yardsPerPixel);
-  for (const node of overlay.querySelectorAll("[data-r]")) node.setAttribute("r", node.dataset.r * yardsPerPixel);
-  for (const node of overlay.querySelectorAll("[data-size]")) {
-    node.setAttribute("font-size", node.dataset.size * yardsPerPixel);
-    node.setAttribute("dx", 7 * yardsPerPixel);
-    node.setAttribute("dy", -5 * yardsPerPixel);
-  }
-  for (const node of overlay.querySelectorAll("[data-cross]")) {
-    const c = node.dataset.cross.split(" ").map(Number), d = 4 * yardsPerPixel;
-    node.setAttribute("d", `M${c[0] - d} ${c[1] - d}L${c[0] + d} ${c[1] + d}M${c[0] - d} ${c[1] + d}L${c[0] + d} ${c[1] - d}`);
-  }
+  sizeMarks(overlay, yardsPerPixel);
   document.dispatchEvent(new CustomEvent("mapview", {detail: yardsPerPixel}));
 }
 
@@ -91,11 +73,12 @@ function draw(data) {
   floor.setAttribute("height", bounds.x_max - bounds.x_min);
   floor.setAttribute("preserveAspectRatio", "none");
   overlay.replaceChildren();
-  el("polyline", {class: "route", points: data.line.map(p => `${sx(p)},${sy(p)}`).join(" ")});
+  el("polyline", {class: "route", points: data.line.map(p => `${sx(p)},${sy(p)}`).join(" ")}, overlay);
   for (const pack of data.packs) {
     if (!pack.pull_point) continue;
-    el("line", {class: "pull-line", x1: sx(pack.pull_point), y1: sy(pack.pull_point), x2: sx(pack), y2: sy(pack)});
-    el("path", {class: "pull", "data-cross": `${sx(pack.pull_point)} ${sy(pack.pull_point)}`});
+    el("line", {class: "pull-line", x1: sx(pack.pull_point), y1: sy(pack.pull_point), x2: sx(pack), y2: sy(pack)},
+       overlay);
+    el("path", {class: "pull", "data-cross": `${sx(pack.pull_point)} ${sy(pack.pull_point)}`}, overlay);
   }
   document.dispatchEvent(new CustomEvent("mapdata", {detail: data}));  // map_packs.js draws the packs
   document.title = `Dungeon map: ${data.route}`;
@@ -124,12 +107,7 @@ async function load(keepView) {
   if (keepView && old) setView(old); else fit();
 }
 
-// Pan with the mouse, zoom with the wheel round the pointer.
-function toMap(event) {
-  const r = map.getBoundingClientRect(), k = Math.max(view.w / r.width, view.h / r.height);
-  const ox = view.x + (view.w - r.width * k) / 2, oy = view.y + (view.h - r.height * k) / 2;
-  return {x: ox + (event.clientX - r.left) * k, y: oy + (event.clientY - r.top) * k, k};
-}
+// Pan with the mouse, zoom with the wheel round the pointer (toMap).
 let drag = null;
 map.addEventListener("mousedown", e => { if (view) { drag = {x: e.clientX, y: e.clientY, view: {...view}}; map.classList.add("dragging"); } });
 window.addEventListener("mouseup", () => { drag = null; map.classList.remove("dragging"); });

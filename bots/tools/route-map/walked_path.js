@@ -1,10 +1,10 @@
 // The walked path layer of the dungeon map (jvbastel/WOWAI#152): where each
 // group member really walked in a run, from a run trace file. The player
 // gives the trace path (or ?trace=<path> in the address), and turns the
-// layer on and off. map_page.html loads this script; it adds its own
-// controls to the header and its own SVG group over the map.
+// layer on and off. map_page.html loads this script after map_common.js
+// (SVG, el, sx, sy); it adds its own controls to the header and its own SVG
+// group over the map.
 (() => {
-  const SVG = "http://www.w3.org/2000/svg";
   const COLOURS = ["#7CFC8A", "#62D2FF", "#E58CFF", "#FFE36E", "#FF9F6B", "#B0B8FF"];
   const map = document.getElementById("map");
   const header = document.querySelector("header");
@@ -29,9 +29,7 @@
     <span id="walked-legend"></span>`;
   header.insertBefore(controls, status);
 
-  const layer = document.createElementNS(SVG, "g");
-  layer.id = "walked";
-  map.appendChild(layer);
+  const layer = el("g", {id: "walked"}, map);
 
   const input = document.getElementById("walked-trace");
   const show = document.getElementById("walked-show");
@@ -67,15 +65,10 @@
     legend.replaceChildren();
     data.members.forEach((member, i) => {
       const colour = COLOURS[i % COLOURS.length];
-      const line = document.createElementNS(SVG, "polyline");
-      line.setAttribute("class", "walked");
-      line.setAttribute("stroke", colour);
-      line.setAttribute("points", member.points.map(p => `${sx(p)},${sy(p)}`).join(" "));
-      const title = document.createElementNS(SVG, "title");
-      title.textContent = `${member.name}: ${member.points.length} positions, ` +
+      const line = el("polyline", {class: "walked", stroke: colour,
+                                   points: member.points.map(p => `${sx(p)},${sy(p)}`).join(" ")}, layer);
+      el("title", {}, line).textContent = `${member.name}: ${member.points.length} positions, ` +
         `${member.points[0].t} s to ${member.points[member.points.length - 1].t} s`;
-      line.appendChild(title);
-      layer.appendChild(line);
       const key = document.createElement("span");
       key.style.color = colour;
       key.textContent = member.name;

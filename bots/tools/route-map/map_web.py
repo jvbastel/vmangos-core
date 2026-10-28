@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
 import export_file
 import floor_image
@@ -139,6 +139,11 @@ def create_app(settings: Settings) -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def page():
         return PAGE.read_text()
+
+    @app.get("/map_common.js")
+    def common_script():
+        """The shared helpers of the page's scripts: SVG, el, sx/sy, toMap, sizeMarks."""
+        return FileResponse(HERE / "map_common.js", media_type="text/javascript")
 
     images = {}
 

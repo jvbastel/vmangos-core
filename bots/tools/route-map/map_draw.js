@@ -1,5 +1,6 @@
 // The route drawing of the dungeon map (tickets jvbastel/WOWAI#157, #158). It
-// needs the globals of map_page.html: map, route, view, toMap, SVG, sx, sy.
+// needs the globals of map_page.html (map, route, view) and of map_common.js
+// (SVG, el, sx, sy, toMap).
 // The page sends the "mapview" event with the yards per pixel at each zoom.
 //
 // Draw mode: a click adds a point to the active line, snapped to the floor.
@@ -29,9 +30,7 @@
     button.on { background: #4fe08a; color: #000; }`;
   document.head.appendChild(style);
 
-  const layer = document.createElementNS(SVG, "g");
-  layer.id = "draw-layer";
-  map.appendChild(layer);
+  const layer = el("g", {id: "draw-layer"}, map);
   const tools = document.createElement("span");
   tools.innerHTML = `<button id="draw-mode" title="Click the map to add points">Draw</button>
     <button id="draw-save">Save trace</button>
@@ -98,35 +97,26 @@
     layer.replaceChildren();
     lines.forEach((line, l) => line.pieces.forEach((piece, i) => {
       if (!piece) return;
-      const poly = document.createElementNS(SVG, "polyline");
-      poly.setAttribute("class", "draw-piece" + (l ? " branch" : "") + (piece.warnings.length ? " warn" : ""));
-      poly.setAttribute("points", piece.points.map(p => `${sx(p)},${sy(p)}`).join(" "));
-      const title = document.createElementNS(SVG, "title");
-      title.textContent = `${l ? `branch ${l}, ` : ""}piece ${i + 1}: ${Math.round(piece.length * 10) / 10} yards` +
+      const poly = el("polyline", {class: "draw-piece" + (l ? " branch" : "") + (piece.warnings.length ? " warn" : ""),
+                                   points: piece.points.map(p => `${sx(p)},${sy(p)}`).join(" ")}, layer);
+      el("title", {}, poly).textContent =
+        `${l ? `branch ${l}, ` : ""}piece ${i + 1}: ${Math.round(piece.length * 10) / 10} yards` +
         piece.warnings.map(w => `\n${w.text}`).join("");
-      poly.appendChild(title);
-      layer.appendChild(poly);
     }));
     lines.forEach((line, l) => line.points.forEach((point, i) => {
-      const dot = document.createElementNS(SVG, "circle");
-      dot.setAttribute("class", "draw-point" + (l ? " branch" : "") + (point.mark ? " mark" : "") +
-        (isSelected(l, i) ? " selected" : ""));
-      dot.setAttribute("cx", sx(point));
-      dot.setAttribute("cy", sy(point));
-      dot.setAttribute("r", (point.mark ? 6 : 4) * yardsPerPixel);
-      dot.dataset.line = l;
-      dot.dataset.index = i;
-      const title = document.createElementNS(SVG, "title");
+      const dot = el("circle", {class: "draw-point" + (l ? " branch" : "") + (point.mark ? " mark" : "") +
+                                  (isSelected(l, i) ? " selected" : ""), cx: sx(point), cy: sy(point),
+                                "data-r": point.mark ? 6 : 4, "data-line": l, "data-index": i}, layer);
+      const title = el("title", {}, dot);
       const floors = point.floors || [];
       title.textContent = `${l ? `branch ${l}, ` : ""}point ${i + 1}: ` +
         `${point.x.toFixed(1)} ${point.y.toFixed(1)} ${point.z.toFixed(1)}` +
         (point.mark ? `\nmark${point.note ? ": " + point.note : ""}` : "") +
         (floors.length > 1 ? ` (floors ${floors.join(", ")})` : "") + "\nDrag to move, right-click to delete.";
-      dot.appendChild(title);
       dot.addEventListener("mousedown", startMove);
       dot.addEventListener("contextmenu", event => { event.preventDefault(); remove(l, i); });
-      layer.appendChild(dot);
     }));
+    sizeMarks(layer, yardsPerPixel);
     const count = lines.reduce((sum, line) => sum + line.points.length, 0);
     const length = lines.reduce((sum, line) => sum + line.pieces.reduce((s, p) => s + (p ? p.length : 0), 0), 0);
     const branches = lines.length - 1;
@@ -239,8 +229,7 @@
 
   document.addEventListener("mapview", event => {
     yardsPerPixel = event.detail;
-    for (const dot of layer.querySelectorAll(".draw-point"))
-      dot.setAttribute("r", (dot.classList.contains("mark") ? 6 : 4) * yardsPerPixel);
+    sizeMarks(layer, yardsPerPixel);
   });
   const modeButton = document.getElementById("draw-mode");
   function setDrawing(on) {

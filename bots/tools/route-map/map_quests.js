@@ -6,7 +6,6 @@
 // after it draws the route, and the "mapview" event with the yards per pixel
 // at each zoom; the badges and pins keep their size on screen here.
 (() => {
-  const SVG = "http://www.w3.org/2000/svg";
   const style = document.createElement("style");
   style.textContent = `
     .q-badge { fill: #ffd84a; stroke: #000; stroke-width: 1; vector-effect: non-scaling-stroke; cursor: help; }
@@ -35,14 +34,6 @@
   document.body.appendChild(panel);
 
   let group = null, shown = true, yardsPerPixel = 1, packsByKey = new Map();
-  const sx = p => -p.y, sy = p => -p.x;
-
-  function el(name, attrs, parent) {
-    const node = document.createElementNS(SVG, name);
-    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
-    parent.appendChild(node);
-    return node;
-  }
 
   // A pin: a drop shape whose tip is on the visit point, 14 pixels high.
   function pinPath(x, y) {

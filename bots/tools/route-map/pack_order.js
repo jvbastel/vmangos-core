@@ -16,7 +16,6 @@
 // packs. Save order writes the hand pack order file of the route
 // (pack_order.py): `pack` lines, then `skip` lines.
 (() => {
-  const SVG = "http://www.w3.org/2000/svg";
   const style = document.createElement("style");
   style.textContent = `
     #po-panel { position: fixed; right: 8px; top: 52px; width: 270px; max-height: calc(100% - 64px);
@@ -80,14 +79,6 @@
   let mode = "";           // "", "order" or "skip"
   let group = null;
   let yardsPerPixel = 1;
-  const sx = p => -p.y, sy = p => -p.x;
-
-  function el(name, attrs, parent) {
-    const node = document.createElementNS(SVG, name);
-    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
-    parent.appendChild(node);
-    return node;
-  }
 
   const generator = () => routeOrder.filter(key => !hand.includes(key) && !skipped.includes(key));
   const state = () => JSON.stringify([hand, skipped]);
@@ -141,27 +132,20 @@
       const circle = el("circle", {class: "po-aggro" + (near.has(key) ? " near" : ""), cx: sx(pack), cy: sy(pack),
                                    r: pack.aggro_radius}, group);
       el("title", {}, circle).textContent = `${nameOf(pack)}: skipped, aggro range ${pack.aggro_radius} yards`;
-      const d = 5 * yardsPerPixel;
-      for (const [a, b] of [[1, 1], [1, -1]])
-        el("line", {class: "po-cross", x1: sx(pack) - a * d, y1: sy(pack) - b * d, x2: sx(pack) + a * d,
-                    y2: sy(pack) + b * d, "data-po-cross": `${a} ${b}`}, group);
+      el("path", {class: "po-cross", "data-cross": `${sx(pack)} ${sy(pack)} 5`}, group);
     }
     hand.forEach((key, i) => {
       const pack = packs.get(key);
       if (!pack) return;
-      el("circle", {class: "po-ring", cx: sx(pack), cy: sy(pack), r: 10 * yardsPerPixel, "data-r": 10}, group);
-      const text = el("text", {class: "po-num", x: sx(pack), y: sy(pack), "text-anchor": "end",
-                               "font-size": 13 * yardsPerPixel, "data-po-size": 13}, group);
-      text.style.strokeWidth = 3 * yardsPerPixel;
-      text.setAttribute("dx", -9 * yardsPerPixel);
-      text.setAttribute("dy", 14 * yardsPerPixel);
-      text.textContent = `h${i + 1}`;
+      el("circle", {class: "po-ring", cx: sx(pack), cy: sy(pack), "data-r": 10}, group);
+      el("text", {class: "po-num", x: sx(pack), y: sy(pack), "text-anchor": "end", "data-size": 13, "data-dx": -9,
+                  "data-dy": 14, "data-halo": 3}, group).textContent = `h${i + 1}`;
     });
     if (!mode) return;
     for (const pack of packs.values()) {
       if (mode === "order" && skipped.includes(pack.key)) continue;
-      const hit = el("circle", {class: "po-hit", cx: sx(pack), cy: sy(pack), r: 9 * yardsPerPixel, "data-r": 9,
-                                "data-key": pack.key}, group);
+      const hit = el("circle", {class: "po-hit", cx: sx(pack), cy: sy(pack), "data-r": 9, "data-key": pack.key},
+                     group);
       el("title", {}, hit).textContent = `${nameOf(pack)}: ` + (mode === "skip"
         ? (skipped.includes(pack.key) ? "click to take the skip off" : "click to skip it")
         : routeOrder.includes(pack.key) ? "click to give it the next number"
@@ -169,24 +153,10 @@
     }
   }
 
-  function changed() { drawList(); drawMarks(); }
-
-  function sizeMarks() {
-    if (!group) return;
-    for (const node of group.querySelectorAll("[data-po-size]")) {
-      node.setAttribute("font-size", node.dataset.poSize * yardsPerPixel);
-      node.style.strokeWidth = 3 * yardsPerPixel;
-      node.setAttribute("dx", -9 * yardsPerPixel);
-      node.setAttribute("dy", 14 * yardsPerPixel);
-    }
-    for (const node of group.querySelectorAll("[data-po-cross]")) {
-      const [a, b] = node.dataset.poCross.split(" ").map(Number);
-      const x = (Number(node.getAttribute("x1")) + Number(node.getAttribute("x2"))) / 2;
-      const y = (Number(node.getAttribute("y1")) + Number(node.getAttribute("y2"))) / 2;
-      const d = 5 * yardsPerPixel;
-      node.setAttribute("x1", x - a * d); node.setAttribute("y1", y - b * d);
-      node.setAttribute("x2", x + a * d); node.setAttribute("y2", y + b * d);
-    }
+  function changed() {
+    drawList();
+    drawMarks();
+    if (group) sizeMarks(group, yardsPerPixel);
   }
 
   // Order mode: a click (not a pan) on a pack puts it last in the hand order
@@ -294,5 +264,6 @@
     group = el("g", {id: "po-marks"}, document.getElementById("overlay"));
     changed();
   });
-  document.addEventListener("mapview", e => { yardsPerPixel = e.detail; sizeMarks(); });
+  // The page sizes the marks of its overlay at each zoom; a redraw sizes them here.
+  document.addEventListener("mapview", e => { yardsPerPixel = e.detail; });
 })();

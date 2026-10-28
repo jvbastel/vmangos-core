@@ -141,3 +141,18 @@ def test_the_parts_of_the_load_map_call_have_no_key_in_common(tmp_path):
     parts = [{"route", "map_id", "floor", "line"}, set(packs), set(order), set(quests)]
 
     assert sum(len(p) for p in parts) == len(set().union(*parts))
+
+
+def test_the_page_loads_the_shared_helpers_first_and_no_script_copies_them(tmp_path):
+    import re
+    from pathlib import Path
+    web = client(tmp_path)
+    page = web.get("/").text
+    scripts = re.findall(r'<script src="/([\w.]+)"', page)
+
+    assert scripts[0] == "map_common.js"
+    assert web.get("/map_common.js").status_code == 200
+    here = Path(map_web.__file__).parent
+    copies = re.compile(r"const SVG\b|function el\(|const sx\b|function toMap\(|querySelectorAll\(\"\[data-r\]")
+    for name in scripts[1:] + ["map_page.html"]:
+        assert not copies.search((here / name).read_text()), name
