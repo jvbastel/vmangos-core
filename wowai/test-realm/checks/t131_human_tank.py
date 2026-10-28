@@ -12,7 +12,7 @@ cast of Hela.
 
 1. The player near death (20% health), again and again: Hela heals him and
    never casts Power Word: Shield on him.
-2. The mage near death: Hela still shields the mage.
+2. The mage near death (1 health): Hela still shields the mage.
 """
 import struct
 
@@ -94,10 +94,15 @@ results.check("Hela heals the human warrior tank near death", raised > 0 and boo
 c.gm(".modify hp %d %d" % (top, top), select=me, wait=0.5)
 c.pump(3)
 
-# 2. The mage near death: the shield still works.
+# 2. The mage near death: the shield still works. Hela gets her mana back
+# first, so that she does not sit and drink. The mage at 1 health: a mage
+# that sits to eat gains health before Hela's next think.
 _, mage_top, _, _ = stat(c, mage)
+_, _, _, priest_mana = stat(c, priest)
+c.gm(".modify mana %d %d" % (priest_mana, priest_mana), select=priest, wait=0.5)
+c.pump(3)
 start = len(c.spell_log)
-c.gm(".modify hp %d %d" % (max(1, mage_top // 5), mage_top), select=mage, wait=0.5)
+c.gm(".modify hp 1 %d" % mage_top, select=mage, wait=0.5)
 shielded = False
 for _ in range(8):
     c.pump(1)
