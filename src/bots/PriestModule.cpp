@@ -220,6 +220,11 @@ namespace Bots
                 // jvbastel/WOWAI#134: Lesser Heal and Heal take the rank
                 // that fits the missing health. Renew, the shield, and the
                 // buffs take their highest rank.
+                // jvbastel/WOWAI#136: from level 40, Greater Heal heals the
+                // most per mana: it comes before Heal. A bot that does not
+                // know it goes on to Heal.
+                CastRule("greater heal a badly hurt member", P + 82, SomeoneBelow(HealBelow), GreaterHeal,
+                    HurtMember(HealBelow), CastableHealRank),
                 CastRule("heal", P + 80, SomeoneBelow(HealBelow), Heal, HurtMember(HealBelow), CastableHealRank),
                 CastRule("lesser heal a badly hurt member", P + 75, SomeoneBelow(HealBelow), LesserHeal,
                     HurtMember(HealBelow), CastableHealRank),
