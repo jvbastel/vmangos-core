@@ -81,3 +81,57 @@ def test_two_route_packs_of_one_export_pack_are_one_pack_of_the_map_with_a_warni
     assert loaded["pack_order"]["generator"] == [501, 600]
     assert loaded["pack_order"]["warnings"] == [
         "the route packs pack1 and pack2 are one pack of the export (key 501): shown as pack1"]
+
+
+def test_saving_the_order_writes_pack_lines_that_the_route_library_parses(tmp_path):
+    from library_parse import library_pack_order
+    web = app(tmp_path)
+
+    response = web.post("/api/maps/fixture_cave/order", json={"packs": [600, 700, 501]})
+
+    assert response.status_code == 200, response.text
+    text = (tmp_path / "routes" / "fixture_cave.order.txt").read_text()
+    assert library_pack_order(text) == [600, 700, 501]
+    assert "pack 600 # bazzalan, Bazzalan\n" in text
+
+
+def test_saving_writes_only_the_order_file_of_the_open_route(tmp_path):
+    web = app(tmp_path)
+    routes = tmp_path / "routes"
+    (routes / "other_cave.order.txt").write_text("pack 1\n")
+    before = {p.name: p.read_text() for p in routes.iterdir()}
+
+    web.post("/api/maps/fixture_cave/order", json={"packs": [600]})
+
+    after = {p.name: p.read_text() for p in routes.iterdir()}
+    assert {name for name in after if after[name] != before.get(name)} == {"fixture_cave.order.txt"}
+
+
+def test_the_saved_order_reloads_unchanged(tmp_path):
+    web = app(tmp_path, "pack 502\n")
+
+    web.post("/api/maps/fixture_cave/order", json={"packs": [600, 501]})
+    order = web.get("/api/maps/fixture_cave").json()["pack_order"]
+
+    assert (order["hand"], order["generator"], order["warnings"]) == ([600, 501], [], [])
+
+
+def test_saving_refuses_a_pack_that_is_not_on_the_map_or_comes_twice(tmp_path):
+    web = app(tmp_path, "pack 600\n")
+
+    unknown = web.post("/api/maps/fixture_cave/order", json={"packs": [600, 999]})
+    twice = web.post("/api/maps/fixture_cave/order", json={"packs": [600, 600]})
+
+    assert (unknown.status_code, unknown.json()["detail"]) == (422, "999 is not the key of a pack of the map")
+    assert (twice.status_code, twice.json()["detail"]) == (422, "a pack comes twice in the order")
+    assert (tmp_path / "routes" / "fixture_cave.order.txt").read_text() == "pack 600\n"
+
+
+def test_an_empty_hand_order_gives_every_pack_back_to_the_generator(tmp_path):
+    from library_parse import library_pack_order
+    web = app(tmp_path, "pack 600\n")
+
+    web.post("/api/maps/fixture_cave/order", json={"packs": []})
+
+    assert library_pack_order((tmp_path / "routes" / "fixture_cave.order.txt").read_text()) == []
+    assert web.get("/api/maps/fixture_cave").json()["pack_order"]["generator"] == [501, 600]

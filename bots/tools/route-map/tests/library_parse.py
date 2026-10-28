@@ -1,7 +1,8 @@
-"""Parse a trace file with the route library itself (src/bots/RouteTrace.cpp,
-ParseTrace), not with the Python reader: a small program built once per test
-session with the host g++. The tests that use it are skipped when there is
-no g++."""
+"""Parse a trace file (src/bots/RouteTrace.cpp, ParseTrace) or a hand pack
+order file (src/bots/RouteGenerator.cpp, ParsePackOrder) with the route
+library itself, not with the Python reader: a small program built once per
+test session with the host g++. The tests that use it are skipped when there
+is no g++."""
 
 from __future__ import annotations
 
@@ -45,19 +46,61 @@ int main()
 """
 
 
-@functools.cache
-def _program() -> Path:
+ORDER_MAIN = r"""
+#include "RouteGenerator.h"
+#include <cstdio>
+#include <iostream>
+#include <iterator>
+#include <string>
+
+int main()
+{
+    std::string text((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
+    Bots::PackOrderResult result = Bots::ParsePackOrder(text);
+    if (!result.ok)
+    {
+        std::printf("error %s\n", result.error.c_str());
+        return 0;
+    }
+    for (std::uint32_t guid : result.guids)
+        std::printf("%u\n", guid);
+    return 0;
+}
+"""
+
+
+def _build(name: str, main: str, sources: list[str]) -> Path:
     compiler = shutil.which("g++")
     if compiler is None:
-        pytest.skip("no g++: cannot build the route library's trace parser")
-    folder = Path(tempfile.mkdtemp(prefix="route-map-trace-parse-"))
+        pytest.skip(f"no g++: cannot build the route library's {name}")
+    folder = Path(tempfile.mkdtemp(prefix=f"route-map-{name}-"))
     atexit.register(shutil.rmtree, folder, ignore_errors=True)
-    (folder / "main.cpp").write_text(MAIN)
-    program = folder / "trace_parse"
-    sources = [folder / "main.cpp", BOTS / "RouteTrace.cpp", BOTS / "DataTokenizer.cpp"]
-    subprocess.run([compiler, "-std=c++14", "-O0", "-I", str(BOTS), *map(str, sources), "-o", str(program)],
+    (folder / "main.cpp").write_text(main)
+    program = folder / name
+    paths = [folder / "main.cpp", *(BOTS / source for source in sources)]
+    subprocess.run([compiler, "-std=c++14", "-O0", "-I", str(BOTS), *map(str, paths), "-o", str(program)],
                    check=True, capture_output=True, text=True)
     return program
+
+
+@functools.cache
+def _program() -> Path:
+    return _build("trace_parse", MAIN, ["RouteTrace.cpp", "DataTokenizer.cpp"])
+
+
+@functools.cache
+def _order_program() -> Path:
+    return _build("order_parse", ORDER_MAIN,
+                  ["RouteGenerator.cpp", "Route.cpp", "DataFields.cpp", "DataTokenizer.cpp"])
+
+
+def library_pack_order(text: str) -> list[int] | str:
+    """What ParsePackOrder reads from the text: the guids in order, or the
+    error ("line <n>: ...")."""
+    out = subprocess.run([str(_order_program())], input=text, check=True, capture_output=True, text=True).stdout
+    if out.startswith("error "):
+        return out[len("error "):].strip()
+    return [int(line) for line in out.split()]
 
 
 def library_parse(text: str) -> dict:

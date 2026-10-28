@@ -17,7 +17,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+HERE = Path(__file__).resolve().parent
+
+HEADER = """\
+# The hand pack order of {route}.txt (WOWAI#147), saved on the dungeon map
+# (WOWAI#155). The packs named here come in this order, from where the route
+# meets the first of them. The other packs keep the order of the generator.
+# A pack is named by the spawn guid of its first mob: guids stay the same at
+# each regen, pack names do not. The comments give the pack names of the
+# route at the save.
+"""
 
 
 class PackOrderError(Exception):
@@ -65,13 +78,14 @@ def merge_shared_keys(packs: list[dict]) -> tuple[list[dict], list[str]]:
     return list(merged.values()), warnings
 
 
-def map_part(route, packs: dict, routes: Path) -> dict:
+def map_part(name: str, packs: dict, routes: Path) -> dict:
     """The packs of the map with one pack per key, and the current pack
     order of the route: the hand part (the packs of the order file, in its
     order) and the generator's part (the other packs of the route, in route
-    order). `packs` is map_packs.map_part's result; the load-map call puts
-    this part after it, so these packs replace its packs."""
-    path = routes / file_name(route.name)
+    order). `name` is the route file's name, `packs` map_packs.map_part's
+    result; the load-map call puts this part after it, so these packs
+    replace its packs."""
+    path = routes / file_name(name)
     merged, warnings = merge_shared_keys(packs["packs"])
     pack_of = {m["guid"]: p["key"] for p in merged for m in p["mobs"]}
     hand: list[int] = []
@@ -93,3 +107,41 @@ def map_part(route, packs: dict, routes: Path) -> dict:
     generator = [p["key"] for p in on_route if p["key"] not in hand]
     return {"packs": merged, "pack_order": {"file": path.name, "exists": path.is_file(), "hand": hand, "generator": generator,
                            "warnings": warnings}}
+
+
+def write(route_name: str, keys: list[int], packs: list[dict]) -> str:
+    """The text of the order file: one `pack <key>` line per pack, with its
+    route name and its mobs as a comment."""
+    by_key = {p["key"]: p for p in packs}
+    lines = [HEADER.format(route=route_name)]
+    for key in keys:
+        pack = by_key[key]
+        names = ", ".join(m["name"] or str(m["entry"]) for m in pack["mobs"])
+        lines.append(f"pack {key} # {pack['label'] or 'off the route'}, {names}\n")
+    return "".join(lines)
+
+
+class SavedOrder(BaseModel):
+    packs: list[int]  # the pack keys of the hand order, in order
+
+
+def add_routes(app: FastAPI, settings, load_route, load_packs):
+    """The save-order call and the page part. load_packs(route) is the
+    map_packs part of the route's map."""
+    @app.get("/pack_order.js")
+    def script():
+        return FileResponse(HERE / "pack_order.js", media_type="text/javascript")
+
+    @app.post("/api/maps/{name}/order")
+    def save(name: str, order: SavedOrder):
+        route = load_route(name)
+        packs, _ = merge_shared_keys(load_packs(route)["packs"])
+        known = {p["key"] for p in packs}
+        for key in order.packs:
+            if key not in known:
+                raise HTTPException(422, f"{key} is not the key of a pack of the map")
+        if len(set(order.packs)) != len(order.packs):
+            raise HTTPException(422, "a pack comes twice in the order")
+        path = settings.routes / file_name(name)
+        path.write_text(write(name, order.packs, packs))
+        return {"file": path.name, "packs": len(order.packs)}

@@ -149,11 +149,12 @@ def create_app(settings: Settings) -> FastAPI:
             "floor": load_floor(route, z_min, z_max),
             "line": [vars(p) for p in route.line],
             **packs,
-            **pack_order.map_part(route, packs, settings.routes),
+            **pack_order.map_part(name, packs, settings.routes),
         }
 
     route_draw.add_routes(app, settings, load_route, load_navmesh)
     map_packs.add_routes(app)
+    pack_order.add_routes(app, settings, load_route, lambda route: map_packs.map_part(route, load_export(route.map_id)))
     route_draft.add_routes(app, settings, load_route)
     return app
 
