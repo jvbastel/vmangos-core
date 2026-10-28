@@ -12,6 +12,12 @@
 // A mark in two regions takes the more visible state; a line piece fades
 // only when both of its ends are in faded regions.
 //
+// Clicks go through a faded or hidden mark or image (pointer-events none, so
+// also no drag and no tooltip): the player clicks the ground and the packs
+// under it. Draw mode sends the faded names with its snap requests, so a
+// click lands on the ground the player sees (#185). A click on a pack in the
+// pack order list (pack_order.js) whose marks are faded picks its region.
+//
 // Other scripts read the pick through window.regionPick (picked, hide,
 // faded: the names of the regions not shown as normal) or the "regionpick"
 // event, sent at each change.
@@ -25,10 +31,15 @@
   document.head.appendChild(style);
 
   const OPACITY = {normal: "", faded: "0.2", hidden: "0"};
+  const show = (node, state) => {
+    node.style.opacity = OPACITY[state];
+    node.style.pointerEvents = state === "normal" ? "" : "none";  // clicks go through (#185)
+  };
   const RANK = {hidden: 0, faded: 1, normal: 2};
   let names = [];      // the regions of the map data, as its ground images
   let picked = null;   // the picked region, or null for "None"
   let hide = false;    // hide the other regions instead of fading them
+  let packRegions = new Map();  // pack key -> the regions of the pack (#185)
 
   const box = document.createElement("div");
   box.id = "rp-box";
@@ -46,13 +57,9 @@
   const markState = regions => regions.length ? best(regions.map(stateOf)) : "normal";
 
   function apply() {
-    for (const node of map.querySelectorAll("[data-region]")) node.style.opacity = OPACITY[stateOf(node.dataset.region)];
-    for (const node of map.querySelectorAll("[data-regions]")) {
-      node.style.opacity = OPACITY[markState(JSON.parse(node.dataset.regions))];
-    }
-    for (const node of map.querySelectorAll("[data-ends]")) {
-      node.style.opacity = OPACITY[best(JSON.parse(node.dataset.ends).map(markState))];
-    }
+    for (const node of map.querySelectorAll("[data-region]")) show(node, stateOf(node.dataset.region));
+    for (const node of map.querySelectorAll("[data-regions]")) show(node, markState(JSON.parse(node.dataset.regions)));
+    for (const node of map.querySelectorAll("[data-ends]")) show(node, best(JSON.parse(node.dataset.ends).map(markState)));
   }
 
   const faded = () => names.filter(name => stateOf(name) !== "normal");
@@ -74,9 +81,25 @@
     box.style.display = names.length ? "" : "none";
   }
 
+  function pick(name) {
+    picked = name;
+    drawList();
+    changed();
+  }
+
+  // A pack in a faded or hidden region stays in the pack order list: a click
+  // on it there picks its region (the first one), so the player sees it.
+  document.addEventListener("click", e => {
+    const li = e.target.closest && e.target.closest("#po-panel li");
+    if (!li || e.target.closest("button")) return;
+    const regions = packRegions.get(Number(li.dataset.key)) || [];
+    if (regions.length && markState(regions) !== "normal") pick(regions[0]);
+  });
+
   hideBox.addEventListener("change", () => { hide = hideBox.checked; changed(); });
   document.addEventListener("mapdata", e => {
     const images = e.detail.floor.images || [];
+    packRegions = new Map((e.detail.packs || []).map(pack => [pack.key, pack.regions || []]));
     names = images.map(i => i.region).filter(name => name !== null);
     if (!names.includes(picked)) picked = null;
     drawList();
@@ -89,5 +112,5 @@
   // Marks drawn later (a draft, a walk, a redraw) get the state at once.
   new MutationObserver(apply).observe(map, {childList: true, subtree: true});
 
-  window.regionPick = {picked: () => picked, hide: () => hide, faded};
+  window.regionPick = {picked: () => picked, hide: () => hide, faded, pick};
 })();
