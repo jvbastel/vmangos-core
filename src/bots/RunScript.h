@@ -61,6 +61,12 @@
 //   nearest to it to the last one before the pack (Route.h,
 //   WalkBackPoints), holds its place when it did so before, and the driver
 //   pulls again. Then the run fails.
+// - `join <pack> [<bot>]`: the living mobs of the pack attack a group member
+//   at once, as a call for help makes them: they come from where they
+//   stand, for example into a fight that a `command pull` started (a "name
+//   pull"). `<bot>` is the member they go for; with none, the living member
+//   nearest to the pack. The result lists the pack as an extra pack of the
+//   pull that the script brought, so it does not count against the tank.
 // - `release <seconds>` or `release never`: in a wipe, the test driver
 //   releases this long after the last member died (default 5 s), and the
 //   group revives at the dungeon entrance. `never`: nobody releases.
@@ -96,6 +102,7 @@ namespace Bots
         ExpectAlive,
         WaitRested,
         Fight,
+        Join,
         Release,
         Route,
         // Only the runner adds it, for a fight again: the walk of the group
@@ -110,6 +117,9 @@ namespace Bots
         std::string name;
         // The chat text of `command` and `whisper`.
         std::string text;
+        // The member that the pack of `join` goes for, or empty: the member
+        // nearest to the pack.
+        std::string victim;
         // The creature entry of `target <entry>` and `expect boss_dead`.
         std::uint32_t entry = 0;
         // The distance of `clear`, and the packs that stay.

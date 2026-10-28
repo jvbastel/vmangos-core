@@ -43,6 +43,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <ctime>
 #include <fstream>
 #include <list>
@@ -366,6 +367,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_pullFled.clear();
     m_pullChoices = Bots::PullChoices();
     m_joinCause.clear();
+    m_scriptJoins.clear();
     m_pullJudged = false;
     m_driverSeen = false;
     ++m_number;
@@ -989,6 +991,8 @@ bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
             return ExpectAlive(detail);
         case Bots::ScriptCommandKind::Fight:
             return Fight(command, detail);
+        case Bots::ScriptCommandKind::Join:
+            return Join(command, detail);
         case Bots::ScriptCommandKind::Release:
             m_releaseNever = command.never;
             m_releaseMs = int64(command.seconds) * 1000;
@@ -1551,6 +1555,56 @@ bool BotRun::Fight(Bots::ScriptCommand const& command, std::string& detail)
     return Say(CHAT_MSG_PARTY, nullptr, "pull");
 }
 
+bool BotRun::Join(Bots::ScriptCommand const& command, std::string& detail)
+{
+    Player* driver = Driver();
+    std::vector<Creature*> mobs;
+    for (Bots::RouteMob const& mob : Bots::FindPack(m_route, command.name)->mobs)
+        if (Creature* creature = SpawnOf(driver, mob))
+            if (creature->IsAlive() && !creature->IsInCombat() && creature->AI())
+                mobs.push_back(creature);
+    if (mobs.empty())
+    {
+        detail = "no living mob of " + command.name + " is out of combat";
+        return false;
+    }
+    Player* victim = nullptr;
+    if (!command.victim.empty())
+    {
+        victim = FindByName(command.victim);
+        if (!IsLivingMember(victim) || victim->GetMap() != mobs.front()->GetMap())
+        {
+            detail = command.victim + " is no living member on the map of " + command.name;
+            return false;
+        }
+    }
+    else
+        for (Player* member : Members())
+            if (member != driver && IsLivingMember(member) && member->GetMap() == mobs.front()->GetMap() &&
+                (!victim || mobs.front()->GetDistance(member) < mobs.front()->GetDistance(victim)))
+                victim = member;
+    if (!victim)
+    {
+        detail = "no living member on the map of " + command.name;
+        return false;
+    }
+    // As the call for help of the core (AssistDelayEvent): each mob attacks
+    // the victim from where it stands, and calls for no more help itself.
+    float const yards = mobs.front()->GetDistance(victim);
+    bool const inCombat = Facts().groupInCombat;
+    for (Creature* creature : mobs)
+    {
+        creature->SetNoCallAssistance(true);
+        creature->AI()->AttackStart(victim);
+    }
+    m_scriptJoins.insert(command.name);
+    char text[160];
+    std::snprintf(text, sizeof(text), "%s (%u mobs) joins on %s from %.1f yd%s", command.name.c_str(), uint32(mobs.size()),
+        victim->GetName(), yards, inCombat ? "" : ", with the group out of combat");
+    detail = text;
+    return true;
+}
+
 void BotRun::RecordPull(Bots::ScriptCommand const& command)
 {
     Player const* driver = Driver();
@@ -1693,6 +1747,7 @@ void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
 Bots::ExtraPackCause BotRun::CauseOf(std::string const& pack) const
 {
     Bots::ExtraPackCause cause;
+    cause.scripted = m_scriptJoins.count(pack) > 0;
     Player const* driver = Driver();
     if (!driver)
         return cause;

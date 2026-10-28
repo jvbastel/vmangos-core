@@ -142,11 +142,14 @@ namespace Bots
         // An enemy of the pack patrols (jvbastel/WOWAI#108): its spawn walks
         // waypoints, or follows a leader who does.
         bool patrol = false;
+        // A `join` of the script sent the pack into the fight (RunScript.h).
+        bool scripted = false;
     };
 
     // The mark of an extra pack when it joins: `atPull`, the mark of
     // MarkExtraPack with the choices at the pull, or null when the pack was
-    // out of reach of the search then. A flee or a patrol makes any pack unavoidable.
+    // out of reach of the search then. A `join`, a flee, or a patrol makes any
+    // pack unavoidable.
     // `pullJudged` is false when the run could not mark the packs at the
     // pull (no living tank, no target): then a pack with no flee or patrol
     // is "not judged", and not avoidable.

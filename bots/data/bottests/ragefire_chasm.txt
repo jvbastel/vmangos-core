@@ -173,3 +173,70 @@ refill
 wait 3
 fight pack9
 expect pack_dead pack9
+
+# Adds that join a fight in its middle (a "name pull"): the group pulls a
+# pack of one mob, and 12 s later, when the tank holds it, a `join`
+# sends a second pack in from where it stands. The tank must pick up the
+# adds, the healer must live, and the damage bots must not lose the plot.
+# The result lists the second pack as an extra pack of the pull that the
+# script brought (not the tank's fault); the threat losses, the deaths, and
+# the fight summary show how the group took it.
+#
+# One Ragefire Trogg (pack13), then a Ragefire Shaman and two Troggs
+# (pack14, 29.7 yd from pack13, about 45 yd from the pull point) on the
+# member nearest to them.
+scenario join_three
+teleport p18             # 23 yd from pack13: pull_pack13 is in its aggro reach
+clear 100 pack13 pack14  # only the two packs stay; also the patrol pack7
+command follow
+wait 20
+command stay
+refill
+wait 3
+target pack13
+command pull
+wait 12
+join pack14
+wait combat_end 300
+expect pack_dead pack13
+expect pack_dead pack14
+expect alive
+
+# As join_three, but the adds go for the healer: the tank has to run back
+# and take them off Hela.
+scenario join_three_healer
+teleport p18
+clear 100 pack13 pack14
+command follow
+wait 20
+command stay
+refill
+wait 3
+target pack13
+command pull
+wait 12
+join pack14 Hela
+wait combat_end 300
+expect pack_dead pack13
+expect pack_dead pack14
+expect alive
+
+# A harder one: one Molten Elemental (pack35), then the four Searing Blades
+# of pack36 (two Cultists, two Enforcers; 29.1 yd from pack35, about 56 yd
+# from the pull point) on the healer.
+scenario join_four_healer
+teleport pull_pack35
+clear 100 pack35 pack36
+command follow
+wait 20
+command stay
+refill
+wait 3
+target pack35
+command pull
+wait 12
+join pack36 Hela
+wait combat_end 300
+expect pack_dead pack35
+expect pack_dead pack36
+expect alive

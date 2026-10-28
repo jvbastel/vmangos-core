@@ -385,6 +385,22 @@ TEST(ExtraPackJudge, AFleeOrAPatrolMakesAnExtraPackUnavoidable)
     EXPECT_EQ(plain.reason, avoidable.reason);
 }
 
+// A pack that a `join` of the script sends in is no fault of the tank, also
+// with no mark from the pull.
+TEST(ExtraPackJudge, AJoinOfTheScriptMakesAnExtraPackUnavoidable)
+{
+    ExtraPackMark const avoidable = {true, "a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out"};
+    Bots::ExtraPackCause join;
+    join.scripted = true;
+
+    ExtraPackMark const marked = Bots::JudgeExtraPack(true, &avoidable, join);
+    ExtraPackMark const unmarked = Bots::JudgeExtraPack(true, nullptr, join);
+
+    EXPECT_FALSE(marked.avoidable);
+    EXPECT_EQ(marked.reason, "the script brought it (join)");
+    EXPECT_FALSE(unmarked.avoidable);
+}
+
 TEST(ExtraPackJudge, APackThatJoinsWithNoMarkFromThePullIsAvoidable)
 {
     ExtraPackMark const mark = Bots::JudgeExtraPack(true, nullptr, {});
