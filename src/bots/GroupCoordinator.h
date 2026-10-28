@@ -404,8 +404,13 @@ namespace Bots
         BossFight m_bossFight = {NoGuid, 0};
         BossFight m_bossFought = {NoGuid, 0};
         // jvbastel/WOWAI#170: by bot, its health notes of the last
-        // HealthFallMs (time, health), oldest first.
-        std::map<Guid, std::vector<std::pair<std::int64_t, std::uint32_t>>> m_healthNotes;
+        // HealthFallMs, oldest first.
+        struct HealthNote
+        {
+            std::int64_t atMs;
+            std::uint32_t health;
+        };
+        std::map<Guid, std::vector<HealthNote>> m_healthNotes;
     };
 }
 

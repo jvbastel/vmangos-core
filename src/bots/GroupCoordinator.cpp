@@ -520,16 +520,16 @@ namespace Bots
     bool GroupCoordinator::NoteHealthFalls(Guid bot, std::uint32_t health, std::int64_t nowMs)
     {
         Lock lock(m_mutex);
-        std::vector<std::pair<std::int64_t, std::uint32_t>>& notes = m_healthNotes[bot];
+        std::vector<HealthNote>& notes = m_healthNotes[bot];
+        // A note from the future (the clock went back) is dropped too.
         notes.erase(std::remove_if(notes.begin(), notes.end(),
-                        [nowMs](std::pair<std::int64_t, std::uint32_t> const& note) {
-                            return nowMs - note.first > HealthFallMs || note.first > nowMs;
+                        [nowMs](HealthNote const& note) {
+                            return nowMs - note.atMs > HealthFallMs || note.atMs > nowMs;
                         }),
             notes.end());
-        bool falls = false;
-        for (std::pair<std::int64_t, std::uint32_t> const& note : notes)
-            falls = falls || note.second > health;
-        notes.emplace_back(nowMs, health);
+        bool const falls = std::any_of(notes.begin(), notes.end(),
+            [health](HealthNote const& note) { return note.health > health; });
+        notes.push_back(HealthNote{nowMs, health});
         return falls;
     }
 }

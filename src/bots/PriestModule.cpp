@@ -132,9 +132,10 @@ namespace Bots
             // casts: a step would stop the heal.
             bool WalksToTheTank(BotContext const& context)
             {
+                Guid const self = PickSelf(context);
                 Guid const tank = context.group.GetTank();
-                return IsAttacked(context) && tank != NoGuid && tank != PickSelf(context)
-                    && context.view.GetCurrentCast(PickSelf(context)) == NoSpell
+                return IsAttacked(context) && tank != NoGuid && tank != self
+                    && context.view.GetCurrentCast(self) == NoSpell
                     && IsAlive(context.view, tank) && context.view.GetDistance(tank) > AtTheTankYards;
             }
 
