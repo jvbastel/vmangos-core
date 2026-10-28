@@ -134,6 +134,32 @@ TEST(ScriptRunner, WaitArriveNamesTheStopOfTheMove)
     EXPECT_EQ(step.reason, "line 6: wait arrive: the test driver did not arrive in 60 s, its move stopped: the rule drink");
 }
 
+// A move that stops in a fight goes on after it (jvbastel/WOWAI#128): the
+// limit counts from the end of the last fight, so a long fight on the way
+// does not fail the run.
+TEST(ScriptRunner, WaitArriveCountsItsLimitFromTheEndOfTheFight)
+{
+    ScriptRunner runner(Commands("wait arrive\nrefill\n"));
+    RunFacts there;
+    there.driverArrived = true;
+    runner.Update(Idle(), 0);
+
+    EXPECT_EQ(runner.Update(InCombat(), 50000).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(InCombat(), 90000).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(Idle(), 90000 + Bots::ArriveLimitMs - 1).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(there, 90000 + Bots::ArriveLimitMs - 1).kind, RunStepKind::Do);
+}
+
+TEST(ScriptRunner, WaitArriveFailsAfterItsLimitFromTheEndOfTheFight)
+{
+    ScriptRunner runner(Commands("wait arrive\n"));
+    runner.Update(Idle(), 0);
+    runner.Update(InCombat(), 30000);
+
+    EXPECT_EQ(runner.Update(Idle(), 30000 + Bots::ArriveLimitMs - 1).kind, RunStepKind::Wait);
+    EXPECT_EQ(runner.Update(Idle(), 30000 + Bots::ArriveLimitMs).kind, RunStepKind::Failed);
+}
+
 TEST(ScriptRunner, WaitCombatEndWaitsForAFightAndItsEnd)
 {
     ScriptRunner runner(Commands("wait combat_end\nrefill\n"));

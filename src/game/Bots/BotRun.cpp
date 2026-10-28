@@ -1060,20 +1060,17 @@ bool BotRun::Move(Bots::RoutePoint const& point, std::string& detail)
     }
     float x, y;
     Bots::RoutePlace const place = PickPlace(point, driver->GetName(), x, y);
-    // The one ground height helper of the bots (BotAdapter::GetGround).
-    float const z = BotAdapter(driver).GetGround({x, y, place.position.z}).z;
-    // A driver that still sits stands up: a walk ends its meal.
-    driver->SetStandState(UNIT_STAND_STATE_STAND);
-    driver->GetMotionMaster()->Clear();
-    driver->GetMotionMaster()->MovePoint(0, x, y, z, MOVE_PATHFINDING | MOVE_RUN_MODE);
-    m_moving = true;
     m_moveX = x;
     m_moveY = y;
+    // The one ground height helper of the bots (BotAdapter::GetGround).
+    m_moveZ =BotAdapter(driver).GetGround({x, y, place.position.z}).z;
+    SendMove(driver);
+    m_moving = true;
     m_moveRadius = place.radius;
     m_movePoint = point.name;
     m_visited = false;
-    // While the move is in progress, the driver does not rest. Nothing sends
-    // a stopped move again (jvbastel/WOWAI#99).
+    // While the move is in progress, the driver does not rest. Only a move
+    // that stopped in a fight is sent again (WatchMove).
     EndMove();
     std::string const line = m_move.Start(driver->GetName(), point.name);
     m_moveInProgress = true;
@@ -1098,13 +1095,37 @@ bool BotRun::OnScriptedMove(Player* driver) const
     return point && point->GetDestination(x, y, z) && x == m_moveX && y == m_moveY;
 }
 
+void BotRun::SendMove(Player* driver)
+{
+    // A driver that still sits stands up: a walk ends its meal.
+    driver->SetStandState(UNIT_STAND_STATE_STAND);
+    driver->GetMotionMaster()->Clear();
+    driver->GetMotionMaster()->MovePoint(0, m_moveX, m_moveY, m_moveZ, MOVE_PATHFINDING | MOVE_RUN_MODE);
+}
+
 void BotRun::WatchMove(Player* driver, int64 nowMs)
 {
     if (!m_move.InProgress())
         return;
+    bool const inFight = Facts().groupInCombat;
     std::string line;
     if (DriverArrived(driver))
         line = m_move.Arrive();
+    else if (m_move.Waits())
+    {
+        // A move that stopped in a fight goes on when the fight is over
+        // (jvbastel/WOWAI#128). A rule that takes the driver off it again
+        // is its next stop reason.
+        if (driver->IsAlive() && m_move.FightEnded(inFight, nowMs))
+        {
+            {
+                std::lock_guard<std::mutex> lock(m_moveRuleMutex);
+                m_moveRule.clear();
+            }
+            SendMove(driver);
+            line = m_move.GoOn();
+        }
+    }
     else if (!OnScriptedMove(driver))
     {
         // A rule of the driver's bot AI, else the core: for example a stun,
@@ -1115,7 +1136,8 @@ void BotRun::WatchMove(Player* driver, int64 nowMs)
             rule = m_moveRule;
         }
         line = m_move.Stop(!rule.empty() ? "the rule " + rule
-            : "the core's motion change to " + MotionName(driver->GetMotionMaster()->GetCurrentMovementGeneratorType()));
+            : "the core's motion change to " + MotionName(driver->GetMotionMaster()->GetCurrentMovementGeneratorType()),
+            inFight);
     }
     if (line.empty())
         return;

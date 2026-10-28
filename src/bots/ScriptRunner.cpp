@@ -97,6 +97,11 @@ namespace Bots
                         case ScriptCommandKind::WaitArrive:
                             if (facts.driverArrived)
                                 done = true;
+                            // A fight on the way stops the move until it
+                            // ends (ScriptedMove.h): the limit counts from
+                            // the end of the last fight.
+                            else if (facts.groupInCombat)
+                                m_since = nowMs;
                             else if (waited >= ArriveLimitMs)
                                 return Fail("the test driver did not arrive in " + Seconds(ArriveLimitMs) +
                                     (facts.driverMoveStop.empty() ? "" : ", its move stopped: " + facts.driverMoveStop));

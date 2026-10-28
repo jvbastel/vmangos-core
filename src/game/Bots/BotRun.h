@@ -172,8 +172,10 @@ class BotRun
         // The last `move` is still the motion of the driver: its point is
         // on top of the motion master.
         bool OnScriptedMove(Player* driver) const;
-        // The scripted move: its trace lines, its stop, and its arrival
-        // (jvbastel/WOWAI#99).
+        // The walk of the driver to the point of its last `move`.
+        void SendMove(Player* driver);
+        // The scripted move: its trace lines, its stop, its go-on after a
+        // fight, and its arrival (jvbastel/WOWAI#99, jvbastel/WOWAI#128).
         void WatchMove(Player* driver, int64 nowMs);
         // A teleport or the end of the run ends the move.
         void EndMove();
@@ -326,7 +328,7 @@ class BotRun
         Bots::RoutePoint m_teleportPoint;
         // The end of the last `move` of the driver.
         bool m_moving = false;
-        float m_moveX = 0.0f, m_moveY = 0.0f, m_moveRadius = 0.0f;
+        float m_moveX = 0.0f, m_moveY = 0.0f, m_moveZ = 0.0f, m_moveRadius = 0.0f;
         std::string m_movePoint;
         bool m_visited = false; // The quests know that the driver reached m_movePoint.
         Bots::ScriptedMove m_move;
