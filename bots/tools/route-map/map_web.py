@@ -117,6 +117,13 @@ class MapData:
         except export_file.ExportFileError as error:
             raise HTTPException(422, f"export: {error}")
 
+    def regions(self, map_id: int) -> list[regions.Region]:
+        """The regions of the map (regions.py), none with no regions file."""
+        try:
+            return regions.load(self.settings.routes, map_id)
+        except regions.RegionsError as error:
+            raise HTTPException(422, f"regions: {error}")
+
     def packs(self, route: route_file.Route) -> dict:
         """map_packs' part of the route's map: one pack per key."""
         return map_packs.map_part(route, self.export(route.map_id))
@@ -131,6 +138,17 @@ def join_parts(*parts: dict) -> dict:
             raise ValueError(f"load-map parts share the keys {sorted(shared)}")
         joined.update(part)
     return joined
+
+
+def mark_regions(data: dict, map_regions: list[regions.Region]) -> dict:
+    """The load-map result with region marks (regions.mark): every position
+    carries the regions it is in, and a quest badge those of its pack."""
+    if not map_regions:
+        return data
+    data = regions.mark(data, map_regions)
+    pack_regions = {p["key"]: p["regions"] for p in data["packs"]}
+    data["quest_badges"] = [{**b, "regions": pack_regions.get(b["pack"], [])} for b in data["quest_badges"]]
+    return data
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -181,9 +199,9 @@ def create_app(settings: Settings) -> FastAPI:
         quests = map_quests.map_part(route, export, packs["packs"], order["pack_order"]["pulled"])
         base = {"route": route.name, "map_id": route.map_id, "floor": load_floor(route, z_min, z_max),
                 "line": [vars(p) for p in route.line]}
-        return join_parts(base, packs, order, quests)
+        return mark_regions(join_parts(base, packs, order, quests), maps.regions(route.map_id))
 
-    walked_path.add_routes(app)
+    walked_path.add_routes(app, maps)
     route_draw.add_routes(app, maps)
     map_packs.add_routes(app)
     pack_order.add_routes(app, maps)

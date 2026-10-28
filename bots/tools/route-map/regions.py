@@ -81,6 +81,27 @@ def regions_at(regions: list[Region], x: float, y: float, z: float) -> list[str]
     return [r.name for r in regions if r.holds(x, y, z)]
 
 
+def mark(data, regions: list[Region]):
+    """A copy of the data (dicts and lists, as a call gives them) in which
+    every position (a dict with numbers x, y and z) carries `regions`: the
+    names of the regions it is in, [] for none. With no regions the data
+    comes back unchanged, with no marks."""
+    if not regions:
+        return data
+
+    def walk(value):
+        if isinstance(value, list):
+            return [walk(v) for v in value]
+        if not isinstance(value, dict):
+            return value
+        out = {k: walk(v) for k, v in value.items()}
+        if all(isinstance(value.get(k), (int, float)) and not isinstance(value.get(k), bool) for k in "xyz"):
+            out["regions"] = regions_at(regions, value["x"], value["y"], value["z"])
+        return out
+
+    return walk(data)
+
+
 def file_name(map_id: int) -> str:
     return f"map_{map_id}.regions.txt"
 
