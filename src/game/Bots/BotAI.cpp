@@ -446,7 +446,7 @@ bool BotAI::UsesGroupCoordinator() const
     return CoordinatorChoiceNow() == Bots::CoordinatorChoice::Group;
 }
 
-Bots::Guid BotAI::GroupTankNow() const
+Bots::Guid BotAI::GroupTankNow(Bots::Guid current) const
 {
     Group const* group = me->GetGroup();
     if (!group)
@@ -461,9 +461,14 @@ Bots::Guid BotAI::GroupTankNow() const
         // stands in for one: no bot role (BotMgr::BotRoleOf).
         Bots::BotRole role = Bots::BotRole::Ranged;
         bool const isBot = sBotMgr.BotRoleOf(player, role);
-        members.push_back({slot.guid.GetRawValue(), isBot, role});
+        members.push_back({slot.guid.GetRawValue(), isBot, role, player->GetClass() == CLASS_WARRIOR});
     }
-    return Bots::PickGroupTank(members, group->GetLeaderGuid().GetRawValue());
+    // The current tank stays when it is a bot tank, also on another map.
+    Player const* currentPlayer = current != Bots::NoGuid ? ObjectAccessor::FindPlayer(ObjectGuid(current)) : nullptr;
+    Bots::BotRole currentRole = Bots::BotRole::Ranged;
+    bool const currentIsBotTank = currentPlayer && sBotMgr.BotRoleOf(currentPlayer, currentRole)
+        && currentRole == Bots::BotRole::Tank;
+    return Bots::NextGroupTank(members, group->GetLeaderGuid().GetRawValue(), current, currentIsBotTank);
 }
 
 std::shared_ptr<Bots::GroupCoordinator> BotAI::Coordinator()
@@ -573,14 +578,14 @@ void BotAI::Think()
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
         Bots::WatchTrail(adapter, *coordinator);
     }
-    // Spec #131, story 10: with no bot tank, a human leader who tanks gets
+    // Spec #131, story 10: with no bot tank, a human warrior leader gets
     // the care of the tank (no shield on a rage tank, PriestModule.cpp).
-    // The game keeps no record of a player's role, so the leader counts as
-    // the tank. Only the group coordinator: the leader is on the bot's map.
+    // The game keeps no record of a player's role, so a warrior leader
+    // counts as the tank (GroupTank.h). Only the group coordinator: the leader is on the bot's map.
     else if (UsesGroupCoordinator())
     {
-        Bots::Guid const tank = GroupTankNow();
-        if (tank != Bots::NoGuid && tank != coordinator->GetTank())
+        Bots::Guid const tank = GroupTankNow(coordinator->GetTank());
+        if (tank != coordinator->GetTank())
             coordinator->SetTank(tank);
     }
     // The tank taunts enemies off the healer first (WarriorModule.cpp).

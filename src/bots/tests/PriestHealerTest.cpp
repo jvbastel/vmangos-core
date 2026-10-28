@@ -585,7 +585,7 @@ namespace
         priest.fake.SetDistance(Human, 20.0f);
         priest.fake.SetAura(Human, Priest::PowerWordFortitude);
         priest.fake.SetPowerKind(Human, power);
-        priest.group.SetTank(Bots::PickGroupTank({{Human, false, Bots::BotRole::Ranged},
+        priest.group.SetTank(Bots::PickGroupTank({{Human, false, Bots::BotRole::Ranged, true},
             {Healer, true, Bots::BotRole::Healer}, {Mage, true, Bots::BotRole::Ranged}}, Human));
         priest.group.SetFocusTarget(Kobold);
         priest.fake.SetVictim(Human, Kobold);
@@ -614,7 +614,7 @@ TEST(PriestHealerRageTank, ShieldsAHumanMemberNearDeathWhenABotTanks)
     priest.fake.SetAura(Human, Priest::PowerWordFortitude);
     // A human warrior that does not tank: the bot tank does.
     priest.fake.SetPowerKind(Human, Bots::PowerKind::Rage);
-    priest.group.SetTank(Bots::PickGroupTank({{Tank, true, Bots::BotRole::Tank}, {Human, false, Bots::BotRole::Ranged},
+    priest.group.SetTank(Bots::PickGroupTank({{Tank, true, Bots::BotRole::Tank}, {Human, false, Bots::BotRole::Ranged, true},
         {Healer, true, Bots::BotRole::Healer}}, Human));
     priest.InFight();
 
