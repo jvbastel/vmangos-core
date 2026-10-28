@@ -1055,3 +1055,73 @@ TEST(PlayerTankRest, InABotTankGroupTheHealerSaysNothingWhenItDrinks)
     EXPECT_EQ(bot.Think(), "drink");
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"drink"}));
 }
+
+// Spec #188 fix-up (S1): no rest and follow loop. A bot that saw the player
+// tank go beyond PlayerTankRestYards starts no meal again until the tank has
+// stood still for PlayerTankWaitMs (the player waits for the group). A bot
+// near the tank while it walks on keeps following.
+namespace
+{
+    // The tank stands at (0, `y`), `yards` from the bot, at `nowMs`.
+    void TankAt(GroupBot& bot, float y, float yards, std::int64_t nowMs)
+    {
+        bot.fake.SetPosition(Player, {0.0f, y, 0.0f});
+        bot.fake.SetDistance(Player, yards);
+        Bots::WatchTankTrail(bot.fake, bot.group);
+        Bots::WatchPlayerTankRest(bot.fake, bot.group, nowMs);
+    }
+}
+
+TEST(PlayerTankRest, ABotTheTankLeftDoesNotSitAgainWhileTheTankWalksOn)
+{
+    PlayerTankMage bot;
+    bot.fake.SetMana(Mage, 150, 400);
+    bot.fake.SetFollowTarget(NoGuid);
+    TankWalksOff(bot, 35.0f);
+    Bots::WatchPlayerTankRest(bot.fake, bot.group, 0);
+    ASSERT_EQ(bot.Think(), Bots::FollowTankTrailRule);
+
+    // The bot closed in to 29.9 yd, and the tank walks on.
+    TankAt(bot, 36.0f, 29.9f, 500);
+    TankAt(bot, 37.0f, 29.9f, 1000);
+
+    EXPECT_EQ(bot.Think(), Bots::FollowTankTrailRule);
+    EXPECT_FALSE(Bots::KeepsRestingNow(bot.fake, bot.group));
+}
+
+TEST(PlayerTankRest, ABotTheTankLeftDrinksOnceTheTankStood3SecondsThenFollowsAgain)
+{
+    PlayerTankMage bot;
+    bot.fake.SetMana(Mage, 150, 400);
+    bot.fake.SetFollowTarget(NoGuid);
+    TankWalksOff(bot, 31.0f);
+    // The tank stops 31 yd from the bot.
+    TankAt(bot, 31.0f, 31.0f, 0);
+    ASSERT_EQ(bot.Think(), Bots::FollowTankTrailRule);
+
+    // The bot came near. The tank has stood still for 2.5 s: no drink yet.
+    TankAt(bot, 31.0f, 20.0f, Bots::PlayerTankWaitMs - 500);
+    EXPECT_EQ(bot.Think(), Bots::FollowTankTrailRule);
+    // 3 s: the player waits for the group.
+    TankAt(bot, 31.0f, 20.0f, Bots::PlayerTankWaitMs);
+    EXPECT_EQ(bot.Think(), "drink");
+
+    // The tank walks on: the bot stands up and follows, and does not sit
+    // again on the way.
+    bot.fake.SetDrinking();
+    TankAt(bot, 40.0f, 31.0f, Bots::PlayerTankWaitMs + 1000);
+    EXPECT_FALSE(Bots::KeepsRestingNow(bot.fake, bot.group));
+    bot.fake.SetDrinking(false);
+    EXPECT_EQ(bot.Think(), Bots::FollowTankTrailRule);
+    TankAt(bot, 42.0f, 29.0f, Bots::PlayerTankWaitMs + 1500);
+    EXPECT_EQ(bot.Think(), Bots::FollowTankTrailRule);
+}
+
+TEST(PlayerTankRest, ABotTheTankNeverLeftDrinksAtOnce)
+{
+    PlayerTankMage bot;
+    bot.fake.SetMana(Mage, 150, 400);
+    TankAt(bot, 20.0f, 20.0f, 0);
+
+    EXPECT_EQ(bot.Think(), "drink");
+}

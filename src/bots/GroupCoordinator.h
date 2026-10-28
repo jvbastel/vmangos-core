@@ -146,6 +146,10 @@ namespace Bots
     // many milliseconds (NoteDamageRate).
     std::int64_t const DamageRateMs = 3000;
 
+    // Spec #188 fix-up (S1): a tank that moves less than this between two
+    // notes stands still (GroupCoordinator::NoteTankPlace).
+    float const TankStillYards = 1.0f;
+
     // The clocks of a held pull, both from the engage (PullState::engagedMs)
     // and both once the tank is back at its fight spot
     // (PullState::backAtFightSpot), in this order:
@@ -424,6 +428,17 @@ namespace Bots
         bool NoteLowManaCall(Guid bot);
         void ClearLowManaCall(Guid bot);
 
+        // Spec #188 fix-up (S1): the player tank's wait (DeathAndRest.h,
+        // WatchPlayerTankRest). Each bot notes where the tank stands at
+        // `nowMs`. TankStillForMs: how long the tank has stood within
+        // TankStillYards of one place at `nowMs`, 0 with no note yet.
+        void NoteTankPlace(Position at, std::int64_t nowMs);
+        std::int64_t TankStillForMs(std::int64_t nowMs) const;
+        // Bot `bot` saw the tank leave its rest (`left`), or saw the tank
+        // wait for the group (`left` false).
+        void NoteTankLeftRest(Guid bot, bool left);
+        bool TankLeftRestOf(Guid bot) const;
+
     private:
         // A pull is on, and `puller` is its puller. The caller holds the lock.
         bool PullsNow(Guid puller) const;
@@ -480,6 +495,13 @@ namespace Bots
 
         // jvbastel/WOWAI#193: the bots that made their low mana call.
         std::set<Guid> m_lowManaCalls;
+
+        // Spec #188 fix-up (S1): where the tank stood still since when, and
+        // the bots whose rest the tank left.
+        bool m_hasTankPlace = false;
+        Position m_tankPlace = {0, 0, 0};
+        std::int64_t m_tankStillFromMs = 0;
+        std::set<Guid> m_tankLeftRest;
     };
 }
 

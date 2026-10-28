@@ -204,7 +204,23 @@ namespace Bots
         if (!group.IsPlayerTankGroup())
             return false;
         Guid const tank = group.GetTank();
-        return tank != NoGuid && tank != view.GetSelf() && view.GetDistance(tank) > PlayerTankRestYards;
+        return tank != NoGuid && tank != view.GetSelf()
+            && (view.GetDistance(tank) > PlayerTankRestYards || group.TankLeftRestOf(view.GetSelf()));
+    }
+
+    void WatchPlayerTankRest(BotView const& view, GroupCoordinator& group, std::int64_t nowMs)
+    {
+        if (!group.IsPlayerTankGroup())
+            return;
+        Guid const tank = group.GetTank();
+        if (view.GetHealth(tank).max == 0)
+            return;
+        group.NoteTankPlace(view.GetPosition(tank), nowMs);
+        Guid const self = view.GetSelf();
+        if (view.GetDistance(tank) > PlayerTankRestYards)
+            group.NoteTankLeftRest(self, true);
+        else if (group.TankStillForMs(nowMs) >= PlayerTankWaitMs)
+            group.NoteTankLeftRest(self, false);
     }
 
     bool KeepsRestingNow(BotView const& view, GroupCoordinator const& group)

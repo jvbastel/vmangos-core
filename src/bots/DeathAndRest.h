@@ -55,9 +55,23 @@ namespace Bots
     float const PlayerTankRestYards = 30.0f;
     char const* const LowManaLine = "mb";
 
-    // True when the bot of a player-tank group is too far from the tank to
-    // rest. Always false in a bot-tank group.
+    // Spec #188 fix-up (S1): a bot that saw the tank beyond
+    // PlayerTankRestYards starts no meal again, also nearer the tank, until
+    // the tank has stood still this long (the player waits for the group):
+    // no loop of sit, stand and walk at the edge of PlayerTankRestYards.
+    std::int64_t const PlayerTankWaitMs = 3000;
+
+    // True when the bot of a player-tank group may not rest: the tank is
+    // beyond PlayerTankRestYards, or left the bot's rest and has not waited
+    // PlayerTankWaitMs since (WatchPlayerTankRest). Always false in a
+    // bot-tank group.
     bool TankLeftTheRest(BotView const& view, GroupCoordinator const& group);
+
+    // Each bot of a player-tank group calls it on each think, at `nowMs`:
+    // it notes where the tank stands (GroupCoordinator::NoteTankPlace), and
+    // whether the tank left the bot's rest (NoteTankLeftRest). Nothing in a
+    // bot-tank group.
+    void WatchPlayerTankRest(BotView const& view, GroupCoordinator& group, std::int64_t nowMs);
 
     // RestsNow, and the tank has not left the rest (TankLeftTheRest). The
     // game layer stands a seated bot up when this is false.

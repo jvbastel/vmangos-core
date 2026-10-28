@@ -648,6 +648,8 @@ void BotAI::Think()
         // jvbastel/WOWAI#192: the bots keep the human tank's trail
         // (TrailFollow.h). Nothing in a bot-tank group.
         Bots::WatchTankTrail(adapter, *coordinator);
+        // Spec #188 fix-up (S1): no meal until the tank waits (DeathAndRest.h).
+        Bots::WatchPlayerTankRest(adapter, *coordinator, SteadyMs());
     }
     // jvbastel/WOWAI#143: the Mage's peel nova reads the ranged members
     // from the roles (MageModule.cpp).

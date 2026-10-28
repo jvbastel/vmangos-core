@@ -1,4 +1,5 @@
 #include "GroupCoordinator.h"
+#include "BotGeometry.h"
 
 #include <algorithm>
 
@@ -648,5 +649,37 @@ namespace Bots
     {
         Lock lock(m_mutex);
         m_lowManaCalls.erase(bot);
+    }
+
+    // Spec #188 fix-up (S1)
+    void GroupCoordinator::NoteTankPlace(Position at, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        if (m_hasTankPlace && Distance2d(at, m_tankPlace) < TankStillYards)
+            return;
+        m_hasTankPlace = true;
+        m_tankPlace = at;
+        m_tankStillFromMs = nowMs;
+    }
+
+    std::int64_t GroupCoordinator::TankStillForMs(std::int64_t nowMs) const
+    {
+        Lock lock(m_mutex);
+        return m_hasTankPlace ? nowMs - m_tankStillFromMs : 0;
+    }
+
+    void GroupCoordinator::NoteTankLeftRest(Guid bot, bool left)
+    {
+        Lock lock(m_mutex);
+        if (left)
+            m_tankLeftRest.insert(bot);
+        else
+            m_tankLeftRest.erase(bot);
+    }
+
+    bool GroupCoordinator::TankLeftRestOf(Guid bot) const
+    {
+        Lock lock(m_mutex);
+        return m_tankLeftRest.count(bot) != 0;
     }
 }
