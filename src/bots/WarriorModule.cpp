@@ -195,6 +195,37 @@ namespace Bots
                 return PickMemberAttacker(context);
             }
 
+            // jvbastel/WOWAI#173: of `enemies`, the living one that the tank
+            // has the biggest threat lead on (BotView::GetThreatRatio). The
+            // first of a tie. NoGuid for none.
+            Guid MostLedEnemy(BotContext const& context, std::vector<Guid> const& enemies)
+            {
+                Guid best = NoGuid;
+                float bestRatio = 0.0f;
+                for (Guid enemy : enemies)
+                {
+                    if (!IsAlive(context.view, enemy))
+                        continue;
+                    float const ratio = context.view.GetThreatRatio(Self(context), enemy);
+                    if (best == NoGuid || ratio > bestRatio)
+                    {
+                        best = enemy;
+                        bestRatio = ratio;
+                    }
+                }
+                return best;
+            }
+
+            // jvbastel/WOWAI#173: the next focus when the focus died. Of the
+            // enemies that attack the tank, the one it leads on the most;
+            // with none on the tank, of the other enemies in the fight.
+            // NoGuid: no enemy is left in the fight.
+            Guid PickNextFocus(BotContext const& context)
+            {
+                Guid const onTank = MostLedEnemy(context, context.view.GetAttackers(Self(context)));
+                return onTank != NoGuid ? onTank : MostLedEnemy(context, EnemiesInFight(context));
+            }
+
             // The living enemies that hit a living group member other than the
             // tank and are not the focus target: the loose enemies. The
             // enemies on the healer come first (jvbastel/WOWAI#115), then the
@@ -714,16 +745,30 @@ namespace Bots
                     Bloodrage, PickSelf),
             };
             std::vector<Rule> rules = {
-                // The pull and the fight end when the focus target dies or
-                // the bot cannot see it any more. A visit to the threat
-                // target ends with them.
-                Bookkeeping("end the fight", P + 90,
+                // The focus target dies, or the bot cannot see it any more.
+                // jvbastel/WOWAI#173: with enemies left in the fight, the
+                // tank sets the next focus (PickNextFocus) and the pull stays
+                // on (held), so that a pack that joins later still gets its warn.
+                // With none left, the pull and the fight end. A visit to the
+                // threat target ends with the focus.
+                Bookkeeping("the focus dies", P + 90,
                     [](BotContext const& context) {
                         Guid const focus = context.group.GetFocusTarget();
                         return focus != NoGuid && !IsAlive(context.view, focus);
                     },
                     [visit](BotContext const& context) {
-                        context.group.EndPull();
+                        Guid const next = PickNextFocus(context);
+                        if (next == NoGuid)
+                            context.group.EndPull();
+                        else
+                        {
+                            // The pull is held (no change when it is held
+                            // already). A pull target that died on its way
+                            // leaves a held pull, so the tank does not go on
+                            // pulling a dead target.
+                            context.group.HoldPull(Self(context), context.nowMs);
+                            context.group.SetFocusTarget(next);
+                        }
                         visit->abilities = 0;
                     }),
                 Bookkeeping("hold the pull", P + 85,
