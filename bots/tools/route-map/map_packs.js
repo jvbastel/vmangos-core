@@ -11,10 +11,10 @@
   const style = document.createElement("style");
   style.textContent = `
     .pk { stroke: #000; stroke-width: 1; vector-effect: non-scaling-stroke; }
-    .pk.on { fill: #f2b134; }
-    .pk.on.boss { fill: #ff7a2f; }
+    .pk.on { fill: var(--pack); }
+    .pk.on.boss { fill: var(--boss); }
     .pk.off { fill: rgba(200, 200, 200, 0.15); stroke: #c8c8c8; stroke-width: 1.5; stroke-dasharray: 3 2; }
-    .pk.off.boss { stroke: #ff7a2f; }
+    .pk.off.boss { stroke: var(--boss); }
     .pk-label { fill: #fff; paint-order: stroke; stroke: #000; stroke-linejoin: round; pointer-events: none; }
     .pk-label.off { fill: #bdb8ae; }
     .pk-label .mobs { fill: #d8d2c4; }
@@ -23,7 +23,7 @@
               stroke-dasharray: 5 3; }
     .patrol-arrow { fill: #c792ff; stroke: none; }
     .wander { fill: rgba(127, 219, 202, 0.08); stroke: #7fdbca; stroke-width: 1; vector-effect: non-scaling-stroke; }
-    #packs-legend .key-on { color: #f2b134; } #packs-legend .key-off { color: #c8c8c8; }
+    #packs-legend .key-on { color: var(--pack); } #packs-legend .key-off { color: #c8c8c8; }
     #packs-legend .key-patrol { color: #c792ff; } #packs-legend .key-wander { color: #7fdbca; }`;
   document.head.appendChild(style);
 

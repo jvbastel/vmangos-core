@@ -10,6 +10,8 @@ for the fixture route of fixtures.py. Map 389.
 
 from pathlib import Path
 
+import export_file
+
 EXPORT = """\
 # The export of map 389 (.route export, WOWAI#150).
 export 389
@@ -40,6 +42,6 @@ questname 5723 Testing an Enemy's Strength
 
 def write_export(folder: Path, map_id=389, text=EXPORT) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / f"map_{map_id}.export.txt"
+    path = folder / export_file.file_name(map_id)
     path.write_text(text)
     return path

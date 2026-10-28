@@ -64,7 +64,9 @@ def map_part(route: route_file.Route, export: Optional[export_file.MapExport]) -
     def key_of(pack):
         return next((key_of_guid[m.guid] for m in pack.mobs if m.guid in key_of_guid), pack.key)
 
-    on_route = {key_of(pack) for pack in route.packs}
+    # Every export pack that holds a mob of the route is on the route, also
+    # when one route pack spans two export packs.
+    on_route = {key_of_guid.get(m.guid, pack.key) for pack in route.packs for m in pack.mobs}
     packs = [_route_pack(route, pack, key_of(pack), order, boss_names(m.entry for m in pack.mobs))
              for order, pack in enumerate(route.packs, 1)]
     packs += [_off_route_pack(pack, names, boss_names(m.entry for m in pack.mobs))

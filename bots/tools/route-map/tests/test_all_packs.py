@@ -103,3 +103,13 @@ def test_a_route_pack_listed_from_another_mob_is_the_same_pack_as_the_export_pac
 
     assert [(p["key"], p["on_route"], p["label"]) for p in packs] == [
         (501, True, "pack1"), (600, True, "bazzalan"), (700, False, None), (800, False, None)]
+
+
+def test_an_export_pack_that_holds_a_mob_of_a_route_pack_is_on_the_route(tmp_path):
+    from export_fixtures import EXPORT
+    # The export splits pack1 in two: the Shaman is a pack of its own.
+    write_export(tmp_path / "exports", text=EXPORT.replace(
+        "mob 502 11319 109.00 -46.00 -20.00 2.00\n", "pack 502\nmob 502 11319 109.00 -46.00 -20.00 2.00\n"))
+    packs = load(tmp_path, export=False)["packs"]  # keeps the split export
+
+    assert [(p["key"], p["on_route"]) for p in packs] == [(501, True), (600, True), (700, False), (800, False)]
