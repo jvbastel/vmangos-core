@@ -396,7 +396,7 @@ TEST(PriestHealer, NamesItsSpellsByTheFirstRank)
     text << file.rdbuf();
     for (char const* line : {"139\tRenew\tRank 1", "17\tPower Word: Shield\tRank 1", "2050\tLesser Heal\tRank 1",
              "2054\tHeal\tRank 1", "1243\tPower Word: Fortitude\tRank 1", "588\tInner Fire\tRank 1",
-             "586\tFade\tRank 1"})
+             "586\tFade\tRank 1", "2061\tFlash Heal\tRank 1"})
         EXPECT_NE(text.str().find(std::string("\n") + line + "\n"), std::string::npos) << line;
 }
 
@@ -771,4 +771,203 @@ TEST(PriestHealerGreaterHeal, ALightlyHurtMemberDoesNotGetGreaterHeal)
     priest.Think();
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(LesserHeal2, Mage)}));
+}
+
+// jvbastel/WOWAI#135: from level 20 the healer knows Flash Heal. It casts it
+// only for a member near death, who dies before a slow heal lands. In every
+// other case it casts its slow heals, which give more health per mana.
+namespace
+{
+    Bots::SpellId const FlashHeal2 = 9472;
+
+    // A level 20 healer: it knows Flash Heal, and the heal ranks of #134.
+    void KnowFlashHeal(PriestHealer& priest)
+    {
+        KnowTheHealRanks(priest);
+        priest.fake.SetKnownSpell(Priest::FlashHeal);
+        priest.fake.SetHealRank(Priest::FlashHeal, 224, 125);
+    }
+
+    // A level 26 healer: it knows Flash Heal rank 2 too.
+    void KnowFlashHealRank2(PriestHealer& priest)
+    {
+        KnowFlashHeal(priest);
+        priest.fake.SetSpellChain({Priest::FlashHeal, FlashHeal2});
+        priest.fake.SetKnownSpell(FlashHeal2);
+        priest.fake.SetHealRank(FlashHeal2, 297, 155);
+    }
+}
+
+TEST(PriestHealerFlashHeal, FlashHealsARageTankNearDeath)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 150, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::FlashHeal, Tank)}));
+}
+
+TEST(PriestHealerFlashHeal, NamesFlashHealByItsFirstRank)
+{
+    // PriestHealer.NamesItsSpellsByTheFirstRank finds 2061 in the data.
+    EXPECT_EQ(Priest::FlashHeal, 2061u);
+}
+
+TEST(PriestHealerFlashHeal, ABigWoundNearDeathGetsTheHighestRank)
+{
+    PriestHealer priest;
+    KnowFlashHealRank2(priest);
+    priest.InFight();
+    // 450 missing: no rank covers it.
+    priest.fake.SetHealth(Tank, 150, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(FlashHeal2, Tank)}));
+}
+
+TEST(PriestHealerFlashHeal, ASmallerWoundNearDeathGetsTheRankThatCoversIt)
+{
+    PriestHealer priest;
+    KnowFlashHealRank2(priest);
+    priest.InFight();
+    // 220 missing: rank 1 (224) covers it.
+    priest.fake.SetHealth(Tank, 80, 300);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::FlashHeal, Tank)}));
+}
+
+TEST(PriestHealerFlashHeal, AMemberAboveTheFractionGetsASlowHeal)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.InFight();
+    // 33% health: badly hurt, not near death.
+    priest.fake.SetHealth(Tank, 200, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerFlashHeal, AMemberAtExactlyTheFractionGetsASlowHeal)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.InFight();
+    // 30% health: the band is "below" the fraction.
+    priest.fake.SetHealth(Tank, 180, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerFlashHeal, ALowManaBotNearDeathDropsToALesserHeal)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 150, 600);
+    // 100 mana: no rank of Flash Heal (125) or Heal (155) fits.
+    priest.fake.SetMana(Healer, 100, 400);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(LesserHeal3, Tank)}));
+}
+
+TEST(PriestHealerFlashHeal, ABotThatDoesNotKnowFlashHealKeepsItsHeals)
+{
+    PriestHealer priest;
+    KnowTheHealRanks(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 150, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerFlashHeal, AMemberNearDeathGetsTheShieldFirst)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Mage, 80, 300);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Mage)}));
+}
+
+TEST(PriestHealerFlashHeal, AShieldedMemberStillNearDeathGetsFlashHeal)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Mage, 80, 300);
+    priest.fake.SetAura(Mage, Priest::PowerWordShield);
+    priest.fake.SetAura(Mage, Priest::WeakenedSoul);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::FlashHeal, Mage)}));
+}
+
+// Spec #131, story 24: Holy Nova pulls the enemies near the healer and heals
+// little per mana. No rule casts it, even when the bot knows it, the whole
+// group is hurt, and no other spell can be cast.
+namespace
+{
+    enum class Situation
+    {
+        OutOfFight,
+        InFight,
+        HealerIsTheVictim,
+    };
+}
+
+TEST(PriestHealerHolyNova, NeverCastsHolyNova)
+{
+    // Rank 1 is the talent (not in the learnable spells), rank 2 is 15430.
+    Bots::SpellId const HolyNova = 15237;
+    Bots::SpellId const HolyNova2 = 15430;
+    for (std::uint32_t current : {30u, 100u, 200u, 400u, 550u, 600u})
+        for (Situation situation : {Situation::OutOfFight, Situation::InFight, Situation::HealerIsTheVictim})
+            for (bool othersBlocked : {false, true})
+            {
+                PriestHealer priest;
+                KnowFlashHeal(priest);
+                priest.fake.SetSpellChain({HolyNova, HolyNova2});
+                priest.fake.SetKnownSpell(HolyNova);
+                priest.fake.SetKnownSpell(HolyNova2);
+                if (situation != Situation::OutOfFight)
+                    priest.InFight();
+                if (situation == Situation::HealerIsTheVictim)
+                    priest.fake.SetVictim(Kobold, Healer);
+                for (Bots::Guid member : {Healer, Tank, Mage})
+                    priest.fake.SetHealth(member, current, 600);
+                if (othersBlocked)
+                    for (Bots::SpellId spell : {Priest::LesserHeal, LesserHeal2, LesserHeal3, Priest::Heal, Heal2,
+                             Priest::FlashHeal, Priest::Renew, Renew2, Priest::PowerWordShield,
+                             Priest::PowerWordFortitude, Priest::InnerFire, Priest::Fade})
+                        priest.fake.SetCannotCast(spell);
+
+                priest.Think();
+
+                for (std::string const& deed : priest.fake.Deeds())
+                    for (Bots::SpellId nova : {HolyNova, HolyNova2})
+                    {
+                        std::string const castNova = "cast " + std::to_string(nova) + " ";
+                        EXPECT_NE(deed.compare(0, castNova.size(), castNova), 0)
+                            << deed << " at " << current << " health, situation "
+                            << static_cast<int>(situation);
+                    }
+            }
 }
