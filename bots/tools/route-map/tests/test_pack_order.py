@@ -142,3 +142,78 @@ def test_the_page_loads_the_pack_order_part(tmp_path):
 
     assert '<script src="/pack_order.js">' in web.get("/").text
     assert "/order" in web.get("/pack_order.js").text
+
+
+HAND_NOTES = """\
+# My header for the cave.
+# It says how I chose the order.
+
+# The shaman room.
+pack 502 # pack1, Ragefire Trogg, Ragefire Shaman
+
+# Bazzalan last of the hand part.
+# He hits hard.
+pack 600 # bazzalan, Bazzalan
+pack 700
+"""
+
+
+def save(tmp_path, order, packs):
+    web = app(tmp_path, order)
+    response = web.post("/api/maps/fixture_cave/order", json={"packs": packs})
+    assert response.status_code == 200, response.text
+    return web, (tmp_path / "routes" / "fixture_cave.order.txt").read_text()
+
+
+def test_saving_keeps_the_header_comments_of_the_order_file_at_the_top(tmp_path):
+    _, text = save(tmp_path, HAND_NOTES, [700, 600, 501])
+
+    assert text.startswith("# My header for the cave.\n# It says how I chose the order.\n\n")
+    assert "WOWAI#155" not in text
+
+
+def test_saving_moves_the_comment_block_above_a_pack_with_that_pack(tmp_path):
+    from library_parse import library_pack_order
+    web, text = save(tmp_path, HAND_NOTES, [600, 501, 700])
+
+    assert "# Bazzalan last of the hand part.\n# He hits hard.\npack 600 #" in text
+    assert "# The shaman room.\npack 501 #" in text
+    assert text.index("pack 600") < text.index("# The shaman room.") < text.index("pack 501") < text.index("pack 700")
+    assert library_pack_order(text) == [600, 501, 700]
+    assert web.get("/api/maps/fixture_cave").json()["pack_order"]["hand"] == [600, 501, 700]
+
+
+def test_saving_keeps_the_comments_of_a_pack_given_back_to_the_generator(tmp_path):
+    _, text = save(tmp_path, HAND_NOTES, [700])
+
+    assert "# The shaman room.\n" in text
+    assert "# Bazzalan last of the hand part.\n# He hits hard.\n" in text
+    assert text.index("pack 700") < text.index("# The shaman room.")
+    assert "pack 501" not in text and "pack 600" not in text
+
+
+def test_saving_twice_keeps_the_comments_unchanged(tmp_path):
+    web, first = save(tmp_path, HAND_NOTES, [600, 501, 700])
+
+    web.post("/api/maps/fixture_cave/order", json={"packs": [600, 501, 700]})
+
+    assert (tmp_path / "routes" / "fixture_cave.order.txt").read_text() == first
+
+
+def test_saving_the_ragefire_order_in_a_new_order_keeps_every_hand_comment():
+    # The committed order file is only read: the save goes to a string.
+    import pack_order
+    from pathlib import Path
+    real = Path(__file__).resolve().parents[3] / "data" / "routes" / "ragefire_chasm.order.txt"
+    text = real.read_text()
+    guids = [guid for _, guid in pack_order.parse(text)]
+    packs = [{"key": g, "label": f"p{g}", "mobs": [{"guid": g, "name": "Mob", "entry": 1}]} for g in guids]
+
+    saved = pack_order.write("ragefire_chasm", list(reversed(guids)), packs, text)
+
+    comments = [line for line in text.splitlines() if line.startswith("#")]
+    assert [line for line in saved.splitlines() if line.startswith("#")] != comments  # the blocks moved
+    assert sorted(line for line in saved.splitlines() if line.startswith("#")) == sorted(comments)
+    assert saved.startswith(text.split("\n\n", 1)[0] + "\n\n")
+    assert saved.index("# The first trogg, on the ramp.\npack 48648 #") > saved.index("pack 43582")
+    assert [guid for _, guid in pack_order.parse(saved)] == list(reversed(guids))

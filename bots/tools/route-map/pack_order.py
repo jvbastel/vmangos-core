@@ -10,7 +10,7 @@ fight them (src/bots/RouteGenerator.h, ParsePackOrder). A guid names the
 pack that holds that mob; this tool writes the pack key, the spawn guid of
 the pack's first mob. The packs that the file does not name keep the
 generator's order. Saving writes only the order file of the open route,
-never the route file.
+never the route file. The hand comments of the old order file stay (see write).
 """
 
 from __future__ import annotations
@@ -109,16 +109,70 @@ def map_part(name: str, packs: dict, routes: Path) -> dict:
                            "warnings": warnings}}
 
 
-def write(route_name: str, keys: list[int], packs: list[dict]) -> str:
+def _is_pack_line(line: str) -> bool:
+    return bool(line.split("#", 1)[0].strip())
+
+
+def _strip_blank(lines: list[str]) -> list[str]:
+    while lines and not lines[0].strip():
+        lines = lines[1:]
+    while lines and not lines[-1].strip():
+        lines = lines[:-1]
+    return lines
+
+
+def layout(text: str) -> tuple[list[str], list[tuple[int, list[str]]], list[str]]:
+    """The hand comments of an order file: its header (the lines above the
+    last blank line before the first pack line), each pack line's guid with
+    the comment block above it (the lines since the previous pack line, or
+    since the header), and the lines after the last pack line."""
+    lines = text.splitlines()
+    at = [i for i, line in enumerate(lines) if _is_pack_line(line)]
+    if not at:
+        return _strip_blank(lines), [], []
+    leading = lines[:at[0]]
+    blanks = [i for i, line in enumerate(leading) if not line.strip()]
+    if blanks:
+        header, first = leading[:blanks[-1]], leading[blanks[-1] + 1:]
+    else:
+        header, first = leading, []
+    packs = []
+    for n, i in enumerate(at):
+        block = first if n == 0 else lines[at[n - 1] + 1:i]
+        packs.append((int(lines[i].split("#", 1)[0].split()[1]), _strip_blank(block)))
+    return _strip_blank(header), packs, _strip_blank(lines[at[-1] + 1:])
+
+
+def write(route_name: str, keys: list[int], packs: list[dict], old_text: str | None = None) -> str:
     """The text of the order file: one `pack <key>` line per pack, with its
-    route name and its mobs as a comment."""
+    route name and its mobs as a comment. The hand comments of the old file
+    stay: its header at the top, the comment block above a pack line with
+    that pack, the blocks of packs that left the order and the lines after
+    the last pack at the end."""
     by_key = {p["key"]: p for p in packs}
-    lines = [HEADER.format(route=route_name)]
-    for key in keys:
+    pack_of = {m["guid"]: p["key"] for p in packs for m in p["mobs"]}
+    header, old_packs, footer = layout(old_text) if old_text is not None else ([], [], [])
+    blocks: dict[int, list[str]] = {}
+    given_back: list[list[str]] = []
+    for guid, block in old_packs:
+        key = pack_of.get(guid)
+        if key in keys and key not in blocks:
+            blocks[key] = block
+        elif block:
+            given_back.append(block)
+    out = list(header or HEADER.format(route=route_name).splitlines())
+    for n, key in enumerate(keys):
         pack = by_key[key]
+        block = blocks.get(key, [])
+        if block:
+            out += [""] + block
+        elif n == 0:
+            out += [""]
         names = ", ".join(m["name"] or str(m["entry"]) for m in pack["mobs"])
-        lines.append(f"pack {key} # {pack['label'] or 'off the route'}, {names}\n")
-    return "".join(lines)
+        out.append(f"pack {key} # {pack['label'] or 'off the route'}, {names}")
+    for block in given_back + ([footer] if footer else []):
+        out += [""] + block
+    return "\n".join(out) + "\n"
 
 
 class SavedOrder(BaseModel):
@@ -143,5 +197,6 @@ def add_routes(app: FastAPI, settings, load_route, load_packs):
         if len(set(order.packs)) != len(order.packs):
             raise HTTPException(422, "a pack comes twice in the order")
         path = settings.routes / file_name(name)
-        path.write_text(write(name, order.packs, packs))
+        old_text = path.read_text() if path.is_file() else None
+        path.write_text(write(name, order.packs, packs, old_text))
         return {"file": path.name, "packs": len(order.packs)}
