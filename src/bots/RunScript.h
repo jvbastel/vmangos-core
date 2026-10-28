@@ -50,6 +50,10 @@
 //   combat; the run fails after the seconds).
 // - `expect boss_dead <entry>`, `expect pack_dead <pack>`, `expect alive`
 //   (each group member lives). A failed expect ends the run as failed.
+// - `expect healer_threat_losses <n>`: a limit of the run, not a step. It
+//   holds from the start of the scenario, wherever the line is: the run
+//   fails when one pull has more than <n> threat losses on the healer
+//   (RunJudge.h, jvbastel/WOWAI#167). A scenario sets it at most once.
 // - `wait rested [<seconds>]`: each member lives, and no bot of the group
 //   eats or drinks any more; the run fails after the seconds.
 // - `fight <pack> [<seconds>]`: the test driver selects a living mob of the
@@ -140,11 +144,28 @@ namespace Bots
         std::string source;
     };
 
+    // A number that the run must not go over, from an `expect` line.
+    struct ScriptLimit
+    {
+        bool set = false;
+        std::uint32_t most = 0;
+        std::size_t line = 0; // The line in the file, for the reason of a failed run.
+    };
+
+    // The limits of a scenario. The judge checks them through the whole run
+    // (RunJudge.h).
+    struct ScriptLimits
+    {
+        // `expect healer_threat_losses <n>`: per pull.
+        ScriptLimit healerThreatLosses;
+    };
+
     struct ScriptScenario
     {
         std::string name;
         std::size_t line = 0;
         std::vector<ScriptCommand> commands;
+        ScriptLimits limits;
     };
 
     struct RunScript

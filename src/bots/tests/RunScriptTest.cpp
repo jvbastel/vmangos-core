@@ -6,6 +6,7 @@
 #include <fstream>
 #include <set>
 #include <sstream>
+#include <utility>
 
 using Bots::ParseRunScript;
 using Bots::RunScript;
@@ -320,7 +321,7 @@ TEST(RunScript, RefusesABrokenLineWithItsNumber)
     EXPECT_EQ(ErrorOf(Head + "teleport\n"), "line 6: use: teleport <point>");
     EXPECT_EQ(ErrorOf(Head + "wait soon\n"),
         "line 6: use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]");
-    EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive");
+    EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n>");
     EXPECT_EQ(ErrorOf(Head + "clear -3\n"), "line 6: use: clear <yards> [<pack> ...]");
     EXPECT_EQ(ErrorOf(Head + "whisper Hela\n"), "line 6: use: whisper <bot> <text>");
     EXPECT_EQ(ErrorOf(Head + "join\n"), "line 6: use: join <pack> [<bot>]");
@@ -430,6 +431,24 @@ TEST(RunScriptData, TheFullRunsOfRagefireChasmFightEachBoss)
     }
 }
 
+// jvbastel/WOWAI#165: the limits of healer threat losses per pull of the
+// three scenarios where an extra pack joins in the middle of a fight.
+TEST(RunScriptData, TheJoinScenariosOfRagefireChasmLimitHealerThreatLossesPerPull)
+{
+    RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/ragefire_chasm.txt"));
+    ASSERT_TRUE(script.ok) << script.error;
+
+    std::pair<char const*, std::uint32_t> const limits[] = {
+        {"join_three", 0}, {"join_three_healer", 1}, {"join_four_healer", 2}};
+    for (auto const& limit : limits)
+    {
+        Bots::ScriptScenario const* scenario = Bots::FindScenario(script.script, limit.first);
+        ASSERT_NE(scenario, nullptr) << limit.first;
+        EXPECT_TRUE(scenario->limits.healerThreatLosses.set) << limit.first;
+        EXPECT_EQ(scenario->limits.healerThreatLosses.most, limit.second) << limit.first;
+    }
+}
+
 // jvbastel/WOWAI#118: the three-enemy scenario. One fixed pack of three
 // melee mobs at about level 18 in the Deadmines, fought at level 18. The
 // scenario has no ranged pull: the tank pulls with `fight`.
@@ -483,4 +502,41 @@ TEST(RunScriptData, TheShadowfangKeepScriptFightsRethilgoreAndHisTwoWorgsAtLevel
     for (Bots::RouteMob const& mob : pack->mobs)
         entries.insert(mob.entry);
     EXPECT_EQ(entries, (std::multiset<std::uint32_t>{3861, 3861, 3914}));
+}
+
+// jvbastel/WOWAI#167: a scenario sets the most threat losses on the healer
+// in one pull. The judge fails the run when a pull goes over it.
+TEST(RunScript, AnExpectLineSetsTheHealerThreatLossLimitOfTheScenario)
+{
+    RunScriptResult const result =
+        ParseRunScript(Head + "expect healer_threat_losses 1\ncommand pull\nscenario t\ncommand pull\n");
+
+    ASSERT_TRUE(result.ok) << result.error;
+    Bots::ScriptScenario const& limited = result.script.scenarios[0];
+    ASSERT_TRUE(limited.limits.healerThreatLosses.set);
+    EXPECT_EQ(limited.limits.healerThreatLosses.most, 1u);
+    EXPECT_EQ(limited.limits.healerThreatLosses.line, 6u);
+    // A limit is no step of the run: it holds from the start.
+    ASSERT_EQ(limited.commands.size(), 1u);
+    EXPECT_EQ(limited.commands[0].text, "pull");
+    EXPECT_FALSE(result.script.scenarios[1].limits.healerThreatLosses.set);
+}
+
+TEST(RunScript, AZeroHealerThreatLossLimitIsALimit)
+{
+    RunScriptResult const result = ParseRunScript(Head + "command pull\nexpect healer_threat_losses 0\n");
+
+    ASSERT_TRUE(result.ok) << result.error;
+    EXPECT_TRUE(result.script.scenarios[0].limits.healerThreatLosses.set);
+    EXPECT_EQ(result.script.scenarios[0].limits.healerThreatLosses.most, 0u);
+}
+
+TEST(RunScript, RefusesABrokenOrSecondHealerThreatLossLimit)
+{
+    std::string const usage =
+        "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n>";
+    EXPECT_EQ(ErrorOf(Head + "expect healer_threat_losses\n"), "line 6: " + usage);
+    EXPECT_EQ(ErrorOf(Head + "expect healer_threat_losses many\n"), "line 6: " + usage);
+    EXPECT_EQ(ErrorOf(Head + "expect healer_threat_losses 1\ncommand pull\nexpect healer_threat_losses 2\n"),
+        "line 8: the scenario s sets healer_threat_losses on line 6 already");
 }

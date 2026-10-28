@@ -347,7 +347,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_move = Bots::ScriptedMove();
     EndMove();
     m_aborted = false;
-    m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0));
+    m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0, commands.limits));
     m_trace = Bots::RunTrace();
     m_fight = Bots::FightWatch();
     {
@@ -915,6 +915,8 @@ void BotRun::WatchThreat(int64 nowMs)
     {
         Bots::ThreatLoss const& loss = m_threat.Losses()[i];
         m_threatNames.push_back(HitNames(loss.enemy, loss.member));
+        if (Bots::Contains(m_record.healers, m_threatNames.back().second))
+            m_judge->NoteHealerThreatLoss(loss.name);
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s for more than %u s", m_number,
             loss.name.c_str(), uint32(Bots::ThreatLossMs / 1000));
         m_trace.Add(nowMs, "threat loss: " + loss.name);
@@ -1644,6 +1646,7 @@ void BotRun::RecordPull(Bots::ScriptCommand const& command)
     Creature const* creature = target ? target->ToCreature() : nullptr;
     std::string const pullPack = !pack.empty() || !creature ? pack : m_extraPacks.PackOf(creature->GetDBTableGUIDLow());
     m_extraPacks.Start(pullPack);
+    m_judge->NotePull(!pullPack.empty() ? pullPack : m_record.pulls.back().target);
     MarkPullPacks(target, pullPack);
     // A new pull ends the fight of the last one.
     if (m_fight.Running())
