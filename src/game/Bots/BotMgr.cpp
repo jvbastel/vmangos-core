@@ -266,6 +266,8 @@ void BotMgr::Update(uint32 diff)
         m_run.NoteChatOutcome(outcome);
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
+    for (ObjectGuid const& player : m_panelRequests.Drain())
+        SendBotPanel(player);
     m_run.Update();
     RouteTraces::Update(diff);
     for (auto& pair : m_bots)
@@ -1010,4 +1012,33 @@ bool BotMgr::LeaveAsSecondTank(Player* bot, Group* group)
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s leaves the group: a human picked tank", bot->GetName());
     Player::RemoveFromGroup(group, bot->GetObjectGuid());
     return true;
+}
+
+// jvbastel/WOWAI#198: the bot panel of the role choice add-on.
+void BotMgr::SendBotPanel(ObjectGuid playerGuid)
+{
+    Player* player = ObjectAccessor::FindPlayer(playerGuid);
+    if (!player)
+        return;
+    std::vector<Bots::PanelBot> bots;
+    for (auto const& pair : m_bots)
+    {
+        BotRecord const& record = pair.second;
+        // The faction of an offline bot too, from the character cache.
+        bool const horde = sObjectMgr.GetPlayerTeamByGUID(ObjectGuid(HIGHGUID_PLAYER, pair.first)) == HORDE;
+        bots.push_back({record.entry->name, RoleOf(record.role),
+            horde ? Bots::GearFaction::Horde : Bots::GearFaction::Alliance, record.worldBot});
+    }
+    std::vector<Bots::PanelBot> const listed = Bots::PanelBotsFor(bots,
+        player->GetTeam() == HORDE ? Bots::GearFaction::Horde : Bots::GearFaction::Alliance);
+    // From the player itself, like the echo of its own party add-on message:
+    // the client gives it to the add-on (CHAT_MSG_ADDON), not to a chat frame.
+    for (std::string const& message : Bots::BotPanelMessages(listed))
+    {
+        WorldPacket data;
+        ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, message.c_str(), LANG_ADDON, 0, player->GetObjectGuid(),
+            player->GetName());
+        player->GetSession()->SendPacket(&data);
+    }
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s gets the bot panel: %u bots", player->GetName(), uint32(listed.size()));
 }

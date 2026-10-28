@@ -9,6 +9,7 @@
 #include "BotAI.h"
 #include "BotCommand.h"
 #include "BotMgr.h"
+#include "BotPanel.h"
 #include "GroupCommand.h"
 #include "Group.h"
 #include "Player.h"
@@ -146,6 +147,12 @@ void BotHooks::OnPartyAddonMessage(Player* sender, std::string const& text)
 {
     if (!sender || sender->IsBot())
         return;
+    // jvbastel/WOWAI#198: the bot panel asks for its list.
+    if (Bots::IsBotPanelRequest(text))
+    {
+        sBotMgr.QueueBotPanelRequest(sender->GetObjectGuid());
+        return;
+    }
     Bots::RoleChoiceMessage const message = Bots::ParseRoleChoiceMessage(text);
     if (!message.ours)
         return;

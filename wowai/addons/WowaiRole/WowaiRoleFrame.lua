@@ -6,7 +6,8 @@
 --   WowaiRole.AddSection(height, function(section) ... end)
 -- `section` is a Frame of the given height under the sections above it. The
 -- frame grows to hold it and hides it with the rest when folded. The builder
--- runs at VARIABLES_LOADED, when the frame is made.
+-- runs at VARIABLES_LOADED, when the frame is made. AddSection returns the
+-- section: WowaiRole.SetSectionHeight(section, height) changes its height.
 
 local WIDTH = 236
 local TITLE_HEIGHT = 26
@@ -17,9 +18,20 @@ local roleButtons = {}
 local sections = {}   -- { height, build, frame }
 
 function WowaiRole.AddSection(height, build)
-	table.insert(sections, { height = height, build = build })
+	local section = { height = height, build = build }
+	table.insert(sections, section)
 	if frame then
-		WowaiRole.MakeSection(sections[table.getn(sections)])
+		WowaiRole.MakeSection(section)
+		WowaiRole.Layout()
+	end
+	return section
+end
+
+-- jvbastel/WOWAI#198: a section that grows or shrinks, like the bot panel.
+function WowaiRole.SetSectionHeight(section, height)
+	section.height = height
+	if section.frame then
+		section.frame:SetHeight(height)
 		WowaiRole.Layout()
 	end
 end

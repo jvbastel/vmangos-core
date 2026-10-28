@@ -42,7 +42,8 @@ namespace BotHooks
     // of the party branch, for an add-on message (LANG_ADDON), also from a
     // player with no group. A message of the role choice add-on sets the
     // role choice of the sender (BotMgr::SetRoleChoice). Same threads as
-    // OnPlayerChat.
+    // OnPlayerChat. jvbastel/WOWAI#198: the list request of the bot panel
+    // queues the panel for the sender (BotMgr::QueueBotPanelRequest).
     void OnPartyAddonMessage(Player* sender, std::string const& text);
 }
 

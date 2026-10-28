@@ -14,6 +14,7 @@
 #include "BotChat.h"
 #include "BotGear.h"
 #include "BotLevelRoutine.h"
+#include "BotPanel.h"
 #include "BotRecipe.h"
 #include "BotRun.h"
 #include "CoordinatorRegistry.h"
@@ -237,6 +238,11 @@ class BotMgr
         // a map thread (it reads only GUIDs, bot roles and role choices).
         std::vector<Bots::GroupMember> GroupMembersOf(Group const* group, Player const* player) const;
 
+        // jvbastel/WOWAI#198: from any thread (the chat handlers): the
+        // player's bot panel asked for the list. The next update sends it
+        // (SendBotPanel).
+        void QueueBotPanelRequest(ObjectGuid player) { m_panelRequests.Push(player); }
+
     private:
         BotRecord* FindByName(std::string const& name);
         // The GUIDs of all our bot characters, for the roster of bot chat.
@@ -284,6 +290,10 @@ class BotMgr
         void DropOfflineRoleChoices();
         mutable std::mutex m_roleChoicesLock;
         std::map<uint64 /*player GUID*/, Bots::RoleChoice> m_roleChoices;
+        // jvbastel/WOWAI#198: the group bots of the player's faction, as
+        // party add-on messages to the player alone (Bots::BotPanelMessages).
+        void SendBotPanel(ObjectGuid playerGuid);
+        Bots::Inbox<ObjectGuid> m_panelRequests;
 };
 
 // The class of the library for a class of the game. False for an unknown class.
