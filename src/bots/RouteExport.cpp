@@ -1,17 +1,20 @@
 #include "RouteExport.h"
 
+#include "DataFields.h"
 #include "DataTokenizer.h"
 
-#include <cerrno>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
 #include <sstream>
 
 namespace Bots
 {
     namespace
     {
+        using DataFields::ReadNumber;
+        using DataFields::ReadFloat;
+        using DataFields::ReadPosition;
+        using DataFields::FormatFloat;
+        using DataFields::FormatPosition;
+
         bool SamePosition(Position const& a, Position const& b)
         {
             return a.x == b.x && a.y == b.y && a.z == b.z;
@@ -46,21 +49,6 @@ namespace Bots
             return true;
         }
 
-        std::string FormatFloat(float value)
-        {
-            char text[32];
-            std::snprintf(text, sizeof(text), "%.2f", value);
-            std::string result = text;
-            if (result == "-0.00")
-                result = "0.00";
-            return result;
-        }
-
-        std::string FormatPosition(Position const& position)
-        {
-            return FormatFloat(position.x) + " " + FormatFloat(position.y) + " " + FormatFloat(position.z);
-        }
-
         // A name on one line, with no comment marker.
         std::string CleanName(std::string const& name)
         {
@@ -79,35 +67,6 @@ namespace Bots
                 if (clean.find_first_not_of(" \t") != std::string::npos)
                     out << key << " " << name.first << " " << clean << "\n";
             }
-        }
-
-        bool ReadNumber(std::string const& word, std::uint32_t& value)
-        {
-            if (word.empty() || word[0] < '0' || word[0] > '9')
-                return false;
-            char* end = nullptr;
-            errno = 0;
-            unsigned long const number = std::strtoul(word.c_str(), &end, 10);
-            if (*end != '\0' || errno == ERANGE || number > 0xffffffffUL)
-                return false;
-            value = std::uint32_t(number);
-            return true;
-        }
-
-        bool ReadFloat(std::string const& word, float& value)
-        {
-            char* end = nullptr;
-            float const number = std::strtof(word.c_str(), &end);
-            if (word.empty() || *end != '\0' || !std::isfinite(number))
-                return false;
-            value = number;
-            return true;
-        }
-
-        bool ReadPosition(std::vector<std::string> const& words, std::size_t at, Position& position)
-        {
-            return words.size() >= at + 3 && ReadFloat(words[at], position.x) && ReadFloat(words[at + 1], position.y) &&
-                ReadFloat(words[at + 2], position.z);
         }
 
         std::string JoinFrom(std::vector<std::string> const& words, std::size_t at)

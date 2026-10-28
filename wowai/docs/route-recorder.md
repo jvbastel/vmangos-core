@@ -166,3 +166,13 @@ The generator reads the spawns, creature groups, patrols, quests, and quest drop
 Settings, all optional, as `name=value`: `seed`, `aggro` (20), `margin` (5), `pull` (35: the most path length from a pull point to its pack), `cluster` (8), `spacing` (10), `radius` (2), `side` (3), `alt` (7), `gap` (3), `wide` (10), `wall` (1.5). `src/bots/RouteGenerator.h` says what each one does.
 
 A generated file also has a quest list (`quest`, `kill`, `item`, `visit` lines), and `quest <id>` at the end of the point and pack lines that are only there for a quest. A run without quests skips those.
+
+### Export a map for the dungeon map
+
+On the console (no character is needed):
+
+```
+.route export 389 [cluster=8] [bosses=11517,11520,11518,11519]
+```
+
+It writes `bots/data/routes/map_<id>.export.txt`: every pack of the map (its key is the spawn guid of its first mob, as in the route and the `.order.txt` file), each mob with its position, wander radius and patrol path, the quests with their objectives, the bosses, and the names. The dungeon map reads it without a running server. Without `bosses=`, the bosses come from the route files of the map. Keep `cluster` at the value of the route, or the pack keys differ. Run it again for each content patch, and commit the files. `src/bots/RouteExport.h` describes the format.
