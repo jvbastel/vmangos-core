@@ -3,6 +3,7 @@
 #include "DeathAndRest.h"
 #include "FakeBot.h"
 #include "PriestModule.h"
+#include "TrailFollow.h"
 
 #include <gtest/gtest.h>
 
@@ -901,6 +902,7 @@ namespace
         {
             group.SetTank(Player, true);
             group.SetHealer(Healer);
+            group.SetMemberRole(Healer, Bots::BotRole::Healer);
         }
     };
 
@@ -909,8 +911,22 @@ namespace
         PlayerTankMage() : GroupBot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged)
         {
             group.SetTank(Player, true);
+            group.SetMemberRole(Mage, Bots::BotRole::Ranged);
         }
     };
+
+    // The player tank walks `yards` north from the bot, which stays at the
+    // start: each step is a point of the tank's trail (WatchTankTrail).
+    void TankWalksOff(GroupBot& bot, float yards)
+    {
+        bot.fake.SetPosition(bot.Self(), {0.0f, 0.0f, 0.0f});
+        for (float y = 0.0f; y <= yards; y += 1.0f)
+        {
+            bot.fake.SetPosition(Player, {0.0f, y, 0.0f});
+            Bots::WatchTankTrail(bot.fake, bot.group);
+        }
+        bot.fake.SetDistance(Player, yards);
+    }
 
     // Like the game: a bot that sits to drink has no follow movement.
     void SitsAndDrinks(GroupBot& bot)
@@ -936,11 +952,11 @@ TEST(PlayerTankRest, ADrinkingBotStopsAndFollowsWithTheTankAt35Yards)
 {
     PlayerTankHealer bot;
     SitsAndDrinks(bot);
-    bot.fake.SetDistance(Player, 35.0f);
+    TankWalksOff(bot, 35.0f);
 
     EXPECT_FALSE(Bots::RestsNow(bot.fake, bot.group));
-    EXPECT_EQ(bot.Think(), "follow the player");
-    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"follow 0x0000000000000005"}));
+    EXPECT_EQ(bot.Think(), Bots::FollowTankTrailRule);
+    EXPECT_EQ(bot.fake.Deeds().size(), 1u);
 }
 
 TEST(PlayerTankRest, ABotBelowHalfManaDoesNotStartToDrinkWithTheTankAt35Yards)
@@ -948,9 +964,9 @@ TEST(PlayerTankRest, ABotBelowHalfManaDoesNotStartToDrinkWithTheTankAt35Yards)
     PlayerTankMage bot;
     bot.fake.SetMana(Mage, 150, 400);
     bot.fake.SetFollowTarget(NoGuid);
-    bot.fake.SetDistance(Player, 35.0f);
+    TankWalksOff(bot, 35.0f);
 
-    EXPECT_EQ(bot.Think(), "follow the player");
+    EXPECT_EQ(bot.Think(), Bots::FollowTankTrailRule);
 }
 
 TEST(PlayerTankRest, AnEatingBotStopsAndFollowsWithTheTankAt35Yards)
@@ -959,10 +975,10 @@ TEST(PlayerTankRest, AnEatingBotStopsAndFollowsWithTheTankAt35Yards)
     bot.fake.SetHealth(Mage, 400, 600);
     bot.fake.SetEating();
     bot.fake.SetFollowTarget(NoGuid);
-    bot.fake.SetDistance(Player, 35.0f);
+    TankWalksOff(bot, 35.0f);
 
     EXPECT_FALSE(Bots::RestsNow(bot.fake, bot.group));
-    EXPECT_EQ(bot.Think(), "follow the player");
+    EXPECT_EQ(bot.Think(), Bots::FollowTankTrailRule);
 }
 
 // Bot-tank groups do not change: the bot rests until it is full.
