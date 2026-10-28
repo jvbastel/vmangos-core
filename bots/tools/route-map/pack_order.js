@@ -78,7 +78,6 @@
   let saved = "[[],[]]";   // the hand order and the skipped packs as last loaded or saved
   let mode = "";           // "", "order" or "skip"
   let group = null;
-  let yardsPerPixel = 1;
 
   const generator = () => routeOrder.filter(key => !hand.includes(key) && !skipped.includes(key));
   const state = () => JSON.stringify([hand, skipped]);
@@ -156,7 +155,6 @@
   function changed() {
     drawList();
     drawMarks();
-    if (group) sizeMarks(group, yardsPerPixel);
   }
 
   // Order mode: a click (not a pan) on a pack puts it last in the hand order
@@ -264,6 +262,4 @@
     group = el("g", {id: "po-marks"}, document.getElementById("overlay"));
     changed();
   });
-  // The page sizes the marks of its overlay at each zoom; a redraw sizes them here.
-  document.addEventListener("mapview", e => { yardsPerPixel = e.detail; });
 })();

@@ -1,7 +1,7 @@
 // The route drawing of the dungeon map (tickets jvbastel/WOWAI#157, #158). It
 // needs the globals of map_page.html (map, route, view) and of map_common.js
 // (SVG, el, sx, sy, toMap).
-// The page sends the "mapview" event with the yards per pixel at each zoom.
+// The page sizes the points (data-r) at each zoom and each redraw.
 //
 // Draw mode: a click adds a point to the active line, snapped to the floor.
 // Where floors stack, a chooser picks the floor of the point. Drag a point to
@@ -50,7 +50,6 @@
   let active = 0;               // the line that a click adds to
   let selected = null;          // {line, index}
   let fromTrace = false;        // the drawing started from the trace file
-  let yardsPerPixel = 1;
   const api = path => `/api/maps/${encodeURIComponent(route)}/${path}`;
   const isSelected = (l, i) => selected && selected.line === l && selected.index === i;
 
@@ -116,7 +115,6 @@
       dot.addEventListener("mousedown", startMove);
       dot.addEventListener("contextmenu", event => { event.preventDefault(); remove(l, i); });
     }));
-    sizeMarks(layer, yardsPerPixel);
     const count = lines.reduce((sum, line) => sum + line.points.length, 0);
     const length = lines.reduce((sum, line) => sum + line.pieces.reduce((s, p) => s + (p ? p.length : 0), 0), 0);
     const branches = lines.length - 1;
@@ -227,10 +225,6 @@
     if (event.key === "Escape") chooser.style.display = "none";
   });
 
-  document.addEventListener("mapview", event => {
-    yardsPerPixel = event.detail;
-    sizeMarks(layer, yardsPerPixel);
-  });
   const modeButton = document.getElementById("draw-mode");
   function setDrawing(on) {
     drawing = on;

@@ -45,14 +45,20 @@ const status = document.getElementById("status");
 const route = new URLSearchParams(location.search).get("route");
 let view = null;   // {x, y, w, h} of the viewBox, in yards
 let bounds = null;
+let yardsPerPixel = 1;
+
+// Marks and labels keep their size on screen at every zoom (setView) and at
+// every redraw: a node that any script adds anywhere in the map gets its size
+// here at once, so no script sizes its own marks (a click needs a hit circle
+// with its radius before the first zoom).
+new MutationObserver(() => sizeMarks(map, yardsPerPixel)).observe(map, {childList: true, subtree: true});
 
 function setView(v) {
   view = v;
   map.setAttribute("viewBox", `${v.x} ${v.y} ${v.w} ${v.h}`);
-  // Marks and labels keep their size on screen at every zoom.
-  const yardsPerPixel = Math.max(v.w / map.clientWidth, v.h / map.clientHeight);
+  yardsPerPixel = Math.max(v.w / map.clientWidth, v.h / map.clientHeight);
   overlay.style.setProperty("--k", yardsPerPixel);
-  sizeMarks(overlay, yardsPerPixel);
+  sizeMarks(map, yardsPerPixel);
   document.dispatchEvent(new CustomEvent("mapview", {detail: yardsPerPixel}));
 }
 

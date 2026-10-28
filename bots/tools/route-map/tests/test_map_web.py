@@ -156,3 +156,19 @@ def test_the_page_loads_the_shared_helpers_first_and_no_script_copies_them(tmp_p
     copies = re.compile(r"const SVG\b|function el\(|const sx\b|function toMap\(|querySelectorAll\(\"\[data-r\]")
     for name in scripts[1:] + ["map_page.html"]:
         assert not copies.search((here / name).read_text()), name
+
+
+def test_the_page_sizes_every_redraw_of_the_map_in_one_place(tmp_path):
+    # A mode switch redraws the pack order's hit circles; without a size they
+    # have no radius and take no click until the first zoom (review of #148).
+    import re
+    from pathlib import Path
+    web = client(tmp_path)
+    page = web.get("/").text
+    scripts = re.findall(r'<script src="/([\w.]+)"', page)
+
+    assert re.search(r"new MutationObserver\(\(\) => sizeMarks\(map, yardsPerPixel\)\)"
+                     r"\.observe\(map, \{childList: true, subtree: true\}\)", page)
+    here = Path(map_web.__file__).parent
+    for name in scripts[1:]:
+        assert "sizeMarks(" not in (here / name).read_text(), name
