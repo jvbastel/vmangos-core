@@ -510,6 +510,12 @@ namespace Bots
                 m_chase = {NoGuid, false};
             }
             void PetAttack(Guid target) override { AddDeed("pet attack", target); }
+            // Like the real follow command: the pet has no victim then.
+            void PetStop() override
+            {
+                m_deeds.push_back("stop the pet");
+                m_victim[m_pet] = NoGuid;
+            }
             void Follow(Guid unit) override
             {
                 AddDeed("follow", unit);

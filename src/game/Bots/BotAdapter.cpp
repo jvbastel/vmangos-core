@@ -740,6 +740,17 @@ void BotAdapter::PetAttack(Bots::Guid target)
         unit->GetObjectGuid().GetString().c_str(), pet->GetVictim() ? pet->GetVictim()->GetObjectGuid().GetString().c_str() : "none");
 }
 
+void BotAdapter::PetStop()
+{
+    // Like the follow command of the pet bar: the attack and the cast end,
+    // and the pet comes back.
+    Pet* pet = me->GetPet();
+    if (!pet || !pet->IsAlive() || !pet->GetCharmInfo())
+        return;
+    pet->HandlePetCommand(COMMAND_FOLLOW, nullptr);
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s calls its pet %s back", me->GetName(), pet->GetName());
+}
+
 void BotAdapter::Follow(Bots::Guid unit)
 {
     if (Unit* found = Find(unit))
