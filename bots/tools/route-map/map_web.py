@@ -32,6 +32,7 @@ import map_packs
 import map_quests
 import navmesh
 import pack_order
+import regions
 import route_draft
 import route_draw
 import route_file
@@ -188,6 +189,7 @@ def create_app(settings: Settings) -> FastAPI:
     pack_order.add_routes(app, maps)
     map_quests.add_routes(app)
     route_draft.add_routes(app, maps)
+    regions.add_routes(app, maps)
     return app
 
 
