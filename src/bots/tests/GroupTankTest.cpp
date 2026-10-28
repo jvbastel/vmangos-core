@@ -19,9 +19,8 @@ namespace
     Bots::Guid const BotHealer = 0x0000000000000012;
     Bots::Guid const BotMage = 0x0000000000000013;
 
-    GroupMember Human(Bots::Guid guid) { return {guid, false, BotRole::Ranged, true}; }
-    GroupMember HumanMage(Bots::Guid guid) { return {guid, false, BotRole::Ranged, false}; }
-    GroupMember Bot(Bots::Guid guid, BotRole role) { return {guid, true, role, role == BotRole::Tank}; }
+    GroupMember Human(Bots::Guid guid) { return {guid, false, BotRole::Ranged}; }
+    GroupMember Bot(Bots::Guid guid, BotRole role) { return {guid, true, role}; }
 }
 
 TEST(GroupTank, TheBotWithTheTankRoleIsTheTank)
@@ -47,13 +46,6 @@ TEST(GroupTank, ALeaderOutOfTheMembersGivesNoTank)
     EXPECT_EQ(PickGroupTank({Bot(BotHealer, BotRole::Healer), Bot(BotMage, BotRole::Ranged)}, Player), NoGuid);
 }
 
-// Merge review of spec #131: only a human warrior leader tanks. A human
-// mage leader is no tank: the damage bots still take its enemies off it.
-TEST(GroupTank, AHumanLeaderOfAnotherClassIsNoTank)
-{
-    EXPECT_EQ(PickGroupTank({HumanMage(Player), Bot(BotHealer, BotRole::Healer)}, Player), NoGuid);
-}
-
 // Merge review of spec #131: a human tank who leaves the map, or gives up
 // the lead, is no tank any more. A bot tank stays (it sets itself).
 TEST(GroupTank, AHumanTankWhoLeavesIsNoTankAnyMore)
@@ -70,4 +62,30 @@ TEST(GroupTank, ABotTankOutOfTheMembersStaysTheTank)
 TEST(GroupTank, APickReplacesTheCurrentTank)
 {
     EXPECT_EQ(NextGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player, NoGuid, false), Player);
+}
+
+// jvbastel/WOWAI#189: with no bot tank, the human leader is the group's
+// tank whatever its class: the members carry no class any more. A bot tank
+// still wins.
+TEST(GroupTank, AHumanLeaderOfAnyClassWithNoBotTankIsTheTank)
+{
+    EXPECT_EQ(PickGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player), Player);
+    EXPECT_EQ(PickGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer), Bot(BotTank, BotRole::Tank)}, Player),
+        BotTank);
+}
+
+TEST(GroupTank, OnlyAHumanTankMakesAPlayerTankGroup)
+{
+    std::vector<GroupMember> const members = {Human(Player), Bot(BotTank, BotRole::Tank)};
+    EXPECT_TRUE(Bots::IsHumanTank(members, Player));
+    EXPECT_FALSE(Bots::IsHumanTank(members, BotTank));
+    EXPECT_FALSE(Bots::IsHumanTank(members, NoGuid));
+}
+
+// Merge review of jvbastel/WOWAI#189: a bot tank that is not in `members`
+// (on another map, or zoning) stays the tank. The human leader does not take
+// over and make a player-tank group of a bot-tank group.
+TEST(GroupTank, ABotTankOutOfTheMembersStaysTheTankOverAHumanLeader)
+{
+    EXPECT_EQ(NextGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player, BotTank, true), BotTank);
 }

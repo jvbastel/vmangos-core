@@ -21,7 +21,10 @@ namespace Bots
     {
         Lock lock(m_mutex);
         if (target != m_focusTarget)
+        {
             m_tauntGivenUp = NoGuid;
+            m_tankOnTop = false;
+        }
         m_focusTarget = target;
     }
 
@@ -113,6 +116,7 @@ namespace Bots
         ++m_memberSpotsVersion;
         m_focusTarget = NoGuid;
         m_tauntGivenUp = NoGuid;
+        m_tankOnTop = false;
     }
 
     void GroupCoordinator::StartGroupWait(Guid puller, std::int64_t nowMs)
@@ -211,9 +215,21 @@ namespace Bots
         return TankHoldsThreatBy(nowMs) != ThreatHeld::No;
     }
 
+    void GroupCoordinator::NoteTankOnTop(bool onTop, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        if (onTop && !m_tankOnTop)
+            m_tankOnTopMs = nowMs;
+        m_tankOnTop = onTop;
+    }
+
     ThreatHeld GroupCoordinator::TankHoldsThreatBy(std::int64_t nowMs) const
     {
         Lock lock(m_mutex);
+        if (m_playerTank)
+            return m_focusTarget != NoGuid && m_tankOnTop && nowMs - m_tankOnTopMs >= PlayerTankHoldMs
+                ? ThreatHeld::TopOfThreat
+                : ThreatHeld::No;
         if (m_pull.phase == PullPhase::None)
             return m_focusTarget != NoGuid ? ThreatHeld::OutsideAPull : ThreatHeld::No;
         if (m_pull.phase != PullPhase::Holding)
@@ -296,10 +312,17 @@ namespace Bots
         return m_tank;
     }
 
-    void GroupCoordinator::SetTank(Guid tank)
+    void GroupCoordinator::SetTank(Guid tank, bool playerTank)
     {
         Lock lock(m_mutex);
         m_tank = tank;
+        m_playerTank = playerTank && tank != NoGuid;
+    }
+
+    bool GroupCoordinator::IsPlayerTankGroup() const
+    {
+        Lock lock(m_mutex);
+        return m_playerTank;
     }
 
     Guid GroupCoordinator::GetHealer() const

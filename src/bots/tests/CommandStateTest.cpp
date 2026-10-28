@@ -194,3 +194,29 @@ TEST(CommandState, TheTankAndTheHealerIgnoreAttackAndSayNothing)
     EXPECT_EQ(outcome.state, CommandState::Follow);
     EXPECT_STREQ(outcome.line, "");
 }
+
+// jvbastel/WOWAI#189: with no bot command yet, a bot of a player-tank group
+// follows the tank; a bot of a bot-tank group has no command state. A bot
+// command still holds the bot.
+TEST(CommandStatePlayerTank, ABotOfAPlayerTankGroupStartsInFollow)
+{
+    EXPECT_EQ(Bots::CommandStateNow(false, CommandState::None, true), CommandState::Follow);
+}
+
+TEST(CommandStatePlayerTank, ABotOfABotTankGroupStartsInNone)
+{
+    EXPECT_EQ(Bots::CommandStateNow(false, CommandState::None, false), CommandState::None);
+}
+
+TEST(CommandStatePlayerTank, StayStillHoldsTheBot)
+{
+    CommandOutcome const stay =
+        ApplyBotCommand(Bots::CommandStateNow(false, CommandState::None, true), BotCommandKind::Stay, Ready);
+
+    EXPECT_EQ(Bots::CommandStateNow(true, stay.state, true), CommandState::Stay);
+}
+
+TEST(CommandStatePlayerTank, StopHoldsTheBotInNone)
+{
+    EXPECT_EQ(Bots::CommandStateNow(true, CommandState::None, true), CommandState::None);
+}
