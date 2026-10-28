@@ -13,7 +13,14 @@ namespace Bots
         // The spells, by the spell ID of the first rank.
         SpellId const LesserHeal = 2050;
         SpellId const Heal = 2054;
+        // jvbastel/WOWAI#135: from level 20, for a member about to die.
+        SpellId const FlashHeal = 2061;
+        // jvbastel/WOWAI#136: from level 40, the big heal.
+        SpellId const GreaterHeal = 2060;
         SpellId const Renew = 139;
+        // jvbastel/WOWAI#133: the wand shot between heals. It repeats on its
+        // own until a cast stops it.
+        SpellId const Shoot = 5019;
         SpellId const PowerWordShield = 17;
         SpellId const PowerWordFortitude = 1243;
         SpellId const InnerFire = 588;
