@@ -88,6 +88,24 @@ TEST(PeelWatch, ANovaOnTheHealersEnemyIsForOthersWithTheTimeSinceTheEnemyReached
     EXPECT_EQ(watch.NovasForOthers(), 1u);
 }
 
+// Seen in game (run 2 of jvbastel/WOWAI#145): the damage of Frost Nova
+// turns the enemy on the Mage in the same update that shows the freeze. The
+// victim of the nova is the member that the enemy hit before it.
+TEST(PeelWatch, TheVictimIsTheMemberThatTheEnemyHitBeforeTheFreeze)
+{
+    PeelWatch watch;
+    watch.Update(Seen({On(Enforcer, Healer, 20.0f)}), 0);
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 3300);
+    watch.Update(Seen({Frozen(On(Enforcer, Mage, 2.0f))}), 3600);
+
+    ASSERT_EQ(watch.Novas().size(), 1u);
+    EXPECT_EQ(watch.Novas()[0].victims, std::vector<Bots::Guid>{Healer});
+    EXPECT_TRUE(watch.Novas()[0].forOthers);
+    EXPECT_EQ(watch.Novas()[0].healerReachMs, 300);
+    EXPECT_TRUE(watch.Freezes()[0].onHealer);
+    EXPECT_EQ(watch.Freezes()[0].victim, Healer);
+}
+
 TEST(PeelWatch, ANovaOnlyForTheMagesOwnEnemyIsNotForOthers)
 {
     PeelWatch watch;

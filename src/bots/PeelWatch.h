@@ -56,7 +56,8 @@ namespace Bots
     {
         Guid caster = NoGuid;
         std::int64_t ms = 0;
-        // The members other than the tank that the frozen enemies attacked.
+        // The members other than the tank that the frozen enemies attacked
+        // (PeelFreeze::victim).
         std::vector<Guid> victims;
         // A victim is not the caster.
         bool forOthers = false;
@@ -70,6 +71,8 @@ namespace Bots
     {
         Guid enemy = NoGuid;
         std::size_t nova = 0; // The index in PeelWatch::Novas.
+        // The member that the enemy hit in melee in the update before the
+        // freeze, else the one it attacks at the freeze.
         Guid victim = NoGuid;
         std::int64_t startMs = 0;
         std::int64_t endMs = 0; // The last update so far while it lasts.

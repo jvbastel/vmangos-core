@@ -339,6 +339,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_interrupts = Bots::InterruptWatch();
     m_chases = Bots::ChaseWatch();
     m_peel = Bots::PeelWatch();
+    m_peelContact.clear();
     m_combatNotes.Drain();
     m_unitNames.clear();
     m_chatEvents.clear();
@@ -1934,6 +1935,22 @@ void BotRun::WatchPeel(int64 nowMs)
                 if (Unit const* caster = map->GetUnit(aura.second->GetCasterGuid()))
                     RememberName(caster);
             }
+        // Each new victim of the enemy, and each time it comes in melee of
+        // its victim, into the trace: what the peel saw.
+        std::pair<ObjectGuid, bool> const contact{victim ? victim->GetObjectGuid() : ObjectGuid(),
+            victim && e.victimYards <= Bots::MeleeHitYards};
+        auto const known = m_peelContact.find(enemy->GetObjectGuid());
+        if (known == m_peelContact.end() || known->second != contact)
+        {
+            std::ostringstream text;
+            text.setf(std::ios::fixed);
+            text.precision(1);
+            text << UnitText(enemy) << (victim ? " on " + NameOf(victim->GetObjectGuid()) : std::string(" on nobody"))
+                 << (contact.second ? " in melee" : "") << " at " << enemy->GetPositionX() << " "
+                 << enemy->GetPositionY();
+            m_trace.Add(nowMs, text.str());
+            m_peelContact[enemy->GetObjectGuid()] = contact;
+        }
         e.tankHasIt = tank && (victim == tank || (tank->GetVictim() == enemy && tank->GetDistance(enemy) <= Bots::MeleeHitYards));
         e.health = enemy->GetHealth();
         e.healerYards = healer ? healer->GetDistance3dToCenter(enemy) : 0.0f;
@@ -2004,7 +2021,6 @@ bool BotRun::Loose(Bots::ScriptCommand const& command, std::string& detail)
         return false;
     }
     detail = UnitText(mob) + " attacks " + healer->GetName();
-    m_trace.Add(RunMs(), detail);
     return true;
 }
 

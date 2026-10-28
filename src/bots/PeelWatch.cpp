@@ -29,6 +29,11 @@ namespace Bots
             if (inserted.second)
                 t.health = e.health;
 
+            // The melee hit before this update: the damage of the nova can
+            // turn the enemy on the caster in the update that shows the
+            // freeze.
+            Guid const hitBefore = t.reachMs >= 0 ? t.victim : NoGuid;
+            std::int64_t const reachBefore = t.reachMs;
             bool const contact = e.victim != NoGuid && e.victim != seen.tank && e.victimYards <= MeleeHitYards;
             if (!contact)
                 t.reachMs = -1;
@@ -56,20 +61,22 @@ namespace Bots
                     m_novas.push_back(fresh);
                 }
                 PeelNova& n = m_novas[nova];
-                if (e.victim != NoGuid && e.victim != seen.tank && !Contains(n.victims, e.victim))
+                Guid const victim = hitBefore != NoGuid ? hitBefore : e.victim;
+                std::int64_t const reachMs = hitBefore != NoGuid ? reachBefore : t.reachMs;
+                if (victim != NoGuid && victim != seen.tank && !Contains(n.victims, victim))
                 {
-                    n.victims.push_back(e.victim);
-                    n.forOthers = n.forOthers || e.victim != n.caster;
+                    n.victims.push_back(victim);
+                    n.forOthers = n.forOthers || victim != n.caster;
                 }
-                if (e.victim == seen.healer && t.reachMs >= 0 && n.healerReachMs < 0)
-                    n.healerReachMs = nowMs - t.reachMs;
+                if (victim == seen.healer && reachMs >= 0 && n.healerReachMs < 0)
+                    n.healerReachMs = nowMs - reachMs;
 
                 PeelFreeze freeze;
                 freeze.enemy = e.enemy;
                 freeze.nova = nova;
-                freeze.victim = e.victim;
+                freeze.victim = victim;
                 freeze.startMs = nowMs;
-                freeze.onHealer = e.victim != NoGuid && e.victim == seen.healer;
+                freeze.onHealer = victim != NoGuid && victim == seen.healer;
                 t.open = true;
                 t.freeze = m_freezes.size();
                 t.hitBeforeTank = false;

@@ -303,6 +303,9 @@ class BotRun
         Bots::InterruptWatch m_interrupts;
         Bots::ChaseWatch m_chases;
         Bots::PeelWatch m_peel;
+        // The victim of each enemy that the peel saw, and whether it was in
+        // melee of it, for the trace.
+        std::map<ObjectGuid, std::pair<ObjectGuid, bool>> m_peelContact;
         Bots::Inbox<RunCombatNote> m_combatNotes;
         std::map<ObjectGuid, std::string> m_unitNames;
         std::map<uint64, std::size_t> m_chatEvents; // By event id: the index in m_record.chatEvents.
