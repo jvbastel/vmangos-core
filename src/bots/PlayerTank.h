@@ -34,6 +34,8 @@ namespace Bots
 
     // The player-tank watch of one bot, before each think. Nothing in a
     // group that is no player-tank group. Else:
+    // - jvbastel/WOWAI#195: with the tank seen dead (SeenDead), nothing:
+    //   the focus stays as it is.
     // - The focus becomes PickPlayerTankFocus (jvbastel/WOWAI#191: skull,
     //   cross, then the tank's target, each only in combat with the group).
     //   When it is NoGuid (a friend, no target, or an enemy out of the

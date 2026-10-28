@@ -12,6 +12,7 @@
 #include "CoordinatorChoice.h"
 #include "DeathAndRest.h"
 #include "GroupTank.h"
+#include "HealerSight.h"
 #include "MemberSpot.h"
 #include "PlayerTank.h"
 #include "WarriorModule.h"
@@ -675,7 +676,10 @@ void BotAI::Think()
     // up at once, so the group does not wait for its food aura to run out.
     // In a player-tank group it also stands up once the tank walks off
     // (jvbastel/WOWAI#193): after the tank lookup above.
-    bool const rests = Bots::KeepsRestingNow(adapter, *coordinator);
+    // jvbastel/WOWAI#195: a healer that sits stands up to resurrect the
+    // dead player tank first (HealerSight.h).
+    bool const rests =
+        Bots::KeepsRestingNow(adapter, *coordinator) && !Bots::ResurrectsTankBeforeRest(adapter, *coordinator);
     if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND && (!rests || me->IsInCombat()))
         me->SetStandState(UNIT_STAND_STATE_STAND);
     std::string const reaction = m_bossReaction.Active();

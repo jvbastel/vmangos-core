@@ -36,6 +36,10 @@ namespace Bots
         if (!group.IsPlayerTankGroup())
             return;
         Guid const tank = group.GetTank();
+        // jvbastel/WOWAI#195: the tank died mid-fight: the focus stays as
+        // it is, whatever the dead tank still targets or marks.
+        if (SeenDead(view, tank))
+            return;
         Guid const target = PickPlayerTankFocus(view, tank);
         if (target != NoGuid)
             group.SetFocusTarget(target);

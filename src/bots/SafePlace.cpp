@@ -97,7 +97,8 @@ namespace Bots
     }
 
     bool FindSafeCastPlace(BotView const& view, Guid unit, float yards, Position& place,
-        std::vector<NearEnemy>* enemies, std::function<bool(Position const&)> const& accepts)
+        std::vector<NearEnemy>* enemies, std::function<bool(Position const&)> const& accepts,
+        std::vector<NearEnemy> const* keepOutOf)
     {
         Position const self = view.GetPosition(view.GetSelf());
         Position const target = view.GetPosition(unit);
@@ -121,7 +122,7 @@ namespace Bots
 
         SafeMoveRules rules;
         rules.inSightOf = {unit};
-        rules.enemies = view.GetEnemiesNear(searchYards);
+        rules.enemies = keepOutOf ? *keepOutOf : view.GetEnemiesNear(searchYards);
         if (enemies)
             *enemies = rules.enemies;
         return FirstSafePlace(view, spots, rules, place);
