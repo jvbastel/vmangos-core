@@ -678,12 +678,12 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
     else if (sSpellMgr.GetFirstSpellInChain(spell) == Bots::Mage::FrostNova)
     {
         float const radiusYards = 10.0f;
-        std::list<Unit*> near;
+        std::list<Unit*> hostiles;
         MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck check(me, me, radiusYards);
-        MaNGOS::UnitListSearcher<MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck> searcher(near, check);
+        MaNGOS::UnitListSearcher<MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck> searcher(hostiles, check);
         Cell::VisitGridObjects(me, searcher, radiusYards);
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s casts Frost Nova %u: ok, %u hostile units within %.0f yd (3D edge)",
-            me->GetName(), spell, uint32(near.size()), radiusYards);
+            me->GetName(), spell, uint32(hostiles.size()), radiusYards);
     }
 }
 
