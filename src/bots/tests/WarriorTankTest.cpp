@@ -1825,6 +1825,8 @@ namespace
 
 // Spec story 3: with no Charge, the tank opens with Defensive Stance,
 // Bloodrage and Demoralizing Shout, and walks on meanwhile.
+// jvbastel/WOWAI#174: against the lone kobold the shout waits for spare
+// rage (25), so this tank has 25 after Bloodrage.
 TEST(WarriorTank, OpensWhileItWalksBackAfterARangedPull)
 {
     WalkBackTank tank;
@@ -1839,6 +1841,10 @@ TEST(WarriorTank, OpensWhileItWalksBackAfterARangedPull)
     tank.fake.SetPower(Tank, 10, 100);
     tank.fake.SetCanCastOn(Warrior::DemoralizingShout, Tank);
     tank.fake.SetCannotCast(Warrior::Bloodrage);
+
+    // jvbastel/WOWAI#174: 10 rage is no spare rage against a lone enemy.
+    EXPECT_EQ(tank.Next(), (std::vector<std::string>{walk}));
+    tank.fake.SetPower(Tank, 25, 100);
 
     EXPECT_EQ(tank.Next(), (std::vector<std::string>{CastOn(Warrior::DemoralizingShout, Tank), walk}));
     tank.fake.SetAura(Kobold, Warrior::DemoralizingShout);
@@ -2873,4 +2879,42 @@ TEST(WarriorTankRagePool, BattleShoutWaitsUntilASunderArmorsRageIsLeftAfterIt)
     tank.fake.ClearDeeds();
     tank.Think();
     EXPECT_TRUE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::BattleShout, Tank)})) << ::testing::PrintToString(tank.fake.Deeds());
+}
+
+// A ready Revenge waits for the joined enemy too: on the focus it would put
+// Revenge on its cooldown just before the joined enemy arrives.
+TEST(WarriorTankRagePool, RevengeOnTheFocusWaitsWhileAJoinedEnemyComes)
+{
+    JoinTank tank;
+    tank.fake.SetCannotCast(Warrior::Revenge, false);
+    tank.Join(Wolf);
+    tank.fake.SetDistance(Wolf, 12.0f);
+
+    EXPECT_FALSE(CastsAny(tank.ThinkAt(0), {CastOn(Warrior::Revenge, Kobold)}));
+
+    tank.fake.SetDistance(Wolf, 2.0f);
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::Revenge, Wolf)}));
+}
+
+// Against a lone enemy Demoralizing Shout takes only spare rage: a Sunder
+// Armor's rage stays after it. With more enemies it shouts as before.
+TEST(WarriorTankRagePool, ShoutsAtALoneEnemyOnlyWithSpareRage)
+{
+    WarriorTank tank;
+    tank.fake.SetKnownSpell(Warrior::DemoralizingShout);
+    tank.InFightWithKobold();
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+    tank.fake.SetPower(Tank, 20, 100);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_FALSE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::DemoralizingShout, Tank)}))
+        << ::testing::PrintToString(tank.fake.Deeds());
+
+    tank.fake.SetPower(Tank, 25, 100);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_TRUE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::DemoralizingShout, Tank)}))
+        << ::testing::PrintToString(tank.fake.Deeds());
 }

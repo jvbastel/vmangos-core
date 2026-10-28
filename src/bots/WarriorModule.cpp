@@ -41,9 +41,11 @@ namespace Bots
             float const DemoralizingShoutYards = 10.0f;
             std::size_t const DemoralizingShoutEnemies = 2;
 
-            // jvbastel/WOWAI#174: in a fight, Battle Shout (10 rage) takes
-            // only spare rage: a Sunder Armor's 15 stay after it.
+            // jvbastel/WOWAI#174: in a fight, Battle Shout (10 rage), and
+            // Demoralizing Shout against a lone enemy, take only spare rage:
+            // a Sunder Armor's 15 stay after them.
             std::uint32_t const BattleShoutRage = 25;
+            std::uint32_t const LoneShoutRage = 25;
 
             // jvbastel/WOWAI#116: Shield Block.
             // Rage for Shield Block from it.
@@ -621,7 +623,13 @@ namespace Bots
                 if (!FightsFocus(context))
                     return false;
                 auto const lacks = [&](Guid enemy) { return !context.view.HasAura(enemy, DemoralizingShout); };
-                std::vector<Guid> const inFight = UnitsWithin(context.view, EnemiesInFight(context), DemoralizingShoutYards);
+                std::vector<Guid> const fight = EnemiesInFight(context);
+                // jvbastel/WOWAI#174: against a lone enemy the shout waits
+                // for spare rage (LoneShoutRage): a Sunder Armor holds one
+                // enemy better.
+                if (fight.size() <= 1 && Rage(context) < LoneShoutRage)
+                    return false;
+                std::vector<Guid> const inFight = UnitsWithin(context.view, fight, DemoralizingShoutYards);
                 if (std::any_of(inFight.begin(), inFight.end(), lacks))
                     return true;
                 // The other enemies near: those that no member fights yet.
@@ -1204,7 +1212,11 @@ namespace Bots
                 // A ready Revenge goes to the threat target on a visit
                 // (jvbastel/WOWAI#117), and counts as its ability there. On
                 // the focus, it ends the visit.
-                CountsInThreatVisit(CastRule("revenge", P + 40, FightsFocus, Revenge, revengeTarget), revengeTarget, visit),
+                // jvbastel/WOWAI#174: it waits while a joined enemy comes
+                // for its early visit, which takes the ready Revenge.
+                CountsInThreatVisit(WaitsForTheEarlyVisits(CastRule("revenge", P + 40, FightsFocus, Revenge, revengeTarget),
+                                        pullPacks, earlyVisits),
+                    revengeTarget, visit),
                 // Below Revenge: more blocks give more Revenge. The cast
                 // check covers the shield and the cooldown.
                 WaitsForTheEarlyVisits(CastRule("shield block", P + 38,
