@@ -31,10 +31,14 @@ namespace Bots
         RoleChoice choice;
     };
 
-    // Reads a party add-on message as the server gets it: the prefix, a tab,
-    // then the text "<version>:<role>", with role one of tank, healer, melee,
-    // ranged or none, in lower case. For example "WOWAI_ROLE\t1:tank".
-    RoleChoiceMessage ParseRoleChoiceMessage(std::string const& message);
+    // Reads a whisper of `sender` to `receiver` as the server gets it
+    // (spec #188 fix-up S4): the add-on whispers to the player's own name,
+    // as the bot panel does (BotPanel.h), so that it works with no group.
+    // The text is the prefix, a space, then "<version>:<role>", with role
+    // one of tank, healer, melee, ranged or none, in lower case. For example
+    // "WOWAI_ROLE 1:tank". Ours only to the sender's own name (in any case).
+    RoleChoiceMessage ParseRoleChoiceWhisper(std::string const& sender, std::string const& receiver,
+        std::string const& text);
 }
 
 #endif

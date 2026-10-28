@@ -1,4 +1,5 @@
 #include "RoleChoice.h"
+#include "AddonWhisper.h"
 
 namespace Bots
 {
@@ -19,21 +20,16 @@ namespace Bots
         };
     }
 
-    RoleChoiceMessage ParseRoleChoiceMessage(std::string const& message)
+    RoleChoiceMessage ParseRoleChoiceWhisper(std::string const& sender, std::string const& receiver,
+        std::string const& text)
     {
         RoleChoiceMessage parsed = {false, RoleChoice::None};
-        std::string const prefix = std::string(RoleChoicePrefix) + "\t";
-        if (message.compare(0, prefix.size(), prefix) != 0)
+        std::string const prefix = std::string(RoleChoicePrefix) + " ";
+        if (!IsWhisperToSelf(sender, receiver) || text.compare(0, prefix.size(), prefix) != 0)
             return parsed;
         parsed.ours = true;
-
-        std::string const versioned = std::string(RoleChoiceVersion) + ":";
-        std::string const text = message.substr(prefix.size());
-        if (text.compare(0, versioned.size(), versioned) != 0)
-            return parsed;
-        std::string const word = text.substr(versioned.size());
         for (RoleChoiceWord const& known : RoleChoiceWords)
-            if (word == known.word)
+            if (text == AddonText(RoleChoicePrefix, RoleChoiceVersion, known.word))
                 parsed.choice = known.choice;
         return parsed;
     }

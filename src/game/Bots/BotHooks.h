@@ -38,18 +38,14 @@ namespace BotHooks
     // sends no "player not found" notice. Same threads as OnPlayerChat.
     bool OnWhisperToOffline(Player* sender, std::string const& receiverName, std::string const& text);
 
-    // jvbastel/WOWAI#197: WorldSession::HandleChatMessageOpcode, at the top
-    // of the party branch, for an add-on message (LANG_ADDON), also from a
-    // player with no group. A message of the role choice add-on sets the
-    // role choice of the sender (BotMgr::SetRoleChoice). Same threads as
-    // OnPlayerChat.
-    void OnPartyAddonMessage(Player* sender, std::string const& text);
-
     // jvbastel/WOWAI#198: WorldSession::HandleChatMessageOpcode, at the top
-    // of the whisper branch (not for LANG_ADDON). The list request of the bot
-    // panel, a whisper to the sender's own name, queues the panel for the
-    // sender (BotMgr::QueueBotPanelRequest). True: the hook took the whisper,
-    // and the core does not send it. Same threads as OnPlayerChat.
+    // of the whisper branch (not for LANG_ADDON). A whisper of the WowaiRole
+    // add-on to the sender's own name (bots/AddonWhisper.h): the list
+    // request of the bot panel queues the panel for the sender
+    // (BotMgr::QueueBotPanelRequest), and a role choice (spec #188 fix-up S4)
+    // sets the role choice of the sender (BotMgr::SetRoleChoice). True: the
+    // hook took the whisper, and the core does not send it. Same threads as
+    // OnPlayerChat.
     bool OnWhisperToSelf(Player* sender, std::string const& receiverName, std::string const& text);
 }
 

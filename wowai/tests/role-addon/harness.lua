@@ -1,6 +1,6 @@
 -- A stub of the 1.12 client API that loads the WowaiRole add-on in a Lua 5.0
 -- interpreter, clicks its role buttons, fires the group events, and checks
--- the party add-on messages it sends (jvbastel/WOWAI#197). It also feeds the
+-- the role choice whispers it sends (jvbastel/WOWAI#197). It also feeds the
 -- bot panel (WowaiBots.lua, #198) a list as system messages, clicks its
 -- buttons, and checks what the chat frames show. Run by
 -- wowai/tests/role-addon.test.sh:
@@ -21,13 +21,19 @@ local globals, frames, sent
 local partySize = 0
 function GetNumPartyMembers() return partySize end
 function GetNumRaidMembers() return 0 end
--- `sent`: the role choice messages.
-function SendAddonMessage(prefix, text, kind)
-	table.insert(sent, kind .. " " .. prefix .. "\t" .. text)
-end
+-- `sent`: the role choice whispers (spec #188 fix-up: a whisper to the
+-- player's own name, no party add-on message). `whispers`: the others.
+SendAddonMessage = nil
 function getglobal(name) return globals[name] end
 local whispers
-function SendChatMessage(text, kind, language, target) table.insert(whispers, kind .. " " .. (target or "") .. " " .. text) end
+function SendChatMessage(text, kind, language, target)
+	local line = kind .. " " .. (target or "") .. " " .. text
+	if string.find(text, "^WOWAI_ROLE ") then
+		table.insert(sent, line)
+	else
+		table.insert(whispers, line)
+	end
+end
 function UnitName(unit) if unit == "player" then return "Thrallson" end end
 local function NewObject(name)
 	local object = { scripts = {}, shown = true, text = "", highlight = false }
@@ -114,35 +120,35 @@ check("a button for each role", globals.WowaiRole_tank and globals.WowaiRole_hea
 check("nothing is sent with no group and no pick", table.getn(sent) == 0)
 
 Click("WowaiRole_tank")
-check("a pick is sent, also with no group", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
+check("a pick is sent, also with no group", Last() == "WHISPER Thrallson WOWAI_ROLE 1:tank", Last())
 check("the pick is saved per character", WowaiRoleDB.role == "tank")
 check("the picked button is lit", globals.WowaiRole_tank.highlight and not globals.WowaiRole_healer.highlight)
 
 partySize = 1
 Fire("PARTY_MEMBERS_CHANGED")
-check("joining a group sends the pick", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
+check("joining a group sends the pick", Last() == "WHISPER Thrallson WOWAI_ROLE 1:tank", Last())
 
 Click("WowaiRole_healer")
-check("a new pick is sent", Last() == "PARTY WOWAI_ROLE\t1:healer", Last())
+check("a new pick is sent", Last() == "WHISPER Thrallson WOWAI_ROLE 1:healer", Last())
 Click("WowaiRole_healer")
-check("a click on the pick clears it", Last() == "PARTY WOWAI_ROLE\t1:none" and WowaiRoleDB.role == nil, Last())
+check("a click on the pick clears it", Last() == "WHISPER Thrallson WOWAI_ROLE 1:none" and WowaiRoleDB.role == nil, Last())
 Click("WowaiRole_tank")
 
 -- Logout and login: the saved variables stay.
 partySize = 0
 Login()
 check("the pick survives a logout", WowaiRole.GetRole() == "tank" and globals.WowaiRole_tank.highlight)
-check("a pick is sent at login, also with no group", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
+check("a pick is sent at login, also with no group", Last() == "WHISPER Thrallson WOWAI_ROLE 1:tank", Last())
 partySize = 2
 Fire("PARTY_MEMBERS_CHANGED")
-check("the pick is sent again on joining a group", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
+check("the pick is sent again on joining a group", Last() == "WHISPER Thrallson WOWAI_ROLE 1:tank", Last())
 Login()
-check("a login in a group sends the pick", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
+check("a login in a group sends the pick", Last() == "WHISPER Thrallson WOWAI_ROLE 1:tank", Last())
 
 -- In 1.12 VARIABLES_LOADED can come after PLAYER_ENTERING_WORLD.
 partySize = 0
 Login(true)
-check("a login with late saved variables sends the pick, with no group", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
+check("a login with late saved variables sends the pick, with no group", Last() == "WHISPER Thrallson WOWAI_ROLE 1:tank", Last())
 
 -- The fold, and a later section (the bot panel of #198).
 local built = false

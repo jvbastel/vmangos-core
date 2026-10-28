@@ -172,13 +172,16 @@ namespace
         ChatHandler(player->GetSession()).SendSysMessage(line);
     }
 
-    // jvbastel/WOWAI#197: a party chat line of a bot that is not in the
-    // group of `player`, for `player` only (the refusal of a second tank).
-    // The bot can be offline: the client asks the name of the GUID.
-    void SayToPlayerInParty(ObjectGuid bot, char const* name, Player* player, char const* line)
+    // jvbastel/WOWAI#197: a chat line of a bot that is not in the group of
+    // `player`, for `player` only (the refusal of a second tank). A party
+    // line when the player is in a group, else a whisper (spec #188 fix-up
+    // S4: a solo invite). The bot can be offline: the client asks the name
+    // of the GUID.
+    void SayToPlayer(ObjectGuid bot, char const* name, Player* player, char const* line)
     {
         WorldPacket data;
-        ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, line, LANG_UNIVERSAL, 0, bot, name);
+        ChatMsg const chatType = player->GetGroup() ? CHAT_MSG_PARTY : CHAT_MSG_WHISPER;
+        ChatHandler::BuildChatPacket(data, chatType, line, LANG_UNIVERSAL, 0, bot, name);
         player->GetSession()->SendPacket(&data);
     }
 }
@@ -745,7 +748,7 @@ bool BotMgr::RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player
     {
         if (plan.lineFromBot)
         {
-            SayToPlayerInParty(ObjectGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID)), record->entry->name.c_str(),
+            SayToPlayer(ObjectGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID)), record->entry->name.c_str(),
                 player, plan.line);
             sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s refuses the invite of %s: a second tank",
                 record->entry->name.c_str(), player->GetName());
@@ -929,7 +932,7 @@ void BotMgr::SendLines()
                 // jvbastel/WOWAI#197: a bot out of the group, to one player
                 // (the refusal of a second tank).
                 if (Player* receiver = ObjectAccessor::FindPlayer(line.receiver))
-                    SayToPlayerInParty(bot->GetObjectGuid(), bot->GetName(), receiver, line.text.c_str());
+                    SayToPlayer(bot->GetObjectGuid(), bot->GetName(), receiver, line.text.c_str());
                 continue;
             }
             if (!group)

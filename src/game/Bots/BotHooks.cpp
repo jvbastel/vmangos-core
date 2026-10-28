@@ -143,23 +143,23 @@ bool BotHooks::OnWhisperToOffline(Player* sender, std::string const& receiverNam
     return sender && RouteGroupCommand(sender, receiverName, text);
 }
 
-void BotHooks::OnPartyAddonMessage(Player* sender, std::string const& text)
-{
-    if (!sender || sender->IsBot())
-        return;
-    Bots::RoleChoiceMessage const message = Bots::ParseRoleChoiceMessage(text);
-    if (!message.ours)
-        return;
-    sBotMgr.SetRoleChoice(sender->GetObjectGuid(), message.choice);
-    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s sends the role choice \"%s\"", sender->GetName(),
-        text.substr(text.find('\t') + 1).c_str());
-}
-
-// jvbastel/WOWAI#198: the bot panel asks for its list.
+// jvbastel/WOWAI#198 and the spec #188 fix-up (S4): the whispers of the
+// WowaiRole add-on to the player's own name (bots/AddonWhisper.h): the bot
+// panel asks for its list, or the player sends the role choice.
 bool BotHooks::OnWhisperToSelf(Player* sender, std::string const& receiverName, std::string const& text)
 {
-    if (!sender || sender->IsBot() || !Bots::IsBotPanelRequest(sender->GetName(), receiverName, text))
+    if (!sender || sender->IsBot())
         return false;
-    sBotMgr.QueueBotPanelRequest(sender->GetObjectGuid());
+    if (Bots::IsBotPanelRequest(sender->GetName(), receiverName, text))
+    {
+        sBotMgr.QueueBotPanelRequest(sender->GetObjectGuid());
+        return true;
+    }
+    Bots::RoleChoiceMessage const message = Bots::ParseRoleChoiceWhisper(sender->GetName(), receiverName, text);
+    if (!message.ours)
+        return false;
+    sBotMgr.SetRoleChoice(sender->GetObjectGuid(), message.choice);
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s sends the role choice \"%s\"", sender->GetName(),
+        text.substr(text.find(' ') + 1).c_str());
     return true;
 }

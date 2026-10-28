@@ -230,7 +230,7 @@ class BotMgr
         void DropCoordinator(uint32 groupId);
 
         // jvbastel/WOWAI#197: the role choice of a player, from its last
-        // party add-on message of the role choice add-on (BotHooks). Kept
+        // whisper to self of the role choice add-on (BotHooks::OnWhisperToSelf). Kept
         // in memory: the add-on sends it again at login and on each group
         // change. From any thread.
         void SetRoleChoice(ObjectGuid player, Bots::RoleChoice choice);

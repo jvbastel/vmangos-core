@@ -1,10 +1,12 @@
 -- WowaiRole: the role choice of the player, for the WOWAI bots
 -- (jvbastel/WOWAI#197). For the vanilla 1.12 client (Lua 5.0).
 --
--- The pick is saved per character (WowaiRoleDB.role) and sent to the party
--- as an add-on message: prefix "WOWAI_ROLE", text "1:<role>", with role one
--- of tank, healer, melee, ranged or none. The server reads it with
--- Bots::ParseRoleChoiceMessage (src/bots/RoleChoice.h in the core fork).
+-- The pick is saved per character (WowaiRoleDB.role) and sent to the server
+-- as a whisper to the player's own name, "WOWAI_ROLE 1:<role>", with role one
+-- of tank, healer, melee, ranged or none, the way the bot panel asks for its
+-- list (WowaiBots.lua): the 1.12 client sends a whisper also with no group.
+-- The server takes the whisper (no whisper line shows) and reads it with
+-- Bots::ParseRoleChoiceWhisper (src/bots/RoleChoice.h in the core fork).
 -- A new text format takes a new version number on both sides.
 --
 -- The add-on sends the pick on a new pick and at login (both also with no
@@ -50,20 +52,19 @@ function WowaiRole.InGroup()
 	return GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0
 end
 
--- The text of the message for `role`.
+-- The text of the whisper for `role`.
 function WowaiRole.Message(role)
-	return WowaiRole.VERSION .. ":" .. role
+	return WowaiRole.PREFIX .. " " .. WowaiRole.VERSION .. ":" .. role
 end
 
--- Sends the pick to the party. Outside a group only when `solo`: the server
--- reads a party add-on message of a player with no group too, so that it
--- knows the pick before the first invite. The group events do not send
--- outside a group.
+-- Sends the pick to the server. Outside a group only when `solo`: the server
+-- reads the whisper of a player with no group too, so that it knows the pick
+-- before the first invite. The group events do not send outside a group.
 function WowaiRole.Send(solo)
 	if not solo and not WowaiRole.InGroup() then
 		return
 	end
-	SendAddonMessage(WowaiRole.PREFIX, WowaiRole.Message(WowaiRole.GetRole()), "PARTY")
+	SendChatMessage(WowaiRole.Message(WowaiRole.GetRole()), "WHISPER", nil, UnitName("player"))
 end
 
 -- A new pick: "tank", "healer", "melee", "ranged", or "none" to clear it.
