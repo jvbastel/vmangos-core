@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""The dungeon map: a local page that shows the navmesh floor of a dungeon
+and its route.
+
+    bots/tools/route-map/route-map <route> [--navmesh DIR] [--settings FILE] [--port 8766] [--no-browser]
+
+The route is a route file name in the routes folder, for example
+ragefire_chasm. The map id comes from the route file. The navmesh, routes
+and exports folders come from settings.toml; --navmesh overrides the
+navmesh folder. The page is http://127.0.0.1:8766/?route=<route>.
+
+The navmesh reader is navmesh.py, the floor image floor_image.py, the route
+file reader route_file.py, the page map_page.html. See spec
+jvbastel/WOWAI#148 and ADR 0003.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
+
+import floor_image
+import navmesh
+import route_file
+
+
+HERE = Path(__file__).resolve().parent
+PAGE = HERE / "map_page.html"
+
+
+@dataclass
+class Settings:
+    navmesh: Path
+    routes: Path
+    exports: Path
+
+    @classmethod
+    def load(cls, path: Path) -> "Settings":
+        """The settings file; its relative paths are relative to its folder."""
+        paths = tomllib.loads(path.read_text())["paths"]
+        return cls(*(path.parent / Path(paths[k]) for k in ("navmesh", "routes", "exports")))
+
+
+@dataclass
+class Command:
+    route: str
+    settings: Settings
+    host: str
+    port: int
+    browser: bool
+
+
+def read_command(argv=None) -> Command:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("route", help="the route name, for example ragefire_chasm")
+    parser.add_argument("--settings", type=Path, default=HERE / "settings.toml")
+    parser.add_argument("--navmesh", type=Path, help="the navmesh folder (default: from the settings file)")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--no-browser", dest="browser", action="store_false", help="do not open a browser")
+    args = parser.parse_args(argv)
+    settings = Settings.load(args.settings)
+    if args.navmesh:
+        settings.navmesh = args.navmesh
+    return Command(args.route, settings, args.host, args.port, args.browser)
+
+
+def pack_view(route, pack, order):
+    """A pack of the route: its `packN` label, its place in the pack order
+    (the order of the route file), its key, mobs and pull point."""
+    pull = route.pull_point(pack)
+    return {"label": pack.name, "order": order, "key": pack.key, "x": pack.x, "y": pack.y, "z": pack.z,
+            "mobs": [vars(m) for m in pack.mobs], "pull_point": vars(pull) if pull else None}
+
+
+def create_app(settings: Settings) -> FastAPI:
+    app = FastAPI(title="Dungeon map")
+
+    def load_route(name):
+        path = settings.routes / f"{name}.txt"
+        if not path.is_file():
+            raise HTTPException(404, f"no route file {path}")
+        try:
+            return route_file.parse(path.read_text())
+        except route_file.RouteFileError as error:
+            raise HTTPException(422, f"{path}: {error}")
+
+    @app.get("/", response_class=HTMLResponse)
+    def page():
+        return PAGE.read_text()
+
+    meshes = {}
+
+    def load_navmesh(map_id):
+        if map_id not in meshes:
+            try:
+                meshes[map_id] = navmesh.Navmesh.load(settings.navmesh, map_id)
+            except navmesh.NavmeshError as error:
+                raise HTTPException(422, f"navmesh: {error}")
+        return meshes[map_id]
+
+    images = {}
+
+    def load_floor(route, z_min, z_max):
+        key = (route.map_id, tuple((p.x, p.y, p.z) for p in route.line + route.packs), z_min, z_max)
+        if key not in images:
+            mesh = load_navmesh(route.map_id)
+            polys = mesh.joined_to([(p.x, p.y, p.z) for p in route.line + route.packs])
+            try:
+                image = floor_image.render(polys, z_min, z_max)
+            except floor_image.EmptyFloor as error:
+                raise HTTPException(422, str(error))
+            images[key] = {"image": "data:image/png;base64," + base64.b64encode(image.png).decode(),
+                           "bounds": image.bounds}
+        return images[key]
+
+    @app.get("/api/maps/{name}/floors")
+    def floors(name: str, x: float, y: float):
+        """The floors at (x, y), lowest first."""
+        mesh = load_navmesh(load_route(name).map_id)
+        return {"floors": [{"z": round(f.z, 2), "lava": f.poly.lava} for f in mesh.floors(x, y)]}
+
+    @app.get("/api/maps/{name}")
+    def load_map(name: str, z_min: Optional[float] = None, z_max: Optional[float] = None):
+        """The map of a route: the floor image (only heights z_min to z_max
+        when given) with its bounds, the route line, and the route's packs."""
+        route = load_route(name)
+        return {
+            "route": route.name,
+            "map_id": route.map_id,
+            "floor": load_floor(route, z_min, z_max),
+            "line": [vars(p) for p in route.line],
+            "packs": [pack_view(route, pack, order) for order, pack in enumerate(route.packs, 1)],
+        }
+
+    return app
+
+
+def open_browser(url):
+    """Open the page: in the Windows browser under WSL, else the default one."""
+    import shutil
+    import subprocess
+    import webbrowser
+
+    if shutil.which("explorer.exe"):
+        subprocess.Popen(["explorer.exe", url])  # WSL: explorer.exe opens a URL in the Windows browser
+    else:
+        webbrowser.open(url)
+
+
+def main(argv=None):
+    command = read_command(argv)
+    import threading
+
+    import uvicorn
+
+    app = create_app(command.settings)
+    url = f"http://{command.host}:{command.port}/?route={command.route}"
+    print(f"Dungeon map of {command.route}: {url} (navmesh {command.settings.navmesh}). Ctrl+C stops it.")
+    if command.browser:
+        threading.Timer(1.0, open_browser, [url]).start()
+    uvicorn.run(app, host=command.host, port=command.port, log_level="warning")
+
+
+if __name__ == "__main__":
+    main()
