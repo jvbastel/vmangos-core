@@ -121,6 +121,42 @@ namespace Bots
         std::int64_t ms;
     };
 
+    // A Frost Nova of the peel (jvbastel/WOWAI#145, PeelWatch.h).
+    struct RunPeelNova
+    {
+        std::string caster;
+        std::int64_t ms;
+        std::vector<std::string> victims; // The members, not the tank, that its enemies attacked.
+        bool forOthers;                   // A victim is not the caster.
+        std::int64_t healerReachMs;       // From the enemy reaching the healer to the nova, or -1.
+        bool brokenByParty;               // Party damage broke a freeze of it before the tank arrived.
+    };
+
+    // A Frost Nova that went out with an enemy of the fight in its radius and
+    // froze nothing, for example on a resist (final review of spec #142).
+    struct RunEmptyNova
+    {
+        std::string caster;
+        std::int64_t ms;
+        std::size_t enemiesInRadius;
+        std::int64_t healerReachMs; // The healer's enemy was in its radius: since it reached the healer, or -1.
+    };
+
+    // A freeze of one enemy by a peel nova.
+    struct RunFreeze
+    {
+        std::string enemy;
+        std::string victim; // Empty when it attacked nobody.
+        std::int64_t startMs;
+        std::int64_t endMs;
+        std::int64_t tankMs; // When the tank arrived, or -1.
+        bool brokenByParty;
+        bool onHealer; // Then where the healer stood at its end:
+        float healerYards;
+        float healerTankYards;
+        bool healerSeesTank;
+    };
+
     // A line of a bot that arrived in game chat.
     struct RunChatLine
     {
@@ -200,6 +236,9 @@ namespace Bots
         std::vector<RunChase> chases;
         float chaseLimitYards = 0.0f; // The limit of `chases` (ChaseLimitYards).
         std::vector<RunFireNovaHit> fireNovaHits;
+        std::vector<RunPeelNova> peelNovas;
+        std::vector<RunFreeze> freezes;
+        std::vector<RunEmptyNova> novasFrozeNothing;
         std::vector<RunChatEvent> chatEvents;
         std::vector<RunGearDraw> gearDraws;
         std::vector<RunChoice> choices;

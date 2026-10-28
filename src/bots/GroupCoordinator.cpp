@@ -314,15 +314,41 @@ namespace Bots
         m_healer = healer;
     }
 
+    void GroupCoordinator::SetMemberRole(Guid member, BotRole role)
+    {
+        Lock lock(m_mutex);
+        m_roles[member] = role;
+    }
+
+    bool GroupCoordinator::HasRole(Guid member, BotRole role) const
+    {
+        Lock lock(m_mutex);
+        auto const found = m_roles.find(member);
+        return found != m_roles.end() && found->second == role;
+    }
+
     void GroupCoordinator::KeepTrail(Position at, bool fights)
     {
         Lock lock(m_mutex);
         // A pull keeps the trail as it was at its start: the tank's walk to
         // its shoot spot is no cleared way.
         if (fights)
+        {
+            // The first think of the fight: the trail becomes its cleared way.
+            if (!m_trail.Points().empty())
+                m_fightWay = m_trail.Points();
             m_trail.Clear();
-        else if (m_pull.phase == PullPhase::None)
+            return;
+        }
+        m_fightWay.clear();
+        if (m_pull.phase == PullPhase::None)
             m_trail.Note(at);
+    }
+
+    std::vector<Position> GroupCoordinator::GetFightWay() const
+    {
+        Lock lock(m_mutex);
+        return m_fightWay;
     }
 
     std::vector<Position> GroupCoordinator::GetTrail() const

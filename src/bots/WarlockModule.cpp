@@ -1,6 +1,7 @@
 #include "WarlockModule.h"
 #include "CommonRules.h"
 #include "DamageRules.h"
+#include "StepBack.h"
 
 namespace Bots
 {
@@ -54,6 +55,23 @@ namespace Bots
                             && !context.view.HasAura(Self(context), DemonSkin);
                     },
                     DemonSkin, PickSelf),
+
+                // jvbastel/WOWAI#144: out of reach of a frozen enemy first.
+                StepBackRule(P + 89, BotRole::Ranged),
+
+                // Final review of spec #142, finding 3: the Imp attacks an
+                // enemy that the Warlock holds fire on (HoldsFireOn: frozen,
+                // and not the tank's). Its Firebolts would break the freeze,
+                // so it comes back. The player's attack target goes on (it
+                // is the damage target then). Another target follows at
+                // P + 80.
+                Rule{"call the imp back", P + 81,
+                    [](BotContext const& context) {
+                        Guid const victim = context.view.GetVictim(context.view.GetPet());
+                        return victim != NoGuid && HoldsFireOn(context, victim) && PickDamageTarget(context) != victim;
+                    },
+                    {[](BotContext const& context) { return IsAlive(context.view, context.view.GetPet()); },
+                        [](BotContext const& context) { context.actions.PetStop(); }}},
 
                 // The fight: the Imp attacks the damage target, and the
                 // Warlock runs into casting range of it.

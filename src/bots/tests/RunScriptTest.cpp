@@ -321,9 +321,10 @@ TEST(RunScript, RefusesABrokenLineWithItsNumber)
     EXPECT_EQ(ErrorOf(Head + "teleport\n"), "line 6: use: teleport <point>");
     EXPECT_EQ(ErrorOf(Head + "wait soon\n"),
         "line 6: use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]");
-    EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), std::string("line 6: ") + "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
+    EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"),
+        "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
         "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n> | expect damage_chase_yards <yards> | "
-        "expect extra_pack_threat_seconds <n>");
+        "expect extra_pack_threat_seconds <n> | expect peel_nova");
     EXPECT_EQ(ErrorOf(Head + "clear -3\n"), "line 6: use: clear <yards> [<pack> ...]");
     EXPECT_EQ(ErrorOf(Head + "whisper Hela\n"), "line 6: use: whisper <bot> <text>");
     EXPECT_EQ(ErrorOf(Head + "join\n"), "line 6: use: join <pack> [<bot>]");
@@ -359,6 +360,37 @@ TEST(RunScript, ChecksThePackAndTheBotOfAJoin)
 
     RunScriptResult const good = ParseRunScript(Head + "join shamans1 Hela\n");
     EXPECT_EQ(Bots::CheckRunScript(good.script, route.route), "");
+}
+
+// jvbastel/WOWAI#145: a mob of a pack attacks the healer, a loose enemy for
+// the peel nova, and the scenario expects the peel to pass (PeelWatch.h).
+TEST(RunScript, ReadsALooseEnemyOnTheHealerAndThePeelExpect)
+{
+    RunScriptResult const result = ParseRunScript(Head + "loose shamans1 healer\nexpect peel_nova\n");
+    ASSERT_TRUE(result.ok) << result.error;
+
+    std::vector<ScriptCommand> const& c = result.script.scenarios[0].commands;
+    ASSERT_EQ(c.size(), 2u);
+    EXPECT_EQ(c[0].kind, ScriptCommandKind::Loose);
+    EXPECT_EQ(c[0].name, "shamans1");
+    EXPECT_EQ(c[1].kind, ScriptCommandKind::ExpectPeelNova);
+
+    Bots::RouteResult const route = Bots::ParseRoute(RouteText);
+    ASSERT_TRUE(route.ok);
+    EXPECT_EQ(Bots::CheckRunScript(result.script, route.route), "");
+    RunScriptResult const wrong = ParseRunScript(Head + "loose nopack healer\n");
+    ASSERT_TRUE(wrong.ok) << wrong.error;
+    EXPECT_EQ(Bots::CheckRunScript(wrong.script, route.route), "line 6: the route ragefire_chasm has no pack named nopack");
+}
+
+TEST(RunScript, ALooseEnemyGoesOnlyToTheHealer)
+{
+    EXPECT_EQ(ErrorOf(Head + "loose shamans1 tank\n"), "line 6: use: loose <pack> healer");
+    EXPECT_EQ(ErrorOf(Head + "loose shamans1\n"), "line 6: use: loose <pack> healer");
+    EXPECT_EQ(ErrorOf(Head + "expect peel_nova now\n"),
+        "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
+        "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n> | expect damage_chase_yards <yards> | "
+        "expect extra_pack_threat_seconds <n> | expect peel_nova");
 }
 
 TEST(RunScript, NeedsTheHeadBeforeTheScenarios)
@@ -408,6 +440,10 @@ TEST(RunScriptData, TheRagefireChasmScriptFitsItsRouteFile)
     EXPECT_EQ(Bots::CheckRunScript(script.script, route.route), "");
     EXPECT_NE(Bots::FindScenario(script.script, "taragaman"), nullptr);
     EXPECT_NE(Bots::FindScenario(script.script, "enforcers"), nullptr);
+    // jvbastel/WOWAI#145.
+    Bots::ScriptScenario const* peel = Bots::FindScenario(script.script, "peel_nova");
+    ASSERT_NE(peel, nullptr);
+    EXPECT_EQ(peel->commands.back().kind, ScriptCommandKind::ExpectPeelNova);
     EXPECT_EQ(route.route.bosses, (std::vector<std::uint32_t>{11517, 11520, 11518, 11519}));
 }
 

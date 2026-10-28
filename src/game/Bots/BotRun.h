@@ -18,6 +18,7 @@
 #include "Inbox.h"
 #include "InterruptWatch.h"
 #include "ObjectGuid.h"
+#include "PeelWatch.h"
 #include "Route.h"
 #include "RouteQuests.h"
 #include "RunJudge.h"
@@ -227,6 +228,14 @@ class BotRun
         // each bot.
         void WatchCombat(int64 nowMs);
         void TakeCombatNotes(int64 nowMs);
+        // The peel novas and the step back of the healer (Bots::PeelWatch,
+        // jvbastel/WOWAI#145): what each enemy of the fight does, whether
+        // Frost Nova holds it, and where the healer stands.
+        void WatchPeel(int64 nowMs);
+        // The living healer and tank of the group, or null.
+        Player* LivingMemberOfRole(Bots::BotRole role) const;
+        // `loose <pack> healer`: a living mob of the pack attacks the healer.
+        bool Loose(Bots::ScriptCommand const& command, std::string& detail);
         // A living member knows an interrupt spell that is ready, and has
         // the power for it.
         bool InterrupterFree() const;
@@ -277,6 +286,7 @@ class BotRun
         bool ExpectBossDead(uint32 entry, std::string& detail);
         bool ExpectPackDead(std::string const& pack, std::string& detail);
         bool ExpectAlive(std::string& detail);
+        bool ExpectPeelNova(std::string& detail);
         // The revive rule of the scripted runs (jvbastel/WOWAI#72): the run
         // cuts the ghost run short. Out of combat, a released member
         // revives at once at the living member nearest to its corpse. In a
@@ -311,6 +321,13 @@ class BotRun
         std::unique_ptr<Bots::RunJudge> m_judge;
         Bots::InterruptWatch m_interrupts;
         Bots::ChaseWatch m_chases;
+        Bots::PeelWatch m_peel;
+        // The victim of each enemy that the peel saw, and whether it was in
+        // melee of it, for the trace.
+        std::map<ObjectGuid, std::pair<ObjectGuid, bool>> m_peelContact;
+        // Whether the Frost Nova of each member was ready at the last update:
+        // a nova went out when it is no longer ready (final review of spec #142).
+        std::map<ObjectGuid, bool> m_novaReady;
         Bots::Inbox<RunCombatNote> m_combatNotes;
         std::map<ObjectGuid, std::string> m_unitNames;
         std::map<uint64, std::size_t> m_chatEvents; // By event id: the index in m_record.chatEvents.

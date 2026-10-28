@@ -4,6 +4,7 @@
 #include "Ranged.h"
 #include "SafePlace.h"
 #include "SpellBook.h"
+#include "StepBack.h"
 
 namespace Bots
 {
@@ -31,9 +32,6 @@ namespace Bots
             std::int64_t const HealDelayMs = 2000;
             float const DangerBelow = 0.5f;
 
-            // The heals reach 40 yards. The bot goes nearer to a hurt member
-            // beyond this distance.
-            float const HealReachYards = 36.0f;
             // Resurrection reaches 30 yards. A corpse beyond this distance is
             // out of reach, and the bot casts from this near.
             float const ResurrectReachYards = 29.0f;
@@ -146,7 +144,8 @@ namespace Bots
 
             // jvbastel/WOWAI#133: the bot shoots the focus target with its
             // wand: in a fight, once the tank holds threat on it
-            // (TankHoldsThreat, DamageRules.h), with no enemy on the bot,
+            // (TankHoldsThreat, DamageRules.h), and it holds no fire on it
+            // (HoldsFireOn, jvbastel/WOWAI#144), with no enemy on the bot,
             // the target in shot range and sight, and no shot going yet.
             // Shoot costs no mana: the spirit regen goes on.
             bool ShootsTheFocus(BotContext const& context)
@@ -155,18 +154,21 @@ namespace Bots
                 return context.view.IsInCombat(PickSelf(context)) && !IsAttacked(context)
                     && context.view.GetRangedWeapon().kind == RangedKind::Wand && CanShoot(context.view)
                     && context.view.GetShotTarget() == NoGuid
-                    && IsAlive(context.view, focus) && TankHoldsThreat(context) && InWandShot(context.view, focus);
+                    && IsAlive(context.view, focus) && TankHoldsThreat(context) && !HoldsFireOn(context, focus)
+                    && InWandShot(context.view, focus);
             }
 
             // Review of spec #131: a going shot repeats on its own. The bot
             // stops it when the shot no longer fits ShootsTheFocus: its
             // target is not the focus target, the tank no longer holds
-            // threat on it, or an enemy attacks the bot.
+            // threat on it, or an enemy attacks the bot. jvbastel/WOWAI#144:
+            // or it holds fire on it (HoldsFireOn, DamageRules.h).
             bool StopsTheShot(BotContext const& context)
             {
                 Guid const shot = context.view.GetShotTarget();
                 return shot != NoGuid
-                    && (shot != context.group.GetFocusTarget() || !TankHoldsThreat(context) || IsAttacked(context));
+                    && (shot != context.group.GetFocusTarget() || !TankHoldsThreat(context) || IsAttacked(context)
+                        || HoldsFireOn(context, shot));
             }
 
             // The first living member without Power Word: Fortitude, or NoGuid.
@@ -286,6 +288,9 @@ namespace Bots
                 // tank. jvbastel/WOWAI#170: it shields itself only while its
                 // health falls, and walks to the tank (P + 55, below).
                 CastRule("fade", P + 90, IsAttacked, Fade, PickSelf),
+                // jvbastel/WOWAI#144: out of reach of a frozen enemy, before
+                // the heals; the spot keeps the tank in reach and sight.
+                StepBackRule(P + 89, BotRole::Healer),
                 CastRule("shield itself", P + 86, ShieldsItself, PowerWordShield, PickSelf),
 
                 // The heals, the most urgent first. Each picks the most

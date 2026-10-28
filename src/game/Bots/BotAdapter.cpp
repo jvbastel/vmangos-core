@@ -11,6 +11,7 @@
 #include "GameRouteNav.h"
 #include "BotGeometry.h"
 #include "GhostWalk.h"
+#include "MageModule.h"
 #include "CastResult.h"
 #include "Bag.h"
 #include "Corpse.h"
@@ -671,6 +672,19 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
     if (result != SPELL_CAST_OK)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: %s", me->GetName(), spell,
             CastResultLogText(result).c_str());
+    // Final review of spec #142, gap 3 (a nova cast in time froze late or
+    // nothing): the result of each Frost Nova, and the hostile units in its
+    // radius (3D, to their edge) when it goes out.
+    else if (sSpellMgr.GetFirstSpellInChain(spell) == Bots::Mage::FrostNova)
+    {
+        float const radiusYards = 10.0f;
+        std::list<Unit*> near;
+        MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck check(me, me, radiusYards);
+        MaNGOS::UnitListSearcher<MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck> searcher(near, check);
+        Cell::VisitGridObjects(me, searcher, radiusYards);
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s casts Frost Nova %u: ok, %u hostile units within %.0f yd (3D edge)",
+            me->GetName(), spell, uint32(near.size()), radiusYards);
+    }
 }
 
 void BotAdapter::MoveTo(Bots::Position const& destination)
@@ -698,6 +712,15 @@ void BotAdapter::Attack(Bots::Guid target)
         me->SetTargetGuid(unit->GetObjectGuid());
         me->Attack(unit, true);
     }
+}
+
+void BotAdapter::StopAttack()
+{
+    // Like the `stop` command (BotAI), but the cast goes on: only the swing
+    // and the chase end. The bot stands where it is.
+    me->AttackStop();
+    if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE)
+        Stand();
 }
 
 void BotAdapter::Chase(Bots::Guid target)
@@ -760,6 +783,17 @@ void BotAdapter::PetAttack(Bots::Guid target)
     sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s sends its pet %s (0x%016llx) to %s: pet victim %s",
         me->GetName(), pet->GetName(), (unsigned long long)pet->GetObjectGuid().GetRawValue(),
         unit->GetObjectGuid().GetString().c_str(), pet->GetVictim() ? pet->GetVictim()->GetObjectGuid().GetString().c_str() : "none");
+}
+
+void BotAdapter::PetStop()
+{
+    // Like the follow command of the pet bar: the attack and the cast end,
+    // and the pet comes back.
+    Pet* pet = me->GetPet();
+    if (!pet || !pet->IsAlive() || !pet->GetCharmInfo())
+        return;
+    pet->HandlePetCommand(COMMAND_FOLLOW, nullptr);
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s calls its pet %s back", me->GetName(), pet->GetName());
 }
 
 void BotAdapter::Follow(Bots::Guid unit)

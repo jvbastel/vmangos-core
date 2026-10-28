@@ -94,6 +94,10 @@ def summary(result):
         if marks:
             line += "; " + ", ".join(marks)
         line += ")"
+    # The peel novas (jvbastel/WOWAI#145), when the run had any.
+    if result.get("peel_novas"):
+        line += ", peel novas %d (for others %d, broken by party %d)" % (
+            len(result["peel_novas"]), result["novas_for_others"], result["novas_broken_by_party"])
     # A pull with an unwarned or avoidable extra pack fails (jvbastel/WOWAI#123).
     # It is counted and shown here, but it does not fail the run (user decision).
     failed = [(i + 1, pull["failure"]) for i, pull in enumerate(result.get("pulls", []))

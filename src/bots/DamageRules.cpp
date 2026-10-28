@@ -2,6 +2,7 @@
 #include "CommonRules.h"
 #include "GroupRules.h"
 #include "KeepOut.h"
+#include "MageModule.h"
 
 #include <algorithm>
 #include <vector>
@@ -29,7 +30,8 @@ namespace Bots
         // The living enemies in the chase limit that hit a living group
         // member other than the living tank, the bot included, in the
         // order of the group members. It skips the
-        // enemy `skip`. The tank holds its own attackers.
+        // enemy `skip`, and the ones that the bot holds fire on
+        // (HoldsFireOn). The tank holds its own attackers.
         std::vector<Guid> LooseEnemies(BotContext const& context, Guid skip)
         {
             Guid const tank = context.group.GetTank();
@@ -39,7 +41,7 @@ namespace Bots
                 if (IsAlive(context.view, member) && !(tankLives && member == tank))
                     for (Guid attacker : context.view.GetAttackers(member))
                         if (attacker != skip && IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker)
-                            && !Contains(enemies, attacker))
+                            && !Contains(enemies, attacker) && !HoldsFireOn(context, attacker))
                             enemies.push_back(attacker);
             return enemies;
         }
@@ -109,7 +111,8 @@ namespace Bots
             if (tank == NoGuid || context.view.GetDistance(tank) > AtTankYards)
                 return NoGuid;
             for (Guid attacker : context.view.GetAttackers(context.view.GetSelf()))
-                if (IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker))
+                if (IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker)
+                    && !HoldsFireOn(context, attacker))
                     return attacker;
             return NoGuid;
         }
@@ -122,12 +125,22 @@ namespace Bots
         }
     }
 
+    bool IsFrozen(BotView const& view, Guid enemy)
+    {
+        return view.HasAura(enemy, Mage::FrostNova);
+    }
+
+    bool HoldsFireOn(BotContext const& context, Guid enemy)
+    {
+        return IsFrozen(context.view, enemy) && context.view.GetVictim(enemy) != context.group.GetTank();
+    }
+
     Guid PickDamageTarget(BotContext const& context)
     {
         if (IsAlive(context.view, context.attackTarget))
             return context.attackTarget;
         Guid const healer = PickEnemyHealer(context);
-        if (healer != NoGuid)
+        if (healer != NoGuid && !HoldsFireOn(context, healer))
             return healer;
         Guid const focus = context.group.GetFocusTarget();
         bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
@@ -138,7 +151,7 @@ namespace Bots
                 return loose;
         }
         if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
-            && IsInChaseLimit(context, focus))
+            && IsInChaseLimit(context, focus) && !HoldsFireOn(context, focus))
             return focus;
         return NoGuid;
     }

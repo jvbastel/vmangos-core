@@ -253,3 +253,30 @@ wait combat_end 300
 expect pack_dead pack35
 expect pack_dead pack36
 expect alive
+
+# Peel nova and step back of jvbastel/WOWAI#145 (spec #142): the healer gets
+# a loose enemy within the Mage's reach. pack48 is one standing Searing
+# Blade Enforcer. The group walks from pull_pack46 to pull_pack47, so the
+# fight has a cleared way to step back along, and holds its place there
+# once the healer caught up. The ground there is flat (at pull_pack48, on a
+# slope, the group spread out and the healer stood out of the Mage's reach).
+# Then the Enforcer comes in next to the healer and attacks it (`loose`; from
+# its spawn, the tank often took it on its way): the Mage freezes it off the
+# healer, the healer and the ranged members near it step back, the ranged
+# members hold fire, and the tank picks it up. The run passes when the peel
+# does (`expect peel_nova`, src/bots/PeelWatch.h).
+scenario peel_nova
+teleport pull_pack46
+clear 50 pack48         # only the pack stays
+command follow
+wait 20
+move pull_pack47
+wait arrive
+wait 6                  # the healer catches up: within the Mage's reach
+command stay
+refill
+wait 3
+loose pack48 healer
+wait combat_end 120
+expect pack_dead pack48
+expect peel_nova

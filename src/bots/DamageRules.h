@@ -25,7 +25,22 @@ namespace Bots
     // takes the enemy that only it attacks, else one that no member
     // attacks, so that no enemy stays lost. Not the focus that the bot
     // waits a taunt for.
+    // jvbastel/WOWAI#144: a damage bot, ranged or melee, holds fire on an
+    // enemy frozen by Frost Nova (HoldsFireOn) in all steps but the first:
+    // a hit breaks the freeze. DoTs already on it stay.
     Guid PickDamageTarget(BotContext const& context);
+
+    // jvbastel/WOWAI#144: Frost Nova holds enemy `enemy` frozen now. The one
+    // test of a frozen enemy for the hold of fire, the step back, and the
+    // peel nova (MageModule.cpp, jvbastel/WOWAI#143).
+    bool IsFrozen(BotView const& view, Guid enemy);
+
+    // jvbastel/WOWAI#144: enemy `enemy` is frozen by Frost Nova, and its
+    // target is not the tank: a damage bot (ranged or melee, final review of
+    // spec #142, finding 5) starts no new attack on it, so that the freeze
+    // holds until the tank picks it up or it ends (8 s). Once the tank is its
+    // target, the tank's own hits break the freeze anyway.
+    bool HoldsFireOn(BotContext const& context, Guid enemy);
 
     // A damage bot this near the tank (BotView::GetDistance) is at the
     // tank: an enemy on it is in the tank's reach (jvbastel/WOWAI#171). More
@@ -36,7 +51,10 @@ namespace Bots
     // The damage target of a melee bot (PickDamageTarget), else, at the
     // tank (AtTankYards), an enemy in the chase limit that attacks the bot
     // (jvbastel/WOWAI#171): the bot is not idle while the enemy is where
-    // the tank reaches it. Not one in the
+    // the tank reaches it. Both with the same hold of fire on frozen
+    // enemies (HoldsFireOn; jvbastel/WOWAI#142, final review finding 5).
+    // The attack target of the player is never held (the player's command
+    // wins). The target is also not one in the
     // reach of a pack outside the fight (KeepOut.h, jvbastel/WOWAI#121).
     // The keep-out rule would step the bot out again, and its chase take it
     // back in: a loop. The member that the enemy hits steps out itself and

@@ -1,6 +1,7 @@
 #ifndef WOWAI_BOTS_GROUP_COORDINATOR_H
 #define WOWAI_BOTS_GROUP_COORDINATOR_H
 
+#include "BotRecipe.h"
 #include "BotTypes.h"
 #include "Trail.h"
 
@@ -282,6 +283,13 @@ namespace Bots
         // (WarriorModule.cpp).
         Guid GetHealer() const;
         void SetHealer(Guid healer);
+        // jvbastel/WOWAI#143: the role of each bot of the group. The bot AI
+        // of each bot sets its own on each think. The Mage's peel nova
+        // (MageModule.cpp) reads the ranged members from it. A human player
+        // has no role here: the game keeps no record of it.
+        void SetMemberRole(Guid member, BotRole role);
+        // True when member `member` set role `role`.
+        bool HasRole(Guid member, BotRole role) const;
 
         // The tank's trail since the last fight (Trail.h): the cleared way of
         // its fight spot (FightSpot.h). The tank notes where it stands on
@@ -289,6 +297,10 @@ namespace Bots
         // trail is empty. While a pull is on, the trail does not grow.
         void KeepTrail(Position at, bool fights);
         std::vector<Position> GetTrail() const;
+        // jvbastel/WOWAI#144: the cleared way of the fight that is on: the
+        // trail as it was when the tank began to fight, oldest first. Empty
+        // out of a fight. The step back walks back along it (StepBack.h).
+        std::vector<Position> GetFightWay() const;
 
         // The enemy healers: the enemies that cast a heal in a fight. The
         // damage bots attack them first (GroupRules.h).
@@ -390,7 +402,9 @@ namespace Bots
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;
         Guid m_healer = NoGuid;
+        std::map<Guid, BotRole> m_roles;
         Trail m_trail;
+        std::vector<Position> m_fightWay;
         std::vector<MemberSpot> m_memberSpots;
         // Counts each change of m_memberSpots but the in-place notes.
         std::uint64_t m_memberSpotsVersion = 0;
