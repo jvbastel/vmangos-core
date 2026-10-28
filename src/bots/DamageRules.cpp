@@ -154,7 +154,7 @@ namespace Bots
             // stays, and the bots fight on against it with no threat wait
             // and no threat throttle (HoldsBackOnThreat holds only with a
             // living tank): no tank holds threat any more.
-            if (context.group.IsPlayerTankGroup() && SeenDead(context.view, context.group.GetTank())
+            if (SeenDead(context.view, PlayerTankOf(context.view, context.group))
                 && IsAlive(context.view, focus) && IsInChaseLimit(context, focus) && !HoldsFireOn(context, focus))
                 return focus;
             if (!IsAlive(context.view, context.group.GetTank()))
@@ -234,7 +234,7 @@ namespace Bots
     bool HoldsBackOnThreat(BotContext const& context, Guid enemy, float takeover)
     {
         Guid const self = context.view.GetSelf();
-        if (!context.group.IsPlayerTankGroup() || LivingTank(context) == NoGuid)
+        if (!IsAlive(context.view, PlayerTankOf(context.view, context.group)))
             return false;
         float const ratio = context.view.GetThreatRatio(self, enemy);
         bool const holds = context.group.HoldsBackOnThreat(self, enemy);

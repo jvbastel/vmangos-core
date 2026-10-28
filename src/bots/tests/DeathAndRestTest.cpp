@@ -7,6 +7,8 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+
 using Bots::BotContext;
 using Bots::CommandState;
 using Bots::GroupCoordinator;
@@ -1124,4 +1126,19 @@ TEST(PlayerTankRest, ABotTheTankNeverLeftDrinksAtOnce)
     TankAt(bot, 20.0f, 20.0f, 0);
 
     EXPECT_EQ(bot.Think(), "drink");
+}
+
+// Spec #188 fix-up (standards 3): a tank that the bot does not find (no
+// health: another map, a loading screen) is no tank to act on
+// (PlayerTankOf). It does not stand a resting bot up.
+TEST(PlayerTankRest, ABotThatDoesNotFindTheTankKeepsDrinking)
+{
+    PlayerTankHealer bot;
+    SitsAndDrinks(bot);
+    bot.fake.SetHealth(Player, 0, 0);
+    bot.fake.SetDistance(Player, std::numeric_limits<float>::max());
+    Bots::WatchPlayerTankRest(bot.fake, bot.group, 0);
+
+    EXPECT_TRUE(Bots::KeepsRestingNow(bot.fake, bot.group));
+    EXPECT_EQ(bot.Think(), "keep resting");
 }

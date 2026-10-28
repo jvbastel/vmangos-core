@@ -201,19 +201,15 @@ namespace Bots
     // jvbastel/WOWAI#193
     bool TankLeftTheRest(BotView const& view, GroupCoordinator const& group)
     {
-        if (!group.IsPlayerTankGroup())
-            return false;
-        Guid const tank = group.GetTank();
-        return tank != NoGuid && tank != view.GetSelf()
+        Guid const tank = PlayerTankOf(view, group);
+        return tank != NoGuid
             && (view.GetDistance(tank) > PlayerTankRestYards || group.TankLeftRestOf(view.GetSelf()));
     }
 
     void WatchPlayerTankRest(BotView const& view, GroupCoordinator& group, std::int64_t nowMs)
     {
-        if (!group.IsPlayerTankGroup())
-            return;
-        Guid const tank = group.GetTank();
-        if (view.GetHealth(tank).max == 0)
+        Guid const tank = PlayerTankOf(view, group);
+        if (tank == NoGuid)
             return;
         group.NoteTankPlace(view.GetPosition(tank), nowMs);
         Guid const self = view.GetSelf();

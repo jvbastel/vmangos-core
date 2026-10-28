@@ -75,6 +75,14 @@ namespace Bots
 
     // A rule that starts the melee attack of the picked unit and runs to it.
     Rule MeleeRule(std::string name, int priority, Trigger trigger, TargetPicker target);
+
+    // Spec #188 fix-up (standards 3): the ONE lookup of the player tank. The
+    // tank of a player-tank group (GroupCoordinator::IsPlayerTankGroup) when
+    // the bot sees it, alive or dead; else NoGuid: in a bot-tank group, and
+    // for a tank the bot does not find (no health, BotView::GetHealth: on
+    // another map or in a loading screen). An unseen tank always means "no
+    // tank to act on".
+    Guid PlayerTankOf(BotView const& view, GroupCoordinator const& group);
 }
 
 #endif

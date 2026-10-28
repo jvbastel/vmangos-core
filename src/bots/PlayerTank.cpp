@@ -33,7 +33,9 @@ namespace Bots
 
     void WatchPlayerTank(BotView const& view, GroupCoordinator& group, std::int64_t nowMs)
     {
-        if (!group.IsPlayerTankGroup())
+        // A bot that does not find the tank notes nothing (PlayerTankOf).
+        Guid const tank = PlayerTankOf(view, group);
+        if (tank == NoGuid)
             return;
         // Spec #188 fix-up (S2): the group left combat, and the focus is
         // out of the fight: the fight is over. No focus, and no tank on top.
@@ -42,7 +44,6 @@ namespace Bots
         if (last != NoGuid && view.GetHealth(last).max > 0 && !IsInCombatWithTheGroup(view, last)
             && !IsGroupInCombat(view))
             group.SetFocusTarget(NoGuid);
-        Guid const tank = group.GetTank();
         // jvbastel/WOWAI#195: the tank died mid-fight: the focus stays as
         // it is, whatever the dead tank still targets or marks.
         if (SeenDead(view, tank))

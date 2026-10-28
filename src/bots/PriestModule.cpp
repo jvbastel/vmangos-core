@@ -122,8 +122,8 @@ namespace Bots
             // rate it lost health at.
             bool HealMayStart(BotContext const& context, Guid member)
             {
-                Guid const tank = context.group.GetTank();
-                if (!context.group.IsPlayerTankGroup() || member == tank)
+                Guid const tank = PlayerTankOf(context.view, context.group);
+                if (tank == NoGuid || member == tank)
                     return true;
                 std::uint32_t const health = context.view.GetHealth(member).current;
                 float const rate = context.group.NoteDamageRate(member, health, context.nowMs);
@@ -252,9 +252,10 @@ namespace Bots
             std::vector<Guid> MembersTankFirst(BotContext const& context)
             {
                 std::vector<Guid> members = context.view.GetGroupMembers();
-                if (context.group.IsPlayerTankGroup())
-                    std::stable_partition(members.begin(), members.end(),
-                        [&context](Guid member) { return member == context.group.GetTank(); });
+                Guid const tank = PlayerTankOf(context.view, context.group);
+                if (tank != NoGuid)
+                    std::stable_partition(
+                        members.begin(), members.end(), [tank](Guid member) { return member == tank; });
                 return members;
             }
 

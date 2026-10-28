@@ -263,12 +263,10 @@ namespace Bots
 
     void WatchTankTrail(BotView const& view, GroupCoordinator& group)
     {
-        if (!group.IsPlayerTankGroup())
-            return;
-        Guid const tank = group.GetTank();
         // A bot that does not find the tank (no health, place 0,0,0) leaves
         // the trail to the bots that see it: its note would clear it.
-        if (view.GetHealth(tank).max == 0)
+        Guid const tank = PlayerTankOf(view, group);
+        if (tank == NoGuid)
             return;
         group.KeepTrail(view.GetPosition(tank), view.IsInCombat(tank) || !IsAlive(view, tank));
     }

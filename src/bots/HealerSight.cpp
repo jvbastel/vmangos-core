@@ -12,14 +12,14 @@ namespace Bots
 {
     namespace
     {
-        // The living tank of a player-tank group in a fight of the bot,
-        // when the bot is not the tank and casts nothing, else NoGuid.
+        // The living tank of a player-tank group (PlayerTankOf) in a fight
+        // of the bot, when the bot casts nothing, else NoGuid.
         Guid TankToKeep(BotContext const& context)
         {
             Guid const self = context.view.GetSelf();
-            Guid const tank = context.group.GetTank();
-            if (!context.group.IsPlayerTankGroup() || tank == self || !IsAlive(context.view, tank)
-                || !context.view.IsInCombat(self) || context.view.GetCurrentCast(self) != NoSpell)
+            Guid const tank = PlayerTankOf(context.view, context.group);
+            if (!IsAlive(context.view, tank) || !context.view.IsInCombat(self)
+                || context.view.GetCurrentCast(self) != NoSpell)
                 return NoGuid;
             return tank;
         }
@@ -69,8 +69,8 @@ namespace Bots
     bool ResurrectsTankBeforeRest(BotView const& view, GroupCoordinator const& group)
     {
         Guid const self = view.GetSelf();
-        Guid const tank = group.GetTank();
-        if (!group.IsPlayerTankGroup() || tank == self || !IsAlive(view, self) || IsGroupInCombat(view)
+        Guid const tank = PlayerTankOf(view, group);
+        if (tank == NoGuid || !IsAlive(view, self) || IsGroupInCombat(view)
             || view.GetLifeState(tank) != LifeState::Dead || group.IsResurrectGivenUp(tank))
             return false;
         SpellId const rank = RankForTarget(view, Priest::Resurrection, tank);
