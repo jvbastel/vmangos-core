@@ -295,15 +295,15 @@ TEST(PlayerTankDeath, AfterTheFocusDiesTheBotsTakeTheLooseEnemies)
     EXPECT_EQ(bot.DamageTarget(), Wolf);
 }
 
-// Story 40: after the fight, the healer, low on health and mana, resurrects
-// the tank first, and then rests.
+// Story 40: after the fight, the healer, low on mana, resurrects the tank
+// first, and then rests. (A healer low on health heals itself first: the
+// heals of the living come before the resurrect.)
 TEST(PlayerTankDeath, AfterTheFightTheHealerResurrectsTheTankBeforeItRests)
 {
     PlayerTankHealer bot;
     bot.fake.SetKnownSpell(Priest::Resurrection);
     bot.fake.SetCastsOnDead(Priest::Resurrection);
     bot.Die(Human);
-    bot.fake.SetHealth(Healer, 200, 600);
     bot.fake.SetMana(Healer, 150, 400);
     bot.fake.SetPower(Healer, 150, 400);
     bot.Watch();
@@ -313,12 +313,12 @@ TEST(PlayerTankDeath, AfterTheFightTheHealerResurrectsTheTankBeforeItRests)
     cast << "cast " << Priest::Resurrection << " on 0x" << std::hex << std::setw(16) << std::setfill('0') << Human;
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{cast.str()}));
 
-    // The tank lives again: now the healer eats.
+    // The tank lives again: now the healer drinks.
     bot.fake.ClearDeeds();
     bot.fake.SetLifeState(Human, LifeState::Alive);
-    bot.fake.SetHealth(Human, 300, 600);
+    bot.fake.SetHealth(Human, 600, 600);
     bot.Watch();
-    EXPECT_EQ(bot.Think(), "eat");
+    EXPECT_EQ(bot.Think(), "drink");
 }
 
 // Story 41: a full wipe keeps today's death handling: the bots wait for the
