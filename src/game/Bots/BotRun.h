@@ -306,6 +306,9 @@ class BotRun
         // The victim of each enemy that the peel saw, and whether it was in
         // melee of it, for the trace.
         std::map<ObjectGuid, std::pair<ObjectGuid, bool>> m_peelContact;
+        // Whether the Frost Nova of each member was ready at the last update:
+        // a nova went out when it is no longer ready (final review of spec #142).
+        std::map<ObjectGuid, bool> m_novaReady;
         Bots::Inbox<RunCombatNote> m_combatNotes;
         std::map<ObjectGuid, std::string> m_unitNames;
         std::map<uint64, std::size_t> m_chatEvents; // By event id: the index in m_record.chatEvents.

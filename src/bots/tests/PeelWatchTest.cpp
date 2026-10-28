@@ -270,3 +270,113 @@ TEST(PeelWatch, AHealerThatEndsOutOfReachOrSightOfTheTankFails)
     EXPECT_EQ(Bots::PeelFailure(far), "the healer ended 40.0 yd from the tank (at most 36 yd)");
     EXPECT_EQ(Bots::PeelFailure(blind), "the healer ended out of sight of the tank");
 }
+
+// Final review of spec #142, finding 14 and the fix-up runs. Spec #142: "The
+// tank goes to the frozen enemies and picks them up. Breaking the freeze is
+// fine."
+namespace
+{
+    // A Frost Nova of `caster` went out with `inRadius` in its 10 yd.
+    PeelSeen NovaOut(PeelSeen seen, std::vector<Bots::Guid> inRadius, Bots::Guid caster = Mage)
+    {
+        Bots::PeelNovaOut out;
+        out.caster = caster;
+        out.enemiesInRadius = inRadius;
+        seen.novasOut.push_back(out);
+        return seen;
+    }
+}
+
+// Seen in the fix-up run 2 (133500): the tank came 0.1 s after the nova,
+// took the frozen enemy and broke the freeze 0.3 s later, before the healer
+// could step back.
+TEST(PeelWatch, ATankThatPicksUpTheFrozenEnemyNeedsNoStepBack)
+{
+    PeelWatch watch;
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 0);
+    watch.Update(Seen({HealerAt(Frozen(On(Enforcer, Healer, 2.0f)), 4.6f)}), 1000);
+    watch.Update(Seen({TankHas(HealerAt(Frozen(On(Enforcer, Tank, 1.0f)), 4.6f))}, 1.4f), 1100);
+    watch.Update(Seen({HealerAt(On(Enforcer, Mage, 2.0f, 900), 4.6f)}, 1.4f), 1300);
+
+    ASSERT_EQ(watch.Freezes().size(), 1u);
+    EXPECT_EQ(watch.Freezes()[0].tankHoldsMs, 1100);
+    EXPECT_FALSE(watch.Freezes()[0].brokenByParty);
+    EXPECT_EQ(Bots::PeelFailure(watch), "");
+}
+
+// The tank in melee of the frozen enemy is no pickup while the enemy still
+// attacks the healer: the healer must step back.
+TEST(PeelWatch, ATankThatOnlyHitsTheFrozenEnemyStillNeedsTheStepBack)
+{
+    PeelWatch watch;
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 0);
+    watch.Update(Seen({HealerAt(Frozen(On(Enforcer, Healer, 2.0f)), 4.6f)}), 1000);
+    watch.Update(Seen({TankHas(HealerAt(Frozen(On(Enforcer, Healer, 2.0f)), 4.6f))}), 1100);
+    watch.Update(Seen({TankHas(HealerAt(On(Enforcer, Healer, 2.0f, 900), 4.6f))}), 1300);
+
+    EXPECT_EQ(watch.Freezes()[0].tankHoldsMs, -1);
+    EXPECT_EQ(Bots::PeelFailure(watch), "the healer ended 4.6 yd from the frozen enemy (at least 8 yd)");
+}
+
+// Seen in the fix-up run 1 (133359): the nova went out with the enemy in its
+// radius and froze nothing (a resist).
+TEST(PeelWatch, ANovaThatFreezesNothingIsReportedAndDoesNotFailAlone)
+{
+    PeelWatch watch;
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 0);
+    watch.Update(NovaOut(Seen({On(Enforcer, Healer, 2.0f)}), {Enforcer}), 300);
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 1500);
+    watch.Update(Seen({TankHas(On(Enforcer, Tank, 1.0f))}), 2500);
+
+    std::vector<Bots::PeelCast> const nothing = watch.NovasThatFrozeNothing();
+    ASSERT_EQ(nothing.size(), 1u);
+    EXPECT_EQ(nothing[0].caster, Mage);
+    EXPECT_EQ(nothing[0].ms, 300);
+    EXPECT_EQ(nothing[0].enemiesInRadius, 1u);
+    EXPECT_EQ(nothing[0].healerReachMs, 300);
+    EXPECT_TRUE(watch.Novas().empty());
+    EXPECT_EQ(Bots::PeelFailure(watch), "");
+}
+
+TEST(PeelWatch, ANovaThatFreezesInTheSameUpdateFrozeSomething)
+{
+    PeelWatch watch;
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 0);
+    watch.Update(NovaOut(Seen({Frozen(On(Enforcer, Healer, 2.0f))}), {Enforcer}), 500);
+
+    EXPECT_TRUE(watch.NovasThatFrozeNothing().empty());
+    EXPECT_EQ(watch.Novas().size(), 1u);
+}
+
+TEST(PeelWatch, AfterANovaThatFreezesNothingTheEnemyOnTheHealerPastTheThreatLossLimitFails)
+{
+    PeelWatch watch;
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 0);
+    watch.Update(NovaOut(Seen({On(Enforcer, Healer, 2.0f)}), {Enforcer}), 300);
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 4500);
+    watch.Update(Seen({TankHas(On(Enforcer, Tank, 1.0f))}), 5000);
+
+    EXPECT_EQ(Bots::PeelFailure(watch),
+        "a Frost Nova froze nothing, and the enemy stayed on the healer for 4.5 s (limit 4 s)");
+}
+
+TEST(PeelWatch, ANovaThatFreezesNothingWithoutTheHealersEnemyInRadiusFails)
+{
+    PeelWatch watch;
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 0);
+    watch.Update(NovaOut(Seen({On(Enforcer, Healer, 2.0f)}), {}), 300);
+    watch.Update(Seen({TankHas(On(Enforcer, Tank, 1.0f))}), 2500);
+
+    EXPECT_TRUE(watch.NovasThatFrozeNothing().empty());
+    EXPECT_EQ(Bots::PeelFailure(watch), "no Frost Nova froze an enemy on the healer");
+}
+
+TEST(PeelWatch, ALateNovaThatFreezesNothingFails)
+{
+    PeelWatch watch;
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 0);
+    watch.Update(NovaOut(Seen({On(Enforcer, Healer, 2.0f)}), {Enforcer}), 2600);
+    watch.Update(Seen({TankHas(On(Enforcer, Tank, 1.0f))}), 3000);
+
+    EXPECT_EQ(Bots::PeelFailure(watch), "the nova came 2.6 s after the enemy reached the healer (limit 2.0 s)");
+}

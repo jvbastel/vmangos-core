@@ -340,6 +340,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_chases = Bots::ChaseWatch();
     m_peel = Bots::PeelWatch();
     m_peelContact.clear();
+    m_novaReady.clear();
     m_combatNotes.Drain();
     m_unitNames.clear();
     m_chatEvents.clear();
@@ -1878,6 +1879,10 @@ void BotRun::RecordCombat()
         m_record.freezes.push_back({NameOf(ObjectGuid(f.enemy)), f.victim ? NameOf(ObjectGuid(f.victim)) : "",
             f.startMs, f.endMs, f.tankMs, f.brokenByParty, f.onHealer, f.healerYards, f.healerTankYards,
             f.healerSeesTank});
+    m_record.novasFrozeNothing.clear();
+    for (Bots::PeelCast const& cast : m_peel.NovasThatFrozeNothing())
+        m_record.novasFrozeNothing.push_back({NameOf(ObjectGuid(cast.caster)), cast.ms, cast.enemiesInRadius,
+            cast.healerReachMs});
 }
 
 Player* BotRun::LivingMemberOfRole(Bots::BotRole role) const
@@ -1957,6 +1962,44 @@ void BotRun::WatchPeel(int64 nowMs)
         seen.enemies.push_back(e);
     }
 
+    // Final review of spec #142, finding 14: each Frost Nova that went out,
+    // seen as the start of its cooldown, with the enemies of the fight in its
+    // radius (10 yd, 3D, to the edge). A nova can freeze nothing (a resist).
+    float const novaRadiusYards = 10.0f;
+    for (Player* member : Members())
+    {
+        if (!IsLivingMember(member) || member->GetMap() != map)
+            continue;
+        bool known = false, ready = true;
+        for (auto const& spell : member->GetSpellMap())
+        {
+            if (spell.second.state == PLAYERSPELL_REMOVED || spell.second.disabled ||
+                sSpellMgr.GetFirstSpellInChain(spell.first) != Bots::Mage::FrostNova)
+                continue;
+            if (SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell.first))
+            {
+                known = true;
+                ready = ready && member->IsSpellReady(entry);
+            }
+        }
+        if (!known)
+            continue;
+        auto const before = m_novaReady.find(member->GetObjectGuid());
+        bool const wentOut = before != m_novaReady.end() && before->second && !ready;
+        m_novaReady[member->GetObjectGuid()] = ready;
+        if (!wentOut)
+            continue;
+        Bots::PeelNovaOut out;
+        out.caster = member->GetObjectGuid().GetRawValue();
+        for (auto const& pair : m_enemyHealth)
+        {
+            Creature* enemy = map->GetCreature(pair.first);
+            if (enemy && enemy->IsAlive() && member->IsWithinDist(enemy, novaRadiusYards))
+                out.enemiesInRadius.push_back(enemy->GetObjectGuid().GetRawValue());
+        }
+        seen.novasOut.push_back(out);
+    }
+
     std::size_t const novas = m_peel.Novas().size();
     std::vector<bool> open;
     for (Bots::PeelFreeze const& f : m_peel.Freezes())
@@ -1984,6 +2027,7 @@ void BotRun::WatchPeel(int64 nowMs)
         text.precision(1);
         text << "the freeze of " << NameOf(ObjectGuid(f.enemy)) << " ends after " << (f.endMs - f.startMs) / 1000.0
              << " s" << (f.tankMs >= 0 ? ", the tank arrived" : ", no tank")
+             << (f.tankHoldsMs >= 0 ? ", the tank picked it up while frozen" : "")
              << (f.brokenByParty ? ", broken by party damage" : "");
         if (f.onHealer)
             text << ", healer " << f.healerYards << " yd from it, " << f.healerTankYards << " yd from the tank"

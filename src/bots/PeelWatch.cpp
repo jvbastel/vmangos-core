@@ -2,6 +2,7 @@
 
 #include "CommonRules.h"
 #include "StepBack.h"
+#include "ThreatWatch.h"
 
 #include <cstdio>
 #include <set>
@@ -20,6 +21,27 @@ namespace Bots
 
     void PeelWatch::Update(PeelSeen const& seen, std::int64_t nowMs)
     {
+        // The novas that went out, with the contact of the last update: a
+        // freeze in this update or soon after is theirs.
+        for (PeelNovaOut const& out : seen.novasOut)
+        {
+            PeelCast cast;
+            cast.caster = out.caster;
+            cast.ms = nowMs;
+            cast.enemiesInRadius = out.enemiesInRadius.size();
+            for (Guid enemy : out.enemiesInRadius)
+            {
+                auto const known = m_tracks.find(enemy);
+                if (known == m_tracks.end() || known->second.reachMs < 0 || known->second.victim != seen.healer ||
+                    seen.healer == NoGuid)
+                    continue;
+                std::int64_t const reachMs = nowMs - known->second.reachMs;
+                if (cast.healerReachMs < 0 || reachMs > cast.healerReachMs)
+                    cast.healerReachMs = reachMs;
+            }
+            m_casts.push_back(cast);
+        }
+
         std::set<Guid> present;
         for (PeelEnemySeen const& e : seen.enemies)
         {
@@ -42,6 +64,12 @@ namespace Bots
             t.victim = e.victim;
             bool const hit = e.health < t.health;
             t.health = e.health;
+            if (e.victim == NoGuid || e.victim != seen.healer)
+                t.onHealerMs = -1;
+            else if (t.onHealerMs < 0)
+                t.onHealerMs = nowMs;
+            if (t.onHealerMs >= 0 && nowMs - t.onHealerMs > m_longestOnHealerMs)
+                m_longestOnHealerMs = nowMs - t.onHealerMs;
 
             if (!t.open && e.frozenBy == NoGuid)
                 continue;
@@ -61,6 +89,9 @@ namespace Bots
                     fresh.ms = nowMs;
                     m_novas.push_back(fresh);
                 }
+                for (PeelCast& cast : m_casts)
+                    if (cast.caster == e.frozenBy && cast.ms <= nowMs && nowMs - cast.ms <= NovaFreezeLinkMs)
+                        cast.froze = true;
                 PeelNova& n = m_novas[nova];
                 Guid const victim = hitBefore != NoGuid ? hitBefore : e.victim;
                 std::int64_t const reachMs = hitBefore != NoGuid ? reachBefore : t.reachMs;
@@ -87,6 +118,8 @@ namespace Bots
             PeelFreeze& f = m_freezes[t.freeze];
             if (e.tankHasIt && f.tankMs < 0)
                 f.tankMs = nowMs;
+            if (e.frozenBy != NoGuid && seen.tank != NoGuid && e.victim == seen.tank && f.tankHoldsMs < 0)
+                f.tankHoldsMs = nowMs;
             // The update that opens the freeze shows the damage of the nova
             // itself: only a later hit is party damage.
             if (hit && !opens && f.tankMs < 0)
@@ -151,6 +184,15 @@ namespace Bots
         return count;
     }
 
+    std::vector<PeelCast> PeelWatch::NovasThatFrozeNothing() const
+    {
+        std::vector<PeelCast> nothing;
+        for (PeelCast const& cast : m_casts)
+            if (!cast.froze && cast.enemiesInRadius > 0)
+                nothing.push_back(cast);
+        return nothing;
+    }
+
     std::string PeelFailure(PeelWatch const& watch)
     {
         PeelNova const* first = nullptr;
@@ -160,16 +202,32 @@ namespace Bots
                 first = &nova;
                 break;
             }
-        if (!first)
+        // A nova with the healer's enemy in its radius that froze nothing.
+        PeelCast const* resist = nullptr;
+        for (PeelCast const& cast : watch.Casts())
+            if (!cast.froze && cast.healerReachMs >= 0)
+            {
+                resist = &cast;
+                break;
+            }
+        if (resist && first && first->ms < resist->ms)
+            resist = nullptr;
+        if (!first && !resist)
             return "no Frost Nova froze an enemy on the healer";
-        if (first->healerReachMs > PeelNovaLimitMs)
-            return "the nova came " + OneDecimal(first->healerReachMs / 1000.0) +
+        std::int64_t const reachMs = resist ? resist->healerReachMs : first->healerReachMs;
+        if (reachMs > PeelNovaLimitMs)
+            return "the nova came " + OneDecimal(reachMs / 1000.0) +
                 " s after the enemy reached the healer (limit " + OneDecimal(PeelNovaLimitMs / 1000.0) + " s)";
+        if (resist && watch.LongestOnHealerMs() > ThreatLossMs)
+            return "a Frost Nova froze nothing, and the enemy stayed on the healer for " +
+                OneDecimal(watch.LongestOnHealerMs() / 1000.0) + " s (limit " + std::to_string(ThreatLossMs / 1000) +
+                " s)";
         if (watch.NovasBrokenByParty() > 0)
             return "party damage broke a freeze before the tank arrived";
         for (PeelFreeze const& freeze : watch.Freezes())
         {
-            if (!freeze.onHealer)
+            // The tank picked the enemy up while it was frozen: no step back.
+            if (!freeze.onHealer || freeze.tankHoldsMs >= 0)
                 continue;
             if (freeze.healerYards < StepBackYards)
                 return "the healer ended " + OneDecimal(freeze.healerYards) + " yd from the frozen enemy (at least " +

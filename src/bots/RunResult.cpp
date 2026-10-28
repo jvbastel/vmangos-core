@@ -245,6 +245,12 @@ namespace Bots
                 {"healer", f.onHealer ? Json({{"yards_from_enemy", f.healerYards},
                     {"yards_from_tank", f.healerTankYards}, {"sees_tank", f.healerSeesTank}}) : Json()}});
         j["freezes"] = freezes;
+        Json empty = Json::array();
+        for (RunEmptyNova const& nova : r.novasFrozeNothing)
+            empty.push_back({{"caster", nova.caster}, {"time_s", Seconds(nova.ms)},
+                {"enemies_in_radius", nova.enemiesInRadius},
+                {"healer_reach_s", nova.healerReachMs < 0 ? Json() : Json(Seconds(nova.healerReachMs))}});
+        j["novas_froze_nothing"] = empty;
 
         Json chat = Json::array();
         for (RunChatEvent const& event : r.chatEvents)

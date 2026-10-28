@@ -28,6 +28,9 @@ namespace Bots
     std::int64_t const PeelNovaLimitMs = 2000;
     // A freeze this long ran out: Frost Nova holds up to 8 s.
     std::int64_t const FreezeRanOutMs = 7500;
+    // A freeze that starts this soon after a Frost Nova went out is of that
+    // nova.
+    std::int64_t const NovaFreezeLinkMs = 1000;
 
     struct PeelEnemySeen
     {
@@ -42,6 +45,15 @@ namespace Bots
         float healerYards = 0.0f; // To the living healer, between the centers.
     };
 
+    // A Frost Nova that went out in this update (final review of spec
+    // #142): it can freeze nothing, for example on a resist.
+    struct PeelNovaOut
+    {
+        Guid caster = NoGuid;
+        // The enemies of the fight within its radius (10 yd, 3D, to the edge).
+        std::vector<Guid> enemiesInRadius;
+    };
+
     // An enemy missing from `enemies` died or went away.
     struct PeelSeen
     {
@@ -50,6 +62,20 @@ namespace Bots
         float healerTankYards = 0.0f; // Between the centers.
         bool healerSeesTank = false;
         std::vector<PeelEnemySeen> enemies;
+        std::vector<PeelNovaOut> novasOut;
+    };
+
+    // A Frost Nova that went out (PeelNovaOut).
+    struct PeelCast
+    {
+        Guid caster = NoGuid;
+        std::int64_t ms = 0;
+        std::size_t enemiesInRadius = 0;
+        // The time from the enemy reaching the healer to the nova, when an
+        // enemy in melee of the healer was in its radius, or -1.
+        std::int64_t healerReachMs = -1;
+        // A freeze of the caster started within NovaFreezeLinkMs.
+        bool froze = false;
     };
 
     struct PeelNova
@@ -78,6 +104,9 @@ namespace Bots
         std::int64_t endMs = 0; // The last update so far while it lasts.
         bool open = true;
         std::int64_t tankMs = -1; // When the tank arrived, or -1.
+        // When the enemy first attacked the tank while still frozen: the
+        // tank picked it up (final review of spec #142, finding 14), or -1.
+        std::int64_t tankHoldsMs = -1;
         // Party damage hit the frozen enemy before the tank arrived, and the
         // freeze ended before it ran out.
         bool brokenByParty = false;
@@ -100,6 +129,11 @@ namespace Bots
         // arrived.
         std::size_t NovasBrokenByParty() const;
         bool NovaBrokenByParty(std::size_t nova) const;
+        std::vector<PeelCast> const& Casts() const { return m_casts; }
+        // The casts with an enemy of the fight in the radius and no freeze.
+        std::vector<PeelCast> NovasThatFrozeNothing() const;
+        // The longest time that one enemy attacked the healer without a break.
+        std::int64_t LongestOnHealerMs() const { return m_longestOnHealerMs; }
 
     private:
         struct Track
@@ -110,13 +144,16 @@ namespace Bots
             bool open = false;         // A freeze lasts.
             std::size_t freeze = 0;    // Its index in m_freezes.
             bool hitBeforeTank = false;
+            std::int64_t onHealerMs = -1; // Attacks the healer since, or -1.
         };
 
         void EndFreeze(Track& track, bool alive, std::int64_t nowMs);
 
         std::vector<PeelNova> m_novas;
         std::vector<PeelFreeze> m_freezes;
+        std::vector<PeelCast> m_casts;
         std::map<Guid, Track> m_tracks;
+        std::int64_t m_longestOnHealerMs = 0;
     };
 
     // Why the peel of a scenario failed, or "" when it passed: the first
@@ -125,6 +162,12 @@ namespace Bots
     // arrived, and at the end of each freeze on the healer the healer stood
     // at least StepBackYards from the enemy, within StepBackHealYards of the
     // tank and in its sight (StepBack.h).
+    // Final review of spec #142, finding 14: a freeze that the tank picked up
+    // while it lasted (tankHoldsMs) needs no step back. A first nova that
+    // went out with the healer's enemy in its radius and froze nothing (a
+    // resist) does not fail alone: it fails when an enemy then stayed on the
+    // healer past ThreatLossMs (ThreatWatch.h). A lost mob fails the run by
+    // itself (LostMobWatch).
     std::string PeelFailure(PeelWatch const& watch);
 }
 

@@ -132,6 +132,16 @@ namespace Bots
         bool brokenByParty;               // Party damage broke a freeze of it before the tank arrived.
     };
 
+    // A Frost Nova that went out with an enemy of the fight in its radius and
+    // froze nothing, for example on a resist (final review of spec #142).
+    struct RunEmptyNova
+    {
+        std::string caster;
+        std::int64_t ms;
+        std::size_t enemiesInRadius;
+        std::int64_t healerReachMs; // The healer's enemy was in its radius: since it reached the healer, or -1.
+    };
+
     // A freeze of one enemy by a peel nova.
     struct RunFreeze
     {
@@ -228,6 +238,7 @@ namespace Bots
         std::vector<RunFireNovaHit> fireNovaHits;
         std::vector<RunPeelNova> peelNovas;
         std::vector<RunFreeze> freezes;
+        std::vector<RunEmptyNova> novasFrozeNothing;
         std::vector<RunChatEvent> chatEvents;
         std::vector<RunGearDraw> gearDraws;
         std::vector<RunChoice> choices;
