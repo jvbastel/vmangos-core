@@ -590,6 +590,9 @@ void BotAI::Think()
         if (tank != coordinator->GetTank())
             coordinator->SetTank(tank);
     }
+    // jvbastel/WOWAI#143: the Mage's peel nova reads the ranged members
+    // from the roles (MageModule.cpp).
+    coordinator->SetMemberRole(me->GetObjectGuid().GetRawValue(), m_role);
     // The tank taunts enemies off the healer first (WarriorModule.cpp).
     if (sBotMgr.IsHealerBot(me))
         coordinator->SetHealer(me->GetObjectGuid().GetRawValue());

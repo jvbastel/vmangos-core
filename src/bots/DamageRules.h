@@ -29,7 +29,8 @@ namespace Bots
     Guid PickDamageTarget(BotContext const& context);
 
     // jvbastel/WOWAI#144: Frost Nova holds enemy `enemy` frozen now. The one
-    // test of a frozen enemy for the hold of fire and the step back.
+    // test of a frozen enemy for the hold of fire, the step back, and the
+    // peel nova (MageModule.cpp, jvbastel/WOWAI#143).
     bool IsFrozen(BotView const& view, Guid enemy);
 
     // jvbastel/WOWAI#144: enemy `enemy` is frozen by Frost Nova, and its

@@ -383,3 +383,15 @@ TEST(GroupCoordinator, ANewPullIsNotBackAtItsFightSpot)
 
     EXPECT_FALSE(group.GetPull().backAtFightSpot);
 }
+
+// jvbastel/WOWAI#143: each bot sets its role; a member with no role (a
+// human player) has none.
+TEST(GroupCoordinator, KeepsTheRoleThatEachMemberSets)
+{
+    GroupCoordinator group;
+    group.SetMemberRole(Tank, Bots::BotRole::Tank);
+
+    EXPECT_TRUE(group.HasRole(Tank, Bots::BotRole::Tank));
+    EXPECT_FALSE(group.HasRole(Tank, Bots::BotRole::Ranged));
+    EXPECT_FALSE(group.HasRole(0x21, Bots::BotRole::Ranged));
+}
