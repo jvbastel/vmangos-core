@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import floor_path
+import regions
 import route_draft
 import trace_file
 
@@ -69,10 +70,12 @@ def add_routes(app: FastAPI, maps):
 
     @app.get("/api/maps/{name}/snap")
     def snap(name: str, x: float, y: float, z: Optional[float] = None):
-        point, floors = graph(maps.route(name).map_id).snap(x, y, z)
+        map_id = maps.route(name).map_id
+        point, floors = graph(map_id).snap(x, y, z)
         if point is None:
             raise HTTPException(422, "no floor on this map")
-        return {"point": _xyz(point), "floors": [round(h, 2) for h in floors]}
+        return {"point": regions.mark(_xyz(point), maps.regions(map_id)),  # the regions it is in (#184)
+                "floors": [round(h, 2) for h in floors]}
 
     @app.post("/api/maps/{name}/path")
     def path(name: str, ask: PathAsk):

@@ -12,7 +12,6 @@ from __future__ import annotations
 import io
 import math
 from dataclasses import dataclass
-from typing import Optional
 
 import matplotlib
 
@@ -55,20 +54,17 @@ def _wall(a, b):
     return [(ax + nx, ay + ny), (bx + nx, by + ny), (bx - nx, by - ny), (ax - nx, ay - ny)]
 
 
-def render(polys, z_min: Optional[float] = None, z_max: Optional[float] = None) -> FloorImage:
-    """The image of the polys whose mean height is in [z_min, z_max]."""
-    low = -math.inf if z_min is None else z_min
-    high = math.inf if z_max is None else z_max
-    drawn = sorted((p for p in polys if low <= p.mean_z <= high), key=lambda p: p.mean_z)
-    if not drawn:
-        raise EmptyFloor(f"no floor between heights {z_min} and {z_max}")
-    points = [q for p in drawn for q in p.points]
+def _bounds(polys) -> dict:
+    points = [q for p in polys for q in p.points]
     bounds = {"x_min": min(q[0] for q in points), "x_max": max(q[0] for q in points),
               "y_min": min(q[1] for q in points), "y_max": max(q[1] for q in points),
               "z_min": min(q[2] for q in points), "z_max": max(q[2] for q in points)}
-    bounds = {k: round(v, 2) for k, v in bounds.items()}
+    return {k: round(v, 2) for k, v in bounds.items()}
 
-    z_low, z_high = drawn[0].mean_z, drawn[-1].mean_z
+
+def _png(drawn, bounds: dict, z_low: float, z_high: float, transparent: bool) -> bytes:
+    """The image of the drawn polys (low to high) over the bounds, shaded
+    from z_low (dimmest) to z_high."""
     shapes, colours = [], []
     for poly in drawn:
         rise = (poly.mean_z - z_low) / (z_high - z_low) if z_high > z_low else 1.0
@@ -87,12 +83,39 @@ def render(polys, z_min: Optional[float] = None, z_max: Optional[float] = None) 
     fig = plt.figure(figsize=(width * scale / dpi, height * scale / dpi), dpi=dpi)
     ax = fig.add_axes((0, 0, 1, 1))
     ax.set_axis_off()
-    ax.set_facecolor(BACKGROUND)
+    if not transparent:
+        ax.set_facecolor(BACKGROUND)
     # The stroke in the face colour hides the seams between triangles.
     ax.add_collection(PolyCollection(shapes, facecolors=colours, edgecolors=colours, linewidths=1.0))
     ax.set_xlim(-bounds["y_max"], -bounds["y_min"])
     ax.set_ylim(bounds["x_min"], bounds["x_max"])
     out = io.BytesIO()
-    fig.savefig(out, format="png", dpi=dpi, facecolor=BACKGROUND)
+    if transparent:
+        fig.savefig(out, format="png", dpi=dpi, transparent=True)
+    else:
+        fig.savefig(out, format="png", dpi=dpi, facecolor=BACKGROUND)
     plt.close(fig)
-    return FloorImage(out.getvalue(), bounds)
+    return out.getvalue()
+
+
+def render(polys) -> FloorImage:
+    """The image of the polys."""
+    drawn = sorted(polys, key=lambda p: p.mean_z)
+    if not drawn:
+        raise EmptyFloor("no floor")
+    bounds = _bounds(drawn)
+    return FloorImage(_png(drawn, bounds, drawn[0].mean_z, drawn[-1].mean_z, transparent=False), bounds)
+
+
+def render_parts(polys, parts: list[list]) -> tuple[dict, list[bytes]]:
+    """One image per part of the polys (a part may be empty), all over the
+    bounds of all the polys and shaded on their height range, so that the
+    images lie on each other as one floor. The background is transparent,
+    so a lower image shows through where a higher one has no ground."""
+    drawn = sorted(polys, key=lambda p: p.mean_z)
+    if not drawn:
+        raise EmptyFloor("no floor")
+    bounds = _bounds(drawn)
+    z_low, z_high = drawn[0].mean_z, drawn[-1].mean_z
+    return bounds, [_png(sorted(part, key=lambda p: p.mean_z), bounds, z_low, z_high, transparent=True)
+                    for part in parts]

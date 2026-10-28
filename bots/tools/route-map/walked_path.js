@@ -65,8 +65,7 @@
     legend.replaceChildren();
     data.members.forEach((member, i) => {
       const colour = COLOURS[i % COLOURS.length];
-      const line = el("polyline", {class: "walked", stroke: colour,
-                                   points: member.points.map(p => `${sx(p)},${sy(p)}`).join(" ")}, layer);
+      const line = drawLine(member.points, {class: "walked", stroke: colour}, layer);
       el("title", {}, line).textContent = `${member.name}: ${member.points.length} positions, ` +
         `${member.points[0].t} s to ${member.points[member.points.length - 1].t} s`;
       const key = document.createElement("span");
