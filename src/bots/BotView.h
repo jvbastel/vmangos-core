@@ -91,6 +91,10 @@ namespace Bots
         // mage, a warlock or a priest (jvbastel/WOWAI#168, the tank's pickup
         // order). False for a unit that the bot cannot see.
         virtual bool WearsCloth(Guid unit) const = 0;
+        // True when unit `unit` cannot move: it is rooted or stunned
+        // (jvbastel/WOWAI#169: the tank goes to such a member to take its
+        // attacker). False for a unit that the bot cannot see.
+        virtual bool IsRootedOrStunned(Guid unit) const = 0;
         // The distance in yards from the bot to unit `unit`. A large number
         // for a unit that the bot cannot see.
         virtual float GetDistance(Guid unit) const = 0;

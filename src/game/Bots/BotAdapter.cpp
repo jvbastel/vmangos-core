@@ -304,6 +304,12 @@ bool BotAdapter::WearsCloth(Bots::Guid unit) const
     return playerClass == CLASS_MAGE || playerClass == CLASS_WARLOCK || playerClass == CLASS_PRIEST;
 }
 
+bool BotAdapter::IsRootedOrStunned(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    return found && found->HasUnitState(UNIT_STATE_ROOT | UNIT_STATE_STUNNED);
+}
+
 float BotAdapter::GetDistance(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);

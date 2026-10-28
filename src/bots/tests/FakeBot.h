@@ -182,6 +182,13 @@ namespace Bots
             }
             void SetMana(Guid unit, std::uint32_t current, std::uint32_t max) { m_mana[unit] = Power{current, max}; }
             void SetWearsCloth(Guid unit, bool cloth = true) { m_cloth[unit] = cloth; }
+            void SetRootedOrStunned(Guid unit, bool held = true)
+            {
+                if (held)
+                    m_rootedOrStunned.insert(unit);
+                else
+                    m_rootedOrStunned.erase(unit);
+            }
             void SetEating(bool eating = true) { m_eating = eating; }
             void SetDrinking(bool drinking = true) { m_drinking = drinking; }
             void SetScriptedMove(bool moving = true) { m_scriptedMove = moving; }
@@ -410,6 +417,7 @@ namespace Bots
                 auto found = m_cloth.find(unit);
                 return found != m_cloth.end() && found->second;
             }
+            bool IsRootedOrStunned(Guid unit) const override { return m_rootedOrStunned.count(unit) != 0; }
             Power GetMana(Guid unit) const override
             {
                 auto found = m_mana.find(unit);
@@ -616,6 +624,7 @@ namespace Bots
             std::set<Guid> m_resurrecters;
             std::map<Guid, Power> m_mana;
             std::map<Guid, bool> m_cloth;
+            std::set<Guid> m_rootedOrStunned;
             bool m_eating = false;
             bool m_drinking = false;
             bool m_scriptedMove = false;

@@ -60,17 +60,18 @@ namespace Bots
 
             // jvbastel/WOWAI#126: the loose enemy that Taunt cannot reach.
             // The rule priorities (P + N), below "taunt an enemy off a
-            // member" (54) and above Revenge (40).
-            int const PickUpLooseEnemy = 53;
+            // member" (54) and above Revenge (40). jvbastel/WOWAI#169: the
+            // tank goes out only to a member that cannot come to it.
+            int const GoToAMemberThatCannotMove = 53;
             int const KeepThreatOnTheTaunted = 41;
             // The taunted (or picked-up) enemy is back on the tank when it
             // attacks the tank and the tank's threat on it is at least this
             // ratio of any other member's (BotView::GetThreatRatio). A taunt
             // gives only the top threat (1.0): no lead yet.
             float const KeepThreatLead = 1.1f;
-            // The tank goes to a loose enemy at most this far from it: a
-            // farther one would lead it through more packs. The walk back
-            // still waits for it (a member brings it in).
+            // The tank goes to a member that cannot move (MemberCannotCome)
+            // at most this far from it: a farther one would lead it through
+            // more packs.
             float const PickUpYards = 40.0f;
 
             // jvbastel/WOWAI#168: the rule priorities (P + N) of the
@@ -278,27 +279,43 @@ namespace Bots
                 return context.view.WearsCloth(victim) ? 1 : 2;
             }
 
-            // The tank can act on loose enemy `enemy` from where it is or
-            // after a walk: within PickUpYards, and Taunt reaches it now or
-            // it stands out of the reach of a pack outside the fight
+            // jvbastel/WOWAI#169: the member that loose enemy `enemy`
+            // attacks cannot come to the tank, so the tank goes out to it:
+            // the member is rooted or stunned, and the enemy stands within
+            // PickUpYards and out of the reach of a pack outside the fight
             // (KeepOut.h, jvbastel/WOWAI#121: the keep-out rule would step
-            // the tank out again; the member that the enemy hits steps out
-            // itself, and brings it along). The one exception: an add on a
-            // healer that cannot step out (TankGoesInForTheHealer): the tank
-            // goes in after a warn.
+            // the tank out again). Or the member is the healer, stuck in the
+            // reach of another pack with no place to step out to
+            // (TankGoesInForTheHealer): the tank goes in after a warn.
+            bool MemberCannotCome(BotContext const& context, Guid enemy)
+            {
+                if (context.view.GetDistance(enemy) > PickUpYards)
+                    return false;
+                Guid const victim = context.view.GetVictim(enemy);
+                return (victim != NoGuid && context.view.IsRootedOrStunned(victim)
+                           && !InOtherPacksReach(context, context.view.GetPosition(enemy)))
+                    || TankGoesInForTheHealer(context, enemy);
+            }
+
+            // The tank can act on loose enemy `enemy` (jvbastel/WOWAI#169):
+            // from its spot, as the members bring their attackers to it, once
+            // Taunt reaches it now or it stands in melee contact (Revenge or
+            // Sunder Armor, whatever the rage: a lack of rage does not drop
+            // the pick); or after a walk to a member that cannot come
+            // (MemberCannotCome). It chases no other.
             bool CanTakeLooseEnemy(BotContext const& context, Guid enemy)
             {
-                return context.view.GetDistance(enemy) <= PickUpYards
-                    && (CastableRank(context.view, Taunt, enemy) != NoSpell
-                        || !InOtherPacksReach(context, context.view.GetPosition(enemy))
-                        || TankGoesInForTheHealer(context, enemy));
+                return CastableRank(context.view, Taunt, enemy) != NoSpell
+                    || context.view.GetDistance(enemy) <= MeleeContactYards || MemberCannotCome(context, enemy);
             }
 
             // The loose enemy that the tank takes now (jvbastel/WOWAI#168).
             // It keeps its choice until that enemy attacks the tank, dies or
-            // is no loose enemy any more, or ThreatLossMs pass. Then it
-            // chooses again: the lowest PickupRank, the nearest of a rank,
-            // and the enemy it gave up on last only when no other is left.
+            // is no loose enemy any more, the tank cannot act on it any more
+            // (CanTakeLooseEnemy: it went out of range), or ThreatLossMs
+            // pass. Then it chooses again: the lowest PickupRank, the
+            // nearest of a rank, and the enemy it gave up on last only when
+            // no other is left.
             // NoGuid out of the fight on the focus, or with no loose enemy
             // that the tank can take (CanTakeLooseEnemy).
             Guid PickLooseEnemy(BotContext const& context, LoosePick& pick)
@@ -311,7 +328,7 @@ namespace Bots
                 std::vector<Guid> const loose = LooseEnemies(context);
                 if (pick.enemy != NoGuid)
                 {
-                    if (!Contains(loose, pick.enemy))
+                    if (!Contains(loose, pick.enemy) || !CanTakeLooseEnemy(context, pick.enemy))
                         pick.enemy = NoGuid;
                     else if (context.nowMs - pick.sinceMs < ThreatLossMs)
                         return pick.enemy;
@@ -341,14 +358,13 @@ namespace Bots
                 return best;
             }
 
-            // jvbastel/WOWAI#126: the tank goes to its loose enemy
-            // (PickLooseEnemy) and attacks it when Taunt cannot go out on it
-            // now (out of range, on its cooldown, out of Defensive Stance,
-            // or not known), and it stands out of the reach of a pack outside
-            // the fight, or is an add of TankGoesInForTheHealer. NoGuid when
-            // it is not, or when the focus hits another member: the focus
-            // comes first (spec #102).
-            Guid PickUpTarget(BotContext const& context, LoosePick& pick)
+            // jvbastel/WOWAI#169: the tank goes out to its loose enemy
+            // (PickLooseEnemy) and attacks it only when the member that it
+            // attacks cannot come (MemberCannotCome), and Taunt cannot go out
+            // on it now. NoGuid when it is not, or when the focus hits
+            // another member: the focus comes first (spec #102). Any other
+            // loose enemy the tank waits for at its fight spot.
+            Guid GoOutTarget(BotContext const& context, LoosePick& pick)
             {
                 if (!FightsFocus(context))
                     return NoGuid;
@@ -356,9 +372,7 @@ namespace Bots
                 if (focusVictim != NoGuid && focusVictim != Self(context))
                     return NoGuid;
                 Guid const loose = PickLooseEnemy(context, pick);
-                if (loose != NoGuid && CastableRank(context.view, Taunt, loose) == NoSpell
-                    && (!InOtherPacksReach(context, context.view.GetPosition(loose))
-                        || TankGoesInForTheHealer(context, loose)))
+                if (loose != NoGuid && CastableRank(context.view, Taunt, loose) == NoSpell && MemberCannotCome(context, loose))
                     return loose;
                 return NoGuid;
             }
@@ -677,7 +691,7 @@ namespace Bots
             {
                 std::function<void(BotContext const&)> const run = rule.action.run;
                 rule.action.run = [run, goneIn, pick](BotContext const& context) {
-                    Guid const enemy = PickUpTarget(context, *pick);
+                    Guid const enemy = GoOutTarget(context, *pick);
                     if (TankGoesInForTheHealer(context, enemy) && goneIn->insert(enemy).second)
                         Warn(context, PacksPulledAt(context.view, context.view.GetPosition(enemy), FightTarget(context)));
                     run(context);
@@ -728,7 +742,7 @@ namespace Bots
             TargetPicker const looseEnemy = [pick](BotContext const& context) {
                 return PickLooseEnemy(context, *pick);
             };
-            TargetPicker const pickUpTarget = [pick](BotContext const& context) { return PickUpTarget(context, *pick); };
+            TargetPicker const goOutTarget = [pick](BotContext const& context) { return GoOutTarget(context, *pick); };
             // The opener, highest first: Defensive Stance, then a due
             // Demoralizing Shout (jvbastel/WOWAI#114: threat on each enemy
             // near), and Bloodrage with little rage, which gives the rage.
@@ -908,12 +922,13 @@ namespace Bots
                     [](BotContext const& context) { context.group.ClearFightSpot(Self(context)); }),
                 // A due opener ability (after a ranged pull, spec story 3)
                 // fires on the way, and the walk goes on in the same think.
-                // It waits while an enemy hits a member, in Taunt range or not
-                // (jvbastel/WOWAI#126): the tank taunts it or goes to it.
+                // It waits while the tank can act on a loose enemy
+                // (jvbastel/WOWAI#169, PickLooseEnemy): one out of its range
+                // the member brings to the fight spot.
                 Rule{"walk back to the fight spot", P + 68,
                     [pick](BotContext const& context) {
                         return HoldsPull(context) && context.group.GetPull().hasFightSpot && DistanceToSpot(context) > AtSpotYards
-                            && !TauntDue(context, *pick) && LooseEnemies(context).empty();
+                            && !TauntDue(context, *pick) && PickLooseEnemy(context, *pick) == NoGuid;
                     },
                     {[](BotContext const&) { return true; },
                         [opener](BotContext const& context) {
@@ -967,7 +982,7 @@ namespace Bots
                 // The fight on the focus target. A focus that runs to the
                 // tank finds it where it stands; else the tank runs to it.
                 Rule{"attack the focus target", P + 62,
-                    [keptEnemy, pickUpTarget](BotContext const& context) {
+                    [keptEnemy, goOutTarget](BotContext const& context) {
                         Guid const focus = PickFocusTarget(context);
                         if (!FightsFocus(context))
                             return false;
@@ -975,10 +990,11 @@ namespace Bots
                         // A caster that stays away it waits for.
                         if (IsPulling(context) || CasterStaysAway(context))
                             return false;
-                        // The tank picks up a loose enemy first, and hits it
-                        // until it keeps threat on it (jvbastel/WOWAI#126).
+                        // The tank goes out to a member that cannot move
+                        // first, and hits its attacker until it keeps threat
+                        // on it (jvbastel/WOWAI#126, #169).
                         Guid const kept = keptEnemy(context);
-                        if (pickUpTarget(context) != NoGuid
+                        if (goOutTarget(context) != NoGuid
                             || (kept != NoGuid && context.view.GetVictim(Self(context)) == kept))
                             return false;
                         ChaseState const chase = context.view.GetChase();
@@ -1027,18 +1043,20 @@ namespace Bots
                         },
                         ThreatAbilityOn(looseEnemy)},
                     looseEnemy, keep),
-                // jvbastel/WOWAI#126: Taunt cannot reach the loose enemy (or
-                // waits for its cooldown): the tank goes to it and attacks
-                // it. Once in range with Taunt ready, the taunt takes over.
-                KeepsThreatOn(WarnsWhenItGoesIn(MeleeRule("pick up a loose enemy", P + PickUpLooseEnemy,
-                                                    [pickUpTarget](BotContext const& context) {
-                                                        Guid const loose = pickUpTarget(context);
+                // jvbastel/WOWAI#169: the tank chases no loose enemy. The one
+                // exception: the member that it attacks cannot move (rooted
+                // or stunned), and Taunt cannot reach it (or waits for its
+                // cooldown): the tank goes to it and attacks it. Once in
+                // range with Taunt ready, the taunt takes over.
+                KeepsThreatOn(WarnsWhenItGoesIn(MeleeRule("go to a member that cannot move", P + GoToAMemberThatCannotMove,
+                                                    [goOutTarget](BotContext const& context) {
+                                                        Guid const loose = goOutTarget(context);
                                                         return loose != NoGuid && !MeleesOrChases(context, loose)
                                                             && !ShoutTakesThem(context);
                                                     },
-                                                    pickUpTarget),
+                                                    goOutTarget),
                                   goneIn, pick),
-                    pickUpTarget, keep, false),
+                    goOutTarget, keep, false),
                 // jvbastel/WOWAI#126: after the taunt or the pick-up, Revenge
                 // or Sunder Armor on that enemy until it is back on the tank,
                 // then the focus again. Each counts in a visit to the threat
