@@ -10,38 +10,54 @@ namespace Bots
         {
             BotClass botClass;
             char const* name;
-            BotRace defaultRace;
+            // The races that can have the class. The first race of each
+            // faction is the default race of the class in that faction.
             std::vector<BotRace> races;
             std::vector<BotRole> roles;
+        };
+
+        enum class BotFaction
+        {
+            Horde,
+            Alliance,
         };
 
         struct RaceInfo
         {
             BotRace race;
             char const* name;
+            BotFaction faction;
         };
 
-        // The Horde race and class pairs of the game, and the roles that each
+        // The race and class pairs of the game, and the roles that each
         // class can play in a group.
         std::vector<ClassInfo> const& Classes()
         {
             static std::vector<ClassInfo> const classes = {
-                {BotClass::Warrior, "warrior", BotRace::Orc,
-                    {BotRace::Orc, BotRace::Undead, BotRace::Tauren, BotRace::Troll}, {BotRole::Tank, BotRole::Melee}},
-                {BotClass::Priest, "priest", BotRace::Troll,
-                    {BotRace::Undead, BotRace::Troll}, {BotRole::Healer, BotRole::Ranged}},
-                {BotClass::Rogue, "rogue", BotRace::Orc,
-                    {BotRace::Orc, BotRace::Undead, BotRace::Troll}, {BotRole::Melee}},
-                {BotClass::Warlock, "warlock", BotRace::Undead,
-                    {BotRace::Orc, BotRace::Undead}, {BotRole::Ranged}},
-                {BotClass::Mage, "mage", BotRace::Undead,
-                    {BotRace::Undead, BotRace::Troll}, {BotRole::Ranged}},
-                {BotClass::Hunter, "hunter", BotRace::Orc,
-                    {BotRace::Orc, BotRace::Tauren, BotRace::Troll}, {BotRole::Ranged}},
-                {BotClass::Shaman, "shaman", BotRace::Orc,
-                    {BotRace::Orc, BotRace::Tauren, BotRace::Troll}, {BotRole::Healer, BotRole::Melee, BotRole::Ranged}},
-                {BotClass::Druid, "druid", BotRace::Tauren,
-                    {BotRace::Tauren}, {BotRole::Tank, BotRole::Healer, BotRole::Melee, BotRole::Ranged}},
+                {BotClass::Warrior, "warrior",
+                    {BotRace::Orc, BotRace::Undead, BotRace::Tauren, BotRace::Troll,
+                        BotRace::Human, BotRace::Dwarf, BotRace::NightElf, BotRace::Gnome},
+                    {BotRole::Tank, BotRole::Melee}},
+                {BotClass::Priest, "priest",
+                    {BotRace::Troll, BotRace::Undead, BotRace::Dwarf, BotRace::Human, BotRace::NightElf},
+                    {BotRole::Healer, BotRole::Ranged}},
+                {BotClass::Rogue, "rogue",
+                    {BotRace::Orc, BotRace::Undead, BotRace::Troll,
+                        BotRace::Human, BotRace::Dwarf, BotRace::NightElf, BotRace::Gnome},
+                    {BotRole::Melee}},
+                {BotClass::Warlock, "warlock",
+                    {BotRace::Undead, BotRace::Orc, BotRace::Gnome, BotRace::Human}, {BotRole::Ranged}},
+                {BotClass::Mage, "mage",
+                    {BotRace::Undead, BotRace::Troll, BotRace::Gnome, BotRace::Human}, {BotRole::Ranged}},
+                {BotClass::Hunter, "hunter",
+                    {BotRace::Orc, BotRace::Tauren, BotRace::Troll, BotRace::Dwarf, BotRace::NightElf},
+                    {BotRole::Ranged}},
+                {BotClass::Shaman, "shaman",
+                    {BotRace::Orc, BotRace::Tauren, BotRace::Troll},
+                    {BotRole::Healer, BotRole::Melee, BotRole::Ranged}},
+                {BotClass::Druid, "druid",
+                    {BotRace::Tauren, BotRace::NightElf},
+                    {BotRole::Tank, BotRole::Healer, BotRole::Melee, BotRole::Ranged}},
             };
             return classes;
         }
@@ -49,12 +65,37 @@ namespace Bots
         std::vector<RaceInfo> const& Races()
         {
             static std::vector<RaceInfo> const races = {
-                {BotRace::Orc, "orc"},
-                {BotRace::Undead, "undead"},
-                {BotRace::Tauren, "tauren"},
-                {BotRace::Troll, "troll"},
+                {BotRace::Orc, "orc", BotFaction::Horde},
+                {BotRace::Undead, "undead", BotFaction::Horde},
+                {BotRace::Tauren, "tauren", BotFaction::Horde},
+                {BotRace::Troll, "troll", BotFaction::Horde},
+                {BotRace::Human, "human", BotFaction::Alliance},
+                {BotRace::Dwarf, "dwarf", BotFaction::Alliance},
+                {BotRace::NightElf, "nightelf", BotFaction::Alliance},
+                {BotRace::Gnome, "gnome", BotFaction::Alliance},
             };
             return races;
+        }
+
+        RaceInfo const& InfoOf(BotRace race)
+        {
+            for (RaceInfo const& info : Races())
+                if (info.race == race)
+                    return info;
+            return Races().front();
+        }
+
+        // The default race of the class in the faction. False when no race
+        // of the faction can have the class.
+        bool DefaultRace(ClassInfo const& classInfo, BotFaction faction, BotRace& race)
+        {
+            for (BotRace r : classInfo.races)
+                if (InfoOf(r).faction == faction)
+                {
+                    race = r;
+                    return true;
+                }
+            return false;
         }
 
         BotRole const AllRoles[] = {BotRole::Tank, BotRole::Healer, BotRole::Melee, BotRole::Ranged};
@@ -75,10 +116,7 @@ namespace Bots
 
         char const* RaceName(BotRace race)
         {
-            for (RaceInfo const& info : Races())
-                if (info.race == race)
-                    return info.name;
-            return "";
+            return InfoOf(race).name;
         }
 
         template <typename T>
@@ -178,7 +216,7 @@ namespace Bots
             if (classWord == info.name)
                 classInfo = &info;
         if (!classInfo)
-            return Fail("Unknown Horde class '" + words[1] +
+            return Fail("Unknown class '" + words[1] +
                 "'. Use warrior, priest, rogue, warlock, mage, hunter, shaman, or druid.");
 
         std::string const roleWord = Lower(words[2]);
@@ -195,22 +233,30 @@ namespace Bots
         if (!Contains(classInfo->roles, role))
             return Fail(WithArticle(classInfo->name) + " cannot play the " + RoleName(role) + " role.");
 
-        BotRace race = classInfo->defaultRace;
+        // The fourth word is a race, or a faction for the default race of
+        // the class in it.
+        BotFaction faction = BotFaction::Horde;
+        BotRace race = BotRace::Orc;
+        bool raceFound = false;
         if (words.size() == 4)
         {
-            std::string const raceWord = Lower(words[3]);
-            bool raceFound = false;
+            std::string const word = Lower(words[3]);
             for (RaceInfo const& info : Races())
-                if (raceWord == info.name)
+                if (word == info.name)
                 {
                     race = info.race;
                     raceFound = true;
                 }
-            if (!raceFound)
-                return Fail("Unknown Horde race '" + words[3] + "'. Use orc, undead, tauren, or troll.");
-            if (!Contains(classInfo->races, race))
+            if (raceFound && !Contains(classInfo->races, race))
                 return Fail(WithArticle(RaceName(race)) + " cannot be a " + classInfo->name + ".");
+            if (word == "alliance")
+                faction = BotFaction::Alliance;
+            else if (!raceFound && word != "horde")
+                return Fail("Unknown race '" + words[3] +
+                    "'. Use orc, undead, tauren, troll, human, dwarf, nightelf, gnome, horde, or alliance.");
         }
+        if (!raceFound && !DefaultRace(*classInfo, faction, race))
+            return Fail(std::string("The ") + Lower(words[3]) + " has no " + classInfo->name + ".");
 
         BotRecipeResult result;
         result.ok = true;

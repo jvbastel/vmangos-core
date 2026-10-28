@@ -64,6 +64,14 @@ namespace
                 return RACE_UNDEAD;
             case Bots::BotRace::Tauren:
                 return RACE_TAUREN;
+            case Bots::BotRace::Human:
+                return RACE_HUMAN;
+            case Bots::BotRace::Dwarf:
+                return RACE_DWARF;
+            case Bots::BotRace::NightElf:
+                return RACE_NIGHTELF;
+            case Bots::BotRace::Gnome:
+                return RACE_GNOME;
             case Bots::BotRace::Troll:
                 break;
         }

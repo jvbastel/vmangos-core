@@ -5,9 +5,8 @@
 #include <string>
 #include <vector>
 
-// What the GM command that creates a bot asks for: a fixed name, a Horde
-// class, a role, and optionally a Horde race. The version 1 bots are all
-// level 16 and Horde. The game layer maps these values to its own races and
+// What the GM command that creates a bot asks for: a fixed name, a class, a
+// role, and optionally a race or a faction. The bots are all level 16. The game layer maps these values to its own races and
 // classes; the library has no game types.
 namespace Bots
 {
@@ -19,6 +18,10 @@ namespace Bots
         Undead,
         Tauren,
         Troll,
+        Human,
+        Dwarf,
+        NightElf,
+        Gnome,
     };
 
     enum class BotClass
@@ -60,11 +63,13 @@ namespace Bots
         std::string error; // A short line for the GM, when not ok.
     };
 
-    // Reads the words `<name> <class> <role> [race] [gear <template>]`, in
-    // any case. With no
-    // race, the class gets its default Horde race: an Orc Warrior, a Troll
-    // Priest, an Orc Rogue, an Undead Warlock. The name is not checked here:
-    // the game layer checks it like a player name.
+    // Reads the words `<name> <class> <role> [race|horde|alliance]
+    // [gear <template>]`, in any case. With no race, the class gets its
+    // default race of the faction (Horde when no word names one). Horde: an
+    // Orc Warrior, a Troll Priest, an Orc Rogue, an Undead Warlock, an Undead
+    // Mage. Alliance: a Human Warrior, a Dwarf Priest, a Human Rogue, a Gnome
+    // Warlock, a Gnome Mage. The name is not checked here: the game layer
+    // checks it like a player name.
     BotRecipeResult ParseBotRecipe(std::vector<std::string> const& words);
 
     // The word of the role in the command and in the `bot_character` table.

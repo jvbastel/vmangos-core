@@ -53,12 +53,13 @@ TEST(BotRecipe, RefusesARaceThatCannotHaveTheClass)
     EXPECT_EQ(result.error, "An orc cannot be a priest.");
 }
 
-TEST(BotRecipe, RefusesARaceOutsideTheHorde)
+TEST(BotRecipe, RefusesAnUnknownRace)
 {
-    BotRecipeResult result = ParseBotRecipe({"Anduin", "priest", "healer", "human"});
+    BotRecipeResult result = ParseBotRecipe({"Anduin", "priest", "healer", "elf"});
 
     EXPECT_FALSE(result.ok);
-    EXPECT_EQ(result.error, "Unknown Horde race 'human'. Use orc, undead, tauren, or troll.");
+    EXPECT_EQ(result.error, "Unknown race 'elf'. Use orc, undead, tauren, troll, human, dwarf, nightelf, gnome, "
+        "horde, or alliance.");
 }
 
 TEST(BotRecipe, RefusesARoleThatTheClassCannotPlay)
@@ -72,7 +73,7 @@ TEST(BotRecipe, RefusesARoleThatTheClassCannotPlay)
 TEST(BotRecipe, RefusesAnUnknownClassOrRole)
 {
     EXPECT_EQ(ParseBotRecipe({"Grukk", "paladin", "tank"}).error,
-        "Unknown Horde class 'paladin'. Use warrior, priest, rogue, warlock, mage, hunter, shaman, or druid.");
+        "Unknown class 'paladin'. Use warrior, priest, rogue, warlock, mage, hunter, shaman, or druid.");
     EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior", "dps"}).error,
         "Unknown role 'dps'. Use tank, healer, melee, or ranged.");
 }
@@ -112,4 +113,47 @@ TEST(BotRecipe, RoleNamesAreTheWordsOfTheCommand)
     EXPECT_STREQ(Bots::RoleName(BotRole::Healer), "healer");
     EXPECT_STREQ(Bots::RoleName(BotRole::Melee), "melee");
     EXPECT_STREQ(Bots::RoleName(BotRole::Ranged), "ranged");
+}
+
+// jvbastel/WOWAI#199: the Alliance races.
+
+TEST(BotRecipe, ReadsEachAllianceRace)
+{
+    EXPECT_EQ(ParseBotRecipe({"Aldric", "warrior", "tank", "human"}).recipe.race, BotRace::Human);
+    EXPECT_EQ(ParseBotRecipe({"Brenna", "priest", "healer", "Dwarf"}).recipe.race, BotRace::Dwarf);
+    EXPECT_EQ(ParseBotRecipe({"Corwin", "rogue", "melee", "nightelf"}).recipe.race, BotRace::NightElf);
+    EXPECT_EQ(ParseBotRecipe({"Fizzwick", "mage", "ranged", "GNOME"}).recipe.race, BotRace::Gnome);
+}
+
+TEST(BotRecipe, TheAllianceWordGivesEachClassItsAllianceRace)
+{
+    EXPECT_EQ(ParseBotRecipe({"Aldric", "warrior", "tank", "alliance"}).recipe.race, BotRace::Human);
+    EXPECT_EQ(ParseBotRecipe({"Brenna", "priest", "healer", "alliance"}).recipe.race, BotRace::Dwarf);
+    EXPECT_EQ(ParseBotRecipe({"Corwin", "rogue", "melee", "alliance"}).recipe.race, BotRace::Human);
+    EXPECT_EQ(ParseBotRecipe({"Fizzwick", "mage", "ranged", "alliance"}).recipe.race, BotRace::Gnome);
+    EXPECT_EQ(ParseBotRecipe({"Nixie", "warlock", "ranged", "Alliance"}).recipe.race, BotRace::Gnome);
+    EXPECT_EQ(ParseBotRecipe({"Bolt", "hunter", "ranged", "alliance"}).recipe.race, BotRace::Dwarf);
+    EXPECT_EQ(ParseBotRecipe({"Leaf", "druid", "healer", "alliance"}).recipe.race, BotRace::NightElf);
+}
+
+TEST(BotRecipe, TheHordeWordGivesTheHordeRace)
+{
+    BotRecipeResult result = ParseBotRecipe({"Grukk", "warrior", "tank", "horde", "gear", "grukk_dungeon"});
+
+    ASSERT_TRUE(result.ok) << result.error;
+    EXPECT_EQ(result.recipe.race, BotRace::Orc);
+    EXPECT_EQ(result.recipe.gearTemplate, "grukk_dungeon");
+}
+
+TEST(BotRecipe, RefusesAnAllianceRaceThatCannotHaveTheClass)
+{
+    EXPECT_EQ(ParseBotRecipe({"Brenna", "priest", "healer", "gnome"}).error, "A gnome cannot be a priest.");
+    EXPECT_EQ(ParseBotRecipe({"Fizzwick", "mage", "ranged", "dwarf"}).error, "A dwarf cannot be a mage.");
+    EXPECT_EQ(ParseBotRecipe({"Nixie", "warlock", "ranged", "nightelf"}).error, "A nightelf cannot be a warlock.");
+    EXPECT_EQ(ParseBotRecipe({"Leaf", "druid", "healer", "human"}).error, "A human cannot be a druid.");
+}
+
+TEST(BotRecipe, RefusesAClassThatTheFactionDoesNotHave)
+{
+    EXPECT_EQ(ParseBotRecipe({"Thrall", "shaman", "healer", "alliance"}).error, "The alliance has no shaman.");
 }
