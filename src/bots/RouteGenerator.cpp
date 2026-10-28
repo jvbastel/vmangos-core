@@ -1,7 +1,10 @@
 #include "RouteGenerator.h"
 #include "BotGeometry.h"
+#include "DataFields.h"
 #include "DataTokenizer.h"
+#include "RouteHandOrder.h"
 #include "RouteLine.h"
+#include "RouteSight.h"
 
 #include <algorithm>
 #include <cctype>
@@ -16,112 +19,14 @@ namespace Bots
 {
     namespace
     {
-        std::string Format(Position const& p)
-        {
-            char text[96];
-            std::snprintf(text, sizeof(text), "%.2f %.2f %.2f", p.x, p.y, p.z);
-            return text;
-        }
-
-        enum class EventKind
-        {
-            Point, // A point along the center line or a detour.
-            Pull,  // The pull point of a pack.
-            Pack,
-            Visit,
-        };
-
-        // A step of the route before it has its places and its name.
-        struct Event
-        {
-            float s;   // The distance along the center line.
-            int order; // At the same s: points, pulls and packs, detours, visits.
-            int sub;   // The order inside a detour.
-            EventKind kind;
-            Position center;
-            float dx = 1.0f; // The flat direction of the line there.
-            float dy = 0.0f;
-            std::size_t pack = 0; // For Pull and Pack.
-            std::uint32_t quest = 0;
-            std::string name; // For Visit.
-            int detour = -1;  // The detour of a step on a detour.
-            // The hand order changed the walk to this step: it moved the
-            // step, or took a step before it away.
-            bool rejoin = false;
-        };
+        using Event = RouteEvent;
+        using EventKind = RouteEventKind;
 
         struct Detour
         {
             std::size_t pack;
             std::uint32_t quest;
         };
-
-        // The member of the pack whose spawn point is nearest to `at`.
-        Position NearestMember(Position const& at, GeneratorPack const& pack, std::vector<GeneratorSpawn> const& spawns)
-        {
-            Position best = spawns[pack.members[0]].position;
-            for (std::size_t member : pack.members)
-                if (Distance3d(at, spawns[member].position) < Distance3d(at, best))
-                    best = spawns[member].position;
-            return best;
-        }
-
-        enum class Sight
-        {
-            OutOfRange,
-            Hidden,     // In range, but no line of sight.
-            OtherLevel, // In range and in sight, but far by path.
-            Pullable,
-        };
-
-        struct PackSight
-        {
-            Sight sight;
-            float path; // The walk to the nearest member, or -1 with no path.
-        };
-
-        // Whether a group at `at` can pull the pack: the pack is within
-        // `range`, sees the spot, and stands on its level. On the same level,
-        // the navmesh path to the pack is not much longer than the straight
-        // distance. With no path at all, for example from a spawn just off
-        // the navmesh, the height tells the level.
-        PackSight SightOf(Position const& at, GeneratorPack const& pack, std::vector<GeneratorSpawn> const& spawns,
-            GeneratorSettings const& settings, RouteNav& nav, float range)
-        {
-            if (DistanceToPack(at, pack, spawns) > range)
-                return {Sight::OutOfRange, -1.0f};
-            Position const target = NearestMember(at, pack, spawns);
-            if (!nav.LineOfSight(at, target))
-                return {Sight::Hidden, -1.0f};
-            std::vector<Position> path;
-            if (!nav.Path(at, target, path))
-                return {std::fabs(at.z - target.z) <= settings.levelPathSlack ? Sight::Pullable : Sight::OtherLevel,
-                    -1.0f};
-            float const length = PathLength(path);
-            if (length > settings.levelPathFactor * Distance3d(at, target) + settings.levelPathSlack)
-                return {Sight::OtherLevel, length};
-            return {Sight::Pullable, length};
-        }
-
-        // The pull point on a path to a pack: the first spot whose rest of the
-        // path is within the limit and that is within aggro range plus the
-        // margin of the pack. Without one, the first spot within the limit.
-        float PullOnPath(RouteLine const& way, GeneratorPack const& pack, std::vector<GeneratorSpawn> const& spawns,
-            GeneratorSettings const& settings)
-        {
-            float const range = settings.aggroRange + settings.margin;
-            float first = -1.0f;
-            for (float s : way.Samples())
-            {
-                if (way.Length() - s > settings.pullPathLimit)
-                    continue;
-                if (first < 0.0f)
-                    first = s;
-                if (DistanceToPack(way.At(s), pack, spawns) <= range)
-                    return s;
-            }
-            return first < 0.0f ? way.Length() : first;
-        }
 
         std::string UniqueName(std::set<std::string>& used, std::string const& name)
         {
@@ -130,218 +35,6 @@ namespace Bots
                 candidate = name + "_" + std::to_string(number);
             used.insert(candidate);
             return candidate;
-        }
-
-        float const TwoPi = 6.2831853f;
-        // The directions around a pack in which a moved pull point is sought.
-        int const PullSearchDirections = 16;
-
-        // The spot in the pull band of the pack, out from its leader in the
-        // direction `angle`: out of the aggro range of the pack, with its
-        // wander and its other members, and within aggro range plus margin.
-        // False when a wall stops the spot before the band.
-        bool PullBandSpot(Position const& leader, float angle, GeneratorPack const& pack,
-            std::vector<GeneratorSpawn> const& spawns, GeneratorSettings const& settings, RouteNav& nav,
-            Position& spot)
-        {
-            float const range = settings.aggroRange + settings.margin;
-            for (float reach = (settings.aggroRange + range) / 2.0f; reach <= 2.0f * range;
-                 reach += settings.margin / 2.0f)
-            {
-                spot = nav.Reach(leader, std::cos(angle), std::sin(angle), reach);
-                float const distance = DistanceToPack(spot, pack, spawns);
-                if (distance >= settings.aggroRange && distance <= range)
-                    return true;
-                // Past the band, or stopped short by a wall.
-                if (distance > range || Distance2d(spot, leader) < reach - 0.5f)
-                    return false;
-            }
-            return false;
-        }
-
-        // The hand pack order (WOWAI#147). The pull point and the fight of
-        // each named pack move, in the order of the hand, to where the route
-        // fought the first of them. The other steps keep their order. A named
-        // pack is a pack of the route, not of a quest, so that a run without
-        // the quests fights it in its turn too. A detour that has no fight
-        // left loses its points. Points along the navmesh path join each step
-        // whose walk changed to the step before it.
-        std::vector<Event> ApplyPackOrder(std::vector<Event> const& events, std::vector<std::uint32_t> const& order,
-            std::vector<GeneratorPack> const& packs, std::vector<GeneratorSpawn> const& spawns,
-            GeneratorSettings const& settings, RouteNav& nav, std::vector<std::string>& warnings)
-        {
-            // The named packs that the route fights, in the order of the hand.
-            std::vector<std::size_t> named;
-            for (std::uint32_t guid : order)
-            {
-                std::size_t found = packs.size();
-                for (std::size_t p = 0; p < packs.size(); ++p)
-                    for (std::size_t member : packs[p].members)
-                        if (spawns[member].guid == guid)
-                            found = p;
-                bool const fought = std::any_of(events.begin(), events.end(),
-                    [found](Event const& e) { return e.kind == EventKind::Pack && e.pack == found; });
-                if (!fought)
-                    warnings.push_back("the hand order names spawn " + std::to_string(guid) +
-                        ", whose pack is not on the route");
-                else if (std::find(named.begin(), named.end(), found) != named.end())
-                    warnings.push_back("the hand order names the pack of spawn " + std::to_string(guid) + " twice");
-                else
-                    named.push_back(found);
-            }
-            if (named.empty())
-                return events;
-            auto rankOf = [&named](Event const& e) {
-                if (e.kind != EventKind::Pull && e.kind != EventKind::Pack)
-                    return named.size();
-                return std::size_t(std::find(named.begin(), named.end(), e.pack) - named.begin());
-            };
-
-            // The detours that keep a fight.
-            std::set<int> detoursLeft;
-            for (Event const& e : events)
-                if (e.kind == EventKind::Pack && e.detour >= 0 && rankOf(e) == named.size())
-                    detoursLeft.insert(e.detour);
-
-            std::vector<Event> kept;
-            std::vector<std::vector<Event>> moved(named.size());
-            std::size_t at = 0;
-            bool firstMoved = true;
-            bool takenAway = false;
-            for (Event const& e : events)
-            {
-                std::size_t const rank = rankOf(e);
-                if (rank < named.size())
-                {
-                    if (firstMoved)
-                        at = kept.size();
-                    firstMoved = false;
-                    Event step = e;
-                    step.quest = 0;
-                    step.rejoin = true;
-                    moved[rank].push_back(step);
-                    takenAway = true;
-                    continue;
-                }
-                if (e.kind == EventKind::Point && e.detour >= 0 && !detoursLeft.count(e.detour))
-                {
-                    takenAway = true;
-                    continue;
-                }
-                kept.push_back(e);
-                if (takenAway && e.kind != EventKind::Pack)
-                {
-                    kept.back().rejoin = true;
-                    takenAway = false;
-                }
-            }
-            std::vector<Event> block;
-            for (std::vector<Event> const& steps : moved)
-                block.insert(block.end(), steps.begin(), steps.end());
-            kept.insert(kept.begin() + at, block.begin(), block.end());
-
-            // A pull point of the generator suits the order of the line. In
-            // the hand order, a pack fought later may still live near it.
-            // Then the pull point moves to a spot around its pack, out of
-            // the aggro range of the pack and within the pull range, that
-            // pulls no pack of later: the one with the shortest walk from
-            // the step before.
-            std::vector<std::size_t> foughtAt(packs.size(), kept.size());
-            for (std::size_t e = 0; e < kept.size(); ++e)
-                if (kept[e].kind == EventKind::Pack)
-                    foughtAt[kept[e].pack] = e;
-            float const range = settings.aggroRange + settings.margin;
-            auto pullsLater = [&](Position const& place, std::size_t e, std::size_t own) {
-                for (std::size_t p = 0; p < packs.size(); ++p)
-                    if (p != own && foughtAt[p] > e && DistanceToPack(place, packs[p], spawns) < settings.aggroRange &&
-                        SightOf(place, packs[p], spawns, settings, nav, settings.aggroRange).sight == Sight::Pullable)
-                        return true;
-                return false;
-            };
-            bool hasLast = false;
-            Position last{};
-            for (std::size_t e = 0; e < kept.size(); ++e)
-            {
-                Event& step = kept[e];
-                std::size_t const p = step.pack;
-                if (step.kind == EventKind::Pull && rankOf(step) < named.size() && pullsLater(step.center, e, p))
-                {
-                    Position const leader = spawns[packs[p].members[0]].position;
-                    float best = -1.0f;
-                    for (int k = 0; k < PullSearchDirections; ++k)
-                    {
-                        Position place;
-                        if (!PullBandSpot(leader, float(k) * TwoPi / float(PullSearchDirections), packs[p], spawns,
-                                settings, nav, place))
-                            continue;
-                        PackSight const sight = SightOf(place, packs[p], spawns, settings, nav, range);
-                        if (sight.sight != Sight::Pullable || sight.path > settings.pullPathLimit ||
-                            pullsLater(place, e, p))
-                            continue;
-                        float walk = 0.0f;
-                        std::vector<Position> path;
-                        if (hasLast)
-                        {
-                            if (!nav.Path(last, place, path))
-                                continue;
-                            walk = PathLength(path);
-                        }
-                        if (best < 0.0f || walk < best)
-                        {
-                            best = walk;
-                            step.center = place;
-                        }
-                    }
-                    std::string const pack = "the pack of spawn " + std::to_string(spawns[packs[p].members[0]].guid);
-                    if (best >= 0.0f)
-                    {
-                        // The point faces its pack: its sideways places go across that way.
-                        float const length = std::max(1e-3f, Distance2d(step.center, leader));
-                        step.dx = (leader.x - step.center.x) / length;
-                        step.dy = (leader.y - step.center.y) / length;
-                        warnings.push_back("the hand order moves the pull point of " + pack + " to " +
-                            Format(step.center) + ": the pull point of the line pulls a pack fought later");
-                    }
-                    else
-                        warnings.push_back("the hand order: no pull point around " + pack +
-                            " keeps out of the packs fought later; it keeps the pull point of the line at " +
-                            Format(step.center));
-                }
-                if (step.kind != EventKind::Pack)
-                {
-                    hasLast = true;
-                    last = step.center;
-                }
-            }
-
-            std::vector<Event> result;
-            hasLast = false;
-            bool lastRejoin = false;
-            for (Event const& e : kept)
-            {
-                if (e.kind == EventKind::Pack)
-                {
-                    result.push_back(e);
-                    continue;
-                }
-                std::vector<Position> path;
-                if (hasLast && (e.rejoin || lastRejoin) && nav.Path(last, e.center, path))
-                {
-                    RouteLine const way(path);
-                    for (float s = settings.pointSpacing; s < way.Length() - settings.pointSpacing / 2.0f;
-                         s += settings.pointSpacing)
-                    {
-                        Event point{e.s, e.order, e.sub, EventKind::Point, way.At(s)};
-                        way.Direction(s, point.dx, point.dy);
-                        result.push_back(point);
-                    }
-                }
-                result.push_back(e);
-                hasLast = true;
-                last = e.center;
-                lastRejoin = e.rejoin;
-            }
-            return result;
         }
     }
 
@@ -467,7 +160,7 @@ namespace Bots
 
     PackFill FillCount(std::vector<GeneratorPack> const& packs, std::vector<bool> const& onRoute,
         std::vector<float> const& distanceToRoute, std::vector<GeneratorSpawn> const& spawns,
-        std::vector<std::uint32_t> const& entries, std::uint32_t count)
+        std::vector<std::uint32_t> const& entries, std::uint32_t count, std::vector<bool> const& skipped)
     {
         auto countIn = [&](GeneratorPack const& pack) {
             std::uint32_t n = 0;
@@ -484,7 +177,7 @@ namespace Bots
             std::uint32_t const n = countIn(packs[i]);
             if (onRoute[i])
                 fill.have += n;
-            else if (n)
+            else if (n && (skipped.empty() || !skipped[i]))
                 candidates.push_back(i);
         }
         std::stable_sort(candidates.begin(), candidates.end(),
@@ -540,7 +233,7 @@ namespace Bots
             if (!nav.Path(centerPoints.back(), spawn->position, leg) || leg.empty())
             {
                 result.error = "no navmesh path to the boss " + std::to_string(boss) + " at " +
-                    Format(spawn->position) + " from " + Format(centerPoints.back());
+                    DataFields::FormatPosition(spawn->position) + " from " + DataFields::FormatPosition(centerPoints.back());
                 return result;
             }
             centerPoints.insert(centerPoints.end(), leg.begin() + 1, leg.end());
@@ -552,6 +245,8 @@ namespace Bots
 
         // The packs, and where the line first comes near each one.
         std::vector<GeneratorPack> const packs = BuildPacks(spawns, settings.clusterDistance);
+        HandOrderPacks const hand = ResolveHandOrder(input.packOrder, input.skippedPacks, packs, spawns,
+            result.warnings);
         std::vector<float> approach(packs.size(), -1.0f);
         std::vector<bool> onRoute(packs.size(), false);
         std::vector<float> distanceToRoute(packs.size(), 1e9f);
@@ -593,7 +288,7 @@ namespace Bots
         std::vector<LeftOut> leftOut;
         for (std::size_t p = 0; p < packs.size(); ++p)
         {
-            if (distanceToRoute[p] > range)
+            if (distanceToRoute[p] > range || hand.skipped[p])
                 continue;
             bool seen = false;
             float otherPath = -1.0f;
@@ -647,7 +342,7 @@ namespace Bots
             }
         for (std::size_t p = 0; p < packs.size(); ++p)
         {
-            if (onRoute[p])
+            if (onRoute[p] || hand.skipped[p])
                 continue;
             bool needed = false;
             for (std::size_t member : packs[p].members)
@@ -712,7 +407,7 @@ namespace Bots
                     // line becomes a pack of the quest.
                     for (std::size_t p = 0; p < packs.size(); ++p)
                     {
-                        if (DistanceToPack(visit.position, packs[p], spawns) >= settings.aggroRange ||
+                        if (hand.skipped[p] || DistanceToPack(visit.position, packs[p], spawns) >= settings.aggroRange ||
                             SightOf(visit.position, packs[p], spawns, settings, nav, settings.aggroRange).sight !=
                                 Sight::Pullable)
                             continue;
@@ -749,7 +444,7 @@ namespace Bots
                     entries = objective.entries;
                 else
                     continue;
-                PackFill const fill = FillCount(packs, onRoute, distanceToRoute, spawns, entries, need);
+                PackFill const fill = FillCount(packs, onRoute, distanceToRoute, spawns, entries, need, hand.skipped);
                 for (std::size_t p : fill.added)
                 {
                     onRoute[p] = true;
@@ -805,7 +500,7 @@ namespace Bots
             if (!nav.Path(start, target, path) || path.size() < 1)
             {
                 result.warnings.push_back("quest " + std::to_string(detour.quest) + ": no navmesh path to the pack of " +
-                    std::to_string(spawns[packs[p].members[0]].guid) + " at " + Format(target));
+                    std::to_string(spawns[packs[p].members[0]].guid) + " at " + DataFields::FormatPosition(target));
                 onRoute[p] = false;
                 continue;
             }
@@ -814,7 +509,7 @@ namespace Bots
             foughtOnDetour[p] = true;
             for (std::size_t q = 0; q < packs.size(); ++q)
             {
-                if (foughtOnDetour[q] || (onRoute[q] && !detourTarget[q]))
+                if (foughtOnDetour[q] || (onRoute[q] && !detourTarget[q]) || hand.skipped[q])
                     continue;
                 float at = -1.0f;
                 for (float s : way.Samples())
@@ -880,7 +575,7 @@ namespace Bots
             GeneratorSpawn const& leader = spawns[packs[out.pack].members[0]];
             char head[120];
             std::snprintf(head, sizeof(head), "the pack of spawn %u at %s is off the route: ",
-                unsigned(leader.guid), Format(leader.position).c_str());
+                unsigned(leader.guid), DataFields::FormatPosition(leader.position).c_str());
             char reason[200];
             if (!out.seen)
                 std::snprintf(reason, sizeof(reason),
@@ -922,8 +617,7 @@ namespace Bots
                 return a.order < b.order;
             return a.sub < b.sub;
         });
-        if (!input.packOrder.empty())
-            events = ApplyPackOrder(events, input.packOrder, packs, spawns, settings, nav, result.warnings);
+        events = ApplyHandOrder(events, hand.order, packs, spawns, settings, nav, result.warnings);
 
         // The order of the fights, for the aggro check of each place.
         std::vector<std::size_t> foughtAt(packs.size(), events.size());
@@ -966,10 +660,8 @@ namespace Bots
         // danger. The place of a pull point of the line keeps the path to
         // its pack within the limit.
         auto allowed = [&](Position const& place, std::size_t e) {
-            for (std::size_t p = 0; p < packs.size(); ++p)
-                if (foughtAt[p] > e && DistanceToPack(place, packs[p], spawns) < settings.aggroRange &&
-                    SightOf(place, packs[p], spawns, settings, nav, settings.aggroRange).sight == Sight::Pullable)
-                    return false;
+            if (PullsPackOfLater(place, foughtAt, e, packs.size(), packs, spawns, settings, nav))
+                return false;
             Event const& event = events[e];
             if (event.kind != EventKind::Pull || event.order != 1 || pullPath[event.pack] < 0.0f ||
                 Distance3d(place, event.center) < 1e-3f)
@@ -1026,7 +718,7 @@ namespace Bots
                 offset = 0.0f;
                 first = event.center;
                 if (!allowed(first, e))
-                    result.warnings.push_back("a point at " + Format(first) + " is within aggro range of a pack");
+                    result.warnings.push_back("a point at " + DataFields::FormatPosition(first) + " is within aggro range of a pack");
             }
 
             std::string const name = event.kind == EventKind::Pull ? "pull_" + packName[event.pack] : "";
@@ -1047,7 +739,7 @@ namespace Bots
                 char text[200];
                 std::snprintf(text, sizeof(text),
                     "%s has no pull point within %.0f yards by path on the line: the shortest is %.0f yards, at %s",
-                    packName[p].c_str(), settings.pullPathLimit, pullPath[p], Format(event.center).c_str());
+                    packName[p].c_str(), settings.pullPathLimit, pullPath[p], DataFields::FormatPosition(event.center).c_str());
                 result.warnings.push_back(text);
             }
         }
@@ -1071,6 +763,8 @@ namespace Bots
             previous = &point;
         }
 
+        for (std::string const& warning : SkippedPackWarnings(route, packs, spawns, hand.skipped, settings.aggroRange))
+            result.warnings.push_back(warning);
         result.ok = true;
         return result;
     }
@@ -1083,20 +777,23 @@ namespace Bots
             std::string error;
             unsigned long guid = 0;
             char* end = nullptr;
-            if (line.words.size() == 2 && line.words[0] == "pack" &&
+            bool const skip = !line.words.empty() && line.words[0] == "skip";
+            if (line.words.size() == 2 && (skip || line.words[0] == "pack") &&
                 std::isdigit(static_cast<unsigned char>(line.words[1][0])))
                 guid = std::strtoul(line.words[1].c_str(), &end, 10);
             if (!end || *end != '\0' || guid == 0 || guid > 0xffffffffUL)
-                error = "use: pack <spawn guid>";
-            else if (std::find(result.guids.begin(), result.guids.end(), std::uint32_t(guid)) != result.guids.end())
+                error = "use: pack <spawn guid>, or skip <spawn guid>";
+            else if (std::find(result.guids.begin(), result.guids.end(), std::uint32_t(guid)) != result.guids.end() ||
+                std::find(result.skips.begin(), result.skips.end(), std::uint32_t(guid)) != result.skips.end())
                 error = "the guid " + line.words[1] + " is already in the order";
             if (!error.empty())
             {
                 result.guids.clear();
+                result.skips.clear();
                 result.error = "line " + std::to_string(line.number) + ": " + error;
                 return result;
             }
-            result.guids.push_back(std::uint32_t(guid));
+            (skip ? result.skips : result.guids).push_back(std::uint32_t(guid));
         }
         result.ok = true;
         return result;
@@ -1114,7 +811,7 @@ namespace Bots
             for (std::size_t k = 0; k < point->places.size(); ++k)
                 if (!nav.OnMesh(point->places[k].position))
                     problems.push_back("point " + point->name + ": the place " + std::to_string(k + 1) + " at " +
-                        Format(point->places[k].position) + " is not on the navmesh");
+                        DataFields::FormatPosition(point->places[k].position) + " is not on the navmesh");
 
         for (std::size_t i = 0; i + 1 < points.size(); ++i)
         {
