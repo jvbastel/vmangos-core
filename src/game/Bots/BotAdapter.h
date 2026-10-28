@@ -103,6 +103,8 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool IsMeleeAttacking() const override;
         // jvbastel/WOWAI#189: the selection of a player, the victim of a creature (BotView.h).
         Bots::Guid GetTargetOf(Bots::Guid unit) const override;
+        // jvbastel/WOWAI#191: the skull and cross of the bot's group (BotView.h).
+        GroupMarks GetGroupMarks() const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;
