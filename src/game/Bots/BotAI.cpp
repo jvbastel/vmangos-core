@@ -11,6 +11,7 @@
 #include "ClassModules.h"
 #include "CoordinatorChoice.h"
 #include "DeathAndRest.h"
+#include "GroupTank.h"
 #include "MemberSpot.h"
 #include "WarriorModule.h"
 #include "Group.h"
@@ -445,6 +446,26 @@ bool BotAI::UsesGroupCoordinator() const
     return CoordinatorChoiceNow() == Bots::CoordinatorChoice::Group;
 }
 
+Bots::Guid BotAI::GroupTankNow() const
+{
+    Group const* group = me->GetGroup();
+    if (!group)
+        return Bots::NoGuid;
+    std::vector<Bots::GroupMember> members;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+    {
+        Player const* player = ObjectAccessor::FindPlayer(slot.guid);
+        if (!player || !player->IsInWorld() || !player->IsInMap(me))
+            continue;
+        // A human player, or the test driver of a scripted run, which
+        // stands in for one: no bot role (BotMgr::BotRoleOf).
+        Bots::BotRole role = Bots::BotRole::Ranged;
+        bool const isBot = sBotMgr.BotRoleOf(player, role);
+        members.push_back({slot.guid.GetRawValue(), isBot, role});
+    }
+    return Bots::PickGroupTank(members, group->GetLeaderGuid().GetRawValue());
+}
+
 std::shared_ptr<Bots::GroupCoordinator> BotAI::Coordinator()
 {
     if (Group const* group = me->GetGroup())
@@ -551,6 +572,16 @@ void BotAI::Think()
     {
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
         Bots::WatchTrail(adapter, *coordinator);
+    }
+    // Spec #131, story 10: with no bot tank, a human leader who tanks gets
+    // the care of the tank (no shield on a rage tank, PriestModule.cpp).
+    // The game keeps no record of a player's role, so the leader counts as
+    // the tank. Only the group coordinator: the leader is on the bot's map.
+    else if (UsesGroupCoordinator())
+    {
+        Bots::Guid const tank = GroupTankNow();
+        if (tank != Bots::NoGuid && tank != coordinator->GetTank())
+            coordinator->SetTank(tank);
     }
     // The tank taunts enemies off the healer first (WarriorModule.cpp).
     if (sBotMgr.IsHealerBot(me))

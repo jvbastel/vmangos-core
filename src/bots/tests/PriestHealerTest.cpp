@@ -1,5 +1,6 @@
 #include "ClassModules.h"
 #include "PriestModule.h"
+#include "GroupTank.h"
 #include "FakeBot.h"
 
 #include <gtest/gtest.h>
@@ -561,6 +562,71 @@ TEST(PriestHealerRageTank, ShieldsARageMemberThatIsNotTheTank)
     PriestHealer priest;
     priest.fake.SetPowerKind(Mage, Bots::PowerKind::Rage);
     priest.InFight();
+    priest.fake.SetHealth(Mage, 80, 300);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Mage)}));
+}
+
+// Review of spec #131, story 10: a human player who tanks on a warrior, with
+// no bot tank in the group, is the group's tank (PickGroupTank). The healer
+// heals the player near death and never shields the player: the rage check
+// of story 15 decides, not the class.
+namespace
+{
+    Bots::Guid const Human = 0x0000000000000001;
+
+    // The player leads the healer and the mage. It wears no bot role.
+    void PlayerLeads(PriestHealer& priest, Bots::PowerKind power)
+    {
+        priest.fake.SetGroupMembers({Human, Mage});
+        priest.fake.SetHealth(Human, 600, 600);
+        priest.fake.SetDistance(Human, 20.0f);
+        priest.fake.SetAura(Human, Priest::PowerWordFortitude);
+        priest.fake.SetPowerKind(Human, power);
+        priest.group.SetTank(Bots::PickGroupTank({{Human, false, Bots::BotRole::Ranged},
+            {Healer, true, Bots::BotRole::Healer}, {Mage, true, Bots::BotRole::Ranged}}, Human));
+        priest.group.SetFocusTarget(Kobold);
+        priest.fake.SetVictim(Human, Kobold);
+        priest.fake.SetVictim(Kobold, Human);
+        priest.fake.SetInCombat(Healer);
+    }
+}
+
+TEST(PriestHealerRageTank, HealsAHumanWarriorTankNearDeathWithoutAShield)
+{
+    PriestHealer priest;
+    PlayerLeads(priest, Bots::PowerKind::Rage);
+    priest.fake.SetHealth(Human, 150, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Heal, Human)}));
+}
+
+TEST(PriestHealerRageTank, ShieldsAHumanMemberNearDeathWhenABotTanks)
+{
+    PriestHealer priest;
+    priest.fake.SetGroupMembers({Tank, Human, Mage});
+    priest.fake.SetHealth(Human, 150, 600);
+    priest.fake.SetDistance(Human, 20.0f);
+    priest.fake.SetAura(Human, Priest::PowerWordFortitude);
+    // A human warrior that does not tank: the bot tank does.
+    priest.fake.SetPowerKind(Human, Bots::PowerKind::Rage);
+    priest.group.SetTank(Bots::PickGroupTank({{Tank, true, Bots::BotRole::Tank}, {Human, false, Bots::BotRole::Ranged},
+        {Healer, true, Bots::BotRole::Healer}}, Human));
+    priest.InFight();
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Human)}));
+}
+
+TEST(PriestHealerRageTank, ShieldsTheMageNearDeathWhenAHumanWarriorTanks)
+{
+    PriestHealer priest;
+    PlayerLeads(priest, Bots::PowerKind::Rage);
     priest.fake.SetHealth(Mage, 80, 300);
 
     priest.Think();
