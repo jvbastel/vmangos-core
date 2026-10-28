@@ -76,6 +76,7 @@ namespace Bots
             // jvbastel/WOWAI#168: the rule priorities (P + N) of the
             // abilities on the loose enemy: Taunt, then Sunder Armor or
             // Revenge, both over the pick-up (53).
+            int const CastOnTheEnemyItTurnedTo = 57;
             int const TauntTheLooseEnemy = 56;
             int const ThreatOnTheLooseEnemy = 55;
 
@@ -477,6 +478,18 @@ namespace Bots
                         && !castDue))
                     return NoGuid;
                 return enemy;
+            }
+
+            // jvbastel/WOWAI#168: the tank attacks the enemy that it keeps
+            // threat on, and cast no ability on it since it turned to it
+            // (PickKeptEnemy): that enemy gets one before the tank turns to
+            // another unit. NoGuid else.
+            Guid PickEnemyDueACast(BotContext const& context, ThreatKeep const& keep)
+            {
+                Guid const kept = PickKeptEnemy(context, keep);
+                if (kept == NoGuid || keep.castOn || context.view.GetVictim(Self(context)) != kept)
+                    return NoGuid;
+                return kept;
             }
 
             // The rule `rule` notes the enemy that `target` picks as the
@@ -922,6 +935,21 @@ namespace Bots
                         return FightsFocus(context) && victim != NoGuid && victim != Self(context);
                     },
                     Taunt, PickFocusTarget),
+                // jvbastel/WOWAI#168: no turn away from an enemy that the tank
+                // attacked with no ability yet (a pick-up): Revenge or Sunder
+                // Armor on it first, when it can.
+                Rule{"cast on the enemy it turned to", P + CastOnTheEnemyItTurnedTo,
+                    [keep](BotContext const& context) { return PickEnemyDueACast(context, *keep) != NoGuid; },
+                    {[keep](BotContext const& context) {
+                         Guid const enemy = PickEnemyDueACast(context, *keep);
+                         return CastableRank(context.view, ThreatTargetAbility(context, enemy), enemy) != NoSpell;
+                     },
+                        [keep](BotContext const& context) {
+                            Guid const enemy = PickEnemyDueACast(context, *keep);
+                            SpellId const ability = ThreatTargetAbility(context, enemy);
+                            context.actions.CastSpell(RankForTarget(context.view, ability, enemy), enemy);
+                            keep->castOn = true;
+                        }}},
                 // jvbastel/WOWAI#168: the tank's one loose enemy
                 // (PickLooseEnemy): Taunt when it can, else Revenge or Sunder
                 // Armor. Never Mocking Blow: it needs Battle Stance.

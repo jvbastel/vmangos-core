@@ -2362,3 +2362,32 @@ TEST(WarriorTankLooseEnemy, CastsOnAPickedUpEnemyThatComesToItBeforeItGoesBackTo
     tank.Think();
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
 }
+
+// join_four_healer: the picked-up enemy comes to the tank, and the pick goes
+// on to the next loose enemy. The enemy that the tank turned to gets its
+// ability first.
+TEST(WarriorTankLooseEnemy, CastsOnThePickedUpEnemyBeforeItTakesTheNextLooseEnemy)
+{
+    BatOnTheFarHealer tank;
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+    tank.fake.SetVictim(Tank, Bat);
+    tank.fake.SetDistance(Bat, 2.0f);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 2.0f);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Healer);
+    tank.fake.SetDistance(Wolf, 2.0f);
+
+    tank.fake.ClearDeeds();
+    tank.nowMs = 300;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+
+    tank.fake.ClearDeeds();
+    tank.nowMs = 600;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
