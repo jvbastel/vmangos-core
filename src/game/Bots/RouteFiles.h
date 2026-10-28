@@ -34,6 +34,7 @@ namespace RouteFiles
     std::string TracePathOf(std::string const& route);
     bool Read(std::string const& path, std::string& text);
     // Writes a temporary file first, so that a crash never leaves half a file.
+    // A route file makes the bot manager read the boss lists again.
     bool Write(std::string const& path, std::string const& text);
     // The creature, quest, and item names for the comments of a route file.
     Bots::RouteNames Names();

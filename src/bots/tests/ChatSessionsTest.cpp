@@ -189,6 +189,18 @@ TEST(GroupChatEvent, AWipeHasOnlyTheGroupFacts)
     EXPECT_EQ(event.bossName, "");
 }
 
+TEST(GroupChatEvent, AWipeInABossFightNamesTheBoss)
+{
+    GroupEvent wipe = Event(GroupEventKind::Wipe);
+    wipe.entry = 11519;
+    ChatEvent event;
+
+    ASSERT_TRUE(MakeGroupChatEvent(Group({Grumbar}), wipe, "Bazzalan", event));
+
+    EXPECT_EQ(event.kind, ChatEventKind::Wipe);
+    EXPECT_EQ(event.bossName, "Bazzalan");
+}
+
 TEST(GroupChatEvent, ALootRollNamesTheItemAndTheWinner)
 {
     GroupEvent roll = Event(GroupEventKind::LootRoll);

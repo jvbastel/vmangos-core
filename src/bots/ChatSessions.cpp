@@ -97,6 +97,7 @@ bool Bots::MakeGroupChatEvent(ChatGroupView const& group, GroupEvent const& even
             return true;
         case GroupEventKind::Wipe:
             chatEvent = MakeChatEvent(group, ChatEventKind::Wipe);
+            chatEvent.bossName = name;
             return true;
         case GroupEventKind::LootRoll:
             chatEvent = MakeChatEvent(group, ChatEventKind::LootRoll);

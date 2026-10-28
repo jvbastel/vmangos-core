@@ -139,6 +139,8 @@ void BotAI::UpdateAI(uint32 const diff)
     {
         BotAdapter adapter(me);
         Bots::WatchRest(adapter, *Coordinator());
+        // The bot that holds the tap notes its own boss kill (BossFights.h).
+        m_tapWatch.Update(adapter, *Coordinator(), SteadyMs());
     }
 }
 

@@ -753,6 +753,20 @@ uint32 BotAdapter::GetEntry(Bots::Guid unit) const
     return found && found->IsCreature() ? found->GetEntry() : 0;
 }
 
+bool BotAdapter::IsListedBoss(Bots::Guid unit) const
+{
+    uint32 const entry = GetEntry(unit);
+    return entry && sBotMgr.IsBoss(me->GetMapId(), entry);
+}
+
+bool BotAdapter::HoldsTap(Bots::Guid unit) const
+{
+    // The member that Unit::Kill leaves out of SMSG_PARTYKILLLOG.
+    Unit const* found = Find(unit);
+    Creature const* creature = found ? found->ToCreature() : nullptr;
+    return creature && creature->GetLootRecipientGuid() == me->GetObjectGuid();
+}
+
 Bots::Position BotAdapter::GetPosition(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);

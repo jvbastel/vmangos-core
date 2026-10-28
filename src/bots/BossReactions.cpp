@@ -1,4 +1,5 @@
 #include "BossReactions.h"
+#include "BossFights.h"
 #include "CommonRules.h"
 #include "TaragamanReaction.h"
 
@@ -22,21 +23,6 @@ namespace Bots
                 if (reaction.entry == entry)
                     return &reaction;
             return nullptr;
-        }
-
-        // A boss with a reaction that fights the group now, or NoGuid.
-        Guid FindBossInFight(BotView const& view)
-        {
-            for (Guid member : view.GetGroupMembers())
-            {
-                std::vector<Guid> units = view.GetAttackers(member);
-                units.push_back(view.GetVictim(member));
-                for (Guid unit : units)
-                    if (unit != NoGuid && HasBossReaction(view.GetEntry(unit)) && IsAlive(view, unit)
-                        && view.IsInCombat(unit))
-                        return unit;
-            }
-            return NoGuid;
         }
 
         // The bot sees boss `boss` dead, or out of combat.
@@ -73,7 +59,7 @@ namespace Bots
         }
         if (fight.boss == NoGuid)
         {
-            Guid const boss = FindBossInFight(view);
+            Guid const boss = FindBossInFight(view, [&view](Guid unit) { return HasBossReaction(view.GetEntry(unit)); });
             if (boss != NoGuid)
             {
                 group.StartBossFight(boss, view.GetEntry(boss));

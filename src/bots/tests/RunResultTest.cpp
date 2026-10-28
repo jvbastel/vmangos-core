@@ -44,7 +44,7 @@ namespace
         r.chases = {{"Shanka", "Earthborer", 80000, 82500, 31.25f}};
         r.fireNovaHits = {{"Hela", Bots::BotRole::Healer, 1, 85, 905000}};
         r.chaseLimitYards = 25.0f;
-        r.chatEvents = {{"boss_kill", "", 300000, true, {{"Grukk", 302000}, {"Hela", 304500}}},
+        r.chatEvents = {{"boss_kill", "", 300000, true, {{"Grukk", 302000, "party"}, {"Hela", 304500, "party"}}},
             {"player_message", "Hela", 20000, false, {}}};
         Bots::FightSummary fight;
         fight.number = 2;
@@ -245,10 +245,12 @@ TEST(RunResult, WritesTheChatEventsWithTheLinesThatTheBotsSaid)
 {
     Json const j = Json::parse(Bots::RunResultJson(AFailedFullRun()));
 
-    // `to`: the whispered bot of a player message.
+    // `to`: the whispered bot of a player message. `channel`: the chat of
+    // the line, party or whisper (spec section 9: a whisper gets a whisper).
     EXPECT_EQ(j["chat_events"], Json::parse(R"([
         {"event": "boss_kill", "to": null, "time_s": 300.0, "reached": true,
-         "lines": [{"bot": "Grukk", "time_s": 302.0}, {"bot": "Hela", "time_s": 304.5}]},
+         "lines": [{"bot": "Grukk", "time_s": 302.0, "channel": "party"},
+                   {"bot": "Hela", "time_s": 304.5, "channel": "party"}]},
         {"event": "player_message", "to": "Hela", "time_s": 20.0, "reached": false, "lines": []}])"));
 }
 

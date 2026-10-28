@@ -192,13 +192,17 @@ class BotMgr
         std::vector<ObjectGuid> OnlineBots() const;
         // From any map thread: the creature entry is in the boss list of a
         // route file of the dungeon map. The bot manager reads the route
-        // files at startup only, so the bots can read the list without a
-        // lock: a boss added with the route recorder counts after a restart.
+        // files at startup, and again in its update after ReloadBossList:
+        // the maps do not run then, so the bots read the list without a lock.
         bool IsBoss(uint32 mapId, uint32 entry) const { return m_bosses.IsBoss(mapId, entry); }
         // From any map thread: the ghost route to the dungeon map
-        // (bots/GhostWalk.h), or null. Read at startup only, like the boss
-        // lists.
+        // (bots/GhostWalk.h), or null. Read with the boss lists. Keep the
+        // pointer for this call only: a reload replaces the route.
         Bots::Route const* GhostRoute(uint32 dungeonMap) const;
+        // From any thread: a route file changed (the route recorder, the
+        // route generator, a new run). The next update reads the route files
+        // again, so a new boss counts without a restart.
+        void ReloadBossList() { m_reloadBossList = true; }
 
         BotOnlineState OnlineStateOf(std::string const& name);
         // The scripted runs.
@@ -252,6 +256,7 @@ class BotMgr
         BotChat m_chat;
         Bots::BossList m_bosses;
         std::map<uint32 /*dungeon map*/, Bots::Route> m_ghostRoutes;
+        std::atomic<bool> m_reloadBossList{false};
         BotRun m_run;
         std::atomic<uint64> m_testDriver{0};
         Bots::SeededRandom m_random{std::random_device()()};

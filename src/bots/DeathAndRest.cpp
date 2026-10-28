@@ -1,4 +1,5 @@
 #include "DeathAndRest.h"
+#include "BossFights.h"
 #include "CommonRules.h"
 
 namespace Bots
@@ -146,7 +147,9 @@ namespace Bots
 
     void WatchGroup(BotView const& view, GroupCoordinator& group)
     {
-        group.SetWiped(!SomeoneLives(view));
+        bool const someoneLives = SomeoneLives(view);
+        WatchBossFought(view, group, someoneLives);
+        group.SetWiped(!someoneLives);
         if (IsAlive(view, view.GetSelf()))
             group.ClearGivenUpResurrect(view.GetSelf());
         // The bot that resurrects judges the blockers. A blocker counts as

@@ -163,6 +163,12 @@ namespace Bots
         // The creature entry of unit `unit`. 0 for a player and for a unit
         // that the bot cannot see.
         virtual std::uint32_t GetEntry(Guid unit) const = 0;
+        // True for a creature in the boss list of a route file of the bot's
+        // map (Route.h, BossList).
+        virtual bool IsListedBoss(Guid unit) const = 0;
+        // True when the bot is the loot recipient of creature `unit` (it
+        // holds the tap), alive or dead.
+        virtual bool HoldsTap(Guid unit) const = 0;
         // The position of unit `unit`. {0, 0, 0} for a unit that the bot
         // cannot see.
         virtual Position GetPosition(Guid unit) const = 0;
