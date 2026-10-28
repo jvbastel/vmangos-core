@@ -1,9 +1,13 @@
-# The hand pack order of ragefire_chasm.txt (WOWAI#147). `.route generate`
-# reads it: the packs named here come in this order, from where the route
-# meets the first of them. The other packs keep the order of the generator.
-# A pack is named by the spawn guid of one of its mobs, its first mob by
-# custom: guids stay the same at each regen, pack names do not. The comments
-# give the pack names of the route at aef3f1865, before this order.
+# The hand pack order of ragefire_chasm.txt (WOWAI#147, #151, #156).
+# `.route generate` and `.route build` both read it. `pack <spawn guid>`
+# lines: the packs come in this order, from where the route meets the first
+# of them; a pack line of a pack off the route adds it. `skip <spawn guid>`
+# lines: the route does not pull the pack. The other packs keep the order of
+# the generator or of the trace. A pack is named by the spawn guid of its
+# first mob: guids stay the same at each regen, pack names do not. The
+# dungeon map writes this file (Save order) and keeps these comments. The
+# rules: wowai/docs/route-recorder.md, "Hand pack order". The comments give
+# the pack names of the route at aef3f1865, before this order.
 
 # The first trogg, on the ramp.
 pack 48648 # pack7, Ragefire Trogg

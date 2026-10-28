@@ -30,12 +30,15 @@ import geometry
 HERE = Path(__file__).resolve().parent
 
 HEADER = """\
-# The hand pack order of {route}.txt (WOWAI#147), saved on the dungeon map
-# (WOWAI#155). The packs named here come in this order, from where the route
-# meets the first of them. The other packs keep the order of the generator.
-# A pack is named by the spawn guid of its first mob: guids stay the same at
-# each regen, pack names do not. The comments give the pack names of the
-# route at the save.
+# The hand pack order of {route}.txt (WOWAI#147, #151), saved on the dungeon
+# map. `.route generate` and `.route build` both read it. `pack <spawn guid>`
+# lines: the packs come in this order, from where the route meets the first
+# of them; a pack line of a pack off the route adds it. `skip <spawn guid>`
+# lines: the route does not pull the pack. The other packs keep the order of
+# the generator or of the trace. A pack is named by the spawn guid of its
+# first mob: guids stay the same at each regen, pack names do not. The rules:
+# wowai/docs/route-recorder.md, "Hand pack order". The comments give the pack
+# names of the route at the save.
 """
 
 
