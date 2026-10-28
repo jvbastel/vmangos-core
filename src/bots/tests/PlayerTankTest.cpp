@@ -8,6 +8,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdio>
+#include <string>
+
 using Bots::BotContext;
 using Bots::GroupCoordinator;
 using Bots::NoGuid;
@@ -331,12 +334,13 @@ TEST(PlayerTankMarks, WhileTheSkullLivesADamageBotLeavesTheCross)
     bots.Fights(Wolf);
     bots.Fights(Murloc);
     bots.Marks(Wolf, Murloc);
-    bots.fake.SetTargetOf(Human, Murloc);
+    bots.fake.SetTargetOf(Human, Wolf);
     bots.Watch(0);
     bots.Watch(2000);
     EXPECT_EQ(bots.Target(2000), Wolf);
 
     // The tank turns to the cross: the skull still lives, it stays the focus.
+    bots.fake.SetTargetOf(Human, Murloc);
     bots.Watch(2500);
     EXPECT_EQ(bots.group.GetFocusTarget(), Wolf);
     EXPECT_EQ(bots.Target(2500), Wolf);
