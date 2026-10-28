@@ -132,6 +132,7 @@ void BotAI::UpdateAI(uint32 const diff)
     Bots::ThinkState state = Bots::ThinkStateFor(me->IsInCombat(), IsNearPlayer());
     if (m_thinkTimer.Advance(diff, state))
         Think();
+    FaceMeleeVictim();
 
     // At each update, not only at the think: the group sees a meal start or
     // end at once, so no pull goes out while a member sits down to eat.
@@ -142,6 +143,21 @@ void BotAI::UpdateAI(uint32 const diff)
         // The bot that holds the tap notes its own boss kill (BossFights.h).
         m_tapWatch.Update(adapter, *Coordinator(), SteadyMs());
     }
+}
+
+void BotAI::FaceMeleeVictim()
+{
+    // jvbastel/WOWAI#174: a client turns to its melee target; a bot does not.
+    // A bot that walked back to a spot (the tank to its fight spot) stood with
+    // its back to its victim and swung at nothing for seconds: no white
+    // damage, so no rage. A standing bot that melee attacks a victim in reach
+    // and not in front turns to it.
+    Unit* victim = me->GetVictim();
+    if (!victim || !me->HasUnitState(UNIT_STATE_MELEE_ATTACKING) || !me->IsStopped() || me->IsFacingTarget(victim)
+        || !me->CanReachWithMeleeAutoAttack(victim))
+        return;
+    me->SetOrientation(me->GetAngle(victim));
+    me->SetFacingToObject(victim);
 }
 
 void BotAI::KeepLevelCorrect()
