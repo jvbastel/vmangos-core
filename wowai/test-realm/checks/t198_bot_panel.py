@@ -63,6 +63,9 @@ results.check("the Horde player's panel lists the Horde bots by role", answer ==
 results.check("the server logs the panel", realm.wait_log(r"Lorason gets the bot panel: 5 bots", 5, alliance))
 
 print("== invite")
+# Away from the start place of the Alliance bots (Northshire), so that a bot
+# near the player came by the teleport.
+alliance.gm(".go xyz -9464 62 56 0", wait=3)
 realm.mark("invite")
 alliance.chat(CHAT_MSG_WHISPER, "invite", target="Brenna")
 results.check("Invite on the offline Brenna logs her in", realm.wait_log(r"Brenna logs in", 20, alliance))
@@ -70,7 +73,8 @@ results.check("Brenna joins the group of Lorason", realm.wait_log(r"Brenna joins
 alliance.pump(3)
 brenna = realm.guid_of("Brenna")
 here, there = pos(alliance, alliance.guid), pos(alliance, brenna)
-results.check("Brenna comes to Lorason", here and there and dist(here, there) < 10, "%s %s" % (here, there))
+# She follows the player after the teleport: near, not on the spot.
+results.check("Brenna comes to Lorason", here and there and dist(here, there) < 20, "%s %s" % (here, there))
 realm.mark("dismiss")
 alliance.chat(CHAT_MSG_WHISPER, "dismiss", target="Brenna")
 results.check("Dismiss removes Brenna", realm.wait_log(r"Brenna leaves the group of Lorason", 20, alliance))
