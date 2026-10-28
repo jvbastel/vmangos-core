@@ -881,7 +881,9 @@ void BotMgr::FollowTankThroughInstance(BotRecord& record)
         if (!player || !player->IsInWorld())
             continue;
         bool const isBot = BotRoleOf(player, role);
-        members.push_back({slot.guid.GetRawValue(), isBot, role});
+        // jvbastel/WOWAI#197: the role choice of a human.
+        members.push_back({slot.guid.GetRawValue(), isBot, role,
+            isBot ? Bots::RoleChoice::None : RoleChoiceOf(slot.guid)});
     }
     Bots::Guid const tankGuid = Bots::HumanTankOf(members, group->GetLeaderGuid().GetRawValue());
     Player* tank = tankGuid != Bots::NoGuid ? ObjectAccessor::FindPlayer(ObjectGuid(tankGuid)) : nullptr;
