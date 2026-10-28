@@ -32,9 +32,6 @@ namespace Bots
             std::int64_t const HealDelayMs = 2000;
             float const DangerBelow = 0.5f;
 
-            // The heals reach 40 yards. The bot goes nearer to a hurt member
-            // beyond this distance.
-            float const HealReachYards = 36.0f;
             // Resurrection reaches 30 yards. A corpse beyond this distance is
             // out of reach, and the bot casts from this near.
             float const ResurrectReachYards = 29.0f;

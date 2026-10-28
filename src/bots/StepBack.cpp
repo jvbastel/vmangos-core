@@ -1,8 +1,8 @@
 #include "StepBack.h"
 #include "BotGeometry.h"
 #include "CommonRules.h"
+#include "DamageRules.h"
 #include "KeepOut.h"
-#include "MageModule.h"
 #include "SafePlace.h"
 
 #include <algorithm>
@@ -75,7 +75,7 @@ namespace Bots
         Position const self = view.GetPosition(view.GetSelf());
         std::vector<NearEnemy> frozen;
         for (NearEnemy const& enemy : view.GetEnemiesNear(yards))
-            if (Distance3d(self, enemy.position) <= yards && view.HasAura(enemy.guid, Mage::FrostNova))
+            if (Distance3d(self, enemy.position) <= yards && IsFrozen(view, enemy.guid))
                 frozen.push_back(enemy);
         return frozen;
     }

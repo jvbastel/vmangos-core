@@ -33,6 +33,11 @@ namespace Bots
         // The debuff of Power Word: Shield: no new shield while it lasts.
         SpellId const WeakenedSoul = 6788;
 
+        // The heals reach 40 yards. The bot goes nearer to a hurt member
+        // beyond this distance. The step back keeps the tank this near
+        // (StepBack.h).
+        float const HealReachYards = 36.0f;
+
         // The healer: it keeps the members of its group alive. It attacks
         // only with its wand, and only the focus target (jvbastel/WOWAI#133):
         // in a fight with nobody to heal, once the tank holds threat, it

@@ -104,9 +104,14 @@ namespace Bots
         }
     }
 
+    bool IsFrozen(BotView const& view, Guid enemy)
+    {
+        return view.HasAura(enemy, Mage::FrostNova);
+    }
+
     bool HoldsFireOn(BotContext const& context, Guid enemy)
     {
-        return context.view.HasAura(enemy, Mage::FrostNova) && context.view.GetVictim(enemy) != context.group.GetTank();
+        return IsFrozen(context.view, enemy) && context.view.GetVictim(enemy) != context.group.GetTank();
     }
 
     Guid PickDamageTarget(BotContext const& context)

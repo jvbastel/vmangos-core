@@ -3,6 +3,7 @@
 
 #include "BotRecipe.h"
 #include "BotView.h"
+#include "PriestModule.h"
 #include "Strategy.h"
 
 #include <vector>
@@ -28,11 +29,11 @@ namespace Bots
     // The longest walk of a step back along the cleared way.
     float const StepBackMostYards = 15.0f;
     // The healer's spot keeps the tank this near: the heal reach of the
-    // Priest (PriestModule.cpp).
-    float const StepBackHealYards = 36.0f;
+    // Priest (PriestModule.h).
+    float const StepBackHealYards = Priest::HealReachYards;
 
-    // The enemies near the bot that Frost Nova holds frozen now
-    // (BotView::HasAura with Mage::FrostNova), within `yards`.
+    // The enemies near the bot that Frost Nova holds frozen now (IsFrozen,
+    // DamageRules.h), within `yards`.
     std::vector<NearEnemy> FrozenEnemiesNear(BotView const& view, float yards);
 
     // The spot of the bot of role `role` for its step back. False when no
