@@ -26,7 +26,9 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
+import export_file
 import floor_image
+import map_packs
 import navmesh
 import route_draft
 import route_draw
@@ -72,14 +74,6 @@ def read_command(argv=None) -> Command:
     if args.navmesh:
         settings.navmesh = args.navmesh
     return Command(args.route, settings, args.host, args.port, args.browser)
-
-
-def pack_view(route, pack, order):
-    """A pack of the route: its `packN` label, its place in the pack order
-    (the order of the route file), its key, mobs and pull point."""
-    pull = route.pull_point(pack)
-    return {"label": pack.name, "order": order, "key": pack.key, "x": pack.x, "y": pack.y, "z": pack.z,
-            "mobs": [vars(m) for m in pack.mobs], "pull_point": vars(pull) if pull else None}
 
 
 def route_path(settings: Settings, name: str) -> Path:
@@ -128,6 +122,12 @@ def create_app(settings: Settings) -> FastAPI:
                            "bounds": image.bounds}
         return images[key]
 
+    def load_export(map_id):
+        try:
+            return export_file.load(settings.exports, map_id)
+        except export_file.ExportFileError as error:
+            raise HTTPException(422, f"export: {error}")
+
     @app.get("/api/maps/{name}/floors")
     def floors(name: str, x: float, y: float):
         """The floors at (x, y), lowest first."""
@@ -137,17 +137,20 @@ def create_app(settings: Settings) -> FastAPI:
     @app.get("/api/maps/{name}")
     def load_map(name: str, z_min: Optional[float] = None, z_max: Optional[float] = None):
         """The map of a route: the floor image (only heights z_min to z_max
-        when given) with its bounds, the route line, and the route's packs."""
+        when given) with its bounds, the route line, every pack of the map (the
+        export file) with the route's packs marked, the patrols, the wanderers
+        and the bosses."""
         route = load_route(name)
         return {
             "route": route.name,
             "map_id": route.map_id,
             "floor": load_floor(route, z_min, z_max),
             "line": [vars(p) for p in route.line],
-            "packs": [pack_view(route, pack, order) for order, pack in enumerate(route.packs, 1)],
+            **map_packs.map_part(route, load_export(route.map_id)),
         }
 
     route_draw.add_routes(app, settings, load_route, load_navmesh)
+    map_packs.add_routes(app)
     route_draft.add_routes(app, settings, load_route)
     return app
 
