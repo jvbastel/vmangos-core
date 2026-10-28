@@ -2917,3 +2917,80 @@ TEST(WarriorTankRagePool, BattleShoutWaitsUntilASunderArmorsRageIsLeftAfterIt)
     EXPECT_TRUE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::BattleShout, Tank)})) << ::testing::PrintToString(tank.fake.Deeds());
 }
 
+
+// jvbastel/WOWAI#174 (the player's decision, an exception to #169): Taunt
+// has the melee range in this game, and a caster on the healer stays where
+// it casts. The tank takes a short step toward such a caster, when it is a
+// few yards off (CasterStepYards), and then takes it as any loose enemy.
+namespace
+{
+    // A LooseEnemiesTank at 0 0 0 with the bat, a caster, 9 yd away on the
+    // healer, out of the reach of Taunt and Sunder Armor.
+    struct CasterOnTheHealerTank : LooseEnemiesTank
+    {
+        CasterOnTheHealerTank()
+        {
+            fake.SetPosition(Tank, {0, 0, 0});
+            fake.SetPosition(Bat, {9, 0, 0});
+            fake.SetDistance(Bat, 9.0f);
+            fake.SetMana(Bat, 200, 200);
+            fake.SetVictim(Bat, Healer);
+        }
+    };
+
+    bool MovesTo(std::vector<std::string> const& deeds, std::string const& place)
+    {
+        return std::find(deeds.begin(), deeds.end(), "keep move to " + place) != deeds.end();
+    }
+}
+
+TEST(WarriorTankStepsToACaster, StepsTowardACasterOnTheHealerOutOfTauntRange)
+{
+    CasterOnTheHealerTank tank;
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_TRUE(MovesTo(deeds, "9 0 0")) << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankStepsToACaster, NoStepToAnEnemyThatIsNoCaster)
+{
+    CasterOnTheHealerTank tank;
+    tank.fake.SetMana(Bat, 0, 0);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(MovesTo(deeds, "9 0 0")) << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankStepsToACaster, NoStepToACasterMoreThanAFewYardsOff)
+{
+    CasterOnTheHealerTank tank;
+    tank.fake.SetPosition(Bat, {14, 0, 0});
+    tank.fake.SetDistance(Bat, 14.0f);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(MovesTo(deeds, "14 0 0")) << ::testing::PrintToString(deeds);
+    ExpectNoMoveTo(deeds, Bat);
+}
+
+TEST(WarriorTankStepsToACaster, NoStepToACasterOnAnotherMember)
+{
+    CasterOnTheHealerTank tank;
+    tank.fake.SetVictim(Bat, Rogue);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(MovesTo(deeds, "9 0 0")) << ::testing::PrintToString(deeds);
+}
+
+// In reach after the step, the caster gets the pickup ability.
+TEST(WarriorTankStepsToACaster, TakesTheCasterOnceInReach)
+{
+    CasterOnTheHealerTank tank;
+    ASSERT_TRUE(MovesTo(tank.ThinkAt(0), "9 0 0"));
+    tank.fake.SetDistance(Bat, 2.0f);
+
+    EXPECT_EQ(tank.ThinkAt(500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}

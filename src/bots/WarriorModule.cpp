@@ -82,6 +82,10 @@ namespace Bots
             // at most this far from it: a farther one would lead it through
             // more packs.
             float const PickUpYards = 40.0f;
+            // jvbastel/WOWAI#174: the tank steps toward a caster on the
+            // healer at most this far from it (PickCasterToStepTo).
+            float const CasterStepYards = 12.0f;
+            int const StepToACasterOnTheHealer = 54;
 
             // jvbastel/WOWAI#168: the rule priorities (P + N) of the
             // abilities on the loose enemy: Taunt, then Sunder Armor or
@@ -389,6 +393,38 @@ namespace Bots
                 if (loose != NoGuid && CastableRank(context.view, Taunt, loose) == NoSpell && MemberCannotCome(context, loose))
                     return loose;
                 return NoGuid;
+            }
+
+            // jvbastel/WOWAI#174 (the player's decision, an exception to
+            // #169): Taunt has the melee range in this game, and a caster on
+            // the healer stays where it casts. The tank steps toward the
+            // nearest loose enemy that is a caster (mana, or a cast), attacks
+            // the healer, stands out of melee reach but within
+            // CasterStepYards, and out of the reach of a pack outside the
+            // fight. NoGuid else, or when the focus hits another member (the
+            // focus comes first, spec #102).
+            Guid PickCasterToStepTo(BotContext const& context)
+            {
+                if (!FightsFocus(context))
+                    return NoGuid;
+                Guid const focusVictim = context.view.GetVictim(context.group.GetFocusTarget());
+                if (focusVictim != NoGuid && focusVictim != Self(context))
+                    return NoGuid;
+                Guid const healer = context.group.GetHealer();
+                Guid best = NoGuid;
+                for (Guid enemy : LooseEnemies(context))
+                {
+                    float const yards = context.view.GetDistance(enemy);
+                    bool const caster =
+                        context.view.GetMana(enemy).max > 0 || context.view.GetCurrentCast(enemy) != NoSpell;
+                    if (healer == NoGuid || context.view.GetVictim(enemy) != healer || !caster
+                        || yards <= MeleeContactYards || yards > CasterStepYards
+                        || InOtherPacksReach(context, context.view.GetPosition(enemy)))
+                        continue;
+                    if (best == NoGuid || yards < context.view.GetDistance(best))
+                        best = enemy;
+                }
+                return best;
             }
 
             // The tank attacks unit `unit` in melee, and is in melee reach of
@@ -1137,7 +1173,7 @@ namespace Bots
                         // first, and hits its attacker until it keeps threat
                         // on it (jvbastel/WOWAI#126, #169).
                         Guid const kept = keptEnemy(context);
-                        if (goOutTarget(context) != NoGuid
+                        if (goOutTarget(context) != NoGuid || PickCasterToStepTo(context) != NoGuid
                             || (kept != NoGuid && context.view.GetVictim(Self(context)) == kept))
                             return false;
                         ChaseState const chase = context.view.GetChase();
@@ -1186,6 +1222,17 @@ namespace Bots
                         },
                         ThreatAbilityOn(looseEnemy)},
                     looseEnemy, keep),
+                // jvbastel/WOWAI#174: a short step toward a caster on the
+                // healer out of Taunt range (PickCasterToStepTo). In reach,
+                // the rules above take it.
+                Rule{"step to a caster on the healer", P + StepToACasterOnTheHealer,
+                    [](BotContext const& context) {
+                        return PickCasterToStepTo(context) != NoGuid && !ShoutTakesThem(context);
+                    },
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) {
+                            context.actions.KeepMovingTo(context.view.GetPosition(PickCasterToStepTo(context)));
+                        }}},
                 // jvbastel/WOWAI#169: the tank chases no loose enemy. The one
                 // exception: the member that it attacks cannot move (rooted
                 // or stunned), and Taunt cannot reach it (or waits for its
