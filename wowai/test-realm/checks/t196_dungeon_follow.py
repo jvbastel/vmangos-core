@@ -26,8 +26,10 @@ RANGED = "Morzul"
 BOTS = (HEALER, MELEE, RANGED)
 RAGEFIRE = 389
 KALIMDOR = 1
-# Next to the tank: the bots land on its spot, the follow rule spreads them.
-NEAR_YARDS = 10.0
+# Next to the tank: the bots land on its spot, then the trail follow of
+# jvbastel/WOWAI#192 puts each on its role spot behind the tank (melee 3-6 yd,
+# healer 10-15 yd, ranged 12-20 yd, plus a sideways step).
+NEAR_YARDS = 22.0
 
 realm = Realm()
 results = Results()
