@@ -2536,7 +2536,10 @@ TEST(WarriorTankEarlySunder, AJoinedEnemyOutOfReachGetsItsSunderWhenItArrives)
     // jvbastel/WOWAI#174: it waits with its rage (no cast on the kobold).
     std::vector<std::string> const waits = tank.ThinkAt(0);
     for (std::string const& deed : waits)
+    {
         ASSERT_EQ(deed.find("move to"), std::string::npos) << deed;
+        ASSERT_NE(deed, CastOn(Warrior::SunderArmor, Kobold));
+    }
 
     tank.fake.SetDistance(Wolf, 2.0f);
     EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));

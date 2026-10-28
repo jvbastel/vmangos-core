@@ -276,8 +276,10 @@ Bots::Power BotAdapter::GetPower(Bots::Guid unit) const
     Powers const power = found->GetPowerType();
     // jvbastel/WOWAI#174: the core keeps rage in tenths (0-1000). The bot
     // library counts rage points (0-100), as the player sees them and as the
-    // spell costs read: the warrior's thresholds (LowRage 20, SpareRage 45)
-    // were ten times too low, so Heroic Strike went out from 4.5 rage.
+    // tooltips read. The core's spell costs stay in tenths: CanCast compares
+    // them with the core's rage. The warrior's thresholds (LowRage 20,
+    // SpareRage 45) were ten times too low, so Heroic Strike went out from
+    // 4.5 rage.
     uint32 const scale = power == POWER_RAGE ? 10 : 1;
     return {found->GetPower(power) / scale, found->GetMaxPower(power) / scale};
 }
