@@ -54,6 +54,9 @@
 //   holds from the start of the scenario, wherever the line is: the run
 //   fails when one pull has more than <n> threat losses on the healer
 //   (RunJudge.h, jvbastel/WOWAI#167). A scenario sets it at most once.
+// - `expect damage_chase_yards <yards>`: a limit of the run like the one
+//   above: the run fails when a damage bot chases more than <yards> from the
+//   tank (RunJudge.h, jvbastel/WOWAI#171).
 // - `wait rested [<seconds>]`: each member lives, and no bot of the group
 //   eats or drinks any more; the run fails after the seconds.
 // - `fight <pack> [<seconds>]`: the test driver selects a living mob of the
@@ -158,6 +161,9 @@ namespace Bots
     {
         // `expect healer_threat_losses <n>`: per pull.
         ScriptLimit healerThreatLosses;
+        // `expect damage_chase_yards <yards>`: no damage bot chases farther
+        // from the tank (jvbastel/WOWAI#171).
+        ScriptLimit damageChaseYards;
     };
 
     struct ScriptScenario

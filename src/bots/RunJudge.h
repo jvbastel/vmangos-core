@@ -25,6 +25,8 @@
 //   only when the scenario limits them (`expect healer_threat_losses <n>`,
 //   RunScript.h, jvbastel/WOWAI#167): one pull with more than <n> fails the
 //   run, in a scenario and in a full run.
+// - A damage bot that chases farther from the tank than the scenario allows
+//   (`expect damage_chase_yards <yards>`, jvbastel/WOWAI#171) fails it.
 // - An extra pack fails its pull when it had no warn, or when a better pull
 //   could have kept it out (jvbastel/WOWAI#123, below). A failed pull is
 //   counted and shown in the result, but it does not fail the run (user
@@ -80,6 +82,13 @@ namespace Bots
 
         std::uint32_t Wipes() const { return m_wipes; }
 
+        // jvbastel/WOWAI#171: bot `member` of role `role` chases enemy
+        // `enemy` now, `yardsFromTank` from the living tank. A damage bot
+        // (Melee, Ranged) beyond the scenario's `expect damage_chase_yards`
+        // fails the run. The first one is the reason.
+        void NoteChase(std::string const& member, BotRole role, std::string const& enemy, float yardsFromTank,
+            std::int64_t nowMs);
+
     private:
         std::vector<std::uint32_t> m_bosses;
         ScriptLimits m_limits;
@@ -92,6 +101,9 @@ namespace Bots
         std::int64_t m_startMs;
         std::int64_t m_progressMs;
         std::uint32_t m_wipes = 0;
+        // jvbastel/WOWAI#171: the first damage bot chase beyond the limit,
+        // or empty.
+        std::string m_farChase;
     };
 
     // Avoidable and unavoidable extra packs (jvbastel/WOWAI#123). An extra

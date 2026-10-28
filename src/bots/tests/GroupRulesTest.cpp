@@ -574,11 +574,10 @@ TEST(GroupRules, NoBotRemovesPoison)
     EXPECT_NE(party.priest.Think(), "dispel a debuff");
 }
 
-// An enemy that hits the healer far from the tank is in the chase limit
-// while it stays near the healer: the healer does not come to the tank, so
-// the damage bots go to it (WOWAI#93, a Ragefire Trogg on Hela 100 yd from
-// the tank).
-TEST(GroupRules, AMeleeBotFightsAnEnemyOnTheHealerFarFromTheTank)
+// jvbastel/WOWAI#171: the chase limit counts from the tank only. An enemy
+// that stays near the healer 60 yards from the tank is out of it: the
+// healer brings it to the tank, and the damage bots stay there.
+TEST(GroupRules, AMeleeBotComesBackFromAnEnemyOnTheHealerFarFromTheTank)
 {
     Party party;
     party.World([](FakeBot& fake) {
@@ -589,7 +588,7 @@ TEST(GroupRules, AMeleeBotFightsAnEnemyOnTheHealerFarFromTheTank)
     party.rogue.fake.ChaseBehind(Shaman);
     party.rogue.fake.ClearDeeds();
 
-    EXPECT_NE(party.rogue.Think(), "come back to the tank");
+    EXPECT_EQ(party.rogue.Think(), "come back to the tank");
 }
 
 // A fleeing enemy can keep the healer as its victim: once it is farther than

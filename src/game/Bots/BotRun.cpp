@@ -1958,6 +1958,11 @@ void BotRun::WatchCombat(int64 nowMs)
         RememberName(target);
         float const yards = member->GetDistance3dToCenter(tank);
         chases.push_back({member->GetObjectGuid().GetRawValue(), target->GetObjectGuid().GetRawValue(), yards});
+        // jvbastel/WOWAI#171: the judge fails the run on a damage bot that
+        // chases beyond the scenario's limit.
+        Bots::BotRole role;
+        if (sBotMgr.BotRoleOf(member, role))
+            m_judge->NoteChase(member->GetName(), role, NameOf(target->GetObjectGuid()), yards, nowMs);
     }
     std::size_t const known = m_chases.Chases().size();
     m_chases.Update(chases, nowMs);

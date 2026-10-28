@@ -554,3 +554,81 @@ TEST(ExtraPackJudge, CountsTheFailedPullsOfARun)
     EXPECT_EQ(Bots::FailedPulls(pulls), 2u);
     EXPECT_EQ(Bots::FailedPulls({PullWith({Extra(true, false)})}), 0u);
 }
+
+// jvbastel/WOWAI#171: no damage bot chases more than the scenario's limit
+// (`expect damage_chase_yards 25`) from the tank. The game layer tells the
+// judge, at each update, the chase of each bot and how far it is from the
+// living tank.
+namespace
+{
+    Bots::ScriptLimits ChaseLimit(std::uint32_t yards)
+    {
+        Bots::ScriptLimits limits;
+        limits.damageChaseYards = {true, yards, 190};
+        return limits;
+    }
+
+    Bots::BotRole const Ranged = Bots::BotRole::Ranged;
+}
+
+TEST(RunJudgeChase, ADamageBotChaseUpToTheLimitPasses)
+{
+    RunJudge judge({}, 0, ChaseLimit(25));
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 10.0f, 1000);
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 25.0f, 2000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+    EXPECT_EQ(judge.AtScriptEnd().kind, RunVerdictKind::Passed);
+}
+
+TEST(RunJudgeChase, ADamageBotChaseBeyondTheLimitFailsTheRun)
+{
+    RunJudge judge({}, 0, ChaseLimit(25));
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 20.0f, 39000);
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 31.5f, 39200);
+    // The first chase beyond the limit is the reason; a later one is not.
+    judge.NoteChase("Shanka", Bots::BotRole::Melee, "Ragefire Trogg", 40.0f, 40000);
+
+    RunVerdict const verdict = judge.Judge(Minute);
+    EXPECT_EQ(verdict.kind, RunVerdictKind::Failed);
+    EXPECT_EQ(verdict.reason, "Morzul chases Ragefire Shaman 31.5 yd from the tank at 39.2 s, over the limit 25 "
+                              "of line 190");
+    EXPECT_EQ(judge.AtScriptEnd().reason, verdict.reason);
+}
+
+TEST(RunJudgeChase, AMeleeBotCountsToo)
+{
+    RunJudge judge({}, 0, ChaseLimit(25));
+    judge.NoteChase("Shanka", Bots::BotRole::Melee, "Ragefire Trogg", 25.5f, 1000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Failed);
+}
+
+// The check is for damage bots: the tank goes where it must, and the
+// healer's walk is the business of its own rules.
+TEST(RunJudgeChase, TheTankAndTheHealerDoNotCount)
+{
+    RunJudge judge({}, 0, ChaseLimit(25));
+    judge.NoteChase("Grukk", Bots::BotRole::Tank, "Ragefire Trogg", 40.0f, 1000);
+    judge.NoteChase("Hela", Bots::BotRole::Healer, "Ragefire Trogg", 40.0f, 1000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+    EXPECT_EQ(judge.AtScriptEnd().kind, RunVerdictKind::Passed);
+}
+
+TEST(RunJudgeChase, NoLimitNoCheck)
+{
+    RunJudge judge({}, 0);
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 60.0f, 1000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+}
+
+// A full run fails on it too, as on the other limits.
+TEST(RunJudgeChase, AFullRunFailsOnAChaseBeyondTheLimit)
+{
+    RunJudge judge(RfcBosses, 0, ChaseLimit(25));
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 26.0f, 1000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Failed);
+}
