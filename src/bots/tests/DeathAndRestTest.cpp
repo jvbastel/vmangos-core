@@ -888,3 +888,154 @@ TEST(GroupWatch, TheRestWatchLeavesTheWipeAlone)
 
     EXPECT_FALSE(bot.group.IsWiped());
 }
+
+// jvbastel/WOWAI#193 (spec #188, stories 17 and 18): rest in a player-tank
+// group. The player is the tank. A bot that eats or drinks stands up and
+// follows once the tank is more than about 30 yd away. The healer says "mb"
+// once, when it starts to drink below half mana.
+namespace
+{
+    struct PlayerTankHealer : GroupBot
+    {
+        PlayerTankHealer() : GroupBot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer)
+        {
+            group.SetTank(Player, true);
+            group.SetHealer(Healer);
+        }
+    };
+
+    struct PlayerTankMage : GroupBot
+    {
+        PlayerTankMage() : GroupBot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged)
+        {
+            group.SetTank(Player, true);
+        }
+    };
+
+    // Like the game: a bot that sits to drink has no follow movement.
+    void SitsAndDrinks(GroupBot& bot)
+    {
+        bot.fake.SetMana(bot.Self(), 300, 400);
+        bot.fake.SetDrinking();
+        bot.fake.SetFollowTarget(NoGuid);
+    }
+}
+
+TEST(PlayerTankRest, ADrinkingBotKeepsDrinkingWithTheTankAt25Yards)
+{
+    PlayerTankHealer bot;
+    SitsAndDrinks(bot);
+    bot.fake.SetDistance(Player, 25.0f);
+
+    EXPECT_EQ(bot.Think(), "keep resting");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+    EXPECT_TRUE(Bots::RestsNow(bot.fake, bot.group));
+}
+
+TEST(PlayerTankRest, ADrinkingBotStopsAndFollowsWithTheTankAt35Yards)
+{
+    PlayerTankHealer bot;
+    SitsAndDrinks(bot);
+    bot.fake.SetDistance(Player, 35.0f);
+
+    EXPECT_FALSE(Bots::RestsNow(bot.fake, bot.group));
+    EXPECT_EQ(bot.Think(), "follow the player");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"follow 0x0000000000000005"}));
+}
+
+TEST(PlayerTankRest, ABotBelowHalfManaDoesNotStartToDrinkWithTheTankAt35Yards)
+{
+    PlayerTankMage bot;
+    bot.fake.SetMana(Mage, 150, 400);
+    bot.fake.SetFollowTarget(NoGuid);
+    bot.fake.SetDistance(Player, 35.0f);
+
+    EXPECT_EQ(bot.Think(), "follow the player");
+}
+
+TEST(PlayerTankRest, AnEatingBotStopsAndFollowsWithTheTankAt35Yards)
+{
+    PlayerTankMage bot;
+    bot.fake.SetHealth(Mage, 400, 600);
+    bot.fake.SetEating();
+    bot.fake.SetFollowTarget(NoGuid);
+    bot.fake.SetDistance(Player, 35.0f);
+
+    EXPECT_FALSE(Bots::RestsNow(bot.fake, bot.group));
+    EXPECT_EQ(bot.Think(), "follow the player");
+}
+
+// Bot-tank groups do not change: the bot rests until it is full.
+TEST(PlayerTankRest, InABotTankGroupADrinkingBotKeepsDrinkingWithTheTankAt35Yards)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.group.SetTank(Tank);
+    SitsAndDrinks(bot);
+    bot.fake.SetDistance(Tank, 35.0f);
+    bot.fake.SetDistance(Player, 35.0f);
+
+    EXPECT_TRUE(Bots::RestsNow(bot.fake, bot.group));
+    EXPECT_EQ(bot.Think(), "keep resting");
+}
+
+TEST(PlayerTankRest, TheHealerSaysMbOnceWhenItStartsToDrinkBelowHalfMana)
+{
+    PlayerTankHealer bot;
+    bot.fake.SetMana(Healer, 150, 400);
+
+    EXPECT_EQ(bot.Think(), "drink");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"drink", "say mb"}));
+
+    // The drink has not started yet: the bot tries again, and says nothing.
+    bot.Watch();
+    EXPECT_EQ(bot.Think(), "drink");
+    // It drinks now.
+    bot.fake.SetDrinking();
+    bot.Watch();
+    EXPECT_EQ(bot.Think(), "keep resting");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"drink", "say mb", "drink"}));
+}
+
+TEST(PlayerTankRest, TheHealerSaysMbAgainAtItsNextLowMana)
+{
+    PlayerTankHealer bot;
+    bot.fake.SetMana(Healer, 150, 400);
+    bot.Think();
+    bot.fake.SetMana(Healer, 400, 400);
+    bot.Watch();
+    bot.fake.SetMana(Healer, 150, 400);
+    bot.Watch();
+
+    bot.Think();
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"drink", "say mb", "drink", "say mb"}));
+}
+
+TEST(PlayerTankRest, TheHealerSaysNothingWhenItDrinksAboveHalfMana)
+{
+    PlayerTankHealer bot;
+    bot.group.SetRestUntilFull(Healer);
+    bot.fake.SetMana(Healer, 300, 400);
+
+    EXPECT_EQ(bot.Think(), "drink");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"drink"}));
+}
+
+TEST(PlayerTankRest, AMageSaysNothingWhenItDrinksBelowHalfMana)
+{
+    PlayerTankMage bot;
+    bot.fake.SetMana(Mage, 150, 400);
+
+    EXPECT_EQ(bot.Think(), "drink");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"drink"}));
+}
+
+TEST(PlayerTankRest, InABotTankGroupTheHealerSaysNothingWhenItDrinks)
+{
+    GroupBot bot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer);
+    bot.group.SetTank(Tank);
+    bot.group.SetHealer(Healer);
+    bot.fake.SetMana(Healer, 150, 400);
+
+    EXPECT_EQ(bot.Think(), "drink");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"drink"}));
+}

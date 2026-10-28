@@ -399,6 +399,12 @@ namespace Bots
         // noted in the HealthFallMs before: the bot is losing health.
         bool NoteHealthFalls(Guid bot, std::uint32_t health, std::int64_t nowMs);
 
+        // jvbastel/WOWAI#193: the healer's "mb" (low mana) call. True the
+        // first time for bot `bot`, and false after that, until
+        // ClearLowManaCall (its mana is at half again, DeathAndRest.cpp).
+        bool NoteLowManaCall(Guid bot);
+        void ClearLowManaCall(Guid bot);
+
     private:
         // A pull is on, and `puller` is its puller. The caller holds the lock.
         bool PullsNow(Guid puller) const;
@@ -447,6 +453,8 @@ namespace Bots
             std::uint32_t health;
         };
         std::map<Guid, std::vector<HealthNote>> m_healthNotes;
+        // jvbastel/WOWAI#193: the bots that made their low mana call.
+        std::set<Guid> m_lowManaCalls;
     };
 }
 

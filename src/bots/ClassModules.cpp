@@ -70,11 +70,13 @@ namespace Bots
         }
 
         // The test driver of a scripted run loots no corpses: a loot walk
-        // would stop its scripted move (jvbastel/WOWAI#99).
+        // would stop its scripted move (jvbastel/WOWAI#99). In a player-tank
+        // group the player loots, and no bot walks off to a corpse
+        // (jvbastel/WOWAI#193).
         bool ShouldLoot(BotContext const& context)
         {
             Guid const self = context.view.GetSelf();
-            return !context.testDriver && !context.view.IsInCombat(self) && context.group.GetPull().puller != self
+            return !context.testDriver && !context.group.IsPlayerTankGroup() && !context.view.IsInCombat(self) && context.group.GetPull().puller != self
                 && !HoldsMemberSpot(context);
         }
     }

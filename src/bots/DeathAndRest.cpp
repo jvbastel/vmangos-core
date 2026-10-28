@@ -56,7 +56,19 @@ namespace Bots
         // would stop the move, and nothing sends it again.
         bool MayRest(BotContext const& context)
         {
-            return AfterFight(context) && !context.view.IsScriptedMoveInProgress();
+            return AfterFight(context) && !context.view.IsScriptedMoveInProgress()
+                && !TankLeftTheRest(context.view, context.group);
+        }
+
+        // jvbastel/WOWAI#193: the healer of a player-tank group starts to
+        // drink below half mana: it says "mb" once.
+        void CallLowMana(BotContext const& context)
+        {
+            Guid const self = context.view.GetSelf();
+            Power const mana = context.view.GetMana(self);
+            if (context.group.IsPlayerTankGroup() && context.group.GetHealer() == self && Below(mana.current, mana.max)
+                && context.group.NoteLowManaCall(self))
+                context.actions.SayParty(LowManaLine, PartyLine::Plain);
         }
 
         // Why the bot rests now: its meal still fills it. Eating comes first.
@@ -135,7 +147,10 @@ namespace Bots
                     return MayRest(context) && !context.view.IsDrinking() && (Below(mana.current, mana.max) ||
                         (context.group.RestsUntilFull(context.view.GetSelf()) && mana.current < mana.max));
                 },
-                Always([](BotContext const& context) { context.actions.Drink(); })},
+                Always([](BotContext const& context) {
+                    context.actions.Drink();
+                    CallLowMana(context);
+                })},
             // Over the corpse loot and the follow rule: a move stands the
             // bot up and ends its meal.
             Rule{"keep resting", P + 30,
@@ -169,10 +184,27 @@ namespace Bots
         Power const mana = view.GetMana(self);
         if (IsAlive(view, self) && health.current >= health.max && mana.current >= mana.max)
             group.ClearRestUntilFull(self);
+        // jvbastel/WOWAI#193: at half mana again, the next low mana calls.
+        if (!Below(mana.current, mana.max))
+            group.ClearLowManaCall(self);
     }
 
     bool RestsNow(BotView const& view)
     {
         return RestReasonOf(view) != RestReason::None;
+    }
+
+    // jvbastel/WOWAI#193
+    bool TankLeftTheRest(BotView const& view, GroupCoordinator const& group)
+    {
+        if (!group.IsPlayerTankGroup())
+            return false;
+        Guid const tank = group.GetTank();
+        return tank != NoGuid && tank != view.GetSelf() && view.GetDistance(tank) > PlayerTankRestYards;
+    }
+
+    bool RestsNow(BotView const& view, GroupCoordinator const& group)
+    {
+        return RestsNow(view) && !TankLeftTheRest(view, group);
     }
 }

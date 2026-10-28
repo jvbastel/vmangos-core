@@ -207,3 +207,29 @@ TEST(CommandStrategy, ABotThatFollowsAMemberFollowsThePlayerAfterTheFight)
 
     EXPECT_EQ(bot.Think(CommandState::Follow), "follow the player");
 }
+
+// jvbastel/WOWAI#193 (spec #188, story 19): in a player-tank group the
+// player loots. No bot walks off to a corpse, into a pack the player has
+// not pulled.
+TEST(CommandStrategy, ABotOfAPlayerTankGroupDoesNotLoot)
+{
+    Bot bot;
+    bot.group.SetTank(Player, true);
+    bot.fake.SetFollowTarget(Player);
+    bot.fake.SetLootWork(true, true);
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
+TEST(CommandStrategy, ABotOfABotTankGroupStillLoots)
+{
+    Bot bot;
+    Bots::Guid const Tank = 0x12;
+    bot.group.SetTank(Tank);
+    bot.fake.SetFollowTarget(Player);
+    bot.fake.SetLootWork(true, true);
+
+    EXPECT_EQ(bot.Think(CommandState::Follow), "loot a corpse");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"loot"}));
+}

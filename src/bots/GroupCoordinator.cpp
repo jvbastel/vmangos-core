@@ -581,4 +581,17 @@ namespace Bots
         notes.push_back(HealthNote{nowMs, health});
         return falls;
     }
+
+    // jvbastel/WOWAI#193
+    bool GroupCoordinator::NoteLowManaCall(Guid bot)
+    {
+        Lock lock(m_mutex);
+        return m_lowManaCalls.insert(bot).second;
+    }
+
+    void GroupCoordinator::ClearLowManaCall(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_lowManaCalls.erase(bot);
+    }
 }

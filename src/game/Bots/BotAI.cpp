@@ -619,14 +619,6 @@ void BotAI::Think()
 
     CheckAttackTarget();
     BotAdapter adapter(me, &m_loot);
-    // Version 1 starts with a bot that stands in the world. A bot that eats
-    // or drinks sits until it is full or a fight starts: standing up ends
-    // the meal. A bot that is full again (a heal, a GM `.replenish`) stands
-    // up at once, so the group does not wait for its food aura to run out.
-    bool const rests = Bots::RestsNow(adapter);
-    if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND && (!rests || me->IsInCombat()))
-        me->SetStandState(UNIT_STAND_STATE_STAND);
-
     std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
     bool const away = CoordinatorChoiceNow() == Bots::CoordinatorChoice::Place;
     if (away != m_awayFromLeader)
@@ -657,6 +649,15 @@ void BotAI::Think()
     // The tank taunts enemies off the healer first (WarriorModule.cpp).
     if (sBotMgr.IsHealerBot(me))
         coordinator->SetHealer(me->GetObjectGuid().GetRawValue());
+    // Version 1 starts with a bot that stands in the world. A bot that eats
+    // or drinks sits until it is full or a fight starts: standing up ends
+    // the meal. A bot that is full again (a heal, a GM `.replenish`) stands
+    // up at once, so the group does not wait for its food aura to run out.
+    // In a player-tank group it also stands up once the tank walks off
+    // (jvbastel/WOWAI#193): after the tank lookup above.
+    bool const rests = Bots::RestsNow(adapter, *coordinator);
+    if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND && (!rests || me->IsInCombat()))
+        me->SetStandState(UNIT_STAND_STATE_STAND);
     std::string const reaction = m_bossReaction.Active();
     switch (m_bossReaction.Update(adapter, *coordinator, m_strategies, m_role))
     {

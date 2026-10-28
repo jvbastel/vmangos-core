@@ -46,6 +46,22 @@ namespace Bots
     // the bot too, so the coordinator sees a meal start or end at once and
     // not one think later.
     void WatchRest(BotView const& view, GroupCoordinator& group);
+
+    // jvbastel/WOWAI#193 (spec #188): in a player-tank group a rest ends once
+    // the tank is more than PlayerTankRestYards away. The bot stands up and
+    // follows, and starts no meal there. The healer says "mb" in party chat
+    // once (GroupCoordinator::NoteLowManaCall) when it starts to drink below
+    // half mana. A bot-tank group rests as before.
+    float const PlayerTankRestYards = 30.0f;
+    char const* const LowManaLine = "mb";
+
+    // True when the bot of a player-tank group is too far from the tank to
+    // rest. Always false in a bot-tank group.
+    bool TankLeftTheRest(BotView const& view, GroupCoordinator const& group);
+
+    // RestsNow, and the tank has not left the rest (TankLeftTheRest). The
+    // game layer stands a seated bot up when this is false.
+    bool RestsNow(BotView const& view, GroupCoordinator const& group);
 }
 
 #endif
