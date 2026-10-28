@@ -350,6 +350,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0, commands.limits));
     m_pickupCheck = Bots::HealerPickupCheck(commands.limits.healerPickupSeconds);
     m_castCheck = Bots::ThreatTargetCastCheck(commands.limits.threatTargetsWithoutCast);
+    m_threatCheck = Bots::ExtraPackThreatCheck(commands.limits.extraPackThreatSeconds);
     m_trace = Bots::RunTrace();
     m_fight = Bots::FightWatch();
     {
@@ -1730,11 +1731,16 @@ void BotRun::WatchTank(int64 nowMs)
                                                       : Bots::EnemyVictim::OtherMember;
         RememberName(enemy);
         seen.push_back({enemy->GetObjectGuid().GetRawValue(), NameOf(enemy->GetObjectGuid()),
-            m_extraPacks.IsExtraPackEnemy(spawn->GetDBTableGUIDLow()), whom});
+            m_extraPacks.IsExtraPackEnemy(spawn->GetDBTableGUIDLow()), whom,
+            victim == tank && enemy->CanReachWithMeleeAutoAttack(tank)});
     }
     m_pickupCheck.Observe(nowMs, seen);
     if (!m_pickupCheck.Failure().empty())
         m_judge->NoteFailedCheck(m_pickupCheck.Failure());
+    // jvbastel/WOWAI#172: the tank's threat on an extra-pack enemy at it.
+    m_threatCheck.Observe(nowMs, seen);
+    if (!m_threatCheck.Failure().empty())
+        m_judge->NoteFailedCheck(m_threatCheck.Failure());
 
     // The tank's target in the fight: its selection, else its victim, when
     // that is a living enemy of the fight. The focus of its coordinator, or
@@ -2078,6 +2084,7 @@ void BotRun::TakeCombatNotes(int64 nowMs)
                 if (!sBotMgr.BotRoleOf(member, role) || role != Bots::BotRole::Tank)
                     break;
                 m_castCheck.NoteCast(enemy);
+                m_threatCheck.NoteCast(enemy, sSpellMgr.GetFirstSpellInChain(note.spell));
                 // An instant cast is never a current cast (TraceMembers): the
                 // trace shows the tank's casts from here.
                 if (enemy != who)

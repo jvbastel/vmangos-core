@@ -770,3 +770,114 @@ TEST(RunJudgeChase, AFullRunFailsOnAChaseBeyondTheLimit)
 
     EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Failed);
 }
+
+// jvbastel/WOWAI#172: an extra-pack enemy that comes at the tank gets a
+// Sunder Armor or Revenge from the tank within 3 s of reaching its melee
+// reach (`expect extra_pack_threat_seconds <n>`).
+namespace
+{
+    Bots::ScriptLimit ThreeSeconds()
+    {
+        return {true, 3, 191};
+    }
+
+    // An enemy on the tank, in its melee reach or not.
+    Bots::FightEnemySeen OnTank(Bots::Guid enemy, std::string name, bool inMelee = true, bool extraPack = true)
+    {
+        Bots::FightEnemySeen seen = Seen(enemy, std::move(name), Bots::EnemyVictim::Tank, extraPack);
+        seen.inTankMelee = inMelee;
+        return seen;
+    }
+
+    Bots::SpellId const SunderArmor = 7386;
+    Bots::SpellId const Revenge = 6572;
+    Bots::SpellId const DemoralizingShout = 1160;
+}
+
+TEST(ExtraPackThreatCheck, PassesASunderArmorWithin3SecondsOfMeleeReach)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(1000, {OnTank(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.NoteCast(JoinTrogg, SunderArmor);
+    check.Observe(4900, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(9000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(ExtraPackThreatCheck, PassesARevengeToo)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.NoteCast(JoinTrogg, Revenge);
+    check.Observe(9000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+// The 3 s count from melee reach, not from the join: a walk from afar is
+// no failure.
+TEST(ExtraPackThreatCheck, FailsAnEnemyWithNoSunderOrRevenge3SecondsAfterItReachedTheTank)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.NoteCast(JoinTrogg, DemoralizingShout);
+    check.Observe(5000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    EXPECT_EQ(check.Failure(), "");
+
+    check.Observe(5100, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_EQ(check.Failure(),
+        "Ragefire Trogg got no Sunder Armor or Revenge from the tank 3 s after it reached the tank's melee reach "
+        "(limit of line 191)");
+}
+
+TEST(ExtraPackThreatCheck, ASunderOnAnotherEnemyDoesNotCount)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg"), OnTank(JoinShaman, "Ragefire Shaman")});
+    check.NoteCast(JoinShaman, SunderArmor);
+    check.Observe(3100, {OnTank(JoinTrogg, "Ragefire Trogg"), OnTank(JoinShaman, "Ragefire Shaman")});
+
+    EXPECT_NE(check.Failure().find("Ragefire Trogg"), std::string::npos);
+}
+
+// The pulled pack (no extra pack), an enemy on another member, and one that
+// left the tank's reach or died before 3 s are no failure.
+TEST(ExtraPackThreatCheck, LeavesOutThePulledPackAndEnemiesOffTheTank)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinFocus, "Focus", true, false), OnTank(JoinTrogg, "Ragefire Trogg"),
+                         OnTank(JoinShaman, "Ragefire Shaman")});
+    check.Observe(2000, {OnTank(JoinFocus, "Focus", true, false), Seen(JoinTrogg, "Ragefire Trogg",
+                                                                    Bots::EnemyVictim::Healer)});
+    check.Observe(9000, {OnTank(JoinFocus, "Focus", true, false), Seen(JoinTrogg, "Ragefire Trogg",
+                                                                    Bots::EnemyVictim::Healer)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+// An enemy that comes back to the tank gets a new 3 s.
+TEST(ExtraPackThreatCheck, CountsAgainFromABackToTheTank)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(5000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(7500, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    EXPECT_EQ(check.Failure(), "");
+
+    check.Observe(8100, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    EXPECT_NE(check.Failure(), "");
+}
+
+TEST(ExtraPackThreatCheck, ChecksNothingWithNoLimit)
+{
+    Bots::ExtraPackThreatCheck check(Bots::ScriptLimit{});
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(9000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_EQ(check.Failure(), "");
+}
