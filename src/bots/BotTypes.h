@@ -1,12 +1,20 @@
 #ifndef WOWAI_BOTS_BOT_TYPES_H
 #define WOWAI_BOTS_BOT_TYPES_H
 
+#include <algorithm>
 #include <cstdint>
 
 // Plain types that the decision library shares with the game layer. The
 // library has no game types: it refers to units by GUID, never by pointer.
 namespace Bots
 {
+    // True when `values` holds `value`.
+    template <typename Values, typename Value>
+    bool Contains(Values const& values, Value const& value)
+    {
+        return std::find(values.begin(), values.end(), value) != values.end();
+    }
+
     // The full 64-bit GUID of a unit, as the game layer has it in ObjectGuid.
     using Guid = std::uint64_t;
     // No unit, for example no target.

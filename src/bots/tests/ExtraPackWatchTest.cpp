@@ -103,3 +103,21 @@ TEST(ExtraPackWatch, TheWarnLineNamesTheNumberOfExtraPacks)
     EXPECT_EQ(Bots::ExtraPackWarnLine(1), "Careful: this pull brings 1 more pack.");
     EXPECT_EQ(Bots::ExtraPackWarnLine(2), "Careful: this pull brings 2 more packs.");
 }
+
+// jvbastel/WOWAI#123: the judge marks a pack when it joins, and a warn
+// later in the pull keeps the mark.
+TEST(ExtraPackWatch, KeepsTheMarkOfTheJudgeOfAnExtraPack)
+{
+    ExtraPackWatch watch = Watch();
+    watch.Start("pack14");
+    watch.Observe(1000, {Pack15});
+
+    watch.Mark("pack15", {false, "a patrol brought it"});
+    watch.NoteWarn();
+    watch.Observe(2000, {Pack15});
+
+    ASSERT_EQ(watch.ExtraPacks().size(), 1u);
+    EXPECT_FALSE(watch.ExtraPacks()[0].avoidable);
+    EXPECT_EQ(watch.ExtraPacks()[0].reason, "a patrol brought it");
+    EXPECT_TRUE(watch.ExtraPacks()[0].warned);
+}

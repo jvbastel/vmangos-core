@@ -81,6 +81,24 @@ TEST(RunScript, ReadsTheHeadOfTheScript)
     EXPECT_FLOAT_EQ(script.outside.z, -18.5f);
 }
 
+// jvbastel/WOWAI#118: a script can set the level of the run (the Deadmines
+// pack is about level 18). Without the line, the run is at the version 1
+// level, 16.
+TEST(RunScript, ReadsTheLevelOfTheRunOrTakesLevel16)
+{
+    RunScriptResult const plain = ParseRunScript(Script);
+    ASSERT_TRUE(plain.ok) << plain.error;
+    EXPECT_EQ(plain.script.level, 16u);
+
+    RunScriptResult const level18 = ParseRunScript("level 18\n" + Head + "refill\n");
+    ASSERT_TRUE(level18.ok) << level18.error;
+    EXPECT_EQ(level18.script.level, 18u);
+
+    EXPECT_EQ(ErrorOf("level x\n" + Head + "refill\n"), "line 1: use: level <1-60>");
+    EXPECT_EQ(ErrorOf("level 0\n" + Head + "refill\n"), "line 1: use: level <1-60>");
+    EXPECT_EQ(ErrorOf("level 61\n" + Head + "refill\n"), "line 1: use: level <1-60>");
+}
+
 TEST(RunScript, ReadsEachScenarioWithItsCommandsInOrder)
 {
     RunScriptResult const result = ParseRunScript(Script);
@@ -377,4 +395,59 @@ TEST(RunScriptData, TheFullRunsOfRagefireChasmFightEachBoss)
         for (std::uint32_t boss : {11517u, 11520u, 11518u, 11519u})
             EXPECT_EQ(fought.count(boss), 1u) << name << " fights no pack with the boss " << boss;
     }
+}
+
+// jvbastel/WOWAI#118: the three-enemy scenario. One fixed pack of three
+// melee mobs at about level 18 in the Deadmines, fought at level 18. The
+// scenario has no ranged pull: the tank pulls with `fight`.
+TEST(RunScriptData, TheDeadminesScriptFightsOnePackOfThreeMeleeMobsAtLevel18)
+{
+    RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/deadmines.txt"));
+    ASSERT_TRUE(script.ok) << script.error;
+    Bots::RouteResult const route = Bots::ParseRoute(ReadDataFile("routes/" + script.script.route + ".txt"));
+    ASSERT_TRUE(route.ok) << route.error;
+
+    EXPECT_EQ(Bots::CheckRunScript(script.script, route.route), "");
+    EXPECT_EQ(route.route.mapId, 36u);
+    EXPECT_EQ(script.script.level, 18u);
+    Bots::ScriptScenario const* three = Bots::FindScenario(script.script, "three_enemies");
+    ASSERT_NE(three, nullptr);
+    std::vector<std::string> fought;
+    for (ScriptCommand const& c : three->commands)
+        if (c.kind == ScriptCommandKind::Fight)
+            fought.push_back(c.name);
+    ASSERT_EQ(fought.size(), 1u);
+    Bots::RoutePack const* pack = Bots::FindPack(route.route, fought[0]);
+    ASSERT_NE(pack, nullptr);
+    ASSERT_EQ(pack->mobs.size(), 3u);
+    for (Bots::RouteMob const& mob : pack->mobs)
+        EXPECT_EQ(mob.entry, 598u) << "each mob is a Defias Miner (level 17-18, melee)";
+}
+
+// jvbastel/WOWAI#118: the miners were too easy (today's tank lost no
+// threat). The measured three-enemy pack: Rethilgore and two Bleak Worgs in
+// Shadowfang Keep, three elite melee enemies, fought at level 18.
+TEST(RunScriptData, TheShadowfangKeepScriptFightsRethilgoreAndHisTwoWorgsAtLevel18)
+{
+    RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/shadowfang_keep.txt"));
+    ASSERT_TRUE(script.ok) << script.error;
+    Bots::RouteResult const route = Bots::ParseRoute(ReadDataFile("routes/" + script.script.route + ".txt"));
+    ASSERT_TRUE(route.ok) << route.error;
+
+    EXPECT_EQ(Bots::CheckRunScript(script.script, route.route), "");
+    EXPECT_EQ(route.route.mapId, 33u);
+    EXPECT_EQ(script.script.level, 18u);
+    Bots::ScriptScenario const* three = Bots::FindScenario(script.script, "three_enemies");
+    ASSERT_NE(three, nullptr);
+    std::vector<std::string> fought;
+    for (ScriptCommand const& c : three->commands)
+        if (c.kind == ScriptCommandKind::Fight)
+            fought.push_back(c.name);
+    ASSERT_EQ(fought, (std::vector<std::string>{"rethilgore"}));
+    Bots::RoutePack const* pack = Bots::FindPack(route.route, "rethilgore");
+    ASSERT_NE(pack, nullptr);
+    std::multiset<std::uint32_t> entries;
+    for (Bots::RouteMob const& mob : pack->mobs)
+        entries.insert(mob.entry);
+    EXPECT_EQ(entries, (std::multiset<std::uint32_t>{3861, 3861, 3914}));
 }

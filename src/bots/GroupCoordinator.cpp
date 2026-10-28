@@ -41,11 +41,25 @@ namespace Bots
         m_tauntGivenUp = NoGuid;
     }
 
-    void GroupCoordinator::HoldPull(Guid puller)
+    void GroupCoordinator::HoldPull(Guid puller, std::int64_t nowMs)
     {
         Lock lock(m_mutex);
         if (m_pull.phase == PullPhase::Pulling && m_pull.puller == puller)
+        {
             m_pull.phase = PullPhase::Holding;
+            m_pull.engagedMs = nowMs;
+            m_pull.backAtFightSpot = !m_pull.hasFightSpot;
+        }
+    }
+
+    void GroupCoordinator::NoteFocusContact(std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        if (m_pull.phase == PullPhase::Holding && !m_pull.hasContact)
+        {
+            m_pull.hasContact = true;
+            m_pull.contactMs = nowMs;
+        }
     }
 
     void GroupCoordinator::SetFightSpot(Guid puller, Position spot)
@@ -60,8 +74,11 @@ namespace Bots
     void GroupCoordinator::ClearFightSpot(Guid puller)
     {
         Lock lock(m_mutex);
-        if (m_pull.puller == puller)
-            m_pull.hasFightSpot = false;
+        if (m_pull.puller != puller)
+            return;
+        m_pull.hasFightSpot = false;
+        if (m_pull.phase == PullPhase::Holding)
+            m_pull.backAtFightSpot = true;
     }
 
     void GroupCoordinator::SetShootSpot(Guid puller, Position spot)
@@ -119,6 +136,13 @@ namespace Bots
         Lock lock(m_mutex);
         if (PullsNow(puller))
             m_pull.extraPackWarned = true;
+    }
+
+    void GroupCoordinator::GoIn(Guid puller)
+    {
+        Lock lock(m_mutex);
+        if (PullsNow(puller))
+            m_pull.goesIn = true;
     }
 
     MemberSpot GroupCoordinator::ClaimMemberSpot(Guid bot, MemberSpotFinder const& find)
@@ -182,12 +206,25 @@ namespace Bots
         return bots;
     }
 
-    bool GroupCoordinator::TankHoldsThreat() const
+    bool GroupCoordinator::TankHoldsThreat(std::int64_t nowMs) const
+    {
+        return TankHoldsThreatBy(nowMs) != ThreatHeld::No;
+    }
+
+    ThreatHeld GroupCoordinator::TankHoldsThreatBy(std::int64_t nowMs) const
     {
         Lock lock(m_mutex);
         if (m_pull.phase == PullPhase::None)
-            return m_focusTarget != NoGuid;
-        return m_pull.phase == PullPhase::Holding;
+            return m_focusTarget != NoGuid ? ThreatHeld::OutsideAPull : ThreatHeld::No;
+        if (m_pull.phase != PullPhase::Holding)
+            return ThreatHeld::No;
+        if (!m_pull.backAtFightSpot)
+            return ThreatHeld::No;
+        if (m_pull.hasContact && nowMs - m_pull.contactMs >= HoldContactMs)
+            return ThreatHeld::MeleeContact;
+        if (nowMs - m_pull.engagedMs >= HoldLimitMs)
+            return ThreatHeld::TimeLimit;
+        return ThreatHeld::No;
     }
 
     void GroupCoordinator::GiveUpTaunt(Guid enemy)
@@ -237,7 +274,7 @@ namespace Bots
     void GroupCoordinator::MarkEnemyHealer(Guid enemy)
     {
         Lock lock(m_mutex);
-        if (std::find(m_enemyHealers.begin(), m_enemyHealers.end(), enemy) == m_enemyHealers.end())
+        if (!Contains(m_enemyHealers, enemy))
             m_enemyHealers.push_back(enemy);
     }
 
@@ -263,6 +300,18 @@ namespace Bots
     {
         Lock lock(m_mutex);
         m_tank = tank;
+    }
+
+    Guid GroupCoordinator::GetHealer() const
+    {
+        Lock lock(m_mutex);
+        return m_healer;
+    }
+
+    void GroupCoordinator::SetHealer(Guid healer)
+    {
+        Lock lock(m_mutex);
+        m_healer = healer;
     }
 
     void GroupCoordinator::KeepTrail(Position at, bool fights)

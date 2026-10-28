@@ -288,7 +288,9 @@ TEST(MemberSpotRule, WithNoSafeSpotTheBotFollowsAsBefore)
     EXPECT_NE(bot.Think(), "go to the member spot");
 }
 
-TEST(MemberSpotRule, NotBeforeTheTankHasItsFightSpotNorOnceThePullHolds)
+// jvbastel/WOWAI#127: the bot goes to its spot until the tank holds threat,
+// not only while the tank pulls.
+TEST(MemberSpotRule, NotBeforeTheTankHasItsFightSpotNorOnceTheTankHoldsThreat)
 {
     MemberBot bot;
     bot.group.StartPull(Tank, Kobold);
@@ -296,6 +298,10 @@ TEST(MemberSpotRule, NotBeforeTheTankHasItsFightSpotNorOnceThePullHolds)
 
     bot.group.SetFightSpot(Tank, {0, 0, 0});
     bot.group.HoldPull(Tank);
+    EXPECT_EQ(bot.Think(), "go to the member spot");
+
+    bot.group.ClearFightSpot(Tank);
+    Bots::Tests::HoldThreat(bot.group, Tank);
     EXPECT_NE(bot.Think(), "go to the member spot");
 }
 
@@ -442,4 +448,48 @@ TEST(GroupWait, TheWaitLineNamesTheCount)
 {
     EXPECT_EQ(Bots::GroupWaitLine(1), "Waiting for 1 member to get in place.");
     EXPECT_EQ(Bots::GroupWaitLine(2), "Waiting for 2 members to get in place.");
+}
+
+// jvbastel/WOWAI#127: a ranged-pulled kobold runs to the tank. The bot holds
+// its member spot until the tank holds threat.
+TEST(MemberSpotRule, TheBotHoldsItsSpotWhileTheRangedPulledTargetRunsToTheTank)
+{
+    MemberBot bot;
+    bot.Think();
+    bot.spots.fake.SetPosition(Self, {-16.5f, 0, 0});
+    bot.Think();
+    ASSERT_TRUE(bot.Mine().inPlace);
+    bot.group.HoldPull(Tank);
+    bot.spots.fake.SetVictim(Kobold, Tank);
+    bot.spots.fake.SetMoving(Kobold);
+    bot.spots.fake.SetDistanceBetween(Kobold, Tank, 20.0f);
+    bot.spots.fake.ClearDeeds();
+
+    bot.Think();
+    Bots::BotContext const context{bot.spots.fake, bot.spots.fake, bot.group, Bots::CommandState::Follow, Player};
+    EXPECT_TRUE(Bots::HoldsMemberSpot(context));
+    EXPECT_TRUE(bot.spots.fake.Deeds().empty());
+
+    // Back at its fight spot, the tank holds threat: the bot leaves its spot.
+    bot.group.ClearFightSpot(Tank);
+    Bots::Tests::HoldThreat(bot.group, Tank);
+    EXPECT_FALSE(Bots::HoldsMemberSpot(context));
+}
+
+// Review of jvbastel/WOWAI#121 (A3, plan item 5): the keep-out rule
+// (KeepOut.h) also stops a move into the reach of a pack outside the fight,
+// not only steps the bot out after it. A wolf that walked up to the claimed
+// spot after the claim keeps the bot from going on to it.
+TEST(MemberSpotRule, TheBotDoesNotWalkOnToItsSpotInTheReachOfAnotherPack)
+{
+    MemberBot bot;
+    bot.Think();
+    ASSERT_TRUE(bot.Mine().found);
+    bot.spots.fake.ClearDeeds();
+    bot.spots.AddEnemy(Wolf, {-16, 8, 0}, 10.0f);
+
+    bot.Think();
+
+    for (std::string const& deed : bot.spots.fake.Deeds())
+        EXPECT_EQ(deed.find("move to -16"), std::string::npos) << deed;
 }

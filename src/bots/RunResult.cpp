@@ -1,4 +1,7 @@
 #include "RunResult.h"
+#include "RunJudge.h"
+
+#include <algorithm>
 
 #include <nlohmann/json.hpp>
 
@@ -26,6 +29,11 @@ namespace Bots
         Json TextOrNull(std::string const& text)
         {
             return text.empty() ? Json() : Json(text);
+        }
+
+        bool OnHealer(RunResult const& r, RunHit const& loss)
+        {
+            return Contains(r.healers, loss.member);
         }
 
         Json Hits(std::vector<RunHit> const& hits)
@@ -79,6 +87,12 @@ namespace Bots
         return result.script + "-" + result.scenario + "-" + result.stamp;
     }
 
+    std::size_t HealerThreatLosses(RunResult const& r)
+    {
+        return static_cast<std::size_t>(std::count_if(r.threatLosses.begin(), r.threatLosses.end(),
+            [&](RunHit const& loss) { return OnHealer(r, loss); }));
+    }
+
     std::string RunResultJson(RunResult const& r)
     {
         Json j;
@@ -93,6 +107,7 @@ namespace Bots
         j["reason"] = TextOrNull(r.reason);
         j["driver"] = r.driver;
         j["group"] = r.group;
+        j["healers"] = r.healers;
 
         Json bosses = Json::array();
         for (RunBossKill const& kill : r.bossKills)
@@ -115,17 +130,37 @@ namespace Bots
 
         Json pulls = Json::array();
         std::size_t extraPacks = 0;
+        std::size_t failedPulls = 0;
+        std::size_t avoidable = 0;
         for (RunPull const& pull : r.pulls)
         {
             Json extra = Json::array();
             for (RunExtraPack const& pack : pull.extraPacks)
-                extra.push_back({{"pack", pack.pack}, {"time_s", Seconds(pack.ms)}, {"warned", pack.warned}});
+            {
+                extra.push_back({{"pack", pack.pack}, {"time_s", Seconds(pack.ms)}, {"warned", pack.warned},
+                    {"avoidable", pack.avoidable}, {"reason", pack.reason}});
+                if (pack.avoidable)
+                    ++avoidable;
+            }
             extraPacks += pull.extraPacks.size();
-            pulls.push_back({{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)},
-                {"again", pull.again}, {"extra_packs", extra}});
+            // The verdict of the pull (RunJudge.h, jvbastel/WOWAI#123).
+            std::string const failure = PullFailure(pull);
+            Json written = {{"pack", TextOrNull(pull.pack)}, {"target", pull.target}, {"time_s", Seconds(pull.ms)},
+                {"again", pull.again}, {"extra_packs", extra}, {"passed", failure.empty()}};
+            if (!failure.empty())
+            {
+                written["failure"] = failure;
+                ++failedPulls;
+            }
+            pulls.push_back(written);
         }
         j["pulls"] = pulls;
-        j["extra_packs"] = extraPacks; // Of all pulls.
+        // Of all pulls: the score of the run counts each extra pack, warned,
+        // avoidable or not.
+        j["extra_packs"] = extraPacks;
+        j["avoidable_extra_packs"] = avoidable;
+        // A failed pull does not fail the run (user decision, 2026-10-27).
+        j["failed_pulls"] = failedPulls;
 
         Json fights = Json::array();
         for (FightSummary const& fight : r.fights)
@@ -140,7 +175,22 @@ namespace Bots
                 {"members", members}});
         }
         j["fights"] = fights;
-        j["threat_losses"] = Hits(r.threatLosses);
+        // Each loss says whether it was on a healer, for the pull reports
+        // of runs.py (jvbastel/WOWAI#118).
+        Json losses = Hits(r.threatLosses);
+        for (std::size_t i = 0; i < r.threatLosses.size(); ++i)
+            losses[i]["healer"] = OnHealer(r, r.threatLosses[i]);
+        j["threat_losses"] = losses;
+        // Each member, also one with no loss, and the healer's count
+        // (jvbastel/WOWAI#113).
+        Json byMember = Json::object();
+        byMember[r.driver] = 0;
+        for (std::string const& member : r.group)
+            byMember[member] = 0;
+        for (RunHit const& loss : r.threatLosses)
+            byMember[loss.member] = byMember.value(loss.member, 0) + 1;
+        j["threat_losses_by_member"] = byMember;
+        j["healer_threat_losses"] = HealerThreatLosses(r);
         j["lost_mobs"] = Hits(r.lostMobs);
         j["moves_stopped"] = r.movesStopped;
 

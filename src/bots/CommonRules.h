@@ -6,6 +6,11 @@
 // Small parts that the class modules share to build their rules.
 namespace Bots
 {
+    // Two units this near are in melee contact: the pull target and the
+    // tank for the hold (DamageRules.h, jvbastel/WOWAI#127), the tank and
+    // the enemy it melees or the caster that stays away (WarriorModule.cpp).
+    float const MeleeContactYards = 5.0f;
+
     // Picks the unit of a rule on one think, for example the focus target.
     using TargetPicker = std::function<Guid(BotContext const&)>;
 
@@ -27,6 +32,15 @@ namespace Bots
 
     // True when unit `unit` is a member of the bot's group.
     bool IsGroupMember(BotView const& view, Guid unit);
+
+    // The living units of `units` that are at most `yards` from the bot
+    // (BotView::GetDistance), in their order.
+    std::vector<Guid> UnitsWithin(BotView const& view, std::vector<Guid> const& units, float yards);
+
+    // True when a living enemy that attacks the bot is at most `yards` from
+    // it: a melee hit, for Shield Block (WarriorModule.cpp) or Frost Nova
+    // (MageModule.cpp).
+    bool IsHitInMelee(BotContext const& context, float yards);
 
     // True when the bot follows a living group member other than the
     // player, such as the healer on its way to a hurt member (PriestModule).

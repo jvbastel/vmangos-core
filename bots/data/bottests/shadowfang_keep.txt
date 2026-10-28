@@ -1,0 +1,28 @@
+# The scripted runs of Shadowfang Keep. The format is in src/bots/RunScript.h,
+# the route in routes/shadowfang_keep.txt. wowai/test-realm/runs.py starts them:
+#   wowai/test-realm/runs.py --ticket <N> --script shadowfang_keep scenario three_enemies 10
+script shadowfang_keep shadowfang_keep
+driver Ezzra
+group Grukk Hela Shanka Morzul
+outside 1 1811.78 -4410.50 -18.47   # the group waits in Orgrimmar, as in ragefire_chasm
+level 18
+
+# The three-enemy pack of jvbastel/WOWAI#118 (spec #102): Rethilgore and his
+# two Bleak Worgs, three elite melee enemies of level 18-20 that stand within
+# 9.2 yd of each other. Their spells are no crowd control: Rethilgore
+# casts Soul Drain (7295) on his victim, a worg Wavering Will (7127).
+# The miners of deadmines.txt were too easy: today's tank lost no threat
+# on them. No ranged pull, no patrol, no crowd control:
+# the group holds its place and the tank pulls. runs.py reports the threat
+# losses of each pull, the healer's, and whether the pull was clean. 10 runs
+# are one measurement.
+scenario three_enemies
+teleport pull_rethilgore
+clear 100 rethilgore    # only the pack stays; also the patrols above
+command follow
+wait 20                 # the buffs
+command stay
+refill                  # full health and mana after the buffs
+wait 3                  # a bot that drank stands up: the group rests no more
+fight rethilgore
+expect pack_dead rethilgore

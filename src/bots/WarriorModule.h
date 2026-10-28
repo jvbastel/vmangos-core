@@ -20,6 +20,13 @@ namespace Bots
         SpellId const Revenge = 6572;
         SpellId const BattleShout = 6673;
         SpellId const Bloodrage = 2687;
+        SpellId const DemoralizingShout = 1160;
+        SpellId const ChallengingShout = 1161;
+        SpellId const ShieldBlock = 2565;
+        // Never cast before level 51: with no Tactical Mastery, the stance
+        // change they need drops all rage (jvbastel/WOWAI#102).
+        SpellId const ThunderClap = 6343;
+        SpellId const MockingBlow = 694;
         // Interrupts a cast, with a shield: a generic group rule (GroupRules.h).
         SpellId const ShieldBash = 72;
 
@@ -38,6 +45,16 @@ namespace Bots
         // party chat. With no ranged weapon or no ammo, or too near for a
         // shot, it runs in, hits the target once, and walks back. Never
         // Charge: it stuns the target in place. Out of combat it tops up its ammo for free.
+        // The opener: Defensive Stance at once (after a Charge too: with no
+        // Tactical Mastery the stance change drops all rage), Bloodrage, then
+        // Demoralizing Shout on the enemies near. It shouts again for an
+        // enemy in the fight that lacks the debuff (jvbastel/WOWAI#114).
+        // It never casts Thunder Clap or Mocking Blow.
+        // A caster pack (jvbastel/WOWAI#121): the tank waits at its fight
+        // spot for a caster that stays away, then goes in (CasterComeMs,
+        // GroupCoordinator.h).
+        // It warns the moment another pack joins the fight of its pull,
+        // once a pack, whatever brought it.
         std::shared_ptr<Strategy const> MakeTankStrategy();
     }
 }

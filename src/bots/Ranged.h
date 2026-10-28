@@ -86,6 +86,19 @@ namespace Bots
 
     // A bot at `at` can shoot unit `target`: in range and in sight.
     bool InShotFrom(BotView const& view, Position const& at, Guid target);
+
+    // The length of a step of the path search of FindShotOnPath.
+    float const ShotPathStepYards = 1.0f;
+
+    // The first point of the bot's ground path to unit `target`
+    // (BotView::FindGroundPath), checked each ShotPathStepYards, from which
+    // it can shoot the target (InShotFrom): where a bot below a ledge first
+    // sees a target on it (jvbastel/WOWAI#122). The core's own caster chase
+    // does not find it: it cuts its path with the target's sight of the
+    // bot, which a ledge edge can give while the bot sees nothing. No safe
+    // place check: the path may pull enemies. False with no path, or no
+    // shot from any point of it.
+    bool FindShotOnPath(BotView const& view, Guid target, Position& spot);
 }
 
 #endif

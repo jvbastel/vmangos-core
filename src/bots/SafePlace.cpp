@@ -50,20 +50,10 @@ namespace Bots
         bool IsSafePath(BotView const& view, std::vector<Position> const& path, SafeMoveRules const& rules)
         {
             Position const& from = path.front();
-            for (std::size_t i = 1; i < path.size(); ++i)
-            {
-                Position const& a = path[i - 1];
-                Position const& b = path[i];
-                int const steps = std::max(1, int(Distance2d(a, b) / SafePathStepYards));
-                for (int k = 0; k <= steps; ++k)
-                {
-                    float const t = float(k) / float(steps);
-                    Position const step{a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t};
-                    if (view.IsHarmfulGround(step) || Pulls(rules.enemies, step, &from))
-                        return false;
-                }
-            }
-            return true;
+            Position unsafe;
+            return !FindPointOnPath(path, SafePathStepYards,
+                [&](Position const& step) { return view.IsHarmfulGround(step) || Pulls(rules.enemies, step, &from); },
+                unsafe);
         }
 
         bool SeesAll(BotView const& view, Position const& place, SafeMoveRules const& rules)
@@ -86,7 +76,12 @@ namespace Bots
     bool FirstSafePlace(BotView const& view, std::vector<Position> const& spots, SafeMoveRules const& rules,
         Position& place)
     {
-        Position const self = view.GetPosition(view.GetSelf());
+        return FirstSafePlaceFrom(view, view.GetPosition(view.GetSelf()), spots, rules, place);
+    }
+
+    bool FirstSafePlaceFrom(BotView const& view, Position const& self, std::vector<Position> const& spots,
+        SafeMoveRules const& rules, Position& place)
+    {
         std::vector<Position> path;
         for (Position const& spot : spots)
         {

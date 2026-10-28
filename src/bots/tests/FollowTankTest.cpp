@@ -87,7 +87,7 @@ TEST(FollowTank, InTheFightTheBotComesNearToThePackOnTheTank)
     bot.fake.SetPosition(Kobold, {0.0f, 62.0f, 0.0f});
     bot.fake.AddEnemy(0x900, {0.0f, 62.0f, 0.0f}, 20.0f);
     bot.fake.SetVictim(Kobold, Tank);
-    bot.group.HoldPull(Tank);
+    Bots::Tests::HoldThreat(bot.group, Tank);
 
     EXPECT_EQ(bot.Think(CommandState::Stay), "follow the tank to the pull");
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"keep move to 0 48 0"}));
@@ -99,7 +99,7 @@ TEST(FollowTank, AnotherPackNearTheTankStillCounts)
     bot.fake.SetPosition(Tank, {0.0f, 60.0f, 0.0f});
     bot.fake.SetPosition(Kobold, {0.0f, 62.0f, 0.0f});
     bot.fake.SetVictim(Kobold, Tank);
-    bot.group.HoldPull(Tank);
+    Bots::Tests::HoldThreat(bot.group, Tank);
     // A pack that is not in the fight, 12 yards west of the tank's path.
     bot.fake.AddEnemy(0x900, {-12.0f, 45.0f, 0.0f}, 10.0f);
 

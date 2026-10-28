@@ -3,6 +3,7 @@
 #include "DeathAndRest.h"
 #include "FollowTank.h"
 #include "GroupRules.h"
+#include "KeepOut.h"
 #include "MageModule.h"
 #include "MemberSpot.h"
 #include "PriestModule.h"
@@ -127,6 +128,7 @@ namespace Bots
             stack.Push(spot);
         stack.Push(MakeRestStrategy());
         stack.Push(MakeGroupStrategy(role));
+        stack.Push(MakeKeepOutStrategy());
         if (std::shared_ptr<Strategy const> strategy = MakeClassStrategy(botClass, role))
             stack.Push(strategy);
         stack.Push(MakeDeathStrategy());

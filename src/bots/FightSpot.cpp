@@ -3,13 +3,12 @@
 #include "Ranged.h"
 
 #include <algorithm>
+#include <iterator>
 
 namespace Bots
 {
     namespace
     {
-        // The enemies round the trail spots that count.
-        float const EnemySearchYards = FightSpotSearchYards + 60.0f;
         // A trail spot this near to the last one is the same spot.
         float const SameSpotYards = 0.5f;
 
@@ -93,36 +92,118 @@ namespace Bots
         return split;
     }
 
+    bool IsCasterPack(BotView const& view, std::vector<NearEnemy> const& pack)
+    {
+        return std::any_of(pack.begin(), pack.end(), [&view](NearEnemy const& enemy) {
+            return view.GetMana(enemy.guid).max > 0;
+        });
+    }
+
+    namespace
+    {
+        // The search of a pull of `target`, shared by the tank's choice
+        // (FindFightSpot) and the judge's (FindPullOptions).
+        struct PullSearch
+        {
+            BotView const& view;
+            Guid target;
+            Position targetAt;
+            TargetPack split;
+            std::vector<NearEnemy> otherEnemies;
+            // Of split.others: the packs within the assistance radius of
+            // the target's pack (each pull brings them), and the rest.
+            std::vector<std::size_t> assisting;
+            std::vector<std::size_t> avoidable;
+            std::vector<Position> spots;
+            bool casterPack = false;
+
+            PullSearch(BotView const& view, std::vector<Position> const& trail, Guid target,
+                std::vector<NearEnemy> const& enemies)
+                : view(view), target(target), targetAt(view.GetPosition(target)),
+                  split(SplitTargetPack(enemies, target, targetAt)),
+                  spots(Candidates(view.GetPosition(view.GetSelf()), trail)),
+                  casterPack(IsCasterPack(view, split.pack))
+            {
+                for (std::size_t pack = 0; pack < split.others.size(); ++pack)
+                {
+                    otherEnemies.insert(otherEnemies.end(), split.others[pack].begin(), split.others[pack].end());
+                    if (Near(split.others[pack], split.pack, AssistanceYards + AssistBodyYards))
+                        assisting.push_back(pack);
+                    else
+                        avoidable.push_back(pack);
+                }
+            }
+
+            // The other packs (of split.others) that the pull brings with
+            // the fight at `spot`.
+            std::vector<std::size_t> ExtraAt(Position const& spot) const
+            {
+                std::vector<std::size_t> extra = assisting;
+                for (std::size_t pack : avoidable)
+                    if (PullsAnEnemy(split.others[pack], spot) || Near(split.others[pack], spot, AssistanceYards))
+                        extra.push_back(pack);
+                std::sort(extra.begin(), extra.end());
+                return extra;
+            }
+
+            // A line-of-sight pull of a caster pack (jvbastel/WOWAI#121) at
+            // `spot`: the caster cannot see it from its spawn, and a shot
+            // goes from within LineOfSightShotYards of it that pulls no
+            // other pack: where the tank stands, or a spot of the trail.
+            // The shoot spot, or null.
+            Position const* LineOfSightShot(Position const& spot) const
+            {
+                if (!casterPack || view.CanSeeBetween(targetAt, spot))
+                    return nullptr;
+                for (Position const& shootAt : spots)
+                    if (Distance3d(shootAt, spot) <= LineOfSightShotYards && InShotFrom(view, shootAt, target)
+                        && (&shootAt == &spots.front() || !PullsAnEnemy(otherEnemies, shootAt)))
+                        return &shootAt;
+                return nullptr;
+            }
+        };
+    }
+
     FightSpot FindFightSpot(BotView const& view, std::vector<Position> const& trail, Guid target)
     {
-        Guid const self = view.GetSelf();
-        Position const selfAt = view.GetPosition(self);
-        Position const targetAt = view.GetPosition(target);
+        PullSearch const search(view, trail, target, view.GetEnemiesNear(FightSpotEnemyYards));
+        std::vector<Position> const& spots = search.spots;
+        Position const selfAt = spots.front();
+        auto extraAt = [&search](Position const& spot) { return std::uint32_t(search.ExtraAt(spot).size()); };
 
-        TargetPack const split = SplitTargetPack(view.GetEnemiesNear(EnemySearchYards), target, targetAt);
-        std::vector<NearEnemy> const& targetPack = split.pack;
-        std::vector<std::vector<NearEnemy>> const& others = split.others;
-        std::vector<NearEnemy> otherEnemies;
-        std::uint32_t assisting = 0;
-        std::vector<std::vector<NearEnemy> const*> avoidable;
-        for (std::vector<NearEnemy> const& pack : others)
+        FightSpot result;
+        for (NearEnemy const& enemy : search.split.pack)
+            result.targetPack.push_back(enemy.guid);
+        for (std::vector<NearEnemy> const& pack : search.split.others)
         {
-            otherEnemies.insert(otherEnemies.end(), pack.begin(), pack.end());
-            if (Near(pack, targetPack, AssistanceYards + AssistBodyYards))
-                ++assisting;
-            else
-                avoidable.push_back(&pack);
+            result.otherPacks.emplace_back();
+            for (NearEnemy const& enemy : pack)
+                result.otherPacks.back().push_back(enemy.guid);
         }
-
-        std::vector<Position> const spots = Candidates(selfAt, trail);
+        // The line-of-sight pull of a caster pack first: its first clean
+        // spot.
+        for (Position const& spot : spots)
+        {
+            if (extraAt(spot) != 0)
+                continue;
+            if (Position const* shootAt = search.LineOfSightShot(spot))
+            {
+                result.spot = spot;
+                result.clean = true;
+                result.lineOfSight = true;
+                result.hasShootSpot = shootAt != &spots.front();
+                if (result.hasShootSpot)
+                    result.shootSpot = *shootAt;
+                return result;
+            }
+        }
 
         // The pull from range: from where the tank stands, else from the
         // newest trail spot in shot that pulls no other pack, else from a
         // safe place round the target.
-        FightSpot result;
         bool canShoot = InShotFrom(view, selfAt, target);
         for (std::size_t i = 1; !canShoot && i < spots.size(); ++i)
-            if (InShotFrom(view, spots[i], target) && !PullsAnEnemy(otherEnemies, spots[i]))
+            if (InShotFrom(view, spots[i], target) && !PullsAnEnemy(search.otherEnemies, spots[i]))
             {
                 canShoot = true;
                 result.hasShootSpot = true;
@@ -135,14 +216,20 @@ namespace Bots
             canShoot = true;
             result.hasShootSpot = true;
         }
+        // Last, a target on a ledge that no safe place sees (#122): the
+        // tank closes in along its path until it has a shot. No checked
+        // way, so the spot is not clean.
+        if (!canShoot)
+            result.hasShootSpot = FindShotOnPath(view, target, result.shootSpot);
 
+        // A caster pack with no line-of-sight spot may stay at its spawn,
+        // and the fight then goes there (the fallback of WarriorModule.h):
+        // the spawn area counts too, so the pull warns when it is unsafe.
+        std::uint32_t const atSpawn = search.casterPack ? extraAt(search.targetAt) : 0;
         bool found = false;
         for (Position const& spot : spots)
         {
-            std::uint32_t extra = assisting;
-            for (std::vector<NearEnemy> const* pack : avoidable)
-                if (PullsAnEnemy(*pack, spot) || Near(*pack, spot, AssistanceYards))
-                    ++extra;
+            std::uint32_t const extra = std::max(extraAt(spot), atSpawn);
             if (extra == 0 && canShoot)
             {
                 result.spot = spot;
@@ -157,6 +244,36 @@ namespace Bots
                 found = true;
             }
         }
+        return result;
+    }
+
+    PullOptions FindPullOptions(BotView const& view, std::vector<Position> const& trail, Guid target)
+    {
+        PullSearch const search(view, trail, target, view.GetEnemiesNear(FightSpotEnemyYards));
+        PullOptions result;
+        result.split = search.split;
+        for (Position const& spot : search.spots)
+            if (search.LineOfSightShot(spot))
+                result.options.push_back({PullWay::LineOfSight, spot, search.ExtraAt(spot)});
+        // A fight spot needs a shot that the search trusts: from where the
+        // tank stands, from a trail spot, or from a safe place round the
+        // target.
+        bool canShoot = false;
+        Position shootAt{};
+        for (std::size_t i = 0; !canShoot && i < search.spots.size(); ++i)
+            canShoot = InShotFrom(view, search.spots[i], target)
+                && (i == 0 || !PullsAnEnemy(search.otherEnemies, search.spots[i]));
+        canShoot = canShoot || FindSafeCastPlace(view, target, ShotMaxYards, shootAt, nullptr,
+            [&view, target](Position const& at) { return InShotFrom(view, at, target); });
+        // The three ways are alternatives (jvbastel/WOWAI#123): a fight
+        // spot counts with what it brings itself, and the area round a
+        // caster's spawn (where the fight goes when the caster stays away)
+        // is a way of its own.
+        if (canShoot)
+            for (Position const& spot : search.spots)
+                result.options.push_back({PullWay::FightSpot, spot, search.ExtraAt(spot)});
+        if (search.casterPack)
+            result.options.push_back({PullWay::SpawnArea, search.targetAt, search.ExtraAt(search.targetAt)});
         return result;
     }
 }

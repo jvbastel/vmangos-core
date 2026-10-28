@@ -14,6 +14,7 @@
 #include "ExtraPackWatch.h"
 #include "FightWatch.h"
 #include "GroupCoordinator.h"
+#include "HoldWatch.h"
 #include "Inbox.h"
 #include "InterruptWatch.h"
 #include "ObjectGuid.h"
@@ -189,6 +190,16 @@ class BotRun
         // The packs of the route that join the fight of the last pull
         // (Bots::ExtraPackWatch), into the result, the trace, and the log.
         void WatchExtraPacks(int64 nowMs);
+        // At a pull: the pulls the tank could have made (Bots::
+        // FindPullChoices), with each other pack of the route round it, on
+        // the real packs and from the tank's cleared way at the pull
+        // (jvbastel/WOWAI#123). A pack that joins is marked from them.
+        void MarkPullPacks(Unit const* target, std::string const& pullPack);
+        // What brought pack `pack` when it joined: a flee or a patrol.
+        Bots::ExtraPackCause CauseOf(std::string const& pack) const;
+        // The held pull (Bots::HoldWatch) into the trace and the log
+        // (jvbastel/WOWAI#127).
+        void WatchHold(int64 nowMs);
         // The extra packs of the watch into the last pull of the result.
         void RecordExtraPacks();
         // The new lines of the trace, appended to the live trace file
@@ -226,6 +237,9 @@ class BotRun
         // Writes the result file only: at the end of Closing again, with the
         // chat lines that came while the group waited for them.
         bool WriteResultJson() const;
+        // The threat losses and the lost mobs of the watches, by name, into
+        // the result.
+        void RecordHits();
         // The interrupts and the chases of the watches, by name, into the
         // result.
         void RecordCombat();
@@ -282,6 +296,7 @@ class BotRun
         Bots::RunTrace m_trace;
         Bots::FightWatch m_fight;
         Bots::ExtraPackWatch m_extraPacks;
+        Bots::HoldWatch m_hold;
         Bots::RunResult m_record; // The result file.
         std::unique_ptr<Bots::QuestProgress> m_quests;
         // `release`: in a wipe, the test driver releases this long after the
@@ -292,6 +307,17 @@ class BotRun
         std::map<std::string, bool> m_alive;
         // The health of each enemy that the group fights.
         std::map<ObjectGuid, uint32> m_enemyHealth;
+        // The enemies of the fight that flee now: each start of a flee is a
+        // trace event (Bots::FleeLine, jvbastel/WOWAI#121).
+        std::set<ObjectGuid> m_fleeing;
+        // The enemies that fled in the last pull, with their trace text, and
+        // the pulls the tank could have made (MarkPullPacks), and what
+        // brought each extra pack when it joined (CauseOf).
+        std::map<ObjectGuid, std::string> m_pullFled;
+        Bots::PullChoices m_pullChoices;
+        std::map<std::string, Bots::ExtraPackCause> m_joinCause;
+        // MarkPullPacks saw a living tank and the target at the last pull.
+        bool m_pullJudged = false;
         // Where the test driver stood at its last move along the route.
         bool m_driverSeen = false;
         float m_driverX = 0.0f, m_driverY = 0.0f, m_driverZ = 0.0f;

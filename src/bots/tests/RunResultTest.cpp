@@ -100,11 +100,12 @@ TEST(RunResult, WritesThePullsTheThreatLossesAndTheLostMobs)
     // A `command pull` of a scenario has no pack.
     // A fight again of a pack that lived after its fight is marked.
     EXPECT_EQ(j["pulls"], Json::parse(R"([{"pack": "pack1", "target": "Earthborer", "time_s": 61.5, "again": false,
-        "extra_packs": []},
-        {"pack": "pack1", "target": "Earthborer", "time_s": 120.0, "again": true, "extra_packs": []},
-        {"pack": null, "target": "Taragaman the Hungerer", "time_s": 900.0, "again": false, "extra_packs": []}])"));
+        "extra_packs": [], "passed": true},
+        {"pack": "pack1", "target": "Earthborer", "time_s": 120.0, "again": true, "extra_packs": [], "passed": true},
+        {"pack": null, "target": "Taragaman the Hungerer", "time_s": 900.0, "again": false, "extra_packs": [],
+        "passed": true}])"));
     EXPECT_EQ(j["threat_losses"],
-        Json::parse(R"([{"enemy": "Earthborer", "member": "Hela", "time_s": 62.0, "seconds": 5.0}])"));
+        Json::parse(R"([{"enemy": "Earthborer", "member": "Hela", "time_s": 62.0, "seconds": 5.0, "healer": false}])"));
     EXPECT_EQ(j["lost_mobs"], Json::array());
 }
 
@@ -117,10 +118,51 @@ TEST(RunResult, WritesTheExtraPacksOfEachPull)
 
     Json const j = Json::parse(Bots::RunResultJson(r));
 
-    EXPECT_EQ(j["pulls"][0]["extra_packs"], Json::parse(R"([{"pack": "pack2", "time_s": 64.0, "warned": true},
-        {"pack": "pack3", "time_s": 70.5, "warned": false}])"));
+    EXPECT_EQ(j["pulls"][0]["extra_packs"], Json::parse(R"([
+        {"pack": "pack2", "time_s": 64.0, "warned": true, "avoidable": true, "reason": "not judged"},
+        {"pack": "pack3", "time_s": 70.5, "warned": false, "avoidable": true, "reason": "not judged"}])"));
     EXPECT_EQ(j["pulls"][1]["extra_packs"], Json::array());
     EXPECT_EQ(j["extra_packs"], 2);
+}
+
+// jvbastel/WOWAI#123: the mark of each extra pack with its reason, and the
+// verdict of each pull. Each extra pack counts in the score, failed or not.
+TEST(RunResult, WritesTheMarkOfEachExtraPackAndWhetherThePullPassed)
+{
+    RunResult r = AFailedFullRun();
+    r.pulls[0].extraPacks = {{"pack2", 64000, true}};
+    r.pulls[0].extraPacks[0].avoidable = false;
+    r.pulls[0].extraPacks[0].reason = "a patrol brought it";
+    r.pulls[1].extraPacks = {{"pack3", 70500, true}};
+    r.pulls[1].extraPacks[0].reason = "a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out";
+
+    Json const j = Json::parse(Bots::RunResultJson(r));
+
+    EXPECT_EQ(j["pulls"][0]["extra_packs"], Json::parse(R"([{"pack": "pack2", "time_s": 64.0, "warned": true,
+        "avoidable": false, "reason": "a patrol brought it"}])"));
+    EXPECT_EQ(j["pulls"][0]["passed"], true);
+    EXPECT_EQ(j["pulls"][1]["passed"], false);
+    EXPECT_EQ(j["pulls"][1]["failure"],
+        "extra pack pack3 was avoidable: a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out");
+    EXPECT_EQ(j["extra_packs"], 2);
+    EXPECT_EQ(j["avoidable_extra_packs"], 1);
+    EXPECT_EQ(j["failed_pulls"], 1);
+}
+
+// User decision (2026-10-27): a failed pull does not fail the run. The run
+// keeps its own result, and the file counts the failed pull.
+TEST(RunResult, AFailedPullLeavesThePassedRunPassed)
+{
+    RunResult r = AFailedFullRun();
+    r.outcome = Bots::RunOutcome::Passed;
+    r.reason = "";
+    r.pulls[1].extraPacks = {{"pack3", 70500, false}};
+
+    Json const j = Json::parse(Bots::RunResultJson(r));
+
+    EXPECT_EQ(j["result"], "passed");
+    EXPECT_EQ(j["pulls"][1]["passed"], false);
+    EXPECT_EQ(j["failed_pulls"], 1);
 }
 
 // The scripted moves of the test driver that stopped before they arrived
@@ -232,4 +274,45 @@ TEST(RunResult, TheFightNumberCountsThePullsAgain)
     EXPECT_EQ(Bots::FightNumber({{"pack1", "Earthborer", 1000}, {"pack1", "Earthborer", 2000, true},
                   {"pack2", "Taragaman the Hungerer", 3000}}),
         1u);
+}
+
+// jvbastel/WOWAI#113: the threat losses of each member, and the count of the
+// healer next to the threat losses. The game layer names the healers by role.
+TEST(RunResult, CountsTheThreatLossesOfEachMemberAndOfTheHealer)
+{
+    RunResult r = AFailedFullRun();
+    r.healers = {"Hela"};
+    r.threatLosses = {{"Earthborer", "Hela", 62000, 67000}, {"Earthborer", "Ezzra", 63000, 68000},
+        {"Ragefire Trogg", "Hela", 90000, 96000}};
+
+    Json const j = Json::parse(Bots::RunResultJson(r));
+
+    EXPECT_EQ(j["threat_losses"].size(), 3u);
+    EXPECT_EQ(j["healer_threat_losses"], 2);
+    EXPECT_EQ(Bots::HealerThreatLosses(r), 2u);
+    // Each loss says whether it was on a healer, for the pull reports of
+    // runs.py: one source of the healer count.
+    EXPECT_EQ(j["threat_losses"][0]["healer"], true);
+    EXPECT_EQ(j["threat_losses"][1]["healer"], false);
+    EXPECT_EQ(j["threat_losses"][2]["healer"], true);
+    // Each member, also one with no loss.
+    EXPECT_EQ(j["threat_losses_by_member"], Json::parse(R"({"Ezzra": 1, "Grukk": 0, "Hela": 2})"));
+}
+
+TEST(RunResult, AGroupWithNoHealerHasNoHealerThreatLoss)
+{
+    RunResult r = AFailedFullRun();
+    r.healers = {};
+
+    EXPECT_EQ(Json::parse(Bots::RunResultJson(r))["healer_threat_losses"], 0);
+}
+
+// jvbastel/WOWAI#118: the result names the healers, so that runs.py can count
+// the healer's threat losses of each pull.
+TEST(RunResult, NamesTheHealers)
+{
+    RunResult r = AFailedFullRun();
+    r.healers = {"Hela"};
+
+    EXPECT_EQ(Json::parse(Bots::RunResultJson(r))["healers"], Json::parse(R"(["Hela"])"));
 }

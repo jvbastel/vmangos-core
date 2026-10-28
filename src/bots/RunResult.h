@@ -43,6 +43,10 @@ namespace Bots
         std::string pack;
         std::int64_t ms = 0; // When the group first fought a mob of it.
         bool warned = false; // The tank warned in party chat in that pull.
+        // No better pull could have kept it out, and why (RunJudge.h,
+        // jvbastel/WOWAI#123). Unjudged, a pack counts as avoidable.
+        bool avoidable = true;
+        std::string reason = "not judged";
     };
 
     // A `fight` of a pack, or a `command pull` of a scenario (no pack).
@@ -182,6 +186,9 @@ namespace Bots
         std::vector<RunPull> pulls;
         std::vector<FightSummary> fights; // Who took part in each fight that ended.
         std::vector<RunHit> threatLosses;
+        // The members with the healer role, for the healer's threat-loss
+        // count (jvbastel/WOWAI#113).
+        std::vector<std::string> healers;
         std::vector<RunHit> lostMobs;
         // The scripted moves of the test driver that stopped before they
         // arrived (ScriptedMove.h).
@@ -204,6 +211,10 @@ namespace Bots
     std::string RunFileStem(RunResult const& result);
 
     std::string RunResultJson(RunResult const& result);
+    // The threat losses on a member named in `healers` (jvbastel/WOWAI#113):
+    // the one source of the healer's count, for the result file and the
+    // result line of the game layer.
+    std::size_t HealerThreatLosses(RunResult const& result);
 
     // The number of the fight of the last pull: 1, and one more for each
     // pull again (RunPull::again) of the same fight. 1 without a pull.

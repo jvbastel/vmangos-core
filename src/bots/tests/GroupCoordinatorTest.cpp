@@ -23,7 +23,7 @@ TEST(GroupCoordinator, StartsWithNoFocusAndNoPull)
 
     EXPECT_EQ(group.GetFocusTarget(), NoGuid);
     EXPECT_EQ(group.GetPull().phase, PullPhase::None);
-    EXPECT_FALSE(group.TankHoldsThreat());
+    EXPECT_FALSE(group.TankHoldsThreat(0));
 }
 
 TEST(GroupCoordinator, APullMakesItsTargetTheFocusTarget)
@@ -37,18 +37,76 @@ TEST(GroupCoordinator, APullMakesItsTargetTheFocusTarget)
     EXPECT_EQ(pull.puller, Tank);
     EXPECT_EQ(pull.target, Kobold);
     EXPECT_EQ(group.GetFocusTarget(), Kobold);
-    EXPECT_FALSE(group.TankHoldsThreat());
+    EXPECT_FALSE(group.TankHoldsThreat(0));
 }
 
-TEST(GroupCoordinator, ThePullerHoldsThreatWhenTheTargetAttacksIt)
+// jvbastel/WOWAI#127: the target that attacks the puller holds the pull,
+// but the tank holds threat only HoldContactMs after the melee contact.
+TEST(GroupCoordinator, ThePullerHoldsThreatAfterTheMeleeContact)
 {
     GroupCoordinator group;
     group.StartPull(Tank, Kobold);
 
-    group.HoldPull(Tank);
-
+    group.HoldPull(Tank, 1000);
     EXPECT_EQ(group.GetPull().phase, PullPhase::Holding);
-    EXPECT_TRUE(group.TankHoldsThreat());
+    EXPECT_FALSE(group.TankHoldsThreat(1000));
+
+    group.NoteFocusContact(3000);
+    group.NoteFocusContact(4000);
+    EXPECT_EQ(group.GetPull().contactMs, 3000);
+    EXPECT_FALSE(group.TankHoldsThreat(3000 + Bots::HoldContactMs - 1));
+    EXPECT_TRUE(group.TankHoldsThreat(3000 + Bots::HoldContactMs));
+}
+
+TEST(GroupCoordinator, NoMeleeContactBeforeTheHold)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+
+    group.NoteFocusContact(500);
+
+    EXPECT_FALSE(group.GetPull().hasContact);
+}
+
+TEST(GroupCoordinator, ThePullerHoldsThreatAfterTheTimeLimitWithNoContact)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 1000);
+
+    EXPECT_FALSE(group.TankHoldsThreat(1000 + Bots::HoldLimitMs - 1));
+    EXPECT_TRUE(group.TankHoldsThreat(1000 + Bots::HoldLimitMs));
+}
+
+// Review of jvbastel/WOWAI#127 and #121 (T2): the two clocks from the
+// engage. The tank goes in to a caster that stays away CasterComeMs after
+// it, once back at its fight spot; the damage bots open on a target that
+// never comes HoldLimitMs after it, also once the tank is back. So they
+// never open on a caster before the tank went in.
+TEST(GroupCoordinator, TheTimeLimitWaitsForTheTankBackAtItsFightSpot)
+{
+    static_assert(Bots::CasterComeMs < Bots::HoldLimitMs, "the tank goes in before the damage bots open");
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.SetFightSpot(Tank, {10, 0, 0});
+    group.HoldPull(Tank, 1000);
+
+    EXPECT_FALSE(group.TankHoldsThreat(1000 + Bots::HoldLimitMs + 3000));
+
+    group.ClearFightSpot(Tank);
+    EXPECT_EQ(group.TankHoldsThreatBy(1000 + Bots::HoldLimitMs + 3000), Bots::ThreatHeld::TimeLimit);
+}
+
+TEST(GroupCoordinator, ANewPullForgetsTheMeleeContact)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 1000);
+    group.NoteFocusContact(2000);
+
+    group.StartPull(Tank, Other);
+
+    EXPECT_FALSE(group.GetPull().hasContact);
 }
 
 TEST(GroupCoordinator, OnlyThePullerCanHoldThePull)
@@ -110,7 +168,7 @@ TEST(GroupCoordinator, TheTankHoldsThreatOnAFocusTargetOutsideAPull)
 
     group.SetFocusTarget(Kobold);
 
-    EXPECT_TRUE(group.TankHoldsThreat());
+    EXPECT_TRUE(group.TankHoldsThreat(0));
 }
 
 TEST(GroupCoordinator, StartsWithNoBossFight)
@@ -288,4 +346,40 @@ TEST(GroupCoordinator, AMemberSpotSearchMayAskTheCoordinator)
         });
 
     EXPECT_TRUE(spot.found);
+}
+
+// jvbastel/WOWAI#127: the tank is back at its fight spot once the rule
+// "back at the fight spot" clears it; a pull held with no fight spot has no
+// walk back.
+TEST(GroupCoordinator, TheTankIsBackAtItsFightSpotOnceItClearsIt)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.SetFightSpot(Tank, {1.0f, 2.0f, 3.0f});
+    group.HoldPull(Tank, 1000);
+    EXPECT_FALSE(group.GetPull().backAtFightSpot);
+
+    group.ClearFightSpot(Tank);
+
+    EXPECT_TRUE(group.GetPull().backAtFightSpot);
+}
+
+TEST(GroupCoordinator, APullHeldWithNoFightSpotIsBackAtOnce)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 1000);
+
+    EXPECT_TRUE(group.GetPull().backAtFightSpot);
+}
+
+TEST(GroupCoordinator, ANewPullIsNotBackAtItsFightSpot)
+{
+    GroupCoordinator group;
+    group.StartPull(Tank, Kobold);
+    group.HoldPull(Tank, 1000);
+    group.EndPull();
+    group.StartPull(Tank, Other);
+
+    EXPECT_FALSE(group.GetPull().backAtFightSpot);
 }

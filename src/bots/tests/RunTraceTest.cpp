@@ -100,3 +100,11 @@ TEST(RunTrace, GivesEachNewLineOnceForTheLiveFile)
     trace.Add(5000, "wipe 1");
     EXPECT_EQ(trace.TakeNew(), (std::vector<std::string>{"5.0 wipe 1"}));
 }
+
+// jvbastel/WOWAI#121 (for #109): an enemy of the fight that starts to flee,
+// with where it was then.
+TEST(RunTrace, AFleeLineNamesTheEnemyAndItsPlace)
+{
+    EXPECT_EQ(Bots::FleeLine("Ragefire Trogg 48661", {-240.712f, -8.03f, -61.5f}),
+        "Ragefire Trogg 48661 flees at -240.71 -8.03 -61.50");
+}

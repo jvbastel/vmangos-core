@@ -16,7 +16,9 @@
 #include "Chat.h"
 #include "Corpse.h"
 #include "Creature.h"
+#include "CreatureGroups.h"
 #include "ExtraPackWatch.h"
+#include "FightSpot.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "Group.h"
@@ -38,6 +40,7 @@
 #include "Utilities/Random.h"
 #include "WorldSession.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <ctime>
@@ -359,6 +362,11 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_wipeWatch = Bots::WipeWatch();
     m_alive.clear();
     m_enemyHealth.clear();
+    m_fleeing.clear();
+    m_pullFled.clear();
+    m_pullChoices = Bots::PullChoices();
+    m_joinCause.clear();
+    m_pullJudged = false;
     m_driverSeen = false;
     ++m_number;
 
@@ -448,14 +456,23 @@ void BotRun::Finish(bool passed, std::string const& reason)
     // runs ends here, with what its members did so far.
     if (m_fight.Running())
         EndFight(RunMs());
+    // A pull with an unwarned or an avoidable extra pack fails (Bots::
+    // PullFailure, jvbastel/WOWAI#123). The result counts and shows it, but
+    // it does not fail the run (user decision, 2026-10-27).
+    std::size_t const failedPulls = Bots::FailedPulls(m_record.pulls);
     m_passed = passed;
+    // The result line counts the healer's losses from the record.
+    RecordHits();
     std::ostringstream line;
     line << "Run " << m_number << " " << m_script.name << " " << m_scenario << ": "
          << (passed ? "passed" : m_aborted ? "aborted" : "failed") << " after " << RunMs() / 1000 << " s";
     if (!passed)
         line << ": " << reason;
     line << ", bosses " << m_record.bossKills.size() << ", wipes " << m_record.wipes.size()
-         << ", deaths " << m_record.deaths.size() << WatchText();
+         << ", deaths " << m_record.deaths.size();
+    if (failedPulls)
+        line << ", failed pulls " << failedPulls;
+    line << WatchText();
     m_result = line.str();
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s", m_result.c_str());
     m_trace.Add(RunMs(), m_result);
@@ -767,8 +784,9 @@ void BotRun::ResetMember(Player* member)
     }
     member->CombatStop(true);
     member->SetSelectionGuid(ObjectGuid());
-    // Level 16 with zero experience, then the level routine (with the gear).
-    uint32 const level = Bots::Version1BotLevel;
+    // The level of the script (default 16) with zero experience, then the
+    // level routine (with the gear).
+    uint32 const level = m_script.level;
     if (member->GetLevel() != level)
     {
         member->GiveLevel(level);
@@ -864,13 +882,18 @@ void BotRun::WatchThreat(int64 nowMs)
             continue;
         attacks.push_back(BotAdapter::AttacksOf(member, member != driver));
         Bots::BotRole role;
-        bool const tank = sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank;
+        bool const hasRole = sBotMgr.BotRoleOf(member, role);
+        bool const tank = hasRole && role == Bots::BotRole::Tank;
+        Bots::Guid const guid = member->GetObjectGuid().GetRawValue();
+        if (sBotMgr.IsHealerBot(member) &&
+            !Bots::Contains(m_record.healers, member->GetName()))
+            m_record.healers.push_back(member->GetName());
         if (tank && member->GetVictim())
-            holder = member->GetObjectGuid().GetRawValue();
+            holder = guid;
         for (Unit* attacker : member->GetAttackers())
             if (attacker->IsAlive() && attacker->GetVictim() == member)
             {
-                Bots::EnemyOnMember const hit{attacker->GetObjectGuid().GetRawValue(), member->GetObjectGuid().GetRawValue()};
+                Bots::EnemyOnMember const hit{attacker->GetObjectGuid().GetRawValue(), guid};
                 hits.push_back(hit);
                 if (!tank)
                     hitsOnNonTanks.push_back(hit);
@@ -918,7 +941,8 @@ std::pair<std::string, std::string> BotRun::HitNames(Bots::Guid enemy, Bots::Gui
 
 std::string BotRun::WatchText() const
 {
-    return Bots::HitListText("threat losses", m_threat.Losses()) + Bots::HitListText("lost mobs", m_lostMobs.LostMobs());
+    return Bots::HitListText("threat losses", m_threat.Losses()) + ", healer threat losses " +
+        std::to_string(Bots::HealerThreatLosses(m_record)) + Bots::HitListText("lost mobs", m_lostMobs.LostMobs());
 }
 
 bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
@@ -1383,6 +1407,7 @@ void BotRun::WatchRun(int64 nowMs)
     }
 
     TraceMembers(nowMs);
+    WatchHold(nowMs);
     WatchFight(nowMs);
 
     Bots::RunVerdict const verdict = m_judge->Judge(nowMs);
@@ -1434,6 +1459,24 @@ void BotRun::WatchEnemies(int64 nowMs)
             it = m_enemyHealth.erase(it);
             continue;
         }
+        // A flee: from fear, or at low health. The low-health flee
+        // (Creature::DoFleeToGetAssistance) runs to the nearest ally with
+        // MoveSeekAssistance (ASSISTANCE_MOTION_TYPE) when one is in reach,
+        // else flees in place for a time (TIMED_FLEEING_MOTION_TYPE): both
+        // are the flee, and the first is the one that brings a pack.
+        MovementGeneratorType const motion = enemy->GetMotionMaster()->GetCurrentMovementGeneratorType();
+        bool const flees = enemy->HasUnitState(UNIT_STATE_FLEEING) || motion == FLEEING_MOTION_TYPE
+            || motion == TIMED_FLEEING_MOTION_TYPE || motion == ASSISTANCE_MOTION_TYPE;
+        if (flees && m_fleeing.insert(it->first).second)
+        {
+            m_pullFled[it->first] = UnitText(enemy);
+            std::string const line = Bots::FleeLine(UnitText(enemy),
+                {enemy->GetPositionX(), enemy->GetPositionY(), enemy->GetPositionZ()});
+            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, line.c_str());
+            m_trace.Add(nowMs, line);
+        }
+        else if (!flees)
+            m_fleeing.erase(it->first);
         // Damage dealt.
         if (enemy->GetHealth() < it->second)
             m_judge->NoteProgress(nowMs);
@@ -1518,7 +1561,9 @@ void BotRun::RecordPull(Bots::ScriptCommand const& command)
     // The pack of the pull for the extra packs: that of the target of a
     // `command pull` too.
     Creature const* creature = target ? target->ToCreature() : nullptr;
-    m_extraPacks.Start(!pack.empty() || !creature ? pack : m_extraPacks.PackOf(creature->GetDBTableGUIDLow()));
+    std::string const pullPack = !pack.empty() || !creature ? pack : m_extraPacks.PackOf(creature->GetDBTableGUIDLow());
+    m_extraPacks.Start(pullPack);
+    MarkPullPacks(target, pullPack);
     // A new pull ends the fight of the last one.
     if (m_fight.Running())
         EndFight(RunMs());
@@ -1574,11 +1619,117 @@ void BotRun::WatchExtraPacks(int64 nowMs)
     std::size_t const known = m_extraPacks.ExtraPacks().size();
     m_extraPacks.Observe(nowMs, spawns);
     RecordExtraPacks();
+    if (m_extraPacks.ExtraPacks().size() == known)
+        return;
+    // The cause of each new pack, as it joins. Then the marks of all the
+    // extra packs of the pull again: a pull that kept a pack out counts only
+    // when it brought no more extra packs than the pull did
+    // (Bots::MarkExtraPack).
     for (std::size_t i = known; i < m_extraPacks.ExtraPacks().size(); ++i)
+    {
+        std::string const& name = m_extraPacks.ExtraPacks()[i].pack;
+        m_joinCause[name] = CauseOf(name);
+    }
+    std::size_t const got = m_extraPacks.ExtraPacks().size();
+    for (std::size_t i = 0; i < got; ++i)
+    {
+        std::string const name = m_extraPacks.ExtraPacks()[i].pack;
+        Bots::ExtraPackMark const atPull = Bots::MarkExtraPack(m_pullChoices, name, got);
+        m_extraPacks.Mark(name, Bots::JudgeExtraPack(m_pullJudged,
+            m_pullChoices.searched.count(name) ? &atPull : nullptr, m_joinCause[name]));
+    }
+    RecordExtraPacks();
+    for (std::size_t i = known; i < got; ++i)
     {
         Bots::RunExtraPack const& extra = m_extraPacks.ExtraPacks()[i];
         std::string const text = "extra pack " + extra.pack + " joins pull " + std::to_string(m_record.pulls.size()) +
-            (extra.warned ? " (warned)" : " (no warn)");
+            (extra.warned ? " (warned)" : " (no warn)") + (extra.avoidable ? ", avoidable: " : ", unavoidable: ") +
+            extra.reason;
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
+        m_trace.Add(nowMs, text);
+    }
+}
+
+void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
+{
+    m_pullFled.clear();
+    m_pullChoices = Bots::PullChoices();
+    m_joinCause.clear();
+    m_pullJudged = false;
+    Player* driver = Driver();
+    if (!target || !driver)
+        return;
+    Player* tank = nullptr;
+    for (Player* member : Members())
+    {
+        Bots::BotRole role;
+        if (IsLivingMember(member) && sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank)
+            tank = member;
+    }
+    if (!tank || tank->GetMap() != target->GetMap())
+        return;
+    // The world thread runs after the maps updated (World::Update), so the
+    // adapter's queries of the map are safe here.
+    BotAdapter const view(tank);
+    std::vector<Bots::Position> const trail = CoordinatorOf(tank)->GetTrail();
+    m_pullJudged = true;
+    std::vector<Bots::RoutePackAtPull> packs;
+    for (Bots::RoutePack const& pack : m_route.packs)
+    {
+        if (pack.name == pullPack)
+            continue;
+        std::vector<Bots::Guid> enemies;
+        for (Bots::RouteMob const& mob : pack.mobs)
+            if (Creature const* creature = SpawnOf(tank, mob))
+                if (creature->IsAlive() && tank->IsWithinDistInMap(creature, Bots::FightSpotEnemyYards))
+                    enemies.push_back(creature->GetObjectGuid().GetRawValue());
+        // A pack out of the search gets no mark: Bots::JudgeExtraPack.
+        if (!enemies.empty())
+            packs.push_back({pack.name, enemies});
+    }
+    m_pullChoices = Bots::FindPullChoices(view, trail, target->GetObjectGuid().GetRawValue(), packs);
+}
+
+Bots::ExtraPackCause BotRun::CauseOf(std::string const& pack) const
+{
+    Bots::ExtraPackCause cause;
+    Player const* driver = Driver();
+    if (!driver)
+        return cause;
+    auto const it = std::find_if(m_route.packs.begin(), m_route.packs.end(),
+        [&pack](Bots::RoutePack const& routePack) { return routePack.name == pack; });
+    if (it == m_route.packs.end())
+        return cause;
+    for (Bots::RouteMob const& mob : it->mobs)
+    {
+        Creature* creature = SpawnOf(driver, mob);
+        if (!creature)
+            continue;
+        // A patrol (jvbastel/WOWAI#108): the spawn walks waypoints, or
+        // follows the leader of its group who does.
+        Creature const* leader = creature;
+        if (CreatureGroup const* group = creature->GetCreatureGroup())
+            if (Creature const* groupLeader = creature->GetMap()->GetCreature(group->GetLeaderGuid()))
+                leader = groupLeader;
+        if (creature->GetDefaultMovementType() == WAYPOINT_MOTION_TYPE
+            || leader->GetDefaultMovementType() == WAYPOINT_MOTION_TYPE)
+            cause.patrol = true;
+        // A flee: an enemy that fled in this pull is near the pack now.
+        for (auto const& fled : m_pullFled)
+            if (Creature const* enemy = creature->GetMap()->GetCreature(fled.first))
+                if (enemy->IsWithinDistInMap(creature, Bots::FleeBringsYards))
+                    cause.fleeing = fled.second;
+    }
+    return cause;
+}
+
+void BotRun::WatchHold(int64 nowMs)
+{
+    if (!m_groupId)
+        return;
+    // The coordinator counts on the clock of the bots.
+    for (std::string const& text : m_hold.Observe(*CoordinatorOf(Driver()), SteadyMs()))
+    {
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
         m_trace.Add(nowMs, text);
     }
@@ -1612,14 +1763,7 @@ void BotRun::WriteResultFiles()
 {
     if (m_quests)
         m_record.questProgress = m_quests->Objectives();
-    m_record.threatLosses.clear();
-    for (std::size_t i = 0; i < m_threat.Losses().size(); ++i)
-        m_record.threatLosses.push_back({m_threatNames[i].first, m_threatNames[i].second, m_threat.Losses()[i].startMs,
-            m_threat.Losses()[i].endMs});
-    m_record.lostMobs.clear();
-    for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
-        m_record.lostMobs.push_back({m_lostMobNames[i].first, m_lostMobNames[i].second, m_lostMobs.LostMobs()[i].startMs,
-            m_lostMobs.LostMobs()[i].endMs});
+    RecordHits();
     RecordCombat();
 
     std::string const dir = sBotMgr.GetSettings().runDir;
@@ -1647,6 +1791,18 @@ void BotRun::WriteResultFiles()
 bool BotRun::WriteResultJson() const
 {
     return WriteFile(sBotMgr.GetSettings().runDir + "/" + Bots::RunFileStem(m_record) + ".json", Bots::RunResultJson(m_record));
+}
+
+void BotRun::RecordHits()
+{
+    m_record.threatLosses.clear();
+    for (std::size_t i = 0; i < m_threat.Losses().size(); ++i)
+        m_record.threatLosses.push_back({m_threatNames[i].first, m_threatNames[i].second, m_threat.Losses()[i].startMs,
+            m_threat.Losses()[i].endMs});
+    m_record.lostMobs.clear();
+    for (std::size_t i = 0; i < m_lostMobs.LostMobs().size(); ++i)
+        m_record.lostMobs.push_back({m_lostMobNames[i].first, m_lostMobNames[i].second, m_lostMobs.LostMobs()[i].startMs,
+            m_lostMobs.LostMobs()[i].endMs});
 }
 
 void BotRun::RecordCombat()

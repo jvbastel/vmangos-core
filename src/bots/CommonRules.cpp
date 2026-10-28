@@ -48,7 +48,21 @@ namespace Bots
     bool IsGroupMember(BotView const& view, Guid unit)
     {
         std::vector<Guid> const members = view.GetGroupMembers();
-        return unit != NoGuid && std::find(members.begin(), members.end(), unit) != members.end();
+        return unit != NoGuid && Contains(members, unit);
+    }
+
+    std::vector<Guid> UnitsWithin(BotView const& view, std::vector<Guid> const& units, float yards)
+    {
+        std::vector<Guid> within;
+        for (Guid unit : units)
+            if (IsAlive(view, unit) && view.GetDistance(unit) <= yards)
+                within.push_back(unit);
+        return within;
+    }
+
+    bool IsHitInMelee(BotContext const& context, float yards)
+    {
+        return !UnitsWithin(context.view, context.view.GetAttackers(context.view.GetSelf()), yards).empty();
     }
 
     bool FollowsAMember(BotContext const& context)

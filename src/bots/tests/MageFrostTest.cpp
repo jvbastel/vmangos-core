@@ -55,7 +55,7 @@ namespace
         void TankHoldsKobold()
         {
             group.StartPull(Tank, Kobold);
-            group.HoldPull(Tank);
+            Bots::Tests::HoldThreat(group, Tank);
             fake.SetVictim(Kobold, Tank);
         }
     };
@@ -160,6 +160,23 @@ TEST(MageFrost, FrostNovasAnEnemyThatHitsItInMelee)
     mage.Think();
 
     EXPECT_EQ(mage.fake.Deeds(), (std::vector<std::string>{CastOn(Mage::FrostNova, MageBot)}));
+}
+
+// jvbastel/WOWAI#102 review: the shared IsHitInMelee (CommonRules.h) skips a
+// dead attacker.
+TEST(MageFrost, NoFrostNovaForADeadEnemy)
+{
+    FrostMage mage;
+    mage.fake.SetKnownSpell(Mage::FrostNova);
+    mage.TankHoldsKobold();
+    mage.fake.SetVictim(Kobold, MageBot);
+    mage.fake.SetDistance(Kobold, 3.0f);
+    mage.fake.SetHealth(Kobold, 0, 200);
+
+    mage.Think();
+
+    for (std::string const& deed : mage.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Mage::FrostNova, MageBot));
 }
 
 TEST(MageFrost, ShieldsItselfWithIceBarrierWhenAttacked)

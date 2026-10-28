@@ -1,6 +1,7 @@
 #ifndef WOWAI_BOTS_RUN_SCRIPT_H
 #define WOWAI_BOTS_RUN_SCRIPT_H
 
+#include "BotRecipe.h"
 #include "BotTypes.h"
 #include "RouteQuests.h"
 
@@ -19,6 +20,8 @@
 //   group Grukk Hela Shanka Morzul        # the four bots
 //   outside 1 1811.2 -4410.5 -18.5        # map x y z: where the group waits
 //                                         # between runs, out of the dungeon
+//   level 18                              # optional: the level of each member
+//                                         # at the reset (default 16)
 //   scenario taragaman                    # one scenario, up to the next one
 //   teleport taragaman_camp               # the group goes to a route point
 //   clear 45                              # trash within 45 yd goes away
@@ -142,6 +145,9 @@ namespace Bots
         std::vector<std::string> group;
         std::uint32_t outsideMap = 0;
         Position outside = {0.0f, 0.0f, 0.0f};
+        // The level of the test driver and the bots at the reset of a run
+        // (`level <n>`, jvbastel/WOWAI#118).
+        std::uint32_t level = Version1BotLevel;
         std::vector<ScriptScenario> scenarios;
     };
 

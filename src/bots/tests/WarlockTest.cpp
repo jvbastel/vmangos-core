@@ -64,7 +64,7 @@ namespace
         {
             group.StartPull(Tank, Kobold);
             fake.SetVictim(Kobold, Tank);
-            group.HoldPull(Tank);
+            Bots::Tests::HoldThreat(group, Tank);
             fake.SetInCombat(Self);
             fake.SetVictim(Imp, Kobold);
             fake.ChaseToRange(Kobold, 20.0f);
@@ -118,7 +118,7 @@ TEST(Warlock, SendsTheImpOnceTheTankHoldsThreat)
     WarlockBot warlock;
     warlock.group.StartPull(Tank, Kobold);
     warlock.fake.SetVictim(Kobold, Tank);
-    warlock.group.HoldPull(Tank);
+    Bots::Tests::HoldThreat(warlock.group, Tank);
 
     warlock.Think();
 
@@ -131,7 +131,7 @@ TEST(Warlock, RunsIntoCastingRangeOfTheTarget)
     warlock.fake.SetDistance(Kobold, 40.0f);
     warlock.group.StartPull(Tank, Kobold);
     warlock.fake.SetVictim(Kobold, Tank);
-    warlock.group.HoldPull(Tank);
+    Bots::Tests::HoldThreat(warlock.group, Tank);
     warlock.fake.SetVictim(Imp, Kobold);
 
     warlock.Think();

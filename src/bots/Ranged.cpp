@@ -1,5 +1,8 @@
 #include "Ranged.h"
 #include "BotView.h"
+#include "BotGeometry.h"
+
+#include <vector>
 
 namespace Bots
 {
@@ -66,5 +69,14 @@ namespace Bots
     bool InShotFrom(BotView const& view, Position const& at, Guid target)
     {
         return ShotReachAt(view.GetSpellDistanceFrom(at, target)) == ShotReach::InRange && view.CanSeeFrom(at, target);
+    }
+
+    bool FindShotOnPath(BotView const& view, Guid target, Position& spot)
+    {
+        std::vector<Position> path;
+        if (!view.FindGroundPath(view.GetPosition(view.GetSelf()), view.GetPosition(target), path))
+            return false;
+        return FindPointOnPath(path, ShotPathStepYards,
+            [&](Position const& step) { return InShotFrom(view, step, target); }, spot);
     }
 }

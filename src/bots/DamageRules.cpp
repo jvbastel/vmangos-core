@@ -1,6 +1,7 @@
 #include "DamageRules.h"
 #include "CommonRules.h"
 #include "GroupRules.h"
+#include "KeepOut.h"
 
 #include <algorithm>
 #include <vector>
@@ -35,7 +36,7 @@ namespace Bots
                 if (IsAlive(context.view, member) && !(tankLives && member == tank))
                     for (Guid attacker : context.view.GetAttackers(member))
                         if (attacker != skip && IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker)
-                            && std::find(enemies.begin(), enemies.end(), attacker) == enemies.end())
+                            && !Contains(enemies, attacker))
                             enemies.push_back(attacker);
             return enemies;
         }
@@ -69,7 +70,7 @@ namespace Bots
             if (enemies.empty())
                 return NoGuid;
             Guid const own = context.view.GetVictim(context.view.GetSelf());
-            bool const ownIsLoose = std::find(enemies.begin(), enemies.end(), own) != enemies.end();
+            bool const ownIsLoose = Contains(enemies, own);
             if (ownIsLoose && !AnotherMemberAttacks(context, own, Members::LowerGuid))
                 return own;
             for (Guid enemy : enemies)
@@ -91,10 +92,26 @@ namespace Bots
         Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);
         if (loose != NoGuid)
             return loose;
-        if (IsAlive(context.view, focus) && context.group.TankHoldsThreat() && !waitForTaunt
+        if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
             && IsInChaseLimit(context, focus))
             return focus;
         return NoGuid;
+    }
+
+    Guid PickMeleeDamageTarget(BotContext const& context)
+    {
+        Guid const target = PickDamageTarget(context);
+        return target != NoGuid && InOtherPacksReach(context, context.view.GetPosition(target)) ? NoGuid : target;
+    }
+
+    bool TankHoldsThreat(BotContext const& context)
+    {
+        PullState const pull = context.group.GetPull();
+        if (pull.phase == PullPhase::Holding && !pull.hasContact
+            && context.view.GetVictim(pull.target) == pull.puller
+            && context.view.GetDistanceBetween(pull.target, pull.puller) <= MeleeContactYards)
+            context.group.NoteFocusContact(context.nowMs);
+        return context.group.TankHoldsThreat(context.nowMs);
     }
 
     bool HasDamageTarget(BotContext const& context)

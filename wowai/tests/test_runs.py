@@ -5,8 +5,10 @@ Bots::RunResultJson.
 
     python3 wowai/tests/test_runs.py
 """
+import json
 import os
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "test-realm"))
@@ -63,6 +65,135 @@ class Summary(unittest.TestCase):
         self.assertEqual(runs.summary(result),
                          "ragefire_chasm two_packs run 4: passed after 61 s, bosses 0, wipes 0, deaths 0, "
                          "threat losses 0, lost mobs 0, extra packs 3 (warned 1)")
+
+    def test_marks_each_extra_pack_avoidable_or_unavoidable(self):
+        """jvbastel/WOWAI#123: the judge's mark of each extra pack. An older result file has none."""
+        result = {
+            "run": 6, "script": "ragefire_chasm", "scenario": "two_packs", "result": "passed", "reason": None,
+            "duration_s": 95.0, "bosses_killed": [], "wipes": [], "deaths": {"Ezzra": []},
+            "threat_losses": [], "lost_mobs": [],
+            "pulls": [{"pack": "pack48", "extra_packs": [{"pack": "pack49", "time_s": 30.0, "warned": True,
+                                                          "avoidable": False, "reason": "no fight spot"}],
+                       "passed": True},
+                      {"pack": "pack1", "extra_packs": [{"pack": "pack2", "time_s": 90.0, "warned": True,
+                                                         "avoidable": True, "reason": "a fight spot"}],
+                       "passed": False, "failure": "extra pack pack2 was avoidable: a fight spot"}],
+        }
+        self.assertEqual(runs.summary(result),
+                         "ragefire_chasm two_packs run 6: passed after 95 s, bosses 0, wipes 0, deaths 0, "
+                         "threat losses 0, lost mobs 0, extra packs 2 (warned 2; pack49 unavoidable, "
+                         "pack2 avoidable), failed pulls 1 (pull 2: extra pack pack2 was avoidable: "
+                         "a fight spot)")
+
+    def test_a_failed_pull_is_shown_on_a_passed_run(self):
+        """User decision (2026-10-27): a failed pull is counted and shown, but the run passes."""
+        result = dict(a_three_enemy_run([]), duration_s=40.0, bosses_killed=[], wipes=[], deaths={}, lost_mobs=[])
+        result["pulls"][0].update({"passed": False, "failure": "extra pack pack2 joined with no warn"})
+        self.assertEqual(runs.summary(result),
+                         "deadmines three_enemies run 1: passed after 40 s, bosses 0, wipes 0, deaths 0, "
+                         "threat losses 0, lost mobs 0, extra packs 0, failed pulls 1 "
+                         "(pull 1: extra pack pack2 joined with no warn)")
+
+    def test_shows_the_threat_losses_of_the_healer(self):
+        """jvbastel/WOWAI#113: the healer's threat losses next to all of them."""
+        result = {
+            "run": 5, "script": "ragefire_chasm", "scenario": "enforcers", "result": "passed", "reason": None,
+            "duration_s": 80.0, "bosses_killed": [], "wipes": [], "deaths": {"Ezzra": []},
+            "threat_losses": [{}, {}, {}], "healer_threat_losses": 2, "lost_mobs": [],
+        }
+        self.assertEqual(runs.summary(result),
+                         "ragefire_chasm enforcers run 5: passed after 80 s, bosses 0, wipes 0, deaths 0, "
+                         "threat losses 3 (healer 2), lost mobs 0, extra packs 0")
+
+
+def a_three_enemy_run(losses):
+    """A run of the three-enemy scenario (jvbastel/WOWAI#118): one pull of
+    the miners at 30 s, and the threat losses (member, time_s) after it."""
+    return {
+        "run": 1, "script": "deadmines", "scenario": "three_enemies", "result": "passed", "reason": None,
+        "healers": ["Hela"],
+        "pulls": [{"pack": "miners", "target": "Defias Miner", "time_s": 30.0, "again": False, "extra_packs": []}],
+        "threat_losses": [{"enemy": "Defias Miner", "member": member, "time_s": t, "seconds": 5.0,
+                           "healer": member == "Hela"} for member, t in losses],
+    }
+
+
+class PullReport(unittest.TestCase):
+    """jvbastel/WOWAI#118: each pull reports its threat losses, the healer's
+    threat losses, and whether it was clean (no threat loss)."""
+
+    def test_a_pull_with_no_threat_loss_is_clean(self):
+        self.assertEqual(runs.pull_reports(a_three_enemy_run([])),
+                         [{"pull": 1, "pack": "miners", "target": "Defias Miner", "again": False,
+                           "threat_losses": 0, "healer_threat_losses": 0, "clean": True}])
+
+    def test_counts_the_losses_of_the_pull_and_those_on_the_healer(self):
+        report = runs.pull_reports(a_three_enemy_run([("Hela", 35.0), ("Ezzra", 36.0), ("Hela", 40.0)]))
+        self.assertEqual([(r["threat_losses"], r["healer_threat_losses"], r["clean"]) for r in report],
+                         [(3, 2, False)])
+
+    def test_the_healer_flag_of_the_result_counts(self):
+        # The result file decides which loss was on a healer: runs.py reads it.
+        result = a_three_enemy_run([("Hela", 35.0), ("Ezzra", 36.0), ("Hela", 37.0)])
+        result["threat_losses"][0]["healer"] = False
+        result["threat_losses"][1]["healer"] = True
+        result["threat_losses"][2]["healer"] = False
+        self.assertEqual([r["healer_threat_losses"] for r in runs.pull_reports(result)], [1])
+
+    def test_a_loss_belongs_to_the_last_pull_before_it(self):
+        result = a_three_enemy_run([("Hela", 35.0), ("Shanka", 95.0)])
+        result["pulls"].append({"pack": "pack2", "target": "Defias Miner", "time_s": 90.0, "again": False})
+        report = runs.pull_reports(result)
+        self.assertEqual([(r["pull"], r["pack"], r["threat_losses"], r["healer_threat_losses"]) for r in report],
+                         [(1, "miners", 1, 1), (2, "pack2", 1, 0)])
+
+    def test_a_loss_before_any_pull_belongs_to_the_first_pull_that_is_no_fight_again(self):
+        result = a_three_enemy_run([("Hela", 5.0)])
+        result["pulls"].insert(0, {"pack": "miners", "target": "Defias Miner", "time_s": 10.0, "again": True})
+        report = runs.pull_reports(result)
+        self.assertEqual([(r["again"], r["threat_losses"]) for r in report], [(True, 0), (False, 1)])
+        self.assertEqual(runs.clean_pull_share(result), runs.measurement(report)["clean_share"])
+
+    def test_a_result_with_no_threat_losses_field_has_clean_pulls(self):
+        result = a_three_enemy_run([])
+        del result["threat_losses"]
+        self.assertTrue(runs.pull_reports(result)[0]["clean"])
+
+    def test_one_line_per_pull(self):
+        report = runs.pull_reports(a_three_enemy_run([("Hela", 35.0), ("Ezzra", 36.0)]))
+        self.assertEqual(runs.pull_line(report[0]),
+                         "pull 1 (miners, Defias Miner): threat losses 2 (healer 1), not clean")
+        report = runs.pull_reports(a_three_enemy_run([]))
+        self.assertEqual(runs.pull_line(report[0]),
+                         "pull 1 (miners, Defias Miner): threat losses 0 (healer 0), clean")
+
+
+class Measurement(unittest.TestCase):
+    """jvbastel/WOWAI#118: the measurement over the first pulls of all runs
+    (10 runs of the three-enemy scenario)."""
+
+    def test_the_healer_rate_and_the_shares_of_the_pulls(self):
+        reports = []
+        for losses in ([], [("Hela", 35.0)], [("Hela", 35.0), ("Hela", 45.0)], [("Ezzra", 35.0)]):
+            reports += runs.pull_reports(a_three_enemy_run(losses))
+        m = runs.measurement(reports)
+        self.assertEqual(m["pulls"], 4)
+        self.assertEqual(m["healer_threat_losses"], 3)
+        self.assertAlmostEqual(m["healer_threat_loss_rate"], 0.75)
+        self.assertAlmostEqual(m["no_healer_threat_loss_share"], 0.5)
+        self.assertAlmostEqual(m["clean_share"], 0.25)
+        self.assertEqual(runs.measurement_line(m),
+                         "Measurement over 4 pulls: healer threat losses 3 (0.75 per pull), "
+                         "pulls with no healer threat loss 50%, clean pulls 25%")
+
+    def test_a_fight_again_is_no_first_pull(self):
+        result = a_three_enemy_run([("Hela", 95.0)])
+        result["pulls"].append({"pack": "miners", "target": "Defias Miner", "time_s": 90.0, "again": True})
+        m = runs.measurement(runs.pull_reports(result))
+        self.assertEqual((m["pulls"], m["healer_threat_losses"], m["clean_share"]), (1, 0, 1.0))
+
+    def test_no_pull_no_measurement(self):
+        self.assertIsNone(runs.measurement([]))
 
 
 class Plan(unittest.TestCase):
@@ -258,6 +389,35 @@ class Watch(unittest.TestCase):
         command = runs.watch_command(["--shared"], 9000, 1, "runs-x", "wowai-7f3k")
 
         self.assertEqual(command[-2:], ["--ntfy", "wowai-7f3k"])
+
+
+class Collect(unittest.TestCase):
+    """jvbastel/WOWAI#119: the trace of each run, also of a passed one, to
+    see what the tank did."""
+
+    def collect(self, trace):
+        runs_dir = tempfile.mkdtemp()
+        out = tempfile.mkdtemp()
+        name = "shadowfang_keep-three_enemies-20261027-150000.json"
+        with open(os.path.join(runs_dir, name), "w") as f:
+            json.dump({"result": "failed" if trace else "passed", "trace": trace}, f)
+        if trace:
+            with open(os.path.join(runs_dir, trace), "w") as f:
+                f.write("61.4 the last 3 minutes\n")
+        with open(os.path.join(runs_dir, runs.LIVE_TRACE), "w") as f:
+            f.write("0.0 run 7 starts\n")
+        runs.collect(runs_dir, "Run 7 x y: passed after 9 s. Result: " + name, out)
+        return sorted(os.listdir(out))
+
+    def test_keeps_the_live_trace_of_a_passed_run(self):
+        self.assertEqual(self.collect(""), ["shadowfang_keep-three_enemies-20261027-150000.json",
+                                            "shadowfang_keep-three_enemies-20261027-150000.live.trace.txt"])
+
+    def test_keeps_both_traces_of_a_failed_run(self):
+        self.assertEqual(self.collect("shadowfang_keep-three_enemies-20261027-150000.trace.txt"),
+                         ["shadowfang_keep-three_enemies-20261027-150000.json",
+                          "shadowfang_keep-three_enemies-20261027-150000.live.trace.txt",
+                          "shadowfang_keep-three_enemies-20261027-150000.trace.txt"])
 
 
 if __name__ == "__main__":
