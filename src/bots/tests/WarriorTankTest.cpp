@@ -864,12 +864,16 @@ TEST(WarriorTank, TakesTheEnemyOnAMemberAsFocusWhenTheFocusDies)
     tank.fake.SetVictim(Wolf, Healer);
     tank.fake.SetHealth(Kobold, 0, 200);
     tank.fake.SetVictim(Kobold, NoGuid);
+    // The kobold reached the tank long ago: the tank holds its pull.
+    tank.group.NoteFocusContact(0);
 
     tank.Think();
     tank.Think();
 
+    // jvbastel/WOWAI#173: no enemy attacks the tank, so the next focus is
+    // the enemy on the member, and the pull stays on.
     EXPECT_EQ(tank.group.GetFocusTarget(), Wolf);
-    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::None);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
 
     // A damage bot of the group, attacked by nothing, follows the tank.
     Bots::Guid const Rogue = 0x13;
@@ -878,7 +882,8 @@ TEST(WarriorTank, TakesTheEnemyOnAMemberAsFocusWhenTheFocusDies)
     rogue.SetHealth(Rogue, 400, 400);
     rogue.SetHealth(Wolf, 300, 300);
     rogue.SetVictim(Wolf, Healer);
-    BotContext const context{rogue, rogue, tank.group, Bots::CommandState::Follow, 0x1};
+    BotContext context{rogue, rogue, tank.group, Bots::CommandState::Follow, 0x1};
+    context.nowMs = 10000;
     EXPECT_EQ(Bots::PickDamageTarget(context), Wolf);
 }
 
@@ -1848,7 +1853,7 @@ TEST(WarriorTank, ANewFightStartsWithANewVisit)
     tank.Think();
     ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
     tank.fake.SetHealth(Kobold, 0, 200);
-    ASSERT_EQ(tank.Think(), "end the fight");
+    ASSERT_EQ(tank.Think(), "the focus dies");
 
     tank.group.SetFocusTarget(Lynx);
     tank.fake.SetVictim(Tank, Lynx);
@@ -1858,7 +1863,7 @@ TEST(WarriorTank, ANewFightStartsWithANewVisit)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
 }
 
-// A fight can end on other paths than "end the fight" (a wipe, the Stop
+// A fight can end on other paths than "the focus dies" (a wipe, the Stop
 // command, the tank's death): a new focus starts with a new visit too.
 TEST(WarriorTank, ANewFocusStartsWithANewVisit)
 {
@@ -2404,4 +2409,28 @@ TEST(WarriorTankLooseEnemy, CastsOnThePickedUpEnemyBeforeItTakesTheNextLooseEnem
     tank.nowMs = 600;
     tank.Think();
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// jvbastel/WOWAI#173: the tank chooses the next focus when the focus dies,
+// and the pull stays on while enemies are left in the fight.
+
+// The focus dies with enemies left: of the enemies that attack the tank,
+// the one it leads on the most is the next focus. An enemy on another
+// member does not count, whatever the tank's threat on it.
+TEST(WarriorTankNextFocus, MakesTheEnemyOnItWithTheBiggestThreatLeadTheNextFocus)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Wolf, Tank);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetVictim(Rat, Rogue);
+    tank.fake.SetThreatRatio(Tank, Wolf, 1.2f);
+    tank.fake.SetThreatRatio(Tank, Bat, 3.0f);
+    tank.fake.SetThreatRatio(Tank, Rat, 9.0f);
+    tank.fake.SetHealth(Kobold, 0, 200);
+    tank.fake.SetVictim(Kobold, NoGuid);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.group.GetFocusTarget(), Bat);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
 }
