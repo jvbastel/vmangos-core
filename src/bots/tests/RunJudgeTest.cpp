@@ -554,3 +554,141 @@ TEST(ExtraPackJudge, CountsTheFailedPullsOfARun)
     EXPECT_EQ(Bots::FailedPulls(pulls), 2u);
     EXPECT_EQ(Bots::FailedPulls({PullWith({Extra(true, false)})}), 0u);
 }
+
+// jvbastel/WOWAI#168: the pickup of extra-pack enemies on the healer
+// (`expect healer_pickup_seconds <n>`), and the casts on each threat target
+// (`expect threat_targets_without_cast <n>`).
+namespace
+{
+    Bots::Guid const JoinTrogg = 0xF130000302000022;
+    Bots::Guid const JoinShaman = 0xF130000302000033;
+    Bots::Guid const JoinFocus = 0xF130000302000044;
+
+    Bots::ScriptLimit SixSeconds()
+    {
+        return {true, 6, 212};
+    }
+
+    Bots::FightEnemySeen Seen(Bots::Guid enemy, std::string name, Bots::EnemyVictim victim, bool extraPack = true)
+    {
+        return {enemy, std::move(name), extraPack, victim};
+    }
+}
+
+TEST(HealerPickupCheck, PassesAnExtraPackEnemyOnTheHealerThatIsOnTheTankWithin6Seconds)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(6900, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Tank)});
+    check.Observe(9000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(HealerPickupCheck, FailsAnExtraPackEnemyNotOnTheTank6SecondsAfterItsFirstHitOnTheHealer)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(4000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::OtherMember)});
+    EXPECT_EQ(check.Failure(), "");
+
+    check.Observe(7100, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::OtherMember)});
+
+    EXPECT_EQ(check.Failure(),
+        "Ragefire Trogg was not on the tank 6 s after its first hit on the healer (limit of line 212)");
+}
+
+TEST(HealerPickupCheck, LeavesOutEnemiesOfThePulledPackAndEnemiesThatDie)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer, false),
+                            Seen(JoinShaman, "Ragefire Shaman", Bots::EnemyVictim::Healer)});
+    // The shaman died: the update sees it no more.
+    check.Observe(9000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer, false)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(HealerPickupCheck, ChecksNothingWithNoLimit)
+{
+    Bots::HealerPickupCheck check(Bots::ScriptLimit{});
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(9000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+namespace
+{
+    Bots::ScriptLimit NoTurnWithoutCast()
+    {
+        return {true, 0, 213};
+    }
+
+    std::set<Bots::Guid> const AllAlive = {JoinTrogg, JoinShaman, JoinFocus};
+}
+
+TEST(ThreatTargetCastCheck, ATurnToAThreatTargetWithACastPasses)
+{
+    Bots::ThreatTargetCastCheck check(NoTurnWithoutCast());
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.NoteCast(JoinTrogg);
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(ThreatTargetCastCheck, ACastJustBeforeTheTurnIsSeenCountsToo)
+{
+    Bots::ThreatTargetCastCheck check(NoTurnWithoutCast());
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+    check.NoteCast(JoinTrogg);
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(ThreatTargetCastCheck, ATurnToAThreatTargetAndAwayWithNoCastFails)
+{
+    Bots::ThreatTargetCastCheck check(NoTurnWithoutCast());
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+    check.NoteCast(JoinFocus);
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    EXPECT_EQ(check.Failure(), "");
+
+    check.Observe(JoinShaman, "Ragefire Shaman", JoinFocus, AllAlive);
+
+    EXPECT_EQ(check.Failure(), "the tank turned to 1 threat target with no cast, over the limit 0 of line 213: "
+                               "Ragefire Trogg");
+}
+
+TEST(ThreatTargetCastCheck, TheFocusADeadEnemyAndNoTargetNeedNoCast)
+{
+    Bots::ThreatTargetCastCheck check(NoTurnWithoutCast());
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.NoteCast(JoinTrogg);
+    // To the focus and away: no threat target.
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+    check.Observe(JoinShaman, "Ragefire Shaman", JoinFocus, AllAlive);
+    // No target for a moment: no turn.
+    check.Observe(Bots::NoGuid, "", JoinFocus, AllAlive);
+    check.NoteCast(JoinShaman);
+    // The trogg dies while the tank has it.
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.Observe(JoinFocus, "Focus", JoinFocus, {JoinShaman, JoinFocus});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(RunJudge, AFailedCheckFailsTheRunWithItsReason)
+{
+    RunJudge judge({}, 0);
+    judge.NoteFailedCheck("Ragefire Trogg was not on the tank");
+    judge.NoteFailedCheck("a later one");
+
+    EXPECT_EQ(judge.Judge(Minute).reason, "Ragefire Trogg was not on the tank");
+    EXPECT_EQ(judge.AtScriptEnd().reason, "Ragefire Trogg was not on the tank");
+}

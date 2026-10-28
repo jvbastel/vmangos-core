@@ -321,7 +321,8 @@ TEST(RunScript, RefusesABrokenLineWithItsNumber)
     EXPECT_EQ(ErrorOf(Head + "teleport\n"), "line 6: use: teleport <point>");
     EXPECT_EQ(ErrorOf(Head + "wait soon\n"),
         "line 6: use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]");
-    EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n>");
+    EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
+        "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n>");
     EXPECT_EQ(ErrorOf(Head + "clear -3\n"), "line 6: use: clear <yards> [<pack> ...]");
     EXPECT_EQ(ErrorOf(Head + "whisper Hela\n"), "line 6: use: whisper <bot> <text>");
     EXPECT_EQ(ErrorOf(Head + "join\n"), "line 6: use: join <pack> [<bot>]");
@@ -534,9 +535,46 @@ TEST(RunScript, AZeroHealerThreatLossLimitIsALimit)
 TEST(RunScript, RefusesABrokenOrSecondHealerThreatLossLimit)
 {
     std::string const usage =
-        "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n>";
+        "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
+        "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n>";
     EXPECT_EQ(ErrorOf(Head + "expect healer_threat_losses\n"), "line 6: " + usage);
     EXPECT_EQ(ErrorOf(Head + "expect healer_threat_losses many\n"), "line 6: " + usage);
     EXPECT_EQ(ErrorOf(Head + "expect healer_threat_losses 1\ncommand pull\nexpect healer_threat_losses 2\n"),
         "line 8: the scenario s sets healer_threat_losses on line 6 already");
+}
+
+// jvbastel/WOWAI#168: the 6 s pickup of an extra-pack enemy on the healer,
+// and the casts on each threat target.
+TEST(RunScript, ExpectLinesSetThePickupAndThreatTargetLimits)
+{
+    RunScriptResult const result = ParseRunScript(
+        Head + "expect healer_pickup_seconds 6\nexpect threat_targets_without_cast 0\ncommand pull\n");
+
+    ASSERT_TRUE(result.ok) << result.error;
+    Bots::ScriptLimits const& limits = result.script.scenarios[0].limits;
+    EXPECT_TRUE(limits.healerPickupSeconds.set);
+    EXPECT_EQ(limits.healerPickupSeconds.most, 6u);
+    EXPECT_EQ(limits.healerPickupSeconds.line, 6u);
+    EXPECT_TRUE(limits.threatTargetsWithoutCast.set);
+    EXPECT_EQ(limits.threatTargetsWithoutCast.most, 0u);
+    EXPECT_EQ(limits.threatTargetsWithoutCast.line, 7u);
+    EXPECT_FALSE(limits.healerThreatLosses.set);
+    EXPECT_EQ(ErrorOf(Head + "expect healer_pickup_seconds 6\nexpect healer_pickup_seconds 5\n"),
+        "line 7: the scenario s sets healer_pickup_seconds on line 6 already");
+}
+
+TEST(RunScriptData, TheJoinScenariosOfRagefireChasmCheckThePickupAndTheThreatTargetCasts)
+{
+    RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/ragefire_chasm.txt"));
+    ASSERT_TRUE(script.ok) << script.error;
+
+    for (char const* name : {"join_three", "join_three_healer", "join_four_healer"})
+    {
+        Bots::ScriptScenario const* scenario = Bots::FindScenario(script.script, name);
+        ASSERT_NE(scenario, nullptr) << name;
+        EXPECT_TRUE(scenario->limits.healerPickupSeconds.set) << name;
+        EXPECT_EQ(scenario->limits.healerPickupSeconds.most, 6u) << name;
+        EXPECT_TRUE(scenario->limits.threatTargetsWithoutCast.set) << name;
+        EXPECT_EQ(scenario->limits.threatTargetsWithoutCast.most, 0u) << name;
+    }
 }

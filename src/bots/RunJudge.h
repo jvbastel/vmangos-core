@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -66,6 +67,10 @@ namespace Bots
         // in the last pull, or before the first one.
         void NoteHealerThreatLoss(std::string const& name);
 
+        // A pass check of the run failed (jvbastel/WOWAI#168, below): the
+        // run fails with the reason of the first one.
+        void NoteFailedCheck(std::string const& reason);
+
         // A boss kill is progress too.
         void NoteBossKill(std::uint32_t entry, std::int64_t nowMs);
         void NoteWipe();
@@ -88,6 +93,8 @@ namespace Bots
         std::vector<std::string> m_healerLosses; // In the last pull.
         // The reason of the first pull over the limit, or empty.
         std::string m_overLimit;
+        // The reason of the first failed check (NoteFailedCheck), or empty.
+        std::string m_failedCheck;
         std::set<std::uint32_t> m_killed;
         std::int64_t m_startMs;
         std::int64_t m_progressMs;
@@ -182,6 +189,79 @@ namespace Bots
     // The number of pulls of a run that fail (PullFailure). They do not fail
     // the run.
     std::size_t FailedPulls(std::vector<RunPull> const& pulls);
+}
+
+// jvbastel/WOWAI#168: two pass checks of the tank. The game layer feeds them
+// at each update of the fight; a failure goes to RunJudge::NoteFailedCheck.
+namespace Bots
+{
+    // Whom an enemy of the fight attacks.
+    enum class EnemyVictim
+    {
+        Healer,
+        Tank,
+        OtherMember,
+    };
+
+    // An enemy of the fight that attacks a group member, at one update.
+    struct FightEnemySeen
+    {
+        Guid enemy;
+        std::string name;
+        // Of an extra pack: of no pack of the pull (ExtraPackWatch.h), such
+        // as a pack that joined, or a pet of an enemy of one.
+        bool extraPack;
+        EnemyVictim victim;
+    };
+
+    // `expect healer_pickup_seconds <n>`: each extra-pack enemy that hits
+    // the healer attacks the tank within <n> s of its first hit on the
+    // healer. One that died is no failure; one that attacks another
+    // member at <n> s is.
+    class HealerPickupCheck
+    {
+    public:
+        explicit HealerPickupCheck(ScriptLimit limit);
+
+        // The living enemies that attack a member now.
+        void Observe(std::int64_t nowMs, std::vector<FightEnemySeen> const& enemies);
+        // The reason of the first failure, or empty.
+        std::string const& Failure() const { return m_failure; }
+
+    private:
+        ScriptLimit m_limit;
+        std::map<Guid, std::int64_t> m_firstHitMs; // Not on the tank since.
+        std::set<Guid> m_onTank;                   // Taken in time.
+        std::string m_failure;
+    };
+
+    // `expect threat_targets_without_cast <n>`: the tank turns to a threat
+    // target (an enemy other than the focus) and casts at least one ability
+    // on it before it turns to another unit. One that died needs no cast.
+    // A run with more than <n> such turns fails.
+    class ThreatTargetCastCheck
+    {
+    public:
+        explicit ThreatTargetCastCheck(ScriptLimit limit);
+
+        // The tank cast a spell on `target` (it went out).
+        void NoteCast(Guid target);
+        // The tank's target now (NoGuid: none, no turn), with its name, the
+        // focus, and the living enemies of the fight.
+        void Observe(Guid target, std::string const& name, Guid focus, std::set<Guid> const& living);
+        std::string const& Failure() const { return m_failure; }
+
+    private:
+        ScriptLimit m_limit;
+        Guid m_target = NoGuid;
+        std::string m_name;
+        bool m_threatTarget = false;
+        bool m_cast = false;
+        // Casts on another unit than the target, before the turn to it.
+        std::set<Guid> m_castsAhead;
+        std::vector<std::string> m_misses;
+        std::string m_failure;
+    };
 }
 
 #endif
