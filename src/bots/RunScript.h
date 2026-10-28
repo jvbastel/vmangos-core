@@ -50,6 +50,17 @@
 //   combat; the run fails after the seconds).
 // - `expect boss_dead <entry>`, `expect pack_dead <pack>`, `expect alive`
 //   (each group member lives). A failed expect ends the run as failed.
+// - `expect healer_threat_losses <n>`: a limit of the run, not a step. It
+//   holds from the start of the scenario, wherever the line is: the run
+//   fails when one pull has more than <n> threat losses on the healer
+//   (RunJudge.h, jvbastel/WOWAI#167). A scenario sets it at most once.
+// - `expect healer_pickup_seconds <n>`, `expect threat_targets_without_cast
+//   <n>`: limits of the run as well (RunJudge.h, jvbastel/WOWAI#168).
+// - `expect damage_chase_yards <yards>`: a limit of the run like the one
+//   above: the run fails when a damage bot chases more than <yards> from the
+//   tank (RunJudge.h, jvbastel/WOWAI#171).
+// - `expect extra_pack_threat_seconds <n>`: a limit of the run as well
+//   (RunJudge.h, jvbastel/WOWAI#172).
 // - `wait rested [<seconds>]`: each member lives, and no bot of the group
 //   eats or drinks any more; the run fails after the seconds.
 // - `fight <pack> [<seconds>]`: the test driver selects a living mob of the
@@ -61,6 +72,12 @@
 //   nearest to it to the last one before the pack (Route.h,
 //   WalkBackPoints), holds its place when it did so before, and the driver
 //   pulls again. Then the run fails.
+// - `join <pack> [<bot>]`: the living mobs of the pack attack a group member
+//   at once, as a call for help makes them: they come from where they
+//   stand, for example into a fight that a `command pull` started (a "name
+//   pull"). `<bot>` is the member they go for; with none, the living member
+//   nearest to the pack. The result lists the pack as an extra pack of the
+//   pull that the script brought, so it does not count against the tank.
 // - `release <seconds>` or `release never`: in a wipe, the test driver
 //   releases this long after the last member died (default 5 s), and the
 //   group revives at the dungeon entrance. `never`: nobody releases.
@@ -96,6 +113,7 @@ namespace Bots
         ExpectAlive,
         WaitRested,
         Fight,
+        Join,
         Release,
         Route,
         // Only the runner adds it, for a fight again: the walk of the group
@@ -110,6 +128,9 @@ namespace Bots
         std::string name;
         // The chat text of `command` and `whisper`.
         std::string text;
+        // The member that the pack of `join` goes for, or empty: the member
+        // nearest to the pack.
+        std::string victim;
         // The creature entry of `target <entry>` and `expect boss_dead`.
         std::uint32_t entry = 0;
         // The distance of `clear`, and the packs that stay.
@@ -130,11 +151,41 @@ namespace Bots
         std::string source;
     };
 
+    // A number that the run must not go over, from an `expect` line.
+    struct ScriptLimit
+    {
+        bool set = false;
+        std::uint32_t most = 0;
+        std::size_t line = 0; // The line in the file, for the reason of a failed run.
+    };
+
+    // The limits of a scenario. The judge checks them through the whole run
+    // (RunJudge.h).
+    struct ScriptLimits
+    {
+        // `expect healer_threat_losses <n>`: per pull.
+        ScriptLimit healerThreatLosses;
+        // jvbastel/WOWAI#168 (RunJudge.h): `expect healer_pickup_seconds
+        // <n>`: an extra-pack enemy on the healer is on the tank within <n>
+        // s of its first hit. `expect threat_targets_without_cast <n>`: the
+        // most threat targets that the tank turns to and casts nothing on.
+        ScriptLimit healerPickupSeconds;
+        ScriptLimit threatTargetsWithoutCast;
+        // `expect damage_chase_yards <yards>`: no damage bot chases farther
+        // from the tank (jvbastel/WOWAI#171).
+        ScriptLimit damageChaseYards;
+        // jvbastel/WOWAI#172: `expect extra_pack_threat_seconds <n>`: an
+        // extra-pack enemy that comes at the tank gets a Sunder Armor or
+        // Revenge from it within <n> s of reaching its melee reach.
+        ScriptLimit extraPackThreatSeconds;
+    };
+
     struct ScriptScenario
     {
         std::string name;
         std::size_t line = 0;
         std::vector<ScriptCommand> commands;
+        ScriptLimits limits;
     };
 
     struct RunScript

@@ -1,8 +1,13 @@
+#include "ClassModules.h"
 #include "DamageRules.h"
 #include "FakeBot.h"
 #include "GroupRules.h"
+#include "MageModule.h"
+#include "RogueModule.h"
 
 #include <gtest/gtest.h>
+
+#include <cstdio>
 
 using Bots::BotContext;
 using Bots::GroupCoordinator;
@@ -197,9 +202,9 @@ TEST(DamageTarget, FightsBackAnEnemyThatAttacksTheBot)
     EXPECT_EQ(bot.Target(), Wolf);
 }
 
-// A damage bot that stays or follows does not see the tank's fight start: it
-// joins when an enemy hits a group member (WOWAI#93).
-TEST(DamageTarget, AttacksAnEnemyThatHitsAGroupMember)
+// jvbastel/WOWAI#171: a damage bot does not peel an enemy off a member while
+// the tank lives: the tank picks it up, and the bot waits for the focus.
+TEST(DamageTarget, LeavesAnEnemyOnAGroupMemberToTheLivingTank)
 {
     DamageBot bot;
     Bots::Guid const Healer = 0x12;
@@ -209,7 +214,7 @@ TEST(DamageTarget, AttacksAnEnemyThatHitsAGroupMember)
     bot.group.SetTank(Tank);
     bot.fake.SetVictim(Wolf, Healer);
 
-    EXPECT_EQ(bot.Target(), Wolf);
+    EXPECT_EQ(bot.Target(), NoGuid);
 }
 
 // The tank died in its fight: its focus is gone, and its pack beats the
@@ -228,22 +233,7 @@ TEST(DamageTarget, AttacksAnEnemyOnAGroupMemberWhenTheTankIsDead)
     EXPECT_EQ(bot.Target(), Wolf);
 }
 
-TEST(DamageTarget, AttacksAnEnemyOnAGroupMemberWhileTheTankPulls)
-{
-    DamageBot bot;
-    Bots::Guid const Healer = 0x12;
-    bot.fake.SetHealth(Tank, 600, 600);
-    bot.fake.SetHealth(Healer, 300, 300);
-    bot.fake.SetGroupMembers({Tank, Healer});
-    bot.group.StartPull(Tank, Kobold);
-    bot.fake.SetVictim(Wolf, Healer);
-
-    EXPECT_EQ(bot.Target(), Wolf);
-}
-
-// A fleeing enemy keeps its victim: far from the tank and from the member,
-// it is out of the chase limit.
-TEST(DamageTarget, LeavesAnEnemyOnAGroupMemberOutsideTheChaseLimit)
+TEST(DamageTarget, LeavesAnEnemyOnAGroupMemberWhileTheTankPulls)
 {
     DamageBot bot;
     Bots::Guid const Healer = 0x12;
@@ -251,16 +241,39 @@ TEST(DamageTarget, LeavesAnEnemyOnAGroupMemberOutsideTheChaseLimit)
     bot.fake.SetHealth(Healer, 300, 300);
     bot.fake.SetGroupMembers({Tank, Healer});
     bot.group.SetTank(Tank);
-    bot.fake.SetDistanceBetween(Wolf, Tank, Bots::ChaseEnemyYards + 5.0f);
-    bot.fake.SetDistanceBetween(Wolf, Healer, Bots::ChaseEnemyYards + 5.0f);
+    bot.group.StartPull(Tank, Kobold);
     bot.fake.SetVictim(Wolf, Healer);
 
     EXPECT_EQ(bot.Target(), NoGuid);
 }
 
-// The bot waits for the taunt on the focus, but not on another enemy that
-// hits a member.
-TEST(DamageTarget, AttacksAnotherEnemyOnAMemberWhileItWaitsForTheTaunt)
+// jvbastel/WOWAI#171: the chase limit counts from the tank only. A focus
+// that the tank gave up on stays near the healer it hits, 30 yards from the
+// tank: the bot does not go out to it.
+TEST(DamageTarget, TheChaseLimitCountsFromTheTankOnly)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Healer, 300, 300);
+    bot.fake.SetGroupMembers({Tank, Healer});
+    bot.group.SetTank(Tank);
+    bot.group.SetFocusTarget(Wolf);
+    bot.group.GiveUpTaunt(Wolf);
+    bot.fake.SetVictim(Wolf, Healer);
+    bot.fake.SetDistanceBetween(Wolf, Tank, 30.0f);
+    bot.fake.SetDistanceBetween(Wolf, Healer, 3.0f);
+
+    EXPECT_EQ(bot.Target(), NoGuid);
+
+    bot.fake.SetDistanceBetween(Wolf, Tank, Bots::ChaseEnemyYards);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
+// The bot waits for the taunt on the focus, and leaves another enemy on a
+// member to the tank too (jvbastel/WOWAI#171).
+TEST(DamageTarget, LeavesAnotherEnemyOnAMemberWhileItWaitsForTheTaunt)
 {
     DamageBot bot;
     Bots::Guid const Healer = 0x12;
@@ -270,18 +283,15 @@ TEST(DamageTarget, AttacksAnotherEnemyOnAMemberWhileItWaitsForTheTaunt)
     bot.group.SetTank(Tank);
     bot.group.SetFocusTarget(Wolf);
     bot.fake.SetVictim(Wolf, Healer);
-
-    EXPECT_EQ(bot.Target(), NoGuid);
-
     bot.fake.SetVictim(Kobold, Healer);
 
-    EXPECT_EQ(bot.Target(), Kobold);
+    EXPECT_EQ(bot.Target(), NoGuid);
 }
 
-// A loose enemy on a member comes before the focus that the tank holds: no
-// bot attacked the second Earthborer on the healer while all hit the focus,
-// a lost mob (WOWAI#93, Ragefire Chasm pack 1).
-TEST(DamageTarget, ALooseEnemyOnAMemberComesBeforeTheFocus)
+// jvbastel/WOWAI#171: the focus that the tank holds comes before a loose
+// enemy on a member. Peeling it makes more loose enemies; the tank picks it
+// up.
+TEST(DamageTarget, TheFocusComesBeforeALooseEnemyOnAMember)
 {
     DamageBot bot;
     Bots::Guid const Healer = 0x12;
@@ -293,11 +303,13 @@ TEST(DamageTarget, ALooseEnemyOnAMemberComesBeforeTheFocus)
     bot.group.HoldPull(Tank);
     bot.fake.SetVictim(Kobold, Tank);
     bot.fake.SetVictim(Wolf, Healer);
+    bot.Target(NoGuid, 0);
 
-    EXPECT_EQ(bot.Target(), Wolf);
+    EXPECT_EQ(bot.Target(NoGuid, Bots::HoldContactMs), Kobold);
 }
 
-// Two loose enemies: the bot takes the one that no other member attacks, so
+// With no living tank, nobody picks up a loose enemy: the damage bots
+// spread over them (WOWAI#93). Two loose enemies: the bot takes the one that no other member attacks, so
 // that no enemy stays lost.
 TEST(DamageTarget, TakesTheLooseEnemyThatNoOtherMemberAttacks)
 {
@@ -305,7 +317,7 @@ TEST(DamageTarget, TakesTheLooseEnemyThatNoOtherMemberAttacks)
     Bots::Guid const Healer = 0x12;
     Bots::Guid const Mage = 0x14;
     Bots::Guid const Trogg = 0xF130000302000044;
-    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Tank, 0, 600);
     bot.fake.SetHealth(Healer, 300, 300);
     bot.fake.SetHealth(Mage, 300, 300);
     bot.fake.SetHealth(Trogg, 200, 200);
@@ -324,7 +336,7 @@ TEST(DamageTarget, KeepsTheLooseEnemyThatOnlyItAttacks)
     DamageBot bot;
     Bots::Guid const Healer = 0x12;
     Bots::Guid const Trogg = 0xF130000302000044;
-    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Tank, 0, 600);
     bot.fake.SetHealth(Healer, 300, 300);
     bot.fake.SetHealth(Trogg, 200, 200);
     bot.fake.SetGroupMembers({Tank, Healer});
@@ -347,7 +359,7 @@ TEST(DamageTarget, ALooseEnemyThatThePlayerAttacksIsStillLoose)
     Bots::Guid const Trogg = 0xF130000302000044;
     bot.fake.SetGroupMembers({Tank, Healer, Player, Mage});
     bot.fake.SetHealth(Mage, 300, 300);
-    bot.fake.SetHealth(Tank, 600, 600);
+    bot.fake.SetHealth(Tank, 0, 600);
     bot.fake.SetHealth(Healer, 300, 300);
     bot.fake.SetHealth(Player, 300, 300);
     bot.fake.SetHealth(Trogg, 200, 200);
@@ -376,7 +388,7 @@ TEST(DamageTarget, OfTwoBotsOnOneLooseEnemyTheLowerGuidKeepsIt)
     {
         bot->fake.SetGroupMembers({Tank, Healer, bot == &rogue ? Mage : Rogue});
         for (Bots::Guid unit : {Tank, Healer, Mage, Rogue, Wolf, Trogg})
-            bot->fake.SetHealth(unit, 300, 300);
+            bot->fake.SetHealth(unit, unit == Tank ? 0 : 300, 300);
         bot->group.SetTank(Tank);
         bot->fake.SetVictim(Wolf, Healer);
         bot->fake.SetVictim(Trogg, Healer);
@@ -449,8 +461,8 @@ TEST(DamageTarget, ACasterThatStaysAtRangeAfterTheTimeLimit)
 }
 
 // While the ranged-pulled focus runs to the tank, a loose enemy on another
-// member is still attacked at once.
-TEST(DamageTarget, AttacksALooseEnemyWhileTheRangedPulledFocusRunsToTheTank)
+// member is left to the tank too (jvbastel/WOWAI#171).
+TEST(DamageTarget, LeavesALooseEnemyWhileTheRangedPulledFocusRunsToTheTank)
 {
     DamageBot bot;
     Bots::Guid const Healer = 0x12;
@@ -464,5 +476,195 @@ TEST(DamageTarget, AttacksALooseEnemyWhileTheRangedPulledFocusRunsToTheTank)
     bot.fake.SetDistanceBetween(Kobold, Tank, 20.0f);
     bot.fake.SetVictim(Wolf, Healer);
 
-    EXPECT_EQ(bot.Target(NoGuid, 2000), Wolf);
+    EXPECT_EQ(bot.Target(NoGuid, 2000), NoGuid);
+}
+
+// jvbastel/WOWAI#171: a melee bot at the tank may hit its own attacker: the
+// enemy is where the tank reaches it. Away from the tank, or with a focus to
+// hit, it leaves the enemy to the tank.
+TEST(DamageTarget, AMeleeBotAtTheTankHitsItsOwnAttacker)
+{
+    DamageBot bot;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.group.StartPull(Tank, Kobold);
+    bot.fake.SetVictim(Wolf, Rogue);
+    BotContext context{bot.fake, bot.fake, bot.group, Bots::CommandState::Follow, 0x1};
+
+    bot.fake.SetDistance(Tank, Bots::AtTankYards + 2.0f);
+    EXPECT_EQ(Bots::PickMeleeDamageTarget(context), NoGuid);
+
+    bot.fake.SetDistance(Tank, Bots::AtTankYards);
+    EXPECT_EQ(Bots::PickMeleeDamageTarget(context), Wolf);
+    // Not a ranged bot: it walks to the tank and waits for the focus.
+    EXPECT_EQ(Bots::PickDamageTarget(context), NoGuid);
+}
+
+TEST(DamageTarget, AMeleeBotAtTheTankHitsTheFocusBeforeItsOwnAttacker)
+{
+    DamageBot bot;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.HoldThePull();
+    bot.fake.SetVictim(Wolf, Rogue);
+    bot.fake.SetDistance(Tank, 3.0f);
+    BotContext context{bot.fake, bot.fake, bot.group, Bots::CommandState::Follow, 0x1};
+    context.nowMs = Bots::HoldContactMs;
+
+    EXPECT_EQ(Bots::PickMeleeDamageTarget(context), Kobold);
+}
+
+// jvbastel/WOWAI#171: a damage bot that an enemy attacks walks to the tank,
+// so that the tank can take the enemy off it, and keeps hitting the focus
+// once there. Through the whole stack of a ranged and a melee bot.
+namespace
+{
+    std::string Deed(char const* verb, Bots::Guid unit)
+    {
+        char text[64];
+        std::snprintf(text, sizeof(text), "%s 0x%016llx", verb, static_cast<unsigned long long>(unit));
+        return text;
+    }
+
+    std::string CastOn(Bots::SpellId spell, Bots::Guid target)
+    {
+        char text[64];
+        std::snprintf(text, sizeof(text), "cast %u on 0x%016llx", spell, static_cast<unsigned long long>(target));
+        return text;
+    }
+
+    // A damage bot in a fight: the tank holds the kobold, the focus, and
+    // the wolf of an extra pack attacks the bot.
+    struct AttackedBot
+    {
+        Bots::Guid self;
+        FakeBot fake;
+        GroupCoordinator group;
+        Bots::StrategyStack stack;
+
+        AttackedBot(Bots::Guid guid, Bots::BotClass botClass, Bots::BotRole role)
+            : self(guid), fake(guid), stack(Bots::MakeStrategyStack(botClass, role))
+        {
+            fake.SetHealth(self, 400, 400);
+            fake.SetPower(self, 600, 600);
+            fake.SetHealth(Tank, 600, 600);
+            fake.SetHealth(Kobold, 200, 200);
+            fake.SetHealth(Wolf, 200, 200);
+            fake.SetGroupMembers({Tank, self});
+            fake.SetInCombat(self);
+            group.SetTank(Tank);
+            group.StartPull(Tank, Kobold);
+            Bots::Tests::HoldThreat(group, Tank);
+            fake.SetVictim(Kobold, Tank);
+            fake.SetDistanceBetween(Kobold, Tank, 3.0f);
+            fake.SetVictim(Wolf, self);
+            fake.SetDistance(Wolf, 2.0f);
+        }
+
+        std::vector<std::string> Think()
+        {
+            fake.ClearDeeds();
+            BotContext const context{fake, fake, group, Bots::CommandState::None, NoGuid};
+            stack.Think(context);
+            return fake.Deeds();
+        }
+    };
+
+    struct AttackedMage : AttackedBot
+    {
+        AttackedMage() : AttackedBot(0x21, Bots::BotClass::Mage, Bots::BotRole::Ranged)
+        {
+            fake.SetKnownSpell(Bots::Mage::Frostbolt);
+            fake.SetDistance(Kobold, 20.0f);
+        }
+    };
+}
+
+TEST(DamageBotAttacked, ARangedBotWalksToTheTank)
+{
+    AttackedMage mage;
+    mage.fake.SetDistance(Tank, 20.0f);
+
+    EXPECT_EQ(mage.Think(), (std::vector<std::string>{Deed("follow", Tank)}));
+}
+
+TEST(DamageBotAttacked, ARangedBotAtTheTankKeepsHittingTheFocus)
+{
+    AttackedMage mage;
+    mage.fake.SetDistance(Tank, Bots::AtTankYards);
+
+    EXPECT_EQ(mage.Think(), (std::vector<std::string>{CastOn(Bots::Mage::Frostbolt, Kobold)}));
+}
+
+TEST(DamageBotAttacked, ARangedBotNotAttackedStaysAtItsPlace)
+{
+    AttackedMage mage;
+    mage.fake.SetDistance(Tank, 20.0f);
+    mage.fake.SetVictim(Wolf, NoGuid);
+
+    EXPECT_EQ(mage.Think(), (std::vector<std::string>{CastOn(Bots::Mage::Frostbolt, Kobold)}));
+}
+
+// With no living tank, nobody takes the enemy off the bot: it fights back
+// where it stands.
+TEST(DamageBotAttacked, NoWalkWhenTheTankIsDead)
+{
+    AttackedMage mage;
+    mage.fake.SetDistance(Tank, 20.0f);
+    mage.fake.SetHealth(Tank, 0, 600);
+
+    std::vector<std::string> const deeds = mage.Think();
+
+    ASSERT_EQ(deeds.size(), 1u);
+    EXPECT_NE(deeds[0], Deed("follow", Tank));
+}
+
+TEST(DamageBotAttacked, AMeleeBotAwayFromTheTankWalksToIt)
+{
+    AttackedBot rogue(Rogue, Bots::BotClass::Rogue, Bots::BotRole::Melee);
+    rogue.fake.SetDistance(Tank, 20.0f);
+
+    EXPECT_EQ(rogue.Think(), (std::vector<std::string>{Deed("follow", Tank)}));
+}
+
+// Final review of jvbastel/WOWAI#165, item 2: since #173 the pull stays held
+// after the focus dies. The pull's exception (the damage bots hit the pulled
+// target on a member) is for the pull target only: a next focus on the healer
+// waits for the tank's taunt, or for the tank to give it up.
+TEST(DamageTarget, ANextFocusInAHeldPullWaitsForItsTaunt)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.HoldThePull();
+    bot.fake.SetHealth(Kobold, 0, 200);
+    bot.fake.SetVictim(Kobold, NoGuid);
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Healer);
+    bot.fake.SetDistanceBetween(Wolf, Tank, 3.0f);
+    std::int64_t const later = Bots::HoldLimitMs + 2000;
+
+    EXPECT_EQ(bot.Target(NoGuid, later), NoGuid);
+
+    bot.fake.SetVictim(Wolf, Tank);
+
+    EXPECT_EQ(bot.Target(NoGuid, later), Wolf);
+}
+
+TEST(DamageTarget, ANextFocusInAHeldPullWhenNoTauntComes)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.HoldThePull();
+    bot.fake.SetHealth(Kobold, 0, 200);
+    bot.fake.SetVictim(Kobold, NoGuid);
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Healer);
+    bot.fake.SetDistanceBetween(Wolf, Tank, 3.0f);
+    bot.group.GiveUpTaunt(Wolf);
+
+    EXPECT_EQ(bot.Target(NoGuid, Bots::HoldLimitMs + 2000), Wolf);
 }

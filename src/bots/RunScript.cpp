@@ -3,6 +3,7 @@
 #include "DataTokenizer.h"
 #include "Route.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
@@ -64,12 +65,16 @@ namespace Bots
                 return "use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]";
             if (keyword == "fight")
                 return "use: fight <pack> [<seconds>]";
+            if (keyword == "join")
+                return "use: join <pack> [<bot>]";
             if (keyword == "release")
                 return "use: release <seconds> | release never";
             if (keyword == "route")
                 return "use: route [noquests]";
             if (keyword == "expect")
-                return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive";
+                return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
+                       "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n> | expect damage_chase_yards <yards> | "
+                       "expect extra_pack_threat_seconds <n>";
             if (keyword == "script")
                 return "use: script <name> <route>";
             if (keyword == "driver")
@@ -164,6 +169,16 @@ namespace Bots
                 c.name = w[1];
                 return n == 2 || (ReadNumber(w[2], c.seconds) && c.seconds > 0);
             }
+            if (keyword == "join")
+            {
+                c.kind = ScriptCommandKind::Join;
+                if (n < 2 || n > 3)
+                    return false;
+                c.name = w[1];
+                if (n == 3)
+                    c.victim = w[2];
+                return true;
+            }
             if (keyword == "release")
             {
                 c.kind = ScriptCommandKind::Release;
@@ -205,7 +220,7 @@ namespace Bots
         bool IsCommandKeyword(std::string const& word)
         {
             for (char const* keyword : {"teleport", "move", "command", "whisper", "target", "clear", "refill", "wait", "expect",
-                     "fight", "release", "route"})
+                     "fight", "join", "release", "route"})
                 if (word == keyword)
                     return true;
             return false;
@@ -214,6 +229,49 @@ namespace Bots
         RunScriptResult Fail(std::size_t line, std::string const& message)
         {
             return {false, RunScript(), "line " + std::to_string(line) + ": " + message};
+        }
+
+        // The limit of ScriptLimits of each `expect <name> <n>` line.
+        struct LimitName
+        {
+            char const* name;
+            ScriptLimit ScriptLimits::*limit;
+        };
+        LimitName const LimitNames[] = {
+            {"healer_threat_losses", &ScriptLimits::healerThreatLosses},
+            {"healer_pickup_seconds", &ScriptLimits::healerPickupSeconds},
+            {"threat_targets_without_cast", &ScriptLimits::threatTargetsWithoutCast},
+            {"damage_chase_yards", &ScriptLimits::damageChaseYards},
+            {"extra_pack_threat_seconds", &ScriptLimits::extraPackThreatSeconds},
+        };
+
+        // The limit named `name`, or null.
+        LimitName const* FindLimitName(std::string const& name)
+        {
+            for (LimitName const& limit : LimitNames)
+                if (name == limit.name)
+                    return &limit;
+            return nullptr;
+        }
+
+        // `expect <name> <n>`: a limit of the scenario, not a command.
+        bool IsLimitLine(std::vector<std::string> const& w)
+        {
+            return w[0] == "expect" && w.size() >= 2 && FindLimitName(w[1]);
+        }
+
+        // Empty when the line sets the limit, else the error.
+        std::string ReadLimit(std::vector<std::string> const& w, std::size_t line, ScriptScenario& scenario)
+        {
+            ScriptLimit& limit = scenario.limits.*(FindLimitName(w[1])->limit);
+            std::uint32_t most = 0;
+            if (w.size() != 3 || !ReadNumber(w[2], most))
+                return Usage(w[0]);
+            if (limit.set)
+                return "the scenario " + scenario.name + " sets " + w[1] + " on line " + std::to_string(limit.line) +
+                    " already";
+            limit = {true, most, line};
+            return "";
         }
     }
 
@@ -277,6 +335,13 @@ namespace Bots
             {
                 if (script.scenarios.empty())
                     return Fail(line.number, "a command needs a scenario line above it");
+                if (IsLimitLine(w))
+                {
+                    std::string const error = ReadLimit(w, line.number, script.scenarios.back());
+                    if (!error.empty())
+                        return Fail(line.number, error);
+                    continue;
+                }
                 ScriptCommand command;
                 command.line = line.number;
                 command.source = Join(w, 0);
@@ -310,11 +375,14 @@ namespace Bots
                 std::string const at = "line " + std::to_string(c.line) + ": the route " + route.name;
                 bool const point = c.kind == ScriptCommandKind::Teleport || c.kind == ScriptCommandKind::Move;
                 bool const pack = !c.name.empty() && (c.kind == ScriptCommandKind::Target ||
-                    c.kind == ScriptCommandKind::ExpectPackDead || c.kind == ScriptCommandKind::Fight);
+                    c.kind == ScriptCommandKind::ExpectPackDead || c.kind == ScriptCommandKind::Fight ||
+                    c.kind == ScriptCommandKind::Join);
                 if (point && !FindPoint(route, c.name))
                     return at + " has no point named " + c.name;
                 if (pack && !FindPack(route, c.name))
                     return at + " has no pack named " + c.name;
+                if (!c.victim.empty() && std::find(script.group.begin(), script.group.end(), c.victim) == script.group.end())
+                    return "line " + std::to_string(c.line) + ": " + c.victim + " is not in the group";
                 for (std::string const& kept : c.packs)
                     if (!FindPack(route, kept))
                         return at + " has no pack named " + kept;

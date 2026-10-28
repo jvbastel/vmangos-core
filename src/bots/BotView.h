@@ -82,11 +82,21 @@ namespace Bots
         virtual CastInfo GetCast(Guid unit) const = 0;
 
         // The power of unit `unit`. {0, 0} for a unit that the bot cannot see.
+        // Rage in rage points (0-100), as the player sees it.
         virtual Power GetPower(Guid unit) const = 0;
         // The kind of power of unit `unit`: mana, rage, or energy. A warrior
         // and a druid in bear form have rage. None for a unit that the bot
         // cannot see.
         virtual PowerKind GetPowerKind(Guid unit) const = 0;
+        // True when unit `unit` is a player of a class that wears cloth: a
+        // mage, a warlock or a priest (jvbastel/WOWAI#168, the order in
+        // which the tank takes loose enemies). False for a unit that the
+        // bot cannot see.
+        virtual bool WearsCloth(Guid unit) const = 0;
+        // True when unit `unit` cannot move: it is rooted or stunned
+        // (jvbastel/WOWAI#169: the tank goes to such a member to take its
+        // attacker). False for a unit that the bot cannot see.
+        virtual bool IsRootedOrStunned(Guid unit) const = 0;
         // The distance in yards from the bot to unit `unit`. A large number
         // for a unit that the bot cannot see.
         virtual float GetDistance(Guid unit) const = 0;

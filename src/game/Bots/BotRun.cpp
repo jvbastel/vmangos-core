@@ -43,6 +43,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <ctime>
 #include <fstream>
 #include <list>
@@ -331,7 +332,8 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_result.clear();
     m_bossKills.clear();
     m_threat = Bots::ThreatWatch();
-    m_lostMobs = Bots::LostMobWatch(sBotMgr.GetSettings().lostMobMs);
+    m_realHits = Bots::RealHitGate();
+    m_lostMobs = Bots::RealHitLostMobWatch(sBotMgr.GetSettings().lostMobMs);
     m_threatNames.clear();
     m_lostMobNames.clear();
     m_interrupts = Bots::InterruptWatch();
@@ -346,7 +348,10 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_move = Bots::ScriptedMove();
     EndMove();
     m_aborted = false;
-    m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0));
+    m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0, commands.limits));
+    m_pickupCheck = Bots::HealerPickupCheck(commands.limits.healerPickupSeconds);
+    m_castCheck = Bots::ThreatTargetCastCheck(commands.limits.threatTargetsWithoutCast);
+    m_threatCheck = Bots::ExtraPackThreatCheck(commands.limits.extraPackThreatSeconds);
     // A full run keeps its whole trace, for the walked path on the dungeon
     // map (jvbastel/WOWAI#152); another run its last 3 minutes.
     m_trace = Bots::RunTrace(fullRun ? Bots::TraceKeepWholeRun : Bots::TraceKeepMs);
@@ -371,6 +376,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_pullFled.clear();
     m_pullChoices = Bots::PullChoices();
     m_joinCause.clear();
+    m_scriptJoins.clear();
     m_pullJudged = false;
     m_driverSeen = false;
     ++m_number;
@@ -876,12 +882,24 @@ bool BotRun::DriverArrived(Player const* driver) const
     return Bots::Distance2d(at, {m_moveX, m_moveY, 0.0f}) <= m_moveRadius + ArriveSlackYards;
 }
 
+std::set<Bots::Guid> BotRun::HealerGuids()
+{
+    std::set<Bots::Guid> healers;
+    for (Player* member : Members())
+        if (member && sBotMgr.IsHealerBot(member))
+            healers.insert(member->GetObjectGuid().GetRawValue());
+    return healers;
+}
+
 void BotRun::WatchThreat(int64 nowMs)
 {
     std::vector<Bots::EnemyOnMember> hitsOnNonTanks, hits;
     std::vector<Bots::MemberAttacks> attacks;
     Bots::Guid holder = Bots::NoGuid;
     Player const* driver = Driver();
+    // jvbastel/WOWAI#174: the driver has no bot AI to note its real hits.
+    if (driver)
+        m_realHits.NoteNoHitNotes(driver->GetObjectGuid().GetRawValue());
     for (Player* member : Members())
     {
         if (!IsLivingMember(member))
@@ -911,18 +929,21 @@ void BotRun::WatchThreat(int64 nowMs)
         return names.first + " on " + names.second;
     };
     std::size_t const known = m_threat.Losses().size();
-    m_threat.Update(hitsOnNonTanks, nowMs, name);
+    // jvbastel/WOWAI#174: a hit on the healer counts from its first real hit.
+    m_threat.Update(m_realHits.Gate(hitsOnNonTanks, HealerGuids()), nowMs, name);
     for (std::size_t i = known; i < m_threat.Losses().size(); ++i)
     {
         Bots::ThreatLoss const& loss = m_threat.Losses()[i];
         m_threatNames.push_back(HitNames(loss.enemy, loss.member));
+        if (Bots::Contains(m_record.healers, m_threatNames.back().second))
+            m_judge->NoteHealerThreatLoss(loss.name);
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: threat loss: %s for more than %u s", m_number,
             loss.name.c_str(), uint32(Bots::ThreatLossMs / 1000));
         m_trace.Add(nowMs, "threat loss: " + loss.name);
     }
 
     std::size_t const lostBefore = m_lostMobs.LostMobs().size();
-    m_lostMobs.Update(hits, Bots::AttackedEnemies(attacks), nowMs, holder, name);
+    m_lostMobs.Update(hits, m_realHits, Bots::AttackedEnemies(attacks), nowMs, holder, name);
     for (std::size_t i = m_lostMobNames.size(); i < m_lostMobs.LostMobs().size(); ++i)
         m_lostMobNames.push_back(HitNames(m_lostMobs.LostMobs()[i].enemy, m_lostMobs.LostMobs()[i].member));
     if (m_lostMobs.LostMobs().size() > lostBefore)
@@ -995,6 +1016,8 @@ bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
             return ExpectAlive(detail);
         case Bots::ScriptCommandKind::Fight:
             return Fight(command, detail);
+        case Bots::ScriptCommandKind::Join:
+            return Join(command, detail);
         case Bots::ScriptCommandKind::Release:
             m_releaseNever = command.never;
             m_releaseMs = int64(command.seconds) * 1000;
@@ -1437,6 +1460,7 @@ void BotRun::WatchRun(int64 nowMs)
     TraceMembers(nowMs);
     WatchHold(nowMs);
     WatchFight(nowMs);
+    WatchTank(nowMs);
 
     Bots::RunVerdict const verdict = m_judge->Judge(nowMs);
     if (verdict.kind == Bots::RunVerdictKind::Passed)
@@ -1581,6 +1605,56 @@ bool BotRun::Fight(Bots::ScriptCommand const& command, std::string& detail)
     return Say(CHAT_MSG_PARTY, nullptr, "pull");
 }
 
+bool BotRun::Join(Bots::ScriptCommand const& command, std::string& detail)
+{
+    Player* driver = Driver();
+    std::vector<Creature*> mobs;
+    for (Bots::RouteMob const& mob : Bots::FindPack(m_route, command.name)->mobs)
+        if (Creature* creature = SpawnOf(driver, mob))
+            if (creature->IsAlive() && !creature->IsInCombat() && creature->AI())
+                mobs.push_back(creature);
+    if (mobs.empty())
+    {
+        detail = "no living mob of " + command.name + " is out of combat";
+        return false;
+    }
+    Player* victim = nullptr;
+    if (!command.victim.empty())
+    {
+        victim = FindByName(command.victim);
+        if (!IsLivingMember(victim) || victim->GetMap() != mobs.front()->GetMap())
+        {
+            detail = command.victim + " is no living member on the map of " + command.name;
+            return false;
+        }
+    }
+    else
+        for (Player* member : Members())
+            if (member != driver && IsLivingMember(member) && member->GetMap() == mobs.front()->GetMap() &&
+                (!victim || mobs.front()->GetDistance(member) < mobs.front()->GetDistance(victim)))
+                victim = member;
+    if (!victim)
+    {
+        detail = "no living member on the map of " + command.name;
+        return false;
+    }
+    // As the call for help of the core (AssistDelayEvent): each mob attacks
+    // the victim from where it stands, and calls for no more help itself.
+    float const yards = mobs.front()->GetDistance(victim);
+    bool const inCombat = Facts().groupInCombat;
+    for (Creature* creature : mobs)
+    {
+        creature->SetNoCallAssistance(true);
+        creature->AI()->AttackStart(victim);
+    }
+    m_scriptJoins.insert(command.name);
+    char text[160];
+    std::snprintf(text, sizeof(text), "%s (%u mobs) joins on %s from %.1f yd%s", command.name.c_str(), uint32(mobs.size()),
+        victim->GetName(), yards, inCombat ? "" : ", with the group out of combat");
+    detail = text;
+    return true;
+}
+
 void BotRun::RecordPull(Bots::ScriptCommand const& command)
 {
     Player const* driver = Driver();
@@ -1593,6 +1667,7 @@ void BotRun::RecordPull(Bots::ScriptCommand const& command)
     Creature const* creature = target ? target->ToCreature() : nullptr;
     std::string const pullPack = !pack.empty() || !creature ? pack : m_extraPacks.PackOf(creature->GetDBTableGUIDLow());
     m_extraPacks.Start(pullPack);
+    m_judge->NotePull(!pullPack.empty() ? pullPack : m_record.pulls.back().target);
     MarkPullPacks(target, pullPack);
     // A new pull ends the fight of the last one.
     if (m_fight.Running())
@@ -1635,6 +1710,76 @@ void BotRun::WatchFight(int64 nowMs)
     WatchExtraPacks(nowMs);
     if (m_fight.Observe(nowMs, Facts().groupInCombat, enemies, seen))
         EndFight(nowMs);
+}
+
+void BotRun::WatchTank(int64 nowMs)
+{
+    Player* driver = Driver();
+    if (!InWorldAndStill(driver))
+        return;
+    Map* map = driver->GetMap();
+    Player* tank = nullptr;
+    for (Player* member : Members())
+    {
+        Bots::BotRole role;
+        if (IsLivingMember(member) && sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank)
+            tank = member;
+    }
+
+    // The living enemies of the fight (WatchEnemies), whom they attack, and
+    // whether they are of an extra pack: a pet by the spawn of its owner.
+    std::vector<Bots::FightEnemySeen> seen;
+    std::set<Bots::Guid> living;
+    for (auto const& pair : m_enemyHealth)
+    {
+        Creature* enemy = map->GetCreature(pair.first);
+        if (!enemy || !enemy->IsAlive())
+            continue;
+        living.insert(enemy->GetObjectGuid().GetRawValue());
+        Player* victim = enemy->GetVictim() ? enemy->GetVictim()->ToPlayer() : nullptr;
+        if (!victim || !victim->GetGroup() || victim->GetGroup()->GetId() != m_groupId)
+            continue;
+        Creature const* spawn = enemy;
+        if (!enemy->GetDBTableGUIDLow() && !enemy->GetCharmerOrOwnerGuid().IsEmpty())
+            if (Creature const* owner = map->GetCreature(enemy->GetCharmerOrOwnerGuid()))
+                spawn = owner;
+        Bots::EnemyVictim const whom = victim == tank ? Bots::EnemyVictim::Tank
+            : sBotMgr.IsHealerBot(victim)             ? Bots::EnemyVictim::Healer
+                                                      : Bots::EnemyVictim::OtherMember;
+        RememberName(enemy);
+        seen.push_back({enemy->GetObjectGuid().GetRawValue(), NameOf(enemy->GetObjectGuid()),
+            m_extraPacks.IsExtraPackEnemy(spawn->GetDBTableGUIDLow()), whom,
+            victim == tank && enemy->CanReachWithMeleeAutoAttack(tank),
+            m_realHits.HasHit(enemy->GetObjectGuid().GetRawValue(), victim->GetObjectGuid().GetRawValue())});
+    }
+    m_pickupCheck.Observe(nowMs, seen);
+    if (!m_pickupCheck.Failure().empty())
+        m_judge->NoteFailedCheck(m_pickupCheck.Failure());
+    // jvbastel/WOWAI#172: the tank's threat on an extra-pack enemy at it.
+    m_threatCheck.Observe(nowMs, seen);
+    if (!m_threatCheck.Failure().empty())
+        m_judge->NoteFailedCheck(m_threatCheck.Failure());
+
+    // The tank's target in the fight: its selection, else its victim, when
+    // that is a living enemy of the fight. The focus of its coordinator, or
+    // the pull target before the focus.
+    if (!tank || !m_fight.Running())
+        return;
+    Unit* target = map->GetUnit(tank->GetTargetGuid());
+    if (!target || !living.count(target->GetObjectGuid().GetRawValue()))
+        target = tank->GetVictim();
+    Bots::Guid const targetGuid =
+        target && living.count(target->GetObjectGuid().GetRawValue()) ? target->GetObjectGuid().GetRawValue() : Bots::NoGuid;
+    std::shared_ptr<Bots::GroupCoordinator> const group = CoordinatorOf(tank);
+    Bots::Guid focus = group ? group->GetFocusTarget() : Bots::NoGuid;
+    if (focus == Bots::NoGuid && group)
+        focus = group->GetPull().target;
+    if (target)
+        RememberName(target);
+    m_castCheck.Observe(targetGuid, targetGuid == Bots::NoGuid ? std::string() : NameOf(target->GetObjectGuid()), focus,
+        living);
+    if (!m_castCheck.Failure().empty())
+        m_judge->NoteFailedCheck(m_castCheck.Failure());
 }
 
 void BotRun::WatchExtraPacks(int64 nowMs)
@@ -1723,6 +1868,7 @@ void BotRun::MarkPullPacks(Unit const* target, std::string const& pullPack)
 Bots::ExtraPackCause BotRun::CauseOf(std::string const& pack) const
 {
     Bots::ExtraPackCause cause;
+    cause.scripted = m_scriptJoins.count(pack) > 0;
     Player const* driver = Driver();
     if (!driver)
         return cause;
@@ -1903,6 +2049,11 @@ void BotRun::WatchCombat(int64 nowMs)
         RememberName(target);
         float const yards = member->GetDistance3dToCenter(tank);
         chases.push_back({member->GetObjectGuid().GetRawValue(), target->GetObjectGuid().GetRawValue(), yards});
+        // jvbastel/WOWAI#171: the judge fails the run on a damage bot that
+        // chases beyond the scenario's limit.
+        Bots::BotRole role;
+        if (sBotMgr.BotRoleOf(member, role))
+            m_judge->NoteChase(member->GetName(), role, NameOf(target->GetObjectGuid()), yards, nowMs);
     }
     std::size_t const known = m_chases.Chases().size();
     m_chases.Update(chases, nowMs);
@@ -1945,6 +2096,23 @@ void BotRun::TakeCombatNotes(int64 nowMs)
                         + NameOf(note.enemy) + " " + std::to_string(note.spell));
                 break;
             }
+            case RunCombatNote::Kind::Cast:
+            {
+                Bots::BotRole role;
+                if (!sBotMgr.BotRoleOf(member, role) || role != Bots::BotRole::Tank)
+                    break;
+                m_castCheck.NoteCast(enemy);
+                m_threatCheck.NoteCast(enemy, sSpellMgr.GetFirstSpellInChain(note.spell));
+                // An instant cast is never a current cast (TraceMembers): the
+                // trace shows the tank's casts from here.
+                if (enemy != who)
+                    m_trace.Add(nowMs, std::string(member->GetName()) + " casts " + std::to_string(note.spell) + " on " +
+                        NameOf(note.enemy));
+                break;
+            }
+            case RunCombatNote::Kind::Hit:
+                m_realHits.NoteRealHit(enemy, who);
+                break;
             case RunCombatNote::Kind::FireNovaHit:
             {
                 uint32 const fight = Bots::FightNumber(m_record.pulls);

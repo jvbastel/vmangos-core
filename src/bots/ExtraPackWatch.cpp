@@ -53,6 +53,12 @@ namespace Bots
         return it == m_packOf.end() ? std::string() : it->second;
     }
 
+    bool ExtraPackWatch::IsExtraPackEnemy(std::uint32_t spawnGuid) const
+    {
+        std::string const pack = PackOf(spawnGuid);
+        return !pack.empty() && pack != m_pack;
+    }
+
     std::string ExtraPackWarnLine(std::uint32_t packs)
     {
         if (packs == 0)

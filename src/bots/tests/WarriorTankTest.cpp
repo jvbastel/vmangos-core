@@ -670,11 +670,13 @@ namespace
 
 // In taunt range, the taunt cannot go out (it was resisted and waits for
 // its cooldown): the tank tells the damage bots that no taunt comes, so
-// they attack the focus (WOWAI#93 review).
+// they attack the focus (WOWAI#93 review). Taunt has the melee range
+// (jvbastel/WOWAI#174).
 TEST(WarriorTank, TellsTheGroupWhenTheTauntCannotCome)
 {
     FocusOnTheHealer tank;
     tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetDistance(Wolf, 3.0f);
 
     tank.Think();
 
@@ -691,11 +693,13 @@ TEST(WarriorTank, ATankWithoutTauntTellsTheGroupToo)
     EXPECT_TRUE(tank.group.IsTauntGivenUp(Wolf));
 }
 
+// Final review of jvbastel/WOWAI#165, item 3: out of the melee range of
+// Taunt (15 yards), the failed cast is no reason to give the taunt up. The
+// healer brings the focus to the tank.
 TEST(WarriorTank, AFocusOutOfTauntRangeStillGetsItsTaunt)
 {
     FocusOnTheHealer tank;
     tank.fake.SetCannotCast(Warrior::Taunt);
-    tank.fake.SetDistance(Wolf, 35.0f);
 
     tank.Think();
 
@@ -864,21 +868,33 @@ TEST(WarriorTank, TakesTheEnemyOnAMemberAsFocusWhenTheFocusDies)
     tank.fake.SetVictim(Wolf, Healer);
     tank.fake.SetHealth(Kobold, 0, 200);
     tank.fake.SetVictim(Kobold, NoGuid);
+    // The kobold reached the tank long ago: the tank holds its pull.
+    tank.group.NoteFocusContact(0);
 
     tank.Think();
     tank.Think();
 
+    // jvbastel/WOWAI#173: no enemy attacks the tank, so the next focus is
+    // the enemy on the member, and the pull stays on.
     EXPECT_EQ(tank.group.GetFocusTarget(), Wolf);
-    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::None);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
 
     // A damage bot of the group, attacked by nothing, follows the tank.
+    // Final review of #165 (item 2): the next focus is no pull target, so
+    // the bot waits for the tank's taunt, then attacks it.
     Bots::Guid const Rogue = 0x13;
     FakeBot rogue{Rogue};
     rogue.SetGroupMembers({Tank, Healer});
     rogue.SetHealth(Rogue, 400, 400);
+    rogue.SetHealth(Tank, 600, 600);
     rogue.SetHealth(Wolf, 300, 300);
     rogue.SetVictim(Wolf, Healer);
-    BotContext const context{rogue, rogue, tank.group, Bots::CommandState::Follow, 0x1};
+    tank.group.SetTank(Tank);
+    BotContext context{rogue, rogue, tank.group, Bots::CommandState::Follow, 0x1};
+    // Past the hold of the held pull (HoldLimitMs after the engage at 0).
+    context.nowMs = Bots::HoldLimitMs + 2000;
+    EXPECT_EQ(Bots::PickDamageTarget(context), NoGuid);
+    rogue.SetVictim(Wolf, Tank);
     EXPECT_EQ(Bots::PickDamageTarget(context), Wolf);
 }
 
@@ -1848,7 +1864,7 @@ TEST(WarriorTank, ANewFightStartsWithANewVisit)
     tank.Think();
     ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
     tank.fake.SetHealth(Kobold, 0, 200);
-    ASSERT_EQ(tank.Think(), "end the fight");
+    ASSERT_EQ(tank.Think(), "the focus dies");
 
     tank.group.SetFocusTarget(Lynx);
     tank.fake.SetVictim(Tank, Lynx);
@@ -1858,7 +1874,7 @@ TEST(WarriorTank, ANewFightStartsWithANewVisit)
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
 }
 
-// A fight can end on other paths than "end the fight" (a wipe, the Stop
+// A fight can end on other paths than "the focus dies" (a wipe, the Stop
 // command, the tank's death): a new focus starts with a new visit too.
 TEST(WarriorTank, ANewFocusStartsWithANewVisit)
 {
@@ -1919,27 +1935,26 @@ namespace
         BatOnTheFarHealer()
         {
             fake.SetSpellRange(Warrior::Taunt, 20.0f);
+            // Melee reach (jvbastel/WOWAI#168: the abilities on the loose
+            // enemy).
+            fake.SetSpellRange(Warrior::SunderArmor, 5.0f);
+            fake.SetSpellRange(Warrior::Revenge, 5.0f);
             fake.SetVictim(Bat, Healer);
             fake.SetDistance(Bat, 28.0f);
         }
     };
 }
 
-TEST(WarriorTank, GoesToALooseEnemyOnTheHealerOutOfTauntRangeAndAttacksIt)
-{
-    BatOnTheFarHealer tank;
-
-    tank.Think();
-
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
-}
-
 // A second add hits a member while Taunt waits for its cooldown (it went out
-// on the first add).
-TEST(WarriorTank, AttacksASecondAddOnAMemberWhenTauntIsOnItsCooldown)
+// on the first add). jvbastel/WOWAI#169: the member is stunned, so the tank
+// goes to it.
+TEST(WarriorTank, AttacksASecondAddOnAStunnedMemberWhenTauntIsOnItsCooldown)
 {
     GroupInFight tank;
+    tank.fake.SetRootedOrStunned(Rogue);
     tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetSpellRange(Warrior::SunderArmor, 5.0f);
+    tank.fake.SetSpellRange(Warrior::Revenge, 5.0f);
     tank.fake.SetVictim(Wolf, Tank);
     tank.fake.SetVictim(Bat, Rogue);
     tank.fake.SetDistance(Bat, 8.0f);
@@ -1947,40 +1962,6 @@ TEST(WarriorTank, AttacksASecondAddOnAMemberWhenTauntIsOnItsCooldown)
     tank.Think();
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
-}
-
-// The walk back after a fallback pull waits for a loose enemy out of Taunt
-// range too: the tank goes to it, not away from it.
-TEST(WarriorTank, HoldsItsWalkBackForALooseEnemyOutOfTauntRange)
-{
-    BowTank tank;
-    tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
-    tank.fake.SetGroupMembers({Healer});
-    tank.group.SetHealer(Healer);
-    tank.fake.SetPosition(Tank, {10, 20, 0});
-    tank.Pull();
-    tank.fake.SetPosition(Tank, {28, 20, 0});
-    tank.fake.SetDistance(Kobold, 2.0f);
-    tank.fake.SetInCombat(Tank);
-    tank.fake.SetVictim(Tank, Kobold);
-    tank.fake.SetVictim(Kobold, Tank);
-    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
-    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
-    tank.fake.SetAura(Tank, Warrior::BattleShout);
-    tank.fake.SetPower(Tank, 20, 100);
-    tank.fake.SetHealth(Healer, 300, 300);
-    tank.fake.SetHealth(Wolf, 300, 300);
-    tank.fake.SetSpellRange(Warrior::Taunt, 20.0f);
-    tank.fake.SetDistance(Wolf, 28.0f);
-    tank.fake.SetVictim(Wolf, Healer);
-    // The wolf joined the pull: the tank warns first (jvbastel/WOWAI#121).
-    ASSERT_EQ(tank.Think(), "warn when a pack joins");
-    ASSERT_EQ(tank.Think(), "hold the pull");
-    tank.fake.ClearDeeds();
-
-    tank.Think();
-
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Wolf), Chase(Wolf)}));
 }
 
 // After the taunt, the bat attacks the tank, but the healer's threat on it
@@ -2028,7 +2009,9 @@ TEST(WarriorTank, KeepsThreatOnTheTauntedEnemyWithAReadyRevenge)
 // does not turn back to the focus while the enemy still hits the healer.
 TEST(WarriorTank, SundersThePickedUpEnemyUntilItHoldsIt)
 {
+    // jvbastel/WOWAI#169: the healer is stunned, so the tank goes to it.
     BatOnTheFarHealer tank;
+    tank.fake.SetRootedOrStunned(Healer);
     tank.fake.SetPower(Tank, 30, 100);
     tank.fake.SetCannotCast(Warrior::Revenge);
     tank.Think();
@@ -2051,8 +2034,10 @@ TEST(WarriorTank, SundersThePickedUpEnemyUntilItHoldsIt)
 
 // jvbastel/WOWAI#126 review: the focus on a member comes before a loose add.
 // Taunt waits for its cooldown, and the focus hits the rogue: the tank stays
-// on the focus and does not go to the bat on the healer.
-TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItPicksUpALooseEnemy)
+// on the focus and does not go to the bat on the healer. Since the final
+// review of #165 (item 1), it does not chase the focus either: the rogue
+// brings it to the tank's spot (#169, #171).
+TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItTakesALooseEnemy)
 {
     GroupInFight tank;
     tank.fake.SetCannotCast(Warrior::Taunt);
@@ -2060,23 +2045,26 @@ TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItPicksUpALooseEnemy)
     tank.fake.SetVictim(Bat, Healer);
     tank.fake.SetDistance(Bat, 8.0f);
     tank.fake.SetDistance(Kobold, 12.0f);
+    tank.fake.SetDistance(Rogue, 12.0f);
 
     tank.Think();
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
     for (std::string const& deed : tank.fake.Deeds())
     {
         EXPECT_NE(deed, Attack(Bat));
         EXPECT_NE(deed, Chase(Bat));
+        EXPECT_NE(deed, Chase(Kobold));
     }
+    EXPECT_EQ(tank.fake.GetVictim(Tank), Kobold);
 }
 
 // jvbastel/WOWAI#126 review: the tank does not run far from the fight to a
 // loose enemy (more packs wait on the way). It stays on the focus.
-TEST(WarriorTank, DoesNotPickUpALooseEnemyBeyondThePickUpReach)
+TEST(WarriorTank, DoesNotGoOutToALooseEnemyBeyondTheGoOutReach)
 {
     BatOnTheFarHealer tank;
+    tank.fake.SetRootedOrStunned(Healer);
     tank.fake.SetDistance(Bat, 45.0f);
 
     tank.Think();
@@ -2089,12 +2077,13 @@ TEST(WarriorTank, DoesNotPickUpALooseEnemyBeyondThePickUpReach)
 }
 
 // jvbastel/WOWAI#121 merge review: the keep-out rule (KeepOut.h) and the
-// pick-up of #126. The bat on the healer stands in the reach of a rat that
+// go-out of #126. The bat on the healer stands in the reach of a rat that
 // is in no fight. The tank does not go to it: the keep-out rule would step
 // it out again, and it would pull the rat. It stays on the focus.
-TEST(WarriorTank, DoesNotPickUpALooseEnemyInTheReachOfAnotherPack)
+TEST(WarriorTank, DoesNotGoOutToALooseEnemyInTheReachOfAnotherPack)
 {
     BatOnTheFarHealer tank;
+    tank.fake.SetRootedOrStunned(Healer);
     tank.fake.SetPosition(Tank, {0, 0, 0});
     tank.fake.SetPosition(Bat, {28, 0, 0});
     tank.fake.AddEnemy(Rat, {36, 0, 0}, 10.0f);
@@ -2135,7 +2124,7 @@ namespace
     };
 }
 
-TEST(WarriorTank, PicksUpTheHealersAddNearAnotherPackWhenTheHealerCannotStepOut)
+TEST(WarriorTank, GoesInForTheHealersAddNearAnotherPackWhenTheHealerCannotStepOut)
 {
     BatOnTheHealerNearARat tank;
     tank.fake.AddNoPathFromX(-10000.0f);
@@ -2168,12 +2157,13 @@ TEST(WarriorTank, LeavesTheHealersAddNearAnotherPackWhenTheHealerCanStepOut)
     }
 }
 
-// C1: the pick-up tries each loose enemy, the healer's first: the add on
+// C1: the go-out tries each loose enemy, the healer's first: the add on
 // the healer is in the rat's reach, so the tank picks up the add on the
 // rogue.
-TEST(WarriorTank, PicksUpTheNextLooseEnemyWhenTheFirstIsInTheReachOfAnotherPack)
+TEST(WarriorTank, TakesTheNextLooseEnemyWhenTheFirstIsInTheReachOfAnotherPack)
 {
     BatOnTheHealerNearARat tank;
+    tank.fake.SetRootedOrStunned(Rogue);
     tank.fake.SetVictim(Wolf, Rogue);
     tank.fake.SetPosition(Wolf, {-25, 0, 0});
     tank.fake.SetDistance(Wolf, 25.0f);
@@ -2181,4 +2171,966 @@ TEST(WarriorTank, PicksUpTheNextLooseEnemyWhenTheFirstIsInTheReachOfAnotherPack)
     tank.Think();
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Wolf), Chase(Wolf)}));
+}
+
+// jvbastel/WOWAI#168: the tank keeps one loose enemy, and picks it by who it
+// attacks: the healer, then damage bots in cloth, then the others; the
+// nearest of a rank first.
+namespace
+{
+    Bots::Guid const Mage = 0x0000000000000014;
+
+    // GroupInFight with a mage (cloth) after the rogue, and melee reach on
+    // Sunder Armor and Revenge. Taunt waits for its cooldown unless a test
+    // makes it ready.
+    struct LooseEnemiesTank : GroupInFight
+    {
+        LooseEnemiesTank()
+        {
+            fake.SetGroupMembers({Rogue, Mage, Healer});
+            fake.SetHealth(Mage, 300, 300);
+            fake.SetWearsCloth(Mage);
+            fake.SetWearsCloth(Healer);
+            fake.SetPower(Tank, 30, 100);
+            fake.SetSpellRange(Warrior::SunderArmor, 5.0f);
+            fake.SetSpellRange(Warrior::Revenge, 5.0f);
+            fake.SetCannotCast(Warrior::Taunt);
+            fake.SetCannotCast(Warrior::Revenge);
+            for (Bots::Guid enemy : {Wolf, Bat, Rat})
+                fake.SetDistance(enemy, 2.0f);
+        }
+
+        // The deeds of one think at `ms`.
+        std::vector<std::string> ThinkAt(std::int64_t ms)
+        {
+            nowMs = ms;
+            fake.ClearDeeds();
+            Think();
+            return fake.Deeds();
+        }
+    };
+}
+
+TEST(WarriorTankLooseEnemy, TakesTheEnemyOnAClothMemberBeforeOneOnAMemberInTougherArmour)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Mage);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+TEST(WarriorTankLooseEnemy, TakesTheEnemyOnTheHealerBeforeOneOnAClothMember)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Mage);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+TEST(WarriorTankLooseEnemy, TakesTheNearestOfTwoEnemiesOfOneRank)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    tank.fake.SetVictim(Bat, Rogue);
+    tank.fake.SetDistance(Wolf, 4.0f);
+    tank.fake.SetDistance(Bat, 3.0f);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+// A loose enemy of a higher rank comes later: the tank stays on its enemy.
+TEST(WarriorTankLooseEnemy, KeepsItsLooseEnemyAcrossThinks)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetVictim(Bat, Healer);
+
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    EXPECT_EQ(tank.ThinkAt(3000), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+TEST(WarriorTankLooseEnemy, GivesUpItsLooseEnemyAfterAbout4Seconds)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetVictim(Bat, Rogue);
+    tank.fake.SetDistance(Bat, 1.0f);
+
+    EXPECT_EQ(tank.ThinkAt(4100), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+TEST(WarriorTankLooseEnemy, TakesTheNextLooseEnemyWhenItsEnemyAttacksTheTank)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Wolf, Rogue);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Wolf, Tank);
+    tank.fake.SetThreatRatio(Tank, Wolf, 2.0f);
+
+    EXPECT_EQ(tank.ThinkAt(500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+TEST(WarriorTankLooseEnemy, TauntsItsLooseEnemyWhenTauntIsReady)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Mage);
+    tank.fake.SetCannotCast(Warrior::Taunt, false);
+    tank.fake.SetCannotCast(Warrior::Revenge, false);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+}
+
+// LooseEnemiesTank has no ready Taunt: Revenge when it is ready, else Sunder
+// Armor (the tests above).
+TEST(WarriorTankLooseEnemy, UsesRevengeOnItsLooseEnemyWhenTauntIsNotReady)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetCannotCast(Warrior::Revenge, false);
+    tank.fake.SetVictim(Bat, Mage);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::Revenge, Bat)}));
+}
+
+// Mocking Blow is known and castable, Taunt waits: Sunder Armor, never
+// Mocking Blow.
+TEST(WarriorTankLooseEnemy, NeverUsesMockingBlow)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetKnownSpell(Warrior::MockingBlow);
+    tank.fake.SetVictim(Bat, Healer);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+    for (std::int64_t ms = 500; ms < 5000; ms += 500)
+        for (std::string const& deed : tank.ThinkAt(ms))
+            EXPECT_EQ(deed.find("cast 694 "), std::string::npos) << deed;
+}
+
+// The stop case: no ability can go out on the loose enemy (Taunt, Revenge
+// and Sunder Armor all wait): the tank casts nothing on it.
+TEST(WarriorTankLooseEnemy, CastsNothingOnItsLooseEnemyWhenNoAbilityCanGoOut)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    tank.fake.SetVictim(Bat, Healer);
+
+    for (std::string const& deed : tank.ThinkAt(0))
+        EXPECT_EQ(deed.find("cast "), std::string::npos) << deed;
+}
+
+TEST(WarriorTankLooseEnemy, GoesBackToTheFocusWhenNoLooseEnemyIsLeft)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Mage);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+    tank.fake.SetHealth(Bat, 0, 300);
+    tank.fake.SetVictim(Bat, NoGuid);
+
+    EXPECT_EQ(tank.ThinkAt(500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+// A picked-up enemy turns to the tank before the tank hit it with an
+// ability (join_three run 1): the tank casts one on it all the same, then
+// goes back to the focus. No turn to a threat target without a cast.
+TEST(WarriorTankLooseEnemy, CastsOnAPickedUpEnemyThatComesToItBeforeItGoesBackToTheFocus)
+{
+    // jvbastel/WOWAI#169: the healer is stunned, so the tank goes to it.
+    BatOnTheFarHealer tank;
+    tank.fake.SetRootedOrStunned(Healer);
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+    tank.fake.SetVictim(Tank, Bat);
+    tank.fake.SetDistance(Bat, 2.0f);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 2.0f);
+
+    tank.fake.ClearDeeds();
+    tank.nowMs = 300;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+
+    tank.fake.ClearDeeds();
+    tank.nowMs = 600;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
+}
+
+// join_four_healer: the picked-up enemy comes to the tank, and the pick goes
+// on to the next loose enemy. The enemy that the tank turned to gets its
+// ability first.
+TEST(WarriorTankLooseEnemy, CastsOnThePickedUpEnemyBeforeItTakesTheNextLooseEnemy)
+{
+    // jvbastel/WOWAI#169: the healer is stunned, so the tank goes to it.
+    BatOnTheFarHealer tank;
+    tank.fake.SetRootedOrStunned(Healer);
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+    tank.fake.SetVictim(Tank, Bat);
+    tank.fake.SetDistance(Bat, 2.0f);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 2.0f);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetVictim(Wolf, Healer);
+    tank.fake.SetDistance(Wolf, 2.0f);
+
+    tank.fake.ClearDeeds();
+    tank.nowMs = 300;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+
+    tank.fake.ClearDeeds();
+    tank.nowMs = 600;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// jvbastel/WOWAI#172: each enemy that joins the fight gets one early Sunder
+// Armor from the tank, with no threat lead on the focus.
+namespace
+{
+    // A tank that pulled the kobold (a pack of its own) from its trail, and
+    // holds it with no threat lead. The wolf and the bat stand in a pack of
+    // their own 40 yd away, and the lynx is a packmate of the kobold. The
+    // healer stands back. Revenge and Taunt wait.
+    struct JoinTank : TrailTank
+    {
+        JoinTank()
+        {
+            fake.SetGroupMembers({Healer});
+            fake.SetHealth(Healer, 300, 300);
+            fake.SetWearsCloth(Healer);
+            group.SetHealer(Healer);
+            AddEnemy(Lynx, {27, 0, 0}, 10.0f);
+            AddEnemy(Wolf, {25, 40, 0}, 10.0f);
+            AddEnemy(Bat, {27, 40, 0}, 10.0f);
+            group.StartPull(Tank, Kobold);
+            Think(); // Notes its fight spot and the packs round the pull.
+            group.ClearFightSpot(Tank);
+
+            fake.SetPower(Tank, 30, 100);
+            fake.SetSpellRange(Warrior::SunderArmor, 5.0f);
+            fake.SetSpellRange(Warrior::Revenge, 5.0f);
+            fake.SetCannotCast(Warrior::Revenge);
+            fake.SetCannotCast(Warrior::Taunt);
+            fake.SetInCombat(Tank);
+            fake.SetDistance(Kobold, 2.0f);
+            fake.SetVictim(Tank, Kobold);
+            fake.SetVictim(Kobold, Tank);
+            group.HoldPull(Tank);
+            fake.SetAura(Tank, Warrior::BattleStance, false);
+            fake.SetAura(Tank, Warrior::DefensiveStance);
+            fake.SetAura(Tank, Warrior::BattleShout);
+            fake.SetThreatRatio(Tank, Kobold, 1.0f);
+            for (Bots::Guid enemy : {Lynx, Wolf, Bat})
+                fake.SetHealth(enemy, 300, 300);
+        }
+
+        // Enemy `enemy` joins the fight on member `victim`, in the tank's
+        // melee reach, with no threat of the tank on it.
+        void Join(Bots::Guid enemy, Bots::Guid victim = Tank)
+        {
+            fake.SetInCombat(enemy);
+            fake.SetVictim(enemy, victim);
+            fake.SetDistance(enemy, 2.0f);
+            fake.SetThreatRatio(Tank, enemy, 0.0f);
+        }
+
+        // The deeds of one think at `ms`, after the warn of a joined pack
+        // (one think of its own).
+        std::vector<std::string> ThinkAt(std::int64_t ms)
+        {
+            nowMs = ms;
+            fake.ClearDeeds();
+            Think();
+            std::vector<std::string> deeds = fake.Deeds();
+            deeds.erase(std::remove_if(deeds.begin(), deeds.end(),
+                            [](std::string const& deed) { return deed.compare(0, 5, "warn ") == 0; }),
+                deeds.end());
+            if (deeds.empty())
+            {
+                fake.ClearDeeds();
+                Think();
+                deeds = fake.Deeds();
+            }
+            return deeds;
+        }
+    };
+}
+
+TEST(WarriorTankEarlyVisit, AJoinedEnemyGetsASunderArmorWithNoThreatLeadOnTheFocus)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+TEST(WarriorTankEarlyVisit, ASecondVisitToAJoinedEnemyStillNeedsTheThreatLead)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetAura(Wolf, Warrior::SunderArmor);
+
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+    EXPECT_EQ(tank.ThinkAt(3000), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+
+    // With the lead on the focus, the threat target visit comes back.
+    tank.fake.SetThreatRatio(Tank, Kobold, 1.5f);
+    EXPECT_EQ(tank.ThinkAt(4500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// One early visit, even when its Sunder Armor misses (no debuff on it).
+TEST(WarriorTankEarlyVisit, GivesEachJoinedEnemyOnlyOneEarlyVisit)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+TEST(WarriorTankEarlyVisit, EachJoinedEnemyGetsItsOwnEarlySunder)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    tank.Join(Bat);
+    std::vector<std::string> first = tank.ThinkAt(0);
+    std::vector<std::string> second = tank.ThinkAt(1500);
+    first.insert(first.end(), second.begin(), second.end());
+    std::sort(first.begin(), first.end());
+
+    std::vector<std::string> both = {CastOn(Warrior::SunderArmor, Wolf), CastOn(Warrior::SunderArmor, Bat)};
+    std::sort(both.begin(), both.end());
+    EXPECT_EQ(first, both);
+}
+
+TEST(WarriorTankEarlyVisit, ALooseEnemyStillComesFirst)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    tank.Join(Bat, Healer);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+TEST(WarriorTankEarlyVisit, UsesAReadyRevengeOnAJoinedEnemy)
+{
+    JoinTank tank;
+    tank.fake.SetCannotCast(Warrior::Revenge, false);
+    tank.Join(Wolf);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::Revenge, Wolf)}));
+}
+
+// A packmate of the pull target came with the pull: no join, so it waits
+// for the threat lead on the focus as before.
+TEST(WarriorTankEarlyVisit, AnEnemyOfThePulledPackWaitsForTheThreatLead)
+{
+    JoinTank tank;
+    tank.Join(Lynx);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+// A joined enemy out of melee reach waits: the tank does not walk to it.
+TEST(WarriorTankEarlyVisit, AJoinedEnemyOutOfReachGetsItsSunderWhenItArrives)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    tank.fake.SetDistance(Wolf, 12.0f);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+
+    tank.fake.SetDistance(Wolf, 2.0f);
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// jvbastel/WOWAI#173: the tank chooses the next focus when the focus dies,
+// and the pull stays on while enemies are left in the fight.
+
+// The focus dies with enemies left: of the enemies that attack the tank,
+// the one it leads on the most is the next focus. An enemy on another
+// member does not count, whatever the tank's threat on it.
+TEST(WarriorTankNextFocus, MakesTheEnemyOnItWithTheBiggestThreatLeadTheNextFocus)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Wolf, Tank);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetVictim(Rat, Rogue);
+    tank.fake.SetThreatRatio(Tank, Wolf, 1.2f);
+    tank.fake.SetThreatRatio(Tank, Bat, 3.0f);
+    tank.fake.SetThreatRatio(Tank, Rat, 9.0f);
+    tank.fake.SetHealth(Kobold, 0, 200);
+    tank.fake.SetVictim(Kobold, NoGuid);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.group.GetFocusTarget(), Bat);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
+}
+
+// The next focus dies too: the tank goes on to the last enemy, and the pull
+// ends only when no enemy is left in the fight.
+TEST(WarriorTankNextFocus, EndsThePullOnlyWhenNoEnemyIsLeft)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Wolf, Tank);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Wolf, 2.0f);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.5f);
+    tank.fake.SetHealth(Kobold, 0, 200);
+    tank.fake.SetVictim(Kobold, NoGuid);
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    ASSERT_EQ(tank.group.GetFocusTarget(), Wolf);
+
+    tank.fake.SetHealth(Wolf, 0, 300);
+    tank.fake.SetVictim(Wolf, NoGuid);
+    tank.Think();
+    EXPECT_EQ(tank.group.GetFocusTarget(), Bat);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
+
+    tank.fake.SetHealth(Bat, 0, 300);
+    tank.fake.SetVictim(Bat, NoGuid);
+    tank.Think();
+    EXPECT_EQ(tank.group.GetFocusTarget(), NoGuid);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::None);
+}
+
+// Spec story 31: the first focus died, and the fight goes on. A pack that
+// joins after that still gets the tank's party warning.
+TEST(WarriorTankNextFocus, WarnsWhenAPackJoinsAfterTheFirstFocusDied)
+{
+    TrailTank tank;
+    tank.fake.SetGroupMembers({Healer});
+    tank.group.SetHealer(Healer);
+    tank.AddEnemy(Bat, {27, 0, 0}, 10.0f);
+    tank.group.StartPull(Tank, Kobold);
+    tank.Think();
+    ASSERT_TRUE(tank.group.GetPull().hasFightSpot);
+    // The kobold and the bat (its pack) come to the tank and fight it.
+    tank.InFightWithKobold();
+    tank.group.NoteFocusContact(0);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Bat, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetDistance(Bat, 2.0f);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetHealth(Kobold, 0, 200);
+    tank.fake.SetVictim(Kobold, NoGuid);
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    ASSERT_EQ(tank.group.GetFocusTarget(), Bat);
+    tank.fake.ClearDeeds();
+
+    // A wolf of no pack of the pull joins on the healer.
+    tank.fake.SetDistance(Wolf, 15.0f);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(tank.Think(), "warn when a pack joins");
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"warn Careful: this pull brings 1 more pack."}));
+}
+
+// The pull target dies before it came to the tank (the damage bots killed
+// it on its run), while its pack fights on: the fight is on, so the pull is
+// held, with the next focus. The tank does not go on pulling a dead target.
+TEST(WarriorTankNextFocus, HoldsThePullWhenThePullTargetDiesBeforeItCame)
+{
+    GroupInFight tank;
+    tank.group.StartPull(Tank, Kobold);
+    tank.fake.SetVictim(Kobold, NoGuid);
+    tank.fake.SetHealth(Kobold, 0, 200);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.0f);
+
+    ASSERT_EQ(tank.Think(), "the focus dies");
+
+    EXPECT_EQ(tank.group.GetFocusTarget(), Bat);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
+}
+
+// jvbastel/WOWAI#169: the tank holds its fight spot. It acts on a loose
+// enemy only once that enemy is in range, and goes out only to a member
+// that cannot move (rooted or stunned).
+namespace
+{
+    // The deeds of `deeds` hold no attack of, and no chase of, `enemy`.
+    void ExpectNoMoveTo(std::vector<std::string> const& deeds, Bots::Guid enemy)
+    {
+        for (std::string const& deed : deeds)
+        {
+            EXPECT_NE(deed, Attack(enemy));
+            EXPECT_NE(deed, Chase(enemy));
+        }
+    }
+
+    bool Has(std::vector<std::string> const& deeds, std::string const& deed)
+    {
+        return std::find(deeds.begin(), deeds.end(), deed) != deeds.end();
+    }
+}
+
+// Taunt waits for its cooldown, and the bat on the healer is out of melee
+// reach: the tank stays on the focus.
+TEST(WarriorTankHoldsItsSpot, DoesNotGoToALooseEnemyOutOfRange)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetDistance(Bat, 15.0f);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    ExpectNoMoveTo(deeds, Bat);
+    EXPECT_EQ(deeds, (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+// Taunt is ready, but the bat is out of its 20 yards.
+TEST(WarriorTankHoldsItsSpot, DoesNotGoToALooseEnemyOutOfTauntRange)
+{
+    BatOnTheFarHealer tank;
+
+    tank.Think();
+
+    ExpectNoMoveTo(tank.fake.Deeds(), Bat);
+}
+
+// The healer brings the bat to the tank: once in reach, it gets the pickup
+// ability.
+TEST(WarriorTankHoldsItsSpot, ActsOnTheLooseEnemyOnceItIsInRange)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetDistance(Bat, 15.0f);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+    tank.fake.SetDistance(Bat, 2.0f);
+
+    EXPECT_EQ(tank.ThinkAt(500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+TEST(WarriorTankHoldsItsSpot, TauntsTheLooseEnemyOnceItIsInTauntRange)
+{
+    BatOnTheFarHealer tank;
+    tank.Think();
+    tank.fake.SetDistance(Bat, 15.0f);
+    tank.fake.ClearDeeds();
+    tank.nowMs = 500;
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+}
+
+// An enemy on the healer out of range does not hold the tank: it takes the
+// enemy in reach meanwhile.
+TEST(WarriorTankHoldsItsSpot, TakesALooseEnemyInRangeBeforeOneOfAHigherRankOutOfRange)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetDistance(Bat, 15.0f);
+    tank.fake.SetVictim(Wolf, Rogue);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+TEST(WarriorTankHoldsItsSpot, GoesToTheAttackerOfARootedMember)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Mage);
+    tank.fake.SetDistance(Bat, 15.0f);
+    tank.fake.SetRootedOrStunned(Mage);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_TRUE(Has(deeds, Attack(Bat)));
+    EXPECT_TRUE(Has(deeds, Chase(Bat)));
+}
+
+// Taunt is ready, the healer is stunned 28 yards away: the tank goes to it.
+TEST(WarriorTankHoldsItsSpot, GoesToTheAttackerOfAStunnedHealerOutOfTauntRange)
+{
+    BatOnTheFarHealer tank;
+    tank.fake.SetRootedOrStunned(Healer);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+}
+
+// The walk back after a fallback pull does not wait for a loose enemy out of
+// range: the healer brings it to the fight spot.
+TEST(WarriorTankHoldsItsSpot, WalksBackToTheFightSpotWhileALooseEnemyIsOutOfRange)
+{
+    BowTank tank;
+    tank.fake.SetRangedWeapon(Bots::RangedWeapon{});
+    tank.fake.SetGroupMembers({Healer});
+    tank.group.SetHealer(Healer);
+    tank.fake.SetPosition(Tank, {10, 20, 0});
+    tank.Pull();
+    tank.fake.SetPosition(Tank, {28, 20, 0});
+    tank.fake.SetDistance(Kobold, 2.0f);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetVictim(Tank, Kobold);
+    tank.fake.SetVictim(Kobold, Tank);
+    tank.fake.SetAura(Tank, Warrior::BattleStance, false);
+    tank.fake.SetAura(Tank, Warrior::DefensiveStance);
+    tank.fake.SetAura(Tank, Warrior::BattleShout);
+    tank.fake.SetPower(Tank, 20, 100);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetSpellRange(Warrior::Taunt, 20.0f);
+    tank.fake.SetSpellRange(Warrior::SunderArmor, 5.0f);
+    tank.fake.SetSpellRange(Warrior::Revenge, 5.0f);
+    tank.fake.SetDistance(Wolf, 28.0f);
+    tank.fake.SetVictim(Wolf, Healer);
+    ASSERT_EQ(tank.Think(), "warn when a pack joins");
+    ASSERT_EQ(tank.Think(), "hold the pull");
+    tank.fake.ClearDeeds();
+
+    EXPECT_EQ(tank.Think(), "walk back to the fight spot");
+    ExpectNoMoveTo(tank.fake.Deeds(), Wolf);
+}
+
+// A lack of rage does not drop the tank's pick in melee reach, so it does not
+// restart the pick's 4 s: after them the tank takes the wolf (jvbastel/WOWAI#169
+// review).
+TEST(WarriorTankHoldsItsSpot, ALackOfRageDoesNotRestartThePickInMeleeReach)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Wolf, Rogue);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    ASSERT_EQ(tank.ThinkAt(2000), std::vector<std::string>{});
+    tank.fake.SetCannotCast(Warrior::SunderArmor, false);
+
+    EXPECT_EQ(tank.ThinkAt(4500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// jvbastel/WOWAI#174: the tank keeps the rage of the early Sunder Armor of
+// each joined enemy (#172) from Shield Block, as the player allowed (Sunder
+// Armor on joined enemies before Shield Block, #116). Only Shield Block (and,
+// below, Demoralizing Shout) waits, only while its 10 rage would leave less
+// than a Sunder Armor's, and only for a while: a joined enemy that never comes
+// does not stall the tank.
+namespace
+{
+    bool CastsAny(std::vector<std::string> const& deeds, std::vector<std::string> const& casts)
+    {
+        for (std::string const& cast : casts)
+            if (std::find(deeds.begin(), deeds.end(), cast) != deeds.end())
+                return true;
+        return false;
+    }
+
+    // A JoinTank that knows Shield Block, with the wolf joined and still
+    // 12 yd away.
+    struct ComingWolfTank : JoinTank
+    {
+        ComingWolfTank()
+        {
+            fake.SetKnownSpell(Warrior::ShieldBlock);
+            Join(Wolf);
+            fake.SetDistance(Wolf, 12.0f);
+            fake.SetCannotCast(Warrior::SunderArmor);
+        }
+    };
+}
+
+TEST(WarriorTankRagePool, HoldsBackShieldBlockWhileAJoinedEnemyComesAndTheRageIsShort)
+{
+    ComingWolfTank tank;
+    tank.fake.SetPower(Tank, 20, 100);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(CastsAny(deeds, {CastOn(Warrior::ShieldBlock, Tank)})) << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankRagePool, ShieldBlocksWhenASunderArmorsRageIsLeftAfterIt)
+{
+    ComingWolfTank tank;
+    tank.fake.SetPower(Tank, 25, 100);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+// A joined enemy that never comes (a caster that stays away) holds Shield
+// Block back for EarlyVisitWaitMs at most.
+TEST(WarriorTankRagePool, ShieldBlocksAgainWhenTheJoinedEnemyDoesNotCome)
+{
+    ComingWolfTank tank;
+    tank.fake.SetPower(Tank, 20, 100);
+    ASSERT_FALSE(CastsAny(tank.ThinkAt(0), {CastOn(Warrior::ShieldBlock, Tank)}));
+    ASSERT_FALSE(CastsAny(tank.ThinkAt(5000), {CastOn(Warrior::ShieldBlock, Tank)}));
+    // The joined enemies of a far pack take 7-10 s to arrive, then 3 s count.
+    ASSERT_FALSE(CastsAny(tank.ThinkAt(14000), {CastOn(Warrior::ShieldBlock, Tank)}));
+
+    EXPECT_EQ(tank.ThinkAt(15100), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+}
+
+// Nothing else waits: with the rage there, the tank sunders the focus while
+// the joined enemy comes.
+TEST(WarriorTankRagePool, HoldsBackNothingButShieldBlock)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    tank.fake.SetDistance(Wolf, 12.0f);
+    tank.fake.SetPower(Tank, 100, 100);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_TRUE(CastsAny(deeds, {CastOn(Warrior::SunderArmor, Kobold), CastOn(Warrior::HeroicStrike, Kobold)}))
+        << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankRagePool, TheKeptRageGoesToTheJoinedEnemyWhenItArrives)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    tank.fake.SetDistance(Wolf, 12.0f);
+    tank.ThinkAt(0);
+
+    tank.fake.SetDistance(Wolf, 2.0f);
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// Once each joined enemy had its visit, the rage goes where it went before.
+TEST(WarriorTankRagePool, SpendsAgainOnceEachJoinedEnemyHadItsVisit)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetAura(Wolf, Warrior::SunderArmor);
+
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+// jvbastel/WOWAI#174: in a fight, Battle Shout takes only spare rage: the
+// tank keeps a Sunder Armor's rage after it. So the 10 rage of the opening
+// Bloodrage stay for the threat.
+TEST(WarriorTankRagePool, BattleShoutWaitsUntilASunderArmorsRageIsLeftAfterIt)
+{
+    WarriorTank tank;
+    tank.InFightWithKobold();
+    tank.fake.SetAura(Tank, Warrior::BattleShout, false);
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+    tank.fake.SetPower(Tank, 20, 100);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_FALSE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::BattleShout, Tank)})) << ::testing::PrintToString(tank.fake.Deeds());
+
+    tank.fake.SetPower(Tank, 25, 100);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_TRUE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::BattleShout, Tank)})) << ::testing::PrintToString(tank.fake.Deeds());
+}
+
+
+// jvbastel/WOWAI#174 (the player's decision, an exception to #169): Taunt
+// has the melee range in this game, and a caster on the healer stays where
+// it casts. The tank takes a short step toward such a caster, when it is a
+// few yards off (CasterStepYards), and then takes it as any loose enemy.
+namespace
+{
+    // A LooseEnemiesTank at 0 0 0 with the bat, a caster, 9 yd away on the
+    // healer, out of the reach of Taunt and Sunder Armor.
+    struct CasterOnTheHealerTank : LooseEnemiesTank
+    {
+        CasterOnTheHealerTank()
+        {
+            fake.SetPosition(Tank, {0, 0, 0});
+            fake.SetPosition(Bat, {9, 0, 0});
+            fake.SetDistance(Bat, 9.0f);
+            fake.SetMana(Bat, 200, 200);
+            fake.SetVictim(Bat, Healer);
+        }
+    };
+
+    bool MovesTo(std::vector<std::string> const& deeds, std::string const& place)
+    {
+        return std::find(deeds.begin(), deeds.end(), "keep move to " + place) != deeds.end();
+    }
+}
+
+TEST(WarriorTankStepsToACaster, StepsTowardACasterOnTheHealerOutOfTauntRange)
+{
+    CasterOnTheHealerTank tank;
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_TRUE(MovesTo(deeds, "9 0 0")) << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankStepsToACaster, NoStepToAnEnemyThatIsNoCaster)
+{
+    CasterOnTheHealerTank tank;
+    tank.fake.SetMana(Bat, 0, 0);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(MovesTo(deeds, "9 0 0")) << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankStepsToACaster, NoStepToACasterMoreThanAFewYardsOff)
+{
+    CasterOnTheHealerTank tank;
+    tank.fake.SetPosition(Bat, {14, 0, 0});
+    tank.fake.SetDistance(Bat, 14.0f);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(MovesTo(deeds, "14 0 0")) << ::testing::PrintToString(deeds);
+    ExpectNoMoveTo(deeds, Bat);
+}
+
+TEST(WarriorTankStepsToACaster, NoStepToACasterOnAnotherMember)
+{
+    CasterOnTheHealerTank tank;
+    tank.fake.SetVictim(Bat, Rogue);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(MovesTo(deeds, "9 0 0")) << ::testing::PrintToString(deeds);
+}
+
+// In reach after the step, the caster gets the pickup ability.
+TEST(WarriorTankStepsToACaster, TakesTheCasterOnceInReach)
+{
+    CasterOnTheHealerTank tank;
+    ASSERT_TRUE(MovesTo(tank.ThinkAt(0), "9 0 0"));
+    tank.fake.SetDistance(Bat, 2.0f);
+
+    EXPECT_EQ(tank.ThinkAt(500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+}
+
+// jvbastel/WOWAI#174: a joined enemy that comes on the healer (a loose enemy)
+// holds Shield Block back too: its pickup needs the rage of a Sunder Armor
+// when Taunt waits for its cooldown.
+TEST(WarriorTankRagePool, HoldsBackShieldBlockWhileAJoinedEnemyComesOnTheHealer)
+{
+    JoinTank tank;
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock);
+    tank.Join(Wolf, Healer);
+    tank.fake.SetDistance(Wolf, 12.0f);
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    tank.fake.SetPower(Tank, 20, 100);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(CastsAny(deeds, {CastOn(Warrior::ShieldBlock, Tank)})) << ::testing::PrintToString(deeds);
+}
+
+// jvbastel/WOWAI#174 (the player's second decision): while a joined enemy
+// comes for its early Sunder Armor and the rage is short, Demoralizing Shout
+// waits too. The #114 opener at the start of a pull is unchanged.
+TEST(WarriorTankRagePool, HoldsBackDemoralizingShoutWhileAJoinedEnemyComesAndTheRageIsShort)
+{
+    ComingWolfTank tank;
+    tank.fake.SetKnownSpell(Warrior::DemoralizingShout);
+    tank.fake.SetDistance(Wolf, 8.0f);
+    tank.fake.SetPower(Tank, 20, 100);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(CastsAny(deeds, {CastOn(Warrior::DemoralizingShout, Tank)})) << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankRagePool, ShoutsWhileAJoinedEnemyComesWhenASunderArmorsRageIsLeft)
+{
+    ComingWolfTank tank;
+    tank.fake.SetKnownSpell(Warrior::DemoralizingShout);
+    tank.fake.SetDistance(Wolf, 8.0f);
+    tank.fake.SetPower(Tank, 25, 100);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::DemoralizingShout, Tank)}));
+}
+
+// The #114 opener: at the start of a pull, with no joined enemy, the shout
+// goes out from its 10 rage, at a lone enemy too.
+TEST(WarriorTankRagePool, TheOpenerShoutAtThePullStartIsUnchanged)
+{
+    WarriorTank tank;
+    tank.fake.SetKnownSpell(Warrior::DemoralizingShout);
+    tank.InFightWithKobold();
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+    tank.fake.SetPower(Tank, 10, 100);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::DemoralizingShout, Tank)}));
+}
+
+// Final review of jvbastel/WOWAI#165, item 1: the next focus (#173) on another
+// member does not make the tank chase it across the room (#169). The member
+// walks to the tank (#170, #171); the tank goes out only to a member that
+// cannot move.
+namespace
+{
+    // The focus died. The only enemy left, the next focus, hits the rogue
+    // 20 yards away, and Taunt waits for its cooldown.
+    struct NextFocusOnTheRogue : GroupInFight
+    {
+        NextFocusOnTheRogue()
+        {
+            fake.SetVictim(Wolf, Rogue);
+            fake.SetDistance(Rogue, 20.0f);
+            fake.SetDistance(Wolf, 20.0f);
+            fake.SetCannotCast(Warrior::Taunt);
+            fake.SetHealth(Kobold, 0, 200);
+            fake.SetVictim(Kobold, NoGuid);
+        }
+    };
+}
+
+TEST(WarriorTankNextFocus, DoesNotChaseANextFocusOnAnotherMember)
+{
+    NextFocusOnTheRogue tank;
+
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    ASSERT_EQ(tank.group.GetFocusTarget(), Wolf);
+    tank.Think();
+    tank.Think();
+
+    std::vector<std::string> const deeds = tank.fake.Deeds();
+    EXPECT_FALSE(Has(deeds, "chase 0xf130000302000033")) << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankNextFocus, GoesToANextFocusOnAMemberThatCannotMove)
+{
+    NextFocusOnTheRogue tank;
+    tank.fake.SetRootedOrStunned(Rogue);
+
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    tank.Think();
+    tank.Think();
+
+    std::vector<std::string> const deeds = tank.fake.Deeds();
+    EXPECT_TRUE(Has(deeds, "chase 0xf130000302000033")) << ::testing::PrintToString(deeds);
+}
+
+// Item 1 in a run (join_three_healer): the member came and stands at the
+// tank (AtTankYards), but its attacker hits it from the far side, out of the
+// tank's melee reach. The member walks no more, so the tank takes the few
+// steps to the focus; else nobody hits it (a lost mob).
+TEST(WarriorTankNextFocus, AttacksAFocusOnAMemberThatStandsAtTheTank)
+{
+    NextFocusOnTheRogue tank;
+    tank.fake.SetDistance(Rogue, 6.0f);
+    tank.fake.SetDistance(Wolf, 9.0f);
+
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    tank.Think();
+    tank.Think();
+
+    std::vector<std::string> const deeds = tank.fake.Deeds();
+    EXPECT_TRUE(Has(deeds, "chase 0xf130000302000033")) << ::testing::PrintToString(deeds);
 }

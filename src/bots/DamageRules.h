@@ -12,24 +12,35 @@ namespace Bots
     // The damage target of the bot, or NoGuid:
     // 1. the attack target of the player (`attack`), at once;
     // 2. an enemy healer in the fight (GroupRules.h), until it dies;
-    // 3. a loose enemy: an enemy in the chase limit that hits a group
-    //    member other than the living tank, the bot itself too. The bot
-    //    joins a fight that it did not see start, also when it stays or
-    //    follows. It takes the enemy that only it attacks, else one that no
-    //    member attacks, so that no enemy stays lost. Not the focus that the
-    //    bot waits a taunt for;
-    // 4. the focus target, once the tank holds threat on it
+    // 3. the focus target, once the tank holds threat on it
     //    (TankHoldsThreat below), while it is in
-    //    the chase limit (GroupRules.h). Outside a pull, not while it hits
-    //    another member and the tank lives: the bot waits for the taunt,
-    //    unless the tank gave it up (GroupCoordinator::GiveUpTaunt).
+    //    the chase limit (GroupRules.h). Not while it hits another member
+    //    and the tank lives: the bot waits for the taunt, unless the tank
+    //    gave it up (GroupCoordinator::GiveUpTaunt), or it is the target of
+    //    the pull.
+    // While the tank lives, the bot leaves a loose enemy (one that hits a
+    // member other than the tank) to the tank: peeling it makes more loose
+    // enemies (jvbastel/WOWAI#171). With no living tank, nobody picks one
+    // up: a loose enemy in the chase limit comes before the focus. The bot
+    // takes the enemy that only it attacks, else one that no member
+    // attacks, so that no enemy stays lost. Not the focus that the bot
+    // waits a taunt for.
     Guid PickDamageTarget(BotContext const& context);
 
-    // The damage target of a melee bot (PickDamageTarget): not one in the
+    // A damage bot this near the tank (BotView::GetDistance) is at the
+    // tank: an enemy on it is in the tank's reach (jvbastel/WOWAI#171). More
+    // than the farthest follow distance of the adapter (6 yards), so that a
+    // bot that follows the tank there stays at it.
+    float const AtTankYards = 8.0f;
+
+    // The damage target of a melee bot (PickDamageTarget), else, at the
+    // tank (AtTankYards), an enemy in the chase limit that attacks the bot
+    // (jvbastel/WOWAI#171): the bot is not idle while the enemy is where
+    // the tank reaches it. Not one in the
     // reach of a pack outside the fight (KeepOut.h, jvbastel/WOWAI#121).
     // The keep-out rule would step the bot out again, and its chase take it
     // back in: a loop. The member that the enemy hits steps out itself and
-    // brings it along, as for the tank's pick-up.
+    // brings it along, as for the loose enemies that the tank takes.
     Guid PickMeleeDamageTarget(BotContext const& context);
 
     // True when the bot has a damage target now.
@@ -54,6 +65,13 @@ namespace Bots
     // A rule of a ranged damage bot: it runs into casting range of the
     // damage target.
     Rule CloseInRule(int priority);
+
+    // A rule of each damage bot (jvbastel/WOWAI#171): when a living enemy
+    // attacks the bot and it is farther than AtTankYards from the living
+    // tank, it walks to the tank, so that the tank can take the enemy off
+    // it. It keeps hitting the focus once there. Not with an attack target
+    // of the player.
+    Rule WalkToTankRule(int priority);
 }
 
 #endif

@@ -53,7 +53,9 @@ namespace Bots
             group.EndBossFight(fight.boss);
             // After a wipe he lives: the focus on him must end too, else the
             // damage bots attack him again as soon as they revive.
-            if (group.GetFocusTarget() == fight.boss)
+            // jvbastel/WOWAI#173: a dead boss leaves the pull to the tank's
+            // "the focus dies" rule, which keeps it on while enemies are left.
+            if (group.GetFocusTarget() == fight.boss && view.GetHealth(fight.boss).current != 0)
                 group.EndPull();
             fight = group.GetBossFight();
         }

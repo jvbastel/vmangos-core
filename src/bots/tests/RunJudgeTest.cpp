@@ -125,6 +125,90 @@ TEST(RunJudge, TheLastBossKillWinsOverALimitOfTheSameUpdate)
 }
 
 
+// jvbastel/WOWAI#167: a scenario's `expect healer_threat_losses <n>` line
+// (RunScript.h) limits the threat losses on the healer in each pull.
+namespace
+{
+    Bots::ScriptLimits HealerLimit(std::uint32_t most)
+    {
+        Bots::ScriptLimits limits;
+        limits.healerThreatLosses = {true, most, 205};
+        return limits;
+    }
+}
+
+TEST(RunJudge, HealerThreatLossesUpToTheLimitOfAPullPass)
+{
+    RunJudge judge({}, 0, HealerLimit(1));
+    judge.NotePull("pack13");
+    judge.NoteHealerThreatLoss("Searing Blade Cultist on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+    EXPECT_EQ(judge.AtScriptEnd().kind, RunVerdictKind::Passed);
+}
+
+TEST(RunJudge, OneHealerThreatLossOverTheLimitOfAPullFailsTheRunWithTheCount)
+{
+    RunJudge judge({}, 0, HealerLimit(1));
+    judge.NotePull("pack13");
+    judge.NoteHealerThreatLoss("Searing Blade Cultist on Hela");
+    judge.NoteHealerThreatLoss("Searing Blade Enforcer on Hela");
+
+    RunVerdict const verdict = judge.Judge(Minute);
+    EXPECT_EQ(verdict.kind, RunVerdictKind::Failed);
+    EXPECT_EQ(verdict.reason, "healer threat losses 2 in pull 1 (pack13), over the limit 1 of line 205: "
+                              "Searing Blade Cultist on Hela; Searing Blade Enforcer on Hela");
+    EXPECT_EQ(judge.AtScriptEnd().reason, verdict.reason);
+}
+
+TEST(RunJudge, AZeroLimitFailsAtTheFirstHealerThreatLoss)
+{
+    RunJudge judge({}, 0, HealerLimit(0));
+    judge.NotePull("Molten Elemental");
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+
+    judge.NoteHealerThreatLoss("Molten Elemental on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).reason,
+        "healer threat losses 1 in pull 1 (Molten Elemental), over the limit 0 of line 205: Molten Elemental on Hela");
+}
+
+TEST(RunJudge, EachPullHasItsOwnCountOfHealerThreatLosses)
+{
+    RunJudge judge({}, 0, HealerLimit(1));
+    judge.NotePull("pack1");
+    judge.NoteHealerThreatLoss("Ragefire Trogg on Hela");
+    judge.NotePull("pack2");
+    judge.NoteHealerThreatLoss("Ragefire Shaman on Hela");
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+
+    judge.NoteHealerThreatLoss("Ragefire Trogg on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).reason, "healer threat losses 2 in pull 2 (pack2), over the limit 1 of line 205: "
+                                          "Ragefire Shaman on Hela; Ragefire Trogg on Hela");
+}
+
+TEST(RunJudge, HealerThreatLossesBeforeTheFirstPullCountToo)
+{
+    RunJudge judge({}, 0, HealerLimit(0));
+    judge.NoteHealerThreatLoss("Ragefire Trogg on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).reason,
+        "healer threat losses 1 before the first pull, over the limit 0 of line 205: Ragefire Trogg on Hela");
+}
+
+TEST(RunJudge, WithNoLimitHealerThreatLossesNeverFailTheRun)
+{
+    RunJudge judge({}, 0);
+    judge.NotePull("pack13");
+    for (int i = 0; i < 9; ++i)
+        judge.NoteHealerThreatLoss("Ragefire Trogg on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+    EXPECT_EQ(judge.AtScriptEnd().kind, RunVerdictKind::Passed);
+}
+
+
 // jvbastel/WOWAI#123: the judge marks each extra pack avoidable or
 // unavoidable. It runs the fight spot rules of #105 and #121 (FightSpot.h)
 // again for the pack, on the real packs at the pull, from the tank's
@@ -385,6 +469,22 @@ TEST(ExtraPackJudge, AFleeOrAPatrolMakesAnExtraPackUnavoidable)
     EXPECT_EQ(plain.reason, avoidable.reason);
 }
 
+// A pack that a `join` of the script sends in is no fault of the tank, also
+// with no mark from the pull.
+TEST(ExtraPackJudge, AJoinOfTheScriptMakesAnExtraPackUnavoidable)
+{
+    ExtraPackMark const avoidable = {true, "a fight spot at -8.0 0.0 0.0 on the cleared way keeps it out"};
+    Bots::ExtraPackCause join;
+    join.scripted = true;
+
+    ExtraPackMark const marked = Bots::JudgeExtraPack(true, &avoidable, join);
+    ExtraPackMark const unmarked = Bots::JudgeExtraPack(true, nullptr, join);
+
+    EXPECT_FALSE(marked.avoidable);
+    EXPECT_EQ(marked.reason, "the script brought it (join)");
+    EXPECT_FALSE(unmarked.avoidable);
+}
+
 TEST(ExtraPackJudge, APackThatJoinsWithNoMarkFromThePullIsAvoidable)
 {
     ExtraPackMark const mark = Bots::JudgeExtraPack(true, nullptr, {});
@@ -453,4 +553,399 @@ TEST(ExtraPackJudge, CountsTheFailedPullsOfARun)
 
     EXPECT_EQ(Bots::FailedPulls(pulls), 2u);
     EXPECT_EQ(Bots::FailedPulls({PullWith({Extra(true, false)})}), 0u);
+}
+
+// jvbastel/WOWAI#168: the pickup of extra-pack enemies on the healer
+// (`expect healer_pickup_seconds <n>`), and the casts on each threat target
+// (`expect threat_targets_without_cast <n>`).
+namespace
+{
+    Bots::Guid const JoinTrogg = 0xF130000302000022;
+    Bots::Guid const JoinShaman = 0xF130000302000033;
+    Bots::Guid const JoinFocus = 0xF130000302000044;
+
+    Bots::ScriptLimit SixSeconds()
+    {
+        return {true, 6, 212};
+    }
+
+    Bots::FightEnemySeen Seen(Bots::Guid enemy, std::string name, Bots::EnemyVictim victim, bool extraPack = true)
+    {
+        return {enemy, std::move(name), extraPack, victim, false, true};
+    }
+}
+
+TEST(HealerPickupCheck, PassesAnExtraPackEnemyOnTheHealerThatIsOnTheTankWithin6Seconds)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(6900, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Tank)});
+    check.Observe(9000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(HealerPickupCheck, FailsAnExtraPackEnemyNotOnTheTank6SecondsAfterItsFirstHitOnTheHealer)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(4000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::OtherMember)});
+    EXPECT_EQ(check.Failure(), "");
+
+    check.Observe(7100, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::OtherMember)});
+
+    EXPECT_EQ(check.Failure(),
+        "Ragefire Trogg was not on the tank 6 s after its first hit on the healer (limit of line 212)");
+}
+
+TEST(HealerPickupCheck, LeavesOutEnemiesOfThePulledPackAndEnemiesThatDie)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer, false),
+                            Seen(JoinShaman, "Ragefire Shaman", Bots::EnemyVictim::Healer)});
+    // The shaman died: the update sees it no more.
+    check.Observe(9000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer, false)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(HealerPickupCheck, ChecksNothingWithNoLimit)
+{
+    Bots::HealerPickupCheck check(Bots::ScriptLimit{});
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(9000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+namespace
+{
+    Bots::ScriptLimit NoTurnWithoutCast()
+    {
+        return {true, 0, 213};
+    }
+
+    std::set<Bots::Guid> const AllAlive = {JoinTrogg, JoinShaman, JoinFocus};
+}
+
+TEST(ThreatTargetCastCheck, ATurnToAThreatTargetWithACastPasses)
+{
+    Bots::ThreatTargetCastCheck check(NoTurnWithoutCast());
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.NoteCast(JoinTrogg);
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(ThreatTargetCastCheck, ACastJustBeforeTheTurnIsSeenCountsToo)
+{
+    Bots::ThreatTargetCastCheck check(NoTurnWithoutCast());
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+    check.NoteCast(JoinTrogg);
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(ThreatTargetCastCheck, ATurnToAThreatTargetAndAwayWithNoCastFails)
+{
+    Bots::ThreatTargetCastCheck check(NoTurnWithoutCast());
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+    check.NoteCast(JoinFocus);
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    EXPECT_EQ(check.Failure(), "");
+
+    check.Observe(JoinShaman, "Ragefire Shaman", JoinFocus, AllAlive);
+
+    EXPECT_EQ(check.Failure(), "the tank turned to 1 threat target with no cast, over the limit 0 of line 213: "
+                               "Ragefire Trogg");
+}
+
+TEST(ThreatTargetCastCheck, TheFocusADeadEnemyAndNoTargetNeedNoCast)
+{
+    Bots::ThreatTargetCastCheck check(NoTurnWithoutCast());
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.NoteCast(JoinTrogg);
+    // To the focus and away: no threat target.
+    check.Observe(JoinFocus, "Focus", JoinFocus, AllAlive);
+    check.Observe(JoinShaman, "Ragefire Shaman", JoinFocus, AllAlive);
+    // No target for a moment: no turn.
+    check.Observe(Bots::NoGuid, "", JoinFocus, AllAlive);
+    check.NoteCast(JoinShaman);
+    // The trogg dies while the tank has it.
+    check.Observe(JoinTrogg, "Ragefire Trogg", JoinFocus, AllAlive);
+    check.Observe(JoinFocus, "Focus", JoinFocus, {JoinShaman, JoinFocus});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(RunJudge, AFailedCheckFailsTheRunWithItsReason)
+{
+    RunJudge judge({}, 0);
+    judge.NoteFailedCheck("Ragefire Trogg was not on the tank");
+    judge.NoteFailedCheck("a later one");
+
+    EXPECT_EQ(judge.Judge(Minute).reason, "Ragefire Trogg was not on the tank");
+    EXPECT_EQ(judge.AtScriptEnd().reason, "Ragefire Trogg was not on the tank");
+}
+
+// jvbastel/WOWAI#171: no damage bot chases more than the scenario's limit
+// (`expect damage_chase_yards 25`) from the tank. The game layer tells the
+// judge, at each update, the chase of each bot and how far it is from the
+// living tank.
+namespace
+{
+    Bots::ScriptLimits ChaseLimit(std::uint32_t yards)
+    {
+        Bots::ScriptLimits limits;
+        limits.damageChaseYards = {true, yards, 190};
+        return limits;
+    }
+
+    Bots::BotRole const Ranged = Bots::BotRole::Ranged;
+}
+
+TEST(RunJudgeChase, ADamageBotChaseUpToTheLimitPasses)
+{
+    RunJudge judge({}, 0, ChaseLimit(25));
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 10.0f, 1000);
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 25.0f, 2000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+    EXPECT_EQ(judge.AtScriptEnd().kind, RunVerdictKind::Passed);
+}
+
+TEST(RunJudgeChase, ADamageBotChaseBeyondTheLimitFailsTheRun)
+{
+    RunJudge judge({}, 0, ChaseLimit(25));
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 20.0f, 39000);
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 31.5f, 39200);
+    // The first chase beyond the limit is the reason; a later one is not.
+    judge.NoteChase("Shanka", Bots::BotRole::Melee, "Ragefire Trogg", 40.0f, 40000);
+
+    RunVerdict const verdict = judge.Judge(Minute);
+    EXPECT_EQ(verdict.kind, RunVerdictKind::Failed);
+    EXPECT_EQ(verdict.reason, "Morzul chases Ragefire Shaman 31.5 yd from the tank at 39.2 s, over the limit 25 "
+                              "of line 190");
+    EXPECT_EQ(judge.AtScriptEnd().reason, verdict.reason);
+}
+
+TEST(RunJudgeChase, AMeleeBotCountsToo)
+{
+    RunJudge judge({}, 0, ChaseLimit(25));
+    judge.NoteChase("Shanka", Bots::BotRole::Melee, "Ragefire Trogg", 25.5f, 1000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Failed);
+}
+
+// The check is for damage bots: the tank goes where it must, and the
+// healer's walk is the business of its own rules.
+TEST(RunJudgeChase, TheTankAndTheHealerDoNotCount)
+{
+    RunJudge judge({}, 0, ChaseLimit(25));
+    judge.NoteChase("Grukk", Bots::BotRole::Tank, "Ragefire Trogg", 40.0f, 1000);
+    judge.NoteChase("Hela", Bots::BotRole::Healer, "Ragefire Trogg", 40.0f, 1000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+    EXPECT_EQ(judge.AtScriptEnd().kind, RunVerdictKind::Passed);
+}
+
+TEST(RunJudgeChase, NoLimitNoCheck)
+{
+    RunJudge judge({}, 0);
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 60.0f, 1000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+}
+
+// A full run fails on it too, as on the other limits.
+TEST(RunJudgeChase, AFullRunFailsOnAChaseBeyondTheLimit)
+{
+    RunJudge judge(RfcBosses, 0, ChaseLimit(25));
+    judge.NoteChase("Morzul", Ranged, "Ragefire Shaman", 26.0f, 1000);
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Failed);
+}
+
+// jvbastel/WOWAI#172: an extra-pack enemy that comes at the tank gets a
+// Sunder Armor or Revenge from the tank within 3 s of reaching its melee
+// reach (`expect extra_pack_threat_seconds <n>`).
+namespace
+{
+    Bots::ScriptLimit ThreeSeconds()
+    {
+        return {true, 3, 191};
+    }
+
+    // An enemy on the tank, in its melee reach or not.
+    Bots::FightEnemySeen OnTank(Bots::Guid enemy, std::string name, bool inMelee = true, bool extraPack = true)
+    {
+        Bots::FightEnemySeen seen = Seen(enemy, std::move(name), Bots::EnemyVictim::Tank, extraPack);
+        seen.inTankMelee = inMelee;
+        return seen;
+    }
+
+    Bots::SpellId const SunderArmor = 7386;
+    Bots::SpellId const Revenge = 6572;
+    Bots::SpellId const DemoralizingShout = 1160;
+}
+
+TEST(ExtraPackThreatCheck, PassesASunderArmorWithin3SecondsOfMeleeReach)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(1000, {OnTank(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.NoteCast(JoinTrogg, SunderArmor);
+    check.Observe(4900, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(9000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(ExtraPackThreatCheck, PassesARevengeToo)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.NoteCast(JoinTrogg, Revenge);
+    check.Observe(9000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+// The 3 s count from melee reach, not from the join: a walk from afar is
+// no failure.
+TEST(ExtraPackThreatCheck, FailsAnEnemyWithNoSunderOrRevenge3SecondsAfterItReachedTheTank)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.NoteCast(JoinTrogg, DemoralizingShout);
+    check.Observe(5000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    EXPECT_EQ(check.Failure(), "");
+
+    check.Observe(5100, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_EQ(check.Failure(),
+        "Ragefire Trogg got no Sunder Armor or Revenge from the tank 3 s after it reached the tank's melee reach "
+        "(limit of line 191)");
+}
+
+TEST(ExtraPackThreatCheck, ASunderOnAnotherEnemyDoesNotCount)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg"), OnTank(JoinShaman, "Ragefire Shaman")});
+    check.NoteCast(JoinShaman, SunderArmor);
+    check.Observe(3100, {OnTank(JoinTrogg, "Ragefire Trogg"), OnTank(JoinShaman, "Ragefire Shaman")});
+
+    EXPECT_NE(check.Failure().find("Ragefire Trogg"), std::string::npos);
+}
+
+// The pulled pack (no extra pack), and an enemy that never reached the tank
+// (it stays on another member), are no failure.
+TEST(ExtraPackThreatCheck, LeavesOutThePulledPackAndEnemiesThatNeverReachedTheTank)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinFocus, "Focus", true, false), Seen(JoinTrogg, "Ragefire Trogg",
+                                                                Bots::EnemyVictim::Healer)});
+    check.Observe(9000, {OnTank(JoinFocus, "Focus", true, false), Seen(JoinTrogg, "Ragefire Trogg",
+                                                                   Bots::EnemyVictim::Healer)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+// One that reached the tank and died before 3 s is no failure.
+TEST(ExtraPackThreatCheck, LeavesOutAnEnemyThatDiedBeforeTheLimit)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(9000, {});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+// jvbastel/WOWAI#174: the 3 s count from the FIRST reach and never start
+// again. An enemy that leaves the tank (to another member, or out of reach
+// for an update) and comes back cannot dodge the check.
+TEST(ExtraPackThreatCheck, KeepsTheClockOfTheFirstReachWhenTheEnemyLeavesAndComesBack)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(3100, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_NE(check.Failure(), "");
+}
+
+TEST(ExtraPackThreatCheck, AnUpdateOutOfReachDoesNotStartTheClockAgain)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(2500, {});
+    check.Observe(3100, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_NE(check.Failure(), "");
+}
+
+// An enemy that reached the tank and then went to another member with no
+// Sunder Armor or Revenge fails all the same: the tank had it in reach.
+TEST(ExtraPackThreatCheck, FailsAnEnemyThatLeftTheTankWithNoSunderOrRevenge)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(3100, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+
+    EXPECT_NE(check.Failure().find("Ragefire Trogg"), std::string::npos);
+}
+
+TEST(ExtraPackThreatCheck, ChecksNothingWithNoLimit)
+{
+    Bots::ExtraPackThreatCheck check(Bots::ScriptLimit{});
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(9000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+// jvbastel/WOWAI#174 (the player's decision): the 6 s of the healer pickup
+// count from the enemy's first real hit on the healer, not from when it took
+// the healer as its victim far away.
+namespace
+{
+    Bots::FightEnemySeen OnHealer(Bots::Guid enemy, std::string name, bool hit)
+    {
+        Bots::FightEnemySeen seen = Seen(enemy, std::move(name), Bots::EnemyVictim::Healer);
+        seen.hitVictim = hit;
+        return seen;
+    }
+}
+
+TEST(HealerPickupCheck, CountsFromTheFirstRealHitOnTheHealer)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(0, {OnHealer(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(5000, {OnHealer(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(5500, {OnHealer(JoinTrogg, "Ragefire Trogg", true)});
+    check.Observe(11400, {OnHealer(JoinTrogg, "Ragefire Trogg", true)});
+    EXPECT_EQ(check.Failure(), "");
+    check.Observe(11500, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Tank)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(HealerPickupCheck, FailsAnEnemyNotOnTheTank6SecondsAfterItsFirstRealHit)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(0, {OnHealer(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(5500, {OnHealer(JoinTrogg, "Ragefire Trogg", true)});
+    check.Observe(11600, {OnHealer(JoinTrogg, "Ragefire Trogg", true)});
+
+    EXPECT_NE(check.Failure(), "");
 }

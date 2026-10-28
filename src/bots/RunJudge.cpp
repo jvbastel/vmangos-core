@@ -1,15 +1,43 @@
 #include "RunJudge.h"
 
 #include "FightSpot.h"
+#include "WarriorModule.h"
 
 #include <algorithm>
 #include <cstdio>
 
 namespace Bots
 {
-    RunJudge::RunJudge(std::vector<std::uint32_t> bosses, std::int64_t startMs)
-        : m_bosses(std::move(bosses)), m_startMs(startMs), m_progressMs(startMs)
+    RunJudge::RunJudge(std::vector<std::uint32_t> bosses, std::int64_t startMs, ScriptLimits limits)
+        : m_bosses(std::move(bosses)), m_limits(limits), m_startMs(startMs), m_progressMs(startMs)
     {
+    }
+
+    void RunJudge::NotePull(std::string const& name)
+    {
+        ++m_pulls;
+        m_pull = name;
+        m_healerLosses.clear();
+    }
+
+    void RunJudge::NoteHealerThreatLoss(std::string const& name)
+    {
+        m_healerLosses.push_back(name);
+        ScriptLimit const& limit = m_limits.healerThreatLosses;
+        if (!limit.set || m_healerLosses.size() <= limit.most || !m_overLimit.empty())
+            return;
+        std::string const pull = m_pulls == 0 ? std::string("before the first pull")
+                                              : "in pull " + std::to_string(m_pulls) + " (" + m_pull + ")";
+        m_overLimit = "healer threat losses " + std::to_string(m_healerLosses.size()) + " " + pull +
+            ", over the limit " + std::to_string(limit.most) + " of line " + std::to_string(limit.line) + ": ";
+        for (std::size_t i = 0; i < m_healerLosses.size(); ++i)
+            m_overLimit += (i ? "; " : "") + m_healerLosses[i];
+    }
+
+    void RunJudge::NoteFailedCheck(std::string const& reason)
+    {
+        if (m_failedCheck.empty())
+            m_failedCheck = reason;
     }
 
     void RunJudge::NoteBossKill(std::uint32_t entry, std::int64_t nowMs)
@@ -35,6 +63,12 @@ namespace Bots
             return {RunVerdictKind::Passed, ""};
         if (m_wipes >= FailingWipe)
             return {RunVerdictKind::Failed, "the second wipe"};
+        if (!m_overLimit.empty())
+            return {RunVerdictKind::Failed, m_overLimit};
+        if (!m_failedCheck.empty())
+            return {RunVerdictKind::Failed, m_failedCheck};
+        if (!m_farChase.empty())
+            return {RunVerdictKind::Failed, m_farChase};
         if (nowMs - m_startMs >= RunLimitMs)
             return {RunVerdictKind::Failed, "the run did not end in " + std::to_string(RunLimitMs / 60000) + " min"};
         if (nowMs - m_progressMs >= NoProgressMs)
@@ -45,6 +79,12 @@ namespace Bots
 
     RunVerdict RunJudge::AtScriptEnd() const
     {
+        if (!m_overLimit.empty())
+            return {RunVerdictKind::Failed, m_overLimit};
+        if (!m_failedCheck.empty())
+            return {RunVerdictKind::Failed, m_failedCheck};
+        if (!m_farChase.empty())
+            return {RunVerdictKind::Failed, m_farChase};
         if (m_killed.size() == m_bosses.size())
             return {RunVerdictKind::Passed, ""};
         return {RunVerdictKind::Failed, "the route ended with " + std::to_string(m_killed.size()) + " of " +
@@ -140,6 +180,8 @@ namespace Bots
 
     ExtraPackMark JudgeExtraPack(bool pullJudged, ExtraPackMark const* atPull, ExtraPackCause const& cause)
     {
+        if (cause.scripted)
+            return {false, "the script brought it (join)"};
         if (!cause.fleeing.empty())
             return {false, "a fleeing enemy brought it: " + cause.fleeing};
         if (cause.patrol)
@@ -170,5 +212,132 @@ namespace Bots
             if (!PullFailure(pull).empty())
                 ++failed;
         return failed;
+    }
+}
+
+// jvbastel/WOWAI#168: the pickup of extra-pack enemies on the healer, and the
+// casts on each threat target.
+namespace Bots
+{
+    HealerPickupCheck::HealerPickupCheck(ScriptLimit limit) : m_limit(limit)
+    {
+    }
+
+    void HealerPickupCheck::Observe(std::int64_t nowMs, std::vector<FightEnemySeen> const& enemies)
+    {
+        if (!m_limit.set)
+            return;
+        for (FightEnemySeen const& seen : enemies)
+        {
+            if (!seen.extraPack || m_onTank.count(seen.enemy))
+                continue;
+            auto const first = m_firstHitMs.find(seen.enemy);
+            if (first == m_firstHitMs.end())
+            {
+                if (seen.victim == EnemyVictim::Healer && seen.hitVictim)
+                    m_firstHitMs[seen.enemy] = nowMs;
+                continue;
+            }
+            if (seen.victim == EnemyVictim::Tank)
+            {
+                m_onTank.insert(seen.enemy);
+                m_firstHitMs.erase(first);
+            }
+            else if (nowMs - first->second > std::int64_t(m_limit.most) * 1000 && m_failure.empty())
+                m_failure = seen.name + " was not on the tank " + std::to_string(m_limit.most) +
+                    " s after its first hit on the healer (limit of line " + std::to_string(m_limit.line) + ")";
+        }
+    }
+
+    ThreatTargetCastCheck::ThreatTargetCastCheck(ScriptLimit limit) : m_limit(limit)
+    {
+    }
+
+    void ThreatTargetCastCheck::NoteCast(Guid target)
+    {
+        if (target == m_target)
+            m_cast = true;
+        else
+            m_castsAhead.insert(target);
+    }
+
+    void ThreatTargetCastCheck::Observe(Guid target, std::string const& name, Guid focus, std::set<Guid> const& living)
+    {
+        if (!m_limit.set || target == NoGuid || target == m_target)
+            return;
+        if (m_threatTarget && !m_cast && m_target != focus && living.count(m_target))
+        {
+            m_misses.push_back(m_name);
+            if (m_misses.size() > m_limit.most && m_failure.empty())
+            {
+                m_failure = "the tank turned to " + std::to_string(m_misses.size()) + " threat target" +
+                    (m_misses.size() == 1 ? "" : "s") + " with no cast, over the limit " +
+                    std::to_string(m_limit.most) + " of line " + std::to_string(m_limit.line) + ": ";
+                for (std::size_t i = 0; i < m_misses.size(); ++i)
+                    m_failure += (i ? "; " : "") + m_misses[i];
+            }
+        }
+        m_target = target;
+        m_name = name;
+        m_threatTarget = target != focus;
+        m_cast = m_castsAhead.count(target) != 0;
+        m_castsAhead.clear();
+    }
+}
+
+// jvbastel/WOWAI#171: the chase limit of the damage bots.
+namespace Bots
+{
+    void RunJudge::NoteChase(std::string const& member, BotRole role, std::string const& enemy, float yardsFromTank,
+        std::int64_t nowMs)
+    {
+        ScriptLimit const& limit = m_limits.damageChaseYards;
+        bool const damageBot = role == BotRole::Melee || role == BotRole::Ranged;
+        if (!limit.set || !damageBot || yardsFromTank <= float(limit.most) || !m_farChase.empty())
+            return;
+        char text[256];
+        std::snprintf(text, sizeof(text), "%s chases %s %.1f yd from the tank at %.1f s, over the limit %u of line %zu",
+            member.c_str(), enemy.c_str(), yardsFromTank, nowMs / 1000.0, limit.most, limit.line);
+        m_farChase = text;
+    }
+}
+
+// jvbastel/WOWAI#172: the tank's threat on an extra-pack enemy that comes at
+// it.
+namespace Bots
+{
+    ExtraPackThreatCheck::ExtraPackThreatCheck(ScriptLimit limit) : m_limit(limit)
+    {
+    }
+
+    void ExtraPackThreatCheck::NoteCast(Guid target, SpellId firstRank)
+    {
+        if (firstRank == Warrior::SunderArmor || firstRank == Warrior::Revenge)
+            m_threatCast.insert(target);
+    }
+
+    void ExtraPackThreatCheck::Observe(std::int64_t nowMs, std::vector<FightEnemySeen> const& enemies)
+    {
+        if (!m_limit.set)
+            return;
+        for (FightEnemySeen const& seen : enemies)
+        {
+            if (!seen.extraPack)
+                continue;
+            // jvbastel/WOWAI#174: the clock starts at the first reach and
+            // never starts again, so an enemy that leaves the tank (another
+            // victim, or out of reach for an update) cannot dodge the check.
+            auto since = m_inReachMs.find(seen.enemy);
+            if (since == m_inReachMs.end())
+            {
+                if (seen.victim != EnemyVictim::Tank || !seen.inTankMelee)
+                    continue;
+                since = m_inReachMs.emplace(seen.enemy, nowMs).first;
+            }
+            if (!m_threatCast.count(seen.enemy) && nowMs - since->second > std::int64_t(m_limit.most) * 1000
+                && m_failure.empty())
+                m_failure = seen.name + " got no Sunder Armor or Revenge from the tank " + std::to_string(m_limit.most) +
+                    " s after it reached the tank's melee reach (limit of line " + std::to_string(m_limit.line) + ")";
+        }
     }
 }

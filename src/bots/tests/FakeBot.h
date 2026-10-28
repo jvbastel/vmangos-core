@@ -62,7 +62,14 @@ namespace Bots
             }
             // The bot knows the spell, but cannot cast it now (cooldown,
             // range, power, stance).
-            void SetCannotCast(SpellId spell) { m_cannotCast.insert(spell); }
+            // `cannot` false undoes it: the bot can cast it again.
+            void SetCannotCast(SpellId spell, bool cannot = true)
+            {
+                if (cannot)
+                    m_cannotCast.insert(spell);
+                else
+                    m_cannotCast.erase(spell);
+            }
             void SetPower(Guid unit, std::uint32_t current, std::uint32_t max) { m_power[unit] = Power{current, max}; }
             // Unset: PowerKind::None.
             void SetPowerKind(Guid unit, PowerKind kind) { m_powerKind[unit] = kind; }
@@ -174,6 +181,14 @@ namespace Bots
                     m_resurrecters.erase(unit);
             }
             void SetMana(Guid unit, std::uint32_t current, std::uint32_t max) { m_mana[unit] = Power{current, max}; }
+            void SetWearsCloth(Guid unit, bool cloth = true) { m_cloth[unit] = cloth; }
+            void SetRootedOrStunned(Guid unit, bool held = true)
+            {
+                if (held)
+                    m_rootedOrStunned.insert(unit);
+                else
+                    m_rootedOrStunned.erase(unit);
+            }
             void SetEating(bool eating = true) { m_eating = eating; }
             void SetDrinking(bool drinking = true) { m_drinking = drinking; }
             void SetScriptedMove(bool moving = true) { m_scriptedMove = moving; }
@@ -397,6 +412,12 @@ namespace Bots
             {
                 return m_resurrecters.count(unit) != 0 && GetLifeState(unit) == LifeState::Alive;
             }
+            bool WearsCloth(Guid unit) const override
+            {
+                auto found = m_cloth.find(unit);
+                return found != m_cloth.end() && found->second;
+            }
+            bool IsRootedOrStunned(Guid unit) const override { return m_rootedOrStunned.count(unit) != 0; }
             Power GetMana(Guid unit) const override
             {
                 auto found = m_mana.find(unit);
@@ -602,6 +623,8 @@ namespace Bots
             Guid m_leader = NoGuid;
             std::set<Guid> m_resurrecters;
             std::map<Guid, Power> m_mana;
+            std::map<Guid, bool> m_cloth;
+            std::set<Guid> m_rootedOrStunned;
             bool m_eating = false;
             bool m_drinking = false;
             bool m_scriptedMove = false;

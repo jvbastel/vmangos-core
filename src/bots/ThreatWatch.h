@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -152,6 +153,79 @@ namespace Bots
             text << (i ? "; " : " (") << HitText(hits[i]) << (i + 1 == hits.size() ? ")" : "");
         return text.str();
     }
+}
+
+// jvbastel/WOWAI#174 (the player's decision): the threat-loss clock of an
+// enemy on the healer starts at its first real hit on the healer (a melee
+// swing, hit or not, or a spell's damage or miss log at the healer; a DoT
+// tick or a spell with no damage is not seen), not when it takes the healer
+// as its victim from afar. The game layer notes each real hit; the gate lets
+// a hit on a healer through to ThreatWatch only after that.
+namespace Bots
+{
+    inline bool operator==(EnemyOnMember const& a, EnemyOnMember const& b)
+    {
+        return a.enemy == b.enemy && a.member == b.member;
+    }
+
+    class RealHitGate
+    {
+    public:
+        // Enemy `enemy` swung at or cast at member `member`.
+        void NoteRealHit(Guid enemy, Guid member)
+        {
+            m_hit.insert({enemy, member});
+            m_hitters.insert(enemy);
+        }
+        bool HasHit(Guid enemy, Guid member) const { return m_hit.count({enemy, member}) != 0; }
+        // Enemy `enemy` swung at or cast at any member.
+        bool HasHitAnyone(Guid enemy) const { return m_hitters.count(enemy) != 0; }
+        // The game layer notes no real hit on member `member` (no bot AI:
+        // the test driver), so its hits are never held back.
+        void NoteNoHitNotes(Guid member) { m_noHitNotes.insert(member); }
+        bool HasNoHitNotes(Guid member) const { return m_noHitNotes.count(member) != 0; }
+        // `hits` with each hit on one of `healers` left out until its first
+        // real hit.
+        std::vector<EnemyOnMember> Gate(std::vector<EnemyOnMember> const& hits, std::set<Guid> const& healers) const;
+
+    private:
+        std::set<std::pair<Guid, Guid>> m_hit;
+        std::set<Guid> m_hitters;
+        std::set<Guid> m_noHitNotes;
+    };
+}
+
+// jvbastel/WOWAI#174 (the player's second decision): the lost-mob clock
+// starts at the enemy's first real hit (RealHitGate, on any member: the
+// clock is the enemy's, as in LostMobWatch), in scenarios and full runs. A
+// hit on a member with no hit notes (the test driver) counts at once. Backstop: an enemy that targets a member and never
+// hits it (it cannot reach it, or stands and waits), with no bot on it, is
+// lost after LostMobBackstopMs all the same. An enemy is lost once.
+namespace Bots
+{
+    std::int64_t const LostMobBackstopMs = 30000;
+
+    class RealHitLostMobWatch
+    {
+    public:
+        explicit RealHitLostMobWatch(std::int64_t limitMs = LostMobMs)
+            : m_hitWatch(limitMs), m_backstop(LostMobBackstopMs) {}
+        // As LostMobWatch::Update, with `hits` gated by the real hits of
+        // `gate`, and ungated for the backstop.
+        void Update(std::vector<EnemyOnMember> const& hits, RealHitGate const& gate, std::vector<Guid> const& attacked,
+            std::int64_t nowMs, Guid holder = NoGuid, HitNamer const& name = nullptr);
+        // In the order they were lost.
+        std::vector<LostMob> const& LostMobs() const { return m_lost; }
+        std::int64_t LimitMs() const { return m_hitWatch.LimitMs(); }
+
+    private:
+        LostMobWatch m_hitWatch;
+        LostMobWatch m_backstop;
+        std::vector<LostMob> m_lost;
+        // For each of m_lost: from m_backstop (else m_hitWatch), and its
+        // index there, so that its end follows the watch that lost it.
+        std::vector<std::pair<bool, std::size_t>> m_from;
+    };
 }
 
 #endif
