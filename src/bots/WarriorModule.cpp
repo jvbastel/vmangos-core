@@ -748,7 +748,7 @@ namespace Bots
                 // The focus target dies, or the bot cannot see it any more.
                 // jvbastel/WOWAI#173: with enemies left in the fight, the
                 // tank sets the next focus (PickNextFocus) and the pull stays
-                // on, so that a pack that joins later still gets its warn.
+                // on (held), so that a pack that joins later still gets its warn.
                 // With none left, the pull and the fight end. A visit to the
                 // threat target ends with the focus.
                 Bookkeeping("the focus dies", P + 90,
@@ -761,7 +761,12 @@ namespace Bots
                         if (next == NoGuid)
                             context.group.EndPull();
                         else
+                        {
+                            // A pull target that died on its way: the fight
+                            // is on all the same, so the pull is held.
+                            context.group.HoldPull(Self(context), context.nowMs);
                             context.group.SetFocusTarget(next);
+                        }
                         visit->abilities = 0;
                     }),
                 Bookkeeping("hold the pull", P + 85,

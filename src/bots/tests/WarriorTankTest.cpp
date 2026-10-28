@@ -2434,3 +2434,82 @@ TEST(WarriorTankNextFocus, MakesTheEnemyOnItWithTheBiggestThreatLeadTheNextFocus
     EXPECT_EQ(tank.group.GetFocusTarget(), Bat);
     EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
 }
+
+// The next focus dies too: the tank goes on to the last enemy, and the pull
+// ends only when no enemy is left in the fight.
+TEST(WarriorTankNextFocus, EndsThePullOnlyWhenNoEnemyIsLeft)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Wolf, Tank);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Wolf, 2.0f);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.5f);
+    tank.fake.SetHealth(Kobold, 0, 200);
+    tank.fake.SetVictim(Kobold, NoGuid);
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    ASSERT_EQ(tank.group.GetFocusTarget(), Wolf);
+
+    tank.fake.SetHealth(Wolf, 0, 300);
+    tank.fake.SetVictim(Wolf, NoGuid);
+    tank.Think();
+    EXPECT_EQ(tank.group.GetFocusTarget(), Bat);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
+
+    tank.fake.SetHealth(Bat, 0, 300);
+    tank.fake.SetVictim(Bat, NoGuid);
+    tank.Think();
+    EXPECT_EQ(tank.group.GetFocusTarget(), NoGuid);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::None);
+}
+
+// Spec story 31: the first focus died, and the fight goes on. A pack that
+// joins after that still gets the tank's party warning.
+TEST(WarriorTankNextFocus, WarnsWhenAPackJoinsAfterTheFirstFocusDied)
+{
+    TrailTank tank;
+    tank.fake.SetGroupMembers({Healer});
+    tank.group.SetHealer(Healer);
+    tank.AddEnemy(Bat, {27, 0, 0}, 10.0f);
+    tank.group.StartPull(Tank, Kobold);
+    tank.Think();
+    ASSERT_TRUE(tank.group.GetPull().hasFightSpot);
+    // The kobold and the bat (its pack) come to the tank and fight it.
+    tank.InFightWithKobold();
+    tank.group.NoteFocusContact(0);
+    tank.fake.SetInCombat(Tank);
+    tank.fake.SetHealth(Healer, 300, 300);
+    tank.fake.SetHealth(Bat, 300, 300);
+    tank.fake.SetHealth(Wolf, 300, 300);
+    tank.fake.SetDistance(Bat, 2.0f);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetHealth(Kobold, 0, 200);
+    tank.fake.SetVictim(Kobold, NoGuid);
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    ASSERT_EQ(tank.group.GetFocusTarget(), Bat);
+    tank.fake.ClearDeeds();
+
+    // A wolf of no pack of the pull joins on the healer.
+    tank.fake.SetDistance(Wolf, 15.0f);
+    tank.fake.SetVictim(Wolf, Healer);
+
+    EXPECT_EQ(tank.Think(), "warn when a pack joins");
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{"warn Careful: this pull brings 1 more pack."}));
+}
+
+// The pull target dies before it came to the tank (the damage bots killed
+// it on its run), while its pack fights on: the fight is on, so the pull is
+// held, with the next focus. The tank does not go on pulling a dead target.
+TEST(WarriorTankNextFocus, HoldsThePullWhenThePullTargetDiesBeforeItCame)
+{
+    GroupInFight tank;
+    tank.group.StartPull(Tank, Kobold);
+    tank.fake.SetVictim(Kobold, NoGuid);
+    tank.fake.SetHealth(Kobold, 0, 200);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 1.0f);
+
+    ASSERT_EQ(tank.Think(), "the focus dies");
+
+    EXPECT_EQ(tank.group.GetFocusTarget(), Bat);
+    EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
+}
