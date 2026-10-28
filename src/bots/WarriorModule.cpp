@@ -613,13 +613,19 @@ namespace Bots
             };
             using PullPacksPtr = std::shared_ptr<PullPacks>;
 
+            // The tank is in its own pull of `packs.target`.
+            bool InOwnPull(BotContext const& context, PullPacks const& packs)
+            {
+                PullState const pull = context.group.GetPull();
+                return pull.phase != PullPhase::None && pull.puller == Self(context) && pull.target == packs.target;
+            }
+
             // The packs of the enemies in the fight that joined the fight
             // of the pull and have no warn yet. None out of the pull.
             std::set<std::pair<int, Guid>> JoinedPacks(BotContext const& context, PullPacks const& packs)
             {
                 std::set<std::pair<int, Guid>> joined;
-                PullState const pull = context.group.GetPull();
-                if (pull.phase == PullPhase::None || pull.puller != Self(context) || pull.target != packs.target)
+                if (!InOwnPull(context, packs))
                     return joined;
                 for (Guid enemy : EnemiesInFight(context))
                 {
@@ -673,8 +679,7 @@ namespace Bots
             // is of no pack of the pull target (PullPacks; a roaming mob too).
             bool JoinedThePull(BotContext const& context, PullPacks const& packs, Guid enemy)
             {
-                PullState const pull = context.group.GetPull();
-                if (pull.phase == PullPhase::None || pull.puller != Self(context) || pull.target != packs.target)
+                if (!InOwnPull(context, packs))
                     return false;
                 auto const found = packs.packOf.find(enemy);
                 return found == packs.packOf.end() || found->second != 0;

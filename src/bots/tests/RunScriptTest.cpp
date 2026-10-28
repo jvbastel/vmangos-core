@@ -640,7 +640,7 @@ TEST(RunScript, AnExpectLineSetsTheExtraPackThreatLimit)
         "line 7: the scenario s sets extra_pack_threat_seconds on line 6 already");
 }
 
-// Spec #165: join_three has the 3 s check.
+// jvbastel/WOWAI#172: join_three has the 3 s check.
 TEST(RunScriptData, JoinThreeChecksTheTanksThreatOnTheExtraPackIn3Seconds)
 {
     RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/ragefire_chasm.txt"));
