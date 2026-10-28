@@ -250,7 +250,7 @@
   }
   modeButton.addEventListener("click", () => setDrawing(!drawing));
   document.getElementById("draw-clear").addEventListener("click", () => {
-    if (lines[0].points.length && !confirm("Clear the drawn line and its branches?")) return;
+    if (lines.some(l => l.points.length) && !confirm("Clear the drawn line and its branches?")) return;
     lines = [{points: [], pieces: []}]; active = 0; selected = null; fromTrace = false; redraw();
   });
   const sent = p => ({x: p.x, y: p.y, z: p.z, joined: p.joined !== false, mark: !!p.mark, note: p.note || ""});

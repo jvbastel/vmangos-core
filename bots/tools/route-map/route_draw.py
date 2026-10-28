@@ -5,7 +5,8 @@ page part is map_draw.js.
 
     GET  /api/maps/{route}/snap?x=&y=[&z=]   the floor point of a click, and the floor heights there
     POST /api/maps/{route}/path              {"start": {x, y, z}, "end": {x, y, z}}: the floor path and its warnings
-    POST /api/maps/{route}/trace             {"points": [{x, y, z}, ...]}: writes <route>.trace.txt
+    POST /api/maps/{route}/trace             {"points": [{x, y, z, joined, mark, note}, ...], "branches": [[...], ...]}:
+                                             writes <route>.trace.txt (each branch is a later walk)
 """
 
 from __future__ import annotations

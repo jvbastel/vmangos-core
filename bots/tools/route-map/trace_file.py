@@ -90,11 +90,6 @@ def parse(text: str) -> Trace:
     return trace
 
 
-def write(name: str, map_id: int, points) -> str:
-    """The text of a trace of joined points (x, y, z), as ParseTrace reads it."""
-    return write_trace(Trace(name, map_id, [TracePoint(x, y, z) for x, y, z in points]))
-
-
 def clean_note(note: str) -> str:
     """A mark note as the library keeps it: no comment marker, words split by one space."""
     return " ".join(note.replace("#", " ").split())
