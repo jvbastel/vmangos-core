@@ -148,7 +148,7 @@ def create_app(settings: Settings) -> FastAPI:
         # One pack per key (pack_order merges route packs that share one): the
         # quest badges count the packs of that list.
         packs = map_packs.map_part(route, export)
-        packs.update(pack_order.map_part(name, packs, settings.routes))
+        packs.update(pack_order.map_part(name, packs, settings.routes, route.line, export))
         return {
             "route": route.name,
             "map_id": route.map_id,
@@ -161,7 +161,8 @@ def create_app(settings: Settings) -> FastAPI:
     walked_path.add_routes(app)
     route_draw.add_routes(app, settings, load_route, load_navmesh)
     map_packs.add_routes(app)
-    pack_order.add_routes(app, settings, load_route, lambda route: map_packs.map_part(route, load_export(route.map_id)))
+    pack_order.add_routes(app, settings, load_route, lambda route: map_packs.map_part(route, load_export(route.map_id)),
+                          lambda route: load_export(route.map_id))
     map_quests.add_routes(app)
     route_draft.add_routes(app, settings, load_route)
     return app
