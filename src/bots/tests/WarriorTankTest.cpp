@@ -2314,16 +2314,30 @@ TEST(WarriorTankLooseEnemy, UsesRevengeOnItsLooseEnemyWhenTauntIsNotReady)
     EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::Revenge, Bat)}));
 }
 
+// Mocking Blow is known and castable, Taunt waits: Sunder Armor, never
+// Mocking Blow.
 TEST(WarriorTankLooseEnemy, NeverUsesMockingBlow)
 {
     LooseEnemiesTank tank;
     tank.fake.SetKnownSpell(Warrior::MockingBlow);
+    tank.fake.SetVictim(Bat, Healer);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+    for (std::int64_t ms = 500; ms < 5000; ms += 500)
+        for (std::string const& deed : tank.ThinkAt(ms))
+            EXPECT_EQ(deed.find("cast 694 "), std::string::npos) << deed;
+}
+
+// The stop case: no ability can go out on the loose enemy (Taunt, Revenge
+// and Sunder Armor all wait): the tank casts nothing on it.
+TEST(WarriorTankLooseEnemy, CastsNothingOnItsLooseEnemyWhenNoAbilityCanGoOut)
+{
+    LooseEnemiesTank tank;
     tank.fake.SetCannotCast(Warrior::SunderArmor);
     tank.fake.SetVictim(Bat, Healer);
 
-    for (std::int64_t ms = 0; ms < 5000; ms += 500)
-        for (std::string const& deed : tank.ThinkAt(ms))
-            EXPECT_EQ(deed.find("cast 694 "), std::string::npos) << deed;
+    for (std::string const& deed : tank.ThinkAt(0))
+        EXPECT_EQ(deed.find("cast "), std::string::npos) << deed;
 }
 
 TEST(WarriorTankLooseEnemy, GoesBackToTheFocusWhenNoLooseEnemyIsLeft)

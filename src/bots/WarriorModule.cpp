@@ -406,6 +406,20 @@ namespace Bots
                 return CastableRank(context.view, Revenge, target) != NoSpell ? Revenge : SunderArmor;
             }
 
+            // jvbastel/WOWAI#168: the action "Revenge or Sunder Armor
+            // (ThreatTargetAbility) on the enemy that `target` picks".
+            BotAction ThreatAbilityOn(TargetPicker target)
+            {
+                return {[target](BotContext const& context) {
+                            Guid const enemy = target(context);
+                            return CastableRank(context.view, ThreatTargetAbility(context, enemy), enemy) != NoSpell;
+                        },
+                    [target](BotContext const& context) {
+                        Guid const enemy = target(context);
+                        context.actions.CastSpell(RankForTarget(context.view, ThreatTargetAbility(context, enemy), enemy), enemy);
+                    }};
+            }
+
             // Revenge goes to the threat target when a visit is due and
             // Revenge is its ability, else to the focus. So Revenge keeps
             // its place above Shield Block on a visit too.
@@ -457,6 +471,18 @@ namespace Bots
                 std::int64_t sinceMs = 0;
             };
             using ThreatKeepPtr = std::shared_ptr<ThreatKeep>;
+
+            // jvbastel/WOWAI#168: the action `action` notes that the tank
+            // cast an ability on the enemy it keeps threat on.
+            BotAction NotesCastOn(BotAction action, ThreatKeepPtr const& keep)
+            {
+                std::function<void(BotContext const&)> const run = action.run;
+                action.run = [run, keep](BotContext const& context) {
+                    run(context);
+                    keep->castOn = true;
+                };
+                return action;
+            }
 
             // The enemy that the tank keeps threat on: the one it last taunted
             // off or picked up in this fight, while it lives, is in the fight
@@ -940,16 +966,8 @@ namespace Bots
                 // Armor on it first, when it can.
                 Rule{"cast on the enemy it turned to", P + CastOnTheEnemyItTurnedTo,
                     [keep](BotContext const& context) { return PickEnemyDueACast(context, *keep) != NoGuid; },
-                    {[keep](BotContext const& context) {
-                         Guid const enemy = PickEnemyDueACast(context, *keep);
-                         return CastableRank(context.view, ThreatTargetAbility(context, enemy), enemy) != NoSpell;
-                     },
-                        [keep](BotContext const& context) {
-                            Guid const enemy = PickEnemyDueACast(context, *keep);
-                            SpellId const ability = ThreatTargetAbility(context, enemy);
-                            context.actions.CastSpell(RankForTarget(context.view, ability, enemy), enemy);
-                            keep->castOn = true;
-                        }}},
+                    NotesCastOn(ThreatAbilityOn([keep](BotContext const& context) { return PickEnemyDueACast(context, *keep); }),
+                        keep)},
                 // jvbastel/WOWAI#168: the tank's one loose enemy
                 // (PickLooseEnemy): Taunt when it can, else Revenge or Sunder
                 // Armor. Never Mocking Blow: it needs Battle Stance.
@@ -962,15 +980,7 @@ namespace Bots
                         [looseEnemy](BotContext const& context) {
                             return looseEnemy(context) != NoGuid && !ShoutTakesThem(context);
                         },
-                        {[looseEnemy](BotContext const& context) {
-                             Guid const enemy = looseEnemy(context);
-                             return CastableRank(context.view, ThreatTargetAbility(context, enemy), enemy) != NoSpell;
-                         },
-                            [looseEnemy](BotContext const& context) {
-                                Guid const enemy = looseEnemy(context);
-                                SpellId const ability = ThreatTargetAbility(context, enemy);
-                                context.actions.CastSpell(RankForTarget(context.view, ability, enemy), enemy);
-                            }}},
+                        ThreatAbilityOn(looseEnemy)},
                     looseEnemy, keep),
                 // jvbastel/WOWAI#126: Taunt cannot reach the loose enemy (or
                 // waits for its cooldown): the tank goes to it and attacks
@@ -991,16 +1001,7 @@ namespace Bots
                 CountsInThreatVisit(
                     Rule{"keep threat on the taunted enemy", P + KeepThreatOnTheTaunted,
                         [keptEnemy](BotContext const& context) { return keptEnemy(context) != NoGuid; },
-                        {[keptEnemy](BotContext const& context) {
-                             Guid const enemy = keptEnemy(context);
-                             return CastableRank(context.view, ThreatTargetAbility(context, enemy), enemy) != NoSpell;
-                         },
-                            [keptEnemy, keep](BotContext const& context) {
-                                Guid const enemy = keptEnemy(context);
-                                SpellId const ability = ThreatTargetAbility(context, enemy);
-                                context.actions.CastSpell(RankForTarget(context.view, ability, enemy), enemy);
-                                keep->castOn = true;
-                            }}},
+                        NotesCastOn(ThreatAbilityOn(keptEnemy), keep)},
                     keptEnemy, visit),
                 // A broken pull: too many loose enemies to taunt one by one.
                 CastRule("challenging shout", P + 52,
