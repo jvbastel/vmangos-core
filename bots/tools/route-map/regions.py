@@ -24,6 +24,7 @@ high height. A save keeps the comments of the old file (see write).
 from __future__ import annotations
 
 import math
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -109,10 +110,10 @@ def parse(text: str) -> list[Region]:
                 raise RegionsError(f"use: region <low> <high> <x1> <y1> ... name <name>")
             regions.append(_parse_line(words))
             check(regions)
-        except ValueError:
-            raise RegionsError(f"line {number}: cannot read {raw.strip()!r}")
+        except ValueError as error:
+            raise RegionsError(f"line {number}: cannot read {raw.strip()!r}") from error
         except RegionsError as error:
-            raise RegionsError(f"line {number}: {error}")
+            raise RegionsError(f"line {number}: {error}") from error
     return regions
 
 
@@ -123,11 +124,14 @@ def check(regions: list[Region]):
         where = f"region {region.name!r}"
         if not region.name.strip():
             raise RegionsError("a region has no name")
-        if "#" in region.name or "\n" in region.name or region.name != region.name.strip():
-            raise RegionsError(f"{where}: a name has no # and no line break, and no space at either end")
+        if "#" in region.name or region.name != " ".join(region.name.split()):
+            raise RegionsError(f"{where}: a name has no #, no line break or tab, no space at either end,"
+                               " and single spaces between words")
         if region.name in seen:
             raise RegionsError(f"{where}: two regions have this name")
         seen.add(region.name)
+        if not all(math.isfinite(v) for v in (region.low, region.high, *(c for p in region.outline for c in p))):
+            raise RegionsError(f"{where}: a height or an outline point is not a number")
         if len(region.outline) < 3:
             raise RegionsError(f"{where}: the outline has {len(region.outline)} points; it needs at least 3")
         if not region.low < region.high:
@@ -208,7 +212,7 @@ def load(folder: Path, map_id: int) -> list[Region]:
     try:
         return parse(path.read_text())
     except RegionsError as error:
-        raise RegionsError(f"{path}: {error}")
+        raise RegionsError(f"{path}: {error}") from error
 
 
 class SavedRegion(BaseModel):
@@ -225,6 +229,9 @@ class SavedRegions(BaseModel):
 def view(region: Region) -> dict:
     return {"name": region.name, "low": region.low, "high": region.high,
             "outline": [[x, y] for x, y in region.outline]}
+
+
+_saving = threading.Lock()  # two saves at once: one reads, checks and writes, then the other
 
 
 def add_routes(app: FastAPI, maps):
@@ -252,17 +259,18 @@ def add_routes(app: FastAPI, maps):
         path = maps.settings.routes / file_name(map_id)
         regions = [Region(r.name, round(r.low, 2), round(r.high, 2),
                           [(round(x, 2), round(y, 2)) for x, y in r.outline]) for r in ask.regions]
-        old_text = path.read_text() if path.is_file() else None
-        try:
-            check(regions)
-            if old_text is not None:
-                try:
-                    parse(old_text)
-                except RegionsError as error:
-                    raise RegionsError(f"{path}: {error}")
-        except RegionsError as error:
-            raise HTTPException(422, f"not saved: {error}")
-        part = path.with_suffix(".txt.part")  # write, then rename: a load never reads half a file
-        part.write_text(write(map_id, regions, old_text))
-        part.replace(path)
-        return answer(map_id, regions)
+        with _saving:
+            old_text = path.read_text() if path.is_file() else None
+            try:
+                check(regions)
+                if old_text is not None:
+                    try:
+                        parse(old_text)
+                    except RegionsError as error:
+                        raise RegionsError(f"{path}: {error}") from error
+            except RegionsError as error:
+                raise HTTPException(422, f"not saved: {error}") from error
+            part = path.with_suffix(".txt.part")  # write, then rename: a load never reads half a file
+            part.write_text(write(map_id, regions, old_text))
+            part.replace(path)
+            return answer(map_id, regions)

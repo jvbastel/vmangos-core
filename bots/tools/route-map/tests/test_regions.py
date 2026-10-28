@@ -118,6 +118,8 @@ GOOD = "region 3.00 13.00 0.00 -10.00 10.00 -10.00 10.00 10.00 name Ledge\n"
     ([{**UNDER, "low": 6.0}], "not saved: region 'Region 2': the low height 6 is not below the high height 5"),
     ([LEDGE, {**UNDER, "name": "Ledge"}], "not saved: region 'Ledge': two regions have this name"),
     ([{**UNDER, "name": " "}], "not saved: a region has no name"),
+    ([{**UNDER, "name": "Lower  hall"}], "not saved: region 'Lower  hall': a name has no #, no line break or tab,"
+                                          " no space at either end, and single spaces between words"),
 ])
 def test_a_save_with_a_region_that_is_not_valid_is_refused_and_the_file_stays(web, routes, regions, error):
     (routes / "map_389.regions.txt").write_text(GOOD)
@@ -125,6 +127,20 @@ def test_a_save_with_a_region_that_is_not_valid_is_refused_and_the_file_stays(we
     response = save(web, *regions)
 
     assert (response.status_code, response.json()["detail"]) == (422, error)
+    assert (routes / "map_389.regions.txt").read_text() == GOOD
+
+
+@pytest.mark.parametrize("body", [
+    '{"regions": [{"name": "Hall", "low": 0, "high": 5, "outline": [[0, 0], [NaN, 0], [10, 10]]}]}',
+    '{"regions": [{"name": "Hall", "low": 0, "high": Infinity, "outline": [[0, 0], [10, 0], [10, 10]]}]}',
+])
+def test_a_save_with_a_value_that_is_not_a_number_is_refused_and_the_file_stays(web, routes, body):
+    (routes / "map_389.regions.txt").write_text(GOOD)
+
+    response = web.post("/api/maps/drawn_cave/regions", content=body, headers={"content-type": "application/json"})
+
+    assert (response.status_code, response.json()["detail"]) == (
+        422, "not saved: region 'Hall': a height or an outline point is not a number")
     assert (routes / "map_389.regions.txt").read_text() == GOOD
 
 

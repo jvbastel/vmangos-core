@@ -142,12 +142,13 @@
   }
 
   // A click (not a pan) in Regions mode. It reaches no other mode: draw mode
-  // is off while Regions mode is on, and the event stops here.
+  // is off while Regions mode is on, and the event stops here: also for the
+  // Order and Skip click of pack_order.js on the same element (it loads later).
   let down = null;
   map.addEventListener("mousedown", e => { down = {x: e.clientX, y: e.clientY}; }, true);
   map.addEventListener("click", e => {
     if (!on || !view) return;
-    e.stopPropagation();
+    e.stopImmediatePropagation();
     if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;  // a pan
     if (closed) { setHeight(e); return; }
     if (e.target.classList.contains("first")) { closeOutline(); return; }
