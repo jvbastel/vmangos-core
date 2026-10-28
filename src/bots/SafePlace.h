@@ -62,9 +62,12 @@ namespace Bots
     // 84 yards for a cast of 26 yards). `enemies`, when given: the enemies
     // that the search kept away from. `accepts`, when given: the caller's
     // own rule for a place, such as the shot range of Ranged.h (a spell with
-    // a least range).
+    // a least range). jvbastel/WOWAI#195: `keepOutOf`, when given: the
+    // enemies to keep away from in place of those near the bot, such as the
+    // packs outside the fight (KeepOut.h) for a move in a fight.
     bool FindSafeCastPlace(BotView const& view, Guid unit, float yards, Position& place,
-        std::vector<NearEnemy>* enemies = nullptr, std::function<bool(Position const&)> const& accepts = nullptr);
+        std::vector<NearEnemy>* enemies = nullptr, std::function<bool(Position const&)> const& accepts = nullptr,
+        std::vector<NearEnemy> const* keepOutOf = nullptr);
 }
 
 #endif

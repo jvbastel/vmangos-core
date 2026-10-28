@@ -1,10 +1,14 @@
 #include "PriestModule.h"
 #include "CommonRules.h"
 #include "DamageRules.h"
+#include "HealerSight.h"
 #include "Ranged.h"
 #include "SafePlace.h"
 #include "SpellBook.h"
 #include "StepBack.h"
+
+#include <algorithm>
+#include <vector>
 
 namespace Bots
 {
@@ -233,10 +237,22 @@ namespace Bots
                     && !context.group.IsResurrectGivenUp(member);
             }
 
+            // The members of the bot's group. jvbastel/WOWAI#195: in a
+            // player-tank group the tank comes first, so that the healer
+            // resurrects the tank first (story 40).
+            std::vector<Guid> MembersTankFirst(BotContext const& context)
+            {
+                std::vector<Guid> members = context.view.GetGroupMembers();
+                if (context.group.IsPlayerTankGroup())
+                    std::stable_partition(members.begin(), members.end(),
+                        [&context](Guid member) { return member == context.group.GetTank(); });
+                return members;
+            }
+
             // The first dead member that the bot can resurrect now, or NoGuid.
             Guid DeadMemberInReach(BotContext const& context)
             {
-                for (Guid member : context.view.GetGroupMembers())
+                for (Guid member : MembersTankFirst(context))
                     if (MayResurrect(context, member) && CastableRank(context.view, Resurrection, member) != NoSpell)
                         return member;
                 return NoGuid;
@@ -251,7 +267,7 @@ namespace Bots
                 if (!context.view.KnowsSpell(Resurrection))
                     return NoGuid;
                 Position const here = context.view.GetPosition(PickSelf(context));
-                for (Guid member : context.view.GetGroupMembers())
+                for (Guid member : MembersTankFirst(context))
                     if (MayResurrect(context, member) && (context.view.GetDistance(member) > ResurrectReachYards
                         || !context.view.CanSeeFrom(here, member)))
                         return member;
@@ -373,6 +389,13 @@ namespace Bots
                         [](BotContext const& context) {
                             context.actions.KeepMovingTo(context.view.GetPosition(context.group.GetTank()));
                         }}},
+
+                // jvbastel/WOWAI#195: in a fight of a player-tank group,
+                // the healer keeps the tank in sight and heal reach
+                // (HealerSight.h). Under the heals that it can cast from
+                // where it stands, and under the walk of an attacked healer
+                // to the tank; over the walk to a hurt member.
+                TankSightRule(P + 54),
 
                 // A hurt member out of reach: the bot follows it. It stays
                 // near it until the fight ends and the command takes over.

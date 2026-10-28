@@ -1,6 +1,7 @@
 #include "DeathAndRest.h"
 #include "BossFights.h"
 #include "CommonRules.h"
+#include "HealerSight.h"
 
 namespace Bots
 {
@@ -54,9 +55,12 @@ namespace Bots
         // The bot may rest: after a fight, and not while the script walks it
         // (a scripted move of the test driver, jvbastel/WOWAI#99). A drink
         // would stop the move, and nothing sends it again.
+        // jvbastel/WOWAI#195: and not while it resurrects the dead player
+        // tank first (HealerSight.h).
         bool MayRest(BotContext const& context)
         {
-            return AfterFight(context) && !context.view.IsScriptedMoveInProgress();
+            return AfterFight(context) && !context.view.IsScriptedMoveInProgress()
+                && !ResurrectsTankBeforeRest(context.view, context.group);
         }
 
         // Why the bot rests now: its meal still fills it. Eating comes first.
