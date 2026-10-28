@@ -19,9 +19,12 @@ import re
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import trace_file
+
+HERE = Path(__file__).resolve().parent
 
 # A quest visit point of a route file: q<quest>_<name>.
 VISIT = re.compile(r"q\d+_")
@@ -88,6 +91,10 @@ def trace_lines(trace: trace_file.Trace) -> list[list[dict]]:
 
 
 def add_routes(app: FastAPI, settings, load_route):
+    @app.get("/map_draft.js")
+    def script():
+        return FileResponse(HERE / "map_draft.js", media_type="text/javascript")
+
     @app.get("/api/maps/{name}/draft")
     def draft(name: str, source: str = "route"):
         route = load_route(name)

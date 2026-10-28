@@ -159,3 +159,13 @@ def test_a_trace_loaded_as_the_draft_saves_back_with_its_marks_and_walks(web, ro
         (p.x, p.y, p.z, p.note) for p in loaded.points if p.mark]
     assert sum(p.walk for p in again.points) == 1
     assert sum(not p.joined for p in again.points[1:]) == 2  # the gap and the walk
+
+
+def test_the_page_loads_the_draft_script_after_the_drawing_script(web):
+    page = web.get("/").text
+    script = web.get("/map_draft.js")
+
+    assert page.index('<script src="/map_draw.js">') < page.index('<script src="/map_draft.js">')
+    assert script.status_code == 200
+    assert script.headers["content-type"].startswith("text/javascript")
+    assert "Load trace" in script.text
