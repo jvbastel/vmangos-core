@@ -173,11 +173,16 @@ namespace Bots
                 return context.view.GetVictim(focus) == Self(context) && context.view.IsMoving(focus);
             }
 
-            // The fight on the focus target goes on: the bot is in combat,
-            // and the focus target lives.
+            // The fight on the focus target goes on: the focus target lives,
+            // and the bot is in combat or an enemy hits another living
+            // group member. The second part is for an enemy that hits only the
+            // healer or the Mage (final review of spec #142, finding 1):
+            // nothing else brings the tank into combat, and the pick-up
+            // rules would wait.
             bool FightsFocus(BotContext const& context)
             {
-                return InCombat(context) && IsAlive(context.view, context.group.GetFocusTarget());
+                return IsAlive(context.view, context.group.GetFocusTarget())
+                    && (InCombat(context) || PickMemberAttacker(context, Self(context)) != NoGuid);
             }
 
             // The enemy to fight back: a living attacker of the bot first,

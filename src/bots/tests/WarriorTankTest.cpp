@@ -2207,3 +2207,76 @@ TEST(WarriorTank, GoesToAFrozenEnemyOnTheHealerOutOfTauntRange)
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
 }
+
+// Final review of spec #142, finding 1: the loose enemy hits the healer or
+// the Mage, not the tank, so the tank is out of combat. "Fight back" makes it
+// the focus, and the tank picks it up all the same.
+namespace
+{
+    Bots::Guid const Mage = 0x0000000000000014;
+
+    // No fight yet: the tank is out of combat and stands in Defensive Stance;
+    // the group has a Mage and a healer. The bat is 10 yd away.
+    struct TankOutOfCombat : WarriorTank
+    {
+        TankOutOfCombat()
+        {
+            fake.SetGroupMembers({Mage, Healer});
+            group.SetHealer(Healer);
+            fake.SetAura(Tank, Warrior::BattleStance, false);
+            fake.SetAura(Tank, Warrior::DefensiveStance);
+            fake.SetAura(Tank, Warrior::BattleShout);
+            fake.SetInCombat(Tank, false);
+            for (Bots::Guid unit : {Mage, Healer, Bat})
+                fake.SetHealth(unit, 300, 300);
+            fake.SetDistance(Bat, 10.0f);
+            fake.SetAura(Bat, Bots::Mage::FrostNova);
+        }
+
+        // The deeds of the first think that has some, of at most three:
+        // "fight back" sets the focus, and "give up the taunt" notes a
+        // Taunt that cannot come, with no deed.
+        std::vector<std::string> FirstDeeds()
+        {
+            for (int think = 0; think < 3 && fake.Deeds().empty(); ++think)
+                Think();
+            return fake.Deeds();
+        }
+    };
+}
+
+TEST(WarriorTank, TauntsAFrozenEnemyOffTheHealerOutOfCombat)
+{
+    TankOutOfCombat tank;
+    tank.fake.SetVictim(Bat, Healer);
+
+    EXPECT_EQ(tank.FirstDeeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+}
+
+TEST(WarriorTank, TauntsAFrozenEnemyOffTheMageOutOfCombat)
+{
+    TankOutOfCombat tank;
+    tank.fake.SetVictim(Bat, Mage);
+
+    EXPECT_EQ(tank.FirstDeeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+}
+
+TEST(WarriorTank, GoesToAFrozenEnemyOnTheMageOutOfCombatWhenTauntWaits)
+{
+    TankOutOfCombat tank;
+    tank.fake.SetVictim(Bat, Mage);
+    tank.fake.SetCannotCast(Warrior::Taunt);
+
+    EXPECT_EQ(tank.FirstDeeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+}
+
+// Nobody is attacked: out of combat, the tank does nothing to the bat.
+TEST(WarriorTank, LeavesAnIdleEnemyAloneOutOfCombat)
+{
+    TankOutOfCombat tank;
+
+    tank.Think();
+
+    for (std::string const& deed : tank.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Warrior::Taunt, Bat));
+}
