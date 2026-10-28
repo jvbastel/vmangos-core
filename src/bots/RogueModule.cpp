@@ -68,6 +68,20 @@ namespace Bots
         {
             int const P = Priority::Class;
             std::vector<Rule> rules = {
+                // Final review of spec #142, finding 2: the bot swings at an
+                // enemy that it now holds fire on (HoldsFireOn: frozen, and
+                // not the tank's): the running swing would break the
+                // freeze. The player's attack target goes on (it is the
+                // damage target then). Another target follows at P + 80.
+                Rule{"stop the swing on a frozen enemy", P + 81,
+                    [](BotContext const& context) {
+                        Guid const victim = context.view.GetVictim(Self(context));
+                        return victim != NoGuid && context.view.IsMeleeAttacking() && HoldsFireOn(context, victim)
+                            && PickMeleeDamageTarget(context) != victim;
+                    },
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) { context.actions.StopAttack(); }}},
+
                 // The damage target changes, or the fight starts.
                 Rule{"attack the target", P + 80,
                     [](BotContext const& context) {

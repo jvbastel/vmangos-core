@@ -1,4 +1,5 @@
 #include "ClassModules.h"
+#include "MageModule.h"
 #include "RogueModule.h"
 #include "FakeBot.h"
 
@@ -217,4 +218,86 @@ TEST(Rogue, FollowsThePlayerOutOfCombat)
     rogue.Think();
 
     EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{"follow 0x0000000000000001"}));
+}
+
+// Final review of spec #142, finding 2: Frost Nova freezes the enemy that
+// the Rogue already hits. The running swing would break the freeze, so the
+// Rogue stops it, unless the tank holds the enemy or the player chose it.
+namespace
+{
+    Bots::Guid const Healer = 0x0000000000000012;
+
+    // The tank holds the kobold. The Rogue hits the wolf, which hits the
+    // healer, and the wolf is frozen.
+    struct RogueOnAFrozenWolf : RogueBot
+    {
+        RogueOnAFrozenWolf()
+        {
+            fake.SetGroupMembers({Tank, Healer, Self});
+            group.SetTank(Tank);
+            for (Bots::Guid unit : {Tank, Healer})
+                fake.SetHealth(unit, 400, 400);
+            TankHoldsKobold();
+            fake.SetVictim(Wolf, Healer);
+            fake.SetVictim(Self, Wolf);
+            fake.ChaseBehind(Wolf);
+            fake.SetAura(Wolf, Bots::Mage::FrostNova);
+            fake.ClearDeeds();
+        }
+    };
+}
+
+TEST(Rogue, StopsItsSwingOnAFrozenEnemy)
+{
+    RogueOnAFrozenWolf rogue;
+
+    rogue.Think();
+
+    EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{"stop the attack"}));
+}
+
+TEST(Rogue, GoesOnToTheTanksTargetAfterTheStop)
+{
+    RogueOnAFrozenWolf rogue;
+    rogue.Think();
+    rogue.fake.ClearDeeds();
+
+    rogue.Think();
+
+    EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{"attack 0xf130000302000022", "chase behind 0xf130000302000022"}));
+}
+
+TEST(Rogue, KeepsHittingAFrozenEnemyThatTheTankHolds)
+{
+    RogueOnAFrozenWolf rogue;
+    rogue.fake.SetVictim(Kobold, NoGuid);
+    rogue.group.SetFocusTarget(Wolf);
+    rogue.fake.SetVictim(Wolf, Tank);
+
+    rogue.Think();
+
+    for (std::string const& deed : rogue.fake.Deeds())
+        EXPECT_NE(deed, "stop the attack");
+}
+
+TEST(Rogue, KeepsHittingAFrozenAttackTargetOfThePlayer)
+{
+    RogueOnAFrozenWolf rogue;
+    rogue.attackTarget = Wolf;
+
+    rogue.Think();
+
+    for (std::string const& deed : rogue.fake.Deeds())
+        EXPECT_NE(deed, "stop the attack");
+}
+
+TEST(Rogue, ADeadRogueStopsNothing)
+{
+    RogueOnAFrozenWolf rogue;
+    rogue.fake.SetHealth(Self, 0, 400);
+
+    rogue.Think();
+
+    for (std::string const& deed : rogue.fake.Deeds())
+        EXPECT_NE(deed, "stop the attack");
 }

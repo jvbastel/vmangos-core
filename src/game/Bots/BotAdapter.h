@@ -105,6 +105,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void MoveTo(Bots::Position const& destination) override;
         void KeepMovingTo(Bots::Position const& destination) override;
         void Attack(Bots::Guid target) override;
+        void StopAttack() override;
         void Chase(Bots::Guid target) override;
         void ChaseBehind(Bots::Guid target) override;
         void ChaseToRange(Bots::Guid target, float yards) override;

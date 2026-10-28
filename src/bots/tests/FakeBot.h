@@ -475,6 +475,13 @@ namespace Bots
                 AddDeed("attack", target);
                 m_noMeleeSwing = false;
             }
+            // Like the real stop: no victim and no chase.
+            void StopAttack() override
+            {
+                m_deeds.push_back("stop the attack");
+                m_victim[m_self] = NoGuid;
+                m_chase = {NoGuid, false};
+            }
             void Chase(Guid target) override
             {
                 AddDeed("chase", target);

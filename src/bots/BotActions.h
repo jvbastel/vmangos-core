@@ -35,6 +35,10 @@ namespace Bots
         virtual void KeepMovingTo(Position const& destination) = 0;
         // Start the melee attack of unit `target`.
         virtual void Attack(Guid target) = 0;
+        // Stop the melee attack and the chase (final review of spec #142,
+        // finding 2): a running swing would break a freeze. The bot keeps
+        // its spot.
+        virtual void StopAttack() = 0;
         // Run to unit `target` and stay in melee range of it.
         virtual void Chase(Guid target) = 0;
         // Run behind unit `target` and stay in melee range there.

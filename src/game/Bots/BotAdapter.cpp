@@ -669,6 +669,15 @@ void BotAdapter::Attack(Bots::Guid target)
     }
 }
 
+void BotAdapter::StopAttack()
+{
+    // Like the `stop` command (BotAI), but the cast goes on: only the swing
+    // and the chase end. The bot stands where it is.
+    me->AttackStop();
+    if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE)
+        Stand();
+}
+
 void BotAdapter::Chase(Bots::Guid target)
 {
     if (Unit* unit = Find(target))
