@@ -1,10 +1,13 @@
 #include "RouteGenerator.h"
 #include "BotGeometry.h"
+#include "DataTokenizer.h"
 #include "RouteLine.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <map>
 #include <numeric>
 #include <set>
@@ -41,6 +44,10 @@ namespace Bots
             std::size_t pack = 0; // For Pull and Pack.
             std::uint32_t quest = 0;
             std::string name; // For Visit.
+            int detour = -1;  // The detour of a step on a detour.
+            // The hand order changed the walk to this step: it moved the
+            // step, or took a step before it away.
+            bool rejoin = false;
         };
 
         struct Detour
@@ -123,6 +130,118 @@ namespace Bots
                 candidate = name + "_" + std::to_string(number);
             used.insert(candidate);
             return candidate;
+        }
+
+        // The hand pack order (WOWAI#147). The pull point and the fight of
+        // each named pack move, in the order of the hand, to where the route
+        // fought the first of them. The other steps keep their order. A named
+        // pack is a pack of the route, not of a quest, so that a run without
+        // the quests fights it in its turn too. A detour that has no fight
+        // left loses its points. Points along the navmesh path join each step
+        // whose walk changed to the step before it.
+        std::vector<Event> ApplyPackOrder(std::vector<Event> const& events, std::vector<std::uint32_t> const& order,
+            std::vector<GeneratorPack> const& packs, std::vector<GeneratorSpawn> const& spawns,
+            GeneratorSettings const& settings, RouteNav& nav, std::vector<std::string>& warnings)
+        {
+            // The named packs that the route fights, in the order of the hand.
+            std::vector<std::size_t> named;
+            for (std::uint32_t guid : order)
+            {
+                std::size_t found = packs.size();
+                for (std::size_t p = 0; p < packs.size(); ++p)
+                    for (std::size_t member : packs[p].members)
+                        if (spawns[member].guid == guid)
+                            found = p;
+                bool const fought = std::any_of(events.begin(), events.end(),
+                    [found](Event const& e) { return e.kind == EventKind::Pack && e.pack == found; });
+                if (!fought)
+                    warnings.push_back("the hand order names spawn " + std::to_string(guid) +
+                        ", whose pack is not on the route");
+                else if (std::find(named.begin(), named.end(), found) != named.end())
+                    warnings.push_back("the hand order names the pack of spawn " + std::to_string(guid) + " twice");
+                else
+                    named.push_back(found);
+            }
+            if (named.empty())
+                return events;
+            auto rankOf = [&named](Event const& e) {
+                if (e.kind != EventKind::Pull && e.kind != EventKind::Pack)
+                    return named.size();
+                return std::size_t(std::find(named.begin(), named.end(), e.pack) - named.begin());
+            };
+
+            // The detours that keep a fight.
+            std::set<int> detoursLeft;
+            for (Event const& e : events)
+                if (e.kind == EventKind::Pack && e.detour >= 0 && rankOf(e) == named.size())
+                    detoursLeft.insert(e.detour);
+
+            std::vector<Event> kept;
+            std::vector<std::vector<Event>> moved(named.size());
+            std::size_t at = 0;
+            bool firstMoved = true;
+            bool takenAway = false;
+            for (Event const& e : events)
+            {
+                std::size_t const rank = rankOf(e);
+                if (rank < named.size())
+                {
+                    if (firstMoved)
+                        at = kept.size();
+                    firstMoved = false;
+                    Event step = e;
+                    step.quest = 0;
+                    step.rejoin = true;
+                    moved[rank].push_back(step);
+                    takenAway = true;
+                    continue;
+                }
+                if (e.kind == EventKind::Point && e.detour >= 0 && !detoursLeft.count(e.detour))
+                {
+                    takenAway = true;
+                    continue;
+                }
+                kept.push_back(e);
+                if (takenAway && e.kind != EventKind::Pack)
+                {
+                    kept.back().rejoin = true;
+                    takenAway = false;
+                }
+            }
+            std::vector<Event> block;
+            for (std::vector<Event> const& steps : moved)
+                block.insert(block.end(), steps.begin(), steps.end());
+            kept.insert(kept.begin() + at, block.begin(), block.end());
+
+            std::vector<Event> result;
+            bool hasLast = false;
+            Position last{};
+            bool lastRejoin = false;
+            for (Event const& e : kept)
+            {
+                if (e.kind == EventKind::Pack)
+                {
+                    result.push_back(e);
+                    continue;
+                }
+                std::vector<Position> path;
+                if (hasLast && (e.rejoin || lastRejoin) && nav.Path(last, e.center, path))
+                {
+                    RouteLine const way(path);
+                    for (float s = settings.pointSpacing; s < way.Length() - settings.pointSpacing / 2.0f;
+                         s += settings.pointSpacing)
+                    {
+                        Event point{e.s, e.order, e.sub, EventKind::Point, way.At(s)};
+                        way.Direction(s, point.dx, point.dy);
+                        result.push_back(point);
+                    }
+                }
+                result.push_back(e);
+                hasLast = true;
+                last = e.center;
+                lastRejoin = e.rejoin;
+            }
+            return result;
         }
     }
 
@@ -628,10 +747,12 @@ namespace Bots
                     way.Direction(at, pull.dx, pull.dy);
                     pull.pack = q;
                     pull.quest = detour.quest;
+                    pull.detour = int(d);
                     events.push_back(pull);
                     Event fight{nearestS[p], 4, sub++, EventKind::Pack, spawns[packs[q].members[0]].position};
                     fight.pack = q;
                     fight.quest = detour.quest;
+                    fight.detour = int(d);
                     events.push_back(fight);
                 }
             };
@@ -647,6 +768,7 @@ namespace Bots
                 Event point{nearestS[p], 4, sub++, EventKind::Point, way.At(at)};
                 way.Direction(at, point.dx, point.dy);
                 point.quest = detour.quest;
+                point.detour = int(d);
                 events.push_back(point);
             }
             addFights(way.Length() + 1.0f);
@@ -700,6 +822,8 @@ namespace Bots
                 return a.order < b.order;
             return a.sub < b.sub;
         });
+        if (!input.packOrder.empty())
+            events = ApplyPackOrder(events, input.packOrder, packs, spawns, settings, nav, result.warnings);
 
         // The order of the fights, for the aggro check of each place.
         std::vector<std::size_t> foughtAt(packs.size(), events.size());
@@ -847,6 +971,33 @@ namespace Bots
             previous = &point;
         }
 
+        result.ok = true;
+        return result;
+    }
+
+    PackOrderResult ParsePackOrder(std::string const& text)
+    {
+        PackOrderResult result;
+        for (DataLine const& line : TokenizeLines(text))
+        {
+            std::string error;
+            unsigned long guid = 0;
+            char* end = nullptr;
+            if (line.words.size() == 2 && line.words[0] == "pack" &&
+                std::isdigit(static_cast<unsigned char>(line.words[1][0])))
+                guid = std::strtoul(line.words[1].c_str(), &end, 10);
+            if (!end || *end != '\0' || guid == 0 || guid > 0xffffffffUL)
+                error = "use: pack <spawn guid>";
+            else if (std::find(result.guids.begin(), result.guids.end(), std::uint32_t(guid)) != result.guids.end())
+                error = "the guid " + line.words[1] + " is already in the order";
+            if (!error.empty())
+            {
+                result.guids.clear();
+                result.error = "line " + std::to_string(line.number) + ": " + error;
+                return result;
+            }
+            result.guids.push_back(std::uint32_t(guid));
+        }
         result.ok = true;
         return result;
     }

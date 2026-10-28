@@ -190,7 +190,21 @@ namespace Bots
         GeneratorSettings settings;
         // The creature name of an entry, for the names of the boss packs.
         std::function<std::string(std::uint32_t entry)> entryName;
+        // The hand pack order: spawn guids, each of a mob of one pack (by
+        // custom its first mob), in the order to fight the packs.
+        std::vector<std::uint32_t> packOrder;
     };
+
+    // The hand pack order file, <route>.order.txt beside the route file. One
+    // line per pack, `pack <spawn guid>`, in the order to fight them. Spawn
+    // guids stay the same at each regen, unlike the pack names.
+    struct PackOrderResult
+    {
+        bool ok = false;
+        std::vector<std::uint32_t> guids;
+        std::string error; // "line <n>: ..." when not ok.
+    };
+    PackOrderResult ParsePackOrder(std::string const& text);
 
     // How far the route got with a quest objective.
     struct ObjectiveCheck

@@ -74,6 +74,7 @@ namespace
 {
     char const* const RouteExtension = ".txt";
     char const* const TraceExtension = ".trace.txt";
+    char const* const OrderExtension = ".order.txt";
 
     bool EndsWith(std::string const& text, std::string const& end)
     {
@@ -94,6 +95,8 @@ RouteFiles::FileKind RouteFiles::KindOf(std::string const& fileName)
     // A kind needs a route name before its end.
     if (EndsWith(fileName, TraceExtension))
         return fileName.size() > std::strlen(TraceExtension) ? FileKind::Trace : FileKind::Other;
+    if (EndsWith(fileName, OrderExtension))
+        return fileName.size() > std::strlen(OrderExtension) ? FileKind::Order : FileKind::Other;
     if (EndsWith(fileName, RouteExtension))
         return fileName.size() > std::strlen(RouteExtension) ? FileKind::Route : FileKind::Other;
     return FileKind::Other;
@@ -107,6 +110,11 @@ std::string RouteFiles::PathOf(std::string const& name)
 std::string RouteFiles::TracePathOf(std::string const& name)
 {
     return RoutesDir() + name + TraceExtension;
+}
+
+std::string RouteFiles::OrderPathOf(std::string const& name)
+{
+    return RoutesDir() + name + OrderExtension;
 }
 
 bool RouteFiles::Read(std::string const& path, std::string& text)
