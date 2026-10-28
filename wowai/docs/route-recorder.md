@@ -2,7 +2,7 @@
 
 A route file tells the bots where to walk in a dungeon and which packs to fight. You never type coordinates.
 
-**The main way to make a route file is the dungeon map** (`wowai/docs/dungeon-map.md`, ADR 0003 in the WOWAI repo). On that local page, you draw the route line on the navmesh floor and set the pack order. The page saves the trace and the hand pack order. Then `.route build` makes the route file from them (section 5), and no one walks the dungeon.
+**The main way to make a route file is the dungeon map** (`wowai/docs/dungeon-map.md`, ADR 0003 in the WOWAI repo). On that local page, you draw the route line on the ground of the dungeon and set the pack order. The page saves the trace and the hand pack order. Then `.route build` makes the route file from them (section 5), and no one walks the dungeon.
 
 **The other way is the GM trace:** you walk the dungeon one time as a group walks it, and the server records your path (the trace). Then `.route build` makes the route file around that path: the packs, the pull points, the quest objectives, and the boss list. Every route point lies on the path that you walked, so the bots never walk over a wall or lava that you did not walk. Sections 1 to 7 tell you how.
 
