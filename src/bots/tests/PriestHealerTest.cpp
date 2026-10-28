@@ -1052,7 +1052,9 @@ TEST(PriestHealerFlashHeal, AMemberNearDeathGetsTheShieldFirst)
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Mage)}));
 }
 
-TEST(PriestHealerFlashHeal, AShieldedMemberStillNearDeathGetsFlashHeal)
+// Review of spec #131 (lead decision): the shield holds the damage off a
+// shielded member, so the slow heal lands in time.
+TEST(PriestHealerFlashHeal, AShieldedMemberStillNearDeathGetsASlowHeal)
 {
     PriestHealer priest;
     KnowFlashHeal(priest);
@@ -1063,7 +1065,21 @@ TEST(PriestHealerFlashHeal, AShieldedMemberStillNearDeathGetsFlashHeal)
 
     priest.Think();
 
-    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::FlashHeal, Mage)}));
+    // 220 missing: Heal rank 1 covers it.
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Heal, Mage)}));
+}
+
+// Spec #131, story 22: no Flash Heal out of a fight. Nothing hits the member
+// any more: the slow heal lands in time.
+TEST(PriestHealerFlashHeal, AMemberNearDeathOutOfAFightGetsASlowHeal)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.fake.SetHealth(Tank, 150, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
 }
 
 // Spec #131, story 24: Holy Nova pulls the enemies near the healer and heals

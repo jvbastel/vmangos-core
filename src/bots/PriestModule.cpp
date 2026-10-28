@@ -64,6 +64,14 @@ namespace Bots
                 return CanTakeShield(context.view, member) && !IsRageTank(context, member);
             }
 
+            // Review of spec #131: Flash Heal only for a member that dies
+            // before a slow heal lands. A shielded member does not: the
+            // shield holds the damage off.
+            bool HasNoShield(BotContext const& context, Guid member)
+            {
+                return !context.view.HasAura(member, PowerWordShield);
+            }
+
             bool HasNoRenew(BotContext const& context, Guid member)
             {
                 return !context.view.HasAura(member, Renew);
@@ -239,10 +247,15 @@ namespace Bots
                 CastRule("shield a member near death", P + 88, SomeoneBelow(ShieldBelow, ShieldHelps),
                     PowerWordShield, HurtMember(ShieldBelow, ShieldHelps)),
                 // jvbastel/WOWAI#135: a member near death that the shield
-                // skips (a rage tank, Weakened Soul), or that is still near
-                // death under its shield, gets the fast heal.
-                CastRule("flash heal a member near death", P + 87, SomeoneBelow(FlashHealBelow), FlashHeal,
-                    HurtMember(FlashHealBelow), CastableHealRank),
+                // skips (a rage tank, Weakened Soul) gets the fast heal. A
+                // member under its shield gets a slow heal.
+                // Only in a fight (spec story 22): out of it, nothing hits
+                // the member, and the slow heal lands in time.
+                CastRule("flash heal a member near death", P + 87,
+                    [](BotContext const& context) {
+                        return IsGroupInCombat(context.view) && SomeoneBelow(FlashHealBelow, HasNoShield)(context);
+                    },
+                    FlashHeal, HurtMember(FlashHealBelow, HasNoShield), CastableHealRank),
                 // jvbastel/WOWAI#134: Greater Heal, Heal, and Lesser Heal
                 // take the rank that fits the missing health. Renew, the shield, and the
                 // buffs take their highest rank.
