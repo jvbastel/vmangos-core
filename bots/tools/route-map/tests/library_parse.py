@@ -5,6 +5,7 @@ no g++."""
 
 from __future__ import annotations
 
+import atexit
 import functools
 import shutil
 import subprocess
@@ -50,6 +51,7 @@ def _program() -> Path:
     if compiler is None:
         pytest.skip("no g++: cannot build the route library's trace parser")
     folder = Path(tempfile.mkdtemp(prefix="route-map-trace-parse-"))
+    atexit.register(shutil.rmtree, folder, ignore_errors=True)
     (folder / "main.cpp").write_text(MAIN)
     program = folder / "trace_parse"
     sources = [folder / "main.cpp", BOTS / "RouteTrace.cpp", BOTS / "DataTokenizer.cpp"]
