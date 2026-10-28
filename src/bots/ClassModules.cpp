@@ -8,6 +8,7 @@
 #include "MemberSpot.h"
 #include "PriestModule.h"
 #include "RogueModule.h"
+#include "TrailFollow.h"
 #include "WarlockModule.h"
 #include "WarriorModule.h"
 
@@ -59,6 +60,9 @@ namespace Bots
                 && !StaysNearThePull(context)
                 // At its member spot (MemberSpot.h).
                 && !HoldsMemberSpot(context)
+                // jvbastel/WOWAI#192: the bot walks the player tank's trail
+                // (TrailFollow.h).
+                && !FollowsTheTankTrail(context)
                 && context.view.GetFollowTarget() != context.commandPlayer;
         }
 
@@ -102,7 +106,10 @@ namespace Bots
         // Over the loot and the follow rule: while the tank pulls, the bot
         // keeps up with it (FollowTank.h).
         Rule const followTank = FollowTankRule(Priority::Command + 25);
-        return std::make_shared<Strategy const>(Strategy{"command", {followTank, loot, follow}});
+        // jvbastel/WOWAI#192: in a player-tank group, in place of the follow
+        // rule (TrailFollow.h). Under the loot rule, as the follow rule.
+        Rule const trail = TrailFollowRule(Priority::Command + 11);
+        return std::make_shared<Strategy const>(Strategy{"command", {followTank, loot, trail, follow}});
     }
 
     std::shared_ptr<Strategy const> MakeClassStrategy(BotClass botClass, BotRole role)

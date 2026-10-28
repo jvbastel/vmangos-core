@@ -20,6 +20,7 @@
 #include "SpellMgr.h"
 #include "TaragamanReaction.h"
 #include "Trail.h"
+#include "TrailFollow.h"
 #include "Pet.h"
 #include "Player.h"
 #include "MotionMaster.h"
@@ -666,6 +667,9 @@ void BotAI::Think()
         Bots::Guid const tank = GroupTankNow(coordinator->GetTank(), playerTank);
         if (tank != coordinator->GetTank() || playerTank != coordinator->IsPlayerTankGroup())
             coordinator->SetTank(tank, playerTank);
+        // jvbastel/WOWAI#192: the bots keep the human tank's trail
+        // (TrailFollow.h). Nothing in a bot-tank group.
+        Bots::WatchTankTrail(adapter, *coordinator);
     }
     // jvbastel/WOWAI#143: the Mage's peel nova reads the ranged members
     // from the roles (MageModule.cpp).
@@ -688,7 +692,9 @@ void BotAI::Think()
     }
     // jvbastel/WOWAI#189: with no bot command yet, a bot of a player-tank
     // group follows the tank (the follow rule of the command strategy).
-    if (!m_commanded)
+    // jvbastel/WOWAI#192: away from the leader the bot uses a place
+    // coordinator, which is no player-tank group: the bot keeps its state.
+    if (!m_commanded && !away)
     {
         Bots::CommandState const state = Bots::CommandStateNow(false, m_commandState, coordinator->IsPlayerTankGroup());
         if (state != m_commandState)

@@ -258,6 +258,16 @@ namespace Bots
         // unit that the bot cannot see. Friend or enemy: the caller decides.
         virtual Guid GetTargetOf(Guid unit) const = 0;
 
+        // jvbastel/WOWAI#191: the group's marks. The enemy that each mark of
+        // the bot's group is on: the skull and the cross, NoGuid for a mark
+        // that is not set, and both NoGuid without a group. The player sets
+        // them; bots only read them (no bot action sets a mark).
+        struct GroupMarks
+        {
+            Guid skull = NoGuid;
+            Guid cross = NoGuid;
+        };
+        virtual GroupMarks GetGroupMarks() const = 0;
         // jvbastel/WOWAI#197: the role choice of group member `member`, from
         // the role choice add-on (RoleChoice.h). RoleChoice::None for a bot,
         // and for a human with no add-on or no pick.
