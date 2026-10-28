@@ -29,6 +29,7 @@ from fastapi.responses import HTMLResponse
 import floor_image
 import navmesh
 import route_file
+import walked_path
 
 
 HERE = Path(__file__).resolve().parent
@@ -140,6 +141,7 @@ def create_app(settings: Settings) -> FastAPI:
             "packs": [pack_view(route, pack, order) for order, pack in enumerate(route.packs, 1)],
         }
 
+    walked_path.add_routes(app)
     return app
 
 

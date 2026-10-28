@@ -1,0 +1,80 @@
+// The walked path layer of the dungeon map (jvbastel/WOWAI#152): where each
+// group member really walked in a run, from a run trace file. The player
+// gives the trace path (or ?trace=<path> in the address), and turns the
+// layer on and off. map_page.html loads this script; it adds its own
+// controls to the header and its own SVG group over the map.
+(() => {
+  const SVG = "http://www.w3.org/2000/svg";
+  const COLOURS = ["#7CFC8A", "#62D2FF", "#E58CFF", "#FFE36E", "#FF9F6B", "#B0B8FF"];
+  const map = document.getElementById("map");
+  const header = document.querySelector("header");
+  const status = document.getElementById("status");
+  const route = new URLSearchParams(location.search).get("route");
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .walked { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; opacity: 0.9;
+              stroke-linejoin: round; stroke-dasharray: 6 2; }
+    #walked-trace { width: 22em; }
+    #walked-legend span { margin-right: 8px; }`;
+  document.head.appendChild(style);
+
+  const controls = document.createElement("span");
+  controls.id = "walked-controls";
+  controls.innerHTML = `
+    <label>Run trace <input id="walked-trace" placeholder="path of a .trace.txt"></label>
+    <button id="walked-load">Load walk</button>
+    <label><input type="checkbox" id="walked-show" checked disabled> Walked path</label>
+    <span id="walked-legend"></span>`;
+  header.insertBefore(controls, status);
+
+  const layer = document.createElementNS(SVG, "g");
+  layer.id = "walked";
+  map.appendChild(layer);
+
+  const input = document.getElementById("walked-trace");
+  const show = document.getElementById("walked-show");
+  const legend = document.getElementById("walked-legend");
+  input.value = new URLSearchParams(location.search).get("trace") || "";
+
+  show.addEventListener("change", () => { layer.style.display = show.checked ? "" : "none"; });
+
+  async function loadWalk() {
+    const trace = input.value.trim();
+    if (!route || !trace) return;
+    const response = await fetch(`/api/maps/${encodeURIComponent(route)}/walked?trace=${encodeURIComponent(trace)}`);
+    const data = await response.json();
+    if (!response.ok) {
+      status.className = "error";
+      status.textContent = data.detail || response.statusText;
+      return;
+    }
+    layer.replaceChildren();
+    legend.replaceChildren();
+    data.members.forEach((member, i) => {
+      const colour = COLOURS[i % COLOURS.length];
+      const line = document.createElementNS(SVG, "polyline");
+      line.setAttribute("class", "walked");
+      line.setAttribute("stroke", colour);
+      line.setAttribute("points", member.points.map(p => `${-p.y},${-p.x}`).join(" "));
+      const title = document.createElementNS(SVG, "title");
+      title.textContent = `${member.name}: ${member.points.length} positions, ` +
+        `${member.points[0].t} s to ${member.points[member.points.length - 1].t} s`;
+      line.appendChild(title);
+      layer.appendChild(line);
+      const key = document.createElement("span");
+      key.style.color = colour;
+      key.textContent = member.name;
+      legend.appendChild(key);
+    });
+    show.disabled = false;
+    show.checked = true;
+    layer.style.display = "";
+    status.className = "";
+    status.textContent = `Walked path of ${data.trace}: ${data.members.length} members`;
+  }
+
+  document.getElementById("walked-load").addEventListener("click", loadWalk);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") loadWalk(); });
+  if (input.value) loadWalk();
+})();
