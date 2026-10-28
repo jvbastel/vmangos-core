@@ -55,6 +55,9 @@ struct RunCombatNote
         InterruptMissed,
         CastStopped,
         FireNovaHit,
+        // jvbastel/WOWAI#168: a spell of the bot went out on `enemy` (any
+        // unit).
+        Cast,
     };
 
     Kind kind;
@@ -187,6 +190,9 @@ class BotRun
         // what each member attacks and casts at, and the enemies of the
         // group. At the end of the fight, EndFight.
         void WatchFight(int64 nowMs);
+        // jvbastel/WOWAI#168: feeds the pass checks of the tank, and gives
+        // the judge their failure.
+        void WatchTank(int64 nowMs);
         // The fight summary into the result, the trace, and the log.
         void EndFight(int64 nowMs);
         // The packs of the route that join the fight of the last pull
@@ -300,6 +306,9 @@ class BotRun
         Bots::RunTrace m_trace;
         Bots::FightWatch m_fight;
         Bots::ExtraPackWatch m_extraPacks;
+        // jvbastel/WOWAI#168: the pass checks of the tank (RunJudge.h).
+        Bots::HealerPickupCheck m_pickupCheck;
+        Bots::ThreatTargetCastCheck m_castCheck;
         Bots::HoldWatch m_hold;
         Bots::RunResult m_record; // The result file.
         std::unique_ptr<Bots::QuestProgress> m_quests;

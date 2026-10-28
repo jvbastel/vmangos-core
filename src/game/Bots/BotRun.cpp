@@ -348,6 +348,8 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     EndMove();
     m_aborted = false;
     m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0, commands.limits));
+    m_pickupCheck = Bots::HealerPickupCheck(commands.limits.healerPickupSeconds);
+    m_castCheck = Bots::ThreatTargetCastCheck(commands.limits.threatTargetsWithoutCast);
     m_trace = Bots::RunTrace();
     m_fight = Bots::FightWatch();
     {
@@ -1440,6 +1442,7 @@ void BotRun::WatchRun(int64 nowMs)
     TraceMembers(nowMs);
     WatchHold(nowMs);
     WatchFight(nowMs);
+    WatchTank(nowMs);
 
     Bots::RunVerdict const verdict = m_judge->Judge(nowMs);
     if (verdict.kind == Bots::RunVerdictKind::Passed)
@@ -1689,6 +1692,70 @@ void BotRun::WatchFight(int64 nowMs)
     WatchExtraPacks(nowMs);
     if (m_fight.Observe(nowMs, Facts().groupInCombat, enemies, seen))
         EndFight(nowMs);
+}
+
+void BotRun::WatchTank(int64 nowMs)
+{
+    Player* driver = Driver();
+    if (!InWorldAndStill(driver))
+        return;
+    Map* map = driver->GetMap();
+    Player* tank = nullptr;
+    for (Player* member : Members())
+    {
+        Bots::BotRole role;
+        if (IsLivingMember(member) && sBotMgr.BotRoleOf(member, role) && role == Bots::BotRole::Tank)
+            tank = member;
+    }
+
+    // The living enemies of the fight (WatchEnemies), whom they attack, and
+    // whether they are of an extra pack: a pet by the spawn of its owner.
+    std::vector<Bots::FightEnemySeen> seen;
+    std::set<Bots::Guid> living;
+    for (auto const& pair : m_enemyHealth)
+    {
+        Creature* enemy = map->GetCreature(pair.first);
+        if (!enemy || !enemy->IsAlive())
+            continue;
+        living.insert(enemy->GetObjectGuid().GetRawValue());
+        Player* victim = enemy->GetVictim() ? enemy->GetVictim()->ToPlayer() : nullptr;
+        if (!victim || !victim->GetGroup() || victim->GetGroup()->GetId() != m_groupId)
+            continue;
+        Creature const* spawn = enemy;
+        if (!enemy->GetDBTableGUIDLow() && !enemy->GetCharmerOrOwnerGuid().IsEmpty())
+            if (Creature const* owner = map->GetCreature(enemy->GetCharmerOrOwnerGuid()))
+                spawn = owner;
+        Bots::EnemyVictim const whom = victim == tank ? Bots::EnemyVictim::Tank
+            : sBotMgr.IsHealerBot(victim)             ? Bots::EnemyVictim::Healer
+                                                      : Bots::EnemyVictim::OtherMember;
+        RememberName(enemy);
+        seen.push_back({enemy->GetObjectGuid().GetRawValue(), NameOf(enemy->GetObjectGuid()),
+            m_extraPacks.IsExtraPackEnemy(spawn->GetDBTableGUIDLow()), whom});
+    }
+    m_pickupCheck.Observe(nowMs, seen);
+    if (!m_pickupCheck.Failure().empty())
+        m_judge->NoteFailedCheck(m_pickupCheck.Failure());
+
+    // The tank's target in the fight: its selection, else its victim, when
+    // that is a living enemy of the fight. The focus of its coordinator, or
+    // the pull target before the focus.
+    if (!tank || !m_fight.Running())
+        return;
+    Unit* target = map->GetUnit(tank->GetTargetGuid());
+    if (!target || !living.count(target->GetObjectGuid().GetRawValue()))
+        target = tank->GetVictim();
+    Bots::Guid const targetGuid =
+        target && living.count(target->GetObjectGuid().GetRawValue()) ? target->GetObjectGuid().GetRawValue() : Bots::NoGuid;
+    std::shared_ptr<Bots::GroupCoordinator> const group = CoordinatorOf(tank);
+    Bots::Guid focus = group ? group->GetFocusTarget() : Bots::NoGuid;
+    if (focus == Bots::NoGuid && group)
+        focus = group->GetPull().target;
+    if (target)
+        RememberName(target);
+    m_castCheck.Observe(targetGuid, targetGuid == Bots::NoGuid ? std::string() : NameOf(target->GetObjectGuid()), focus,
+        living);
+    if (!m_castCheck.Failure().empty())
+        m_judge->NoteFailedCheck(m_castCheck.Failure());
 }
 
 void BotRun::WatchExtraPacks(int64 nowMs)
@@ -2003,6 +2070,19 @@ void BotRun::TakeCombatNotes(int64 nowMs)
                 if (m_interrupts.Done().size() > done)
                     m_trace.Add(nowMs, NameOf(ObjectGuid(m_interrupts.Done().back().member)) + " interrupts "
                         + NameOf(note.enemy) + " " + std::to_string(note.spell));
+                break;
+            }
+            case RunCombatNote::Kind::Cast:
+            {
+                Bots::BotRole role;
+                if (!sBotMgr.BotRoleOf(member, role) || role != Bots::BotRole::Tank)
+                    break;
+                m_castCheck.NoteCast(enemy);
+                // An instant cast is never a current cast (TraceMembers): the
+                // trace shows the tank's casts from here.
+                if (enemy != who)
+                    m_trace.Add(nowMs, std::string(member->GetName()) + " casts " + std::to_string(note.spell) + " on " +
+                        NameOf(note.enemy));
                 break;
             }
             case RunCombatNote::Kind::FireNovaHit:

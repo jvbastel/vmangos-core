@@ -33,6 +33,12 @@ namespace Bots
             m_overLimit += (i ? "; " : "") + m_healerLosses[i];
     }
 
+    void RunJudge::NoteFailedCheck(std::string const& reason)
+    {
+        if (m_failedCheck.empty())
+            m_failedCheck = reason;
+    }
+
     void RunJudge::NoteBossKill(std::uint32_t entry, std::int64_t nowMs)
     {
         if (std::find(m_bosses.begin(), m_bosses.end(), entry) != m_bosses.end())
@@ -58,6 +64,8 @@ namespace Bots
             return {RunVerdictKind::Failed, "the second wipe"};
         if (!m_overLimit.empty())
             return {RunVerdictKind::Failed, m_overLimit};
+        if (!m_failedCheck.empty())
+            return {RunVerdictKind::Failed, m_failedCheck};
         if (!m_farChase.empty())
             return {RunVerdictKind::Failed, m_farChase};
         if (nowMs - m_startMs >= RunLimitMs)
@@ -72,6 +80,8 @@ namespace Bots
     {
         if (!m_overLimit.empty())
             return {RunVerdictKind::Failed, m_overLimit};
+        if (!m_failedCheck.empty())
+            return {RunVerdictKind::Failed, m_failedCheck};
         if (!m_farChase.empty())
             return {RunVerdictKind::Failed, m_farChase};
         if (m_killed.size() == m_bosses.size())
@@ -201,6 +211,76 @@ namespace Bots
             if (!PullFailure(pull).empty())
                 ++failed;
         return failed;
+    }
+}
+
+// jvbastel/WOWAI#168: the pickup of extra-pack enemies on the healer, and the
+// casts on each threat target.
+namespace Bots
+{
+    HealerPickupCheck::HealerPickupCheck(ScriptLimit limit) : m_limit(limit)
+    {
+    }
+
+    void HealerPickupCheck::Observe(std::int64_t nowMs, std::vector<FightEnemySeen> const& enemies)
+    {
+        if (!m_limit.set)
+            return;
+        for (FightEnemySeen const& seen : enemies)
+        {
+            if (!seen.extraPack || m_onTank.count(seen.enemy))
+                continue;
+            auto const first = m_firstHitMs.find(seen.enemy);
+            if (first == m_firstHitMs.end())
+            {
+                if (seen.victim == EnemyVictim::Healer)
+                    m_firstHitMs[seen.enemy] = nowMs;
+                continue;
+            }
+            if (seen.victim == EnemyVictim::Tank)
+            {
+                m_onTank.insert(seen.enemy);
+                m_firstHitMs.erase(first);
+            }
+            else if (nowMs - first->second > std::int64_t(m_limit.most) * 1000 && m_failure.empty())
+                m_failure = seen.name + " was not on the tank " + std::to_string(m_limit.most) +
+                    " s after its first hit on the healer (limit of line " + std::to_string(m_limit.line) + ")";
+        }
+    }
+
+    ThreatTargetCastCheck::ThreatTargetCastCheck(ScriptLimit limit) : m_limit(limit)
+    {
+    }
+
+    void ThreatTargetCastCheck::NoteCast(Guid target)
+    {
+        if (target == m_target)
+            m_cast = true;
+        else
+            m_castsAhead.insert(target);
+    }
+
+    void ThreatTargetCastCheck::Observe(Guid target, std::string const& name, Guid focus, std::set<Guid> const& living)
+    {
+        if (!m_limit.set || target == NoGuid || target == m_target)
+            return;
+        if (m_threatTarget && !m_cast && m_target != focus && living.count(m_target))
+        {
+            m_misses.push_back(m_name);
+            if (m_misses.size() > m_limit.most && m_failure.empty())
+            {
+                m_failure = "the tank turned to " + std::to_string(m_misses.size()) + " threat target" +
+                    (m_misses.size() == 1 ? "" : "s") + " with no cast, over the limit " +
+                    std::to_string(m_limit.most) + " of line " + std::to_string(m_limit.line) + ": ";
+                for (std::size_t i = 0; i < m_misses.size(); ++i)
+                    m_failure += (i ? "; " : "") + m_misses[i];
+            }
+        }
+        m_target = target;
+        m_name = name;
+        m_threatTarget = target != focus;
+        m_cast = m_castsAhead.count(target) != 0;
+        m_castsAhead.clear();
     }
 }
 

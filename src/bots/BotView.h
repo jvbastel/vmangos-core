@@ -87,6 +87,10 @@ namespace Bots
         // and a druid in bear form have rage. None for a unit that the bot
         // cannot see.
         virtual PowerKind GetPowerKind(Guid unit) const = 0;
+        // True when unit `unit` is a player of a class that wears cloth: a
+        // mage, a warlock or a priest (jvbastel/WOWAI#168, the tank's pickup
+        // order). False for a unit that the bot cannot see.
+        virtual bool WearsCloth(Guid unit) const = 0;
         // The distance in yards from the bot to unit `unit`. A large number
         // for a unit that the bot cannot see.
         virtual float GetDistance(Guid unit) const = 0;

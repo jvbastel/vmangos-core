@@ -295,6 +295,15 @@ Bots::PowerKind BotAdapter::GetPowerKind(Bots::Guid unit) const
     }
 }
 
+bool BotAdapter::WearsCloth(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found || found->GetTypeId() != TYPEID_PLAYER)
+        return false;
+    uint8 const playerClass = found->GetClass();
+    return playerClass == CLASS_MAGE || playerClass == CLASS_WARLOCK || playerClass == CLASS_PRIEST;
+}
+
 float BotAdapter::GetDistance(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
@@ -633,6 +642,10 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
     if (result == SPELL_CAST_OK && castToStop && sBotMgr.IsScriptedRunGroup(me->GetGroup()))
         sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::InterruptAttempt, me->GetObjectGuid(), unit->GetObjectGuid(),
             castToStop, 0});
+    // Each cast of a member of a scripted run: the run checks that the tank
+    // casts on each threat target (jvbastel/WOWAI#168).
+    if (result == SPELL_CAST_OK && sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::Cast, me->GetObjectGuid(), unit->GetObjectGuid(), spell, 0});
     // Like CombatBotBaseAI::DoCastSpell: a spell with a cast time ends when the
     // caster moves (for example when it follows or chases a unit), so stop the bot.
     if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))

@@ -121,3 +121,15 @@ TEST(ExtraPackWatch, KeepsTheMarkOfTheJudgeOfAnExtraPack)
     EXPECT_EQ(watch.ExtraPacks()[0].reason, "a patrol brought it");
     EXPECT_TRUE(watch.ExtraPacks()[0].warned);
 }
+
+// jvbastel/WOWAI#168: the enemies of an extra pack, for the judge's pickup
+// check (RunJudge.h).
+TEST(ExtraPackWatch, AnEnemyOfAnotherPackOfTheRouteIsAnExtraPackEnemy)
+{
+    ExtraPackWatch watch = Watch();
+    watch.Start("pack15");
+
+    EXPECT_TRUE(watch.IsExtraPackEnemy(Pack14A));
+    EXPECT_FALSE(watch.IsExtraPackEnemy(Pack15));
+    EXPECT_FALSE(watch.IsExtraPackEnemy(Roamer));
+}

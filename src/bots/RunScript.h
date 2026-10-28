@@ -54,6 +54,8 @@
 //   holds from the start of the scenario, wherever the line is: the run
 //   fails when one pull has more than <n> threat losses on the healer
 //   (RunJudge.h, jvbastel/WOWAI#167). A scenario sets it at most once.
+// - `expect healer_pickup_seconds <n>`, `expect threat_targets_without_cast
+//   <n>`: limits of the run as well (RunJudge.h, jvbastel/WOWAI#168).
 // - `expect damage_chase_yards <yards>`: a limit of the run like the one
 //   above: the run fails when a damage bot chases more than <yards> from the
 //   tank (RunJudge.h, jvbastel/WOWAI#171).
@@ -161,6 +163,12 @@ namespace Bots
     {
         // `expect healer_threat_losses <n>`: per pull.
         ScriptLimit healerThreatLosses;
+        // jvbastel/WOWAI#168 (RunJudge.h): `expect healer_pickup_seconds
+        // <n>`: an extra-pack enemy on the healer is on the tank within <n>
+        // s of its first hit. `expect threat_targets_without_cast <n>`: the
+        // most threat targets that the tank turns to and casts nothing on.
+        ScriptLimit healerPickupSeconds;
+        ScriptLimit threatTargetsWithoutCast;
         // `expect damage_chase_yards <yards>`: no damage bot chases farther
         // from the tank (jvbastel/WOWAI#171).
         ScriptLimit damageChaseYards;

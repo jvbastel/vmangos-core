@@ -42,6 +42,10 @@ namespace Bots
         std::vector<RunExtraPack> const& ExtraPacks() const { return m_extra; }
         // The pack of the spawn, or "".
         std::string PackOf(std::uint32_t spawnGuid) const;
+        // jvbastel/WOWAI#168: the enemy of spawn `spawnGuid` is of another
+        // pack of the route than the pull's. A pet counts by the spawn of
+        // its owner (the game layer gives that one).
+        bool IsExtraPackEnemy(std::uint32_t spawnGuid) const;
 
     private:
         std::map<std::uint32_t, std::string> m_packOf;

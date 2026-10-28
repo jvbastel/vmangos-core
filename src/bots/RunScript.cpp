@@ -72,7 +72,8 @@ namespace Bots
             if (keyword == "route")
                 return "use: route [noquests]";
             if (keyword == "expect")
-                return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | expect damage_chase_yards <yards>";
+                return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
+                       "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n> | expect damage_chase_yards <yards>";
             if (keyword == "script")
                 return "use: script <name> <route>";
             if (keyword == "driver")
@@ -229,27 +230,38 @@ namespace Bots
             return {false, RunScript(), "line " + std::to_string(line) + ": " + message};
         }
 
-        // `expect <name> <n>`: a limit of the scenario, not a command. The
-        // limit of `name`, or null.
-        ScriptLimit* LimitNamed(std::string const& name, ScriptLimits& limits)
+        // The limit of ScriptLimits of each `expect <name> <n>` line.
+        struct LimitName
         {
-            if (name == "healer_threat_losses")
-                return &limits.healerThreatLosses;
-            if (name == "damage_chase_yards")
-                return &limits.damageChaseYards;
+            char const* name;
+            ScriptLimit ScriptLimits::*limit;
+        };
+        LimitName const LimitNames[] = {
+            {"healer_threat_losses", &ScriptLimits::healerThreatLosses},
+            {"healer_pickup_seconds", &ScriptLimits::healerPickupSeconds},
+            {"threat_targets_without_cast", &ScriptLimits::threatTargetsWithoutCast},
+            {"damage_chase_yards", &ScriptLimits::damageChaseYards},
+        };
+
+        // The limit named `name`, or null.
+        LimitName const* FindLimitName(std::string const& name)
+        {
+            for (LimitName const& limit : LimitNames)
+                if (name == limit.name)
+                    return &limit;
             return nullptr;
         }
 
+        // `expect <name> <n>`: a limit of the scenario, not a command.
         bool IsLimitLine(std::vector<std::string> const& w)
         {
-            ScriptLimits limits;
-            return w[0] == "expect" && w.size() >= 2 && LimitNamed(w[1], limits);
+            return w[0] == "expect" && w.size() >= 2 && FindLimitName(w[1]);
         }
 
         // Empty when the line sets the limit, else the error.
         std::string ReadLimit(std::vector<std::string> const& w, std::size_t line, ScriptScenario& scenario)
         {
-            ScriptLimit& limit = *LimitNamed(w[1], scenario.limits);
+            ScriptLimit& limit = scenario.limits.*(FindLimitName(w[1])->limit);
             std::uint32_t most = 0;
             if (w.size() != 3 || !ReadNumber(w[2], most))
                 return Usage(w[0]);
