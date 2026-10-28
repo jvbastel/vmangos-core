@@ -827,7 +827,7 @@ namespace Bots
 
             // Shield Block holds back for the early visits (#172 before #116,
             // as the player allowed): a joined enemy of the fight is due its
-            // visit (DueEarlyVisit, wherever it stands) since less than
+            // visit (DueEarlyVisit, wherever it stands, also on a member) since less than
             // EarlyVisitWaitMs, and Shield Block's rage would leave less than
             // a Sunder Armor's (ShieldBlockSpareRage). At its low level the
             // tank gains a few rage a second: a Shield Block on the way leaves
@@ -841,11 +841,13 @@ namespace Bots
                     wait = ShieldBlockWait{pullTarget, {}};
                 if (!FightsFocus(context) || Rage(context) >= ShieldBlockSpareRage)
                     return false;
-                std::vector<Guid> const loose = LooseEnemies(context);
+                // A joined enemy on a member (a loose enemy) counts too: its
+                // pickup needs a Sunder Armor's rage while Taunt waits.
+                std::vector<Guid> const noLoose;
                 bool waits = false;
                 for (Guid enemy : EnemiesInFight(context))
                 {
-                    if (!DueEarlyVisit(context, packs, visits, loose, enemy))
+                    if (!DueEarlyVisit(context, packs, visits, noLoose, enemy))
                         continue;
                     std::int64_t const since = wait.dueSinceMs.emplace(enemy, context.nowMs).first->second;
                     waits = waits || context.nowMs - since < EarlyVisitWaitMs;

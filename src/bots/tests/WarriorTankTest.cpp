@@ -2994,3 +2994,20 @@ TEST(WarriorTankStepsToACaster, TakesTheCasterOnceInReach)
 
     EXPECT_EQ(tank.ThinkAt(500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
 }
+
+// jvbastel/WOWAI#174: a joined enemy that comes on the healer (a loose enemy)
+// holds Shield Block back too: its pickup needs the rage of a Sunder Armor
+// when Taunt waits for its cooldown.
+TEST(WarriorTankRagePool, HoldsBackShieldBlockWhileAJoinedEnemyComesOnTheHealer)
+{
+    JoinTank tank;
+    tank.fake.SetKnownSpell(Warrior::ShieldBlock);
+    tank.Join(Wolf, Healer);
+    tank.fake.SetDistance(Wolf, 12.0f);
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    tank.fake.SetPower(Tank, 20, 100);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(CastsAny(deeds, {CastOn(Warrior::ShieldBlock, Tank)})) << ::testing::PrintToString(deeds);
+}
