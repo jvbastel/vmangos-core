@@ -1,7 +1,10 @@
+#include "ClassModules.h"
 #include "DamageRules.h"
 #include "FakeBot.h"
 #include "GroupCoordinator.h"
 #include "PlayerTank.h"
+#include "MageModule.h"
+#include "RogueModule.h"
 
 #include <gtest/gtest.h>
 
@@ -228,4 +231,129 @@ TEST(PlayerTankMarks, ASkullInCombatBeatsTheCrossAndTheTanksTarget)
     bots.fake.SetTargetOf(Human, Kobold);
     bots.Watch(0);
     EXPECT_EQ(bots.group.GetFocusTarget(), Wolf);
+}
+
+TEST(PlayerTankMarks, WhenTheSkullDiesTheCrossInCombatIsTheFocus)
+{
+    MarkedGroup bots;
+    bots.Fights(Kobold);
+    bots.Fights(Wolf);
+    bots.Fights(Murloc);
+    bots.Marks(Wolf, Murloc);
+    bots.fake.SetTargetOf(Human, Kobold);
+    bots.Watch(0);
+
+    bots.fake.SetHealth(Wolf, 0, 200);
+    bots.Watch(100);
+    EXPECT_EQ(bots.group.GetFocusTarget(), Murloc);
+}
+
+TEST(PlayerTankMarks, WithNoLiveMarksInCombatTheTanksTargetIsTheFocus)
+{
+    MarkedGroup bots;
+    bots.Fights(Kobold);
+    bots.Fights(Wolf);
+    bots.Fights(Murloc);
+    bots.Marks(Wolf, Murloc);
+    bots.fake.SetTargetOf(Human, Kobold);
+    bots.Watch(0);
+
+    bots.fake.SetHealth(Wolf, 0, 200);
+    bots.fake.SetHealth(Murloc, 0, 200);
+    bots.Watch(100);
+    EXPECT_EQ(bots.group.GetFocusTarget(), Kobold);
+
+    // The game clears no mark of a dead enemy at once; with no marks at
+    // all, the tank's target is the focus too.
+    bots.Marks(NoGuid, NoGuid);
+    bots.fake.SetTargetOf(Human, Wolf);
+    bots.fake.SetHealth(Wolf, 200, 200);
+    bots.Watch(200);
+    EXPECT_EQ(bots.group.GetFocusTarget(), Wolf);
+}
+
+namespace
+{
+    bool AnyDeedOn(FakeBot const& fake, Bots::Guid unit)
+    {
+        char hex[24];
+        std::snprintf(hex, sizeof(hex), "0x%016llx", static_cast<unsigned long long>(unit));
+        for (std::string const& deed : fake.Deeds())
+            if (deed.find(hex) != std::string::npos)
+                return true;
+        return false;
+    }
+
+    // A damage bot of the marked group thinks once at `nowMs`, after the
+    // player-tank watch.
+    std::string ThinkAs(MarkedGroup& bots, Bots::BotClass botClass, Bots::BotRole role, std::int64_t nowMs)
+    {
+        Bots::StrategyStack stack = Bots::MakeStrategyStack(botClass, role);
+        bots.Watch(nowMs);
+        BotContext context{bots.fake, bots.fake, bots.group, Bots::CommandState::Follow, Bots::Guid(0x1), NoGuid};
+        context.nowMs = nowMs;
+        return stack.Think(context);
+    }
+}
+
+TEST(PlayerTankMarks, ASkullOutOfCombatDoesNotChangeTheFocusAndNoBotGoesToIt)
+{
+    MarkedGroup bots;
+    for (Bots::SpellId spell : {Bots::Rogue::SinisterStrike, Bots::Rogue::Eviscerate, Bots::Rogue::SliceAndDice,
+             Bots::Mage::Fireball, Bots::Mage::Frostbolt})
+        bots.fake.SetKnownSpell(spell);
+    bots.fake.SetPower(Rogue, 100, 100);
+    bots.fake.SetFollowTarget(Human);
+    bots.Fights(Kobold);
+    // The wolf stands in its pack with the skull on it: no fight.
+    bots.Marks(Wolf, NoGuid);
+    bots.fake.SetTargetOf(Human, Kobold);
+
+    bots.Watch(0);
+    EXPECT_EQ(bots.group.GetFocusTarget(), Kobold);
+
+    for (Bots::BotRole role : {Bots::BotRole::Melee, Bots::BotRole::Ranged})
+    {
+        Bots::BotClass const botClass = role == Bots::BotRole::Melee ? Bots::BotClass::Rogue : Bots::BotClass::Mage;
+        bots.fake.ClearDeeds();
+        ThinkAs(bots, botClass, role, 1000);
+        ThinkAs(bots, botClass, role, 2500);
+        EXPECT_EQ(bots.group.GetFocusTarget(), Kobold);
+        EXPECT_FALSE(AnyDeedOn(bots.fake, Wolf));
+        // The bot fights the focus once the tank holds threat on it.
+        EXPECT_TRUE(AnyDeedOn(bots.fake, Kobold));
+    }
+}
+
+TEST(PlayerTankMarks, WhileTheSkullLivesADamageBotLeavesTheCross)
+{
+    MarkedGroup bots;
+    bots.Fights(Wolf);
+    bots.Fights(Murloc);
+    bots.Marks(Wolf, Murloc);
+    bots.fake.SetTargetOf(Human, Murloc);
+    bots.Watch(0);
+    bots.Watch(2000);
+    EXPECT_EQ(bots.Target(2000), Wolf);
+
+    // The tank turns to the cross: the skull still lives, it stays the focus.
+    bots.Watch(2500);
+    EXPECT_EQ(bots.group.GetFocusTarget(), Wolf);
+    EXPECT_EQ(bots.Target(2500), Wolf);
+}
+
+TEST(PlayerTankMarks, ACrossThatAttacksAMeleeBotAtTheTankIsALooseEnemy)
+{
+    MarkedGroup bots;
+    bots.Fights(Wolf);
+    bots.Marks(Wolf, Murloc);
+    bots.fake.SetTargetOf(Human, Wolf);
+    // The cross hits the rogue, next to the tank; the tank does not yet
+    // hold the skull, so the rogue has no focus to hit.
+    bots.fake.SetVictim(Murloc, Rogue);
+    bots.fake.SetDistance(Human, 2.0f);
+    bots.Watch(0);
+    BotContext context{bots.fake, bots.fake, bots.group, Bots::CommandState::Follow, Human, NoGuid};
+    context.nowMs = 0;
+    EXPECT_EQ(Bots::PickMeleeDamageTarget(context), Murloc);
 }
