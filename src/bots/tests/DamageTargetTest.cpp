@@ -491,9 +491,9 @@ namespace
             fake.SetAura(Wolf, Bots::Mage::FrostNova);
         }
 
-        Bots::Guid MeleeTarget()
+        Bots::Guid MeleeTarget(Bots::Guid attackTarget = NoGuid)
         {
-            BotContext const context{fake, fake, group, Bots::CommandState::Follow, 0x1};
+            BotContext const context{fake, fake, group, Bots::CommandState::Follow, 0x1, attackTarget};
             return Bots::PickMeleeDamageTarget(context);
         }
     };
@@ -534,11 +534,58 @@ TEST(DamageTarget, HoldsFireOnAFrozenFocusOnAnotherMember)
     EXPECT_EQ(bot.Target(), NoGuid);
 }
 
-TEST(DamageTarget, MeleeDamageIsNotHeldByTheFreeze)
+// jvbastel/WOWAI#142: a melee member never attacks a frozen enemy.
+TEST(DamageTarget, MeleeDamageNeverAttacksAFrozenLooseEnemy)
 {
     FrozenWolfOnTheHealer bot;
 
+    EXPECT_EQ(bot.MeleeTarget(), Kobold);
+}
+
+TEST(DamageTarget, MeleeDamageAttacksTheLooseEnemyOnceTheFreezeEnds)
+{
+    FrozenWolfOnTheHealer bot;
+    bot.fake.SetAura(Wolf, Bots::Mage::FrostNova, false);
+
     EXPECT_EQ(bot.MeleeTarget(), Wolf);
+}
+
+TEST(DamageTarget, MeleeDamageHitsBackAnAttackerThatIsNotFrozen)
+{
+    FrozenWolfOnTheHealer bot;
+    bot.fake.SetAura(Wolf, Bots::Mage::FrostNova, false);
+    bot.fake.SetGroupMembers({Tank, FrozenHealer, Rogue});
+    bot.fake.SetVictim(Wolf, Rogue);
+
+    EXPECT_EQ(bot.MeleeTarget(), Wolf);
+}
+
+TEST(DamageTarget, MeleeDamageDoesNotHitBackAFrozenAttacker)
+{
+    FrozenWolfOnTheHealer bot;
+    bot.fake.SetGroupMembers({Tank, FrozenHealer, Rogue});
+    bot.fake.SetVictim(Wolf, Rogue);
+
+    EXPECT_EQ(bot.MeleeTarget(), Kobold);
+}
+
+// The player's command wins: the attack target of the player is attacked,
+// even when frozen.
+TEST(DamageTarget, MeleeDamageAttacksAFrozenAttackTargetOfThePlayer)
+{
+    FrozenWolfOnTheHealer bot;
+
+    EXPECT_EQ(bot.MeleeTarget(Wolf), Wolf);
+}
+
+TEST(DamageTarget, MeleeDamageWaitsWhileTheTanksTargetIsFrozen)
+{
+    FrozenWolfOnTheHealer bot;
+    bot.fake.SetVictim(Wolf, Tank);
+    bot.fake.SetAura(Wolf, Bots::Mage::FrostNova, false);
+    bot.fake.SetAura(Kobold, Bots::Mage::FrostNova);
+
+    EXPECT_EQ(bot.MeleeTarget(), NoGuid);
 }
 
 TEST(DamageTarget, TheAttackTargetOfThePlayerIsNotHeld)
