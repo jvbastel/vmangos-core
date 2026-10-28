@@ -930,6 +930,26 @@ TEST(RouteGenerator, AHandOrderedPackGetsAPullPointThatDoesNotPullAPackOfLater)
     }
 }
 
+TEST(RouteGenerator, ASecondRegenWithTheHandOrderGivesTheSameRoute)
+{
+    FakeNav nav = Dungeon();
+    nav.doors.push_back({120, 0, 0});
+    Bots::GeneratorInput input = DungeonInput(1);
+    input.packOrder = {3, 1};
+    Bots::GeneratedRoute const first = Bots::GenerateRoute(input, nav);
+    Bots::GeneratedRoute const second = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(first.ok) << first.error;
+    ASSERT_TRUE(second.ok) << second.error;
+    EXPECT_EQ(FoughtGuids(first.route), FoughtGuids(second.route));
+    ASSERT_EQ(first.route.points.size(), second.route.points.size());
+    for (std::size_t i = 0; i < first.route.points.size(); ++i)
+    {
+        EXPECT_EQ(first.route.points[i].name, second.route.points[i].name);
+        EXPECT_EQ(Distance2d(first.route.points[i].places[0].position, second.route.points[i].places[0].position), 0.0f)
+            << first.route.points[i].name;
+    }
+}
+
 TEST(RouteGenerator, AHandOrderGuidOfNoPackOnTheRouteIsAWarning)
 {
     FakeNav nav = Dungeon();

@@ -295,7 +295,7 @@ namespace Bots
                     std::string const pack = "the pack of spawn " + std::to_string(spawns[packs[p].members[0]].guid);
                     if (best >= 0.0f)
                     {
-                        // Sideways is across the way to the pack.
+                        // The point faces its pack: its sideways places go across that way.
                         float const length = std::max(1e-3f, Distance2d(step.center, leader));
                         step.dx = (leader.x - step.center.x) / length;
                         step.dy = (leader.y - step.center.y) / length;
