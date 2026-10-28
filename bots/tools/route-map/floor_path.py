@@ -58,10 +58,6 @@ def _closest_on_segment(p, a, b):
     return (ax + t * dx, ay + t * dy)
 
 
-def _inside(poly, x, y):
-    return _height(poly, x, y) is not None
-
-
 def _centre(poly):
     n = len(poly.points)
     return (sum(q[0] for q in poly.points) / n, sum(q[1] for q in poly.points) / n)
@@ -71,7 +67,6 @@ class FloorGraph:
     """The walkable polygons of a map and the portals that join them."""
 
     def __init__(self, mesh: navmesh.Navmesh):
-        self.mesh = mesh
         self.polys = mesh.polys
         index = {id(p): i for i, p in enumerate(self.polys)}
         self.links: list[list[tuple[int, tuple]]] = [[] for _ in self.polys]

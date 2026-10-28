@@ -88,5 +88,7 @@ def add_routes(app: FastAPI, settings, load_route, load_navmesh):
             points += piece.points[1:]
             warnings += [{**w, "piece": k} for w in piece.warnings]
         path = settings.routes / f"{name}.trace.txt"
-        path.write_text(trace_file.write(route.name, route.map_id, points))
+        part = path.with_suffix(".txt.part")  # write, then rename: a second save never reads half a file
+        part.write_text(trace_file.write(route.name, route.map_id, points))
+        part.replace(path)
         return {"file": str(path), "points": len(points), "warnings": warnings}

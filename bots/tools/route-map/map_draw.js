@@ -206,6 +206,7 @@
   });
   document.getElementById("draw-save").addEventListener("click", async () => {
     if (points.length < 2) { info.textContent = "Draw at least two points before you save."; return; }
+    if (!confirm(`Replace the trace file of ${route} with the drawn line? Its GM trace points and marks are lost.`)) return;
     try {
       const saved = await call("trace", {points: points.map(p => ({x: p.x, y: p.y, z: p.z}))});
       info.textContent = `Saved ${saved.points} trace points to ${saved.file}`;
