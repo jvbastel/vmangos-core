@@ -14,9 +14,10 @@ namespace Bots
     // 2. an enemy healer in the fight (GroupRules.h), until it dies;
     // 3. the focus target, once the tank holds threat on it
     //    (TankHoldsThreat below), while it is in
-    //    the chase limit (GroupRules.h). Outside a pull, not while it hits
-    //    another member and the tank lives: the bot waits for the taunt,
-    //    unless the tank gave it up (GroupCoordinator::GiveUpTaunt).
+    //    the chase limit (GroupRules.h). Not while it hits another member
+    //    and the tank lives: the bot waits for the taunt, unless the tank
+    //    gave it up (GroupCoordinator::GiveUpTaunt), or it is the target of
+    //    the pull.
     // While the tank lives, the bot leaves a loose enemy (one that hits a
     // member other than the tank) to the tank: peeling it makes more loose
     // enemies (jvbastel/WOWAI#171). With no living tank, nobody picks one

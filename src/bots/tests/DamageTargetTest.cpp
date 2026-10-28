@@ -626,3 +626,45 @@ TEST(DamageBotAttacked, AMeleeBotAwayFromTheTankWalksToIt)
 
     EXPECT_EQ(rogue.Think(), (std::vector<std::string>{Deed("follow", Tank)}));
 }
+
+// Final review of jvbastel/WOWAI#165, item 2: since #173 the pull stays held
+// after the focus dies. The pull's exception (the damage bots hit the pulled
+// target on a member) is for the pull target only: a next focus on the healer
+// waits for the tank's taunt, or for the tank to give it up.
+TEST(DamageTarget, ANextFocusInAHeldPullWaitsForItsTaunt)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.HoldThePull();
+    bot.fake.SetHealth(Kobold, 0, 200);
+    bot.fake.SetVictim(Kobold, NoGuid);
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Healer);
+    bot.fake.SetDistanceBetween(Wolf, Tank, 3.0f);
+    std::int64_t const later = Bots::HoldLimitMs + 2000;
+
+    EXPECT_EQ(bot.Target(NoGuid, later), NoGuid);
+
+    bot.fake.SetVictim(Wolf, Tank);
+
+    EXPECT_EQ(bot.Target(NoGuid, later), Wolf);
+}
+
+TEST(DamageTarget, ANextFocusInAHeldPullWhenNoTauntComes)
+{
+    DamageBot bot;
+    Bots::Guid const Healer = 0x12;
+    bot.fake.SetHealth(Tank, 600, 600);
+    bot.group.SetTank(Tank);
+    bot.HoldThePull();
+    bot.fake.SetHealth(Kobold, 0, 200);
+    bot.fake.SetVictim(Kobold, NoGuid);
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Healer);
+    bot.fake.SetDistanceBetween(Wolf, Tank, 3.0f);
+    bot.group.GiveUpTaunt(Wolf);
+
+    EXPECT_EQ(bot.Target(NoGuid, Bots::HoldLimitMs + 2000), Wolf);
+}

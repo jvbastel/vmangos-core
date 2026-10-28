@@ -876,15 +876,21 @@ TEST(WarriorTank, TakesTheEnemyOnAMemberAsFocusWhenTheFocusDies)
     EXPECT_EQ(tank.group.GetPull().phase, PullPhase::Holding);
 
     // A damage bot of the group, attacked by nothing, follows the tank.
+    // Final review of #165 (item 2): the next focus is no pull target, so
+    // the bot waits for the tank's taunt, then attacks it.
     Bots::Guid const Rogue = 0x13;
     FakeBot rogue{Rogue};
     rogue.SetGroupMembers({Tank, Healer});
     rogue.SetHealth(Rogue, 400, 400);
+    rogue.SetHealth(Tank, 600, 600);
     rogue.SetHealth(Wolf, 300, 300);
     rogue.SetVictim(Wolf, Healer);
+    tank.group.SetTank(Tank);
     BotContext context{rogue, rogue, tank.group, Bots::CommandState::Follow, 0x1};
     // Past the hold of the held pull (HoldLimitMs after the engage at 0).
     context.nowMs = Bots::HoldLimitMs + 2000;
+    EXPECT_EQ(Bots::PickDamageTarget(context), NoGuid);
+    rogue.SetVictim(Wolf, Tank);
     EXPECT_EQ(Bots::PickDamageTarget(context), Wolf);
 }
 
