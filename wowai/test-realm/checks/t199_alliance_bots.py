@@ -4,6 +4,9 @@
     wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t199_alliance_bots.py
 
+Run it once on a new lease: on a second run the bots are in the groups of
+the players already, so they do not join again.
+
 1. bots: the five Alliance bots exist with their race, class and role, at
    level 16, with the talent build of the class and role, and every item that
    they wear is usable by the Alliance and is a line of their generated
@@ -21,13 +24,13 @@ from kit import Realm, Results
 from wowclient import CHAT_MSG_SYSTEM, CHAT_MSG_WHISPER
 
 ALLIANCE_RACES = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 6)
-# name -> (race id, class id, role, gear template and talent build, the Horde bot of the class)
+# name -> (race id, class id, role, gear template and talent build)
 BOTS = {
-    "Aldric": (1, 1, "tank", "warrior_tank", "Grukk"),
-    "Brenna": (3, 5, "healer", "priest_healer", "Hela"),
-    "Corwin": (1, 4, "melee", "rogue_melee", "Shanka"),
-    "Fizzwick": (7, 8, "ranged", "mage_ranged", "Ezzra"),
-    "Nixie": (7, 9, "ranged", "warlock_ranged", "Morzul"),
+    "Aldric": (1, 1, "tank", "warrior_tank"),
+    "Brenna": (3, 5, "healer", "priest_healer"),
+    "Corwin": (1, 4, "melee", "rogue_melee"),
+    "Fizzwick": (7, 8, "ranged", "mage_ranged"),
+    "Nixie": (7, 9, "ranged", "warlock_ranged"),
 }
 GEAR_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "bots", "data", "gear")
 
@@ -47,7 +50,9 @@ def template_entries(name):
 
 
 print("== bots")
-log = realm.log(all_lines=True)
+# The whole Server.log since mangosd started: the bots learned their talents at their first login.
+with open(os.path.join(realm.dir, "storage", "mangosd", "logs", "Server.log"), errors="replace") as f:
+    log = f.read()
 
 
 def talent_picks(log, name, build):
@@ -56,17 +61,17 @@ def talent_picks(log, name, build):
     return int(found[-1]) if found else None
 
 
-for name, (race, cls, role, gear, horde_bot) in BOTS.items():
+for name, (race, cls, role, gear) in BOTS.items():
     row = realm.sql("characters", "SELECT c.race, c.class, c.level, b.role FROM characters c "
                     "JOIN bot_character b ON b.guid = c.guid WHERE c.name = '%s'" % name)
     results.check("%s exists as race %d class %d %s at level 16" % (name, race, cls, role),
                   row == "%d\t%d\t16\t%s" % (race, cls, role), "row %r" % row)
-    picks, horde_picks = talent_picks(log, name, gear), talent_picks(log, horde_bot, gear)
-    results.check("%s learns the talent build %s like %s" % (name, gear, horde_bot),
-                  picks is not None and picks == horde_picks and "%s cannot learn" % name not in log,
-                  "picks %s, %s %s" % (picks, horde_bot, horde_picks))
-    worn = realm.sql("characters", "SELECT i.itemEntry FROM character_inventory ci "
-                     "JOIN item_instance i ON i.guid = ci.item JOIN characters c ON c.guid = ci.guid "
+    # A level 16 character has 7 talent points (from level 10), as the Horde bots spend them.
+    picks = talent_picks(log, name, gear)
+    results.check("%s learns 7 talent picks of the build %s" % (name, gear),
+                  picks == 7 and "%s cannot learn" % name not in log, "picks %s" % picks)
+    worn = realm.sql("characters", "SELECT ci.item_id FROM character_inventory ci "
+                     "JOIN characters c ON c.guid = ci.guid "
                      "WHERE c.name = '%s' AND ci.bag = 0 AND ci.slot < 19" % name).split()
     lines = template_entries(gear)
     results.check("%s wears items of its template" % name, len(worn) >= 5, "items %s" % worn)
@@ -80,12 +85,12 @@ for name, (race, cls, role, gear, horde_bot) in BOTS.items():
                       bool(lines.get(int(entry), set()) & {"", "alliance"}), "lines %s" % lines.get(int(entry)))
 
 print("== invite")
-alliance = realm.login("PLAYER199A", "Lothar", race=1, cls=1)
-horde = realm.login("PLAYER199H", "Gorlak", race=2, cls=1)
+alliance = realm.login("PLAYER199A", "Stormson", race=1, cls=1)
+horde = realm.login("PLAYER199H", "Grimson", race=2, cls=1)
 realm.mark("invite")
 alliance.chat(CHAT_MSG_WHISPER, "invite", target="Aldric")
 results.check("the Alliance player invites Aldric, and he joins",
-              realm.wait_log(r"Aldric joins the group of Lothar", 20, alliance))
+              realm.wait_log(r"Aldric joins the group of Stormson", 20, alliance))
 
 
 def refused(client, pattern):
@@ -110,6 +115,6 @@ print("== Horde")
 realm.mark("horde")
 horde.chat(CHAT_MSG_WHISPER, "invite", target="Grukk")
 results.check("the Horde player invites Grukk, and he joins",
-              realm.wait_log(r"Grukk joins the group of Gorlak", 20, horde))
+              realm.wait_log(r"Grukk joins the group of Grimson", 20, horde))
 
 results.finish()
