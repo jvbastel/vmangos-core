@@ -38,8 +38,11 @@ namespace Bots
     // so that the freeze holds until the tank picks it up or it ends (8 s).
     bool HoldsFireOn(BotContext const& context, Guid enemy);
 
-    // The damage target of a melee bot (PickDamageTarget, with no hold of
-    // fire on a frozen enemy: melee keeps to its targets): not one in the
+    // The damage target of a melee bot: PickDamageTarget, but never a frozen
+    // enemy (IsFrozen, jvbastel/WOWAI#142), not even the tank's target or
+    // the bot's own attacker. The exception is the attack target of the
+    // player: the freeze does not hold it (the player's command wins).
+    // The target is also not one in the
     // reach of a pack outside the fight (KeepOut.h, jvbastel/WOWAI#121).
     // The keep-out rule would step the bot out again, and its chase take it
     // back in: a loop. The member that the enemy hits steps out itself and
