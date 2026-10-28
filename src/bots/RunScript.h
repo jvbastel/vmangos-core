@@ -49,7 +49,11 @@
 //   `wait combat_end [<seconds>]` (a fight starts, then the group is out of
 //   combat; the run fails after the seconds).
 // - `expect boss_dead <entry>`, `expect pack_dead <pack>`, `expect alive`
-//   (each group member lives). A failed expect ends the run as failed.
+//   (each group member lives), `expect peel_nova` (the peel nova and the
+//   step back of jvbastel/WOWAI#145 passed, PeelWatch.h). A failed expect
+//   ends the run as failed.
+// - `loose <pack> healer`: a living mob of the pack attacks the healer, a
+//   loose enemy for the peel nova (jvbastel/WOWAI#145).
 // - `wait rested [<seconds>]`: each member lives, and no bot of the group
 //   eats or drinks any more; the run fails after the seconds.
 // - `fight <pack> [<seconds>]`: the test driver selects a living mob of the
@@ -98,6 +102,9 @@ namespace Bots
         Fight,
         Release,
         Route,
+        // jvbastel/WOWAI#145: `loose <pack> healer`, `expect peel_nova`.
+        Loose,
+        ExpectPeelNova,
         // Only the runner adds it, for a fight again: the walk of the group
         // back to the pack `name` over the route points (ScriptRunner).
         WalkBack,

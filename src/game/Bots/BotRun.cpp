@@ -31,6 +31,8 @@
 #include "Player.h"
 #include "PointMovementGenerator.h"
 #include "GroupRules.h"
+#include "CommonRules.h"
+#include "MageModule.h"
 #include "RouteFiles.h"
 #include "SharedDefines.h"
 #include "Spell.h"
@@ -336,6 +338,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_lostMobNames.clear();
     m_interrupts = Bots::InterruptWatch();
     m_chases = Bots::ChaseWatch();
+    m_peel = Bots::PeelWatch();
     m_combatNotes.Drain();
     m_unitNames.clear();
     m_chatEvents.clear();
@@ -990,6 +993,10 @@ bool BotRun::Do(Bots::ScriptCommand const& command, std::string& detail)
             return ExpectPackDead(command.name, detail);
         case Bots::ScriptCommandKind::ExpectAlive:
             return ExpectAlive(detail);
+        case Bots::ScriptCommandKind::ExpectPeelNova:
+            return ExpectPeelNova(detail);
+        case Bots::ScriptCommandKind::Loose:
+            return Loose(command, detail);
         case Bots::ScriptCommandKind::Fight:
             return Fight(command, detail);
         case Bots::ScriptCommandKind::Release:
@@ -1408,6 +1415,7 @@ void BotRun::WatchRun(int64 nowMs)
 
     WatchEnemies(nowMs);
     WatchCombat(nowMs);
+    WatchPeel(nowMs);
 
     // Movement along the route: the test driver walks to the point of its
     // `move`, and the bots follow. A teleport is no walk.
@@ -1854,6 +1862,156 @@ void BotRun::RecordCombat()
     for (Bots::FarChase const& chase : m_chases.Chases())
         m_record.chases.push_back({NameOf(ObjectGuid(chase.member)), NameOf(ObjectGuid(chase.enemy)), chase.startMs,
             chase.endMs, chase.maxYards});
+    m_record.peelNovas.clear();
+    for (std::size_t i = 0; i < m_peel.Novas().size(); ++i)
+    {
+        Bots::PeelNova const& nova = m_peel.Novas()[i];
+        std::vector<std::string> victims;
+        for (Bots::Guid victim : nova.victims)
+            victims.push_back(NameOf(ObjectGuid(victim)));
+        m_record.peelNovas.push_back({NameOf(ObjectGuid(nova.caster)), nova.ms, victims, nova.forOthers,
+            nova.healerReachMs, m_peel.NovaBrokenByParty(i)});
+    }
+    m_record.freezes.clear();
+    for (Bots::PeelFreeze const& f : m_peel.Freezes())
+        m_record.freezes.push_back({NameOf(ObjectGuid(f.enemy)), f.victim ? NameOf(ObjectGuid(f.victim)) : "",
+            f.startMs, f.endMs, f.tankMs, f.brokenByParty, f.onHealer, f.healerYards, f.healerTankYards,
+            f.healerSeesTank});
+}
+
+Player* BotRun::LivingMemberOfRole(Bots::BotRole role) const
+{
+    for (Player* member : Members())
+    {
+        Bots::BotRole memberRole;
+        if (IsLivingMember(member) && sBotMgr.BotRoleOf(member, memberRole) && memberRole == role)
+            return member;
+    }
+    return nullptr;
+}
+
+void BotRun::WatchPeel(int64 nowMs)
+{
+    Player* driver = Driver();
+    if (!InWorldAndStill(driver))
+        return;
+    Map* map = driver->GetMap();
+    Player* tank = LivingMemberOfRole(Bots::BotRole::Tank);
+    Player* healer = LivingMemberOfRole(Bots::BotRole::Healer);
+    if (tank && tank->GetMap() != map)
+        tank = nullptr;
+    if (healer && healer->GetMap() != map)
+        healer = nullptr;
+    std::set<ObjectGuid> members;
+    for (Player* member : Members())
+        members.insert(member->GetObjectGuid());
+
+    Bots::PeelSeen seen;
+    seen.tank = tank ? tank->GetObjectGuid().GetRawValue() : Bots::NoGuid;
+    seen.healer = healer ? healer->GetObjectGuid().GetRawValue() : Bots::NoGuid;
+    seen.healerTankYards = healer && tank ? healer->GetDistance3dToCenter(tank) : 0.0f;
+    seen.healerSeesTank = healer && tank && healer->IsWithinLOSInMap(tank);
+    // The living enemies that the group fights (WatchEnemies).
+    for (auto const& pair : m_enemyHealth)
+    {
+        Creature* enemy = map->GetCreature(pair.first);
+        if (!enemy || !enemy->IsAlive())
+            continue;
+        RememberName(enemy);
+        Bots::PeelEnemySeen e;
+        e.enemy = enemy->GetObjectGuid().GetRawValue();
+        Unit* victim = enemy->GetVictim();
+        if (victim && members.count(victim->GetObjectGuid()))
+        {
+            RememberName(victim);
+            e.victim = victim->GetObjectGuid().GetRawValue();
+            e.victimYards = enemy->GetDistance(victim);
+        }
+        for (auto const& aura : enemy->GetSpellAuraHolderMap())
+            if (sSpellMgr.GetFirstSpellInChain(aura.first) == Bots::Mage::FrostNova)
+            {
+                e.frozenBy = aura.second->GetCasterGuid().GetRawValue();
+                if (Unit const* caster = map->GetUnit(aura.second->GetCasterGuid()))
+                    RememberName(caster);
+            }
+        e.tankHasIt = tank && (victim == tank || (tank->GetVictim() == enemy && tank->GetDistance(enemy) <= Bots::MeleeHitYards));
+        e.health = enemy->GetHealth();
+        e.healerYards = healer ? healer->GetDistance3dToCenter(enemy) : 0.0f;
+        seen.enemies.push_back(e);
+    }
+
+    std::size_t const novas = m_peel.Novas().size();
+    std::vector<bool> open;
+    for (Bots::PeelFreeze const& f : m_peel.Freezes())
+        open.push_back(f.open);
+    m_peel.Update(seen, nowMs);
+    for (std::size_t i = novas; i < m_peel.Novas().size(); ++i)
+    {
+        Bots::PeelNova const& nova = m_peel.Novas()[i];
+        std::string text = "Frost Nova of " + NameOf(ObjectGuid(nova.caster)) + " freezes";
+        for (Bots::PeelFreeze const& f : m_peel.Freezes())
+            if (f.nova == i)
+                text += " " + NameOf(ObjectGuid(f.enemy)) + (f.victim ? " (on " + NameOf(ObjectGuid(f.victim)) + ")" : "");
+        if (nova.healerReachMs >= 0)
+            text += ", " + std::to_string(nova.healerReachMs) + " ms after it reached the healer";
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.c_str());
+        m_trace.Add(nowMs, text);
+    }
+    for (std::size_t i = 0; i < m_peel.Freezes().size(); ++i)
+    {
+        Bots::PeelFreeze const& f = m_peel.Freezes()[i];
+        if (f.open || (i < open.size() && !open[i]))
+            continue;
+        std::ostringstream text;
+        text.setf(std::ios::fixed);
+        text.precision(1);
+        text << "the freeze of " << NameOf(ObjectGuid(f.enemy)) << " ends after " << (f.endMs - f.startMs) / 1000.0
+             << " s" << (f.tankMs >= 0 ? ", the tank arrived" : ", no tank")
+             << (f.brokenByParty ? ", broken by party damage" : "");
+        if (f.onHealer)
+            text << ", healer " << f.healerYards << " yd from it, " << f.healerTankYards << " yd from the tank"
+                 << (f.healerSeesTank ? "" : ", out of sight");
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Run %u: %s", m_number, text.str().c_str());
+        m_trace.Add(nowMs, text.str());
+    }
+}
+
+bool BotRun::Loose(Bots::ScriptCommand const& command, std::string& detail)
+{
+    Creature* mob = LivingMobOf(command.name);
+    if (!mob)
+    {
+        detail = "no living mob of " + command.name;
+        return false;
+    }
+    Player* healer = LivingMemberOfRole(Bots::BotRole::Healer);
+    if (!healer || healer->GetMap() != mob->GetMap())
+    {
+        detail = "no living healer near " + command.name;
+        return false;
+    }
+    if (!mob->AI())
+    {
+        detail = command.name + " has no AI";
+        return false;
+    }
+    RememberName(mob);
+    RememberName(healer);
+    mob->AI()->AttackStart(healer);
+    if (mob->GetVictim() != healer)
+    {
+        detail = UnitText(mob) + " does not attack " + healer->GetName();
+        return false;
+    }
+    detail = UnitText(mob) + " attacks " + healer->GetName();
+    m_trace.Add(RunMs(), detail);
+    return true;
+}
+
+bool BotRun::ExpectPeelNova(std::string& detail)
+{
+    detail = Bots::PeelFailure(m_peel);
+    return detail.empty();
 }
 
 void BotRun::WatchCombat(int64 nowMs)
