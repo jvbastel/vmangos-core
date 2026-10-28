@@ -323,6 +323,39 @@ TEST(RunScript, RefusesABrokenLineWithItsNumber)
     EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive");
     EXPECT_EQ(ErrorOf(Head + "clear -3\n"), "line 6: use: clear <yards> [<pack> ...]");
     EXPECT_EQ(ErrorOf(Head + "whisper Hela\n"), "line 6: use: whisper <bot> <text>");
+    EXPECT_EQ(ErrorOf(Head + "join\n"), "line 6: use: join <pack> [<bot>]");
+    EXPECT_EQ(ErrorOf(Head + "join shamans1 Hela Grukk\n"), "line 6: use: join <pack> [<bot>]");
+}
+
+// A pack that joins a fight in its middle, as in a name pull.
+TEST(RunScript, ReadsAJoinWithOrWithoutItsBot)
+{
+    RunScriptResult const result = ParseRunScript(Head + "join shamans1\njoin shamans1 Hela\n");
+    ASSERT_TRUE(result.ok) << result.error;
+
+    std::vector<ScriptCommand> const& c = result.script.scenarios[0].commands;
+    EXPECT_EQ(c[0].kind, ScriptCommandKind::Join);
+    EXPECT_EQ(c[0].name, "shamans1");
+    EXPECT_EQ(c[0].victim, "");
+    EXPECT_EQ(c[1].kind, ScriptCommandKind::Join);
+    EXPECT_EQ(c[1].victim, "Hela");
+}
+
+TEST(RunScript, ChecksThePackAndTheBotOfAJoin)
+{
+    Bots::RouteResult const route = Bots::ParseRoute(RouteText);
+    ASSERT_TRUE(route.ok);
+
+    RunScriptResult const pack = ParseRunScript(Head + "join nopack\n");
+    ASSERT_TRUE(pack.ok) << pack.error;
+    EXPECT_EQ(Bots::CheckRunScript(pack.script, route.route), "line 6: the route ragefire_chasm has no pack named nopack");
+
+    RunScriptResult const bot = ParseRunScript(Head + "join shamans1 Ezzra\n");
+    ASSERT_TRUE(bot.ok) << bot.error;
+    EXPECT_EQ(Bots::CheckRunScript(bot.script, route.route), "line 6: Ezzra is not in the group");
+
+    RunScriptResult const good = ParseRunScript(Head + "join shamans1 Hela\n");
+    EXPECT_EQ(Bots::CheckRunScript(good.script, route.route), "");
 }
 
 TEST(RunScript, NeedsTheHeadBeforeTheScenarios)

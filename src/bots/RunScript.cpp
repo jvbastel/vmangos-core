@@ -3,6 +3,7 @@
 #include "DataTokenizer.h"
 #include "Route.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
@@ -64,6 +65,8 @@ namespace Bots
                 return "use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]";
             if (keyword == "fight")
                 return "use: fight <pack> [<seconds>]";
+            if (keyword == "join")
+                return "use: join <pack> [<bot>]";
             if (keyword == "release")
                 return "use: release <seconds> | release never";
             if (keyword == "route")
@@ -164,6 +167,16 @@ namespace Bots
                 c.name = w[1];
                 return n == 2 || (ReadNumber(w[2], c.seconds) && c.seconds > 0);
             }
+            if (keyword == "join")
+            {
+                c.kind = ScriptCommandKind::Join;
+                if (n < 2 || n > 3)
+                    return false;
+                c.name = w[1];
+                if (n == 3)
+                    c.victim = w[2];
+                return true;
+            }
             if (keyword == "release")
             {
                 c.kind = ScriptCommandKind::Release;
@@ -205,7 +218,7 @@ namespace Bots
         bool IsCommandKeyword(std::string const& word)
         {
             for (char const* keyword : {"teleport", "move", "command", "whisper", "target", "clear", "refill", "wait", "expect",
-                     "fight", "release", "route"})
+                     "fight", "join", "release", "route"})
                 if (word == keyword)
                     return true;
             return false;
@@ -310,11 +323,14 @@ namespace Bots
                 std::string const at = "line " + std::to_string(c.line) + ": the route " + route.name;
                 bool const point = c.kind == ScriptCommandKind::Teleport || c.kind == ScriptCommandKind::Move;
                 bool const pack = !c.name.empty() && (c.kind == ScriptCommandKind::Target ||
-                    c.kind == ScriptCommandKind::ExpectPackDead || c.kind == ScriptCommandKind::Fight);
+                    c.kind == ScriptCommandKind::ExpectPackDead || c.kind == ScriptCommandKind::Fight ||
+                    c.kind == ScriptCommandKind::Join);
                 if (point && !FindPoint(route, c.name))
                     return at + " has no point named " + c.name;
                 if (pack && !FindPack(route, c.name))
                     return at + " has no pack named " + c.name;
+                if (!c.victim.empty() && std::find(script.group.begin(), script.group.end(), c.victim) == script.group.end())
+                    return "line " + std::to_string(c.line) + ": " + c.victim + " is not in the group";
                 for (std::string const& kept : c.packs)
                     if (!FindPack(route, kept))
                         return at + " has no pack named " + kept;

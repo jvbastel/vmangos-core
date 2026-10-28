@@ -140,6 +140,8 @@ namespace Bots
 
     ExtraPackMark JudgeExtraPack(bool pullJudged, ExtraPackMark const* atPull, ExtraPackCause const& cause)
     {
+        if (cause.scripted)
+            return {false, "the script brought it (join)"};
         if (!cause.fleeing.empty())
             return {false, "a fleeing enemy brought it: " + cause.fleeing};
         if (cause.patrol)

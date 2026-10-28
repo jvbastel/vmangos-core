@@ -232,6 +232,8 @@ class BotRun
         // A living mob of the pack near the test driver, or null.
         Creature* LivingMobOf(std::string const& pack) const;
         bool Fight(Bots::ScriptCommand const& command, std::string& detail);
+        // A `join`: the pack attacks a member (RunScript.h).
+        bool Join(Bots::ScriptCommand const& command, std::string& detail);
         // A pull of the result: a `fight`, or a `command pull`.
         void RecordPull(Bots::ScriptCommand const& command);
         // Writes the result file, and the trace when the run did not pass.
@@ -318,6 +320,8 @@ class BotRun
         std::map<ObjectGuid, std::string> m_pullFled;
         Bots::PullChoices m_pullChoices;
         std::map<std::string, Bots::ExtraPackCause> m_joinCause;
+        // The packs that a `join` of the script sent into a fight.
+        std::set<std::string> m_scriptJoins;
         // MarkPullPacks saw a living tank and the target at the last pull.
         bool m_pullJudged = false;
         // Where the test driver stood at its last move along the route.
