@@ -3135,7 +3135,6 @@ TEST(WarriorTankNextFocus, AttacksAFocusOnAMemberThatStandsAtTheTank)
     std::vector<std::string> const deeds = tank.fake.Deeds();
     EXPECT_TRUE(Has(deeds, "chase 0xf130000302000033")) << ::testing::PrintToString(deeds);
 }
-}
 
 // jvbastel/WOWAI#144: Frost Nova froze the loose enemy on the healer. The
 // tank picks it up all the same: Taunt, or the walk to it; breaking the

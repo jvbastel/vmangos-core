@@ -716,9 +716,14 @@ TEST(DamageTarget, AttacksAFrozenEnemyOnceTheTankIsItsTarget)
     EXPECT_EQ(bot.Target(), Wolf);
 }
 
+// While the tank lives, the damage bots leave a loose enemy to it
+// (jvbastel/WOWAI#171); with no living tank, they take it once the freeze
+// ends.
 TEST(DamageTarget, AttacksTheLooseEnemyOnceTheFreezeEnds)
 {
     FrozenWolfOnTheHealer bot;
+    bot.fake.SetHealth(Tank, 0, 600);
+    EXPECT_NE(bot.Target(), Wolf);
     bot.fake.SetAura(Wolf, Bots::Mage::FrostNova, false);
 
     EXPECT_EQ(bot.Target(), Wolf);
@@ -746,17 +751,23 @@ TEST(DamageTarget, MeleeDamageNeverAttacksAFrozenLooseEnemy)
 TEST(DamageTarget, MeleeDamageAttacksTheLooseEnemyOnceTheFreezeEnds)
 {
     FrozenWolfOnTheHealer bot;
+    bot.fake.SetHealth(Tank, 0, 600);
+    EXPECT_NE(bot.MeleeTarget(), Wolf);
     bot.fake.SetAura(Wolf, Bots::Mage::FrostNova, false);
 
     EXPECT_EQ(bot.MeleeTarget(), Wolf);
 }
 
+// At the tank, with no focus to hit, a melee bot hits its own attacker
+// (jvbastel/WOWAI#171), but not a frozen one.
 TEST(DamageTarget, MeleeDamageHitsBackAnAttackerThatIsNotFrozen)
 {
     FrozenWolfOnTheHealer bot;
     bot.fake.SetAura(Wolf, Bots::Mage::FrostNova, false);
     bot.fake.SetGroupMembers({Tank, FrozenHealer, Rogue});
     bot.fake.SetVictim(Wolf, Rogue);
+    bot.fake.SetHealth(Kobold, 0, 200);
+    bot.fake.SetDistance(Tank, 3.0f);
 
     EXPECT_EQ(bot.MeleeTarget(), Wolf);
 }
@@ -766,8 +777,10 @@ TEST(DamageTarget, MeleeDamageDoesNotHitBackAFrozenAttacker)
     FrozenWolfOnTheHealer bot;
     bot.fake.SetGroupMembers({Tank, FrozenHealer, Rogue});
     bot.fake.SetVictim(Wolf, Rogue);
+    bot.fake.SetHealth(Kobold, 0, 200);
+    bot.fake.SetDistance(Tank, 3.0f);
 
-    EXPECT_EQ(bot.MeleeTarget(), Kobold);
+    EXPECT_EQ(bot.MeleeTarget(), NoGuid);
 }
 
 // The player's command wins: the attack target of the player is attacked,

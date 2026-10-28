@@ -315,13 +315,15 @@ namespace Bots
             // (KeepOut.h, jvbastel/WOWAI#121: the keep-out rule would step
             // the tank out again). Or the member is the healer, stuck in the
             // reach of another pack with no place to step out to
-            // (TankGoesInForTheHealer): the tank goes in after a warn.
+            // (TankGoesInForTheHealer): the tank goes in after a warn. Or
+            // Frost Nova froze the enemy (IsFrozen, jvbastel/WOWAI#144): the
+            // member walks, but the enemy cannot follow it to the tank.
             bool MemberCannotCome(BotContext const& context, Guid enemy)
             {
                 if (context.view.GetDistance(enemy) > GoOutYards)
                     return false;
                 Guid const victim = context.view.GetVictim(enemy);
-                return (victim != NoGuid && context.view.IsRootedOrStunned(victim)
+                return (((victim != NoGuid && context.view.IsRootedOrStunned(victim)) || IsFrozen(context.view, enemy))
                            && !InOtherPacksReach(context, context.view.GetPosition(enemy)))
                     || TankGoesInForTheHealer(context, enemy);
             }

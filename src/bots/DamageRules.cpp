@@ -94,11 +94,13 @@ namespace Bots
             return IsAlive(context.view, tank) && tank != context.view.GetSelf() ? tank : NoGuid;
         }
 
-        // The first living enemy that attacks the bot, or NoGuid.
+        // The first living enemy that attacks the bot, or NoGuid. Not a
+        // frozen one (IsFrozen): it cannot follow the bot to the tank, and
+        // the bot steps back from it (StepBack.h, jvbastel/WOWAI#144).
         Guid OwnAttacker(BotContext const& context)
         {
             for (Guid attacker : context.view.GetAttackers(context.view.GetSelf()))
-                if (IsAlive(context.view, attacker))
+                if (IsAlive(context.view, attacker) && !IsFrozen(context.view, attacker))
                     return attacker;
             return NoGuid;
         }
