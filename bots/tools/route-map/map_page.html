@@ -75,6 +75,7 @@ function setView(v) {
     const c = node.dataset.cross.split(" ").map(Number), d = 4 * yardsPerPixel;
     node.setAttribute("d", `M${c[0] - d} ${c[1] - d}L${c[0] + d} ${c[1] + d}M${c[0] - d} ${c[1] + d}L${c[0] + d} ${c[1] - d}`);
   }
+  document.dispatchEvent(new CustomEvent("mapview", {detail: yardsPerPixel}));
 }
 
 function fit() {
@@ -158,5 +159,7 @@ document.getElementById("apply").addEventListener("click", () => load(true));
 document.getElementById("fit").addEventListener("click", fit);
 load(false);
 </script>
+<script src="/map_draw.js"></script>
+<script src="/map_draft.js"></script>
 </body>
 </html>

@@ -1,0 +1,111 @@
+"""The trace file of a route (bots/data/routes/<route>.trace.txt), the
+format of the route library (src/bots/RouteTrace.h, ParseTrace and
+WriteTrace):
+
+    trace <name> <map>      first, once
+    p <x> <y> <z>           a trace point, in walk order
+    mark <x> <y> <z> [note] a checkpoint
+    gap                     the next point does not join the one before
+    walk                    the next point starts a later walk
+
+`.route build` makes the route file from it. The reader follows the rules
+of ParseTrace, so a file that it reads, the library reads too.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+
+
+class TraceFileError(Exception):
+    pass
+
+
+@dataclass
+class TracePoint:
+    x: float
+    y: float
+    z: float
+    joined: bool = True  # walked from the point before
+    walk: bool = False  # the first point of a later walk
+    mark: bool = False
+    note: str = ""
+
+
+@dataclass
+class Trace:
+    name: str
+    map_id: int
+    points: list[TracePoint] = field(default_factory=list)
+
+
+def _number(word):
+    value = float(word)
+    if not math.isfinite(value):
+        raise ValueError(word)
+    return value
+
+
+def parse(text: str) -> Trace:
+    trace = None
+    gap = walk = False
+    for number, raw in enumerate(text.splitlines(), 1):
+        words = raw.split("#", 1)[0].split()
+        if not words:
+            continue
+        key = words[0]
+
+        def fail(message):
+            return TraceFileError(f"line {number}: {message}")
+
+        if key == "trace":
+            if trace is not None:
+                raise fail("a second trace line")
+            if len(words) != 3 or not words[2].isdigit():
+                raise fail("use trace <name> <map>")
+            trace = Trace(words[1], int(words[2]))
+            continue
+        if trace is None:
+            raise fail("the file must start with trace <name> <map>")
+        if key in ("gap", "walk"):
+            if len(words) != 1:
+                raise fail(f"{key} takes no words")
+            gap, walk = True, walk or key == "walk"
+            continue
+        if key not in ("p", "mark"):
+            raise fail(f"unknown line {key}")
+        try:
+            if len(words) < 4 or (key == "p" and len(words) != 4):
+                raise ValueError(key)
+            x, y, z = map(_number, words[1:4])
+        except ValueError:
+            raise fail(f"use {key} <x> <y> <z>" + (" [note]" if key == "mark" else ""))
+        trace.points.append(TracePoint(x, y, z, joined=not gap and bool(trace.points),
+                                       walk=walk and bool(trace.points), mark=key == "mark",
+                                       note=" ".join(words[4:])))
+        gap = walk = False
+    if trace is None:
+        raise TraceFileError("the file has no trace line")
+    return trace
+
+
+def clean_note(note: str) -> str:
+    """A mark note as the library keeps it: no comment marker, words split by one space."""
+    return " ".join(note.replace("#", " ").split())
+
+
+def write_trace(trace: Trace) -> str:
+    """The text of a trace, as WriteTrace writes it: `walk` before the first
+    point of a later walk, `gap` before a point that is not joined."""
+    lines = [f"# The trace of the route {trace.name}, drawn on the dungeon map: .route build makes the route.",
+             f"trace {trace.name} {trace.map_id}"]
+    for i, point in enumerate(trace.points):
+        if i and point.walk:
+            lines.append("walk")
+        elif i and not point.joined:
+            lines.append("gap")
+        line = f"{'mark' if point.mark else 'p'} {point.x:.2f} {point.y:.2f} {point.z:.2f}"
+        note = clean_note(point.note) if point.mark else ""
+        lines.append(f"{line} {note}" if note else line)
+    return "\n".join(lines) + "\n"

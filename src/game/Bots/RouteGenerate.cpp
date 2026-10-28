@@ -29,6 +29,14 @@
 // file is there, sets the order, the skipped packs and the added packs, as
 // for .route generate. Its walks to moved and added packs are navmesh paths,
 // so an order with `pack` lines needs a character on the map of the route.
+//
+// The export command writes every pack, patrol, quest objective and boss of
+// a map to <Bots.DataDir>/routes/map_<id>.export.txt (bots/RouteExport.h),
+// for the dungeon map. It needs no character, and runs on the console:
+//   .route export <map id> [cluster=<yards>] [bosses=<entry>,<entry>,...]
+// With no bosses setting, the bosses are those of the route files of the
+// map. The quests are those of the zone of the map's entrance, plus the
+// quests that a spawn of the map starts or ends, as for .route generate.
 
 #include "BotGeometry.h"
 #include "BotMgr.h"
@@ -46,6 +54,7 @@
 #include "GridMap.h"
 #include "QuestDef.h"
 #include "Route.h"
+#include "RouteExport.h"
 #include "RouteFiles.h"
 #include "RouteGenerator.h"
 #include "RouteTrace.h"
@@ -695,6 +704,108 @@ bool RunBuild(ChatHandler& handler, char* args)
         uint32(built.unmet.size() + built.unmetBosses.size()), problems);
     return true;
 }
+}
+
+namespace
+{
+bool RunExport(ChatHandler& handler, char* args)
+{
+    Bots::GeneratorSettings settings;
+    std::vector<uint32> bosses;
+    bool bossSetting = false;
+    std::vector<std::string> words;
+    for (std::string const& word : Words(args))
+    {
+        std::size_t const equals = word.find('=');
+        if (equals == std::string::npos)
+        {
+            words.push_back(word);
+            continue;
+        }
+        std::string const key = word.substr(0, equals);
+        if (key != "cluster" && key != "bosses")
+            return Fail(handler, "Unknown setting " + key + ". Use cluster or bosses.");
+        bossSetting = bossSetting || key == "bosses";
+        std::string const error = ReadSetting(word, settings, bosses);
+        if (!error.empty())
+            return Fail(handler, error);
+    }
+    char* end = nullptr;
+    unsigned long const number = words.size() == 1 ? std::strtoul(words[0].c_str(), &end, 10) : 0;
+    if (!number || *end != '\0')
+        return Fail(handler, "Usage: .route export <map id> [cluster=<yards>] [bosses=<entry>,<entry>,...]");
+    uint32 const mapId = uint32(number);
+    AreaTriggerTeleport const* entrance = sObjectMgr.GetMapEntranceTrigger(mapId);
+    if (!entrance)
+        return Fail(handler, "Map " + std::to_string(mapId) + " has no entrance area trigger. Is it a dungeon?");
+
+    if (!bossSetting)
+        for (Bots::Route const& route : RouteFiles::RoutesOfMap(mapId))
+            for (uint32 boss : route.bosses)
+                if (std::find(bosses.begin(), bosses.end(), boss) == bosses.end())
+                    bosses.push_back(boss);
+    if (bosses.empty())
+        handler.PSendSysMessage("Map %u has no route file with bosses: the export has no bosses. Give them with "
+            "bosses=<entry>,<entry>,...", mapId);
+
+    std::vector<Bots::GeneratorSpawn> const spawns = SpawnsOf(mapId);
+    uint32 const zoneId = sTerrainMgr.GetZoneId(mapId, entrance->destination.x, entrance->destination.y,
+        entrance->destination.z);
+    Bots::MapExport map = Bots::MakeExport(mapId, spawns, bosses, QuestsOf(zoneId, spawns), settings.clusterDistance);
+
+    // The names for the page.
+    Bots::RouteNames const names = RouteFiles::Names();
+    auto nameCreature = [&map, &names](uint32 entry) { map.creatureNames[entry] = names.entry(entry); };
+    for (Bots::ExportPack const& pack : map.packs)
+        for (Bots::ExportMob const& mob : pack.mobs)
+            nameCreature(mob.entry);
+    for (uint32 boss : map.bosses)
+        nameCreature(boss);
+    for (Bots::GeneratorQuest const& quest : map.quests)
+    {
+        map.questNames[quest.id] = names.quest(quest.id);
+        for (Bots::QuestObjective const& objective : quest.objectives)
+        {
+            if (objective.kind == Bots::QuestObjectiveKind::Kill)
+                nameCreature(objective.entry);
+            if (objective.kind == Bots::QuestObjectiveKind::Item)
+            {
+                map.itemNames[objective.item] = names.item(objective.item);
+                for (uint32 entry : objective.entries)
+                    nameCreature(entry);
+            }
+        }
+    }
+
+    std::string const path = RouteFiles::ExportPathOf(mapId);
+    if (!RouteFiles::Write(path, Bots::WriteExport(map)))
+        return Fail(handler, "Cannot write " + path + ". Does the routes folder exist?");
+
+    uint32 mobs = 0;
+    uint32 patrols = 0;
+    for (Bots::ExportPack const& pack : map.packs)
+        for (Bots::ExportMob const& mob : pack.mobs)
+        {
+            ++mobs;
+            patrols += mob.patrol.empty() ? 0 : 1;
+        }
+    handler.PSendSysMessage("Export of map %u: %u packs, %u mobs, %u patrols, %u quests, %u bosses. File %s.", mapId,
+        uint32(map.packs.size()), mobs, patrols, uint32(map.quests.size()), uint32(map.bosses.size()), path.c_str());
+    for (uint32 boss : map.bosses)
+        if (std::none_of(spawns.begin(), spawns.end(), [boss](Bots::GeneratorSpawn const& s) { return s.entry == boss; }))
+            handler.PSendSysMessage("Check: the map has no spawn of the boss %u %s.", boss, RouteFiles::EntryName(boss).c_str());
+    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] .route export wrote %s: %u packs, %u mobs.", path.c_str(),
+        uint32(map.packs.size()), mobs);
+    return true;
+}
+}
+
+bool ChatHandler::HandleRouteExportCommand(char* args)
+{
+    if (RunExport(*this, args))
+        return true;
+    SetSentErrorMessage(true);
+    return false;
 }
 
 bool ChatHandler::HandleRouteBuildCommand(char* args)
