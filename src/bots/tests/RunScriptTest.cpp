@@ -321,8 +321,8 @@ TEST(RunScript, RefusesABrokenLineWithItsNumber)
     EXPECT_EQ(ErrorOf(Head + "teleport\n"), "line 6: use: teleport <point>");
     EXPECT_EQ(ErrorOf(Head + "wait soon\n"),
         "line 6: use: wait <seconds> | wait arrive | wait combat_end [<seconds>] | wait rested [<seconds>]");
-    EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
-        "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n>");
+    EXPECT_EQ(ErrorOf(Head + "expect boss_dead x\n"), std::string("line 6: ") + "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
+        "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n> | expect damage_chase_yards <yards>");
     EXPECT_EQ(ErrorOf(Head + "clear -3\n"), "line 6: use: clear <yards> [<pack> ...]");
     EXPECT_EQ(ErrorOf(Head + "whisper Hela\n"), "line 6: use: whisper <bot> <text>");
     EXPECT_EQ(ErrorOf(Head + "join\n"), "line 6: use: join <pack> [<bot>]");
@@ -536,7 +536,7 @@ TEST(RunScript, RefusesABrokenOrSecondHealerThreatLossLimit)
 {
     std::string const usage =
         "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
-        "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n>";
+        "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n> | expect damage_chase_yards <yards>";
     EXPECT_EQ(ErrorOf(Head + "expect healer_threat_losses\n"), "line 6: " + usage);
     EXPECT_EQ(ErrorOf(Head + "expect healer_threat_losses many\n"), "line 6: " + usage);
     EXPECT_EQ(ErrorOf(Head + "expect healer_threat_losses 1\ncommand pull\nexpect healer_threat_losses 2\n"),
@@ -576,5 +576,48 @@ TEST(RunScriptData, TheJoinScenariosOfRagefireChasmCheckThePickupAndTheThreatTar
         EXPECT_EQ(scenario->limits.healerPickupSeconds.most, 6u) << name;
         EXPECT_TRUE(scenario->limits.threatTargetsWithoutCast.set) << name;
         EXPECT_EQ(scenario->limits.threatTargetsWithoutCast.most, 0u) << name;
+    }
+}
+
+// jvbastel/WOWAI#171: a scenario sets how far from the tank a damage bot may
+// chase. The judge fails the run on a chase beyond it.
+TEST(RunScript, AnExpectLineSetsTheDamageChaseLimitOfTheScenario)
+{
+    RunScriptResult const result = ParseRunScript(
+        Head + "expect damage_chase_yards 25\nexpect healer_threat_losses 1\ncommand pull\nscenario t\ncommand pull\n");
+
+    ASSERT_TRUE(result.ok) << result.error;
+    Bots::ScriptScenario const& limited = result.script.scenarios[0];
+    ASSERT_TRUE(limited.limits.damageChaseYards.set);
+    EXPECT_EQ(limited.limits.damageChaseYards.most, 25u);
+    EXPECT_EQ(limited.limits.damageChaseYards.line, 6u);
+    EXPECT_EQ(limited.limits.healerThreatLosses.most, 1u);
+    ASSERT_EQ(limited.commands.size(), 1u);
+    EXPECT_FALSE(result.script.scenarios[1].limits.damageChaseYards.set);
+}
+
+TEST(RunScript, RefusesABrokenOrSecondDamageChaseLimit)
+{
+    std::string const usage =
+        "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
+        "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n> | expect damage_chase_yards <yards>";
+    EXPECT_EQ(ErrorOf(Head + "expect damage_chase_yards far\n"), "line 6: " + usage);
+    EXPECT_EQ(ErrorOf(Head + "expect damage_chase_yards 25\ncommand pull\nexpect damage_chase_yards 30\n"),
+        "line 8: the scenario s sets damage_chase_yards on line 6 already");
+}
+
+// The three scenarios where an extra pack joins in the middle of a fight
+// check the chase limit of spec #165: 25 yards from the tank.
+TEST(RunScriptData, TheJoinScenariosOfRagefireChasmLimitDamageChasesTo25Yards)
+{
+    RunScriptResult const script = ParseRunScript(ReadDataFile("bottests/ragefire_chasm.txt"));
+    ASSERT_TRUE(script.ok) << script.error;
+
+    for (char const* name : {"join_three", "join_three_healer", "join_four_healer"})
+    {
+        Bots::ScriptScenario const* scenario = Bots::FindScenario(script.script, name);
+        ASSERT_NE(scenario, nullptr) << name;
+        EXPECT_TRUE(scenario->limits.damageChaseYards.set) << name;
+        EXPECT_EQ(scenario->limits.damageChaseYards.most, 25u) << name;
     }
 }

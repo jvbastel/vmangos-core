@@ -56,6 +56,9 @@
 //   (RunJudge.h, jvbastel/WOWAI#167). A scenario sets it at most once.
 // - `expect healer_pickup_seconds <n>`, `expect threat_targets_without_cast
 //   <n>`: limits of the run as well (RunJudge.h, jvbastel/WOWAI#168).
+// - `expect damage_chase_yards <yards>`: a limit of the run like the one
+//   above: the run fails when a damage bot chases more than <yards> from the
+//   tank (RunJudge.h, jvbastel/WOWAI#171).
 // - `wait rested [<seconds>]`: each member lives, and no bot of the group
 //   eats or drinks any more; the run fails after the seconds.
 // - `fight <pack> [<seconds>]`: the test driver selects a living mob of the
@@ -166,6 +169,9 @@ namespace Bots
         // most threat targets that the tank turns to and casts nothing on.
         ScriptLimit healerPickupSeconds;
         ScriptLimit threatTargetsWithoutCast;
+        // `expect damage_chase_yards <yards>`: no damage bot chases farther
+        // from the tank (jvbastel/WOWAI#171).
+        ScriptLimit damageChaseYards;
     };
 
     struct ScriptScenario

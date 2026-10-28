@@ -80,6 +80,45 @@ namespace Bots
         }
     }
 
+    namespace
+    {
+        // The living tank, when the bot is not the tank, or NoGuid.
+        Guid LivingTank(BotContext const& context)
+        {
+            Guid const tank = context.group.GetTank();
+            return IsAlive(context.view, tank) && tank != context.view.GetSelf() ? tank : NoGuid;
+        }
+
+        // The first living enemy that attacks the bot, or NoGuid.
+        Guid OwnAttacker(BotContext const& context)
+        {
+            for (Guid attacker : context.view.GetAttackers(context.view.GetSelf()))
+                if (IsAlive(context.view, attacker))
+                    return attacker;
+            return NoGuid;
+        }
+
+        // jvbastel/WOWAI#171: the bot is at the living tank, and an enemy
+        // in the chase limit attacks it: that enemy, else NoGuid.
+        Guid OwnAttackerAtTank(BotContext const& context)
+        {
+            Guid const tank = LivingTank(context);
+            if (tank == NoGuid || context.view.GetDistance(tank) > AtTankYards)
+                return NoGuid;
+            for (Guid attacker : context.view.GetAttackers(context.view.GetSelf()))
+                if (IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker))
+                    return attacker;
+            return NoGuid;
+        }
+
+        bool AttackedAwayFromTheTank(BotContext const& context)
+        {
+            Guid const tank = LivingTank(context);
+            return tank != NoGuid && !IsAlive(context.view, context.attackTarget) && OwnAttacker(context) != NoGuid
+                && context.view.GetDistance(tank) > AtTankYards;
+        }
+    }
+
     Guid PickDamageTarget(BotContext const& context)
     {
         if (IsAlive(context.view, context.attackTarget))
@@ -89,9 +128,12 @@ namespace Bots
             return healer;
         Guid const focus = context.group.GetFocusTarget();
         bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
-        Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);
-        if (loose != NoGuid)
-            return loose;
+        if (!IsAlive(context.view, context.group.GetTank()))
+        {
+            Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);
+            if (loose != NoGuid)
+                return loose;
+        }
         if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
             && IsInChaseLimit(context, focus))
             return focus;
@@ -100,7 +142,9 @@ namespace Bots
 
     Guid PickMeleeDamageTarget(BotContext const& context)
     {
-        Guid const target = PickDamageTarget(context);
+        Guid target = PickDamageTarget(context);
+        if (target == NoGuid)
+            target = OwnAttackerAtTank(context);
         return target != NoGuid && InOtherPacksReach(context, context.view.GetPosition(target)) ? NoGuid : target;
     }
 
@@ -130,6 +174,23 @@ namespace Bots
         rule.action.canDo = [](BotContext const&) { return true; };
         rule.action.run = [](BotContext const& context) {
             context.actions.ChaseToRange(PickDamageTarget(context), RangedStandYards);
+        };
+        return rule;
+    }
+
+    Rule WalkToTankRule(int priority)
+    {
+        Rule rule;
+        rule.name = "walk to the tank when attacked";
+        rule.priority = priority;
+        rule.trigger = AttackedAwayFromTheTank;
+        rule.action.canDo = [](BotContext const&) { return true; };
+        // Once the bot follows the tank, it keeps walking: a new follow
+        // each think would start the move again.
+        rule.action.run = [](BotContext const& context) {
+            Guid const tank = context.group.GetTank();
+            if (context.view.GetFollowTarget() != tank)
+                context.actions.Follow(tank);
         };
         return rule;
     }

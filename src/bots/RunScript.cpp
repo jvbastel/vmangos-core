@@ -73,7 +73,7 @@ namespace Bots
                 return "use: route [noquests]";
             if (keyword == "expect")
                 return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n> | "
-                       "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n>";
+                       "expect healer_pickup_seconds <n> | expect threat_targets_without_cast <n> | expect damage_chase_yards <yards>";
             if (keyword == "script")
                 return "use: script <name> <route>";
             if (keyword == "driver")
@@ -240,6 +240,7 @@ namespace Bots
             {"healer_threat_losses", &ScriptLimits::healerThreatLosses},
             {"healer_pickup_seconds", &ScriptLimits::healerPickupSeconds},
             {"threat_targets_without_cast", &ScriptLimits::threatTargetsWithoutCast},
+            {"damage_chase_yards", &ScriptLimits::damageChaseYards},
         };
 
         // The limit named `name`, or null.

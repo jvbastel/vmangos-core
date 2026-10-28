@@ -17,8 +17,9 @@
 // - Enemy healers: an enemy that casts a heal becomes an enemy healer of the
 //   group. The damage bots attack it first (PickDamageTarget), until it dies.
 // - Chase limit: a damage bot chases an enemy only up to ChaseEnemyYards from
-//   the tank, or from the other member that the enemy hits, and then comes
-//   back to the tank. Only the attack target of the player has no limit.
+//   the tank, and then comes back to the tank. Only the attack target of the
+//   player has no limit. A damage bot that an enemy attacks walks to the
+//   tank (DamageRules.h, jvbastel/WOWAI#171).
 // - Dispel: a bot that knows a dispel spell removes a debuff of that kind
 //   from a group member. At level 16 no bot of the group knows one.
 namespace Bots
@@ -56,11 +57,9 @@ namespace Bots
     float const ChaseEnemyYards = ChaseLimitYards - 5.0f;
 
     // True when unit `unit` is in the chase limit: it is at most
-    // ChaseEnemyYards from the tank, or the group has no living tank, or it
-    // hits a living group member other than the bot and is at most
-    // ChaseEnemyYards from it. A fleeing enemy leaves that member behind.
-    // An enemy on the bot itself has the limit of the tank: it follows the
-    // bot to the tank.
+    // ChaseEnemyYards from the tank, or the group has no living tank. Only
+    // the tank counts (jvbastel/WOWAI#171): an enemy near another member far
+    // from the tank waits until that member brings it to the tank.
     bool IsInChaseLimit(BotContext const& context, Guid unit);
 
     // An enemy healer of the group that is alive, in the fight, and in the
