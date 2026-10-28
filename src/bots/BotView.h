@@ -250,6 +250,12 @@ namespace Bots
         // True when BotActions::TopUpAmmo(topUp) has room: in the bags for
         // the missing arrows or bullets, or in the worn thrown stack.
         virtual bool HasRoomFor(AmmoTopUp const& topUp) const = 0;
+
+        // jvbastel/WOWAI#189: the tank's target. The unit that unit `unit`
+        // targets now: the selection of a player (the target frame of a
+        // human tank), the target of a creature. NoGuid for none, and for a
+        // unit that the bot cannot see. Friend or enemy: the caller decides.
+        virtual Guid GetTargetOf(Guid unit) const = 0;
     };
 }
 

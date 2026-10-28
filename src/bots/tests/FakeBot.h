@@ -462,6 +462,13 @@ namespace Bots
                 return found == m_level.end() ? 0 : found->second;
             }
             bool HasRoomFor(AmmoTopUp const&) const override { return !m_bagsFull; }
+            // jvbastel/WOWAI#189: the tank's target. Unset: NoGuid.
+            void SetTargetOf(Guid unit, Guid target) { m_targetOf[unit] = target; }
+            Guid GetTargetOf(Guid unit) const override
+            {
+                auto found = m_targetOf.find(unit);
+                return found == m_targetOf.end() ? NoGuid : found->second;
+            }
             bool IsMeleeAttacking() const override { return GetVictim(m_self) != NoGuid && !m_noMeleeSwing; }
             bool IsMoving(Guid unit) const override
             {
@@ -602,6 +609,7 @@ namespace Bots
             std::map<SpellId, float> m_spellRange;
             std::map<Guid, bool> m_inCombat;
             std::map<Guid, Guid> m_victim;
+            std::map<Guid, Guid> m_targetOf; // jvbastel/WOWAI#189.
             std::map<std::pair<Guid, Guid>, float> m_threatRatio;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;

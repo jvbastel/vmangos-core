@@ -1199,3 +1199,14 @@ bool BotAdapter::IsMeleeAttacking() const
 {
     return me->GetVictim() && me->HasUnitState(UNIT_STATE_MELEE_ATTACKING);
 }
+
+// jvbastel/WOWAI#189: the tank's target.
+Bots::Guid BotAdapter::GetTargetOf(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found)
+        return Bots::NoGuid;
+    if (Player const* player = found->ToPlayer())
+        return player->GetSelectionGuid().GetRawValue();
+    return found->GetTargetGuid().GetRawValue();
+}
