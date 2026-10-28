@@ -188,9 +188,23 @@ void BotAI::HandlePacket(WorldPacket const& packet)
     switch (packet.GetOpcode())
     {
         case SMSG_GROUP_INVITE:
+        {
             // A normal /invite: the bot accepts, like the client of a player.
+            // jvbastel/WOWAI#197: a bot tank says no to a group whose human
+            // picked tank (never two tanks), with a party line to the leader.
+            Group const* invite = me->GetGroupInvite();
+            Player const* leader = invite ? ObjectAccessor::FindPlayer(invite->GetLeaderGuid()) : nullptr;
+            if (invite && m_role == Bots::BotRole::Tank && Bots::RefusesBotTank(sBotMgr.GroupMembersOf(invite, leader)))
+            {
+                me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(CMSG_GROUP_DECLINE));
+                sBotMgr.QueueLine({me->GetObjectGuid(), CHAT_MSG_PARTY, invite->GetLeaderGuid(), Bots::SecondTankRefusalLine});
+                sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s refuses the invite of %s: a second tank", me->GetName(),
+                    leader ? leader->GetName() : "?");
+                return;
+            }
             me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(CMSG_GROUP_ACCEPT));
             return;
+        }
         case SMSG_LOOT_START_ROLL:
             m_loot.OnStartRoll(me, packet);
             return;
@@ -520,7 +534,9 @@ Bots::Guid BotAI::GroupTankNow(Bots::Guid current, bool& playerTank) const
         // stands in for one: no bot role (BotMgr::BotRoleOf).
         Bots::BotRole role = Bots::BotRole::Ranged;
         bool const isBot = sBotMgr.BotRoleOf(player, role);
-        members.push_back({slot.guid.GetRawValue(), isBot, role});
+        // jvbastel/WOWAI#197: the role choice of a human.
+        members.push_back({slot.guid.GetRawValue(), isBot, role,
+            isBot ? Bots::RoleChoice::None : sBotMgr.RoleChoiceOf(slot.guid)});
     }
     // The current tank stays when it is a bot tank of this group, also on
     // another map (a bot tank that left the group does not stay).

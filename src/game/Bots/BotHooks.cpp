@@ -12,6 +12,8 @@
 #include "GroupCommand.h"
 #include "Group.h"
 #include "Player.h"
+#include "RoleChoice.h"
+#include "Log.h"
 #include "SharedDefines.h"
 
 #include <vector>
@@ -138,4 +140,16 @@ bool BotHooks::OnWhisperToOffline(Player* sender, std::string const& receiverNam
 {
     // The bot manager answers a name that is no bot.
     return sender && RouteGroupCommand(sender, receiverName, text);
+}
+
+void BotHooks::OnPartyAddonMessage(Player* sender, std::string const& text)
+{
+    if (!sender || sender->IsBot())
+        return;
+    Bots::RoleChoiceMessage const message = Bots::ParseRoleChoiceMessage(text);
+    if (!message.ours)
+        return;
+    sBotMgr.SetRoleChoice(sender->GetObjectGuid(), message.choice);
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s sends the role choice \"%s\"", sender->GetName(),
+        text.substr(text.find('\t') + 1).c_str());
 }
