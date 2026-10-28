@@ -6,7 +6,7 @@
 */
 
 // The GM commands of the WOWAI bots:
-//   .wowai bot create <name> <class> <role> [race] [gear <template>]
+//   .wowai bot create <name> <class> <role> [race|horde|alliance] [gear <template>]
 //   .wowai bot login <name>
 //   .wowai bot logout <name>
 //   .wowai gear equip <character> [template]

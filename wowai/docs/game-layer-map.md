@@ -143,7 +143,7 @@ These commands work over SOAP. Each example ran on a fresh check realm, with its
 | `.reload config` | `.reload config` | `World config settings reloaded` |
 | `.wowai bot logout <name>` | `.wowai bot logout Shanka` | `Bot Shanka logs out` |
 | `.wowai bot login <name>` | `.wowai bot login Shanka` | `Bot Shanka logs in` |
-| `.wowai bot create <name> <class> <role> [race]` | `.wowai bot create Grukk warrior tank` | `A character named Grukk exists already` |
+| `.wowai bot create <name> <class> <role> [race\|horde\|alliance] [gear <template>]` | `.wowai bot create Grukk warrior tank`, `.wowai bot create Aldric warrior tank alliance` | `A character named Grukk exists already` |
 | `.wowai gear equip <name>` | `.wowai gear equip Grukk` | `Grukk wears warrior_tank` |
 | `.wowai run status` | `.wowai run status` | `No run` |
 | `.wowai run stop` | `.wowai run stop` | `No run is running` |
