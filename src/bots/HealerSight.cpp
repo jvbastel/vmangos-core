@@ -1,26 +1,17 @@
 #include "HealerSight.h"
-#include "BotGeometry.h"
 #include "CommonRules.h"
 #include "GroupCoordinator.h"
 #include "KeepOut.h"
 #include "PriestModule.h"
 #include "SafePlace.h"
+#include "SpellBook.h"
 
-#include <algorithm>
-#include <cmath>
 #include <vector>
 
 namespace Bots
 {
     namespace
     {
-        // The rings round the tank, each this many yards, up to
-        // TankSightMostYards, with this many spots on each; and the most
-        // height of a spot over or under the tank.
-        float const RingStepYards = 5.0f;
-        int const SpotsPerRing = 16;
-        float const SpotHeightYards = 8.0f;
-
         // The living tank of a player-tank group in a fight of the bot,
         // when the bot is not the tank and casts nothing, else NoGuid.
         Guid TankToKeep(BotContext const& context)
@@ -47,27 +38,11 @@ namespace Bots
         if (tank == NoGuid || SeesInReach(view, tank))
             return false;
 
-        Position const self = view.GetPosition(view.GetSelf());
-        Position const tankAt = view.GetPosition(tank);
-        std::vector<Position> spots;
-        for (float yards = RingStepYards; yards <= TankSightMostYards; yards += RingStepYards)
-            for (int i = 0; i < SpotsPerRing; ++i)
-            {
-                float const angle = float(i) * 2.0f * Pi / float(SpotsPerRing);
-                Position const at = view.GetGround(
-                    {tankAt.x + std::cos(angle) * yards, tankAt.y + std::sin(angle) * yards, tankAt.z});
-                if (std::fabs(at.z - tankAt.z) <= SpotHeightYards
-                    && view.GetSpellDistanceFrom(at, tank) <= TankSightMostYards)
-                    spots.push_back(at);
-            }
-        std::stable_sort(spots.begin(), spots.end(), [&self](Position const& a, Position const& b) {
-            return Distance2d(self, a) < Distance2d(self, b);
-        });
-
-        SafeMoveRules rules;
-        rules.inSightOf = {tank};
-        rules.enemies = EnemiesOutsideTheFight(view, tankAt, FightTarget(context));
-        return FirstSafePlace(view, spots, rules, spot);
+        std::vector<NearEnemy> const keepOutOf =
+            EnemiesOutsideTheFight(view, view.GetPosition(tank), FightTarget(context));
+        return FindSafeCastPlace(view, tank, TankSightMostYards, spot, nullptr,
+            [&view, tank](Position const& at) { return view.GetSpellDistanceFrom(at, tank) <= TankSightMostYards; },
+            &keepOutOf);
     }
 
     Rule TankSightRule(int priority)
@@ -89,5 +64,16 @@ namespace Bots
                 context.actions.KeepMovingTo(spot);
         };
         return rule;
+    }
+
+    bool ResurrectsTankBeforeRest(BotView const& view, GroupCoordinator const& group)
+    {
+        Guid const self = view.GetSelf();
+        Guid const tank = group.GetTank();
+        if (!group.IsPlayerTankGroup() || tank == self || !IsAlive(view, self) || IsGroupInCombat(view)
+            || view.GetLifeState(tank) != LifeState::Dead || group.IsResurrectGivenUp(tank))
+            return false;
+        SpellId const rank = RankForTarget(view, Priest::Resurrection, tank);
+        return rank != NoSpell && view.GetRankAmounts(rank).manaCost <= view.GetMana(self).current;
     }
 }

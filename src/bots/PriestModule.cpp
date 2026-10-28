@@ -7,6 +7,9 @@
 #include "SpellBook.h"
 #include "StepBack.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace Bots
 {
     namespace Priest
@@ -189,10 +192,22 @@ namespace Bots
                     && !context.group.IsResurrectGivenUp(member);
             }
 
+            // The members of the bot's group. jvbastel/WOWAI#195: in a
+            // player-tank group the tank comes first, so that the healer
+            // resurrects the tank first (story 40).
+            std::vector<Guid> MembersTankFirst(BotContext const& context)
+            {
+                std::vector<Guid> members = context.view.GetGroupMembers();
+                if (context.group.IsPlayerTankGroup())
+                    std::stable_partition(members.begin(), members.end(),
+                        [&context](Guid member) { return member == context.group.GetTank(); });
+                return members;
+            }
+
             // The first dead member that the bot can resurrect now, or NoGuid.
             Guid DeadMemberInReach(BotContext const& context)
             {
-                for (Guid member : context.view.GetGroupMembers())
+                for (Guid member : MembersTankFirst(context))
                     if (MayResurrect(context, member) && CastableRank(context.view, Resurrection, member) != NoSpell)
                         return member;
                 return NoGuid;
@@ -207,7 +222,7 @@ namespace Bots
                 if (!context.view.KnowsSpell(Resurrection))
                     return NoGuid;
                 Position const here = context.view.GetPosition(PickSelf(context));
-                for (Guid member : context.view.GetGroupMembers())
+                for (Guid member : MembersTankFirst(context))
                     if (MayResurrect(context, member) && (context.view.GetDistance(member) > ResurrectReachYards
                         || !context.view.CanSeeFrom(here, member)))
                         return member;

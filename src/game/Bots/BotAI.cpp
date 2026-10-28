@@ -12,6 +12,7 @@
 #include "CoordinatorChoice.h"
 #include "DeathAndRest.h"
 #include "GroupTank.h"
+#include "HealerSight.h"
 #include "MemberSpot.h"
 #include "PlayerTank.h"
 #include "WarriorModule.h"
@@ -640,11 +641,13 @@ void BotAI::Think()
     // or drinks sits until it is full or a fight starts: standing up ends
     // the meal. A bot that is full again (a heal, a GM `.replenish`) stands
     // up at once, so the group does not wait for its food aura to run out.
-    bool const rests = Bots::RestsNow(adapter);
+    // jvbastel/WOWAI#195: a healer that sits stands up to resurrect the
+    // dead player tank first (HealerSight.h).
+    std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
+    bool const rests = Bots::RestsNow(adapter) && !Bots::ResurrectsTankBeforeRest(adapter, *coordinator);
     if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND && (!rests || me->IsInCombat()))
         me->SetStandState(UNIT_STAND_STATE_STAND);
 
-    std::shared_ptr<Bots::GroupCoordinator> coordinator = Coordinator();
     bool const away = CoordinatorChoiceNow() == Bots::CoordinatorChoice::Place;
     if (away != m_awayFromLeader)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s uses the %s coordinator (map %u, instance %u)", me->GetName(),

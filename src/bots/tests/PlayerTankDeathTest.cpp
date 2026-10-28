@@ -4,6 +4,7 @@
 #include "DeathAndRest.h"
 #include "FakeBot.h"
 #include "GroupCoordinator.h"
+#include "HealerSight.h"
 #include "PlayerTank.h"
 #include "PriestModule.h"
 
@@ -335,4 +336,76 @@ TEST(PlayerTankDeath, InAFullWipeTheBotsWaitForTheTankToRelease)
 
     bot.fake.SetLifeState(Human, LifeState::Ghost);
     EXPECT_EQ(bot.Think(), "release with the leader");
+}
+
+// jvbastel/WOWAI#195, merge review: story 40 for a healer that already sits
+// to drink when the fight ends. A sitting bot casts nothing (the game
+// layer), so it must stand up first: ResurrectsTankBeforeRest tells the
+// game layer to stand it up, and the rest rules give way to the resurrect.
+namespace
+{
+    struct DrinkingHealerWithDeadTank : PlayerTankHealer
+    {
+        DrinkingHealerWithDeadTank()
+        {
+            fake.SetKnownSpell(Priest::Resurrection);
+            fake.SetCastsOnDead(Priest::Resurrection);
+            fake.SetRankAmounts(Priest::Resurrection, 0, 100);
+            Die(Human);
+            fake.SetMana(Healer, 150, 400);
+            fake.SetPower(Healer, 150, 400);
+            fake.SetDrinking();
+            Watch();
+        }
+    };
+}
+
+TEST(PlayerTankDeath, ASittingHealerStandsUpToResurrectTheDeadTank)
+{
+    DrinkingHealerWithDeadTank bot;
+    EXPECT_TRUE(Bots::ResurrectsTankBeforeRest(bot.fake, bot.group));
+    EXPECT_EQ(bot.Think(), "resurrect a member");
+}
+
+TEST(PlayerTankDeath, AHealerThatCannotCastYetDoesNotSitDownWhileTheTankIsDead)
+{
+    // The resurrect waits a tick (the cooldown of the last heal): the
+    // healer neither keeps resting nor starts to drink.
+    DrinkingHealerWithDeadTank bot;
+    bot.fake.SetCannotCast(Priest::Resurrection);
+    EXPECT_NE(bot.Think(), "keep resting");
+    bot.fake.SetDrinking(false);
+    EXPECT_NE(bot.Think(), "drink");
+}
+
+TEST(PlayerTankDeath, AHealerWithoutTheManaForTheResurrectDrinksFirst)
+{
+    DrinkingHealerWithDeadTank bot;
+    bot.fake.SetMana(Healer, 50, 400);
+    bot.fake.SetPower(Healer, 50, 400);
+    EXPECT_FALSE(Bots::ResurrectsTankBeforeRest(bot.fake, bot.group));
+    EXPECT_EQ(bot.Think(), "keep resting");
+}
+
+TEST(PlayerTankDeath, InABotTankGroupTheSittingHealerKeepsResting)
+{
+    DrinkingHealerWithDeadTank bot;
+    bot.group.SetTank(Human, false);
+    EXPECT_FALSE(Bots::ResurrectsTankBeforeRest(bot.fake, bot.group));
+}
+
+TEST(PlayerTankDeath, TheHealerResurrectsTheTankBeforeOtherDeadMembers)
+{
+    PlayerTankHealer bot;
+    bot.fake.SetKnownSpell(Priest::Resurrection);
+    bot.fake.SetCastsOnDead(Priest::Resurrection);
+    bot.fake.SetGroupMembers({Mage, Human, Rogue});
+    bot.Die(Mage);
+    bot.Die(Human);
+    bot.Watch();
+
+    EXPECT_EQ(bot.Think(), "resurrect a member");
+    std::ostringstream cast;
+    cast << "cast " << Priest::Resurrection << " on 0x" << std::hex << std::setw(16) << std::setfill('0') << Human;
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{cast.str()}));
 }
