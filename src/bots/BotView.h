@@ -31,6 +31,17 @@ namespace Bots
         bool interruptible;
     };
 
+    // jvbastel/WOWAI#134: one rank of a heal, for the rank choice
+    // (SpellBook.h, CastableHealRank).
+    struct HealRank
+    {
+        // The average direct heal of the rank by the bot, from the spell
+        // data: no +healing, no crit, no talent. 0 for a spell without a
+        // direct heal.
+        std::uint32_t averageHeal;
+        std::uint32_t manaCost;
+    };
+
     // The kinds of debuff that a dispel spell removes.
     enum class DispelKind
     {
@@ -133,6 +144,9 @@ namespace Bots
         // now: a stun, a fear, a confuse; a silence or a school lockout for
         // a magic spell; a pacify for a physical one (Spell::CheckCasterAuras).
         virtual bool IsCastLocked(SpellId spell) const = 0;
+        // jvbastel/WOWAI#134: the average heal and the mana cost of rank
+        // `rank` of a spell, cast by the bot. {0, 0} for an unknown spell.
+        virtual HealRank GetHealRank(SpellId rank) const = 0;
 
         // The members of the bot's group that the bot can see, the bot
         // first. Only the bot when it is in no group.

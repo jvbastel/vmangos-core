@@ -179,6 +179,12 @@ namespace Bots
             // The level of unit `target` is too low for rank `rank` of a
             // buff (BotView::LevelAllowsRank).
             void SetLevelTooLowFor(SpellId rank, Guid target) { m_levelTooLow.insert({rank, target}); }
+            // The average heal and the mana cost of rank `rank`
+            // (BotView::GetHealRank). Unset: {0, 0}.
+            void SetHealRank(SpellId rank, std::uint32_t averageHeal, std::uint32_t manaCost)
+            {
+                m_healRanks[rank] = HealRank{averageHeal, manaCost};
+            }
             void SetRangedWeapon(RangedWeapon const& weapon) { m_ranged = weapon; }
             void SetLevel(Guid unit, std::uint32_t level) { m_level[unit] = level; }
             void SetMoving(Guid unit, bool moving = true) { m_moving[unit] = moving; }
@@ -284,6 +290,11 @@ namespace Bots
             }
             bool KnowsSpell(SpellId spell) const override { return m_known.count(spell) != 0; }
             bool IsCastLocked(SpellId) const override { return m_stunned || m_silenced; }
+            HealRank GetHealRank(SpellId rank) const override
+            {
+                auto found = m_healRanks.find(rank);
+                return found == m_healRanks.end() ? HealRank{0, 0} : found->second;
+            }
             bool LevelAllowsRank(SpellId rank, Guid target) const override
             {
                 return m_levelTooLow.count({rank, target}) == 0;
@@ -563,6 +574,7 @@ namespace Bots
             bool m_scriptedMove = false;
             std::set<SpellId> m_castsOnDead;
             std::set<std::pair<SpellId, Guid>> m_cannotCastOn;
+            std::map<SpellId, HealRank> m_healRanks;
             std::set<std::pair<SpellId, Guid>> m_levelTooLow;
             bool m_stunned = false;
             bool m_silenced = false;

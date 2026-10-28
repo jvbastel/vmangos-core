@@ -33,4 +33,23 @@ namespace Bots
         SpellId const rank = RankForTarget(view, firstRank, target);
         return rank != NoSpell && !view.IsCastLocked(rank) && view.CanCast(rank, target) ? rank : NoSpell;
     }
+
+    SpellId CastableHealRank(BotView const& view, SpellId firstRank, Guid target)
+    {
+        Health const health = view.GetHealth(target);
+        std::uint32_t const missing = health.max > health.current ? health.max - health.current : 0;
+        std::uint32_t const mana = view.GetMana(view.GetSelf()).current;
+        SpellId highest = NoSpell;
+        for (SpellId rank = firstRank; rank != NoSpell; rank = view.GetNextRank(rank))
+        {
+            HealRank const heal = view.GetHealRank(rank);
+            if (!view.KnowsSpell(rank) || !view.LevelAllowsRank(rank, target) || heal.manaCost > mana
+                || view.IsCastLocked(rank) || !view.CanCast(rank, target))
+                continue;
+            if (heal.averageHeal >= missing)
+                return rank;
+            highest = rank;
+        }
+        return highest;
+    }
 }
