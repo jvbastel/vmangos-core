@@ -225,3 +225,38 @@ def test_a_position_is_in_a_region_inside_its_outline_and_height_range_ends_incl
     assert regions.regions_at([ledge, beside], 25, 5, 8) == []  # outside the outlines
     assert regions.regions_at([ledge, beside], 10, 5, 8) == ["Ledge", "Beside"]  # on the shared border
     assert regions.regions_at([ledge, beside], 0, -10, 8) == ["Ledge"]  # on a corner
+
+
+# Edits (ticket jvbastel/WOWAI#183): the page sends the whole edited list through the same checked save.
+
+def test_a_save_that_moves_a_point_changes_the_heights_renames_one_and_deletes_another_reloads_changed(web, routes):
+    third = {"name": "Third", "low": -2.0, "high": 2.0, "outline": [[20.0, 0.0], [30.0, 0.0], [30.0, 10.0]]}
+    save(web, LEDGE, UNDER, third)
+
+    moved = {**LEDGE, "outline": [[0.0, -10.0], [12.5, -11.25], [10.0, 10.0], [0.0, 10.0]]}
+    heights = {**UNDER, "low": -4.5, "high": 6.25}
+    renamed = {**third, "name": "Lower hall"}
+    edited = [moved, {**heights, "name": "Under the ledge"}]  # UNDER renamed too, Third deleted below
+    response = save(web, *edited)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["regions"] == edited
+    assert load(web)["regions"] == edited
+    lines = (routes / "map_389.regions.txt").read_text().splitlines(keepends=True)
+    assert "".join(line for line in lines if line.startswith("region")) == (
+        "region 3.00 13.00 0.00 -10.00 12.50 -11.25 10.00 10.00 0.00 10.00 name Ledge\n"
+        "region -4.50 6.25 0.00 0.00 10.00 0.00 10.00 10.00 name Under the ledge\n")
+    assert save(web, *edited, renamed).status_code == 200
+    assert [r["name"] for r in load(web)["regions"]] == ["Ledge", "Under the ledge", "Lower hall"]
+
+
+def test_an_edit_that_gives_two_regions_one_name_is_refused_and_the_file_stays(web, routes):
+    save(web, LEDGE, UNDER)
+    before = (routes / "map_389.regions.txt").read_text()
+
+    response = save(web, LEDGE, {**UNDER, "name": "Ledge", "low": -3.0})
+
+    assert (response.status_code, response.json()["detail"]) == (
+        422, "not saved: region 'Ledge': two regions have this name")
+    assert (routes / "map_389.regions.txt").read_text() == before
+    assert load(web)["regions"] == [LEDGE, UNDER]
