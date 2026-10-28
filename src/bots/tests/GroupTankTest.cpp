@@ -87,7 +87,7 @@ TEST(GroupTank, AHumanLeaderOfAnyClassWithNoBotTankIsTheTank)
         BotTank);
 }
 
-TEST(GroupTank, OnlyAHumanTankMakesAPlayerTankGroup)
+TEST(GroupTank, OnlyAPlayerTankMakesAPlayerTankGroup)
 {
     std::vector<GroupMember> const members = {Human(Player), Bot(BotTank, BotRole::Tank)};
     EXPECT_TRUE(Bots::IsPlayerTank(members, Player));
@@ -140,7 +140,7 @@ TEST(GroupTank, TheTankRoleChoiceTakesOverFromABotTank)
     EXPECT_TRUE(tank.playerTank);
 }
 
-TEST(GroupTank, AGroupWithAHumanTankRoleChoiceTakesNoBotTank)
+TEST(GroupTank, AGroupWithATankRoleChoiceTakesNoBotTank)
 {
     EXPECT_TRUE(Bots::RefusesBotTank({HumanWith(Player, Bots::RoleChoice::Tank), Bot(BotHealer, BotRole::Healer)}));
     EXPECT_FALSE(Bots::RefusesBotTank({HumanWith(Player, Bots::RoleChoice::Healer), Bot(BotHealer, BotRole::Healer)}));
@@ -156,7 +156,7 @@ TEST(GroupTank, ABotTankLeavesAGroupWhoseHumanPickedTank)
     EXPECT_FALSE(Bots::MustLeaveAsSecondTank(members, BotHealer));
 }
 
-TEST(GroupTank, ABotTankStaysWithNoHumanTankRoleChoice)
+TEST(GroupTank, ABotTankStaysWithNoTankRoleChoice)
 {
     EXPECT_FALSE(Bots::MustLeaveAsSecondTank({Human(Player), Bot(BotTank, BotRole::Tank)}, BotTank));
     EXPECT_FALSE(

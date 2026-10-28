@@ -16,14 +16,14 @@ using Bots::StrategyStack;
 using Bots::Tests::FakeBot;
 
 // jvbastel/WOWAI#192: out of combat, the bots of a player-tank group walk the
-// human tank's trail to a spot behind it, by role.
+// player tank's trail to a spot behind it, by role.
 namespace
 {
     Bots::Guid const Self = 0x11;
     Bots::Guid const Other = 0x12;
     Bots::Guid const Tank = 0x05;
 
-    // A bot of a player-tank group whose human tank walks the places
+    // A bot of a player-tank group whose player tank walks the places
     // `walk`: each bot notes the tank's trail on each think (WatchTankTrail).
     struct Bot
     {

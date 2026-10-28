@@ -36,7 +36,7 @@ namespace
     Bots::Guid const Kobold = 0xF130000302000022;
     Bots::Guid const Wolf = 0xF130000302000033;
 
-    // A bot of a player-tank group: the human tank, a Priest healer, a
+    // A bot of a player-tank group: the player tank, a Priest healer, a
     // mage, and a rogue, all at full health, the healer's buffs on all.
     struct PlayerTankBot
     {

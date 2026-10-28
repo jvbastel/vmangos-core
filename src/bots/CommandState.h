@@ -60,7 +60,7 @@ namespace Bots
     // bot command that the bot obeyed set `commandedState`, and it holds,
     // also `stop` (None). With no such command yet: Follow in a player-tank
     // group (GroupCoordinator::IsPlayerTankGroup), so the bots follow the
-    // human tank with no command; else None.
+    // player tank with no command; else None.
     CommandState CommandStateNow(bool commanded, CommandState commandedState, bool playerTankGroup);
 }
 

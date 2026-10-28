@@ -645,7 +645,7 @@ void BotAI::Think()
                 tankPlayer ? tankPlayer->GetName() : (tank.tank == Bots::NoGuid ? "none" : "away"),
                 tank.playerTank ? "player tank" : "bot tank");
         }
-        // jvbastel/WOWAI#192: the bots keep the human tank's trail
+        // jvbastel/WOWAI#192: the bots keep the player tank's trail
         // (TrailFollow.h). Nothing in a bot-tank group.
         Bots::WatchTankTrail(adapter, *coordinator);
         // Spec #188 fix-up (S1): no meal until the tank waits (DeathAndRest.h).

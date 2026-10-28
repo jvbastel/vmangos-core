@@ -1586,7 +1586,7 @@ TEST(PriestHealerPlayerTank, AHurtMemberGetsAHealAfterTheThreatLead)
 // for the threat lead like any heal on a member other than the tank.
 namespace
 {
-    // The human tank has held the kobold for the threat lead.
+    // The player tank has held the kobold for the threat lead.
     void PlayerTankHoldsKobold(PriestHealer& priest)
     {
         PlayerTankFights(priest);

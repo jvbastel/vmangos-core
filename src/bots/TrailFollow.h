@@ -7,7 +7,7 @@
 
 // jvbastel/WOWAI#192: out of combat, the bots of a player-tank group follow
 // like players. The group coordinator keeps the tank's trail (Trail.h): each
-// bot notes where the human tank stands on each think (WatchTankTrail). In a
+// bot notes where the player tank stands on each think (WatchTankTrail). In a
 // player-tank group a trail that the tank walks back over is cut back to
 // where the tank stands again (Trail::CutBackTo), so the trail is always the
 // cleared way from behind the group to the tank.
@@ -76,7 +76,7 @@ namespace Bots
     Position NextTrailStep(std::vector<Position> const& way, Position const& self, Position const& spot);
 
     // Each bot of a player-tank group calls it on each think: the trail of
-    // the human tank (GroupCoordinator::KeepTrail). It does nothing in a
+    // the player tank (GroupCoordinator::KeepTrail). It does nothing in a
     // bot-tank group: the bot tank notes its own trail (WatchTrail).
     void WatchTankTrail(BotView const& view, GroupCoordinator& group);
 

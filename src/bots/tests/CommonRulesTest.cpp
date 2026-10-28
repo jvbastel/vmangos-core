@@ -45,7 +45,7 @@ namespace
     Bots::Guid const Human = 0x1;
 }
 
-TEST(PlayerTankOf, IsTheHumanTankThatTheBotSees)
+TEST(PlayerTankOf, IsThePlayerTankThatTheBotSees)
 {
     FakeBot fake(Self);
     Bots::GroupCoordinator group;
