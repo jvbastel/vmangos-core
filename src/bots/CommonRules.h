@@ -42,10 +42,11 @@ namespace Bots
     // it: a melee hit, for Shield Block (WarriorModule.cpp).
     bool IsHitInMelee(BotContext const& context, float yards);
 
-    // jvbastel/WOWAI#143: an enemy this near (center to center) to the
-    // member that it attacks hits it in melee. Wider than MeleeContactYards:
-    // a big enemy hits from farther. A caster that attacks from range
-    // stands far beyond it.
+    // jvbastel/WOWAI#143: an enemy this near (between the edges, as
+    // BotView::GetDistance and GetDistanceBetween count) to the member that
+    // it attacks hits it in melee. Wider than MeleeContactYards: a big enemy
+    // hits from farther. A caster that attacks from range stands far beyond
+    // it.
     float const MeleeHitYards = 8.0f;
 
     // The living enemies that attack member `member` and are at most
