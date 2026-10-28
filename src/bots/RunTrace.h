@@ -11,7 +11,9 @@
 #include <vector>
 
 // The trace of a scripted run (spec section 10, Results): on a fail or an
-// abort, the run saves the last 3 minutes, one line per event. The events are
+// abort, the run saves the last 3 minutes, one line per event. A full run
+// keeps and saves the whole run, also when it passes (jvbastel/WOWAI#152),
+// so that the dungeon map can draw where the group walked. The events are
 // the commands of the test driver and the positions, targets, and casts of
 // each group member. Each line starts with the run time in seconds:
 //
@@ -23,6 +25,8 @@
 namespace Bots
 {
     std::int64_t const TraceKeepMs = 3 * 60000;
+    // Keep every event of the run.
+    std::int64_t const TraceKeepWholeRun = 0;
 
     // What the trace sees of one member at one update.
     struct MemberState
@@ -42,6 +46,8 @@ namespace Bots
     class RunTrace
     {
     public:
+        // keepMs: how long before the newest event the trace keeps events,
+        // or TraceKeepWholeRun.
         explicit RunTrace(std::int64_t keepMs = TraceKeepMs);
 
         void Add(std::int64_t ms, std::string const& line);
@@ -49,12 +55,12 @@ namespace Bots
         // a new target; a new cast.
         void Observe(std::int64_t ms, MemberState const& member);
 
-        // The events of the last 3 minutes before the newest one.
+        // The kept events: those of the last keepMs before the newest one.
         std::vector<std::string> Lines() const;
         std::string Text() const;
         // The lines added since the last call, for the live trace file of
-        // the run (jvbastel/WOWAI#98), also those that the last 3 minutes no
-        // longer hold. The game layer takes them at each update.
+        // the run (jvbastel/WOWAI#98), also those that the trace no longer
+        // keeps. The game layer takes them at each update.
         std::vector<std::string> TakeNew();
 
     private:
