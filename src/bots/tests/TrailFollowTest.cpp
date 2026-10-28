@@ -262,3 +262,48 @@ TEST(TrailFollow, ABotInPlaceThatStillFollowsTheTankStopsThere)
     EXPECT_EQ(bot.Think(), "follow the tank's trail");
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"stand"}));
 }
+
+// jvbastel/WOWAI#192, merge review: every bot of the group writes the one
+// trail of the coordinator.
+TEST(TrailFollow, ABotThatDoesNotSeeTheTankLeavesTheTrail)
+{
+    Bot bot(BotRole::Melee);
+    bot.Walk(North(0.0f, 20.0f));
+    std::size_t const points = bot.group.GetTrail().size();
+    ASSERT_GT(points, 1u);
+
+    // A second bot of the group, on whose view the tank is not found.
+    FakeBot blind{Other};
+    Bots::WatchTankTrail(blind, bot.group);
+
+    EXPECT_EQ(bot.group.GetTrail().size(), points);
+}
+
+TEST(TrailFollow, TwoBotsThatNoteOneTankPlaceAddItOnce)
+{
+    Bot bot(BotRole::Melee);
+    bot.Walk(North(0.0f, 20.0f));
+    std::size_t const points = bot.group.GetTrail().size();
+
+    FakeBot other{Other};
+    other.SetHealth(Tank, 600, 600);
+    other.SetPosition(Tank, {0.0f, 20.0f, 0.0f});
+    Bots::WatchTankTrail(other, bot.group);
+    Bots::WatchTankTrail(bot.fake, bot.group);
+
+    EXPECT_EQ(bot.group.GetTrail().size(), points);
+}
+
+TEST(TrailFollow, AWalkBackCutsTheTrailToTheNewestNearPoint)
+{
+    GroupCoordinator group;
+    group.SetTank(Tank, true);
+    for (float y : {0.0f, 2.0f, 4.0f, 6.0f})
+        group.KeepTrail({0.0f, y, 0.0f}, false);
+
+    // Near both the first and the second point: only the points after the
+    // second go.
+    group.KeepTrail({0.0f, 0.9f, 0.0f}, false);
+
+    EXPECT_EQ(group.GetTrail().size(), 2u);
+}

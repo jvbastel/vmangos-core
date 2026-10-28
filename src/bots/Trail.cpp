@@ -24,19 +24,13 @@ namespace Bots
     {
         if (m_points.size() < 2)
             return;
-        std::size_t nearest = m_points.size();
-        float nearestYards = TrailStepYards;
-        for (std::size_t i = 0; i + 1 < m_points.size(); ++i)
-        {
-            float const yards = Distance3d(m_points[i], at);
-            if (yards <= nearestYards)
+        // The newest such point: the walk back cuts as few points as it can.
+        for (std::size_t i = m_points.size() - 1; i-- > 0;)
+            if (Distance3d(m_points[i], at) <= TrailStepYards)
             {
-                nearest = i;
-                nearestYards = yards;
+                m_points.erase(m_points.begin() + std::ptrdiff_t(i) + 1, m_points.end());
+                return;
             }
-        }
-        if (nearest < m_points.size())
-            m_points.erase(m_points.begin() + std::ptrdiff_t(nearest) + 1, m_points.end());
     }
 
     void Trail::Clear()

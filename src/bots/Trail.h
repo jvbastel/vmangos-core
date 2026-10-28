@@ -31,7 +31,7 @@ namespace Bots
         void Clear();
         // jvbastel/WOWAI#192: the tank walks back over its trail (a retreat
         // pull of a player tank): when `at` is within TrailStepYards of an
-        // older point than the last, the points after the nearest such
+        // older point than the last, the points after the newest such
         // point go. The trail ends where the tank stands again.
         void CutBackTo(Position const& at);
         // Oldest first: the last point is where the tank stood last.
