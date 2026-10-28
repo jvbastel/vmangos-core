@@ -1210,3 +1210,9 @@ Bots::Guid BotAdapter::GetTargetOf(Bots::Guid unit) const
         return player->GetSelectionGuid().GetRawValue();
     return found->GetTargetGuid().GetRawValue();
 }
+
+// jvbastel/WOWAI#197: a member's role choice.
+Bots::RoleChoice BotAdapter::GetRoleChoice(Bots::Guid member) const
+{
+    return sBotMgr.RoleChoiceOf(ObjectGuid(member));
+}

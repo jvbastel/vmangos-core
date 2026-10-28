@@ -19,6 +19,8 @@
 #include "CoordinatorRegistry.h"
 #include "GroupCoordinator.h"
 #include "GroupCommand.h"
+#include "GroupTank.h"
+#include "RoleChoice.h"
 #include "Route.h"
 #include "Inbox.h"
 #include "ObjectGuid.h"
@@ -90,8 +92,10 @@ struct GroupCommandMessage
 struct BotLine
 {
     ObjectGuid bot;
-    uint32 chatType;     // CHAT_MSG_PARTY: to the party of the bot. CHAT_MSG_WHISPER: to `receiver`.
-    ObjectGuid receiver; // Only for a whisper.
+    // CHAT_MSG_PARTY: to the party of the bot, or to `receiver` alone when
+    // the bot is in no group (jvbastel/WOWAI#197). CHAT_MSG_WHISPER: to `receiver`.
+    uint32 chatType;
+    ObjectGuid receiver; // For a whisper, and a party line of a bot in no group.
     std::string text;
     // A line of the chat service: the id of its event (ChatClient::Post),
     // for the result of a scripted run. 0 for a line of the bot itself.
@@ -220,6 +224,19 @@ class BotMgr
         // The next GetCoordinator of the group makes new coordinators.
         void DropCoordinator(uint32 groupId);
 
+        // jvbastel/WOWAI#197: the role choice of a player, from its last
+        // party add-on message of the role choice add-on (BotHooks). Kept
+        // in memory: the add-on sends it again at login and on each group
+        // change. From any thread.
+        void SetRoleChoice(ObjectGuid player, Bots::RoleChoice choice);
+        Bots::RoleChoice RoleChoiceOf(ObjectGuid player) const;
+        // jvbastel/WOWAI#197: the online members of `group`, on any map,
+        // with the bot role of our bots and the role choice of the humans
+        // (GroupTank.h). `player`, when not null and not in the group, is
+        // added: the player who invites into no group yet. World thread, or
+        // a map thread (it reads only GUIDs, bot roles and role choices).
+        std::vector<Bots::GroupMember> GroupMembersOf(Group const* group, Player const* player) const;
+
     private:
         BotRecord* FindByName(std::string const& name);
         // The GUIDs of all our bot characters, for the roster of bot chat.
@@ -238,6 +255,9 @@ class BotMgr
         // <DataDir>/routes.
         void LoadBossList();
         void DropOldCoordinators();
+        // jvbastel/WOWAI#197: a bot tank in a group whose human picked tank
+        // says one party line and leaves (Bots::MustLeaveAsSecondTank).
+        bool LeaveAsSecondTank(Player* bot, Group* group);
         // The wipe and rest moments that the coordinators saw since the last
         // update: one call of OnGroupEvent each.
         void TakeGroupEvents();
@@ -260,6 +280,9 @@ class BotMgr
         BotRun m_run;
         std::atomic<uint64> m_testDriver{0};
         Bots::SeededRandom m_random{std::random_device()()};
+        // jvbastel/WOWAI#197: written on the packet threads, read on the maps.
+        mutable std::mutex m_roleChoicesLock;
+        std::map<uint64 /*player GUID*/, Bots::RoleChoice> m_roleChoices;
 };
 
 // The class of the library for a class of the game. False for an unknown class.

@@ -151,12 +151,25 @@ namespace
         facts.botOnline = record->entry->state == PB_STATE_ONLINE && bot;
         facts.botInPlayerGroup = group && group->IsMember(botGuid);
         facts.botInOtherGroup = botGroup && botGroup != group;
+        // jvbastel/WOWAI#197: never two tanks.
+        facts.secondTank = RoleOf(record->role) == Bots::BotRole::Tank
+            && Bots::RefusesBotTank(sBotMgr.GroupMembersOf(group, player));
         return facts;
     }
 
     void TellPlayer(Player* player, char const* line)
     {
         ChatHandler(player->GetSession()).SendSysMessage(line);
+    }
+
+    // jvbastel/WOWAI#197: a party chat line of a bot that is not in the
+    // group of `player`, for `player` only (the refusal of a second tank).
+    // The bot can be offline: the client asks the name of the GUID.
+    void SayToPlayerInParty(ObjectGuid bot, char const* name, Player* player, char const* line)
+    {
+        WorldPacket data;
+        ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, line, LANG_UNIVERSAL, 0, bot, name);
+        player->GetSession()->SendPacket(&data);
     }
 }
 
@@ -715,7 +728,15 @@ bool BotMgr::RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player
     Bots::GroupCommandPlan const plan = Bots::PlanGroupCommand(kind, GroupFactsFor(record, player));
     if (!plan.ok)
     {
-        TellPlayer(player, plan.line);
+        if (plan.lineFromBot)
+        {
+            SayToPlayerInParty(ObjectGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID)), record->entry->name.c_str(),
+                player, plan.line);
+            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s refuses the invite of %s: a second tank",
+                record->entry->name.c_str(), player->GetName());
+        }
+        else
+            TellPlayer(player, plan.line);
         return false;
     }
     // The login is the caller's step: the rest waits for the bot to be in
@@ -778,6 +799,8 @@ void BotMgr::UpdateGroupOf(BotRecord& record)
     }
 
     Group* group = bot->GetGroup();
+    if (group && LeaveAsSecondTank(bot, group))
+        group = nullptr;
     if (group && !HasPlayerMember(*group))
     {
         // The player left: the bots do not keep a group of their own, so
@@ -815,6 +838,14 @@ void BotMgr::SendLines()
         if (line.chatType == CHAT_MSG_PARTY)
         {
             Group* group = bot->GetGroup();
+            if (!group && !line.receiver.IsEmpty())
+            {
+                // jvbastel/WOWAI#197: a bot out of the group, to one player
+                // (the refusal of a second tank).
+                if (Player* receiver = ObjectAccessor::FindPlayer(line.receiver))
+                    SayToPlayerInParty(bot->GetObjectGuid(), bot->GetName(), receiver, line.text.c_str());
+                continue;
+            }
             if (!group)
                 continue;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, line.text.c_str(), LANG_UNIVERSAL, bot->GetChatTag(), bot->GetObjectGuid(), bot->GetName());
@@ -908,5 +939,51 @@ bool BotMgr::EquipCharacter(std::string const& name, std::string const& template
         *equipped = {gear->name, draw};
     report = wanted + " wears " + gear->name + (draw.shape.empty() ? "" : " (shape " + draw.shape + ")") + ": " +
         (draw.picks.empty() ? std::string("nothing") : DescribeGearDraw(draw));
+    return true;
+}
+
+// jvbastel/WOWAI#197: the role choice store, and never two tanks.
+void BotMgr::SetRoleChoice(ObjectGuid player, Bots::RoleChoice choice)
+{
+    std::lock_guard<std::mutex> lock(m_roleChoicesLock);
+    m_roleChoices[player.GetRawValue()] = choice;
+}
+
+Bots::RoleChoice BotMgr::RoleChoiceOf(ObjectGuid player) const
+{
+    std::lock_guard<std::mutex> lock(m_roleChoicesLock);
+    auto const found = m_roleChoices.find(player.GetRawValue());
+    return found == m_roleChoices.end() ? Bots::RoleChoice::None : found->second;
+}
+
+std::vector<Bots::GroupMember> BotMgr::GroupMembersOf(Group const* group, Player const* player) const
+{
+    std::vector<Bots::GroupMember> members;
+    auto add = [&](Player const* member) {
+        Bots::BotRole role = Bots::BotRole::Ranged;
+        bool const isBot = BotRoleOf(member, role);
+        members.push_back({member->GetObjectGuid().GetRawValue(), isBot, role,
+            isBot ? Bots::RoleChoice::None : RoleChoiceOf(member->GetObjectGuid())});
+    };
+    if (group)
+        for (Group::MemberSlot const& slot : group->GetMemberSlots())
+            if (Player const* member = ObjectAccessor::FindPlayer(slot.guid))
+                add(member);
+    if (player && (!group || !group->IsMember(player->GetObjectGuid())))
+        add(player);
+    return members;
+}
+
+bool BotMgr::LeaveAsSecondTank(Player* bot, Group* group)
+{
+    if (!Bots::MustLeaveAsSecondTank(GroupMembersOf(group, nullptr), bot->GetObjectGuid().GetRawValue()))
+        return false;
+    // Said now, while the bot is still in the group, so that the group hears it.
+    WorldPacket data;
+    ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, Bots::SecondTankLeaveLine, LANG_UNIVERSAL, bot->GetChatTag(),
+        bot->GetObjectGuid(), bot->GetName());
+    group->BroadcastPacket(&data, false, group->GetMemberGroup(bot->GetObjectGuid()));
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s leaves the group: a human picked tank", bot->GetName());
+    Player::RemoveFromGroup(group, bot->GetObjectGuid());
     return true;
 }
