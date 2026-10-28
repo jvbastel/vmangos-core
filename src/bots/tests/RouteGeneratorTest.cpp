@@ -777,14 +777,29 @@ TEST(RoutePackOrder, ReadsOnePackGuidPerLineWithComments)
         "pack 48653\n");
     ASSERT_TRUE(order.ok) << order.error;
     EXPECT_EQ(order.guids, (std::vector<std::uint32_t>{48648, 48653}));
+    EXPECT_TRUE(order.skips.empty());
+}
+
+TEST(RoutePackOrder, ReadsSkipLinesApartFromTheOrder)
+{
+    Bots::PackOrderResult const order = Bots::ParsePackOrder(
+        "pack 48648\n"
+        "skip 48700 # behind the low wall\n"
+        "pack 48653\n"
+        "skip 48701\n");
+    ASSERT_TRUE(order.ok) << order.error;
+    EXPECT_EQ(order.guids, (std::vector<std::uint32_t>{48648, 48653}));
+    EXPECT_EQ(order.skips, (std::vector<std::uint32_t>{48700, 48701}));
 }
 
 TEST(RoutePackOrder, ABadLineOrATwiceNamedGuidIsAnErrorWithItsLine)
 {
-    EXPECT_EQ(Bots::ParsePackOrder("pack 1\nmob 2\n").error, "line 2: use: pack <spawn guid>");
-    EXPECT_EQ(Bots::ParsePackOrder("pack x\n").error, "line 1: use: pack <spawn guid>");
-    EXPECT_EQ(Bots::ParsePackOrder("pack 1 2\n").error, "line 1: use: pack <spawn guid>");
+    EXPECT_EQ(Bots::ParsePackOrder("pack 1\nmob 2\n").error, "line 2: use: pack <spawn guid>, or skip <spawn guid>");
+    EXPECT_EQ(Bots::ParsePackOrder("pack x\n").error, "line 1: use: pack <spawn guid>, or skip <spawn guid>");
+    EXPECT_EQ(Bots::ParsePackOrder("pack 1 2\n").error, "line 1: use: pack <spawn guid>, or skip <spawn guid>");
+    EXPECT_EQ(Bots::ParsePackOrder("skip\n").error, "line 1: use: pack <spawn guid>, or skip <spawn guid>");
     EXPECT_EQ(Bots::ParsePackOrder("pack 1\npack 1\n").error, "line 2: the guid 1 is already in the order");
+    EXPECT_EQ(Bots::ParsePackOrder("pack 1\nskip 1\n").error, "line 2: the guid 1 is already in the order");
     EXPECT_FALSE(Bots::ParsePackOrder("pack 1\npack 1\n").ok);
 }
 
@@ -950,16 +965,126 @@ TEST(RouteGenerator, ASecondRegenWithTheHandOrderGivesTheSameRoute)
     }
 }
 
-TEST(RouteGenerator, AHandOrderGuidOfNoPackOnTheRouteIsAWarning)
+TEST(RouteGenerator, AHandOrderGuidOfAPackThatNoPathReachesIsAWarning)
 {
+    // Spawn 4 stands off the navmesh: the order cannot add it.
     FakeNav nav = Dungeon();
     Bots::GeneratorInput input = DungeonInput(1);
-    input.packOrder = {4, 1, 2};
+    input.packOrder = {4, 1, 2, 77};
     Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
     ASSERT_TRUE(generated.ok) << generated.error;
 
     EXPECT_EQ(FoughtGuids(generated.route), (std::vector<std::uint32_t>{1, 2, 3, 5, 6}));
-    EXPECT_NE(std::find(generated.warnings.begin(), generated.warnings.end(),
-                  "the hand order names spawn 4, whose pack is not on the route"),
-        generated.warnings.end());
+    auto warned = [&generated](std::string const& text) {
+        return std::find(generated.warnings.begin(), generated.warnings.end(), text) != generated.warnings.end();
+    };
+    EXPECT_TRUE(warned("the hand order adds the pack of spawn 4, but no navmesh path from the step before reaches "
+                       "it: it is off the route"));
+    EXPECT_TRUE(warned("the hand order names spawn 77, which is in no pack"));
+}
+
+namespace
+{
+    bool HasWarning(std::vector<std::string> const& warnings, std::string const& start)
+    {
+        return std::any_of(warnings.begin(), warnings.end(),
+            [&start](std::string const& w) { return w.compare(0, start.size(), start) == 0; });
+    }
+
+    // A big open room with the line along y 0 from the entrance to the boss.
+    // Pack 1 stands by the line; pack 2 stands 35 yards off it, out of reach
+    // of the line; pack 3 stands by the line further on.
+    Bots::GeneratorInput OpenRoomInput()
+    {
+        Bots::GeneratorInput input;
+        input.name = "test_room";
+        input.mapId = 389;
+        input.entrance = {2, 0, 0};
+        input.spawns = {Spawn(1, 11318, 60, 10), Spawn(2, 11318, 100, 35), Spawn(3, 11319, 140, 10),
+            Spawn(5, 100, 195, 0)};
+        input.bosses = {100};
+        return input;
+    }
+
+    FakeNav OpenRoom()
+    {
+        FakeNav nav;
+        nav.rooms = {{0, 200, -60, 60}};
+        return nav;
+    }
+}
+
+TEST(RouteGenerator, ASkippedPackLeavesTheRouteAndAQuestDoesNotTakeItBack)
+{
+    FakeNav nav = Dungeon();
+    Bots::GeneratorInput input = DungeonInput(1);
+    input.skippedPacks = {1};
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    // Spawn 1 is a trogg of the kill count of quest 5723, but skipped.
+    EXPECT_EQ(FoughtGuids(generated.route), (std::vector<std::uint32_t>{2, 3, 5, 6}));
+    EXPECT_TRUE(HasWarning(generated.warnings, "quest 5723: the dungeon has only 1 of 2"));
+}
+
+TEST(RouteGenerator, AnAddedPackJoinsTheRouteAtItsPlaceInTheOrderWithAPullPoint)
+{
+    FakeNav nav = OpenRoom();
+    Bots::GeneratorInput input = OpenRoomInput();
+    ASSERT_EQ(FoughtGuids(Bots::GenerateRoute(input, nav).route), (std::vector<std::uint32_t>{1, 3, 5}));
+
+    input.packOrder = {1, 2, 3};
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+    Bots::Route const& route = generated.route;
+    EXPECT_EQ(FoughtGuids(route), (std::vector<std::uint32_t>{1, 2, 3, 5}));
+
+    // Its pull point comes right before it, out of its aggro range and
+    // within the pull range.
+    std::size_t step = 0;
+    while (route.steps[step].kind != Bots::RouteStepKind::Pack || route.packs[route.steps[step].index].mobs[0].spawnGuid != 2)
+        ++step;
+    ASSERT_EQ(route.steps[step - 1].kind, Bots::RouteStepKind::Point);
+    Bots::RoutePoint const& pull = route.points[route.steps[step - 1].index];
+    EXPECT_EQ(pull.name, "pull_pack2");
+    EXPECT_EQ(pull.quest, 0u);
+    for (Bots::RoutePlace const& place : pull.places)
+    {
+        EXPECT_GE(Distance2d(place.position, {100, 35, 0}), input.settings.aggroRange);
+        EXPECT_LE(Distance2d(place.position, {100, 35, 0}), input.settings.aggroRange + input.settings.margin + 1.0f);
+    }
+    // The route walks there and back: no two points are far apart.
+    std::vector<Position> walk;
+    for (Bots::RouteStep const& s : route.steps)
+        if (s.kind == Bots::RouteStepKind::Point)
+            walk.push_back(route.points[s.index].places[0].position);
+    for (std::size_t i = 1; i < walk.size(); ++i)
+        EXPECT_LE(Distance2d(walk[i - 1], walk[i]), 1.5f * input.settings.pointSpacing + 2.0f * input.settings.sideLimit)
+            << "from point " << i - 1;
+    EXPECT_TRUE(Bots::CheckRouteWalk(route, nav).empty());
+}
+
+TEST(RouteGenerator, AnOrderOfOnlyAddedPacksGoesWhereTheLineIsNearestByPath)
+{
+    FakeNav nav = OpenRoom();
+    Bots::GeneratorInput input = OpenRoomInput();
+    input.packOrder = {2};
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+    // The line is nearest to pack 2 at x 100, between packs 1 and 3.
+    EXPECT_EQ(FoughtGuids(generated.route), (std::vector<std::uint32_t>{1, 2, 3, 5}));
+}
+
+TEST(RouteGenerator, ARouteWithinAggroRangeOfASkippedPackIsAWarning)
+{
+    FakeNav nav = OpenRoom();
+    Bots::GeneratorInput input = OpenRoomInput();
+    input.skippedPacks = {1, 2};
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+
+    EXPECT_EQ(FoughtGuids(generated.route), (std::vector<std::uint32_t>{3, 5}));
+    // The line passes pack 1 at about 10 yards, and pack 2 at about 35.
+    EXPECT_TRUE(HasWarning(generated.warnings, "the route passes the skipped pack of spawn 1 at "));
+    EXPECT_FALSE(HasWarning(generated.warnings, "the route passes the skipped pack of spawn 2 "));
 }

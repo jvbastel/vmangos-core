@@ -14,17 +14,21 @@
 // no bosses setting, the boss list of the existing route file is used. See
 // RouteGenerator.h of the bot library for what each one does. The hand pack
 // order of <route>.order.txt, when the file is there, sets the order of the
-// packs it names.
+// packs it names, adds the named packs that the route does not fight, and
+// leaves out the skipped packs (bots/RouteHandOrder.h).
 // A ghost route name, for example ghost_389, makes the ghost route of that
 // dungeon instead (bots/GhostWalk.h): stand at the graveyard of the dungeon.
 //
 // The route build command makes the route file around the GM trace of the
 // route (RouteTraceCommands.cpp, bots/RouteTrace.h), with the same packs and
-// quests, and with no navmesh path of its own:
+// quests:
 //   .route build <route> [character] [setting=value ...]
 // The settings are aggro, margin, cluster, spacing, radius, visit, and
 // bosses. With a character on the map of the route, it also runs the walk
-// check of the navmesh.
+// check of the navmesh. The hand pack order of <route>.order.txt, when the
+// file is there, sets the order, the skipped packs and the added packs, as
+// for .route generate. Its walks to moved and added packs are navmesh paths,
+// so an order with `pack` lines needs a character on the map of the route.
 
 #include "BotGeometry.h"
 #include "BotMgr.h"
@@ -51,8 +55,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
+#include <sys/stat.h>
 
 namespace
 {
@@ -328,6 +334,37 @@ namespace
         handler.SendSysMessage(line.c_str());
         return false;
     }
+
+    // The hand pack order file of a route (bots/RouteHandOrder.h), for
+    // .route generate and .route build. No file is an empty order. A file
+    // that is there but cannot be read, or that has a bad line, fails the
+    // command: it never makes a route without the order that the file holds.
+    bool ReadPackOrder(ChatHandler& handler, std::string const& route, Bots::PackOrderResult& order)
+    {
+        std::string const path = RouteFiles::OrderPathOf(route);
+        order = Bots::PackOrderResult();
+        order.ok = true;
+        struct stat info;
+        if (stat(path.c_str(), &info) != 0)
+            return true;
+        std::string text;
+        if (!RouteFiles::Read(path, text))
+            return Fail(handler, "Cannot read the hand pack order " + path + ".");
+        order = Bots::ParsePackOrder(text);
+        if (!order.ok)
+            return Fail(handler, path + ": " + order.error);
+        handler.PSendSysMessage("Hand pack order %s: %u packs in order, %u skipped.", path.c_str(),
+            uint32(order.guids.size()), uint32(order.skips.size()));
+        return true;
+    }
+
+    // The navmesh tiles load with the terrain of their grid.
+    void LoadNavmeshTiles(Player* character, std::vector<Bots::GeneratorSpawn> const& spawns)
+    {
+        TerrainInfo const* terrain = character->GetTerrain();
+        for (Bots::GeneratorSpawn const& spawn : spawns)
+            terrain->GetHeightStatic(spawn.position.x, spawn.position.y, spawn.position.z);
+    }
 }
 
 namespace
@@ -449,21 +486,15 @@ bool RunGenerate(ChatHandler& handler, char* args)
     input.settings = settings;
     input.entryName = RouteFiles::EntryName;
     input.quests = QuestsOf(character->GetZoneId(), input.spawns);
-    std::string orderText;
-    std::string const orderPath = RouteFiles::OrderPathOf(names[0]);
-    if (RouteFiles::Read(orderPath, orderText))
-    {
-        Bots::PackOrderResult const order = Bots::ParsePackOrder(orderText);
-        if (!order.ok)
-            return Fail(handler, orderPath + ": " + order.error);
-        input.packOrder = order.guids;
-    }
+    Bots::PackOrderResult order;
+    if (!ReadPackOrder(handler, names[0], order))
+        return false;
+    input.packOrder = order.guids;
+    input.skippedPacks = order.skips;
 
     // The navmesh tiles load with the terrain of their grid.
-    TerrainInfo const* terrain = character->GetTerrain();
-    terrain->GetHeightStatic(input.entrance.x, input.entrance.y, input.entrance.z);
-    for (Bots::GeneratorSpawn const& spawn : input.spawns)
-        terrain->GetHeightStatic(spawn.position.x, spawn.position.y, spawn.position.z);
+    character->GetTerrain()->GetHeightStatic(input.entrance.x, input.entrance.y, input.entrance.z);
+    LoadNavmeshTiles(character, input.spawns);
 
     Bots::GeneratedRoute const generated = Bots::GenerateRoute(input, nav);
     if (!generated.ok)
@@ -589,6 +620,27 @@ bool RunBuild(ChatHandler& handler, char* args)
     input.entryName = RouteFiles::EntryName;
     input.quests = QuestsOf(zoneId, input.spawns);
 
+    // The hand pack order beside the trace. Its walks to moved and added
+    // packs need the navmesh of the character's map.
+    Bots::PackOrderResult order;
+    if (!ReadPackOrder(handler, names[0], order))
+        return false;
+    input.packOrder = order.guids;
+    input.skippedPacks = order.skips;
+    std::unique_ptr<GameRouteNav> nav;
+    if (character)
+    {
+        nav.reset(new GameRouteNav(character));
+        if (nav->Ready())
+        {
+            LoadNavmeshTiles(character, input.spawns);
+            input.nav = nav.get();
+        }
+    }
+    if (!order.guids.empty() && !input.nav)
+        return Fail(handler, "The hand pack order " + RouteFiles::OrderPathOf(names[0]) + " needs the navmesh of map " +
+            std::to_string(mapId) + ": give a character on that map, .route build " + names[0] + " <character>.");
+
     Bots::TraceBuild const built = Bots::BuildTraceRoute(input);
     if (!built.ok)
         return Fail(handler, "The route was not made: " + built.error);
@@ -629,18 +681,14 @@ bool RunBuild(ChatHandler& handler, char* args)
         handler.PSendSysMessage("Check: %s", warning.c_str());
 
     uint32 problems = 0;
-    if (character)
+    if (input.nav)
     {
-        GameRouteNav nav(character);
-        if (nav.Ready())
-        {
-            std::vector<std::string> const lines = Bots::CheckRouteWalk(route, nav);
-            problems = uint32(lines.size());
-            if (lines.empty())
-                handler.SendSysMessage("Walk check: each point is on the navmesh, and each path to the next point has no lava.");
-            for (std::string const& line : lines)
-                handler.PSendSysMessage("Walk check: %s", line.c_str());
-        }
+        std::vector<std::string> const lines = Bots::CheckRouteWalk(route, *input.nav);
+        problems = uint32(lines.size());
+        if (lines.empty())
+            handler.SendSysMessage("Walk check: each point is on the navmesh, and each path to the next point has no lava.");
+        for (std::string const& line : lines)
+            handler.PSendSysMessage("Walk check: %s", line.c_str());
     }
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] .route build wrote %s: %u steps, %u packs, %u unmet, %u walk problems.",
         path.c_str(), uint32(route.steps.size()), uint32(route.packs.size()),

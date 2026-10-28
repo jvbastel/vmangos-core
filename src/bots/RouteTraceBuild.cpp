@@ -1,4 +1,5 @@
 #include "BotGeometry.h"
+#include "RouteHandOrder.h"
 #include "RouteLine.h"
 #include "RouteTrace.h"
 
@@ -176,27 +177,8 @@ namespace Bots
             return line;
         }
 
-        enum class EventKind
-        {
-            Point,
-            Mark,
-            Pull,
-            Pack,
-            Visit,
-        };
-
-        struct Event
-        {
-            float s;
-            int order; // At one s: points, then pulls and packs, then visits.
-            int sub;
-            EventKind kind;
-            Position center;
-            std::size_t pack = 0;
-            std::uint32_t quest = 0;
-            std::string name;
-            Position spot{}; // Of a visit: the spot to visit, near the center.
-        };
+        using Event = RouteEvent;
+        using EventKind = RouteEventKind;
 
         std::string UniqueName(std::set<std::string>& used, std::string const& name)
         {
@@ -239,6 +221,13 @@ namespace Bots
 
         // The packs, and where the trace first comes near each one.
         std::vector<GeneratorPack> const packs = BuildPacks(spawns, settings.clusterDistance);
+        HandOrderPacks const hand = ResolveHandOrder(input.packOrder, input.skippedPacks, packs, spawns,
+            result.warnings);
+        if (!hand.order.empty() && !input.nav)
+        {
+            result.error = "the hand pack order needs the navmesh: give a character on the map of the route";
+            return result;
+        }
         std::vector<float> approach(packs.size(), -1.0f);
         std::vector<bool> onRoute(packs.size(), false);
         std::vector<float> distanceToRoute(packs.size(), 1e9f);
@@ -251,7 +240,7 @@ namespace Bots
             for (float s : samples)
             {
                 float const distance = DistanceToPack(line.At(s), packs[p], spawns);
-                if (approach[p] < 0.0f && distance <= range)
+                if (approach[p] < 0.0f && distance <= range && !hand.skipped[p])
                     approach[p] = s;
                 distanceToRoute[p] = std::min(distanceToRoute[p], distance);
             }
@@ -342,13 +331,13 @@ namespace Bots
                     entries = objective.entries;
                 else
                     continue;
-                std::uint32_t const have = FillCount(packs, onRoute, distanceToRoute, spawns, entries, 0).have;
+                std::uint32_t const have = FillCount(packs, onRoute, distanceToRoute, spawns, entries, 0, hand.skipped).have;
                 routeQuest.objectives.push_back(objective);
                 result.objectives.push_back({quest.id, objective, have});
                 if (have >= need)
                     continue;
                 UnmetObjective unmet{quest.id, objective, have, need, {}};
-                for (std::size_t p : FillCount(packs, onRoute, distanceToRoute, spawns, entries, need).added)
+                for (std::size_t p : FillCount(packs, onRoute, distanceToRoute, spawns, entries, need, hand.skipped).added)
                 {
                     NearPack near{{}, spawns[packs[p].members[0]].position, 0, distanceToRoute[p]};
                     for (std::size_t member : packs[p].members)
@@ -430,6 +419,8 @@ namespace Bots
                 return a.order < b.order;
             return a.sub < b.sub;
         });
+        if (input.nav)
+            events = ApplyHandOrder(events, hand.order, packs, spawns, settings, *input.nav, result.warnings);
 
         std::vector<std::size_t> foughtAt(packs.size(), events.size());
         for (std::size_t e = 0; e < events.size(); ++e)
@@ -500,6 +491,8 @@ namespace Bots
                     " is within its aggro range: the trace first comes near it at its start or after a gap");
         }
 
+        for (std::string const& warning : SkippedPackWarnings(route, packs, spawns, hand.skipped, settings.aggroRange))
+            result.warnings.push_back(warning);
         result.ok = true;
         return result;
     }
