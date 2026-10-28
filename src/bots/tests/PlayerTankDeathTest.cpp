@@ -384,6 +384,8 @@ TEST(PlayerTankDeath, AHealerWithoutTheManaForTheResurrectDrinksFirst)
     bot.fake.SetMana(Healer, 50, 400);
     bot.fake.SetPower(Healer, 50, 400);
     EXPECT_FALSE(Bots::ResurrectsTankBeforeRest(bot.fake, bot.group));
+    // The game layer refuses the cast (no mana, and the bot sits).
+    bot.fake.SetCannotCast(Priest::Resurrection);
     EXPECT_EQ(bot.Think(), "keep resting");
 }
 
