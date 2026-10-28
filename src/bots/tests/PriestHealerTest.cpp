@@ -806,3 +806,115 @@ TEST(PriestHealerWand, NeverShootsAnEnemyThatAttacksIt)
 
     EXPECT_TRUE(priest.fake.Deeds().empty());
 }
+
+// jvbastel/WOWAI#136: from level 40 the healer knows Greater Heal. It is the
+// heal of the badly hurt band, before Heal: it heals the most per mana.
+namespace
+{
+    Bots::SpellId const GreaterHeal2 = 10963;
+
+    // The healer knows both ranks of Greater Heal, with the average heals and
+    // mana costs of 1.12, and the ranks of Lesser Heal and Heal. It has 2000
+    // mana, enough for every rank.
+    void KnowGreaterHeal(PriestHealer& priest)
+    {
+        KnowTheHealRanks(priest);
+        FakeBot& fake = priest.fake;
+        fake.SetSpellChain({Priest::GreaterHeal, GreaterHeal2});
+        fake.SetKnownSpell(Priest::GreaterHeal);
+        fake.SetKnownSpell(GreaterHeal2);
+        fake.SetHealRank(Priest::GreaterHeal, 982, 370);
+        fake.SetHealRank(GreaterHeal2, 1270, 455);
+        fake.SetMana(Healer, 2000, 2000);
+    }
+}
+
+TEST(PriestHealerGreaterHeal, NamesGreaterHealByTheFirstRank)
+{
+    std::ifstream file(std::string(BOT_TEST_DATA_DIR) + "/learnable-spells.tsv", std::ios::binary);
+    std::ostringstream text;
+    text << file.rdbuf();
+    EXPECT_EQ(Priest::GreaterHeal, 2060u);
+    EXPECT_NE(text.str().find("\n2060\tGreater Heal\tRank 1\n"), std::string::npos);
+}
+
+TEST(PriestHealerGreaterHeal, HealsABadlyHurtMemberWithGreaterHeal)
+{
+    PriestHealer priest;
+    KnowGreaterHeal(priest);
+    priest.InFight();
+    // 950 missing: rank 1 (982) covers it.
+    priest.fake.SetHealth(Tank, 850, 1800);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::GreaterHeal, Tank)}));
+}
+
+TEST(PriestHealerGreaterHeal, ABigWoundGetsTheHighestRankOfGreaterHeal)
+{
+    PriestHealer priest;
+    KnowGreaterHeal(priest);
+    priest.InFight();
+    // 1400 missing: no rank covers it.
+    priest.fake.SetHealth(Tank, 1100, 2500);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(GreaterHeal2, Tank)}));
+}
+
+TEST(PriestHealerGreaterHeal, ABotThatDoesNotKnowGreaterHealKeepsHeal)
+{
+    PriestHealer priest;
+    KnowTheHealRanks(priest);
+    priest.InFight();
+    // 400 missing: Heal rank 2 (476) covers it.
+    priest.fake.SetHealth(Tank, 200, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerGreaterHeal, AHealerThatCannotPayForGreaterHealCastsHeal)
+{
+    PriestHealer priest;
+    KnowGreaterHeal(priest);
+    priest.InFight();
+    // 300 mana: under the 370 of Greater Heal rank 1, over the 205 of Heal rank 2.
+    priest.fake.SetMana(Healer, 300, 2000);
+    priest.fake.SetHealth(Tank, 200, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerGreaterHeal, ATargetTooLowForGreaterHealGetsHeal)
+{
+    PriestHealer priest;
+    KnowGreaterHeal(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 200, 600);
+    priest.fake.SetLevelTooLowFor(Priest::GreaterHeal, Tank);
+    priest.fake.SetLevelTooLowFor(GreaterHeal2, Tank);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerGreaterHeal, ALightlyHurtMemberDoesNotGetGreaterHeal)
+{
+    PriestHealer priest;
+    KnowGreaterHeal(priest);
+    priest.InFight();
+    // Above the badly hurt band, with Renew on already: Lesser Heal.
+    priest.fake.SetHealth(Mage, 130, 200);
+    priest.fake.SetAura(Mage, Priest::Renew);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(LesserHeal2, Mage)}));
+}
