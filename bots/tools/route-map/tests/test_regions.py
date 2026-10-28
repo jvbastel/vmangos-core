@@ -169,7 +169,7 @@ def test_a_regions_file_that_does_not_read_is_a_clear_error(web, routes, text, e
     response = web.get("/api/maps/drawn_cave/regions")
 
     assert response.status_code == 422
-    assert response.json()["detail"] == f"{routes / 'map_389.regions.txt'}: {error}"
+    assert response.json()["detail"] == f"regions: {routes / 'map_389.regions.txt'}: {error}"  # as the map load says it
 
 
 def test_a_map_with_no_regions_file_loads_as_it_does_now(web, routes):

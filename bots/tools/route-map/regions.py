@@ -274,10 +274,7 @@ def add_routes(app: FastAPI, maps):
     @app.get("/api/maps/{name}/regions")
     def load_regions(name: str):
         map_id = maps.route(name).map_id
-        try:
-            return answer(map_id, load(maps.settings.routes, map_id))
-        except RegionsError as error:
-            raise HTTPException(422, str(error))
+        return answer(map_id, maps.regions(map_id))
 
     @app.post("/api/maps/{name}/regions")
     def save_regions(name: str, ask: SavedRegions):
