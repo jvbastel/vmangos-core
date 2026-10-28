@@ -13,11 +13,12 @@
 // of the map; the server refuses a region that is not valid.
 //
 // Edits (ticket jvbastel/WOWAI#183): in Regions mode, with no new outline
-// being drawn, each outline point of a saved region shows as a handle to
-// drag, and the list has the name, the two heights and a Delete button of
+// being drawn, each outline point of a region shows as a handle to drag, and the list has the name, the two heights and a Delete button of
 // each region. Edits stay on the page until "Save regions", which sends the
 // whole list through the same checked save: a refused save leaves the file
-// as it was and the edits on the page, with the error.
+// as it was and the edits on the page, with the error. A field edit, a drag
+// and Esc redraw only the map layer, not the list: rebuilding the list would
+// drop the focus, a half-typed value and the click that ends a field edit.
 (() => {
   const style = document.createElement("style");
   style.textContent = `
@@ -81,7 +82,8 @@
   // The SVG points of WoW (x, y) pairs.
   const svgPoints = points => points.map(([x, y]) => `${sx({y})},${sy({x})}`).join(" ");
 
-  function redraw() {
+  // The map layer and the step text.
+  function drawLayer() {
     layer.replaceChildren();
     for (const [r, region] of regions.entries()) {
       el("polygon", {class: "rg-area", points: svgPoints(region.outline)}, layer);
@@ -97,10 +99,14 @@
       outline.forEach(([x, y], i) => el("circle", {class: "rg-point" + (i === 0 && !closed ? " first" : ""),
         cx: sx({y}), cy: sy({x}), "data-r": i === 0 ? 6 : 4}, layer));
     }
-    list.replaceChildren(...regions.map(region => on ? editRow(region) : showRow(region)));
     step.textContent = !on ? "" : closed ? "Click the ground of the region to set its height range."
       : outline.length ? `${outline.length} points: click on, then click the first point or Close.`
       : "Click the map to start the outline of a new region.";
+  }
+
+  function redraw() {
+    drawLayer();
+    list.replaceChildren(...regions.map(region => on ? editRow(region) : showRow(region)));
   }
 
   function showRow(region) {
@@ -120,22 +126,24 @@
     const name = li.querySelector("input.name"), low = li.querySelector("input.low"),
           high = li.querySelector("input.high");
     name.value = region.name; low.value = region.low; high.value = region.high;
-    name.addEventListener("change", () => { region.name = name.value; edited(); });
+    name.addEventListener("change", () => { region.name = name.value; markEdited(); });
     for (const [input, key] of [[low, "low"], [high, "high"]]) input.addEventListener("change", () => {
       if (input.value === "" || !isFinite(Number(input.value))) { input.value = region[key]; return; }
       region[key] = round(Number(input.value));
-      edited();
+      markEdited();
     });
     li.querySelector("button.delete").addEventListener("click", () => {
       regions.splice(regions.indexOf(region), 1);
-      edited(`Deleted ${region.name}. Not saved yet.`);
+      say(`Deleted ${region.name}. Not saved yet.`);
+      redraw();
     });
     return li;
   }
 
-  function edited(text) {
+  // A field or point edit: the list rows already show it.
+  function markEdited(text) {
     say(text || "Edited. Not saved yet.");
-    redraw();
+    drawLayer();
   }
 
   const round = v => Math.round(v * 100) / 100;
@@ -151,12 +159,12 @@
     if (outline.length < 3) { say("An outline needs at least 3 points.", true); return; }
     closed = true;
     say("");
-    redraw();
+    drawLayer();
   }
 
   function cancel() {
     outline = []; closed = false; floorsBox.replaceChildren();
-    redraw();
+    drawLayer();
   }
 
   // The height range of the new region: 5 yd below to 5 yd above the ground z.
@@ -165,6 +173,7 @@
     regions.push(region);
     say(`${region.name}: z ${region.low} to ${region.high}. Not saved yet.`);
     cancel();
+    redraw();
   }
 
   async function setHeight(event) {
@@ -197,15 +206,15 @@
     if (closed) { setHeight(e); return; }
     if (e.target.classList.contains("first")) { closeOutline(); return; }
     const at = toMap(e);
-    outline.push([Math.round(-at.y * 100) / 100, Math.round(-at.x * 100) / 100]);
-    redraw();
+    outline.push([round(-at.y), round(-at.x)]);
+    drawLayer();
   }, true);
   window.addEventListener("keydown", e => { if (on && e.key === "Escape") cancel(); });
 
   // Drag an outline point of a region (no pan, no new outline point).
   let moving = null;
   layer.addEventListener("mousedown", e => {
-    if (!on || e.button !== 0 || !e.target.classList.contains("rg-handle")) return;
+    if (!on || !view || e.button !== 0 || !e.target.classList.contains("rg-handle")) return;
     e.stopPropagation();
     moving = {region: regions[Number(e.target.dataset.region)], index: Number(e.target.dataset.index), moved: false};
   });
@@ -214,14 +223,14 @@
     const at = toMap(e);
     moving.region.outline[moving.index] = [round(-at.y), round(-at.x)];
     moving.moved = true;
-    redraw();
+    drawLayer();
   });
   window.addEventListener("mouseup", () => {
     if (!moving) return;
     const {region, index, moved} = moving;
     moving = null;
     dragEnd = true;
-    if (moved) edited(`Moved point ${index + 1} of ${region.name}. Not saved yet.`);
+    if (moved) markEdited(`Moved point ${index + 1} of ${region.name}. Not saved yet.`);
   });
 
   function setOn(next) {
@@ -232,7 +241,8 @@
     if (on && drawButton.classList.contains("on")) drawButton.click();  // Draw mode off
     if (on) map.style.cursor = "crosshair";
     else if (!drawButton.classList.contains("on")) map.style.cursor = "";
-    if (!on) cancel(); else redraw();
+    if (!on) cancel();
+    redraw();
   }
   modeButton.addEventListener("click", () => setOn(!on));
   drawButton.addEventListener("click", () => { if (on && drawButton.classList.contains("on")) setOn(false); });
