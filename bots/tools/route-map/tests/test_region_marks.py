@@ -105,3 +105,46 @@ def test_a_walked_path_carries_the_regions_of_its_positions(web, routes, tmp_pat
     members = get(web, "/api/maps/fixture_cave/walked", trace=str(trace))["members"]
 
     assert [p["regions"] for p in members[0]["points"]] == [["Bridge"], ["West"]]
+
+
+def png_size(data_url):
+    png = base64.b64decode(data_url.removeprefix("data:image/png;base64,"))
+    return struct.unpack(">II", png[16:24])  # the IHDR width and height
+
+
+def keys_anywhere(value):
+    if isinstance(value, dict):
+        return set(value) | set().union(*map(keys_anywhere, value.values()))
+    if isinstance(value, list):
+        return set().union(*map(keys_anywhere, value))
+    return set()
+
+
+WHOLE_FLOOR = {"x_min": 100.0, "x_max": 114.0, "y_min": -50.0, "y_max": -34.0, "z_min": -20.0, "z_max": -12.0}
+
+
+def test_the_floor_comes_as_one_ground_image_per_region_and_one_for_the_rest_with_the_same_bounds(web, routes):
+    with_regions(routes)
+    floor = get(web, "/api/maps/fixture_cave")["floor"]
+
+    images = floor["images"]
+
+    assert sorted(i["region"] or "" for i in images) == ["", "Bridge", "East", "West"]  # "" is the rest
+    assert floor["bounds"] == WHOLE_FLOOR
+    assert len({png_size(i["image"]) for i in images}) == 1
+    assert all(i["image"].startswith("data:image/png;base64,") for i in images)
+
+
+def test_a_map_with_no_regions_file_gives_the_map_data_as_before(web):
+    loaded = get(web, "/api/maps/fixture_cave")
+    draft = get(web, "/api/maps/fixture_cave/draft", source="trace")
+
+    assert set(loaded["floor"]) == {"image", "bounds"}  # one image of all the ground
+    assert loaded["floor"]["bounds"] == WHOLE_FLOOR
+    assert "regions" not in keys_anywhere(loaded) | keys_anywhere(draft)
+
+
+def test_the_map_request_has_no_height_filter(web):
+    whole = get(web, "/api/maps/fixture_cave")["floor"]["bounds"]
+
+    assert get(web, "/api/maps/fixture_cave", z_min=-15, z_max=0)["floor"]["bounds"] == whole
