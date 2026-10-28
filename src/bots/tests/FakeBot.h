@@ -188,8 +188,9 @@ namespace Bots
                 m_healRanks[rank] = HealRank{averageHeal, manaCost};
             }
             void SetRangedWeapon(RangedWeapon const& weapon) { m_ranged = weapon; }
-            // A shot of the bot is going (IsShooting).
-            void SetShooting(bool shooting = true) { m_shooting = shooting; }
+            // A shot of the bot at unit `target` is going (GetShotTarget).
+            // NoGuid: none.
+            void SetShotTarget(Guid target) { m_shotTarget = target; }
             void SetLevel(Guid unit, std::uint32_t level) { m_level[unit] = level; }
             void SetMoving(Guid unit, bool moving = true) { m_moving[unit] = moving; }
             // The bags are full: no ammo top-up has room (HasRoomFor).
@@ -421,7 +422,7 @@ namespace Bots
             }
 
             RangedWeapon GetRangedWeapon() const override { return m_ranged; }
-            bool IsShooting() const override { return m_shooting; }
+            Guid GetShotTarget() const override { return m_shotTarget; }
             std::uint32_t GetLevel(Guid unit) const override
             {
                 auto found = m_level.find(unit);
@@ -504,6 +505,13 @@ namespace Bots
             void SayParty(std::string const& line, PartyLine kind) override
             {
                 m_deeds.push_back((kind == PartyLine::ExtraPackWarn ? "warn " : "say ") + line);
+            }
+
+            // Like the real stop: the shot only, so the next think sees none.
+            void StopShot() override
+            {
+                m_deeds.push_back("stop the shot");
+                m_shotTarget = NoGuid;
             }
 
             void TopUpAmmo(AmmoTopUp const& topUp) override
@@ -590,7 +598,7 @@ namespace Bots
             bool m_stunned = false;
             bool m_silenced = false;
             RangedWeapon m_ranged;
-            bool m_shooting = false;
+            Guid m_shotTarget = NoGuid;
             std::map<Guid, std::uint32_t> m_level;
             std::map<Guid, bool> m_moving;
             bool m_bagsFull = false;

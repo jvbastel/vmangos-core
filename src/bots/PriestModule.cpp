@@ -123,8 +123,19 @@ namespace Bots
             {
                 Guid const focus = context.group.GetFocusTarget();
                 return context.view.IsInCombat(PickSelf(context)) && !IsAttacked(context)
-                    && context.view.GetRangedWeapon().kind == RangedKind::Wand && !context.view.IsShooting()
+                    && context.view.GetRangedWeapon().kind == RangedKind::Wand && context.view.GetShotTarget() == NoGuid
                     && IsAlive(context.view, focus) && TankHoldsThreat(context) && InWandShot(context.view, focus);
+            }
+
+            // Review of spec #131: a going shot repeats on its own. The bot
+            // stops it when the shot no longer fits ShootsTheFocus: its
+            // target is not the focus target, the tank no longer holds
+            // threat on it, or an enemy attacks the bot.
+            bool StopsTheShot(BotContext const& context)
+            {
+                Guid const shot = context.view.GetShotTarget();
+                return shot != NoGuid
+                    && (shot != context.group.GetFocusTarget() || !TankHoldsThreat(context) || IsAttacked(context));
             }
 
             // The first living member without Power Word: Fortitude, or NoGuid.
@@ -296,6 +307,11 @@ namespace Bots
 
                 // jvbastel/WOWAI#133: between heals, the wand on the focus
                 // target. Each heal comes first, and its cast stops the shot.
+                // Review of spec #131: a shot that no longer fits stops
+                // (StopsTheShot). The stop ends the shot only, never a heal.
+                Rule{"stop the shot", P + 31, StopsTheShot,
+                    BotAction{[](BotContext const&) { return true; },
+                        [](BotContext const& context) { context.actions.StopShot(); }}},
                 CastRule("shoot the focus target", P + 30, ShootsTheFocus, Shoot, PickFocusTarget),
 
                 // The buffs, out of combat only: in a fight the mana is for

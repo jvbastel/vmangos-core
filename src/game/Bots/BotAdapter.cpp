@@ -1038,11 +1038,18 @@ Bots::RangedWeapon BotAdapter::GetRangedWeapon() const
     return weapon;
 }
 
-bool BotAdapter::IsShooting() const
+Bots::Guid BotAdapter::GetShotTarget() const
 {
     // The wand's Shoot sits in the auto-repeat slot until a cast of the
     // generic slot stops it (Unit::SetCurrentCastedSpell).
-    return me->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL) != nullptr;
+    Spell const* shot = me->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
+    return shot ? shot->m_targets.getUnitTargetGuid().GetRawValue() : Bots::NoGuid;
+}
+
+void BotAdapter::StopShot()
+{
+    // The auto-repeat slot only: a heal in the generic slot goes on.
+    me->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
 }
 
 uint32 BotAdapter::GetLevel(Bots::Guid unit) const

@@ -761,12 +761,12 @@ TEST(PriestHealerWand, ShootsBetweenHeals)
     GiveWand(priest);
     priest.InFight();
     priest.Think();
-    priest.fake.SetShooting();
+    priest.fake.SetShotTarget(Kobold);
 
     // A heal comes first: its cast stops the shot.
     priest.fake.SetHealth(Tank, 250, 600);
     priest.Think();
-    priest.fake.SetShooting(false);
+    priest.fake.SetShotTarget(NoGuid);
     priest.fake.SetHealth(Tank, 600, 600);
     priest.Think();
 
@@ -779,7 +779,7 @@ TEST(PriestHealerWand, DoesNotShootAgainWhileAShotIsGoing)
     PriestHealer priest;
     GiveWand(priest);
     priest.InFight();
-    priest.fake.SetShooting();
+    priest.fake.SetShotTarget(Kobold);
 
     EXPECT_EQ(priest.Think(), "");
     EXPECT_TRUE(priest.fake.Deeds().empty());
@@ -871,6 +871,87 @@ TEST(PriestHealerWand, NeverShootsAnEnemyThatAttacksIt)
     priest.Think();
 
     EXPECT_TRUE(priest.fake.Deeds().empty());
+}
+
+// Review of spec #131, stories 2, 5, and 8: a going shot repeats on its own.
+// The healer stops it when its target is no longer the focus target, when
+// the tank no longer holds threat on it, or when an enemy attacks the
+// healer. The stop ends the shot only, never a heal.
+namespace
+{
+    Bots::Guid const OtherKobold = 0xF130000302000023;
+}
+
+TEST(PriestHealerWand, StopsTheShotWhenTheFocusTargetChanges)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetShotTarget(Kobold);
+    // The tank takes the next enemy while the old one still lives.
+    priest.fake.SetHealth(OtherKobold, 200, 200);
+    priest.fake.SetSpellDistance(OtherKobold, 20.0f);
+    priest.group.SetFocusTarget(OtherKobold);
+    priest.fake.SetVictim(Tank, OtherKobold);
+    priest.fake.SetVictim(OtherKobold, Tank);
+
+    priest.Think();
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{"stop the shot", CastOn(Priest::Shoot, OtherKobold)}));
+}
+
+TEST(PriestHealerWand, StopsTheShotWhenTheTankNoLongerHoldsThreat)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    Engage(priest, 1000);
+    priest.fake.SetShotTarget(Kobold);
+
+    priest.nowMs = 1500;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{"stop the shot"}));
+}
+
+TEST(PriestHealerWand, StopsTheShotWhenAnEnemyAttacksIt)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetShotTarget(Kobold);
+    priest.fake.SetVictim(Kobold, Healer);
+    priest.fake.SetCannotCast(Priest::Fade);
+    priest.fake.SetAura(Healer, Priest::WeakenedSoul);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{"stop the shot"}));
+}
+
+TEST(PriestHealerWand, KeepsAShotOnTheFocusTarget)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetShotTarget(Kobold);
+
+    EXPECT_EQ(priest.Think(), "");
+}
+
+TEST(PriestHealerWand, AHealComesBeforeTheStopOfTheShot)
+{
+    // The cast of the heal stops the shot itself.
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetShotTarget(Kobold);
+    priest.group.SetFocusTarget(OtherKobold);
+    priest.fake.SetHealth(Tank, 250, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Heal, Tank)}));
 }
 
 // jvbastel/WOWAI#136: from level 40 the healer knows Greater Heal. It is the
