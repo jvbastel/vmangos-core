@@ -146,6 +146,12 @@ namespace Bots
             return healer;
         Guid const focus = context.group.GetFocusTarget();
         bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
+        // jvbastel/WOWAI#195: the player tank died mid-fight. The focus
+        // stays, and the bots fight on against it with no threat wait: no
+        // tank holds threat any more.
+        if (context.group.IsPlayerTankGroup() && SeenDead(context.view, context.group.GetTank())
+            && IsAlive(context.view, focus) && IsInChaseLimit(context, focus) && !HoldsFireOn(context, focus))
+            return focus;
         if (!IsAlive(context.view, context.group.GetTank()))
         {
             Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);

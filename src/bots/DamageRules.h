@@ -25,6 +25,9 @@ namespace Bots
     // takes the enemy that only it attacks, else one that no member
     // attacks, so that no enemy stays lost. Not the focus that the bot
     // waits a taunt for.
+    // jvbastel/WOWAI#195: in a player-tank group whose tank the bot sees
+    // dead, the living focus in the chase limit comes before the loose
+    // enemies, with no threat wait: the bots fight on against it.
     // jvbastel/WOWAI#144: a damage bot, ranged or melee, holds fire on an
     // enemy frozen by Frost Nova (HoldsFireOn) in all steps but the first:
     // a hit breaks the freeze. DoTs already on it stay.

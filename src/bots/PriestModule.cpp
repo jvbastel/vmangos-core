@@ -1,6 +1,7 @@
 #include "PriestModule.h"
 #include "CommonRules.h"
 #include "DamageRules.h"
+#include "HealerSight.h"
 #include "Ranged.h"
 #include "SafePlace.h"
 #include "SpellBook.h"
@@ -327,6 +328,13 @@ namespace Bots
                         [](BotContext const& context) {
                             context.actions.KeepMovingTo(context.view.GetPosition(context.group.GetTank()));
                         }}},
+
+                // jvbastel/WOWAI#195: in a fight of a player-tank group,
+                // the healer keeps the tank in sight and heal reach
+                // (HealerSight.h). Under the heals that it can cast from
+                // where it stands, and under the walk of an attacked healer
+                // to the tank; over the walk to a hurt member.
+                TankSightRule(P + 54),
 
                 // A hurt member out of reach: the bot follows it. It stays
                 // near it until the fight ends and the command takes over.
