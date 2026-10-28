@@ -267,6 +267,8 @@ void BotMgr::Update(uint32 diff)
         m_run.NoteChatOutcome(outcome);
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
+    for (ObjectGuid const& player : m_panelRequests.Drain())
+        SendBotPanel(player);
     m_run.Update();
     RouteTraces::Update(diff);
     for (auto& pair : m_bots)
@@ -1103,4 +1105,26 @@ bool BotMgr::LeaveAsSecondTank(Player* bot, Group* group)
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s leaves the group: a human picked tank", bot->GetName());
     Player::RemoveFromGroup(group, bot->GetObjectGuid());
     return true;
+}
+
+// jvbastel/WOWAI#198: the bot panel of the role choice add-on.
+void BotMgr::SendBotPanel(ObjectGuid playerGuid)
+{
+    Player* player = ObjectAccessor::FindPlayer(playerGuid);
+    if (!player)
+        return;
+    std::vector<Bots::PanelBot> bots;
+    for (auto const& pair : m_bots)
+    {
+        BotRecord const& record = pair.second;
+        // The faction of an offline bot too, from the character cache.
+        Bots::GearFaction const faction = FactionOfTeam(sObjectMgr.GetPlayerTeamByGUID(ObjectGuid(HIGHGUID_PLAYER, pair.first)));
+        bots.push_back({record.entry->name, RoleOf(record.role), faction, record.worldBot});
+    }
+    std::vector<Bots::PanelBot> const listed = Bots::PanelBotsFor(bots, FactionOfTeam(player->GetTeam()));
+    // System messages: the client gives them to the add-on with no group too.
+    ChatHandler handler(player->GetSession());
+    for (std::string const& message : Bots::BotPanelMessages(listed))
+        handler.SendSysMessage(message.c_str());
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s gets the bot panel: %u bots", player->GetName(), uint32(listed.size()));
 }

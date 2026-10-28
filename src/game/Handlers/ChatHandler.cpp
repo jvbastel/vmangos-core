@@ -403,6 +403,8 @@ void WorldSession::HandleChatMessageOpcode(WorldPackets::Chat::ChatMessage const
                 SendPlayerNotFoundNotice(packet.whisperTargetOrChannel);
                 break;
             }
+            if (packet.lang != LANG_ADDON && BotHooks::OnWhisperToSelf(_player, packet.whisperTargetOrChannel, packet.message))
+                return;
             MasterPlayer* masterPlr = GetMasterPlayer();
             ASSERT(masterPlr);
 
