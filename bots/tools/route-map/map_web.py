@@ -29,6 +29,7 @@ from fastapi.responses import HTMLResponse
 import export_file
 import floor_image
 import map_packs
+import map_quests
 import navmesh
 import route_draft
 import route_draw
@@ -139,20 +140,24 @@ def create_app(settings: Settings) -> FastAPI:
     def load_map(name: str, z_min: Optional[float] = None, z_max: Optional[float] = None):
         """The map of a route: the floor image (only heights z_min to z_max
         when given) with its bounds, the route line, every pack of the map (the
-        export file) with the route's packs marked, the patrols, the wanderers
-        and the bosses."""
+        export file) with the route's packs marked, the patrols, the wanderers,
+        the bosses, and the quest objectives with what the route meets."""
         route = load_route(name)
+        export = load_export(route.map_id)
+        packs = map_packs.map_part(route, export)
         return {
             "route": route.name,
             "map_id": route.map_id,
             "floor": load_floor(route, z_min, z_max),
             "line": [vars(p) for p in route.line],
-            **map_packs.map_part(route, load_export(route.map_id)),
+            **packs,
+            **map_quests.map_part(route, export, packs["packs"]),
         }
 
     walked_path.add_routes(app)
     route_draw.add_routes(app, settings, load_route, load_navmesh)
     map_packs.add_routes(app)
+    map_quests.add_routes(app)
     route_draft.add_routes(app, settings, load_route)
     return app
 
