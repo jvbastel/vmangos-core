@@ -10,10 +10,8 @@ import map_web
 import navmesh
 from fixtures import write_route
 
-KALIMDOR_ROUTE = """\
-route fixture_kalimdor 1
-point p1 101.00 -49.00 -20.00 2.00
-"""
+def continent_route(map_id):
+    return f"route fixture_continent {map_id}\npoint p1 101.00 -49.00 -20.00 2.00\n"
 
 
 @pytest.fixture
@@ -24,7 +22,7 @@ def no_tile_reads(monkeypatch):
 
 
 def settings(tmp_path, map_id):
-    write_route(tmp_path / "routes", name="fixture_kalimdor", text=KALIMDOR_ROUTE.replace("kalimdor 1", f"kalimdor {map_id}"))
+    write_route(tmp_path / "routes", name="fixture_continent", text=continent_route(map_id))
     (tmp_path / "mmaps").mkdir()
     (tmp_path / "mmaps" / f"{map_id:03d}3131.mmtile").write_bytes(b"not a tile")
     return map_web.Settings(navmesh=tmp_path / "mmaps", routes=tmp_path / "routes", exports=tmp_path / "routes")
@@ -34,8 +32,8 @@ def settings(tmp_path, map_id):
 def test_the_api_refuses_a_continent_route_with_a_4xx_and_the_reason(tmp_path, no_tile_reads, map_id, name):
     web = TestClient(map_web.create_app(settings(tmp_path, map_id)))
 
-    for response in (web.get("/api/maps/fixture_kalimdor"),
-                     web.get("/api/maps/fixture_kalimdor/floors", params={"x": 101, "y": -49})):
+    for response in (web.get("/api/maps/fixture_continent"),
+                     web.get("/api/maps/fixture_continent/floors", params={"x": 101, "y": -49})):
         assert response.status_code == 422
         assert f"map {map_id} ({name}) is a continent" in response.json()["detail"]
 
@@ -47,6 +45,6 @@ def test_the_command_exits_with_a_message_on_a_continent_route(tmp_path, no_tile
     monkeypatch.setattr(map_web, "create_app", lambda s: pytest.fail("the command started the map server"))
 
     with pytest.raises(SystemExit) as stop:
-        map_web.main(["fixture_kalimdor", "--settings", str(toml), "--no-browser"])
+        map_web.main(["fixture_continent", "--settings", str(toml), "--no-browser"])
 
     assert "map 1 (Kalimdor) is a continent" in str(stop.value.code)
