@@ -66,6 +66,7 @@ namespace
         facts.botInOtherGroup = false;
         facts.playerMayInvite = true;
         facts.groupFull = false;
+        facts.botOfOtherFaction = false;
         return facts;
     }
 }
@@ -168,4 +169,19 @@ TEST(GroupCommandPlan, DismissRefusesABotOutsideTheGroup)
     EXPECT_FALSE(plan.logout);
     EXPECT_STREQ(plan.line, "That bot is not in your group.");
     EXPECT_STREQ(Bots::PlanGroupCommand(GroupCommandKind::Dismiss, unknown).line, "No bot has that name.");
+}
+
+// jvbastel/WOWAI#199: a bot of the other faction.
+
+TEST(GroupCommandPlan, InviteRefusesABotOfTheOtherFactionAndDoesNotLogItIn)
+{
+    Bots::GroupFacts facts = FreeBot();
+    facts.botOnline = false;
+    facts.botOfOtherFaction = true;
+
+    Bots::GroupCommandPlan plan = Bots::PlanGroupCommand(GroupCommandKind::Invite, facts);
+
+    EXPECT_FALSE(plan.ok);
+    EXPECT_FALSE(plan.login);
+    EXPECT_STREQ(plan.line, "That bot is of the other faction.");
 }

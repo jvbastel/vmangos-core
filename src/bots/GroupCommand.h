@@ -42,6 +42,8 @@ namespace Bots
         bool botInOtherGroup;  // The bot is a member of another group.
         bool playerMayInvite;  // The player has no group, or leads it or assists.
         bool groupFull;        // The group of the player has no free place.
+        // jvbastel/WOWAI#199.
+        bool botOfOtherFaction; // The bot is not of the player's faction.
     };
 
     // The steps of a group command, in this order. An offline bot only logs
