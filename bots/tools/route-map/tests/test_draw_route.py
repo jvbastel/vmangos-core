@@ -1,10 +1,13 @@
 """The route drawing through the web API: snap a click to the floor, join
 two clicks with a floor path, save the trace (ticket jvbastel/WOWAI#157)."""
 
+import math
+
 import pytest
 from fastapi.testclient import TestClient
 
 import map_web
+import trace_file
 from draw_fixtures import BORDER_X, CAVE, ISLAND
 from fixtures import write_route, write_tile
 
@@ -112,3 +115,35 @@ def test_two_points_with_no_floor_path_get_a_straight_line_and_a_warning(tmp_pat
 
     assert [w["kind"] for w in piece["warnings"]] == ["no_path"]
     assert len(piece["points"]) == 2
+
+
+def test_saving_the_trace_writes_dense_points_at_floor_height_that_the_route_library_parses(web, tmp_path):
+    routes = tmp_path / "routes"
+    (routes / "other_cave.trace.txt").write_text("trace other_cave 389\np 1.00 2.00 3.00\n")
+    before = {p.name: p.read_text() for p in routes.iterdir()}
+    clicks = [(5, 5, 0), (5, 25, 0), (45, 5, 8)]
+
+    response = web.post("/api/maps/drawn_cave/trace", json={"points": [dict(zip("xyz", c)) for c in clicks]})
+
+    assert response.status_code == 200, response.text
+    after = {p.name: p.read_text() for p in routes.iterdir()}
+    assert set(after) - set(before) == {"drawn_cave.trace.txt"}
+    assert {k: after[k] for k in before} == before  # only the open route's trace file is written
+    trace = trace_file.parse(after["drawn_cave.trace.txt"])
+    assert (trace.name, trace.map_id) == ("drawn_cave", 389)
+    points = trace.points
+    assert [(p.x, p.y, p.z) for p in (points[0], points[-1])] == [(5.0, 5.0, 0.0), (45.0, 5.0, 8.0)]
+    assert (5.0, 25.0, 0.0) in [(p.x, p.y, p.z) for p in points]  # each click is a point of the trace
+    assert all(p.joined and not p.mark for p in points[1:])
+    assert len(points) > 30
+    assert all(math.dist((a.x, a.y, a.z), (b.x, b.y, b.z)) <= 3.5 for a, b in zip(points, points[1:]))
+    assert all(on_floor(web, {"x": p.x, "y": p.y, "z": p.z}) for p in points)
+    assert response.json()["points"] == len(points)
+
+
+def test_saving_a_trace_returns_the_warnings_of_its_pieces(web):
+    clicks = [(5, 5, 0), (5, 25, 0), (25, 25, 0), (5, 5, 0), (-15, 5, 0)]
+
+    saved = web.post("/api/maps/drawn_cave/trace", json={"points": [dict(zip("xyz", c)) for c in clicks]}).json()
+
+    assert [(w["piece"], w["kind"]) for w in saved["warnings"]] == [(4, "lava")]
