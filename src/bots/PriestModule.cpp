@@ -31,9 +31,9 @@ namespace Bots
             float const ResurrectReachYards = 29.0f;
             float const ResurrectCastYards = 26.0f;
 
-            using MemberFilter = bool (*)(BotView const& view, Guid member);
+            using MemberFilter = bool (*)(BotContext const& context, Guid member);
 
-            bool AnyMember(BotView const&, Guid)
+            bool AnyMember(BotContext const&, Guid)
             {
                 return true;
             }
@@ -43,9 +43,22 @@ namespace Bots
                 return !view.HasAura(member, WeakenedSoul) && !view.HasAura(member, PowerWordShield);
             }
 
-            bool HasNoRenew(BotView const& view, Guid member)
+            // jvbastel/WOWAI#132: the shield absorbs the damage that gives a
+            // rage tank its rage, so the tank would lose threat. The group's
+            // tank with rage (a warrior, a druid in bear form) gets a heal.
+            bool IsRageTank(BotContext const& context, Guid member)
             {
-                return !view.HasAura(member, Renew);
+                return member == context.group.GetTank() && context.view.GetPowerKind(member) == PowerKind::Rage;
+            }
+
+            bool ShieldHelps(BotContext const& context, Guid member)
+            {
+                return CanTakeShield(context.view, member) && !IsRageTank(context, member);
+            }
+
+            bool HasNoRenew(BotContext const& context, Guid member)
+            {
+                return !context.view.HasAura(member, Renew);
             }
 
             float HealthFraction(BotView const& view, Guid unit)
@@ -64,7 +77,7 @@ namespace Bots
                 for (Guid member : context.view.GetGroupMembers())
                 {
                     float const fraction = HealthFraction(context.view, member);
-                    if (IsAlive(context.view, member) && fraction < lowest && filter(context.view, member))
+                    if (IsAlive(context.view, member) && fraction < lowest && filter(context, member))
                     {
                         most = member;
                         lowest = fraction;
@@ -202,8 +215,8 @@ namespace Bots
                 // The heals, the most urgent first. Each picks the most
                 // hurt member that needs it. At level 16 the Priest knows no
                 // dispel: it heals through every debuff.
-                CastRule("shield a member near death", P + 88, SomeoneBelow(ShieldBelow, CanTakeShield),
-                    PowerWordShield, HurtMember(ShieldBelow, CanTakeShield)),
+                CastRule("shield a member near death", P + 88, SomeoneBelow(ShieldBelow, ShieldHelps),
+                    PowerWordShield, HurtMember(ShieldBelow, ShieldHelps)),
                 CastRule("heal", P + 80, SomeoneBelow(HealBelow), Heal, HurtMember(HealBelow)),
                 CastRule("lesser heal a badly hurt member", P + 75, SomeoneBelow(HealBelow), LesserHeal, HurtMember(HealBelow)),
                 CastRule("renew", P + 70, SomeoneBelow(RenewBelow, HasNoRenew), Renew, HurtMember(RenewBelow, HasNoRenew)),
