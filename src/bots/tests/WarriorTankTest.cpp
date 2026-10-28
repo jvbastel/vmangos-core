@@ -2024,7 +2024,9 @@ TEST(WarriorTank, SundersThePickedUpEnemyUntilItHoldsIt)
 
 // jvbastel/WOWAI#126 review: the focus on a member comes before a loose add.
 // Taunt waits for its cooldown, and the focus hits the rogue: the tank stays
-// on the focus and does not go to the bat on the healer.
+// on the focus and does not go to the bat on the healer. Since the final
+// review of #165 (item 1), it does not chase the focus either: the rogue
+// brings it to the tank's spot (#169, #171).
 TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItPicksUpALooseEnemy)
 {
     GroupInFight tank;
@@ -2037,12 +2039,13 @@ TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItPicksUpALooseEnemy)
     tank.Think();
     tank.Think();
 
-    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
     for (std::string const& deed : tank.fake.Deeds())
     {
         EXPECT_NE(deed, Attack(Bat));
         EXPECT_NE(deed, Chase(Bat));
+        EXPECT_NE(deed, Chase(Kobold));
     }
+    EXPECT_EQ(tank.fake.GetVictim(Tank), Kobold);
 }
 
 // jvbastel/WOWAI#126 review: the tank does not run far from the fight to a
@@ -3052,4 +3055,51 @@ TEST(WarriorTankRagePool, TheOpenerShoutAtThePullStartIsUnchanged)
     tank.Think();
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::DemoralizingShout, Tank)}));
+}
+
+// Final review of jvbastel/WOWAI#165, item 1: the next focus (#173) on another
+// member does not make the tank chase it across the room (#169). The member
+// walks to the tank (#170, #171); the tank goes out only to a member that
+// cannot move.
+namespace
+{
+    // The focus died. The only enemy left, the next focus, hits the rogue
+    // 20 yards away, and Taunt waits for its cooldown.
+    struct NextFocusOnTheRogue : GroupInFight
+    {
+        NextFocusOnTheRogue()
+        {
+            fake.SetVictim(Wolf, Rogue);
+            fake.SetDistance(Wolf, 20.0f);
+            fake.SetCannotCast(Warrior::Taunt);
+            fake.SetHealth(Kobold, 0, 200);
+            fake.SetVictim(Kobold, NoGuid);
+        }
+    };
+}
+
+TEST(WarriorTankNextFocus, DoesNotChaseANextFocusOnAnotherMember)
+{
+    NextFocusOnTheRogue tank;
+
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    ASSERT_EQ(tank.group.GetFocusTarget(), Wolf);
+    tank.Think();
+    tank.Think();
+
+    std::vector<std::string> const deeds = tank.fake.Deeds();
+    EXPECT_FALSE(Has(deeds, "chase 0xf130000302000033")) << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankNextFocus, GoesToANextFocusOnAMemberThatCannotMove)
+{
+    NextFocusOnTheRogue tank;
+    tank.fake.SetRootedOrStunned(Rogue);
+
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    tank.Think();
+    tank.Think();
+
+    std::vector<std::string> const deeds = tank.fake.Deeds();
+    EXPECT_TRUE(Has(deeds, "chase 0xf130000302000033")) << ::testing::PrintToString(deeds);
 }

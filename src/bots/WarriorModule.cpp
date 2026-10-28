@@ -317,6 +317,18 @@ namespace Bots
                     || TankGoesInForTheHealer(context, enemy);
             }
 
+            // The focus target attacks another member, and that member can
+            // come to the tank (no MemberCannotCome): the tank holds its
+            // fight spot, and the member brings the focus to it
+            // (jvbastel/WOWAI#169, #170, #171). Since #173 a next focus can
+            // be any enemy in the fight, also one across the room.
+            bool FocusOnAMemberThatCanCome(BotContext const& context)
+            {
+                Guid const focus = PickFocusTarget(context);
+                Guid const victim = context.view.GetVictim(focus);
+                return victim != NoGuid && victim != Self(context) && !MemberCannotCome(context, focus);
+            }
+
             // The tank can act on loose enemy `enemy` (jvbastel/WOWAI#169):
             // from its spot, as the members bring their attackers to it, once
             // Taunt reaches it now or it stands in melee contact (Revenge or
@@ -1172,7 +1184,9 @@ namespace Bots
                     [](BotContext const& context) { context.group.GiveUpTaunt(PickFocusTarget(context)); }),
 
                 // The fight on the focus target. A focus that runs to the
-                // tank finds it where it stands; else the tank runs to it.
+                // tank finds it where it stands, and so does a focus on a
+                // member that can come (FocusOnAMemberThatCanCome); else the
+                // tank runs to it.
                 Rule{"attack the focus target", P + 62,
                     [keptEnemy, goOutTarget](BotContext const& context) {
                         Guid const focus = PickFocusTarget(context);
@@ -1194,13 +1208,14 @@ namespace Bots
                         if (context.view.GetVictim(Self(context)) != focus || !context.view.IsMeleeAttacking())
                             return true;
                         return context.view.GetDistance(focus) > MeleeContactYards && chase.target != focus
-                            && !FocusComes(context);
+                            && !FocusComes(context) && !FocusOnAMemberThatCanCome(context);
                     },
                     {[](BotContext const& context) { return IsAlive(context.view, PickFocusTarget(context)); },
                         [](BotContext const& context) {
                             Guid const focus = PickFocusTarget(context);
                             context.actions.Attack(focus);
-                            if (FocusComes(context) && context.view.GetDistance(focus) > MeleeContactYards)
+                            if ((FocusComes(context) || FocusOnAMemberThatCanCome(context))
+                                && context.view.GetDistance(focus) > MeleeContactYards)
                                 context.actions.Stand();
                             else
                                 context.actions.Chase(focus);
