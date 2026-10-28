@@ -2037,7 +2037,7 @@ TEST(WarriorTank, SundersThePickedUpEnemyUntilItHoldsIt)
 // on the focus and does not go to the bat on the healer. Since the final
 // review of #165 (item 1), it does not chase the focus either: the rogue
 // brings it to the tank's spot (#169, #171).
-TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItPicksUpALooseEnemy)
+TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItTakesALooseEnemy)
 {
     GroupInFight tank;
     tank.fake.SetCannotCast(Warrior::Taunt);
@@ -2060,7 +2060,7 @@ TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItPicksUpALooseEnemy)
 
 // jvbastel/WOWAI#126 review: the tank does not run far from the fight to a
 // loose enemy (more packs wait on the way). It stays on the focus.
-TEST(WarriorTank, DoesNotPickUpALooseEnemyBeyondThePickUpReach)
+TEST(WarriorTank, DoesNotGoOutToALooseEnemyBeyondTheGoOutReach)
 {
     BatOnTheFarHealer tank;
     tank.fake.SetRootedOrStunned(Healer);
@@ -2076,10 +2076,10 @@ TEST(WarriorTank, DoesNotPickUpALooseEnemyBeyondThePickUpReach)
 }
 
 // jvbastel/WOWAI#121 merge review: the keep-out rule (KeepOut.h) and the
-// pick-up of #126. The bat on the healer stands in the reach of a rat that
+// go-out of #126. The bat on the healer stands in the reach of a rat that
 // is in no fight. The tank does not go to it: the keep-out rule would step
 // it out again, and it would pull the rat. It stays on the focus.
-TEST(WarriorTank, DoesNotPickUpALooseEnemyInTheReachOfAnotherPack)
+TEST(WarriorTank, DoesNotGoOutToALooseEnemyInTheReachOfAnotherPack)
 {
     BatOnTheFarHealer tank;
     tank.fake.SetRootedOrStunned(Healer);
@@ -2123,7 +2123,7 @@ namespace
     };
 }
 
-TEST(WarriorTank, PicksUpTheHealersAddNearAnotherPackWhenTheHealerCannotStepOut)
+TEST(WarriorTank, GoesInForTheHealersAddNearAnotherPackWhenTheHealerCannotStepOut)
 {
     BatOnTheHealerNearARat tank;
     tank.fake.AddNoPathFromX(-10000.0f);
@@ -2156,10 +2156,10 @@ TEST(WarriorTank, LeavesTheHealersAddNearAnotherPackWhenTheHealerCanStepOut)
     }
 }
 
-// C1: the pick-up tries each loose enemy, the healer's first: the add on
+// C1: the go-out tries each loose enemy, the healer's first: the add on
 // the healer is in the rat's reach, so the tank picks up the add on the
 // rogue.
-TEST(WarriorTank, PicksUpTheNextLooseEnemyWhenTheFirstIsInTheReachOfAnotherPack)
+TEST(WarriorTank, TakesTheNextLooseEnemyWhenTheFirstIsInTheReachOfAnotherPack)
 {
     BatOnTheHealerNearARat tank;
     tank.fake.SetRootedOrStunned(Rogue);

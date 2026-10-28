@@ -67,37 +67,38 @@ namespace Bots
             float const ThreatTargetLead = 1.5f;
             std::uint32_t const AbilitiesPerVisit = 1;
 
-            // jvbastel/WOWAI#126: the loose enemy that Taunt cannot reach.
-            // The rule priorities (P + N), below "taunt an enemy off a
-            // member" (54) and above Revenge (40). jvbastel/WOWAI#169: the
-            // tank goes out only to a member that cannot come to it.
+            // The rules on loose and joined enemies, the priorities P + N,
+            // below "attack the focus target" (62) and Defensive Stance (60):
+            // 57 cast on the enemy it turned to (jvbastel/WOWAI#168): no turn
+            //    away from an enemy that the tank attacked with no ability yet.
+            // 56 taunt an enemy off a member (#168).
+            // 55 threat on the loose enemy (#168): Sunder Armor or Revenge.
+            // 54 step to a caster on the healer (#174).
+            // 53 go to a member that cannot move (#126, #169).
+            // 52 Challenging Shout (#115).
+            // 51 early sunder on a joined enemy (#172).
+            // Below: Demoralizing Shout (50), and "keep threat on the taunted
+            // enemy" (41, #126) over Revenge (40).
+            int const CastOnTheEnemyItTurnedTo = 57;
+            int const TauntTheLooseEnemy = 56;
+            int const ThreatOnTheLooseEnemy = 55;
+            int const StepToACasterOnTheHealer = 54;
             int const GoToAMemberThatCannotMove = 53;
+            int const EarlySunderOnAJoinedEnemy = 51;
             int const KeepThreatOnTheTaunted = 41;
-            // The taunted (or picked-up) enemy is back on the tank when it
+
+            // The taunted (or taken) enemy is back on the tank when it
             // attacks the tank and the tank's threat on it is at least this
             // ratio of any other member's (BotView::GetThreatRatio). A taunt
             // gives only the top threat (1.0): no lead yet.
             float const KeepThreatLead = 1.1f;
-            // The tank goes to a member that cannot move (MemberCannotCome)
-            // at most this far from it: a farther one would lead it through
-            // more packs.
-            float const PickUpYards = 40.0f;
+            // jvbastel/WOWAI#169: the tank goes out only to a member that
+            // cannot move (MemberCannotCome), at most this far from it: a
+            // farther one would lead it through more packs.
+            float const GoOutYards = 40.0f;
             // jvbastel/WOWAI#174: the tank steps toward a caster on the
             // healer at most this far from it (PickCasterToStepTo).
             float const CasterStepYards = 12.0f;
-            int const StepToACasterOnTheHealer = 54;
-
-            // jvbastel/WOWAI#168: the rule priorities (P + N) of the
-            // abilities on the loose enemy: Taunt, then Sunder Armor or
-            // Revenge, both over the pick-up (53).
-            int const CastOnTheEnemyItTurnedTo = 57;
-            int const TauntTheLooseEnemy = 56;
-            int const ThreatOnTheLooseEnemy = 55;
-
-            // jvbastel/WOWAI#172: the early Sunder Armor on each joined
-            // enemy. Below the pickup (53 to 57) and Challenging Shout (52),
-            // over Demoralizing Shout (50) and the focus rotation.
-            int const EarlySunderOnAJoinedEnemy = 51;
 
             // jvbastel/WOWAI#121: the caster pack. The rule priorities
             // (P + N); the caster wait is CasterComeMs (GroupCoordinator.h).
@@ -286,7 +287,7 @@ namespace Bots
             };
             using LoosePickPtr = std::shared_ptr<LoosePick>;
 
-            // The rank of loose enemy `enemy` in the pickup order, by the
+            // The rank of loose enemy `enemy` in the take order, by the
             // member it attacks: 0 the healer, 1 a member in cloth, 2 any
             // other member.
             int PickupRank(BotContext const& context, Guid enemy)
@@ -300,14 +301,14 @@ namespace Bots
             // jvbastel/WOWAI#169: the member that loose enemy `enemy`
             // attacks cannot come to the tank, so the tank goes out to it:
             // the member is rooted or stunned, and the enemy stands within
-            // PickUpYards and out of the reach of a pack outside the fight
+            // GoOutYards and out of the reach of a pack outside the fight
             // (KeepOut.h, jvbastel/WOWAI#121: the keep-out rule would step
             // the tank out again). Or the member is the healer, stuck in the
             // reach of another pack with no place to step out to
             // (TankGoesInForTheHealer): the tank goes in after a warn.
             bool MemberCannotCome(BotContext const& context, Guid enemy)
             {
-                if (context.view.GetDistance(enemy) > PickUpYards)
+                if (context.view.GetDistance(enemy) > GoOutYards)
                     return false;
                 Guid const victim = context.view.GetVictim(enemy);
                 return (victim != NoGuid && context.view.IsRootedOrStunned(victim)
@@ -752,7 +753,7 @@ namespace Bots
             // it warns once for each.
             using GoneInPtr = std::shared_ptr<std::set<Guid>>;
 
-            // The pick-up rule `rule` warns when it goes in for an add of a
+            // The go-out rule `rule` warns when it goes in for an add of a
             // healer that cannot step out: once an add, of the packs it
             // pulls there.
             Rule WarnsWhenItGoesIn(Rule rule, GoneInPtr const& goneIn, LoosePickPtr const& pick)
@@ -789,8 +790,8 @@ namespace Bots
 
             // A joined enemy is due its early visit: an enemy of the fight
             // that joined the pull (JoinedThePull), is not the focus and no
-            // loose enemy (the pickup takes those), and had no visit and has
-            // no Sunder Armor yet. Where it stands does not count.
+            // loose enemy (the loose-enemy rules take those), and had no
+            // visit and has no Sunder Armor yet. Where it stands does not count.
             bool DueEarlyVisit(BotContext const& context, PullPacks const& packs, EarlyVisits const& visits,
                 std::vector<Guid> const& loose, Guid enemy)
             {
@@ -856,7 +857,7 @@ namespace Bots
                 if (!FightsFocus(context) || Rage(context) >= ShieldBlockSpareRage)
                     return false;
                 // A joined enemy on a member (a loose enemy) counts too: its
-                // pickup needs a Sunder Armor's rage while Taunt waits.
+                // take needs a Sunder Armor's rage while Taunt waits.
                 std::vector<Guid> const noLoose;
                 bool waits = false;
                 for (Guid enemy : EnemiesInFight(context))
@@ -1230,7 +1231,7 @@ namespace Bots
                     },
                     Taunt, PickFocusTarget),
                 // jvbastel/WOWAI#168: no turn away from an enemy that the tank
-                // attacked with no ability yet (a pick-up): Revenge or Sunder
+                // attacked with no ability yet (a take): Revenge or Sunder
                 // Armor on it first, when it can.
                 Rule{"cast on the enemy it turned to", P + CastOnTheEnemyItTurnedTo,
                     [keep](BotContext const& context) { return PickEnemyDueACast(context, *keep) != NoGuid; },
@@ -1275,7 +1276,7 @@ namespace Bots
                                                     goOutTarget),
                                   goneIn, pick),
                     goOutTarget, keep, false),
-                // jvbastel/WOWAI#126: after the taunt or the pick-up, Revenge
+                // jvbastel/WOWAI#126: after the taunt or the take, Revenge
                 // or Sunder Armor on that enemy until it is back on the tank,
                 // then the focus again. Each counts in a visit to the threat
                 // target (jvbastel/WOWAI#117), which waits for the focus.

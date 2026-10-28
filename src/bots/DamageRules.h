@@ -40,7 +40,7 @@ namespace Bots
     // reach of a pack outside the fight (KeepOut.h, jvbastel/WOWAI#121).
     // The keep-out rule would step the bot out again, and its chase take it
     // back in: a loop. The member that the enemy hits steps out itself and
-    // brings it along, as for the tank's pick-up.
+    // brings it along, as for the loose enemies that the tank takes.
     Guid PickMeleeDamageTarget(BotContext const& context);
 
     // True when the bot has a damage target now.
