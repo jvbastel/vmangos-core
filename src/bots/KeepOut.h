@@ -32,7 +32,7 @@ namespace Bots
 
     // A member at `at` pulls a pack outside the fight of FightTarget: the
     // one place check of the keep-out rule, and of the moves that must not
-    // go there (the tank's pick-up, WarriorModule.cpp).
+    // go there (the tank's go-out to a member, WarriorModule.cpp).
     bool InOtherPacksReach(BotContext const& context, Position const& at);
 
     // Member `member` stands in the reach of a pack outside the fight, and

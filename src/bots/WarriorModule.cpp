@@ -1,5 +1,6 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
+#include "DamageRules.h"
 #include "BotGeometry.h"
 #include "ExtraPackWatch.h"
 #include "FightSpot.h"
@@ -25,8 +26,6 @@ namespace Bots
             // Rage for Bloodrage below it, and for Heroic Strike from it.
             std::uint32_t const LowRage = 20;
             std::uint32_t const SpareRage = 45;
-            // The range of Taunt.
-            float const TauntYards = 20.0f;
             // Out of shooting range (Ranged.h), the tank walks to this.
             float const ShootStandYards = 25.0f;
             // A chase into shooting range counts as ended only after this
@@ -44,12 +43,16 @@ namespace Bots
             // jvbastel/WOWAI#174: in a fight, Battle Shout (10 rage) takes
             // only spare rage: a Sunder Armor's 15 stay after it.
             std::uint32_t const BattleShoutRage = 25;
-            // jvbastel/WOWAI#174: Shield Block (10 rage) waits for a joined
-            // enemy's early Sunder Armor (15) below this rage, for at most
-            // EarlyVisitWaitMs from when the tank first waits for it, that is
-            // the first think with the enemy due and the rage short (a far pack takes
-            // 7-10 s to arrive, then the 3 s of the judge count).
-            std::uint32_t const ShieldBlockSpareRage = 25;
+            // jvbastel/WOWAI#174: Shield Block (10 rage) and Demoralizing
+            // Shout (10) wait for a joined enemy's early visit (a Sunder
+            // Armor, 15, or Revenge) below this rage
+            // (RageWaitsForAnEarlyVisit). They wait at most EarlyVisitWaitMs
+            // from the first think with the enemy due and the rage short.
+            // The cap is over the 7-10 s that a far pack takes to arrive plus
+            // the 3 s in which the judge wants the visit
+            // (extra_pack_threat_seconds), so a joined enemy that never
+            // comes does not hold them back for good.
+            std::uint32_t const EarlyVisitSpareRage = 25;
             std::int64_t const EarlyVisitWaitMs = 15000;
 
             // jvbastel/WOWAI#116: Shield Block.
@@ -69,37 +72,38 @@ namespace Bots
             float const ThreatTargetLead = 1.5f;
             std::uint32_t const AbilitiesPerVisit = 1;
 
-            // jvbastel/WOWAI#126: the loose enemy that Taunt cannot reach.
-            // The rule priorities (P + N), below "taunt an enemy off a
-            // member" (54) and above Revenge (40). jvbastel/WOWAI#169: the
-            // tank goes out only to a member that cannot come to it.
+            // The rules on loose and joined enemies, the priorities P + N,
+            // below "attack the focus target" (62) and Defensive Stance (60):
+            // 57 cast on the enemy it turned to (jvbastel/WOWAI#168): no turn
+            //    away from an enemy that the tank attacked with no ability yet.
+            // 56 taunt an enemy off a member (#168).
+            // 55 threat on the loose enemy (#168): Sunder Armor or Revenge.
+            // 54 step to a caster on the healer (#174).
+            // 53 go to a member that cannot move (#126, #169).
+            // 52 Challenging Shout (#115).
+            // 51 early visit on a joined enemy (#172): Sunder Armor or Revenge.
+            // Below: Demoralizing Shout (50), and "keep threat on the taunted
+            // enemy" (41, #126) over Revenge (40).
+            int const CastOnTheEnemyItTurnedTo = 57;
+            int const TauntTheLooseEnemy = 56;
+            int const ThreatOnTheLooseEnemy = 55;
+            int const StepToACasterOnTheHealer = 54;
             int const GoToAMemberThatCannotMove = 53;
+            int const EarlyVisitOnAJoinedEnemy = 51;
             int const KeepThreatOnTheTaunted = 41;
-            // The taunted (or picked-up) enemy is back on the tank when it
+
+            // The taunted (or taken) enemy is back on the tank when it
             // attacks the tank and the tank's threat on it is at least this
             // ratio of any other member's (BotView::GetThreatRatio). A taunt
             // gives only the top threat (1.0): no lead yet.
             float const KeepThreatLead = 1.1f;
-            // The tank goes to a member that cannot move (MemberCannotCome)
-            // at most this far from it: a farther one would lead it through
-            // more packs.
-            float const PickUpYards = 40.0f;
+            // jvbastel/WOWAI#169: the tank goes out only to a member that
+            // cannot move (MemberCannotCome), at most this far from it: a
+            // farther one would lead it through more packs.
+            float const GoOutYards = 40.0f;
             // jvbastel/WOWAI#174: the tank steps toward a caster on the
             // healer at most this far from it (PickCasterToStepTo).
             float const CasterStepYards = 12.0f;
-            int const StepToACasterOnTheHealer = 54;
-
-            // jvbastel/WOWAI#168: the rule priorities (P + N) of the
-            // abilities on the loose enemy: Taunt, then Sunder Armor or
-            // Revenge, both over the pick-up (53).
-            int const CastOnTheEnemyItTurnedTo = 57;
-            int const TauntTheLooseEnemy = 56;
-            int const ThreatOnTheLooseEnemy = 55;
-
-            // jvbastel/WOWAI#172: the early Sunder Armor on each joined
-            // enemy. Below the pickup (53 to 57) and Challenging Shout (52),
-            // over Demoralizing Shout (50) and the focus rotation.
-            int const EarlySunderOnAJoinedEnemy = 51;
 
             // jvbastel/WOWAI#121: the caster pack. The rule priorities
             // (P + N); the caster wait is CasterComeMs (GroupCoordinator.h).
@@ -288,7 +292,7 @@ namespace Bots
             };
             using LoosePickPtr = std::shared_ptr<LoosePick>;
 
-            // The rank of loose enemy `enemy` in the pickup order, by the
+            // The rank of loose enemy `enemy` in the take order, by the
             // member it attacks: 0 the healer, 1 a member in cloth, 2 any
             // other member.
             int PickupRank(BotContext const& context, Guid enemy)
@@ -302,19 +306,34 @@ namespace Bots
             // jvbastel/WOWAI#169: the member that loose enemy `enemy`
             // attacks cannot come to the tank, so the tank goes out to it:
             // the member is rooted or stunned, and the enemy stands within
-            // PickUpYards and out of the reach of a pack outside the fight
+            // GoOutYards and out of the reach of a pack outside the fight
             // (KeepOut.h, jvbastel/WOWAI#121: the keep-out rule would step
             // the tank out again). Or the member is the healer, stuck in the
             // reach of another pack with no place to step out to
             // (TankGoesInForTheHealer): the tank goes in after a warn.
             bool MemberCannotCome(BotContext const& context, Guid enemy)
             {
-                if (context.view.GetDistance(enemy) > PickUpYards)
+                if (context.view.GetDistance(enemy) > GoOutYards)
                     return false;
                 Guid const victim = context.view.GetVictim(enemy);
                 return (victim != NoGuid && context.view.IsRootedOrStunned(victim)
                            && !InOtherPacksReach(context, context.view.GetPosition(enemy)))
                     || TankGoesInForTheHealer(context, enemy);
+            }
+
+            // The focus target attacks another member, and that member can
+            // come to the tank (no MemberCannotCome) and is not at it yet
+            // (AtTankYards): the tank holds its fight spot, and the member
+            // brings the focus to it (jvbastel/WOWAI#169, #170, #171). Since
+            // #173 a next focus can be any enemy in the fight, also one
+            // across the room. A member at the tank walks no more: an
+            // attacker on its far side the tank takes the few steps to.
+            bool FocusOnAMemberThatCanCome(BotContext const& context)
+            {
+                Guid const focus = PickFocusTarget(context);
+                Guid const victim = context.view.GetVictim(focus);
+                return victim != NoGuid && victim != Self(context) && context.view.GetDistance(victim) > AtTankYards
+                    && !MemberCannotCome(context, focus);
             }
 
             // The tank can act on loose enemy `enemy` (jvbastel/WOWAI#169):
@@ -742,7 +761,7 @@ namespace Bots
             // it warns once for each.
             using GoneInPtr = std::shared_ptr<std::set<Guid>>;
 
-            // The pick-up rule `rule` warns when it goes in for an add of a
+            // The go-out rule `rule` warns when it goes in for an add of a
             // healer that cannot step out: once an add, of the packs it
             // pulls there.
             Rule WarnsWhenItGoesIn(Rule rule, GoneInPtr const& goneIn, LoosePickPtr const& pick)
@@ -779,8 +798,8 @@ namespace Bots
 
             // A joined enemy is due its early visit: an enemy of the fight
             // that joined the pull (JoinedThePull), is not the focus and no
-            // loose enemy (the pickup takes those), and had no visit and has
-            // no Sunder Armor yet. Where it stands does not count.
+            // loose enemy (the loose-enemy rules take those), and had no
+            // visit and has no Sunder Armor yet. Where it stands does not count.
             bool DueEarlyVisit(BotContext const& context, PullPacks const& packs, EarlyVisits const& visits,
                 std::vector<Guid> const& loose, Guid enemy)
             {
@@ -817,8 +836,8 @@ namespace Bots
                 return best;
             }
 
-            // jvbastel/WOWAI#174: Shield Block waits for the early visits. Its
-            // own record: since when each joined enemy is due its visit, in
+            // jvbastel/WOWAI#174: Shield Block and Demoralizing Shout wait for
+            // the early visits. Their own record: since when each joined enemy is due its visit, in
             // the pull of `pullTarget`.
             struct RageWait
             {
@@ -831,22 +850,23 @@ namespace Bots
             // visits (#172 before #116 and #114 for this case, as the player
             // allowed; the opener at the start of a pull, with no joined
             // enemy, is unchanged): a joined enemy of the fight is due its
-            // visit (DueEarlyVisit, wherever it stands, also on a member) since less than
-            // EarlyVisitWaitMs, and Shield Block's rage would leave less than
-            // a Sunder Armor's (ShieldBlockSpareRage). At its low level the
-            // tank gains a few rage a second: a Shield Block on the way leaves
-            // too little for the Sunder Armor when the enemy arrives. An enemy
-            // that never comes holds it back no longer than the cap.
-            bool RageWaitsForAnEarlySunder(
+            // visit (DueEarlyVisit, wherever it stands, also on a member)
+            // since less than EarlyVisitWaitMs, and their 10 rage would
+            // leave less than a Sunder Armor's (EarlyVisitSpareRage). At its
+            // low level the tank gains a few rage a second: a Shield Block or
+            // a shout on the way leaves too little for the Sunder Armor when
+            // the enemy arrives. An enemy that never comes holds them back no
+            // longer than the cap.
+            bool RageWaitsForAnEarlyVisit(
                 BotContext const& context, PullPacks const& packs, EarlyVisits const& visits, RageWait& wait)
             {
                 Guid const pullTarget = context.group.GetPull().target;
                 if (wait.pullTarget != pullTarget)
                     wait = RageWait{pullTarget, {}};
-                if (!FightsFocus(context) || Rage(context) >= ShieldBlockSpareRage)
+                if (!FightsFocus(context) || Rage(context) >= EarlyVisitSpareRage)
                     return false;
                 // A joined enemy on a member (a loose enemy) counts too: its
-                // pickup needs a Sunder Armor's rage while Taunt waits.
+                // take needs a Sunder Armor's rage while Taunt waits.
                 std::vector<Guid> const noLoose;
                 bool waits = false;
                 for (Guid enemy : EnemiesInFight(context))
@@ -939,11 +959,11 @@ namespace Bots
                     },
                     DefensiveStance, PickSelf),
                 // jvbastel/WOWAI#174: it waits for the early visits while
-                // the rage is short (RageWaitsForAnEarlySunder).
+                // the rage is short (RageWaitsForAnEarlyVisit).
                 CastRule("demoralizing shout", P + 50,
                     [pullPacks, earlyVisits, rageWait](BotContext const& context) {
                         return ShoutDue(context)
-                            && !RageWaitsForAnEarlySunder(context, *pullPacks, *earlyVisits, *rageWait);
+                            && !RageWaitsForAnEarlyVisit(context, *pullPacks, *earlyVisits, *rageWait);
                     },
                     DemoralizingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
@@ -1156,8 +1176,11 @@ namespace Bots
 
                 // The focus hits another member, and the taunt cannot come:
                 // the tank knows no Taunt, or it cannot cast it in range (it
-                // waits for its cooldown, after a resist). The damage bots
-                // then attack the focus, or nobody but the tank does.
+                // waits for its cooldown, after a resist). Taunt has the
+                // melee range (MeleeContactYards, jvbastel/WOWAI#174): out
+                // of it the member brings the focus, and the taunt comes
+                // then. The damage bots then attack the focus, or nobody
+                // but the tank does.
                 Bookkeeping("give up the taunt", P + 64,
                     [](BotContext const& context) {
                         Guid const focus = PickFocusTarget(context);
@@ -1167,12 +1190,14 @@ namespace Bots
                             return false;
                         SpellId const taunt = HighestKnownRank(context.view, Taunt);
                         return taunt == NoSpell || (context.view.HasAura(Self(context), DefensiveStance)
-                            && context.view.GetDistance(focus) <= TauntYards && !context.view.CanCast(taunt, focus));
+                            && context.view.GetDistance(focus) <= MeleeContactYards && !context.view.CanCast(taunt, focus));
                     },
                     [](BotContext const& context) { context.group.GiveUpTaunt(PickFocusTarget(context)); }),
 
                 // The fight on the focus target. A focus that runs to the
-                // tank finds it where it stands; else the tank runs to it.
+                // tank finds it where it stands, and so does a focus on a
+                // member that can come (FocusOnAMemberThatCanCome); else the
+                // tank runs to it.
                 Rule{"attack the focus target", P + 62,
                     [keptEnemy, goOutTarget](BotContext const& context) {
                         Guid const focus = PickFocusTarget(context);
@@ -1194,20 +1219,20 @@ namespace Bots
                         if (context.view.GetVictim(Self(context)) != focus || !context.view.IsMeleeAttacking())
                             return true;
                         return context.view.GetDistance(focus) > MeleeContactYards && chase.target != focus
-                            && !FocusComes(context);
+                            && !FocusComes(context) && !FocusOnAMemberThatCanCome(context);
                     },
                     {[](BotContext const& context) { return IsAlive(context.view, PickFocusTarget(context)); },
                         [](BotContext const& context) {
                             Guid const focus = PickFocusTarget(context);
                             context.actions.Attack(focus);
-                            if (FocusComes(context) && context.view.GetDistance(focus) > MeleeContactYards)
+                            if ((FocusComes(context) || FocusOnAMemberThatCanCome(context))
+                                && context.view.GetDistance(focus) > MeleeContactYards)
                                 context.actions.Stand();
                             else
                                 context.actions.Chase(focus);
                         }}},
                 // Over the attack: a new focus that hits another member is
-                // taunted off at once, from up to 20 yards, before the walk
-                // to it.
+                // taunted off as soon as it is in the melee range of Taunt.
                 CastRule("taunt", P + 63,
                     [](BotContext const& context) {
                         Guid const victim = context.view.GetVictim(PickFocusTarget(context));
@@ -1215,7 +1240,7 @@ namespace Bots
                     },
                     Taunt, PickFocusTarget),
                 // jvbastel/WOWAI#168: no turn away from an enemy that the tank
-                // attacked with no ability yet (a pick-up): Revenge or Sunder
+                // attacked with no ability yet (a take): Revenge or Sunder
                 // Armor on it first, when it can.
                 Rule{"cast on the enemy it turned to", P + CastOnTheEnemyItTurnedTo,
                     [keep](BotContext const& context) { return PickEnemyDueACast(context, *keep) != NoGuid; },
@@ -1260,7 +1285,7 @@ namespace Bots
                                                     goOutTarget),
                                   goneIn, pick),
                     goOutTarget, keep, false),
-                // jvbastel/WOWAI#126: after the taunt or the pick-up, Revenge
+                // jvbastel/WOWAI#126: after the taunt or the take, Revenge
                 // or Sunder Armor on that enemy until it is back on the tank,
                 // then the focus again. Each counts in a visit to the threat
                 // target (jvbastel/WOWAI#117), which waits for the focus.
@@ -1273,9 +1298,9 @@ namespace Bots
                 CastRule("challenging shout", P + 52,
                     ChallengingShoutDue, ChallengingShout, PickSelf),
                 // jvbastel/WOWAI#172: each enemy that joins the fight gets one
-                // Revenge or Sunder Armor at once, with no threat lead on the
+                // early visit, Revenge or Sunder Armor, at once, with no threat lead on the
                 // focus (the threat target visits below wait for it).
-                NotesEarlyVisit(Rule{"early sunder on a joined enemy", P + EarlySunderOnAJoinedEnemy,
+                NotesEarlyVisit(Rule{"early visit on a joined enemy", P + EarlyVisitOnAJoinedEnemy,
                                     [earlyVisit](BotContext const& context) { return earlyVisit(context) != NoGuid; },
                                     ThreatAbilityOn(earlyVisit)},
                     earlyVisit, earlyVisits),
@@ -1286,12 +1311,12 @@ namespace Bots
                 // Below Revenge: more blocks give more Revenge. The cast
                 // check covers the shield and the cooldown.
                 // jvbastel/WOWAI#174: it waits for the early visits while
-                // the rage is short (RageWaitsForAnEarlySunder).
+                // the rage is short (RageWaitsForAnEarlyVisit).
                 CastRule("shield block", P + 38,
                     [pullPacks, earlyVisits, rageWait](BotContext const& context) {
                         return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
                             && Rage(context) >= ShieldBlockRage && IsHitInMelee(context, MeleeContactYards)
-                            && !RageWaitsForAnEarlySunder(context, *pullPacks, *earlyVisits, *rageWait);
+                            && !RageWaitsForAnEarlyVisit(context, *pullPacks, *earlyVisits, *rageWait);
                     },
                     ShieldBlock, PickSelf),
                 // jvbastel/WOWAI#117: one Sunder Armor on the threat target

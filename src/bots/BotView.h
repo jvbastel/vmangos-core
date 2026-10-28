@@ -89,8 +89,9 @@ namespace Bots
         // cannot see.
         virtual PowerKind GetPowerKind(Guid unit) const = 0;
         // True when unit `unit` is a player of a class that wears cloth: a
-        // mage, a warlock or a priest (jvbastel/WOWAI#168, the tank's pickup
-        // order). False for a unit that the bot cannot see.
+        // mage, a warlock or a priest (jvbastel/WOWAI#168, the order in
+        // which the tank takes loose enemies). False for a unit that the
+        // bot cannot see.
         virtual bool WearsCloth(Guid unit) const = 0;
         // True when unit `unit` cannot move: it is rooted or stunned
         // (jvbastel/WOWAI#169: the tank goes to such a member to take its
