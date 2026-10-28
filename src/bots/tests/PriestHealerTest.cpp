@@ -660,3 +660,31 @@ TEST(PriestHealerRank, RenewKeepsItsHighestRankOnASmallWound)
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Renew2, Tank)}));
 }
+
+// jvbastel/WOWAI#135: from level 20 the healer knows Flash Heal. It casts it
+// only for a member near death, who dies before a slow heal lands. In every
+// other case it casts its slow heals, which give more health per mana.
+namespace
+{
+    Bots::SpellId const FlashHeal2 = 9472;
+
+    // A level 20 healer: it knows Flash Heal, and the heal ranks of #134.
+    void KnowFlashHeal(PriestHealer& priest)
+    {
+        KnowTheHealRanks(priest);
+        priest.fake.SetKnownSpell(Priest::FlashHeal);
+        priest.fake.SetHealRank(Priest::FlashHeal, 224, 125);
+    }
+}
+
+TEST(PriestHealerFlashHeal, FlashHealsARageTankNearDeath)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 150, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::FlashHeal, Tank)}));
+}

@@ -14,6 +14,10 @@ namespace Bots
             float const HealBelow = 0.5f;
             float const LesserHealBelow = 0.7f;
             float const RenewBelow = 0.9f;
+            // jvbastel/WOWAI#135: a member below this fraction dies before a
+            // slow heal lands. It gets Flash Heal (from level 20), which
+            // costs the most mana per health, so no other member gets it.
+            float const FlashHealBelow = 0.3f;
 
             // jvbastel/WOWAI#111: in a pull, the healer waits this long
             // after the tank engages (HoldPull) before its first heal, so
@@ -217,6 +221,11 @@ namespace Bots
                 // dispel: it heals through every debuff.
                 CastRule("shield a member near death", P + 88, SomeoneBelow(ShieldBelow, ShieldHelps),
                     PowerWordShield, HurtMember(ShieldBelow, ShieldHelps)),
+                // jvbastel/WOWAI#135: a member near death that the shield
+                // skips (a rage tank, Weakened Soul), or that is still near
+                // death under its shield, gets the fast heal.
+                CastRule("flash heal a member near death", P + 87, SomeoneBelow(FlashHealBelow), FlashHeal,
+                    HurtMember(FlashHealBelow), CastableHealRank),
                 // jvbastel/WOWAI#134: Lesser Heal and Heal take the rank
                 // that fits the missing health. Renew, the shield, and the
                 // buffs take their highest rank.
