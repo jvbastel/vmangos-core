@@ -203,7 +203,7 @@ namespace Bots
     std::size_t FailedPulls(std::vector<RunPull> const& pulls);
 }
 
-// jvbastel/WOWAI#168: two pass checks of the tank. The game layer feeds them
+// The pass checks of the tank (jvbastel/WOWAI#168, #172). The game layer feeds them
 // at each update of the fight; a failure goes to RunJudge::NoteFailedCheck.
 namespace Bots
 {
@@ -225,10 +225,12 @@ namespace Bots
         bool extraPack;
         EnemyVictim victim;
         // jvbastel/WOWAI#172: in the tank's melee reach.
-        bool inTankMelee = false;
+        bool inTankMelee;
         // jvbastel/WOWAI#174: it has really hit its victim (a swing or a
-        // spell at it, RealHitGate), not only taken it as its victim.
-        bool hitVictim = true;
+        // spell at it, RealHitGate), not only taken it as its victim. No
+        // default: a caller that forgets it would time from the victim
+        // update again.
+        bool hitVictim;
     };
 
     // `expect healer_pickup_seconds <n>`: each extra-pack enemy that hits

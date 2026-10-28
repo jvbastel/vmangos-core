@@ -571,7 +571,7 @@ namespace
 
     Bots::FightEnemySeen Seen(Bots::Guid enemy, std::string name, Bots::EnemyVictim victim, bool extraPack = true)
     {
-        return {enemy, std::move(name), extraPack, victim};
+        return {enemy, std::move(name), extraPack, victim, false, true};
     }
 }
 
