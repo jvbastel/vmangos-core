@@ -262,15 +262,72 @@ namespace Bots
                 return early && MostHurtMember(context, DangerBelow, AnyMember) == NoGuid;
             }
 
+            // jvbastel/WOWAI#194: in a player-tank group, a member below
+            // this fraction, or one that dies within DyingSoonMs at its
+            // damage rate, gets a heal before the threat lead.
+            float const PlayerTankDangerBelow = 0.4f;
+            std::int64_t const DyingSoonMs = 3000;
+
+            // jvbastel/WOWAI#194: in a player-tank group, the bot notes the
+            // health of each living member on each think that reaches the
+            // heals, for its damage rate (GroupCoordinator::NoteDamageRate).
+            void NoteDamageRates(BotContext const& context)
+            {
+                if (!context.group.IsPlayerTankGroup())
+                    return;
+                for (Guid member : context.view.GetGroupMembers())
+                    if (IsAlive(context.view, member))
+                        context.group.NoteDamageRate(member, context.view.GetHealth(member).current, context.nowMs);
+            }
+
+            // jvbastel/WOWAI#194: a heal on member `member` may start now.
+            // Always in a bot-tank group (its pull wait is WaitsForTheTank),
+            // and always on the tank. In a player-tank group, a heal on any
+            // other member (the healer too) waits for the threat lead of the
+            // tank (TankHoldsThreat, DamageRules.h): heal threat goes to every
+            // enemy in the fight. Unless the member is in danger: below
+            // PlayerTankDangerBelow, or dying within DyingSoonMs at the damage
+            // rate it lost health at.
+            bool HealMayStart(BotContext const& context, Guid member)
+            {
+                if (!context.group.IsPlayerTankGroup() || member == context.group.GetTank())
+                    return true;
+                std::uint32_t const health = context.view.GetHealth(member).current;
+                float const rate = context.group.NoteDamageRate(member, health, context.nowMs);
+                if (TankHoldsThreat(context) || HealthFraction(context.view, member) < PlayerTankDangerBelow)
+                    return true;
+                return rate > 0.0f && float(health) <= rate * float(DyingSoonMs) / 1000.0f;
+            }
+
+            // The most hurt member below `below` that `filter` accepts, and
+            // whose heal may start (HealMayStart), or NoGuid.
+            Guid MostHurtHealable(BotContext const& context, float below, MemberFilter filter)
+            {
+                Guid most = NoGuid;
+                float lowest = below;
+                for (Guid member : context.view.GetGroupMembers())
+                {
+                    float const fraction = HealthFraction(context.view, member);
+                    if (IsAlive(context.view, member) && fraction < lowest && filter(context, member)
+                        && HealMayStart(context, member))
+                    {
+                        most = member;
+                        lowest = fraction;
+                    }
+                }
+                return most;
+            }
+
             TargetPicker HurtMember(float below, MemberFilter filter = AnyMember)
             {
-                return [below, filter](BotContext const& context) { return MostHurtMember(context, below, filter); };
+                return [below, filter](BotContext const& context) { return MostHurtHealable(context, below, filter); };
             }
 
             Trigger SomeoneBelow(float below, MemberFilter filter = AnyMember)
             {
                 return [below, filter](BotContext const& context) {
-                    return !WaitsForTheTank(context) && MostHurtMember(context, below, filter) != NoGuid;
+                    NoteDamageRates(context);
+                    return !WaitsForTheTank(context) && MostHurtHealable(context, below, filter) != NoGuid;
                 };
             }
 

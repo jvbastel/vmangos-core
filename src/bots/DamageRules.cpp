@@ -137,30 +137,41 @@ namespace Bots
         return IsFrozen(context.view, enemy) && context.view.GetVictim(enemy) != context.group.GetTank();
     }
 
+    namespace
+    {
+        // PickDamageTarget, with the takeover ratio of the bot's reach for
+        // the threat throttle (HoldsBackOnThreat, jvbastel/WOWAI#194).
+        Guid PickDamageTargetAt(BotContext const& context, float takeover)
+        {
+            if (IsAlive(context.view, context.attackTarget))
+                return context.attackTarget;
+            Guid const healer = PickEnemyHealer(context);
+            if (healer != NoGuid && !HoldsFireOn(context, healer))
+                return healer;
+            Guid const focus = context.group.GetFocusTarget();
+            bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
+            if (!IsAlive(context.view, context.group.GetTank()))
+            {
+                Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);
+                if (loose != NoGuid)
+                    return loose;
+            }
+            if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
+                && IsInChaseLimit(context, focus) && !HoldsFireOn(context, focus)
+                && !HoldsBackOnThreat(context, focus, takeover))
+                return focus;
+            return NoGuid;
+        }
+    }
+
     Guid PickDamageTarget(BotContext const& context)
     {
-        if (IsAlive(context.view, context.attackTarget))
-            return context.attackTarget;
-        Guid const healer = PickEnemyHealer(context);
-        if (healer != NoGuid && !HoldsFireOn(context, healer))
-            return healer;
-        Guid const focus = context.group.GetFocusTarget();
-        bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
-        if (!IsAlive(context.view, context.group.GetTank()))
-        {
-            Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);
-            if (loose != NoGuid)
-                return loose;
-        }
-        if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
-            && IsInChaseLimit(context, focus) && !HoldsFireOn(context, focus))
-            return focus;
-        return NoGuid;
+        return PickDamageTargetAt(context, RangedTakeoverRatio);
     }
 
     Guid PickMeleeDamageTarget(BotContext const& context)
     {
-        Guid target = PickDamageTarget(context);
+        Guid target = PickDamageTargetAt(context, MeleeTakeoverRatio);
         if (target == NoGuid)
             target = OwnAttackerAtTank(context);
         return target != NoGuid && InOtherPacksReach(context, context.view.GetPosition(target)) ? NoGuid : target;
@@ -211,5 +222,25 @@ namespace Bots
                 context.actions.Follow(tank);
         };
         return rule;
+    }
+
+    bool HoldsBackOnThreat(BotContext const& context, Guid enemy, float takeover)
+    {
+        Guid const self = context.view.GetSelf();
+        if (!context.group.IsPlayerTankGroup() || LivingTank(context) == NoGuid)
+            return false;
+        float const ratio = context.view.GetThreatRatio(self, enemy);
+        bool const holds = context.group.HoldsBackOnThreat(self, enemy);
+        if (holds && ratio < ThreatStartShare * takeover)
+        {
+            context.group.EndThreatHold(self);
+            return false;
+        }
+        if (!holds && ratio >= ThreatStopShare * takeover)
+        {
+            context.group.HoldBackOnThreat(self, enemy);
+            return true;
+        }
+        return holds;
     }
 }

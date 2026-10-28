@@ -2,6 +2,7 @@
 #include "MageModule.h"
 #include "RogueModule.h"
 #include "FakeBot.h"
+#include "PlayerTank.h"
 
 #include <gtest/gtest.h>
 
@@ -300,4 +301,62 @@ TEST(Rogue, ADeadRogueStopsNothing)
 
     for (std::string const& deed : rogue.fake.Deeds())
         EXPECT_NE(deed, "stop the attack");
+}
+
+// jvbastel/WOWAI#194: the threat throttle in a player-tank group. At the
+// threat stop (90% of the melee takeover, 110% of the tank's threat), the
+// Rogue uses Feint when it knows it, else it stops its swing.
+namespace
+{
+    // The player tanks: it held the kobold for the threat lead, and the
+    // Rogue swings at it with `ratio` of the tank's threat.
+    void PlayerTankHoldsKobold(RogueBot& rogue, float ratio)
+    {
+        rogue.fake.SetGroupMembers({Player});
+        rogue.fake.SetDistance(Player, 3.0f);
+        rogue.group.SetTank(Player, true);
+        rogue.fake.SetVictim(Kobold, Player);
+        rogue.fake.SetTargetOf(Player, Kobold);
+        rogue.fake.SetThreatRatio(Player, Kobold, 1.5f);
+        Bots::WatchPlayerTank(rogue.fake, rogue.group, 0);
+        Bots::WatchPlayerTank(rogue.fake, rogue.group, Bots::PlayerTankHoldMs);
+        rogue.fake.SetThreatRatio(Self, Kobold, ratio);
+        rogue.fake.SetVictim(Self, Kobold);
+        rogue.fake.ChaseBehind(Kobold);
+        rogue.fake.ClearDeeds();
+    }
+}
+
+TEST(RoguePlayerTank, FeintsAtTheThreatStop)
+{
+    RogueBot rogue;
+    rogue.fake.SetKnownSpell(Rogue::Feint);
+    PlayerTankHoldsKobold(rogue, 1.0f);
+
+    BotContext context{rogue.fake, rogue.fake, rogue.group, Bots::CommandState::Follow, Player, NoGuid};
+    context.nowMs = Bots::PlayerTankHoldMs + 100;
+    EXPECT_EQ(rogue.stack.Think(context), "feint at the threat stop");
+    EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{CastOn(Rogue::Feint, Kobold)}));
+}
+
+TEST(RoguePlayerTank, StopsTheSwingAtTheThreatStopWithoutFeint)
+{
+    RogueBot rogue;
+    PlayerTankHoldsKobold(rogue, 1.0f);
+
+    BotContext context{rogue.fake, rogue.fake, rogue.group, Bots::CommandState::Follow, Player, NoGuid};
+    context.nowMs = Bots::PlayerTankHoldMs + 100;
+    rogue.stack.Think(context);
+    EXPECT_EQ(rogue.fake.Deeds(), (std::vector<std::string>{"stop the attack"}));
+}
+
+TEST(RoguePlayerTank, SwingsOnUnderTheThreatStop)
+{
+    RogueBot rogue;
+    rogue.fake.SetKnownSpell(Rogue::Feint);
+    PlayerTankHoldsKobold(rogue, 0.98f);
+
+    BotContext context{rogue.fake, rogue.fake, rogue.group, Bots::CommandState::Follow, Player, NoGuid};
+    context.nowMs = Bots::PlayerTankHoldMs + 100;
+    EXPECT_EQ(rogue.stack.Think(context), "sinister strike");
 }

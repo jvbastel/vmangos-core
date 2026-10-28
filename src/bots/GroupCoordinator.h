@@ -142,6 +142,10 @@ namespace Bots
     // this many milliseconds before is losing health (NoteHealthFalls).
     std::int64_t const HealthFallMs = 2000;
 
+    // jvbastel/WOWAI#194: the healer reads a member's damage rate over this
+    // many milliseconds (NoteDamageRate).
+    std::int64_t const DamageRateMs = 3000;
+
     // The clocks of a held pull, both from the engage (PullState::engagedMs)
     // and both once the tank is back at its fight spot
     // (PullState::backAtFightSpot), in this order:
@@ -399,6 +403,19 @@ namespace Bots
         // noted in the HealthFallMs before: the bot is losing health.
         bool NoteHealthFalls(Guid bot, std::uint32_t health, std::int64_t nowMs);
 
+        // jvbastel/WOWAI#194: the threat throttle (DamageRules.h). Bot `bot`
+        // holds back on enemy `enemy` until EndThreatHold. One enemy per
+        // bot: a new hold replaces the last.
+        void HoldBackOnThreat(Guid bot, Guid enemy);
+        void EndThreatHold(Guid bot);
+        bool HoldsBackOnThreat(Guid bot, Guid enemy) const;
+
+        // jvbastel/WOWAI#194: the health of member `member` at `nowMs`, as
+        // the healer sees it on each think. Returns the health the member
+        // lost per second over the notes of the last DamageRateMs (from
+        // the oldest of them), 0 when it lost none.
+        float NoteDamageRate(Guid member, std::uint32_t health, std::int64_t nowMs);
+
     private:
         // A pull is on, and `puller` is its puller. The caller holds the lock.
         bool PullsNow(Guid puller) const;
@@ -447,6 +464,11 @@ namespace Bots
             std::uint32_t health;
         };
         std::map<Guid, std::vector<HealthNote>> m_healthNotes;
+        // jvbastel/WOWAI#194: by bot, the enemy it holds back on.
+        std::map<Guid, Guid> m_threatHolds;
+        // jvbastel/WOWAI#194: by member, its health notes of the last
+        // DamageRateMs, oldest first (NoteDamageRate).
+        std::map<Guid, std::vector<HealthNote>> m_damageNotes;
     };
 }
 

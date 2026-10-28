@@ -13,7 +13,8 @@ namespace Bots
     // 1. the attack target of the player (`attack`), at once;
     // 2. an enemy healer in the fight (GroupRules.h), until it dies;
     // 3. the focus target, once the tank holds threat on it
-    //    (TankHoldsThreat below), while it is in
+    //    (TankHoldsThreat below), while the bot does not hold back on its
+    //    threat (HoldsBackOnThreat, jvbastel/WOWAI#194), while it is in
     //    the chase limit (GroupRules.h). Not while it hits another member
     //    and the tank lives: the bot waits for the taunt, unless the tank
     //    gave it up (GroupCoordinator::GiveUpTaunt), or it is the target of
@@ -90,6 +91,27 @@ namespace Bots
     // it. It keeps hitting the focus once there. Not with an attack target
     // of the player.
     Rule WalkToTankRule(int priority);
+
+    // jvbastel/WOWAI#194: the threat throttle (spec #188). An enemy goes
+    // from the tank to a member whose threat on it is this ratio of the
+    // tank's: in melee, and at range.
+    float const MeleeTakeoverRatio = 1.1f;
+    float const RangedTakeoverRatio = 1.3f;
+    // A damage bot holds back on the focus at this share of its takeover
+    // ratio, and starts again under the second one.
+    float const ThreatStopShare = 0.9f;
+    float const ThreatStartShare = 0.8f;
+
+    // jvbastel/WOWAI#194: in a player-tank group with a living tank, the
+    // bot holds back on enemy `enemy` now: its threat ratio on it
+    // (BotView::GetThreatRatio) reached ThreatStopShare of `takeover`, and
+    // has not fallen under ThreatStartShare of it since
+    // (GroupCoordinator::HoldBackOnThreat). Notes the change. Never in a
+    // bot-tank group: its warrior tank keeps threat with its own rules.
+    // PickDamageTarget (RangedTakeoverRatio) and PickMeleeDamageTarget
+    // (MeleeTakeoverRatio) skip the focus while it holds. A loose enemy
+    // that attacks the bot is no focus: the bot still fights it back.
+    bool HoldsBackOnThreat(BotContext const& context, Guid enemy, float takeover);
 }
 
 #endif
