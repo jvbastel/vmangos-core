@@ -2,23 +2,37 @@
 """The dungeon map: a local page that shows the navmesh floor of a dungeon
 and its route.
 
-    uv run map_web.py <route> [--navmesh DIR] [--settings FILE] [--port 8766]
+    bots/tools/route-map/route-map <route> [--navmesh DIR] [--settings FILE] [--port 8766] [--no-browser]
 
-See spec jvbastel/WOWAI#148 and ADR 0003.
+The route is a route file name in the routes folder, for example
+ragefire_chasm. The map id comes from the route file. The navmesh, routes
+and exports folders come from settings.toml; --navmesh overrides the
+navmesh folder. The page is http://127.0.0.1:8766/?route=<route>.
+
+The navmesh reader is navmesh.py, the floor image floor_image.py, the route
+file reader route_file.py, the page map_page.html. See spec
+jvbastel/WOWAI#148 and ADR 0003.
 """
 
 from __future__ import annotations
 
+import argparse
 import base64
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 
 import floor_image
 import navmesh
 import route_file
+
+
+HERE = Path(__file__).resolve().parent
+PAGE = HERE / "map_page.html"
 
 
 @dataclass
@@ -26,6 +40,36 @@ class Settings:
     navmesh: Path
     routes: Path
     exports: Path
+
+    @classmethod
+    def load(cls, path: Path) -> "Settings":
+        """The settings file; its relative paths are relative to its folder."""
+        paths = tomllib.loads(path.read_text())["paths"]
+        return cls(*(path.parent / Path(paths[k]) for k in ("navmesh", "routes", "exports")))
+
+
+@dataclass
+class Command:
+    route: str
+    settings: Settings
+    host: str
+    port: int
+    browser: bool
+
+
+def read_command(argv=None) -> Command:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("route", help="the route name, for example ragefire_chasm")
+    parser.add_argument("--settings", type=Path, default=HERE / "settings.toml")
+    parser.add_argument("--navmesh", type=Path, help="the navmesh folder (default: from the settings file)")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--no-browser", dest="browser", action="store_false", help="do not open a browser")
+    args = parser.parse_args(argv)
+    settings = Settings.load(args.settings)
+    if args.navmesh:
+        settings.navmesh = args.navmesh
+    return Command(args.route, settings, args.host, args.port, args.browser)
 
 
 def pack_view(route, pack, order):
@@ -47,6 +91,10 @@ def create_app(settings: Settings) -> FastAPI:
             return route_file.parse(path.read_text())
         except route_file.RouteFileError as error:
             raise HTTPException(422, f"{path}: {error}")
+
+    @app.get("/", response_class=HTMLResponse)
+    def page():
+        return PAGE.read_text()
 
     meshes = {}
 
@@ -93,3 +141,33 @@ def create_app(settings: Settings) -> FastAPI:
         }
 
     return app
+
+
+def open_browser(url):
+    """Open the page: in the Windows browser under WSL, else the default one."""
+    import shutil
+    import subprocess
+    import webbrowser
+
+    if shutil.which("explorer.exe"):
+        subprocess.Popen(["explorer.exe", url])  # WSL: explorer.exe opens a URL in the Windows browser
+    else:
+        webbrowser.open(url)
+
+
+def main(argv=None):
+    command = read_command(argv)
+    import threading
+
+    import uvicorn
+
+    app = create_app(command.settings)
+    url = f"http://{command.host}:{command.port}/?route={command.route}"
+    print(f"Dungeon map of {command.route}: {url} (navmesh {command.settings.navmesh}). Ctrl+C stops it.")
+    if command.browser:
+        threading.Timer(1.0, open_browser, [url]).start()
+    uvicorn.run(app, host=command.host, port=command.port, log_level="warning")
+
+
+if __name__ == "__main__":
+    main()

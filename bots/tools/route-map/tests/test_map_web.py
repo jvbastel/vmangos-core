@@ -91,3 +91,32 @@ def test_a_height_range_draws_only_the_floors_in_it(tmp_path):
     assert lower == {"x_min": 100.0, "x_max": 114.0, "y_min": -50.0, "y_max": -34.0, "z_min": -20.0, "z_max": -19.0}
     assert empty.status_code == 422
     assert "no floor between" in empty.json()["detail"]
+
+
+def test_the_page_is_served(tmp_path):
+    response = client(tmp_path).get("/")
+
+    assert response.status_code == 200
+    assert "Dungeon map" in response.text
+
+
+def write_settings(tmp_path):
+    path = tmp_path / "settings.toml"
+    path.write_text('[paths]\nnavmesh = "/data/mmaps"\nroutes = "routes"\nexports = "exports"\n')
+    return path
+
+
+def test_the_command_takes_the_navmesh_folder_from_the_settings_file(tmp_path):
+    command = map_web.read_command(["ragefire_chasm", "--settings", str(write_settings(tmp_path))])
+
+    assert command.route == "ragefire_chasm"
+    assert command.settings.navmesh == map_web.Path("/data/mmaps")
+    assert command.settings.routes == tmp_path / "routes"  # relative to the settings file
+    assert command.settings.exports == tmp_path / "exports"
+
+
+def test_the_navmesh_option_overrides_the_settings_file(tmp_path):
+    command = map_web.read_command(["ragefire_chasm", "--settings", str(write_settings(tmp_path)),
+                                    "--navmesh", str(tmp_path / "other")])
+
+    assert command.settings.navmesh == tmp_path / "other"
