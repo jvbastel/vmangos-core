@@ -70,7 +70,7 @@
       const line = document.createElementNS(SVG, "polyline");
       line.setAttribute("class", "walked");
       line.setAttribute("stroke", colour);
-      line.setAttribute("points", member.points.map(p => `${-p.y},${-p.x}`).join(" "));
+      line.setAttribute("points", member.points.map(p => `${sx(p)},${sy(p)}`).join(" "));
       const title = document.createElementNS(SVG, "title");
       title.textContent = `${member.name}: ${member.points.length} positions, ` +
         `${member.points[0].t} s to ${member.points[member.points.length - 1].t} s`;

@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <limits>
 #include <map>
 #include <string>
 #include <utility>
@@ -25,8 +26,8 @@
 namespace Bots
 {
     std::int64_t const TraceKeepMs = 3 * 60000;
-    // Keep every event of the run.
-    std::int64_t const TraceKeepWholeRun = 0;
+    // Keep every event of the run: a window longer than any run.
+    std::int64_t const TraceKeepWholeRun = std::numeric_limits<std::int64_t>::max();
 
     // What the trace sees of one member at one update.
     struct MemberState

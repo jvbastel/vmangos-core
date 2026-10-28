@@ -52,7 +52,7 @@ namespace Bots
     {
         m_events.emplace_back(ms, line);
         m_new.emplace_back(ms, line);
-        while (m_keepMs != TraceKeepWholeRun && !m_events.empty() && m_events.front().first < ms - m_keepMs)
+        while (!m_events.empty() && m_events.front().first < ms - m_keepMs)
             m_events.pop_front();
     }
 

@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import FileResponse
 
 HERE = Path(__file__).resolve().parent
 SCRIPT = HERE / "walked_path.js"
@@ -53,4 +53,4 @@ def add_routes(app: FastAPI) -> None:
 
     @app.get("/walked_path.js")
     def script():
-        return Response(SCRIPT.read_text(), media_type="text/javascript")
+        return FileResponse(SCRIPT, media_type="text/javascript")
