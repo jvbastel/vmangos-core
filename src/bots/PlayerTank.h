@@ -34,6 +34,9 @@ namespace Bots
 
     // The player-tank watch of one bot, before each think. Nothing in a
     // group that is no player-tank group. Else:
+    // - Spec #188 fix-up (S2): once the group is out of combat and the
+    //   focus is out of the fight (IsInCombatWithTheGroup), the focus goes,
+    //   and with it the tank-on-top clock.
     // - jvbastel/WOWAI#195: with the tank seen dead (SeenDead), nothing:
     //   the focus stays as it is.
     // - The focus becomes PickPlayerTankFocus (jvbastel/WOWAI#191: skull,

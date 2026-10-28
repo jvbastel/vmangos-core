@@ -2,6 +2,7 @@
 #include "CommonRules.h"
 #include "DamageRules.h"
 #include "HealerSight.h"
+#include "PlayerTank.h"
 #include "Ranged.h"
 #include "SafePlace.h"
 #include "SpellBook.h"
@@ -114,15 +115,23 @@ namespace Bots
             // and always on the tank. In a player-tank group, a heal on any
             // other member (the healer too) waits for the threat lead of the
             // tank (TankHoldsThreat, DamageRules.h): heal threat goes to every
-            // enemy in the fight. Unless the member is in danger: below
+            // enemy in the fight. Only while the group fights the focus
+            // (IsInCombatWithTheGroup) and the tank lives (spec #188 fix-up
+            // S2). Unless the member is in danger: below
             // PlayerTankDangerBelow, or dying within DyingSoonMs at the damage
             // rate it lost health at.
             bool HealMayStart(BotContext const& context, Guid member)
             {
-                if (!context.group.IsPlayerTankGroup() || member == context.group.GetTank())
+                Guid const tank = context.group.GetTank();
+                if (!context.group.IsPlayerTankGroup() || member == tank)
                     return true;
                 std::uint32_t const health = context.view.GetHealth(member).current;
                 float const rate = context.group.NoteDamageRate(member, health, context.nowMs);
+                // Spec #188 fix-up (S2): the wait holds only while the group
+                // fights the focus, and while the tank lives.
+                Guid const focus = context.group.GetFocusTarget();
+                if (focus == NoGuid || !IsInCombatWithTheGroup(context.view, focus) || SeenDead(context.view, tank))
+                    return true;
                 if (TankHoldsThreat(context) || HealthFraction(context.view, member) < PlayerTankDangerBelow)
                     return true;
                 return rate > 0.0f && float(health) <= rate * float(DyingSoonMs) / 1000.0f;

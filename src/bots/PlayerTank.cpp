@@ -35,6 +35,13 @@ namespace Bots
     {
         if (!group.IsPlayerTankGroup())
             return;
+        // Spec #188 fix-up (S2): the group left combat, and the focus is
+        // out of the fight: the fight is over. No focus, and no tank on top.
+        // Only a bot that sees the focus (dead or alive) judges it.
+        Guid const last = group.GetFocusTarget();
+        if (last != NoGuid && view.GetHealth(last).max > 0 && !IsInCombatWithTheGroup(view, last)
+            && !IsGroupInCombat(view))
+            group.SetFocusTarget(NoGuid);
         Guid const tank = group.GetTank();
         // jvbastel/WOWAI#195: the tank died mid-fight: the focus stays as
         // it is, whatever the dead tank still targets or marks.

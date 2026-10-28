@@ -1656,3 +1656,53 @@ TEST(PriestHealerPlayerTank, ShieldsItselfInDangerBeforeTheThreatLead)
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Healer)}));
 }
+
+// Spec #188 fix-up (S2): the heal wait of a player-tank group holds only
+// while the group fights the focus. Out of combat no heal waits, and the
+// group's leaving combat clears the focus and the tank-on-top clock. With
+// the tank dead, the heals on others wait no more.
+TEST(PriestHealerPlayerTank, BeforeTheFirstFightAHurtMemberGetsAHeal)
+{
+    PriestHealer priest;
+    priest.group.SetTank(Tank, true);
+    priest.fake.SetHealth(Mage, 360, 600);
+    Bots::WatchPlayerTank(priest.fake, priest.group, 0);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Mage)}));
+}
+
+TEST(PriestHealerPlayerTank, AfterAFightThatEndedBeforeTheThreatLeadAHurtMemberGetsAHeal)
+{
+    PriestHealer priest;
+    PlayerTankFights(priest);
+    // The kobold died before the tank held it for the threat lead, and the
+    // group left combat.
+    priest.fake.SetHealth(Kobold, 0, 200);
+    priest.fake.SetLifeState(Kobold, Bots::LifeState::Dead);
+    priest.fake.SetVictim(Kobold, NoGuid);
+    priest.fake.SetVictim(Tank, NoGuid);
+    priest.fake.SetInCombat(Healer, false);
+    priest.nowMs = 1000;
+    Bots::WatchPlayerTank(priest.fake, priest.group, priest.nowMs);
+    priest.fake.SetHealth(Mage, 360, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.group.GetFocusTarget(), NoGuid);
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Mage)}));
+}
+
+TEST(PriestHealerPlayerTank, WithTheTankDeadBeforeTheThreatLeadAHurtMemberGetsAHeal)
+{
+    PriestHealer priest;
+    PlayerTankFights(priest);
+    priest.fake.SetHealth(Tank, 0, 600);
+    priest.fake.SetLifeState(Tank, Bots::LifeState::Dead);
+    priest.fake.SetHealth(Mage, 360, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Mage)}));
+}
