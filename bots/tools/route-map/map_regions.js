@@ -22,7 +22,7 @@
     .rg-point.first { fill: #fff; cursor: pointer; pointer-events: all; }
     .rg-name { fill: #bfe0ff; paint-order: stroke; stroke: #000; stroke-linejoin: round; pointer-events: none; }
     button.rg-on { background: #78beff; color: #000; }
-    #rg-panel { position: fixed; left: 8px; top: 52px; width: 240px; max-height: calc(100% - 64px); overflow-y: auto;
+    #rg-panel { position: fixed; left: 8px; bottom: 8px; width: 240px; max-height: 40%; overflow-y: auto;
                 background: rgba(38, 41, 44, 0.95); border: 1px solid #555; padding: 6px 8px; display: none; }
     #rg-panel h2 { font-size: 14px; margin: 2px 0 6px; }
     #rg-panel ol { margin: 6px 0; padding-left: 1.4em; }
@@ -161,6 +161,7 @@
     on = next;
     modeButton.classList.toggle("rg-on", on);
     panel.style.display = on || regions.length ? "block" : "none";
+    for (const id of ["rg-close", "rg-cancel"]) document.getElementById(id).style.display = on ? "" : "none";
     if (on && drawButton.classList.contains("on")) drawButton.click();  // Draw mode off
     if (on) map.style.cursor = "crosshair";
     else if (!drawButton.classList.contains("on")) map.style.cursor = "";
