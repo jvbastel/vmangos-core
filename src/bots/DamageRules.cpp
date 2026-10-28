@@ -11,16 +11,6 @@ namespace Bots
 {
     namespace
     {
-        // The enemies that a damage bot does not attack: Ranged, the ones
-        // it holds fire on (HoldsFireOn); Melee, every frozen enemy
-        // (IsFrozen, jvbastel/WOWAI#142): a hit breaks the freeze.
-        enum class Hold { Ranged, Melee };
-
-        bool Holds(BotContext const& context, Guid enemy, Hold hold)
-        {
-            return hold == Hold::Melee ? IsFrozen(context.view, enemy) : HoldsFireOn(context, enemy);
-        }
-
         // Outside a pull, a focus that hits a member other than the living
         // tank is not the tank's yet: the damage bots wait for the taunt,
         // while the taunt can come.
@@ -37,8 +27,9 @@ namespace Bots
         // The living enemies in the chase limit that hit a living group
         // member other than the living tank, the bot included, in the
         // order of the group members. It skips the
-        // enemy `skip`. The tank holds its own attackers.
-        std::vector<Guid> LooseEnemies(BotContext const& context, Guid skip, Hold hold)
+        // enemy `skip`, and the ones that the bot holds fire on
+        // (HoldsFireOn). The tank holds its own attackers.
+        std::vector<Guid> LooseEnemies(BotContext const& context, Guid skip)
         {
             Guid const tank = context.group.GetTank();
             bool const tankLives = IsAlive(context.view, tank);
@@ -47,7 +38,7 @@ namespace Bots
                 if (IsAlive(context.view, member) && !(tankLives && member == tank))
                     for (Guid attacker : context.view.GetAttackers(member))
                         if (attacker != skip && IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker)
-                            && !Contains(enemies, attacker) && !Holds(context, attacker, hold))
+                            && !Contains(enemies, attacker) && !HoldsFireOn(context, attacker))
                             enemies.push_back(attacker);
             return enemies;
         }
@@ -75,9 +66,9 @@ namespace Bots
         // first that no member attacks; else the bot's own victim; else the
         // first. So the damage bots spread over the loose enemies, no enemy
         // stays lost, and two bots on one enemy do not swap back and forth.
-        Guid PickLooseEnemy(BotContext const& context, Guid skip, Hold hold)
+        Guid PickLooseEnemy(BotContext const& context, Guid skip)
         {
-            std::vector<Guid> const enemies = LooseEnemies(context, skip, hold);
+            std::vector<Guid> const enemies = LooseEnemies(context, skip);
             if (enemies.empty())
                 return NoGuid;
             Guid const own = context.view.GetVictim(context.view.GetSelf());
@@ -93,23 +84,23 @@ namespace Bots
 
     namespace
     {
-        // PickDamageTarget, with no enemy that `hold` holds (Holds). The
-        // attack target of the player is never held: the player's command
-        // wins, even on a frozen enemy.
-        Guid PickTarget(BotContext const& context, Hold hold)
+        // The damage target, with no enemy that the bot holds fire on
+        // (HoldsFireOn). The attack target of the player is never held: the
+        // player's command wins, even on a frozen enemy.
+        Guid PickTarget(BotContext const& context)
         {
             if (IsAlive(context.view, context.attackTarget))
                 return context.attackTarget;
             Guid const healer = PickEnemyHealer(context);
-            if (healer != NoGuid && !Holds(context, healer, hold))
+            if (healer != NoGuid && !HoldsFireOn(context, healer))
                 return healer;
             Guid const focus = context.group.GetFocusTarget();
             bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
-            Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid, hold);
+            Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);
             if (loose != NoGuid)
                 return loose;
             if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
-                && IsInChaseLimit(context, focus) && !Holds(context, focus, hold))
+                && IsInChaseLimit(context, focus) && !HoldsFireOn(context, focus))
                 return focus;
             return NoGuid;
         }
@@ -127,12 +118,12 @@ namespace Bots
 
     Guid PickDamageTarget(BotContext const& context)
     {
-        return PickTarget(context, Hold::Ranged);
+        return PickTarget(context);
     }
 
     Guid PickMeleeDamageTarget(BotContext const& context)
     {
-        Guid const target = PickTarget(context, Hold::Melee);
+        Guid const target = PickTarget(context);
         return target != NoGuid && InOtherPacksReach(context, context.view.GetPosition(target)) ? NoGuid : target;
     }
 

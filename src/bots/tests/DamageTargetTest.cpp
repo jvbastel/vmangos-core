@@ -578,14 +578,27 @@ TEST(DamageTarget, MeleeDamageAttacksAFrozenAttackTargetOfThePlayer)
     EXPECT_EQ(bot.MeleeTarget(Wolf), Wolf);
 }
 
-TEST(DamageTarget, MeleeDamageWaitsWhileTheTanksTargetIsFrozen)
+// Final review of spec #142, finding 5 (lead's decision): melee holds off a
+// frozen enemy only until the tank is its target, as ranged does. The
+// tank's own hits break that freeze anyway.
+TEST(DamageTarget, MeleeDamageAttacksTheTanksFrozenTarget)
 {
     FrozenWolfOnTheHealer bot;
     bot.fake.SetVictim(Wolf, Tank);
     bot.fake.SetAura(Wolf, Bots::Mage::FrostNova, false);
     bot.fake.SetAura(Kobold, Bots::Mage::FrostNova);
 
-    EXPECT_EQ(bot.MeleeTarget(), NoGuid);
+    EXPECT_EQ(bot.MeleeTarget(), Kobold);
+}
+
+TEST(DamageTarget, MeleeDamageAttacksAFrozenEnemyOnceTheTankIsItsTarget)
+{
+    FrozenWolfOnTheHealer bot;
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Tank);
+    bot.fake.SetVictim(Kobold, NoGuid);
+
+    EXPECT_EQ(bot.MeleeTarget(), Wolf);
 }
 
 TEST(DamageTarget, TheAttackTargetOfThePlayerIsNotHeld)
