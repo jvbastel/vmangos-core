@@ -125,7 +125,7 @@ class Settings:
             min_level=data["levels"]["min"], max_level=data["levels"]["max"],
             window=data["levels"]["required_level_window"],
             source_rules=gear_data.SourceRules(sources["creature_level_margin"], sources["world_drop_level_margin"],
-                                               sources["include_raids"]),
+                                               sources["include_raids"], tuple(sources["faction_split"])),
             min_quality=data["quality"]["min"], epic_min_level=data["quality"]["epic_min_level"],
             blue_caps=[tuple(cap) for cap in data["quality"]["blue_caps"]], pool_size=data["pool"]["size"],
             roles=roles)
@@ -332,11 +332,11 @@ def build_lines(world, settings, role_name, bans):
                                            line.factions))
 
 
-def _source_word(world, entry, patch, factions):
+def _source_word(world, rules, entry, patch, factions):
     # A line for both factions names a source of the Horde, as before the marks.
     faction = "alliance" if factions == "alliance" else "horde"
     sources = [source for source in world.sources.get(entry, [])
-               if source.levels[patch] is not None and source.open_to(faction)]
+               if source.levels[patch] is not None and rules.opens(source, faction)]
     if not sources:
         return "?"
     best = min(sources, key=lambda source: source.levels[patch])
@@ -357,7 +357,7 @@ def render(world, settings, role_name, lines):
         item = world.items[line.entry]
         name = " ".join(item.name.split()).replace("#", "")
         mark = "" if line.factions == "both" else f" {line.factions}"
-        source = _source_word(world, line.entry, line.min_patch, line.factions)
+        source = _source_word(world, settings.source_rules, line.entry, line.min_patch, line.factions)
         out.append(f"item {line.slot} {line.entry} {line.min_level}-{line.max_level} {line.min_patch} "
                    f"{line.score:.2f}{mark}  # {name}, {item.quality_name}, {source}")
     return "\n".join(out) + "\n"

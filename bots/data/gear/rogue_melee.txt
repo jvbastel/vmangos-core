@@ -6,7 +6,7 @@ shape dual-wield mainhand offhand
 item head 3392 26-31 0 3.96  # Ringed Helm, green, world
 item head 4048 26-32 0 3.57  # Emblazoned Hat, green, dungeon
 item head 6688 27-33 0 1.99  # Whisperwind Headdress, green, dungeon
-item head 4724 29-31 0 10.96  # Humbert's Helm, green, creature
+item head 4724 29-31 0 10.96 horde  # Humbert's Helm, green, creature
 item head 5753 29-32 0 3.97  # Ruffled Chaplet, green, world
 item head 6204 29-33 0 7.79  # Tribal Worg Helm, green, world
 item head 4052 30-36 0 3.63  # Insignia Cap, green, dungeon
@@ -221,14 +221,14 @@ item back 20579 60-60 6 5.34  # Green Dragonskin Cloak, epic, world
 item back 21406 60-60 7 32.92  # Cloak of Veiled Shadows, epic, quest
 item back 21710 60-60 7 38.16  # Cloak of the Fallen God, epic, quest
 item back 22658 60-60 9 7.81  # Glacial Cloak, epic, quest
-item chest 85 1-7 0 0.33  # Dirty Leather Vest, white, vendor
+item chest 85 1-7 0 0.33 horde  # Dirty Leather Vest, white, vendor
 item chest 2127 1-7 0 0.33  # Cracked Leather Vest, white, vendor
 item chest 2108 3-7 0 0.29  # Frostmane Leather Vest, white, creature
 item chest 11851 3-6 0 0.33  # Scavenger Tunic, white, quest
 item chest 6059 4-6 0 0.33  # Nomadic Vest, white, quest
 item chest 60 5-6 0 0.33  # Layered Tunic, white, quest
 item chest 799 5-11 0 0.52  # Rough Leather Vest, white, vendor
-item chest 2370 5-11 0 0.52  # Battered Leather Harness, white, vendor
+item chest 2370 5-11 0 0.52 horde  # Battered Leather Harness, white, vendor
 item chest 4907 5-6 0 0.33  # Woodland Tunic, white, quest
 item chest 2961 6-12 0 0.58  # Burnt Leather Vest, green, world
 item chest 2300 7-13 0 1.42  # Embossed Leather Vest, green, craft
@@ -241,28 +241,28 @@ item chest 846 12-18 0 0.69  # Tanned Leather Jerkin, white, vendor
 item chest 2069 12-13 0 0.59  # Black Bear Hide Vest, white, creature
 item chest 2973 12-18 0 4.33  # Hunting Tunic, green, world
 item chest 4243 12-18 0 5.93  # Fine Leather Tunic, green, craft
-item chest 6523 12-18 0 0.69  # Buckled Harness, white, vendor
+item chest 6523 12-18 0 0.69 horde  # Buckled Harness, white, vendor
 item chest 821 13-14 0 2.45  # Riverpaw Leather Vest, green, creature
 item chest 2087 13-14 0 2.05  # Hard Crawler Carapace, green, creature
 item chest 3313 13-19 0 4.74  # Ceremonial Leather Harness, green, world
 item chest 1211 15-16 0 2.50  # Gnoll War Harness, green, creature
 item chest 2985 16-22 0 2.79  # Inscribed Leather Breastplate, green, dungeon
 item chest 236 17-23 0 0.77  # Cured Leather Armor, white, vendor
-item chest 6524 17-23 0 0.77  # Studded Leather Harness, white, vendor
+item chest 6524 17-23 0 0.77 horde  # Studded Leather Harness, white, vendor
 item chest 6473 18-24 0 1.82  # Armor of the Fang, green, dungeon
 item chest 14562 18-24 0 9.02  # Prospector's Chestpiece, green, dungeon
 item chest 2314 19-25 0 0.80  # Toughened Leather Armor, white, craft
 item chest 6197 19-23 0 3.61  # Loch Croc Hide Vest, green, world
 item chest 3055 21-27 0 2.47  # Forest Leather Chestpiece, green, dungeon
 item chest 2141 22-28 0 0.84  # Cuirboulli Vest, white, vendor
-item chest 6525 22-28 0 0.84  # Grunt's Harness, white, vendor
+item chest 6525 22-28 0 0.84 horde  # Grunt's Harness, white, vendor
 item chest 14570 23-29 0 10.30  # Bristlebark Blouse, green, dungeon
 item chest 6396 27-33 0 10.37  # Emblazoned Chestpiece, green, dungeon
 item chest 14581 28-34 0 4.98  # Dokebi Chestguard, green, dungeon
 item chest 7374 30-36 0 15.02  # Dusky Leather Armor, green, craft
 item chest 4057 31-37 0 6.23  # Insignia Chestguard, green, dungeon
 item chest 2463 32-38 0 1.00  # Studded Doublet, white, vendor
-item chest 6526 32-38 0 1.00  # Battle Harness, white, vendor
+item chest 6526 32-38 0 1.00 horde  # Battle Harness, white, vendor
 item chest 5739 33-39 0 1.01  # Barbaric Harness, white, craft
 item chest 14592 35-41 0 16.30  # Hawkeye's Tunic, green, dungeon
 item chest 4058 36-42 0 2.73  # Glyphed Breastplate, green, dungeon
@@ -291,12 +291,12 @@ item chest 14680 59-60 0 3.63  # Indomitable Vest, green, dungeon
 item chest 21364 60-60 7 82.23  # Deathdealer's Vest, epic, quest
 item chest 22476 60-60 9 88.22  # Bonescythe Breastplate, epic, quest
 item chest 22661 60-60 9 30.74  # Polar Tunic, epic, quest
-item wrists 1836 1-7 0 0.15  # Dirty Leather Bracers, white, vendor
+item wrists 1836 1-7 0 0.15 horde  # Dirty Leather Bracers, white, vendor
 item wrists 2124 1-7 0 0.15  # Cracked Leather Bracers, white, vendor
 item wrists 6070 2-6 0 0.15  # Wolfskin Bracers, white, quest
 item wrists 4908 3-6 0 0.15  # Nomadic Bracers, white, quest
 item wrists 1840 5-11 0 0.23  # Rough Leather Bracers, white, vendor
-item wrists 2374 5-11 0 0.23  # Battered Leather Bracers, white, vendor
+item wrists 2374 5-11 0 0.23 horde  # Battered Leather Bracers, white, vendor
 item wrists 3200 5-9 0 0.20  # Burnt Leather Bracers, white, creature
 item wrists 6519 6-11 0 0.23  # Pioneer Bracers, white, creature
 item wrists 3285 7-11 0 0.23  # Tribal Bracers, white, creature
@@ -350,13 +350,13 @@ item wrists 19587 60-60 4 28.56  # Forest Stalker's Bracers, epic, vendor
 item wrists 20615 60-60 6 23.73  # Dragonspur Wraps, epic, world
 item wrists 22483 60-60 9 44.71  # Bonescythe Bracers, epic, quest
 item wrists 22663 60-60 9 21.02  # Polar Bracers, epic, quest
-item hands 714 1-7 0 0.21  # Dirty Leather Gloves, white, vendor
+item hands 714 1-7 0 0.21 horde  # Dirty Leather Gloves, white, vendor
 item hands 2125 1-7 0 0.21  # Cracked Leather Gloves, white, vendor
 item hands 6171 1-6 0 0.21  # Wolf Handler Gloves, white, quest
 item hands 4914 2-6 0 0.21  # Battleworn Leather Gloves, white, quest
 item hands 5394 2-6 0 0.21  # Archery Training Gloves, white, quest
 item hands 797 5-11 0 0.33  # Rough Leather Gloves, white, vendor
-item hands 2375 5-11 0 0.33  # Battered Leather Gloves, white, vendor
+item hands 2375 5-11 0 0.33 horde  # Battered Leather Gloves, white, vendor
 item hands 10636 5-6 0 0.21  # Nomadic Gloves, white, quest
 item hands 2964 6-11 0 0.33  # Burnt Leather Gloves, white, creature
 item hands 6521 6-12 0 0.35  # Pioneer Gloves, white, creature
@@ -406,14 +406,14 @@ item hands 14685 57-60 0 6.19  # Indomitable Gauntlets, green, world
 item hands 18544 60-60 1 41.93  # Doomhide Gauntlets, epic, world
 item hands 22481 60-60 9 64.58  # Bonescythe Gauntlets, epic, quest
 item hands 22662 60-60 9 26.66  # Polar Gloves, epic, quest
-item waist 1835 1-7 0 0.19  # Dirty Leather Belt, white, vendor
+item waist 1835 1-7 0 0.19 horde  # Dirty Leather Belt, white, vendor
 item waist 2122 1-7 0 0.19  # Cracked Leather Belt, white, vendor
 item waist 2173 2-6 0 0.19  # Old Leather Belt, white, quest
 item waist 4954 2-6 0 0.19  # Nomadic Belt, white, quest
 item waist 6058 3-6 0 0.19  # Blackened Leather Belt, white, quest
 item waist 1839 5-11 0 0.29  # Rough Leather Belt, white, vendor
 item waist 2186 5-6 0 0.19  # Outfitter Belt, white, quest
-item waist 2371 5-11 0 0.29  # Battered Leather Belt, white, vendor
+item waist 2371 5-11 0 0.29 horde  # Battered Leather Belt, white, vendor
 item waist 4237 5-11 0 0.29  # Handstitched Leather Belt, white, craft
 item waist 4951 5-7 0 0.23  # Squealer's Belt, white, creature
 item waist 4666 6-10 0 0.27  # Burnt Leather Belt, white, creature
@@ -464,14 +464,14 @@ item waist 13526 57-60 0 0.89  # Flamescarred Girdle, green, dungeon
 item waist 14553 60-60 0 6.65  # Sash of Mercy, epic, dungeon
 item waist 19134 60-60 3 8.35  # Flayed Doomguard Belt, epic, world
 item waist 22482 60-60 9 56.92  # Bonescythe Waistguard, epic, quest
-item legs 209 1-7 0 0.29  # Dirty Leather Pants, white, vendor
+item legs 209 1-7 0 0.29 horde  # Dirty Leather Pants, white, vendor
 item legs 2126 1-7 0 0.29  # Cracked Leather Pants, white, vendor
 item legs 61 3-6 0 0.29  # Dwarven Leather Pants, white, quest
 item legs 5398 3-6 0 0.29  # Canopy Leggings, white, quest
 item legs 3272 4-6 0 0.29  # Zombie Skin Leggings, white, quest
 item legs 798 5-11 0 0.46  # Rough Leather Pants, white, vendor
 item legs 2303 5-11 0 0.46  # Handstitched Leather Pants, white, craft
-item legs 2372 5-11 0 0.46  # Battered Leather Pants, white, vendor
+item legs 2372 5-11 0 0.46 horde  # Battered Leather Pants, white, vendor
 item legs 2962 5-11 0 1.48  # Burnt Leather Breeches, green, world
 item legs 4921 5-6 0 0.29  # Dust-covered Leggings, white, quest
 item legs 3287 7-13 0 2.04  # Tribal Pants, green, world
@@ -538,14 +538,14 @@ item legs 12963 58-60 0 28.54  # Blademaster Leggings, blue, dungeon
 item legs 20627 60-60 6 58.96  # Dark Heart Pants, epic, world
 item legs 21362 60-60 7 71.07  # Deathdealer's Leggings, epic, quest
 item legs 22477 60-60 9 81.71  # Bonescythe Legplates, epic, quest
-item legs 22740 60-60 9 53.13  # Outrider's Leather Pants, epic, vendor
-item legs 22741 60-60 9 32.43  # Outrider's Lizardhide Pants, epic, vendor
+item legs 22740 60-60 9 53.13 horde  # Outrider's Leather Pants, epic, vendor
+item legs 22741 60-60 9 32.43 horde  # Outrider's Lizardhide Pants, epic, vendor
 item legs 22749 60-60 9 53.13  # Sentinel's Leather Pants, epic, vendor
 item legs 22750 60-60 9 32.43  # Sentinel's Lizardhide Pants, epic, vendor
-item feet 210 1-7 0 0.23  # Dirty Leather Boots, white, vendor
+item feet 210 1-7 0 0.23 horde  # Dirty Leather Boots, white, vendor
 item feet 2123 1-7 0 0.23  # Cracked Leather Boots, white, vendor
 item feet 796 5-11 0 0.36  # Rough Leather Boots, white, vendor
-item feet 2373 5-11 0 0.36  # Battered Leather Boots, white, vendor
+item feet 2373 5-11 0 0.36 horde  # Battered Leather Boots, white, vendor
 item feet 6518 6-12 0 0.38  # Pioneer Boots, white, creature
 item feet 3284 7-13 0 0.40  # Tribal Boots, white, creature
 item feet 6201 7-11 0 0.36  # Lithe Boots, white, world
@@ -577,7 +577,7 @@ item feet 2467 32-38 0 0.68  # Studded Boots, white, vendor
 item feet 14589 32-38 0 11.92  # Hawkeye's Shoes, green, dungeon
 item feet 6420 34-40 0 12.35  # Glyphed Boots, green, dungeon
 item feet 9382 35-39 0 7.53  # Tromping Miner's Boots, green, world
-item feet 9398 35-41 0 12.96  # Worn Running Boots, green, dungeon
+item feet 9398 35-41 0 12.96 horde  # Worn Running Boots, green, dungeon
 item feet 14599 37-43 0 2.29  # Warden's Footpads, green, dungeon
 item feet 6431 38-44 0 14.31  # Imperial Leather Boots, green, dungeon
 item feet 14653 41-47 0 15.05  # Scorpashi Slippers, green, dungeon
@@ -680,14 +680,14 @@ item ranged 8188 32-38 0 38.10  # Explosive Shotgun, green, dungeon
 item ranged 15322 34-40 0 41.50  # Smoothbore Gun, green, dungeon
 item ranged 15326 35-41 0 45.83  # Gleaming Throwing Axe, white, vendor
 item ranged 15327 35-41 0 45.83  # Wicked Throwing Dagger, white, vendor
-item ranged 9400 36-42 0 41.30  # Baelog's Shortbow, white, dungeon
+item ranged 9400 36-42 0 41.30 horde  # Baelog's Shortbow, white, dungeon
 item ranged 10508 36-42 0 49.83  # Mithril Blunderbuss, green, craft
 item ranged 9422 40-44 0 56.90  # Shadowforge Bushmaster, blue, dungeon
 item ranged 9426 40-42 0 60.63  # Monolithic Bow, blue, dungeon
 item ranged 13020 40-40 0 51.79  # Skystriker Bow, blue, dungeon
 item ranged 13038 40-41 0 60.12  # Swiftwind, blue, dungeon
 item ranged 13138 40-43 0 62.80  # The Silencer, blue, dungeon
-item ranged 19560 40-44 4 62.17  # Outrider's Bow, blue, vendor
+item ranged 19560 40-44 4 62.17 horde  # Outrider's Bow, blue, vendor
 item ranged 19564 40-44 4 62.17  # Outrunner's Bow, blue, vendor
 item ranged 9412 42-48 0 61.54  # Galgann's Fireblaster, blue, dungeon
 item ranged 11307 42-48 0 54.91  # Massive Longbow, green, vendor
@@ -699,7 +699,7 @@ item ranged 13139 45-51 0 74.78  # Guttbuster, blue, dungeon
 item ranged 11628 48-54 0 71.06  # Houndmaster's Bow, blue, dungeon
 item ranged 11629 48-54 0 71.48  # Houndmaster's Rifle, blue, dungeon
 item ranged 17717 48-54 0 68.38  # Megashot Rifle, blue, dungeon
-item ranged 19559 48-54 4 74.95  # Outrider's Bow, blue, vendor
+item ranged 19559 48-54 4 74.95 horde  # Outrider's Bow, blue, vendor
 item ranged 19563 48-54 4 74.95  # Outrunner's Bow, blue, vendor
 item ranged 13022 50-56 0 80.43  # Gryphonwing Long Bow, blue, world
 item ranged 13040 51-57 0 82.78  # Heartseeking Crossbow, blue, dungeon
@@ -715,7 +715,7 @@ item ranged 18738 56-60 2 85.63  # Carapace Spine Crossbow, blue, dungeon
 item ranged 18388 57-60 1 79.31  # Stoneshatter, blue, dungeon
 item ranged 18680 57-60 2 89.13  # Ancient Bone Bow, blue, dungeon
 item ranged 13023 58-60 0 92.16  # Eaglehorn Long Bow, blue, dungeon
-item ranged 19558 58-60 4 88.73  # Outrider's Bow, blue, vendor
+item ranged 19558 58-60 4 88.73 horde  # Outrider's Bow, blue, vendor
 item ranged 19562 58-60 4 88.73  # Outrunner's Bow, blue, vendor
 item ranged 20599 60-60 6 116.42  # Polished Ironwood Crossbow, epic, world
 item ranged 21272 60-60 7 122.27  # Blessed Qiraji Musket, epic, quest
@@ -790,7 +790,7 @@ item mainhand 5191 20-25 0 44.84  # Cruel Barb, blue, dungeon
 item mainhand 6323 20-26 0 33.77  # Baron's Scepter, green, dungeon
 item mainhand 6472 20-25 0 38.84  # Stinging Viper, blue, dungeon
 item mainhand 12976 20-21 0 36.45  # Ironpatch Blade, blue, dungeon
-item mainhand 20430 20-24 6 40.30  # Legionnaire's Sword, blue, vendor
+item mainhand 20430 20-24 6 40.30 horde  # Legionnaire's Sword, blue, vendor
 item mainhand 20440 20-24 6 40.30  # Protector's Sword, blue, vendor
 item mainhand 2011 21-27 0 42.47  # Twisted Sabre, blue, dungeon
 item mainhand 3414 22-28 0 44.79  # Crested Scepter, blue, dungeon
@@ -805,7 +805,7 @@ item mainhand 12974 26-32 0 49.34  # The Black Knight, blue, dungeon
 item mainhand 13048 26-32 0 54.88  # Looming Gavel, blue, dungeon
 item mainhand 2816 28-34 0 42.86  # Death Speaker Scepter, blue, dungeon
 item mainhand 7752 28-34 0 57.07  # Dreamslayer, blue, dungeon
-item mainhand 19553 28-34 4 57.94  # Legionnaire's Sword, blue, vendor
+item mainhand 19553 28-34 4 57.94 horde  # Legionnaire's Sword, blue, vendor
 item mainhand 19557 28-34 4 57.94  # Protector's Sword, blue, vendor
 item mainhand 9446 29-35 0 55.15  # Electrocutioner Leg, blue, dungeon
 item mainhand 13033 29-35 0 55.36  # Zealot Blade, blue, dungeon
@@ -826,11 +826,12 @@ item mainhand 9392 35-41 0 73.46  # Annealed Blade, blue, dungeon
 item mainhand 9424 36-42 0 79.85  # Ginn-su Sword, blue, dungeon
 item mainhand 13034 36-42 0 79.34  # Speedsteel Rapier, blue, dungeon
 item mainhand 9427 37-43 0 79.76  # Stonevault Bonebreaker, blue, dungeon
-item mainhand 9401 38-44 0 83.30  # Nordic Longshank, blue, dungeon
-item mainhand 19552 38-44 4 78.35  # Legionnaire's Sword, blue, vendor
+item mainhand 9401 38-44 0 83.30 horde  # Nordic Longshank, blue, dungeon
+item mainhand 19552 38-44 4 78.35 horde  # Legionnaire's Sword, blue, vendor
 item mainhand 19556 38-44 4 78.35  # Protector's Sword, blue, vendor
 item mainhand 7721 39-45 0 74.54  # Hand of Righteousness, blue, dungeon
 item mainhand 13026 40-46 0 83.53  # Heaven's Light, blue, dungeon
+item mainhand 2532 41-47 0 64.47 alliance  # Morning Star, white, vendor
 item mainhand 4090 41-47 0 77.94  # Mug O' Hurt, blue, dungeon
 item mainhand 7945 41-47 0 72.75  # Big Black Mace, green, craft
 item mainhand 9419 41-47 0 68.75  # Galgann's Firehammer, green, dungeon
@@ -843,7 +844,7 @@ item mainhand 9379 44-50 0 72.79  # Sang'thraze the Deflector, blue, dungeon
 item mainhand 13035 44-50 0 82.00  # Serpent Slicer, blue, dungeon
 item mainhand 11086 45-51 0 83.55  # Jang'thraze the Protector, blue, dungeon
 item mainhand 11603 47-52 0 84.82  # Vilerend Slicer, blue, world
-item mainhand 16769 47-53 0 79.90  # Furbolg Medicine Totem, green, vendor
+item mainhand 16769 47-53 0 79.90 horde  # Furbolg Medicine Totem, green, vendor
 item mainhand 17055 47-51 0 85.95  # Changuk Smasher, blue, world
 item mainhand 10797 48-54 0 88.07  # Firebreather, blue, dungeon
 item mainhand 11784 48-54 0 91.22  # Arbiter's Blade, blue, dungeon
@@ -851,13 +852,14 @@ item mainhand 13027 48-54 0 95.46  # Bonesnapper, blue, dungeon
 item mainhand 17054 48-51 0 83.33  # Joonho's Mercy, blue, world
 item mainhand 17719 48-54 0 88.07  # Inventor's Focal Sword, blue, dungeon
 item mainhand 17943 48-54 1 88.19  # Fist of Stone, blue, dungeon
-item mainhand 19551 48-54 4 95.46  # Legionnaire's Sword, blue, vendor
+item mainhand 19551 48-54 4 95.46 horde  # Legionnaire's Sword, blue, vendor
 item mainhand 19555 48-54 4 95.46  # Protector's Sword, blue, vendor
 item mainhand 1721 49-55 0 96.48  # Viking Warhammer, blue, world
 item mainhand 10803 49-55 0 80.36  # Blade of the Wretched, green, dungeon
+item mainhand 10804 49-55 0 80.26 alliance  # Fist of the Damned, green, dungeon
 item mainhand 12535 49-55 0 100.47  # Doomforged Straightedge, blue, creature
 item mainhand 8190 50-56 0 90.83  # Hanzo Sword, blue, world
-item mainhand 11744 51-57 0 91.67  # Bloodfist, blue, dungeon
+item mainhand 11744 51-57 0 91.67 horde  # Bloodfist, blue, dungeon
 item mainhand 11805 51-57 0 95.58  # Rubidium Hammer, blue, dungeon
 item mainhand 11817 51-57 0 92.31  # Lord General's Sword, blue, dungeon
 item mainhand 13036 52-58 0 107.48  # Assassination Blade, blue, dungeon
@@ -886,7 +888,7 @@ item mainhand 6622 58-60 0 103.57  # Sword of Zeal, blue, dungeon
 item mainhand 12940 58-60 0 117.57  # Dal'Rend's Sacred Charge, blue, dungeon
 item mainhand 13349 58-60 0 105.12  # Scepter of the Unholy, blue, dungeon
 item mainhand 13361 58-60 0 103.50  # Skullforge Reaver, blue, dungeon
-item mainhand 19550 58-60 4 112.20  # Legionnaire's Sword, blue, vendor
+item mainhand 19550 58-60 4 112.20 horde  # Legionnaire's Sword, blue, vendor
 item mainhand 19554 58-60 4 112.20  # Protector's Sword, blue, vendor
 item mainhand 1728 60-60 0 118.10  # Teebu's Blazing Longsword, epic, dungeon
 item mainhand 2243 60-60 0 112.50  # Hand of Edward the Odd, epic, dungeon
@@ -984,7 +986,7 @@ item offhand 9392 35-41 0 73.46  # Annealed Blade, blue, dungeon
 item offhand 9424 36-42 0 79.85  # Ginn-su Sword, blue, dungeon
 item offhand 13034 36-42 0 79.34  # Speedsteel Rapier, blue, dungeon
 item offhand 9427 37-43 0 79.76  # Stonevault Bonebreaker, blue, dungeon
-item offhand 9401 38-44 0 83.30  # Nordic Longshank, blue, dungeon
+item offhand 9401 38-44 0 83.30 horde  # Nordic Longshank, blue, dungeon
 item offhand 2534 39-45 0 60.16  # Rondel, white, vendor
 item offhand 10761 39-45 0 74.17  # Coldrage Dagger, blue, dungeon
 item offhand 4090 41-47 0 77.94  # Mug O' Hurt, blue, dungeon
@@ -1001,7 +1003,7 @@ item offhand 10804 49-55 0 80.26  # Fist of the Damned, green, dungeon
 item offhand 12535 49-55 0 100.47  # Doomforged Straightedge, blue, creature
 item offhand 6660 50-56 0 91.35  # Julie's Dagger, blue, world
 item offhand 8190 50-56 0 90.83  # Hanzo Sword, blue, world
-item offhand 11744 51-57 0 91.67  # Bloodfist, blue, dungeon
+item offhand 11744 51-57 0 91.67 horde  # Bloodfist, blue, dungeon
 item offhand 13036 52-58 0 107.48  # Assassination Blade, blue, dungeon
 item offhand 24222 52-58 10 105.95  # The Shadowfoot Stabber, blue, dungeon
 item offhand 18310 54-60 1 101.88  # Fiendish Machete, blue, dungeon

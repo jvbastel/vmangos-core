@@ -29,6 +29,11 @@ CLIENT_BUILD = 5875
 HORDE_RACES = (1 << 1) | (1 << 4) | (1 << 5) | (1 << 7)
 ALLIANCE_RACES = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 6)
 FACTION_RACES = {"horde": HORDE_RACES, "alliance": ALLIANCE_RACES}
+ALL_RACES = HORDE_RACES | ALLIANCE_RACES
+NO_RACES = -1  # The race mask of a source that no race can use, such as a vendor hostile to all.
+
+# The faction template of each player race (race id - 1 is the bit of the race masks).
+PLAYER_FACTION_TEMPLATES = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 115, 8: 116}
 
 QUALITY_NAMES = {0: "grey", 1: "white", 2: "green", 3: "blue", 4: "epic", 5: "legendary", 6: "artifact"}
 
@@ -119,10 +124,15 @@ class Source:
     name: str
     levels: tuple
     classes: int = 0      # Class mask of a class quest. 0 for all classes.
-    races: int = 0        # Race mask of a quest for some races only. 0 for all races.
+    # Race mask of a source for some races only: a quest for some races, a
+    # vendor that is hostile to some races, or loot of a creature that is
+    # friendly to some (they cannot kill it). 0 for all races, NO_RACES for none.
+    races: int = 0
 
     def open_to(self, faction):
         """faction: "horde" or "alliance"."""
+        if self.races == NO_RACES:
+            return False
         return not self.races or bool(self.races & FACTION_RACES[faction])
 
 
@@ -131,6 +141,16 @@ class SourceRules:
     creature_level_margin: int = 0    # Creature loot counts up to this many levels above L.
     world_drop_level_margin: int = 3  # A world drop counts up to this many levels above L.
     include_raids: bool = False
+    # The factions for which vendor and loot sources are split by faction. A
+    # faction outside it gets every vendor and every creature's loot; quests
+    # for some races are always split.
+    faction_split: tuple = ("horde", "alliance")
+
+    def opens(self, source, faction):
+        """True when the source counts for a character of the faction."""
+        if source.kind != "quest" and faction not in self.faction_split:
+            return True
+        return source.open_to(faction)
 
 
 @dataclass
@@ -149,7 +169,7 @@ def earliest_level(sources, patch, class_id, rules, faction):
         level = source.levels[patch]
         if level is None or (source.classes and not source.classes & (1 << (class_id - 1))):
             continue
-        if not source.open_to(faction):
+        if not rules.opens(source, faction):
             continue
         if source.kind == "creature":
             level -= rules.creature_level_margin
@@ -335,8 +355,55 @@ def _creature_contexts(tables):
     return creatures, contexts
 
 
+class _Factions:
+    """The races that a creature's faction template lets trade with it or kill
+    it, as race masks (0 = all races). As FactionTemplateEntry of the core: the
+    enemy and friend lists win over the masks. A template that is not in the
+    table counts for all races."""
+
+    def __init__(self, rows):
+        self.templates = {row["id"]: row for row in rows}
+
+    @staticmethod
+    def _listed(row, kind, faction_id):
+        return faction_id and faction_id in [row[f"{kind}_faction{i}"] for i in range(1, 5)]
+
+    def _hostile(self, row, player):
+        if self._listed(row, "enemy", player["faction_id"]):
+            return True
+        if self._listed(row, "friend", player["faction_id"]):
+            return False
+        return bool(row["hostile_mask"] & player["our_mask"])
+
+    def _friendly(self, row, player):
+        if self._listed(row, "enemy", player["faction_id"]):
+            return False
+        if self._listed(row, "friend", player["faction_id"]):
+            return True
+        return bool(row["friendly_mask"] & player["our_mask"]) or bool(row["our_mask"] & player["friendly_mask"])
+
+    def _races(self, template, keep):
+        row = self.templates.get(template)
+        if row is None:
+            return 0
+        mask = 0
+        for race, player_template in PLAYER_FACTION_TEMPLATES.items():
+            player = self.templates.get(player_template)
+            if player is None or keep(row, player):
+                mask |= 1 << (race - 1)
+        return 0 if mask == ALL_RACES else mask or NO_RACES
+
+    def traders(self, template):
+        """The races that a vendor of the template sells to."""
+        return self._races(template, lambda row, player: not self._hostile(row, player))
+
+    def killers(self, template):
+        """The races that can kill a creature of the template."""
+        return self._races(template, lambda row, player: not self._friendly(row, player))
+
+
 class _LootSources:
-    """Turns the loot tables into sources: kind -> (name, levels) per item."""
+    """Turns the loot tables into sources: (kind, races) -> (name, levels) per item."""
 
     def __init__(self, tables):
         self.creature_rows = {}
@@ -347,19 +414,20 @@ class _LootSources:
             self.reference_rows.setdefault(row["entry"], []).append(row)
         self.found = {}  # item -> {(kind): (name, levels)}
 
-    def add(self, item, kind, name, levels):
+    def add(self, item, kind, races, name, levels):
         if all(level is None for level in levels):
             return
         known = self.found.setdefault(item, {})
-        if kind not in known:
-            known[kind] = (name, levels)
+        key = (kind, races)
+        if key not in known:
+            known[key] = (name, levels)
             return
-        old_name, old_levels = known[kind]
+        old_name, old_levels = known[key]
         best_old = min((level for level in old_levels if level is not None), default=999)
         best_new = min(level for level in levels if level is not None)
-        known[kind] = (name if best_new < best_old else old_name, _merge_levels(old_levels, levels))
+        known[key] = (name if best_new < best_old else old_name, _merge_levels(old_levels, levels))
 
-    def walk(self, rows, kind, name, levels, depth=0):
+    def walk(self, rows, kind, races, name, levels, depth=0):
         if depth > 5:
             return
         for row in rows:
@@ -367,9 +435,9 @@ class _LootSources:
                                for patch, level in zip(PATCHES, levels))
             if row["mincountOrRef"] < 0:
                 reference = self.reference_rows.get(-row["mincountOrRef"], [])
-                self.walk(reference, "world" if kind == "creature" else kind, name, row_levels, depth + 1)
+                self.walk(reference, "world" if kind == "creature" else kind, races, name, row_levels, depth + 1)
             else:
-                self.add(row["item"], kind, name, row_levels)
+                self.add(row["item"], kind, races, name, row_levels)
 
 
 def build_world(tables):
@@ -389,26 +457,31 @@ def build_world(tables):
             add(entry, Source("quest", row["Title"], levels, row["RequiredClasses"], row["RequiredRaces"]))
 
     creatures, contexts = _creature_contexts(tables)
+    factions = _Factions(tables.get("factions", []))
     loot = _LootSources(tables)
     for entry, creature in creatures.items():
         rows = loot.creature_rows.get(creature["loot_id"]) if creature["loot_id"] else None
+        races = factions.killers(creature.get("faction", 0))
         if not rows:
             continue
         for kind, name, patches, level in contexts.get(entry, []):
-            loot.walk(rows, kind, name, _patch_levels(patches, level))
+            loot.walk(rows, kind, races, name, _patch_levels(patches, level))
     for entry, kinds in loot.found.items():
-        for kind, (name, levels) in kinds.items():
-            add(entry, Source(kind, name, levels))
+        for (kind, races), (name, levels) in kinds.items():
+            add(entry, Source(kind, name, levels, races=races))
 
-    vendor_patches = {}
+    vendor_patches = {}  # (item, races) -> patches
     for row in tables["vendors"]:
+        creature = creatures.get(row["creature"], {})
+        races = factions.traders(creature.get("faction", 0))
         patches = frozenset()
         for _, name, context_patches, _ in contexts.get(row["creature"], []):
             patches |= context_patches
         if patches:
-            vendor_patches[row["item"]] = vendor_patches.get(row["item"], frozenset()) | patches
-    for entry, patches in vendor_patches.items():
-        add(entry, Source("vendor", "a vendor", _patch_levels(patches, 0)))
+            key = (row["item"], races)
+            vendor_patches[key] = vendor_patches.get(key, frozenset()) | patches
+    for (entry, races), patches in vendor_patches.items():
+        add(entry, Source("vendor", "a vendor", _patch_levels(patches, 0), races=races))
     for row in tables["crafts"]:
         add(row["item"], Source("craft", row["name"], _patch_levels(frozenset(PATCHES), 0)))
 
@@ -454,7 +527,13 @@ QUERIES = {
                OR entry IN (SELECT quest FROM gameobject_questrelation)
                OR entry IN (SELECT start_quest FROM item_template WHERE start_quest > 0))
         GROUP BY entry""",
-    "creatures": "SELECT entry, MIN(patch) AS patch, name, level_min, loot_id FROM creature_template GROUP BY entry",
+    "creatures": "SELECT entry, MIN(patch) AS patch, name, level_min, loot_id, faction FROM creature_template GROUP BY entry",
+    "factions": f"""
+        SELECT id, faction_id, our_mask, friendly_mask, hostile_mask,
+               enemy_faction1, enemy_faction2, enemy_faction3, enemy_faction4,
+               friend_faction1, friend_faction2, friend_faction3, friend_faction4
+        FROM faction_template t1
+        WHERE build = (SELECT MAX(build) FROM faction_template t2 WHERE t2.id = t1.id AND build <= {CLIENT_BUILD})""",
     "spawns": """
         SELECT id, map, MIN(patch_min) AS patch_min, MAX(patch_max) AS patch_max FROM (
             SELECT id, map, patch_min, patch_max FROM creature WHERE id > 0
