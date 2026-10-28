@@ -19,11 +19,46 @@ import re
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 import trace_file
 
 # A quest visit point of a route file: q<quest>_<name>.
 VISIT = re.compile(r"q\d+_")
+
+
+class DraftPoint(BaseModel):
+    """A point of a drawn line, as the page sends it."""
+    x: float
+    y: float
+    z: float
+    joined: bool = True  # joined to the point before by a floor path; false after a gap
+    mark: bool = False  # a quest visit mark or another checkpoint
+    note: str = ""
+
+
+def draft_trace(name, map_id, main, branches, path):
+    """The trace of a drawn line: the main line, then each branch as a later
+    walk. Each joined piece is the floor path `path(a, b)` between its two
+    points (a floor_path.Piece). Returns the trace and the warnings of the
+    pieces: {"piece": k} on the main line, {"branch": n, "piece": k} on a
+    branch."""
+    trace = trace_file.Trace(name, map_id)
+    warnings = []
+    for number, line in enumerate([main, *branches]):
+        for k, point in enumerate(line):
+            here = (point.x, point.y, point.z)
+            if k and point.joined:
+                before = line[k - 1]
+                piece = path((before.x, before.y, before.z), here)
+                trace.points += [trace_file.TracePoint(*p) for p in piece.points[1:-1]]
+                where = {"branch": number, "piece": k} if number else {"piece": k}
+                warnings += [{**w, **where} for w in piece.warnings]
+            trace.points.append(trace_file.TracePoint(
+                *here, joined=bool(trace.points) and k > 0 and point.joined,
+                walk=bool(trace.points) and k == 0 and number > 0,
+                mark=point.mark, note=trace_file.clean_note(point.note)))
+    return trace, warnings
 
 
 def point_view(x, y, z, joined=True, mark=False, note=""):

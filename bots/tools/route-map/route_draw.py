@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import floor_path
+import route_draft
 import trace_file
 
 HERE = Path(__file__).resolve().parent
@@ -35,7 +36,8 @@ class PathAsk(BaseModel):
 
 
 class TraceAsk(BaseModel):
-    points: list[Spot]
+    points: list[route_draft.DraftPoint]
+    branches: list[list[route_draft.DraftPoint]] = []  # later walks, out and back from the main line (#158)
 
 
 def _vec(spot: Spot):
@@ -79,16 +81,10 @@ def add_routes(app: FastAPI, settings, load_route, load_navmesh):
         """Writes the trace file of the route from the drawn points: the
         floor path of each piece, as points a few yards apart."""
         route = load_route(name)
-        floors = graph(route.map_id)
-        clicks = [_vec(s) for s in ask.points]
-        points = clicks[:1]
-        warnings = []
-        for k, (a, b) in enumerate(zip(clicks, clicks[1:]), 1):
-            piece = floors.path(a, b)
-            points += piece.points[1:]
-            warnings += [{**w, "piece": k} for w in piece.warnings]
+        trace, warnings = route_draft.draft_trace(route.name, route.map_id, ask.points, ask.branches,
+                                                  graph(route.map_id).path)
         path = settings.routes / f"{name}.trace.txt"
         part = path.with_suffix(".txt.part")  # write, then rename: a second save never reads half a file
-        part.write_text(trace_file.write(route.name, route.map_id, points))
+        part.write_text(trace_file.write_trace(trace))
         part.replace(path)
-        return {"file": str(path), "points": len(points), "warnings": warnings}
+        return {"file": str(path), "points": len(trace.points), "warnings": warnings}

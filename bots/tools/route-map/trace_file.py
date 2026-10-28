@@ -92,7 +92,25 @@ def parse(text: str) -> Trace:
 
 def write(name: str, map_id: int, points) -> str:
     """The text of a trace of joined points (x, y, z), as ParseTrace reads it."""
-    lines = [f"# The trace of the route {name}, drawn on the dungeon map: .route build makes the route.",
-             f"trace {name} {map_id}"]
-    lines += [f"p {x:.2f} {y:.2f} {z:.2f}" for x, y, z in points]
+    return write_trace(Trace(name, map_id, [TracePoint(x, y, z) for x, y, z in points]))
+
+
+def clean_note(note: str) -> str:
+    """A mark note as the library keeps it: no comment marker, words split by one space."""
+    return " ".join(note.replace("#", " ").split())
+
+
+def write_trace(trace: Trace) -> str:
+    """The text of a trace, as WriteTrace writes it: `walk` before the first
+    point of a later walk, `gap` before a point that is not joined."""
+    lines = [f"# The trace of the route {trace.name}, drawn on the dungeon map: .route build makes the route.",
+             f"trace {trace.name} {trace.map_id}"]
+    for i, point in enumerate(trace.points):
+        if i and point.walk:
+            lines.append("walk")
+        elif i and not point.joined:
+            lines.append("gap")
+        line = f"{'mark' if point.mark else 'p'} {point.x:.2f} {point.y:.2f} {point.z:.2f}"
+        note = clean_note(point.note) if point.mark else ""
+        lines.append(f"{line} {note}" if note else line)
     return "\n".join(lines) + "\n"
