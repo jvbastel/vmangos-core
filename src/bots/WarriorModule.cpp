@@ -41,6 +41,10 @@ namespace Bots
             float const DemoralizingShoutYards = 10.0f;
             std::size_t const DemoralizingShoutEnemies = 2;
 
+            // jvbastel/WOWAI#174: in a fight, Battle Shout (10 rage) takes
+            // only spare rage: a Sunder Armor's 15 stay after it.
+            std::uint32_t const BattleShoutRage = 25;
+
             // jvbastel/WOWAI#116: Shield Block.
             // Rage for Shield Block from it.
             std::uint32_t const ShieldBlockRage = 10;
@@ -1251,7 +1255,7 @@ namespace Bots
                         }}},
                 WaitsForTheEarlyVisits(CastRule("battle shout", P + 25,
                                            [](BotContext const& context) {
-                                               return FightsFocus(context)
+                                               return FightsFocus(context) && Rage(context) >= BattleShoutRage
                                                    && !context.view.HasAura(Self(context), BattleShout);
                                            },
                                            BattleShout, PickSelf),

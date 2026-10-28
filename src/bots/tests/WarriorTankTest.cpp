@@ -2852,3 +2852,25 @@ TEST(WarriorTankRagePool, SpendsAgainOnceEachJoinedEnemyHadItsVisit)
 
     EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
 }
+
+// jvbastel/WOWAI#174: in a fight, Battle Shout takes only spare rage: the
+// tank keeps a Sunder Armor's rage after it. So the 10 rage of the opening
+// Bloodrage stay for the threat.
+TEST(WarriorTankRagePool, BattleShoutWaitsUntilASunderArmorsRageIsLeftAfterIt)
+{
+    WarriorTank tank;
+    tank.InFightWithKobold();
+    tank.fake.SetAura(Tank, Warrior::BattleShout, false);
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+    tank.fake.SetPower(Tank, 20, 100);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_FALSE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::BattleShout, Tank)})) << ::testing::PrintToString(tank.fake.Deeds());
+
+    tank.fake.SetPower(Tank, 25, 100);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_TRUE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::BattleShout, Tank)})) << ::testing::PrintToString(tank.fake.Deeds());
+}
