@@ -54,7 +54,8 @@ def test_a_click_through_the_upper_region_lands_on_the_lower_ground_and_the_heig
 
 
 def test_a_click_with_no_regions_passed_snaps_as_before(web):
-    assert snap(web, x=5, y=5) == {"point": {"x": 5.0, "y": 5.0, "z": 8.0, "regions": ["Upper"]}, "floors": [0.0, 8.0]}
+    assert snap(web, x=5, y=5) == {"point": {"x": 5.0, "y": 5.0, "z": 8.0, "regions": ["Upper"]}, "floors": [0.0, 8.0],
+                                   "floor_regions": [["Lower"], ["Upper"]]}
     assert snap(web, x=5, y=5, z=1)["point"]["z"] == 0.0
     assert snap(web, x=8, y=13, z=0)["point"] == {"x": 8.0, "y": 10.0, "z": 0.0, "regions": ["Lower"]}  # in a wall
 
@@ -62,6 +63,21 @@ def test_a_click_with_no_regions_passed_snaps_as_before(web):
 def test_a_click_where_all_the_ground_is_passed_through_still_lands_on_it(web):
     """No other ground there: the click lands on the ground of the region."""
     assert snap(web, x=45, y=5, through=["Upper"])["point"]["z"] == 8.0
+
+
+def test_each_ground_height_of_a_click_carries_its_regions_whatever_the_pick_is_later(web):
+    """The page's ground chooser takes the regions of the chosen height from
+    the snap answer: a snap made again after the pick changed would leave
+    that ground out and give the regions of another ground."""
+    found = snap(web, x=5, y=5)
+
+    assert dict(zip(found["floors"], found["floor_regions"])) == {0.0: ["Lower"], 8.0: ["Upper"]}
+
+
+def test_a_map_with_no_regions_gives_no_floor_regions(web, routes):
+    (routes / "map_389.regions.txt").unlink()
+
+    assert snap(web, x=5, y=5) == {"point": {"x": 5.0, "y": 5.0, "z": 8.0}, "floors": [0.0, 8.0]}
 
 
 def path(web, start, end, through):

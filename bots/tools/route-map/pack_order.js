@@ -144,7 +144,7 @@
     for (const pack of packs.values()) {
       if (mode === "order" && skipped.includes(pack.key)) continue;
       const hit = el("circle", {class: "po-hit", cx: sx(pack), cy: sy(pack), "data-r": 9, "data-key": pack.key,
-                                 ...regionMark(pack)}, group);  // a faded pack lets the click through (#185)
+                                 ...regionMark(pack)}, group);  // a faded pack lets the click through
       el("title", {}, hit).textContent = `${nameOf(pack)}: ` + (mode === "skip"
         ? (skipped.includes(pack.key) ? "click to take the skip off" : "click to skip it")
         : routeOrder.includes(pack.key) ? "click to give it the next number"

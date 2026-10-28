@@ -213,7 +213,7 @@ def test_the_page_loads_the_regions_part(web):
 
 
 def test_a_position_is_in_a_region_inside_its_outline_and_height_range_ends_included():
-    # The module's query that later tickets (#184, #185) use; no web call shows it yet.
+    # The module's query behind the region marks and the snap.
     import regions
     ledge = regions.Region("Ledge", 3.0, 13.0, [(0.0, -10.0), (10.0, -10.0), (10.0, 10.0), (0.0, 10.0)])
     beside = regions.Region("Beside", 3.0, 13.0, [(10.0, -10.0), (20.0, -10.0), (20.0, 10.0), (10.0, 10.0)])
@@ -227,7 +227,7 @@ def test_a_position_is_in_a_region_inside_its_outline_and_height_range_ends_incl
     assert regions.regions_at([ledge, beside], 0, -10, 8) == ["Ledge"]  # on a corner
 
 
-# Edits (ticket jvbastel/WOWAI#183): the page sends the whole edited list through the same checked save.
+# Edits: the page sends the whole edited list through the same checked save.
 
 def test_a_save_that_moves_a_point_changes_the_heights_renames_one_and_deletes_another_reloads_changed(web, routes):
     third = {"name": "Third", "low": -2.0, "high": 2.0, "outline": [[20.0, 0.0], [30.0, 0.0], [30.0, 10.0]]}

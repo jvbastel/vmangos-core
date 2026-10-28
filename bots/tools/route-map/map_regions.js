@@ -2,7 +2,8 @@
 // the player outlines regions of stacked ground and saves them with the
 // dungeon. regions.py owns the regions file and its rules; this page part
 // only shows the regions and sends them. It needs the globals of
-// map_page.html (map, route, view) and of map_common.js (el, sx, sy, toMap),
+// map_page.html (map, route, view) and of map_common.js (el, sx, sy,
+// svgPoints, toMap, call),
 // and the Draw button of map_draw.js (the Regions button sits beside it).
 //
 // In Regions mode a click does not add a route point. Clicks make the
@@ -12,7 +13,7 @@
 // A new region is named "Region N". "Save regions" writes the regions file
 // of the map; the server refuses a region that is not valid.
 //
-// Edits (ticket jvbastel/WOWAI#183): in Regions mode, with no new outline
+// Edits: in Regions mode, with no new outline
 // being drawn, each outline point of a region shows as a handle to drag, and the list has the name, the two heights and a Delete button of
 // each region. Edits stay on the page until "Save regions", which sends the
 // whole list through the same checked save: a refused save leaves the file
@@ -67,7 +68,6 @@
   const info = document.getElementById("rg-info");
   const layer = el("g", {id: "rg-layer"}, map);
 
-  const api = path => `/api/maps/${encodeURIComponent(route)}/${path}`;
   let regions = [];     // {name, low, high, outline: [[x, y], ...]}, as the server gives them
   let file = "";
   let on = false;
@@ -80,22 +80,28 @@
   }
 
   // The SVG points of WoW (x, y) pairs.
-  const svgPoints = points => points.map(([x, y]) => `${sx({y})},${sy({x})}`).join(" ");
+  const pairPoints = points => svgPoints(points.map(([x, y]) => ({x, y})));
 
-  // The map layer and the step text.
+  // The map layer and the step text. Out of Regions mode, the outline and
+  // the name of a region carry its name (data-region), so they fade or hide
+  // with it (region_pick.js). In Regions mode every region shows and every
+  // handle drags: the player edits any region, also one not saved yet. The
+  // handles carry their region's place in the list (data-rg-index), not
+  // data-region, which region_pick.js reads as a region name.
   function drawLayer() {
     layer.replaceChildren();
     for (const [r, region] of regions.entries()) {
-      el("polygon", {class: "rg-area", points: svgPoints(region.outline)}, layer);
+      const mark = on ? {} : {"data-region": region.name};
+      el("polygon", {class: "rg-area", points: pairPoints(region.outline), ...mark}, layer);
       if (on && !outline.length) region.outline.forEach(([x, y], i) => el("circle", {class: "rg-handle",
-        cx: sx({y}), cy: sy({x}), "data-r": 5, "data-region": r, "data-index": i}, layer));
+        cx: sx({y}), cy: sy({x}), "data-r": 5, "data-rg-index": r, "data-index": i}, layer));
       const n = region.outline.length;
       const mid = region.outline.reduce(([a, b], [x, y]) => [a + x / n, b + y / n], [0, 0]);
       el("text", {class: "rg-name", x: sx({y: mid[1]}), y: sy({x: mid[0]}), "data-size": 12, "data-halo": 3,
-                  "data-dx": 0, "data-dy": 0, "text-anchor": "middle"}, layer).textContent = region.name;
+                  "data-dx": 0, "data-dy": 0, "text-anchor": "middle", ...mark}, layer).textContent = region.name;
     }
     if (outline.length) {
-      el(closed ? "polygon" : "polyline", {class: "rg-new", points: svgPoints(outline)}, layer);
+      el(closed ? "polygon" : "polyline", {class: "rg-new", points: pairPoints(outline)}, layer);
       outline.forEach(([x, y], i) => el("circle", {class: "rg-point" + (i === 0 && !closed ? " first" : ""),
         cx: sx({y}), cy: sy({x}), "data-r": i === 0 ? 6 : 4}, layer));
     }
@@ -176,12 +182,15 @@
     redraw();
   }
 
+  // The ground under the click, without the ground of the faded or hidden
+  // regions (as a Draw mode click): the player sets the height on the ground
+  // they see.
   async function setHeight(event) {
     const at = toMap(event);
     const params = new URLSearchParams({x: -at.y, y: -at.x});
-    const response = await fetch(api(`snap?${params}`));
-    const found = await response.json();
-    if (!response.ok) { say(found.detail || response.statusText, true); return; }
+    for (const name of window.regionPick ? window.regionPick.faded() : []) params.append("through", name);
+    let found;
+    try { found = await call(`snap?${params}`); } catch (error) { say(error.message, true); return; }
     if (found.floors.length <= 1) { finish(found.point.z); return; }
     // Stacked ground: the player picks the layer of the region.
     floorsBox.replaceChildren("Ground at z: ", ...found.floors.slice().reverse().map(z => {
@@ -216,7 +225,7 @@
   layer.addEventListener("mousedown", e => {
     if (!on || !view || e.button !== 0 || !e.target.classList.contains("rg-handle")) return;
     e.stopPropagation();
-    moving = {region: regions[Number(e.target.dataset.region)], index: Number(e.target.dataset.index), moved: false};
+    moving = {region: regions[Number(e.target.dataset.rgIndex)], index: Number(e.target.dataset.index), moved: false};
   });
   window.addEventListener("mousemove", e => {
     if (!moving) return;
@@ -250,10 +259,8 @@
   document.getElementById("rg-cancel").addEventListener("click", cancel);
 
   document.getElementById("rg-save").addEventListener("click", async () => {
-    const response = await fetch(api("regions"), {method: "POST", headers: {"Content-Type": "application/json"},
-                                                  body: JSON.stringify({regions})});
-    const data = await response.json();
-    if (!response.ok) { say(data.detail || response.statusText, true); return; }
+    let data;
+    try { data = await call("regions", {regions}); } catch (error) { say(error.message, true); return; }
     regions = data.regions; file = data.file;
     say(`Saved ${regions.length} regions to ${data.file}.`);
     document.dispatchEvent(new CustomEvent("regionssaved"));  // region_pick.js reloads the map data
@@ -261,12 +268,11 @@
   });
 
   // The regions of the map, once per page: every route of the map shares them.
-  async function load() {
+  async function loadRegions() {
     if (!route) return;
-    const response = await fetch(api("regions"));
-    const data = await response.json();
-    if (!response.ok) {
-      say(`The regions file does not read: ${data.detail || response.statusText}`, true);
+    let data;
+    try { data = await call("regions"); } catch (error) {
+      say(error.message, true);
       panel.style.display = "block";
       return;
     }
@@ -274,5 +280,5 @@
     if (regions.length) say(`${regions.length} regions from ${file}.`);
     setOn(on);
   }
-  load();
+  loadRegions();
 })();

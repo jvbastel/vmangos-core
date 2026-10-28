@@ -5,7 +5,8 @@ page part is map_draw.js.
 
     GET  /api/maps/{route}/snap?x=&y=[&z=][&through=<region>...]
                                              the floor point of a click, and the floor heights there; the ground
-                                             of the regions named in through (faded or hidden) is left out (#185)
+                                             of the regions named in through (faded or hidden) is left out.
+                                             With regions, floor_regions gives the regions of each height
     POST /api/maps/{route}/path              {"start": {x, y, z}, "end": {x, y, z}, "through": [names]}: the floor
                                              path and its warnings; the path may run through any region
     POST /api/maps/{route}/trace             {"points": [{x, y, z, joined, mark, note}, ...], "branches": [[...], ...]}:
@@ -38,7 +39,7 @@ class Spot(BaseModel):
 class PathAsk(BaseModel):
     start: Spot
     end: Spot
-    through: list[str] = []  # the faded or hidden regions (#185); checked, not used: a path may run through them
+    through: list[str] = []  # the faded or hidden regions; checked, not used: a path may run through them
 
 
 class TraceAsk(BaseModel):
@@ -80,8 +81,10 @@ def add_routes(app: FastAPI, maps):
         point, floors = graph(map_id).snap(x, y, z, through=lambda p: any(r.holds(*p) for r in passed))
         if point is None:
             raise HTTPException(422, "no floor on this map")
-        return {"point": regions.mark(_xyz(point), map_regions),  # the regions it is in (#184)
-                "floors": [round(h, 2) for h in floors]}
+        found = {"point": regions.mark(_xyz(point), map_regions), "floors": [round(h, 2) for h in floors]}
+        if map_regions:  # the page's ground chooser takes a chosen ground's regions from here
+            found["floor_regions"] = [regions.regions_at(map_regions, point[0], point[1], h) for h in floors]
+        return found
 
     @app.post("/api/maps/{name}/path")
     def path(name: str, ask: PathAsk):

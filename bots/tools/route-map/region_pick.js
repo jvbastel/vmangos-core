@@ -15,7 +15,7 @@
 // Clicks go through a faded or hidden mark or image (pointer-events none, so
 // also no drag and no tooltip): the player clicks the ground and the packs
 // under it. Draw mode sends the faded names with its snap requests, so a
-// click lands on the ground the player sees (#185). A click on a pack in the
+// click lands on the ground the player sees. A click on a pack in the
 // pack order list (pack_order.js) whose marks are faded picks its region.
 //
 // Other scripts read the pick through window.regionPick (picked, hide,
@@ -33,13 +33,13 @@
   const OPACITY = {normal: "", faded: "0.2", hidden: "0"};
   const show = (node, state) => {
     node.style.opacity = OPACITY[state];
-    node.style.pointerEvents = state === "normal" ? "" : "none";  // clicks go through (#185)
+    node.style.pointerEvents = state === "normal" ? "" : "none";  // clicks go through
   };
   const RANK = {hidden: 0, faded: 1, normal: 2};
   let names = [];      // the regions of the map data, as its ground images
   let picked = null;   // the picked region, or null for "None"
   let hide = false;    // hide the other regions instead of fading them
-  let packRegions = new Map();  // pack key -> the regions of the pack (#185)
+  let packRegions = new Map();  // pack key -> the regions of the pack
 
   const box = document.createElement("div");
   box.id = "rp-box";

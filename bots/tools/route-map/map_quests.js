@@ -61,7 +61,8 @@
     const pack = packsByKey.get(key);
     if (!pack || typeof setView !== "function" || !view) return;  // the page's view (map_page.html)
     setView({...view, x: sx(pack) - view.w / 2, y: sy(pack) - view.h / 2});
-    const ring = el("circle", {class: "q-flash", cx: sx(pack), cy: sy(pack), r: 14 * yardsPerPixel}, group);
+    const ring = el("circle", {class: "q-flash", cx: sx(pack), cy: sy(pack), r: 14 * yardsPerPixel,
+                                ...regionMark(pack)}, group);
     setTimeout(() => ring.remove(), 1500);
   }
 
