@@ -303,6 +303,9 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
         error = routePath + ": " + route.error;
         return false;
     }
+    // A route file edited by hand: its bosses count from the next update,
+    // before the run's first fight.
+    sBotMgr.ReloadBossList();
     std::string const check = Bots::CheckRunScript(script.script, route.route);
     if (!check.empty())
     {
@@ -2024,6 +2027,6 @@ void BotRun::NoteChatLine(BotLine const& line, Player const* bot)
     Bots::RunChatEvent* event = line.eventId ? ChatEventOf(line.eventId) : nullptr;
     if (!event)
         return;
-    event->lines.push_back({bot->GetName(), RunMs()});
+    event->lines.push_back({bot->GetName(), RunMs(), line.chatType == CHAT_MSG_WHISPER ? "whisper" : "party"});
     m_trace.Add(RunMs(), std::string(bot->GetName()) + " says a line for " + event->event);
 }

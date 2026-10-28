@@ -132,7 +132,11 @@ bool RouteFiles::Write(std::string const& path, std::string const& text)
             return false;
     }
     std::remove(path.c_str());
-    return std::rename(temporary.c_str(), path.c_str()) == 0;
+    if (std::rename(temporary.c_str(), path.c_str()) != 0)
+        return false;
+    if (KindOf(path) == FileKind::Route)
+        sBotMgr.ReloadBossList();
+    return true;
 }
 
 namespace

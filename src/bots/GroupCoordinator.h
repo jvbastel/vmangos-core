@@ -128,7 +128,7 @@ namespace Bots
         Guid bot = NoGuid;                    // Rest: the bot that rests.
         RestReason reason = RestReason::None; // Rest: why.
         Guid target = NoGuid;                 // BossKill: the boss. LootRoll: the looted creature.
-        std::uint32_t entry = 0;              // BossKill: the creature entry. LootRoll: the item entry.
+        std::uint32_t entry = 0;              // BossKill: the creature entry. Wipe: the boss fought, or 0. LootRoll: the item entry.
         Guid winner = NoGuid;                 // LootRoll: the bot or player who won the item.
     };
 
@@ -303,8 +303,18 @@ namespace Bots
         // The fight with boss `boss` ends. Nothing for another boss.
         void EndBossFight(Guid boss);
 
+        // The boss of the boss list (BotView::IsListedBoss) that the group
+        // fights or fought last, for the boss name of a wipe. Any boss, with
+        // or without a boss reaction (GetBossFight). {NoGuid, 0}: none.
+        BossFight GetBossFought() const;
+        // Sets the boss fought to `next` if it is still `expected`, under one
+        // lock: two bots of the group can watch at the same time. False when
+        // another bot changed it first.
+        bool ReplaceBossFought(BossFight expected, BossFight next);
+
         // The wipe: every group member is dead. The first SetWiped(true)
-        // after a time with a living member adds a wipe event.
+        // after a time with a living member adds a wipe event, with the
+        // entry of the boss fought (GetBossFought).
         bool IsWiped() const;
         void SetWiped(bool wiped);
 
@@ -383,6 +393,7 @@ namespace Bots
         std::map<Guid, BotNote> m_bots;
         std::vector<Guid> m_enemyHealers;                 // In mark order.
         BossFight m_bossFight = {NoGuid, 0};
+        BossFight m_bossFought = {NoGuid, 0};
     };
 }
 

@@ -353,6 +353,21 @@ namespace Bots
             m_bossFight = {NoGuid, 0};
     }
 
+    BossFight GroupCoordinator::GetBossFought() const
+    {
+        Lock lock(m_mutex);
+        return m_bossFought;
+    }
+
+    bool GroupCoordinator::ReplaceBossFought(BossFight expected, BossFight next)
+    {
+        Lock lock(m_mutex);
+        if (m_bossFought.boss != expected.boss)
+            return false;
+        m_bossFought = next;
+        return true;
+    }
+
     bool GroupCoordinator::IsWiped() const
     {
         Lock lock(m_mutex);
@@ -363,7 +378,11 @@ namespace Bots
     {
         Lock lock(m_mutex);
         if (wiped && !m_wiped)
-            m_events.push_back({GroupEventKind::Wipe, NoGuid, RestReason::None});
+        {
+            GroupEvent event = {GroupEventKind::Wipe};
+            event.entry = m_bossFought.entry;
+            m_events.push_back(event);
+        }
         m_wiped = wiped;
     }
 

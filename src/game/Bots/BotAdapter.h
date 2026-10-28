@@ -73,6 +73,8 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool IsCastLocked(Bots::SpellId spell) const override;
         std::vector<Bots::Guid> GetGroupMembers() const override;
         uint32 GetEntry(Bots::Guid unit) const override;
+        bool IsListedBoss(Bots::Guid unit) const override;
+        bool HoldsTap(Bots::Guid unit) const override;
         Bots::Position GetPosition(Bots::Guid unit) const override;
         float GetWallDistance(Bots::Position const& from, float angle, float maxYards) const override;
         bool IsHarmfulGround(Bots::Position const& place) const override;

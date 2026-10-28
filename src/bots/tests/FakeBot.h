@@ -108,6 +108,16 @@ namespace Bots
             void SetGroupMembers(std::vector<Guid> const& others) { m_groupMembers = others; }
 
             void SetEntry(Guid unit, std::uint32_t entry) { m_entry[unit] = entry; }
+            // The unit is in the boss list of the route file (IsListedBoss).
+            void SetListedBoss(Guid unit) { m_listedBosses.insert(unit); }
+            // The bot holds the tap on creature `unit` (HoldsTap).
+            void SetTap(Guid unit, bool holds = true)
+            {
+                if (holds)
+                    m_tapped.insert(unit);
+                else
+                    m_tapped.erase(unit);
+            }
             // A unit with a position and no distance of its own (SetDistance)
             // is as far from the bot as their positions are.
             void SetPosition(Guid unit, Position position) { m_position[unit] = position; }
@@ -306,6 +316,8 @@ namespace Bots
                 auto found = m_entry.find(unit);
                 return found == m_entry.end() ? 0 : found->second;
             }
+            bool IsListedBoss(Guid unit) const override { return m_listedBosses.count(unit) != 0; }
+            bool HoldsTap(Guid unit) const override { return m_tapped.count(unit) != 0; }
             Position GetPosition(Guid unit) const override
             {
                 auto found = m_position.find(unit);
@@ -536,6 +548,8 @@ namespace Bots
             bool m_lootWork = false;
             bool m_lootOnlyWithMove = false;
             std::map<Guid, std::uint32_t> m_entry;
+            std::set<Guid> m_listedBosses;
+            std::set<Guid> m_tapped;
             std::map<Guid, Position> m_position;
             std::vector<float> m_wallsAtX;
             std::vector<float> m_wallsAtY;

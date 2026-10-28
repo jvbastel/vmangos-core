@@ -226,6 +226,9 @@ std::vector<Bots::Guid> BotMgr::BotGuids() const
 
 void BotMgr::Update(uint32 diff)
 {
+    // After the maps, which read the boss lists.
+    if (m_reloadBossList.exchange(false))
+        LoadBossList();
     // After the maps: the lines of bot chat whose delay ended.
     for (BotLine& line : m_chat.Update())
         m_lines.Push(std::move(line));

@@ -577,6 +577,77 @@ TEST(GroupWatch, TheCoordinatorSeesAWipeOnce)
     EXPECT_TRUE(bot.group.TakeEvents().empty());
 }
 
+// Spec section 9: a wipe names the boss of the fight. The boss list comes
+// from the route file (BotView::IsListedBoss).
+
+namespace
+{
+    Bots::Guid const Bazzalan = 0xF130002C7F000001;
+
+    // Bazzalan, a boss of the route file, attacks the tank.
+    void FightBazzalan(GroupBot& bot)
+    {
+        bot.fake.SetEntry(Bazzalan, 11519);
+        bot.fake.SetListedBoss(Bazzalan);
+        bot.fake.SetHealth(Bazzalan, 4000, 9000);
+        bot.fake.SetVictim(Bazzalan, Tank);
+        bot.Watch();
+    }
+}
+
+TEST(GroupWatch, AWipeNamesTheBossThatTheGroupFought)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    FightBazzalan(bot);
+
+    // The last member dies, and the boss is out of combat (an evade) before
+    // the bot sees the wipe.
+    for (Bots::Guid member : {Player, Tank, Healer, Mage})
+        bot.Die(member);
+    bot.fake.SetVictim(Bazzalan, NoGuid);
+    bot.Watch();
+
+    std::vector<GroupEvent> const events = bot.group.TakeEvents();
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].kind, GroupEventKind::Wipe);
+    EXPECT_EQ(events[0].entry, 11519u);
+}
+
+TEST(GroupWatch, AWipeAfterTheBossDiedNamesNoBoss)
+{
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    FightBazzalan(bot);
+    bot.fake.SetHealth(Bazzalan, 0, 9000);
+    bot.fake.SetVictim(Bazzalan, NoGuid);
+    bot.Watch();
+
+    for (Bots::Guid member : {Player, Tank, Healer, Mage})
+        bot.Die(member);
+    bot.Watch();
+
+    std::vector<GroupEvent> const events = bot.group.TakeEvents();
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].entry, 0u);
+}
+
+TEST(GroupWatch, AnEnemyOffTheBossListIsNoBossOfAWipe)
+{
+    Bots::Guid const Trogg = 0xF130002C7F000002;
+    GroupBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.fake.SetEntry(Trogg, 11318);
+    bot.fake.SetHealth(Trogg, 400, 900);
+    bot.fake.SetVictim(Trogg, Tank);
+    bot.Watch();
+
+    for (Bots::Guid member : {Player, Tank, Healer, Mage})
+        bot.Die(member);
+    bot.Watch();
+
+    std::vector<GroupEvent> const events = bot.group.TakeEvents();
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].entry, 0u);
+}
+
 TEST(GroupWatch, AGhostCountsAsDeadInAWipe)
 {
     DeadMage bot;

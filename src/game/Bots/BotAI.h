@@ -11,6 +11,7 @@
 #include "PlayerBotAI.h"
 #include "ObjectGuid.h"
 #include "WorldPacket.h"
+#include "BossFights.h"
 #include "BossReactions.h"
 #include "BotCommand.h"
 #include "BotLoot.h"
@@ -126,6 +127,9 @@ class BotAI : public PlayerBotAI
         bool m_levelRoutineDone = false;
         // The pet that has its pet spells. Empty without a pet.
         ObjectGuid m_taughtPet;
+        // The boss kill of the bot that holds the tap, which gets no
+        // SMSG_PARTYKILLLOG.
+        Bots::TapWatch m_tapWatch;
 };
 
 #endif

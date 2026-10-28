@@ -20,8 +20,10 @@ Options:
                         after the last run (Ctrl+C stops it at once).
     --ntfy <topic>      With --watch: push the main events to ntfy.sh.
 
-The realm must be up (`realm.sh --ticket <N> acquire`). For each run, the
-script starts it with `.wowai run start`, asks `.wowai run status` every 10 s
+The realm must be up (`realm.sh --ticket <N> acquire`). Its chat service uses
+the fake LLM backend; for runs with the real LLM, start the realm with
+WOWAI_BOTCHAT_LLM=llama (realm.sh, settings). The chat checks are the same.
+For each run, the script starts it with `.wowai run start`, asks `.wowai run status` every 10 s
 until the run ends, and stops a run that takes too long. mangosd writes each
 result file, and the trace of a run that did not pass, to the folder runs/ of
 its logs, which the realm mounts at <realm folder>/storage/mangosd/logs/runs.
@@ -227,15 +229,29 @@ def chat_failures(result):
         if len(whispers) != 1:
             failures.append("the test driver whispered %s %d times, once expected" % (bot, len(whispers)))
         for whisper in whispers:
-            if not any(line["bot"] == bot for line in whisper["lines"]):
+            own = [line for line in whisper["lines"] if line["bot"] == bot]
+            if not own:
                 failures.append("the whisper to %s got no answer from %s" % (bot, bot))
+            elif len(own) > 1:
+                failures.append("the whisper to %s got %d answers from %s, 1 expected" % (bot, len(own), bot))
+            for other in sorted({line["bot"] for line in whisper["lines"]} - {bot}):
+                failures.append("the whisper to %s got an answer from %s, only %s expected" % (bot, other, bot))
+            failures += channel_failures(whisper, "the whisper to " + bot, "whisper")
     party = [event for event in messages if event["to"] is None]
     if len(party) != 1:
         failures.append("the test driver wrote %d party messages, once expected" % len(party))
     for message in party:
         if not 1 <= len(message["lines"]) <= 2:
             failures.append("the party message got %d answers, 1 or 2 expected" % len(message["lines"]))
+        failures += channel_failures(message, "the party message", "party")
     return failures
+
+
+def channel_failures(message, what, channel):
+    """A bot answers in the channel of the message (spec section 9). A result
+    file from before the line channels has none to check."""
+    return ["%s answered %s in %s, %s expected" % (line["bot"], what, line["channel"], channel)
+            for line in message["lines"] if line.get("channel", channel) != channel]
 
 
 def threshold_failures(result):

@@ -126,6 +126,7 @@ namespace Bots
     {
         std::string bot;
         std::int64_t ms;
+        std::string channel; // The contract's channel name: party or whisper.
     };
 
     // A bot chat event of the run group that the core sent to the chat
