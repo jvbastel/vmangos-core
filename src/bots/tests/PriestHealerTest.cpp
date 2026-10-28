@@ -659,6 +659,7 @@ TEST(PriestHealerRank, RenewKeepsItsHighestRankOnASmallWound)
     priest.Think();
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Renew2, Tank)}));
+}
 
 // jvbastel/WOWAI#133: the healer shoots the focus target with its wand
 // between heals.
