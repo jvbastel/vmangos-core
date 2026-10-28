@@ -1222,3 +1222,9 @@ Bots::BotView::GroupMarks BotAdapter::GetGroupMarks() const
     }
     return marks;
 }
+
+// jvbastel/WOWAI#197: a member's role choice.
+Bots::RoleChoice BotAdapter::GetRoleChoice(Bots::Guid member) const
+{
+    return sBotMgr.RoleChoiceOf(ObjectGuid(member));
+}

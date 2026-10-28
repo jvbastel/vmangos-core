@@ -105,6 +105,8 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::Guid GetTargetOf(Bots::Guid unit) const override;
         // jvbastel/WOWAI#191: the skull and cross of the bot's group (BotView.h).
         GroupMarks GetGroupMarks() const override;
+        // jvbastel/WOWAI#197: the last role choice message of the player (BotMgr::RoleChoiceOf).
+        Bots::RoleChoice GetRoleChoice(Bots::Guid member) const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;

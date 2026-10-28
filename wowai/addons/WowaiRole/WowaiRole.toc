@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: WOWAI Role
+## Notes: Tells the WOWAI bots your role (tank, healer, melee or ranged damage).
+## Author: WOWAI
+## Version: 1.0
+## SavedVariablesPerCharacter: WowaiRoleDB
+WowaiRole.lua
+WowaiRoleFrame.lua

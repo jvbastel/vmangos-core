@@ -37,6 +37,13 @@ namespace BotHooks
     // can invite the first bot. True: the hook took the whisper, and the core
     // sends no "player not found" notice. Same threads as OnPlayerChat.
     bool OnWhisperToOffline(Player* sender, std::string const& receiverName, std::string const& text);
+
+    // jvbastel/WOWAI#197: WorldSession::HandleChatMessageOpcode, at the top
+    // of the party branch, for an add-on message (LANG_ADDON), also from a
+    // player with no group. A message of the role choice add-on sets the
+    // role choice of the sender (BotMgr::SetRoleChoice). Same threads as
+    // OnPlayerChat.
+    void OnPartyAddonMessage(Player* sender, std::string const& text);
 }
 
 #endif
