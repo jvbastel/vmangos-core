@@ -64,6 +64,8 @@ namespace Bots
             // range, power, stance).
             void SetCannotCast(SpellId spell) { m_cannotCast.insert(spell); }
             void SetPower(Guid unit, std::uint32_t current, std::uint32_t max) { m_power[unit] = Power{current, max}; }
+            // Unset: PowerKind::None.
+            void SetPowerKind(Guid unit, PowerKind kind) { m_powerKind[unit] = kind; }
             void SetDistance(Guid unit, float yards) { m_distance[unit] = yards; }
             // The distance as spell ranges measure it. Unset: GetDistance.
             void SetSpellDistance(Guid unit, float yards) { m_spellDistance[unit] = yards; }
@@ -214,6 +216,11 @@ namespace Bots
             {
                 auto found = m_power.find(unit);
                 return found == m_power.end() ? Power{0, 0} : found->second;
+            }
+            PowerKind GetPowerKind(Guid unit) const override
+            {
+                auto found = m_powerKind.find(unit);
+                return found == m_powerKind.end() ? PowerKind::None : found->second;
             }
             float GetDistance(Guid unit) const override
             {
@@ -532,6 +539,7 @@ namespace Bots
             std::map<SpellId, SpellId> m_nextRank;
             std::set<SpellId> m_cannotCast;
             std::map<Guid, Power> m_power;
+            std::map<Guid, PowerKind> m_powerKind;
             std::map<Guid, float> m_distance;
             std::map<Guid, float> m_spellDistance;
             std::map<SpellId, float> m_spellRange;

@@ -81,6 +81,10 @@ namespace Bots
 
         // The power of unit `unit`. {0, 0} for a unit that the bot cannot see.
         virtual Power GetPower(Guid unit) const = 0;
+        // The kind of power of unit `unit`: mana, rage, or energy. A warrior
+        // and a druid in bear form have rage. None for a unit that the bot
+        // cannot see.
+        virtual PowerKind GetPowerKind(Guid unit) const = 0;
         // The distance in yards from the bot to unit `unit`. A large number
         // for a unit that the bot cannot see.
         virtual float GetDistance(Guid unit) const = 0;

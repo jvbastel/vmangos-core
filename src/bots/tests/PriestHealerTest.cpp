@@ -34,8 +34,8 @@ namespace
         return text.size() >= end.size() && text.compare(text.size() - end.size(), end.size(), end) == 0;
     }
 
-    // A level 16 Troll Priest healer in a group with a tank and a mage, all
-    // at full health, with its buffs on everyone.
+    // A level 16 Troll Priest healer in a group with a warrior tank (rage)
+    // and a mage, all at full health, with its buffs on everyone.
     struct PriestHealer
     {
         FakeBot fake{Healer};
@@ -60,6 +60,10 @@ namespace
             fake.SetAura(Healer, Priest::InnerFire);
             fake.SetPower(Healer, 400, 400);
             fake.SetHealth(Kobold, 200, 200);
+            group.SetTank(Tank);
+            fake.SetPowerKind(Tank, Bots::PowerKind::Rage);
+            fake.SetPowerKind(Healer, Bots::PowerKind::Mana);
+            fake.SetPowerKind(Mage, Bots::PowerKind::Mana);
         }
 
         std::string Think(Bots::CommandState command = Bots::CommandState::None, Bots::Guid player = NoGuid)
@@ -139,7 +143,7 @@ TEST(PriestHealer, DoesNotTryToCastWhileSilenced)
 {
     PriestHealer priest;
     priest.InFight();
-    priest.fake.SetHealth(Tank, 200, 600);
+    priest.fake.SetHealth(Tank, 100, 600);
     priest.fake.SetAura(Tank, Priest::PowerWordFortitude, false);
     priest.Think();
     ASSERT_FALSE(priest.fake.Deeds().empty()) << "without the lock the priest casts";
@@ -156,11 +160,11 @@ TEST(PriestHealer, ShieldsAMemberNearDeath)
 {
     PriestHealer priest;
     priest.InFight();
-    priest.fake.SetHealth(Tank, 150, 600);
+    priest.fake.SetHealth(Mage, 80, 300);
 
     priest.Think();
 
-    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Tank)}));
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Mage)}));
 }
 
 TEST(PriestHealer, HealsAMemberNearDeathWithWeakenedSoul)
@@ -227,7 +231,7 @@ TEST(PriestHealer, HealsThroughADebuff)
     }
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Tank),
-        CastOn(Priest::LesserHeal, Tank), CastOn(Priest::Heal, Tank), CastOn(Priest::PowerWordShield, Tank)}));
+        CastOn(Priest::LesserHeal, Tank), CastOn(Priest::Heal, Tank), CastOn(Priest::Heal, Tank)}));
 }
 
 TEST(PriestHealer, FadesWhenAnEnemyAttacksIt)
@@ -504,6 +508,64 @@ TEST(GroupCoordinator, NotesWhenTheTankEngages)
     group.HoldPull(Tank, 9000);
 
     EXPECT_EQ(group.GetPull().engagedMs, 5000);
+}
+
+// jvbastel/WOWAI#132: the shield absorbs the damage that gives a rage tank
+// its rage, so the tank would lose threat. A rage tank near death gets the
+// next heal of the strategy, never the shield.
+TEST(PriestHealerRageTank, HealsARageTankNearDeathWithoutAShield)
+{
+    PriestHealer priest;
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 150, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Heal, Tank)}));
+}
+
+TEST(PriestHealerRageTank, ShieldsARogueNearDeath)
+{
+    Bots::Guid const Rogue = 0x0000000000000014;
+    PriestHealer priest;
+    priest.fake.SetGroupMembers({Tank, Mage, Rogue});
+    priest.fake.SetHealth(Rogue, 100, 400);
+    priest.fake.SetDistance(Rogue, 20.0f);
+    priest.fake.SetAura(Rogue, Priest::PowerWordFortitude);
+    priest.fake.SetPowerKind(Rogue, Bots::PowerKind::Energy);
+    priest.InFight();
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Rogue)}));
+}
+
+TEST(PriestHealerRageTank, ShieldsATankWithManaNearDeath)
+{
+    // The rule checks the power kind, not the class: a tank with mana
+    // gives no rage away, and gets the shield.
+    PriestHealer priest;
+    priest.fake.SetPowerKind(Tank, Bots::PowerKind::Mana);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 150, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Tank)}));
+}
+
+TEST(PriestHealerRageTank, ShieldsARageMemberThatIsNotTheTank)
+{
+    // A second warrior, in the damage role, has rage but holds no threat:
+    // the shield does not cost the group its threat.
+    PriestHealer priest;
+    priest.fake.SetPowerKind(Mage, Bots::PowerKind::Rage);
+    priest.InFight();
+    priest.fake.SetHealth(Mage, 80, 300);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Mage)}));
 }
 
 // jvbastel/WOWAI#134: Lesser Heal and Heal pick their rank by the missing

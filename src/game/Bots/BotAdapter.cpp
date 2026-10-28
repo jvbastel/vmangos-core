@@ -277,6 +277,24 @@ Bots::Power BotAdapter::GetPower(Bots::Guid unit) const
     return {found->GetPower(power), found->GetMaxPower(power)};
 }
 
+Bots::PowerKind BotAdapter::GetPowerKind(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found)
+        return Bots::PowerKind::None;
+    switch (found->GetPowerType())
+    {
+        case POWER_MANA:
+            return Bots::PowerKind::Mana;
+        case POWER_RAGE:
+            return Bots::PowerKind::Rage;
+        case POWER_ENERGY:
+            return Bots::PowerKind::Energy;
+        default:
+            return Bots::PowerKind::None;
+    }
+}
+
 float BotAdapter::GetDistance(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
