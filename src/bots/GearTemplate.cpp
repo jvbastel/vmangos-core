@@ -163,7 +163,7 @@ namespace Bots
                 {
                     // Count what one faction wears: a line for both factions
                     // counts once for the Horde and once for the Alliance.
-                    for (GearFaction faction : { GearFaction::Horde, GearFaction::Alliance })
+                    for (Faction faction : { Faction::Horde, Faction::Alliance })
                     for (std::uint32_t level = item.minLevel; level <= item.maxLevel; ++level)
                     {
                         if (!FitsFaction(item, faction))
@@ -189,15 +189,9 @@ namespace Bots
         }
     }
 
-    bool FitsFaction(GearItem const& item, GearFaction faction)
+    bool FitsFaction(GearItem const& item, Faction faction)
     {
-        switch (item.factions)
-        {
-            case GearFactions::Horde: return faction == GearFaction::Horde;
-            case GearFactions::Alliance: return faction == GearFaction::Alliance;
-            case GearFactions::Both: break;
-        }
-        return true;
+        return !item.oneFaction || item.faction == faction;
     }
 
     char const* GearSlotName(GearSlot slot)
@@ -328,7 +322,8 @@ namespace Bots
                 GearItem item;
                 item.line = line.number;
                 item.score = 0.0;
-                item.factions = GearFactions::Both;
+                item.oneFaction = false;
+                item.faction = Faction::Horde;
                 if (!ParseSlot(words[1], item.slot))
                     return Fail(line.number, "Unknown slot '" + words[1] + "'.");
                 if (!ParseNumber(words[2], item.entry) || item.entry == 0)
@@ -343,13 +338,10 @@ namespace Bots
                 if (words.size() == fields + 1)
                 {
                     std::string const& faction = words[fields];
-                    if (faction == "horde")
-                        item.factions = GearFactions::Horde;
-                    else if (faction == "alliance")
-                        item.factions = GearFactions::Alliance;
-                    else
+                    if (!ParseFaction(faction, item.faction))
                         return Fail(line.number, "The faction '" + faction +
                             "' is not horde or alliance. A line for both factions has no faction word.");
+                    item.oneFaction = true;
                 }
                 gear.items.push_back(item);
             }

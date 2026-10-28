@@ -7,7 +7,7 @@
 
 using Bots::BotPanelMessages;
 using Bots::BotRole;
-using Bots::GearFaction;
+using Bots::Faction;
 using Bots::IsBotPanelRequest;
 using Bots::PanelBot;
 using Bots::PanelBotsFor;
@@ -19,16 +19,16 @@ namespace
     std::vector<PanelBot> TheTenBots()
     {
         return {
-            {"Shanka", BotRole::Melee, GearFaction::Horde, false},
-            {"Hela", BotRole::Healer, GearFaction::Horde, false},
-            {"Morzul", BotRole::Ranged, GearFaction::Horde, false},
-            {"Grukk", BotRole::Tank, GearFaction::Horde, false},
-            {"Ezzra", BotRole::Ranged, GearFaction::Horde, false},
-            {"Nixie", BotRole::Ranged, GearFaction::Alliance, false},
-            {"Aldric", BotRole::Tank, GearFaction::Alliance, false},
-            {"Corwin", BotRole::Melee, GearFaction::Alliance, false},
-            {"Fizzwick", BotRole::Ranged, GearFaction::Alliance, false},
-            {"Brenna", BotRole::Healer, GearFaction::Alliance, false},
+            {"Shanka", BotRole::Melee, Faction::Horde, false},
+            {"Hela", BotRole::Healer, Faction::Horde, false},
+            {"Morzul", BotRole::Ranged, Faction::Horde, false},
+            {"Grukk", BotRole::Tank, Faction::Horde, false},
+            {"Ezzra", BotRole::Ranged, Faction::Horde, false},
+            {"Nixie", BotRole::Ranged, Faction::Alliance, false},
+            {"Aldric", BotRole::Tank, Faction::Alliance, false},
+            {"Corwin", BotRole::Melee, Faction::Alliance, false},
+            {"Fizzwick", BotRole::Ranged, Faction::Alliance, false},
+            {"Brenna", BotRole::Healer, Faction::Alliance, false},
         };
     }
 
@@ -45,22 +45,22 @@ TEST(BotPanel, AHordePlayerSeesTheHordeBotsByRole)
 {
     std::vector<std::string> const expected = {"Grukk", "Hela", "Shanka", "Ezzra", "Morzul"};
 
-    EXPECT_EQ(NamesOf(PanelBotsFor(TheTenBots(), GearFaction::Horde)), expected);
+    EXPECT_EQ(NamesOf(PanelBotsFor(TheTenBots(), Faction::Horde)), expected);
 }
 
 TEST(BotPanel, AnAlliancePlayerSeesTheAllianceBotsByRole)
 {
     std::vector<std::string> const expected = {"Aldric", "Brenna", "Corwin", "Fizzwick", "Nixie"};
 
-    EXPECT_EQ(NamesOf(PanelBotsFor(TheTenBots(), GearFaction::Alliance)), expected);
+    EXPECT_EQ(NamesOf(PanelBotsFor(TheTenBots(), Faction::Alliance)), expected);
 }
 
 TEST(BotPanel, LeavesOutTheWorldBots)
 {
     std::vector<PanelBot> bots = TheTenBots();
-    bots.push_back({"Wanderer", BotRole::Tank, GearFaction::Horde, true});
+    bots.push_back({"Wanderer", BotRole::Tank, Faction::Horde, true});
 
-    std::vector<std::string> const names = NamesOf(PanelBotsFor(bots, GearFaction::Horde));
+    std::vector<std::string> const names = NamesOf(PanelBotsFor(bots, Faction::Horde));
 
     EXPECT_EQ(names.size(), 5u);
     EXPECT_EQ(names.front(), "Grukk");
@@ -98,7 +98,7 @@ TEST(BotPanel, IgnoresOtherMessages)
 // them from the chat frames.
 TEST(BotPanel, TheAnswerClearsThePanelThenSendsOneMessagePerBot)
 {
-    std::vector<PanelBot> const listed = PanelBotsFor(TheTenBots(), GearFaction::Alliance);
+    std::vector<PanelBot> const listed = PanelBotsFor(TheTenBots(), Faction::Alliance);
     std::vector<std::string> const expected = {
         "WOWAI_BOTS 1:clear",
         "WOWAI_BOTS 1:bot:tank:Aldric",

@@ -53,7 +53,7 @@ class BotGear
 Bots::GearDraw EquipFromGearTemplate(Player* player, Bots::GearTemplate const& gearTemplate);
 
 // The faction of the bot library for a team of the game (HORDE or ALLIANCE).
-Bots::GearFaction FactionOfTeam(uint32 team);
+Bots::Faction FactionOfTeam(uint32 team);
 
 // One line per pick for the GM and the log, for example "head 1234 Cap".
 std::string DescribeGearDraw(Bots::GearDraw const& draw);

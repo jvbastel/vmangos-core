@@ -2,6 +2,7 @@
 #define WOWAI_BOTS_GEAR_TEMPLATE_H
 
 #include "BotRecipe.h"
+#include "Faction.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -141,21 +142,6 @@ namespace Bots
         Hand,
     };
 
-    // The faction of a character, for the gear draw.
-    enum class GearFaction
-    {
-        Horde,
-        Alliance,
-    };
-
-    // The factions that can use and get an item of a template.
-    enum class GearFactions
-    {
-        Both,
-        Horde,
-        Alliance,
-    };
-
     struct GearItem
     {
         GearSlot slot;
@@ -165,11 +151,13 @@ namespace Bots
         std::uint32_t minPatch;
         double score;      // 0 in a hand-made template.
         std::size_t line;  // The line in the file, for messages.
-        GearFactions factions;
+        // The item is for one faction only, `faction`; else for both.
+        bool oneFaction;
+        Faction faction;
     };
 
     // True when a character of the faction can use and get the item.
-    bool FitsFaction(GearItem const& item, GearFaction faction);
+    bool FitsFaction(GearItem const& item, Faction faction);
 
     struct WeaponShape
     {

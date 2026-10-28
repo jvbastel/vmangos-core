@@ -1,4 +1,5 @@
 #include "BotRecipe.h"
+#include "Faction.h"
 
 #include <cctype>
 
@@ -16,17 +17,11 @@ namespace Bots
             std::vector<BotRole> roles;
         };
 
-        enum class BotFaction
-        {
-            Horde,
-            Alliance,
-        };
-
         struct RaceInfo
         {
             BotRace race;
             char const* name;
-            BotFaction faction;
+            Faction faction;
         };
 
         // The race and class pairs of the game, and the roles that each
@@ -65,14 +60,14 @@ namespace Bots
         std::vector<RaceInfo> const& Races()
         {
             static std::vector<RaceInfo> const races = {
-                {BotRace::Orc, "orc", BotFaction::Horde},
-                {BotRace::Undead, "undead", BotFaction::Horde},
-                {BotRace::Tauren, "tauren", BotFaction::Horde},
-                {BotRace::Troll, "troll", BotFaction::Horde},
-                {BotRace::Human, "human", BotFaction::Alliance},
-                {BotRace::Dwarf, "dwarf", BotFaction::Alliance},
-                {BotRace::NightElf, "nightelf", BotFaction::Alliance},
-                {BotRace::Gnome, "gnome", BotFaction::Alliance},
+                {BotRace::Orc, "orc", Faction::Horde},
+                {BotRace::Undead, "undead", Faction::Horde},
+                {BotRace::Tauren, "tauren", Faction::Horde},
+                {BotRace::Troll, "troll", Faction::Horde},
+                {BotRace::Human, "human", Faction::Alliance},
+                {BotRace::Dwarf, "dwarf", Faction::Alliance},
+                {BotRace::NightElf, "nightelf", Faction::Alliance},
+                {BotRace::Gnome, "gnome", Faction::Alliance},
             };
             return races;
         }
@@ -87,7 +82,7 @@ namespace Bots
 
         // The default race of the class in the faction. False when no race
         // of the faction can have the class.
-        bool DefaultRace(ClassInfo const& classInfo, BotFaction faction, BotRace& race)
+        bool DefaultRace(ClassInfo const& classInfo, Faction faction, BotRace& race)
         {
             for (BotRace r : classInfo.races)
                 if (InfoOf(r).faction == faction)
@@ -235,7 +230,7 @@ namespace Bots
 
         // The fourth word is a race, or a faction for the default race of
         // the class in it.
-        BotFaction faction = BotFaction::Horde;
+        Faction faction = Faction::Horde;
         BotRace race = BotRace::Orc;
         bool raceFound = false;
         if (words.size() == 4)
@@ -249,9 +244,7 @@ namespace Bots
                 }
             if (raceFound && !Contains(classInfo->races, race))
                 return Fail(WithArticle(RaceName(race)) + " cannot be a " + classInfo->name + ".");
-            if (word == "alliance")
-                faction = BotFaction::Alliance;
-            else if (!raceFound && word != "horde")
+            if (!raceFound && !ParseFaction(word, faction))
                 return Fail("Unknown race '" + words[3] +
                     "'. Use orc, undead, tauren, troll, human, dwarf, nightelf, gnome, horde, or alliance.");
         }

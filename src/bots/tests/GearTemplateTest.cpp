@@ -165,15 +165,17 @@ TEST(GearTemplate, AnItemLineCanBeMarkedForOneFaction)
     ASSERT_TRUE(result.ok) << result.error;
     std::vector<Bots::GearItem> const& items = result.gearTemplate.items;
     ASSERT_EQ(items.size(), 3u);
-    EXPECT_EQ(items[0].factions, Bots::GearFactions::Horde);
-    EXPECT_EQ(items[1].factions, Bots::GearFactions::Alliance);
-    EXPECT_EQ(items[2].factions, Bots::GearFactions::Both);
-    EXPECT_TRUE(Bots::FitsFaction(items[0], Bots::GearFaction::Horde));
-    EXPECT_FALSE(Bots::FitsFaction(items[0], Bots::GearFaction::Alliance));
-    EXPECT_FALSE(Bots::FitsFaction(items[1], Bots::GearFaction::Horde));
-    EXPECT_TRUE(Bots::FitsFaction(items[1], Bots::GearFaction::Alliance));
-    EXPECT_TRUE(Bots::FitsFaction(items[2], Bots::GearFaction::Horde));
-    EXPECT_TRUE(Bots::FitsFaction(items[2], Bots::GearFaction::Alliance));
+    EXPECT_TRUE(items[0].oneFaction);
+    EXPECT_EQ(items[0].faction, Bots::Faction::Horde);
+    EXPECT_TRUE(items[1].oneFaction);
+    EXPECT_EQ(items[1].faction, Bots::Faction::Alliance);
+    EXPECT_FALSE(items[2].oneFaction);
+    EXPECT_TRUE(Bots::FitsFaction(items[0], Bots::Faction::Horde));
+    EXPECT_FALSE(Bots::FitsFaction(items[0], Bots::Faction::Alliance));
+    EXPECT_FALSE(Bots::FitsFaction(items[1], Bots::Faction::Horde));
+    EXPECT_TRUE(Bots::FitsFaction(items[1], Bots::Faction::Alliance));
+    EXPECT_TRUE(Bots::FitsFaction(items[2], Bots::Faction::Horde));
+    EXPECT_TRUE(Bots::FitsFaction(items[2], Bots::Faction::Alliance));
 }
 
 TEST(GearTemplate, AHandMadeItemCanBeMarkedForOneFaction)
@@ -181,8 +183,9 @@ TEST(GearTemplate, AHandMadeItemCanBeMarkedForOneFaction)
     GearTemplateResult result = ParseGearTemplate(HandHeader + "item head 1 10-20 0 alliance\nitem chest 2 10-20 0\n");
 
     ASSERT_TRUE(result.ok) << result.error;
-    EXPECT_EQ(result.gearTemplate.items[0].factions, Bots::GearFactions::Alliance);
-    EXPECT_EQ(result.gearTemplate.items[1].factions, Bots::GearFactions::Both);
+    EXPECT_TRUE(result.gearTemplate.items[0].oneFaction);
+    EXPECT_EQ(result.gearTemplate.items[0].faction, Bots::Faction::Alliance);
+    EXPECT_FALSE(result.gearTemplate.items[1].oneFaction);
 }
 
 TEST(GearTemplate, TheFactionWordIsHordeOrAlliance)

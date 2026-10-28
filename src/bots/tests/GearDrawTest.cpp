@@ -43,7 +43,7 @@ namespace
     {
         std::map<std::uint32_t, int> counts;
         for (int guid = 1; guid <= characters; ++guid)
-            ++counts[EntryAt(DrawGear(gear, guid, 16, 10, Bots::GearFaction::Horde), GearPosition::Head)];
+            ++counts[EntryAt(DrawGear(gear, guid, 16, 10, Bots::Faction::Horde), GearPosition::Head)];
         return counts;
     }
 }
@@ -58,7 +58,7 @@ TEST(GearDraw, APoolHoldsOnlyItemsOfTheLevelAndAnAllowedPatch)
 
     for (std::uint64_t guid = 1; guid <= 50; ++guid)
     {
-        GearDraw draw = DrawGear(gear, guid, 16, 5, Bots::GearFaction::Horde);
+        GearDraw draw = DrawGear(gear, guid, 16, 5, Bots::Faction::Horde);
         ASSERT_EQ(draw.picks.size(), 1u);
         EXPECT_EQ(draw.picks[0].entry, 4u);
         EXPECT_EQ(draw.picks[0].position, GearPosition::Head);
@@ -66,7 +66,7 @@ TEST(GearDraw, APoolHoldsOnlyItemsOfTheLevelAndAnAllowedPatch)
     }
     std::set<std::uint32_t> atPatch6;
     for (std::uint64_t guid = 1; guid <= 50; ++guid)
-        atPatch6.insert(EntryAt(DrawGear(gear, guid, 16, 6, Bots::GearFaction::Horde), GearPosition::Head));
+        atPatch6.insert(EntryAt(DrawGear(gear, guid, 16, 6, Bots::Faction::Horde), GearPosition::Head));
     EXPECT_EQ(atPatch6, (std::set<std::uint32_t>{3, 4}));
 }
 
@@ -98,8 +98,8 @@ TEST(GearDraw, TheSameCharacterAlwaysGetsTheSameGear)
     std::set<std::uint32_t> heads;
     for (std::uint64_t guid = 1; guid <= 20; ++guid)
     {
-        std::uint32_t const head = EntryAt(DrawGear(gear, guid, 16, 10, Bots::GearFaction::Horde), GearPosition::Head);
-        EXPECT_EQ(EntryAt(DrawGear(gear, guid, 16, 10, Bots::GearFaction::Horde), GearPosition::Head), head);
+        std::uint32_t const head = EntryAt(DrawGear(gear, guid, 16, 10, Bots::Faction::Horde), GearPosition::Head);
+        EXPECT_EQ(EntryAt(DrawGear(gear, guid, 16, 10, Bots::Faction::Horde), GearPosition::Head), head);
         heads.insert(head);
     }
     EXPECT_GT(heads.size(), 3u);
@@ -113,7 +113,7 @@ TEST(GearDraw, FingerAndTrinketTakeTwoDifferentItems)
 
     for (std::uint64_t guid = 1; guid <= 50; ++guid)
     {
-        GearDraw draw = DrawGear(gear, guid, 16, 10, Bots::GearFaction::Horde);
+        GearDraw draw = DrawGear(gear, guid, 16, 10, Bots::Faction::Horde);
         std::uint32_t const first = EntryAt(draw, GearPosition::Finger1);
         std::uint32_t const second = EntryAt(draw, GearPosition::Finger2);
         EXPECT_NE(first, 0u);
@@ -138,7 +138,7 @@ TEST(GearDraw, PicksOneWeaponShapeFirst)
     std::set<std::string> shapes;
     for (std::uint64_t guid = 1; guid <= 100; ++guid)
     {
-        GearDraw draw = DrawGear(gear, guid, 16, 10, Bots::GearFaction::Horde);
+        GearDraw draw = DrawGear(gear, guid, 16, 10, Bots::Faction::Horde);
         shapes.insert(draw.shape);
         EXPECT_EQ(EntryAt(draw, GearPosition::Ranged), 40u);
         if (draw.shape == "staff")
@@ -167,7 +167,7 @@ TEST(GearDraw, AShapeWithAnEmptySlotIsNotChosen)
         "item holdable 30 18-20 0 4\n");   // No book at level 16.
 
     for (std::uint64_t guid = 1; guid <= 50; ++guid)
-        EXPECT_EQ(DrawGear(gear, guid, 16, 10, Bots::GearFaction::Horde).shape, "staff");
+        EXPECT_EQ(DrawGear(gear, guid, 16, 10, Bots::Faction::Horde).shape, "staff");
 }
 
 TEST(GearDraw, WithNoFullShapeTheMostFilledShapeIsUsed)
@@ -179,12 +179,12 @@ TEST(GearDraw, WithNoFullShapeTheMostFilledShapeIsUsed)
         "item shield 30 18-20 0 4\n"
         "item twohand 10 18-20 0 9\n");
 
-    GearDraw draw = DrawGear(gear, 1, 16, 10, Bots::GearFaction::Horde);
+    GearDraw draw = DrawGear(gear, 1, 16, 10, Bots::Faction::Horde);
     EXPECT_EQ(draw.shape, "sword-and-board");
     EXPECT_EQ(EntryAt(draw, GearPosition::MainHand), 20u);
     EXPECT_EQ(EntryAt(draw, GearPosition::OffHand), 0u);
 
-    EXPECT_EQ(DrawGear(Parse(Generated), 1, 16, 10, Bots::GearFaction::Horde).shape, "");
+    EXPECT_EQ(DrawGear(Parse(Generated), 1, 16, 10, Bots::Faction::Horde).shape, "");
 }
 
 TEST(GearDraw, AHandMadeTemplateIsWornAsItIsWithEmptySlots)
@@ -200,7 +200,7 @@ TEST(GearDraw, AHandMadeTemplateIsWornAsItIsWithEmptySlots)
 
     for (std::uint64_t guid = 1; guid <= 20; ++guid)
     {
-        GearDraw draw = DrawGear(gear, guid, 16, 10, Bots::GearFaction::Horde);
+        GearDraw draw = DrawGear(gear, guid, 16, 10, Bots::Faction::Horde);
         EXPECT_EQ(draw.shape, "");
         ASSERT_EQ(draw.picks.size(), 4u);
         EXPECT_EQ(EntryAt(draw, GearPosition::Chest), 1u);
@@ -210,7 +210,7 @@ TEST(GearDraw, AHandMadeTemplateIsWornAsItIsWithEmptySlots)
         EXPECT_EQ(EntryAt(draw, GearPosition::Finger2), 0u);
         EXPECT_EQ(EntryAt(draw, GearPosition::MainHand), 6u);
     }
-    EXPECT_EQ(EntryAt(DrawGear(gear, 1, 16, 4, Bots::GearFaction::Horde), GearPosition::Legs), 3u);
+    EXPECT_EQ(EntryAt(DrawGear(gear, 1, 16, 4, Bots::Faction::Horde), GearPosition::Legs), 3u);
 }
 
 TEST(GearDraw, PicksComeInPositionOrder)
@@ -219,7 +219,7 @@ TEST(GearDraw, PicksComeInPositionOrder)
         "shape axe twohand\n"
         "item twohand 10 10-20 0 9\nitem feet 2 10-20 0 1\nitem head 1 10-20 0 1\n");
 
-    GearDraw draw = DrawGear(gear, 1, 16, 10, Bots::GearFaction::Horde);
+    GearDraw draw = DrawGear(gear, 1, 16, 10, Bots::Faction::Horde);
     ASSERT_EQ(draw.picks.size(), 3u);
     EXPECT_EQ(draw.picks[0].position, GearPosition::Head);
     EXPECT_EQ(draw.picks[1].position, GearPosition::Feet);
@@ -242,7 +242,7 @@ namespace
         return text;
     }();
 
-    std::set<std::uint32_t> HeadsDrawn(GearTemplate const& gear, Bots::GearFaction faction)
+    std::set<std::uint32_t> HeadsDrawn(GearTemplate const& gear, Bots::Faction faction)
     {
         std::set<std::uint32_t> heads;
         for (std::uint64_t guid = 1; guid <= 2000; ++guid)
@@ -255,9 +255,9 @@ TEST(GearDraw, ACharacterNeverDrawsAnItemOfTheOtherFaction)
 {
     GearTemplate gear = Parse(Generated + FactionHeads);
 
-    for (std::uint32_t entry : HeadsDrawn(gear, Bots::GearFaction::Horde))
+    for (std::uint32_t entry : HeadsDrawn(gear, Bots::Faction::Horde))
         EXPECT_TRUE(entry > 200 && entry <= 212) << entry;
-    for (std::uint32_t entry : HeadsDrawn(gear, Bots::GearFaction::Alliance))
+    for (std::uint32_t entry : HeadsDrawn(gear, Bots::Faction::Alliance))
         EXPECT_TRUE(entry > 300 && entry <= 312) << entry;
 }
 
@@ -265,8 +265,8 @@ TEST(GearDraw, BothFactionsDrawFromTheUnmarkedItems)
 {
     GearTemplate gear = Parse(Generated + "item head 1 10-20 0 5\n");
 
-    EXPECT_EQ(HeadsDrawn(gear, Bots::GearFaction::Horde), (std::set<std::uint32_t>{1}));
-    EXPECT_EQ(HeadsDrawn(gear, Bots::GearFaction::Alliance), (std::set<std::uint32_t>{1}));
+    EXPECT_EQ(HeadsDrawn(gear, Bots::Faction::Horde), (std::set<std::uint32_t>{1}));
+    EXPECT_EQ(HeadsDrawn(gear, Bots::Faction::Alliance), (std::set<std::uint32_t>{1}));
 }
 
 TEST(GearDraw, TheItemsOfTheOtherFactionNeverChangeADraw)
@@ -290,8 +290,8 @@ TEST(GearDraw, TheItemsOfTheOtherFactionNeverChangeADraw)
     for (std::uint64_t guid = 1; guid <= 300; ++guid)
         for (std::uint32_t level : {12u, 16u})
         {
-            GearDraw const a = DrawGear(before, guid, level, 10, Bots::GearFaction::Horde);
-            GearDraw const b = DrawGear(after, guid, level, 10, Bots::GearFaction::Horde);
+            GearDraw const a = DrawGear(before, guid, level, 10, Bots::Faction::Horde);
+            GearDraw const b = DrawGear(after, guid, level, 10, Bots::Faction::Horde);
             EXPECT_EQ(a.shape, b.shape) << guid;
             ASSERT_EQ(a.picks.size(), b.picks.size()) << guid;
             for (std::size_t i = 0; i < a.picks.size(); ++i)
@@ -305,8 +305,8 @@ TEST(GearDraw, AHandMadeTemplateWearsOnlyTheItemsOfTheFaction)
         "template grukk_dungeon warrior tank hand\n"
         "item head 1 10-20 0 horde\nitem head 2 10-20 0 alliance\nitem chest 3 10-20 0\n");
 
-    GearDraw horde = DrawGear(gear, 1, 16, 10, Bots::GearFaction::Horde);
-    GearDraw alliance = DrawGear(gear, 1, 16, 10, Bots::GearFaction::Alliance);
+    GearDraw horde = DrawGear(gear, 1, 16, 10, Bots::Faction::Horde);
+    GearDraw alliance = DrawGear(gear, 1, 16, 10, Bots::Faction::Alliance);
     EXPECT_EQ(EntryAt(horde, GearPosition::Head), 1u);
     EXPECT_EQ(EntryAt(alliance, GearPosition::Head), 2u);
     EXPECT_EQ(EntryAt(horde, GearPosition::Chest), 3u);

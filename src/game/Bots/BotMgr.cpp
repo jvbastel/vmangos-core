@@ -1115,7 +1115,7 @@ void BotMgr::SendBotPanel(ObjectGuid playerGuid)
     {
         BotRecord const& record = pair.second;
         // The faction of an offline bot too, from the character cache.
-        Bots::GearFaction const faction = FactionOfTeam(sObjectMgr.GetPlayerTeamByGUID(ObjectGuid(HIGHGUID_PLAYER, pair.first)));
+        Bots::Faction const faction = FactionOfTeam(sObjectMgr.GetPlayerTeamByGUID(ObjectGuid(HIGHGUID_PLAYER, pair.first)));
         bots.push_back({record.entry->name, RoleOf(record.role), faction, record.worldBot});
     }
     std::vector<Bots::PanelBot> const listed = Bots::PanelBotsFor(bots, FactionOfTeam(player->GetTeam()));

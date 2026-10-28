@@ -2,7 +2,7 @@
 #define WOWAI_BOTS_BOT_PANEL_H
 
 #include "BotRecipe.h"
-#include "GearTemplate.h"
+#include "Faction.h"
 
 #include <string>
 #include <vector>
@@ -28,13 +28,13 @@ namespace Bots
     {
         std::string name;
         BotRole role;
-        GearFaction faction;
+        Faction faction;
         bool worldBot; // Not for groups: never on the panel.
     };
 
     // The group bots of the faction, in the role order tank, healer, melee,
     // ranged, and by name within a role.
-    std::vector<PanelBot> PanelBotsFor(std::vector<PanelBot> bots, GearFaction faction);
+    std::vector<PanelBot> PanelBotsFor(std::vector<PanelBot> bots, Faction faction);
 
     // A whisper as the server gets it: true for the list request
     // "WOWAI_BOTS 1:list" of the add-on, whispered by `sender` to its own

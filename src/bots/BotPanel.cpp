@@ -13,7 +13,7 @@ namespace Bots
         }
     }
 
-    std::vector<PanelBot> PanelBotsFor(std::vector<PanelBot> bots, GearFaction faction)
+    std::vector<PanelBot> PanelBotsFor(std::vector<PanelBot> bots, Faction faction)
     {
         bots.erase(std::remove_if(bots.begin(), bots.end(), [faction](PanelBot const& bot)
             {

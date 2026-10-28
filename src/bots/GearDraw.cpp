@@ -230,7 +230,7 @@ namespace Bots
     }
 
     GearDraw DrawGear(GearTemplate const& gearTemplate, std::uint64_t guid, std::uint32_t level, std::uint32_t patch,
-        GearFaction faction)
+        Faction faction)
     {
         GearTemplate gear = gearTemplate;
         gear.items.erase(std::remove_if(gear.items.begin(), gear.items.end(), [faction](GearItem const& item)

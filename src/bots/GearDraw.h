@@ -52,7 +52,7 @@ namespace Bots
     };
 
     GearDraw DrawGear(GearTemplate const& gearTemplate, std::uint64_t guid, std::uint32_t level, std::uint32_t patch,
-        GearFaction faction);
+        Faction faction);
 }
 
 #endif

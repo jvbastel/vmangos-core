@@ -71,7 +71,7 @@ TEST(GearData, ALevel16BotOfTheVersion1GroupGetsArmorAndWeapons)
     {
         Bots::GearTemplateResult const result = ReadTemplate(name);
         ASSERT_TRUE(result.ok) << name;
-        std::set<Bots::GearPosition> const worn = Positions(Bots::DrawGear(result.gearTemplate, 42, 16, 0, Bots::GearFaction::Horde));
+        std::set<Bots::GearPosition> const worn = Positions(Bots::DrawGear(result.gearTemplate, 42, 16, 0, Bots::Faction::Horde));
         for (Bots::GearPosition position : {Bots::GearPosition::Chest, Bots::GearPosition::Legs,
                  Bots::GearPosition::Feet, Bots::GearPosition::Hands, Bots::GearPosition::MainHand,
                  Bots::GearPosition::Ranged})
@@ -86,12 +86,12 @@ TEST(GearData, TheWarriorTankWearsAShieldAndTheRogueTwoWeapons)
     ASSERT_TRUE(warrior.ok && rogue.ok);
     for (std::uint64_t guid = 1; guid <= 20; ++guid)
     {
-        Bots::GearDraw const tank = Bots::DrawGear(warrior.gearTemplate, guid, 16, 0, Bots::GearFaction::Horde);
+        Bots::GearDraw const tank = Bots::DrawGear(warrior.gearTemplate, guid, 16, 0, Bots::Faction::Horde);
         EXPECT_EQ("sword-and-board", tank.shape);
         for (Bots::GearPick const& pick : tank.picks)
             if (pick.position == Bots::GearPosition::OffHand)
                 EXPECT_EQ(Bots::GearSlot::Shield, pick.slot);
-        Bots::GearDraw const melee = Bots::DrawGear(rogue.gearTemplate, guid, 16, 0, Bots::GearFaction::Horde);
+        Bots::GearDraw const melee = Bots::DrawGear(rogue.gearTemplate, guid, 16, 0, Bots::Faction::Horde);
         EXPECT_TRUE(Positions(melee).count(Bots::GearPosition::OffHand)) << "guid " << guid;
     }
 }
@@ -104,7 +104,7 @@ TEST(GearData, AWarriorTankWearsARangedWeaponAtEveryLevel)
     ASSERT_TRUE(result.ok) << result.error;
     for (std::uint32_t patch : {0u, 10u})
         for (std::uint32_t level = 1; level <= 60; ++level)
-            EXPECT_TRUE(Positions(Bots::DrawGear(result.gearTemplate, 42, level, patch, Bots::GearFaction::Horde))
+            EXPECT_TRUE(Positions(Bots::DrawGear(result.gearTemplate, 42, level, patch, Bots::Faction::Horde))
                     .count(Bots::GearPosition::Ranged))
                 << "no ranged weapon at level " << level << ", patch " << patch;
 }
