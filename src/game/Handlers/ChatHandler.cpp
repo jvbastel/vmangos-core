@@ -477,6 +477,7 @@ void WorldSession::HandleChatMessageOpcode(WorldPackets::Chat::ChatMessage const
 
         case CHAT_MSG_PARTY: // Master Side: TODO
         {
+            if (packet.lang == LANG_ADDON) BotHooks::OnPartyAddonMessage(_player, packet.message);
             // if player is in battleground, he cannot say to battleground members by /p
             Group* group = GetPlayer()->GetOriginalGroup();
             if (!group)
