@@ -1,0 +1,30 @@
+# The hand pack order of ragefire_chasm.txt (WOWAI#147). `.route generate`
+# reads it: the packs named here come in this order, from where the route
+# meets the first of them. The other packs keep the order of the generator.
+# A pack is named by the spawn guid of one of its mobs, its first mob by
+# custom: guids stay the same at each regen, pack names do not. The comments
+# give the pack names of the route at aef3f1865, before this order.
+
+# The first trogg, on the ramp.
+pack 48648 # pack7, Ragefire Trogg
+
+# The big trogg room: the open floor first.
+pack 48653 # pack8, Ragefire Trogg
+pack 48662 # pack9, Ragefire Shaman
+pack 48657 # pack10, Ragefire Shaman
+pack 48658 # pack11, Ragefire Trogg
+pack 48670 # pack19, Ragefire Shaman
+pack 48671 # pack21, Ragefire Shaman
+pack 48673 # pack20, Ragefire Trogg
+pack 48669 # pack22, Ragefire Shaman
+
+# The packs past the floor breaks and behind the low walls.
+pack 48672 # pack18, Ragefire Trogg
+pack 48659 # pack12, Ragefire Trogg
+pack 48661 # pack13, Ragefire Trogg
+pack 48655 # pack15, Ragefire Trogg
+pack 48652 # pack14, Ragefire Shaman
+
+# The hallway up to Oggleflint. Oggleflint and the rest keep the generator's order.
+pack 48650 # pack16, Ragefire Trogg
+pack 43582 # pack17, Ragefire Shaman
