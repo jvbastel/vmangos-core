@@ -164,6 +164,7 @@ ChatCommand * ChatHandler::getCommandTable()
         { "go",         SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteGoCommand,             "", nullptr },
         { "trace",      SEC_ADMINISTRATOR,      true,  nullptr,                                        "", routeTraceCommandTable },
         { "build",      SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteBuildCommand,          "", nullptr },
+        { "export",     SEC_ADMINISTRATOR,      true,  &ChatHandler::HandleRouteExportCommand,         "", nullptr },
         { nullptr,      0,                      false, nullptr,                                        "", nullptr },
     };
 

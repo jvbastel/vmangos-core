@@ -30,6 +30,8 @@
 #include "BotMgr.h"
 #include "Chat.h"
 #include "CreatureGroups.h"
+#include "GhostWalk.h"
+#include "IO/Filesystem/FileSystem.h"
 #include "Log.h"
 #include "Map.h"
 #include "ObjectAccessor.h"
@@ -38,9 +40,11 @@
 #include "Player.h"
 #include "QuestDef.h"
 #include "Route.h"
+#include "RouteExport.h"
 #include "RouteFiles.h"
 #include "WorldSession.h"
 
+#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -75,6 +79,7 @@ namespace
     char const* const RouteExtension = ".txt";
     char const* const TraceExtension = ".trace.txt";
     char const* const OrderExtension = ".order.txt";
+    char const* const ExportExtension = ".export.txt";
 
     bool EndsWith(std::string const& text, std::string const& end)
     {
@@ -95,6 +100,8 @@ RouteFiles::FileKind RouteFiles::KindOf(std::string const& fileName)
     // A kind needs a route name before its end.
     if (EndsWith(fileName, TraceExtension))
         return fileName.size() > std::strlen(TraceExtension) ? FileKind::Trace : FileKind::Other;
+    if (EndsWith(fileName, ExportExtension))
+        return fileName.size() > std::strlen(ExportExtension) ? FileKind::Export : FileKind::Other;
     if (EndsWith(fileName, OrderExtension))
         return fileName.size() > std::strlen(OrderExtension) ? FileKind::Order : FileKind::Other;
     if (EndsWith(fileName, RouteExtension))
@@ -115,6 +122,29 @@ std::string RouteFiles::TracePathOf(std::string const& name)
 std::string RouteFiles::OrderPathOf(std::string const& name)
 {
     return RoutesDir() + name + OrderExtension;
+}
+
+std::string RouteFiles::ExportPathOf(uint32 mapId)
+{
+    return RoutesDir() + Bots::ExportFileName(mapId);
+}
+
+std::vector<Bots::Route> RouteFiles::RoutesOfMap(uint32 mapId)
+{
+    std::vector<Bots::Route> routes;
+    std::string const dir = RoutesDir();
+    for (std::string const& file : IO::Filesystem::GetAllFilesInFolder(dir, IO::Filesystem::OutputFilePath::JustFileName))
+    {
+        std::string text;
+        if (KindOf(file) != FileKind::Route || !Read(dir + file, text))
+            continue;
+        Bots::RouteResult const result = Bots::ParseRoute(text);
+        uint32 dungeon = 0;
+        if (result.ok && result.route.mapId == mapId && !Bots::IsGhostRouteName(result.route.name, dungeon))
+            routes.push_back(result.route);
+    }
+    std::sort(routes.begin(), routes.end(), [](Bots::Route const& a, Bots::Route const& b) { return a.name < b.name; });
+    return routes;
 }
 
 bool RouteFiles::Read(std::string const& path, std::string& text)

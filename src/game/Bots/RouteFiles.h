@@ -12,6 +12,7 @@
 #include "Route.h"
 
 #include <string>
+#include <vector>
 
 // The route files of <Bots.DataDir>/routes/, which the recorder, the
 // generator, the trace, and the route walk of the GM commands share.
@@ -23,10 +24,11 @@ namespace RouteFiles
         Route, // <route>.txt
         Trace, // <route>.trace.txt: the GM trace of the route (bots/RouteTrace.h).
         Order, // <route>.order.txt: the hand pack order (bots/RouteGenerator.h).
+        Export, // map_<id>.export.txt: the export of a map (bots/RouteExport.h).
         Other,
     };
 
-    // The one owner of the three file names: the kind of a file name of the
+    // The one owner of the file names: the kind of a file name of the
     // routes folder.
     FileKind KindOf(std::string const& fileName);
     // <Bots.DataDir>/routes/<route>.txt
@@ -35,6 +37,10 @@ namespace RouteFiles
     std::string TracePathOf(std::string const& route);
     // <Bots.DataDir>/routes/<route>.order.txt
     std::string OrderPathOf(std::string const& route);
+    // <Bots.DataDir>/routes/map_<id>.export.txt
+    std::string ExportPathOf(uint32 mapId);
+    // The routes of the routes folder on the map, ghost routes left out.
+    std::vector<Bots::Route> RoutesOfMap(uint32 mapId);
     bool Read(std::string const& path, std::string& text);
     // Writes a temporary file first, so that a crash never leaves half a file.
     // A route file makes the bot manager read the boss lists again.
