@@ -51,6 +51,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::SpellId GetCurrentCast(Bots::Guid unit) const override;
         Bots::CastInfo GetCast(Bots::Guid unit) const override;
         Bots::Power GetPower(Bots::Guid unit) const override;
+        Bots::PowerKind GetPowerKind(Bots::Guid unit) const override;
         float GetDistance(Bots::Guid unit) const override;
         float GetSpellDistance(Bots::Guid unit) const override;
         float GetSpellDistanceFrom(Bots::Position const& place, Bots::Guid unit) const override;
@@ -71,6 +72,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool CanCast(Bots::SpellId spell, Bots::Guid target) const override;
         bool LevelAllowsRank(Bots::SpellId rank, Bots::Guid target) const override;
         bool IsCastLocked(Bots::SpellId spell) const override;
+        Bots::RankAmounts GetRankAmounts(Bots::SpellId rank) const override;
         std::vector<Bots::Guid> GetGroupMembers() const override;
         uint32 GetEntry(Bots::Guid unit) const override;
         Bots::Position GetPosition(Bots::Guid unit) const override;
@@ -90,6 +92,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
             std::vector<Bots::Position>& path) const override;
         std::vector<Bots::NearEnemy> GetEnemiesNear(float yards) const override;
         Bots::RangedWeapon GetRangedWeapon() const override;
+        Bots::Guid GetShotTarget() const override;
         uint32 GetLevel(Bots::Guid unit) const override;
         bool IsMoving(Bots::Guid unit) const override;
         bool HasRoomFor(Bots::AmmoTopUp const& topUp) const override;
@@ -112,6 +115,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void Eat() override;
         void Drink() override;
         void SayParty(std::string const& text, Bots::PartyLine kind) override;
+        void StopShot() override;
         void TopUpAmmo(Bots::AmmoTopUp const& topUp) override;
 
     private:

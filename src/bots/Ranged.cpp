@@ -49,6 +49,7 @@ namespace Bots
             case RangedKind::Bow: return 2480;      // Shoot Bow
             case RangedKind::Gun: return 7918;      // Shoot Gun
             case RangedKind::Crossbow: return 7919; // Shoot Crossbow
+            case RangedKind::Wand: return WandShoot;
             case RangedKind::None: break;
         }
         return NoSpell;
@@ -56,7 +57,15 @@ namespace Bots
 
     bool CanFire(RangedWeapon const& weapon)
     {
+        if (weapon.kind == RangedKind::Wand)
+            return true;
         return weapon.kind != RangedKind::None && weapon.ammoEntry != 0 && weapon.ammoCount > 0;
+    }
+
+    bool CanShoot(BotView const& view)
+    {
+        RangedWeapon const weapon = view.GetRangedWeapon();
+        return CanFire(weapon) && view.KnowsSpell(ShootSpell(weapon.kind));
     }
 
     ShotReach ShotReachAt(float spellYards)
@@ -66,9 +75,15 @@ namespace Bots
         return spellYards > ShotMaxYards ? ShotReach::TooFar : ShotReach::InRange;
     }
 
-    bool InShotFrom(BotView const& view, Position const& at, Guid target)
+    bool InShotFrom(BotView const& view, Position const& at, Guid target, float minYards)
     {
-        return ShotReachAt(view.GetSpellDistanceFrom(at, target)) == ShotReach::InRange && view.CanSeeFrom(at, target);
+        float const yards = view.GetSpellDistanceFrom(at, target);
+        return yards >= minYards && yards <= ShotMaxYards && view.CanSeeFrom(at, target);
+    }
+
+    bool InWandShot(BotView const& view, Guid target)
+    {
+        return InShotFrom(view, view.GetPosition(view.GetSelf()), target, 0.0f);
     }
 
     bool FindShotOnPath(BotView const& view, Guid target, Position& spot)
