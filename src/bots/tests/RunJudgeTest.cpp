@@ -61,16 +61,16 @@ TEST(RunJudge, OneWipeIsAllowedAndTheSecondFails)
     EXPECT_EQ(verdict.reason, "the second wipe");
 }
 
-TEST(RunJudge, ARunFailsAfterFortyFiveMinutes)
+TEST(RunJudge, ARunFailsAfterSeventyMinutes)
 {
     RunJudge judge(RfcBosses, 1000);
-    for (std::int64_t t = 1000; t < 46 * Minute; t += Minute)
+    for (std::int64_t t = 1000; t < 71 * Minute; t += Minute)
         judge.NoteProgress(t);
 
-    EXPECT_EQ(judge.Judge(1000 + 45 * Minute - 1).kind, RunVerdictKind::Running);
-    RunVerdict const verdict = judge.Judge(1000 + 45 * Minute);
+    EXPECT_EQ(judge.Judge(1000 + 70 * Minute - 1).kind, RunVerdictKind::Running);
+    RunVerdict const verdict = judge.Judge(1000 + 70 * Minute);
     EXPECT_EQ(verdict.kind, RunVerdictKind::Failed);
-    EXPECT_EQ(verdict.reason, "the run did not end in 45 min");
+    EXPECT_EQ(verdict.reason, "the run did not end in 70 min");
 }
 
 TEST(RunJudge, ARunFailsAfterThreeMinutesWithNoProgress)

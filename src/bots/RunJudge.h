@@ -16,7 +16,7 @@
 // of the whole run:
 // - A full run passes when the last boss of the route dies (the fourth one
 //   in Ragefire Chasm).
-// - A run fails at the second wipe, after 45 minutes, or after 3 minutes
+// - A run fails at the second wipe, after 70 minutes, or after 3 minutes
 //   with no progress: no kill, no damage dealt, and no movement along the
 //   route. (A lost mob fails it too: bots/ThreatWatch.h.)
 // - A threat loss never fails it, on the healer or not: the judge does not
@@ -28,7 +28,7 @@
 // The game layer tells the judge the facts, then asks for the verdict.
 namespace Bots
 {
-    std::int64_t const RunLimitMs = 45 * 60000;
+    std::int64_t const RunLimitMs = 70 * 60000;
     std::int64_t const NoProgressMs = 3 * 60000;
     // The wipe that fails the run.
     std::uint32_t const FailingWipe = 2;

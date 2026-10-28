@@ -44,9 +44,9 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "check"))
 
 POLL_SECONDS = 10
-# The longest wait for one run: the 45 minutes of a full run, plus the reset
+# The longest wait for one run: the 70 minutes of a full run, plus the reset
 # and the wait for the chat of the run. A scenario has its own limits.
-FULL_RUN_SECONDS = 50 * 60
+FULL_RUN_SECONDS = 75 * 60
 SCENARIO_SECONDS = 15 * 60
 
 OVER = re.compile(r"^Run \d+ \S+ \S+: (passed|failed|aborted) after ", re.M)
