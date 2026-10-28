@@ -64,6 +64,6 @@ def test_the_page_has_the_walked_path_layer(tmp_path):
     page = web.get("/").text
     script = web.get("/walked_path.js")
 
-    assert 'src="walked_path.js"' in page
+    assert 'src="/walked_path.js"' in page
     assert script.status_code == 200
     assert "/walked?trace=" in script.text
