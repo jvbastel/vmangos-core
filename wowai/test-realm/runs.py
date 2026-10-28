@@ -25,7 +25,7 @@ the fake LLM backend; for runs with the real LLM, start the realm with
 WOWAI_BOTCHAT_LLM=llama (realm.sh, settings). The chat checks are the same.
 For each run, the script starts it with `.wowai run start`, asks `.wowai run status` every 10 s
 until the run ends, and stops a run that takes too long. mangosd writes each
-result file, and the trace of a run that did not pass, to the folder runs/ of
+result file, and the trace of a full run or of a run that did not pass, to the folder runs/ of
 its logs, which the realm mounts at <realm folder>/storage/mangosd/logs/runs.
 The script copies them from there to the out folder and prints one line per
 run, and one line per pull: its threat losses, the healer's, and whether it

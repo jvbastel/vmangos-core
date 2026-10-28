@@ -40,6 +40,16 @@ TEST(RunTrace, KeepsOnlyTheLastThreeMinutes)
     EXPECT_EQ(trace.Lines(), (std::vector<std::string>{"10.0 kept", "190.0 new"}));
 }
 
+TEST(RunTrace, KeepsTheWholeRunWhenAsked)
+{
+    RunTrace trace(Bots::TraceKeepWholeRun);
+    trace.Add(0, "old");
+    trace.Add(10000, "kept");
+    trace.Add(3600000, "new");
+
+    EXPECT_EQ(trace.Lines(), (std::vector<std::string>{"0.0 old", "10.0 kept", "3600.0 new"}));
+}
+
 TEST(RunTrace, AMemberThatStandsStillWritesItsPlaceOnce)
 {
     RunTrace trace;
