@@ -42,12 +42,16 @@ namespace Bots
             // jvbastel/WOWAI#174: in a fight, Battle Shout (10 rage) takes
             // only spare rage: a Sunder Armor's 15 stay after it.
             std::uint32_t const BattleShoutRage = 25;
-            // jvbastel/WOWAI#174: Shield Block (10 rage) waits for a joined
-            // enemy's early Sunder Armor (15) below this rage, for at most
-            // EarlyVisitWaitMs from when the tank first waits for it, that is
-            // the first think with the enemy due and the rage short (a far pack takes
-            // 7-10 s to arrive, then the 3 s of the judge count).
-            std::uint32_t const ShieldBlockSpareRage = 25;
+            // jvbastel/WOWAI#174: Shield Block (10 rage) and Demoralizing
+            // Shout (10) wait for a joined enemy's early visit (a Sunder
+            // Armor, 15, or Revenge) below this rage
+            // (RageWaitsForAnEarlyVisit). They wait at most EarlyVisitWaitMs
+            // from the first think with the enemy due and the rage short.
+            // The cap is over the 7-10 s that a far pack takes to arrive plus
+            // the 3 s in which the judge wants the visit
+            // (extra_pack_threat_seconds), so a joined enemy that never
+            // comes does not hold them back for good.
+            std::uint32_t const EarlyVisitSpareRage = 25;
             std::int64_t const EarlyVisitWaitMs = 15000;
 
             // jvbastel/WOWAI#116: Shield Block.
@@ -76,7 +80,7 @@ namespace Bots
             // 54 step to a caster on the healer (#174).
             // 53 go to a member that cannot move (#126, #169).
             // 52 Challenging Shout (#115).
-            // 51 early sunder on a joined enemy (#172).
+            // 51 early visit on a joined enemy (#172): Sunder Armor or Revenge.
             // Below: Demoralizing Shout (50), and "keep threat on the taunted
             // enemy" (41, #126) over Revenge (40).
             int const CastOnTheEnemyItTurnedTo = 57;
@@ -84,7 +88,7 @@ namespace Bots
             int const ThreatOnTheLooseEnemy = 55;
             int const StepToACasterOnTheHealer = 54;
             int const GoToAMemberThatCannotMove = 53;
-            int const EarlySunderOnAJoinedEnemy = 51;
+            int const EarlyVisitOnAJoinedEnemy = 51;
             int const KeepThreatOnTheTaunted = 41;
 
             // The taunted (or taken) enemy is back on the tank when it
@@ -828,8 +832,8 @@ namespace Bots
                 return best;
             }
 
-            // jvbastel/WOWAI#174: Shield Block waits for the early visits. Its
-            // own record: since when each joined enemy is due its visit, in
+            // jvbastel/WOWAI#174: Shield Block and Demoralizing Shout wait for
+            // the early visits. Their own record: since when each joined enemy is due its visit, in
             // the pull of `pullTarget`.
             struct RageWait
             {
@@ -842,19 +846,20 @@ namespace Bots
             // visits (#172 before #116 and #114 for this case, as the player
             // allowed; the opener at the start of a pull, with no joined
             // enemy, is unchanged): a joined enemy of the fight is due its
-            // visit (DueEarlyVisit, wherever it stands, also on a member) since less than
-            // EarlyVisitWaitMs, and Shield Block's rage would leave less than
-            // a Sunder Armor's (ShieldBlockSpareRage). At its low level the
-            // tank gains a few rage a second: a Shield Block on the way leaves
-            // too little for the Sunder Armor when the enemy arrives. An enemy
-            // that never comes holds it back no longer than the cap.
-            bool RageWaitsForAnEarlySunder(
+            // visit (DueEarlyVisit, wherever it stands, also on a member)
+            // since less than EarlyVisitWaitMs, and their 10 rage would
+            // leave less than a Sunder Armor's (EarlyVisitSpareRage). At its
+            // low level the tank gains a few rage a second: a Shield Block or
+            // a shout on the way leaves too little for the Sunder Armor when
+            // the enemy arrives. An enemy that never comes holds them back no
+            // longer than the cap.
+            bool RageWaitsForAnEarlyVisit(
                 BotContext const& context, PullPacks const& packs, EarlyVisits const& visits, RageWait& wait)
             {
                 Guid const pullTarget = context.group.GetPull().target;
                 if (wait.pullTarget != pullTarget)
                     wait = RageWait{pullTarget, {}};
-                if (!FightsFocus(context) || Rage(context) >= ShieldBlockSpareRage)
+                if (!FightsFocus(context) || Rage(context) >= EarlyVisitSpareRage)
                     return false;
                 // A joined enemy on a member (a loose enemy) counts too: its
                 // take needs a Sunder Armor's rage while Taunt waits.
@@ -950,11 +955,11 @@ namespace Bots
                     },
                     DefensiveStance, PickSelf),
                 // jvbastel/WOWAI#174: it waits for the early visits while
-                // the rage is short (RageWaitsForAnEarlySunder).
+                // the rage is short (RageWaitsForAnEarlyVisit).
                 CastRule("demoralizing shout", P + 50,
                     [pullPacks, earlyVisits, rageWait](BotContext const& context) {
                         return ShoutDue(context)
-                            && !RageWaitsForAnEarlySunder(context, *pullPacks, *earlyVisits, *rageWait);
+                            && !RageWaitsForAnEarlyVisit(context, *pullPacks, *earlyVisits, *rageWait);
                     },
                     DemoralizingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
@@ -1289,9 +1294,9 @@ namespace Bots
                 CastRule("challenging shout", P + 52,
                     ChallengingShoutDue, ChallengingShout, PickSelf),
                 // jvbastel/WOWAI#172: each enemy that joins the fight gets one
-                // Revenge or Sunder Armor at once, with no threat lead on the
+                // early visit, Revenge or Sunder Armor, at once, with no threat lead on the
                 // focus (the threat target visits below wait for it).
-                NotesEarlyVisit(Rule{"early sunder on a joined enemy", P + EarlySunderOnAJoinedEnemy,
+                NotesEarlyVisit(Rule{"early visit on a joined enemy", P + EarlyVisitOnAJoinedEnemy,
                                     [earlyVisit](BotContext const& context) { return earlyVisit(context) != NoGuid; },
                                     ThreatAbilityOn(earlyVisit)},
                     earlyVisit, earlyVisits),
@@ -1302,12 +1307,12 @@ namespace Bots
                 // Below Revenge: more blocks give more Revenge. The cast
                 // check covers the shield and the cooldown.
                 // jvbastel/WOWAI#174: it waits for the early visits while
-                // the rage is short (RageWaitsForAnEarlySunder).
+                // the rage is short (RageWaitsForAnEarlyVisit).
                 CastRule("shield block", P + 38,
                     [pullPacks, earlyVisits, rageWait](BotContext const& context) {
                         return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
                             && Rage(context) >= ShieldBlockRage && IsHitInMelee(context, MeleeContactYards)
-                            && !RageWaitsForAnEarlySunder(context, *pullPacks, *earlyVisits, *rageWait);
+                            && !RageWaitsForAnEarlyVisit(context, *pullPacks, *earlyVisits, *rageWait);
                     },
                     ShieldBlock, PickSelf),
                 // jvbastel/WOWAI#117: one Sunder Armor on the threat target

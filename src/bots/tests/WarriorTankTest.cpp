@@ -2464,7 +2464,7 @@ namespace
     };
 }
 
-TEST(WarriorTankEarlySunder, AJoinedEnemyGetsASunderArmorWithNoThreatLeadOnTheFocus)
+TEST(WarriorTankEarlyVisit, AJoinedEnemyGetsASunderArmorWithNoThreatLeadOnTheFocus)
 {
     JoinTank tank;
     tank.Join(Wolf);
@@ -2472,7 +2472,7 @@ TEST(WarriorTankEarlySunder, AJoinedEnemyGetsASunderArmorWithNoThreatLeadOnTheFo
     EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
 }
 
-TEST(WarriorTankEarlySunder, ASecondVisitToAJoinedEnemyStillNeedsTheThreatLead)
+TEST(WarriorTankEarlyVisit, ASecondVisitToAJoinedEnemyStillNeedsTheThreatLead)
 {
     JoinTank tank;
     tank.Join(Wolf);
@@ -2488,7 +2488,7 @@ TEST(WarriorTankEarlySunder, ASecondVisitToAJoinedEnemyStillNeedsTheThreatLead)
 }
 
 // One early visit, even when its Sunder Armor misses (no debuff on it).
-TEST(WarriorTankEarlySunder, GivesEachJoinedEnemyOnlyOneEarlyVisit)
+TEST(WarriorTankEarlyVisit, GivesEachJoinedEnemyOnlyOneEarlyVisit)
 {
     JoinTank tank;
     tank.Join(Wolf);
@@ -2497,7 +2497,7 @@ TEST(WarriorTankEarlySunder, GivesEachJoinedEnemyOnlyOneEarlyVisit)
     EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
 }
 
-TEST(WarriorTankEarlySunder, EachJoinedEnemyGetsItsOwnEarlySunder)
+TEST(WarriorTankEarlyVisit, EachJoinedEnemyGetsItsOwnEarlySunder)
 {
     JoinTank tank;
     tank.Join(Wolf);
@@ -2512,7 +2512,7 @@ TEST(WarriorTankEarlySunder, EachJoinedEnemyGetsItsOwnEarlySunder)
     EXPECT_EQ(first, both);
 }
 
-TEST(WarriorTankEarlySunder, ALooseEnemyStillComesFirst)
+TEST(WarriorTankEarlyVisit, ALooseEnemyStillComesFirst)
 {
     JoinTank tank;
     tank.Join(Wolf);
@@ -2521,7 +2521,7 @@ TEST(WarriorTankEarlySunder, ALooseEnemyStillComesFirst)
     EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
 }
 
-TEST(WarriorTankEarlySunder, UsesAReadyRevengeOnAJoinedEnemy)
+TEST(WarriorTankEarlyVisit, UsesAReadyRevengeOnAJoinedEnemy)
 {
     JoinTank tank;
     tank.fake.SetCannotCast(Warrior::Revenge, false);
@@ -2532,7 +2532,7 @@ TEST(WarriorTankEarlySunder, UsesAReadyRevengeOnAJoinedEnemy)
 
 // A packmate of the pull target came with the pull: no join, so it waits
 // for the threat lead on the focus as before.
-TEST(WarriorTankEarlySunder, AnEnemyOfThePulledPackWaitsForTheThreatLead)
+TEST(WarriorTankEarlyVisit, AnEnemyOfThePulledPackWaitsForTheThreatLead)
 {
     JoinTank tank;
     tank.Join(Lynx);
@@ -2541,7 +2541,7 @@ TEST(WarriorTankEarlySunder, AnEnemyOfThePulledPackWaitsForTheThreatLead)
 }
 
 // A joined enemy out of melee reach waits: the tank does not walk to it.
-TEST(WarriorTankEarlySunder, AJoinedEnemyOutOfReachGetsItsSunderWhenItArrives)
+TEST(WarriorTankEarlyVisit, AJoinedEnemyOutOfReachGetsItsSunderWhenItArrives)
 {
     JoinTank tank;
     tank.Join(Wolf);
@@ -2814,9 +2814,10 @@ TEST(WarriorTankHoldsItsSpot, ALackOfRageDoesNotRestartThePickInMeleeReach)
 
 // jvbastel/WOWAI#174: the tank keeps the rage of the early Sunder Armor of
 // each joined enemy (#172) from Shield Block, as the player allowed (Sunder
-// Armor on joined enemies before Shield Block, #116). Only Shield Block waits,
-// only while its 10 rage would leave less than a Sunder Armor's, and only for
-// a while: a joined enemy that never comes does not stall the tank.
+// Armor on joined enemies before Shield Block, #116). Only Shield Block (and,
+// below, Demoralizing Shout) waits, only while its 10 rage would leave less
+// than a Sunder Armor's, and only for a while: a joined enemy that never comes
+// does not stall the tank.
 namespace
 {
     bool CastsAny(std::vector<std::string> const& deeds, std::vector<std::string> const& casts)
