@@ -39,9 +39,20 @@ namespace Bots
     std::vector<Guid> UnitsWithin(BotView const& view, std::vector<Guid> const& units, float yards);
 
     // True when a living enemy that attacks the bot is at most `yards` from
-    // it: a melee hit, for Shield Block (WarriorModule.cpp) or Frost Nova
-    // (MageModule.cpp).
+    // it: a melee hit, for Shield Block (WarriorModule.cpp).
     bool IsHitInMelee(BotContext const& context, float yards);
+
+    // jvbastel/WOWAI#143: an enemy this near (center to center) to the
+    // member that it attacks hits it in melee. Wider than MeleeContactYards:
+    // a big enemy hits from farther. A caster that attacks from range
+    // stands far beyond it.
+    float const MeleeHitYards = 8.0f;
+
+    // The living enemies that attack member `member` and are at most
+    // MeleeHitYards from it: the loose enemies on a member other than the
+    // tank, for the peel nova (MageModule.cpp). The bot itself as `member`
+    // uses BotView::GetDistance.
+    std::vector<Guid> EnemiesHittingInMelee(BotView const& view, Guid member);
 
     // True when the bot follows a living group member other than the
     // player, such as the healer on its way to a hurt member (PriestModule).
