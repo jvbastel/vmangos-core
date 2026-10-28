@@ -90,3 +90,16 @@ def test_the_page_loads_the_pack_drawing(tmp_path):
 
     assert '<script src="/map_packs.js">' in web.get("/").text
     assert "mapdata" in web.get("/map_packs.js").text
+
+
+def test_a_route_pack_listed_from_another_mob_is_the_same_pack_as_the_export_pack(tmp_path):
+    from fixtures import ROUTE
+    write_route(tmp_path / "routes", text=ROUTE.replace("mob 501 11318 # Ragefire Trogg\nmob 502 11319 # Ragefire Shaman",
+                                                        "mob 502 11319 # Ragefire Shaman\nmob 501 11318 # Ragefire Trogg"))
+    write_tile(tmp_path / "mmaps", 389)
+    write_export(tmp_path / "exports")
+    settings = map_web.Settings(navmesh=tmp_path / "mmaps", routes=tmp_path / "routes", exports=tmp_path / "exports")
+    packs = TestClient(map_web.create_app(settings)).get("/api/maps/fixture_cave").json()["packs"]
+
+    assert [(p["key"], p["on_route"], p["label"]) for p in packs] == [
+        (501, True, "pack1"), (600, True, "bazzalan"), (700, False, None), (800, False, None)]

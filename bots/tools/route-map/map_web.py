@@ -30,6 +30,7 @@ import export_file
 import floor_image
 import map_packs
 import navmesh
+import route_draft
 import route_draw
 import route_file
 
@@ -150,6 +151,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     route_draw.add_routes(app, settings, load_route, load_navmesh)
     map_packs.add_routes(app)
+    route_draft.add_routes(app, settings, load_route)
     return app
 
 

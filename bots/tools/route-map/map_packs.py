@@ -28,9 +28,9 @@ def _xyz(x, y, z):
     return {"x": x, "y": y, "z": z}
 
 
-def _route_pack(route: route_file.Route, pack: route_file.Pack, order: int, bosses: list[str]):
+def _route_pack(route: route_file.Route, pack: route_file.Pack, key: int, order: int, bosses: list[str]):
     pull = route.pull_point(pack)
-    return {"key": pack.key, "label": pack.name, "order": order, "on_route": True,
+    return {"key": key, "label": pack.name, "order": order, "on_route": True,
             "x": pack.x, "y": pack.y, "z": pack.z, "mobs": [vars(m) for m in pack.mobs],
             "aggro_radius": AGGRO_RADIUS, "bosses": bosses, "pull_point": vars(pull) if pull else None}
 
@@ -56,8 +56,16 @@ def map_part(route: route_file.Route, export: Optional[export_file.MapExport]) -
     def boss_names(entries):
         return [names.get(e, str(e)) for e in dict.fromkeys(entries) if e in boss_entries]
 
-    on_route = {pack.key for pack in route.packs}
-    packs = [_route_pack(route, pack, order, boss_names(m.entry for m in pack.mobs))
+    # A route pack is the export pack that holds one of its mobs, as the
+    # library names a pack by any of its mobs. A route file written before
+    # #147 can list another mob first; the export's key is the one kept.
+    key_of_guid = {mob.guid: pack.key for pack in export.packs for mob in pack.mobs}
+
+    def key_of(pack):
+        return next((key_of_guid[m.guid] for m in pack.mobs if m.guid in key_of_guid), pack.key)
+
+    on_route = {key_of(pack) for pack in route.packs}
+    packs = [_route_pack(route, pack, key_of(pack), order, boss_names(m.entry for m in pack.mobs))
              for order, pack in enumerate(route.packs, 1)]
     packs += [_off_route_pack(pack, names, boss_names(m.entry for m in pack.mobs))
               for pack in export.packs if pack.key not in on_route and pack.mobs]
