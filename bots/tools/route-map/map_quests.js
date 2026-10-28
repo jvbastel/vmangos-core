@@ -149,7 +149,7 @@
       if (o.kind !== "visit") continue;
       const pin = el("path", {class: "q-pin" + (o.met ? " met" : ""), "data-pin": `${sx(o)} ${sy(o)}`}, group);
       el("title", {}, pin).textContent = `${q.quest} ${q.name}: visit ${o.name}` +
-        (o.met ? " (on the route)" : " (the route does not come within 5 yd)");
+        (o.met ? " (on the route)" : ` (the route does not come within ${o.range} yd)`);
     }
     group.style.display = shown ? "" : "none";
     place();

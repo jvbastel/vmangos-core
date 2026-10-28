@@ -6,10 +6,12 @@ map_quests.js.
 
 - A kill objective is met when the route's packs hold at least the needed
   count of the mob.
-- An item objective is met when the route's packs hold at least the needed
-  count of mobs that drop it (a drop is not sure; this counts chances).
-- A visit objective is met when a point of the route line is within
-  VISIT_RANGE of the visit point.
+- An item objective is met when the route's packs hold a mob that drops it,
+  the rule of the route library's `.route build` (RouteTraceBuild.cpp). The
+  needed count is shown, not checked: a drop is not sure.
+- A visit objective is met when the route line (its points and the straight
+  lines between them) comes within VISIT_RANGE of the visit point, the
+  visitRange of `.route build`.
 
 The packs are those of map_packs.map_part: the route's packs (on_route) with
 the route's mobs, and the other export packs with theirs.
@@ -41,14 +43,25 @@ def _counts(packs: list[dict], entries: set[int]) -> list[tuple[dict, int]]:
 def _mob_objective(kind: str, entries: set[int], needed: int, packs: list[dict], view: dict) -> dict:
     counted = _counts(packs, entries)
     on_route = sum(n for pack, n in counted if pack["on_route"])
-    return {"kind": kind, **view, "needed": needed, "on_route": on_route, "met": on_route >= needed,
+    met = on_route >= (needed if kind == "kill" else 1)
+    return {"kind": kind, **view, "needed": needed, "on_route": on_route, "met": met,
             "packs": [{"key": pack["key"], "count": n} for pack, n in counted if not pack["on_route"]]}
+
+
+def _segment_distance(a, b, c) -> float:
+    """The distance from c to the straight line from a to b."""
+    ab = [b[i] - a[i] for i in range(3)]
+    length2 = sum(v * v for v in ab)
+    t = 0.0 if length2 == 0 else max(0.0, min(1.0, sum((c[i] - a[i]) * ab[i] for i in range(3)) / length2))
+    return math.dist([a[i] + t * ab[i] for i in range(3)], c)
 
 
 def _visit_objective(visit, line: list[route_file.Point]) -> dict:
     x, y, z, name = visit
-    met = any(math.dist((p.x, p.y, p.z), (x, y, z)) <= VISIT_RANGE for p in line)
-    return {"kind": "visit", "name": name, "x": x, "y": y, "z": z, "met": met, "packs": []}
+    points = [(p.x, p.y, p.z) for p in line]
+    segments = list(zip(points, points[1:])) or [(p, p) for p in points]
+    met = any(_segment_distance(a, b, (x, y, z)) <= VISIT_RANGE for a, b in segments)
+    return {"kind": "visit", "name": name, "x": x, "y": y, "z": z, "range": VISIT_RANGE, "met": met, "packs": []}
 
 
 def map_part(route: route_file.Route, export: Optional[export_file.MapExport], packs: list[dict]) -> dict:

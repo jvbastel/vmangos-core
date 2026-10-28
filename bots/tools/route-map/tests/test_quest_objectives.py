@@ -20,6 +20,9 @@ quest 5724
 visit 90.00 -60.00 -20.00 Lost Satchel
 quest 5725
 item 14395 1 11319 11322
+quest 5726
+item 14396 6 11319
+visit 105.90 -41.20 -16.00 Between Two Points
 quest 5728
 kill 11519 1
 kill 11518 1
@@ -28,6 +31,7 @@ questname 5724 Returning the Lost Satchel
 questname 5725 The Power to Destroy...
 questname 5728 Hidden Enemies
 itemname 14395 Spells of Shadow
+itemname 14396 Shadow Shard
 """
 
 
@@ -77,9 +81,21 @@ def test_a_visit_point_is_met_when_the_route_line_passes_within_5_yards(tmp_path
     loaded = load(tmp_path)
 
     assert quest(loaded, 5722)["objectives"] == [
-        {"kind": "visit", "name": "Maur Grimtotem", "x": 105.5, "y": -45.0, "z": -12.0, "met": True, "packs": []}]
+        {"kind": "visit", "name": "Maur Grimtotem", "x": 105.5, "y": -45.0, "z": -12.0, "range": 5.0, "met": True,
+         "packs": []}]
     assert quest(loaded, 5724)["met"] is False
     assert quest(loaded, 5724)["objectives"][0]["name"] == "Lost Satchel"
+
+
+def test_an_item_objective_is_met_by_one_dropper_on_the_route_as_in_the_route_library(tmp_path):
+    item = quest(load(tmp_path), 5726)["objectives"][0]
+
+    assert (item["needed"], item["on_route"], item["met"]) == (6, 1, True)
+
+
+def test_a_visit_point_between_two_line_points_is_met_by_the_line_between_them(tmp_path):
+    # 5.6 yd from p2 and from pull_bazzalan, 3 yd from the line between them.
+    assert quest(load(tmp_path), 5726)["objectives"][1]["met"] is True
 
 
 def test_each_pack_that_holds_a_quest_mob_has_a_badge_with_the_quest_and_the_count_in_that_pack(tmp_path):
@@ -90,6 +106,8 @@ def test_each_pack_that_holds_a_quest_mob_has_a_badge_with_the_quest_and_the_cou
         (700, 5723, 1, 8, "5723 Testing an Enemy's Strength: 1 of 8 Ragefire Trogg here"),
         (501, 5725, 1, 1, "5725 The Power to Destroy...: 1 Ragefire Shaman here drop Spells of Shadow (1 needed)"),
         (700, 5725, 1, 1, "5725 The Power to Destroy...: 1 Ragefire Shaman here drop Spells of Shadow (1 needed)"),
+        (501, 5726, 1, 6, "5726: 1 Ragefire Shaman here drop Shadow Shard (6 needed)"),
+        (700, 5726, 1, 6, "5726: 1 Ragefire Shaman here drop Shadow Shard (6 needed)"),
         (600, 5728, 1, 1, "5728 Hidden Enemies: 1 of 1 Bazzalan here"),
         (800, 5728, 1, 1, "5728 Hidden Enemies: 1 of 1 Jergosh the Invoker here"),
     ]
