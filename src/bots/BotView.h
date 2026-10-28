@@ -215,8 +215,9 @@ namespace Bots
         // The ranged pull of the tank (Ranged.h, WarriorModule.h).
         // The ranged weapon that the bot wears, and its ammo.
         virtual RangedWeapon GetRangedWeapon() const = 0;
-        // jvbastel/WOWAI#133: true when a shot of the bot is going: its
-        // auto-repeat spell (the wand's Shoot) repeats until a cast stops it.
+        // jvbastel/WOWAI#133: true when a shot of the bot is going: any
+        // auto-repeat spell (a wand's Shoot, a bow's Shoot Bow, and so on)
+        // repeats until a cast stops it.
         virtual bool IsShooting() const = 0;
         // The level of unit `unit`. 0 for a unit that the bot cannot see.
         virtual std::uint32_t GetLevel(Guid unit) const = 0;

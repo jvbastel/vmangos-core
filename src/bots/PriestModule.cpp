@@ -113,11 +113,6 @@ namespace Bots
                     && IsAlive(context.view, focus) && TankHoldsThreat(context) && InWandShot(context.view, focus);
             }
 
-            Guid PickFocus(BotContext const& context)
-            {
-                return context.group.GetFocusTarget();
-            }
-
             // The first living member without Power Word: Fortitude, or NoGuid.
             Guid MemberWithoutFortitude(BotContext const& context)
             {
@@ -272,7 +267,7 @@ namespace Bots
 
                 // jvbastel/WOWAI#133: between heals, the wand on the focus
                 // target. Each heal comes first, and its cast stops the shot.
-                CastRule("shoot the focus target", P + 30, ShootsTheFocus, Shoot, PickFocus),
+                CastRule("shoot the focus target", P + 30, ShootsTheFocus, Shoot, PickFocusTarget),
 
                 // The buffs, out of combat only: in a fight the mana is for
                 // the heals.
