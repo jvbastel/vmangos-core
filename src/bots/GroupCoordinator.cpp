@@ -314,6 +314,19 @@ namespace Bots
         m_healer = healer;
     }
 
+    void GroupCoordinator::SetMemberRole(Guid member, BotRole role)
+    {
+        Lock lock(m_mutex);
+        m_roles[member] = role;
+    }
+
+    bool GroupCoordinator::HasRole(Guid member, BotRole role) const
+    {
+        Lock lock(m_mutex);
+        auto const found = m_roles.find(member);
+        return found != m_roles.end() && found->second == role;
+    }
+
     void GroupCoordinator::KeepTrail(Position at, bool fights)
     {
         Lock lock(m_mutex);
