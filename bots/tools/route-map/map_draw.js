@@ -139,6 +139,9 @@
       button.addEventListener("click", async () => {
         chooser.style.display = "none";
         lines[l].points[i] = {...point, z};
+        try {  // the regions of the new floor (#184)
+          lines[l].points[i].regions = (await snap(point.x, point.y, z)).regions;
+        } catch (error) { info.textContent = error.message; }
         await rejoin(l, i);
       });
       chooser.appendChild(button);

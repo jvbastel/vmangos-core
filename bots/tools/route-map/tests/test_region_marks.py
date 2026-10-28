@@ -156,3 +156,11 @@ def test_the_page_has_no_heights_fields_or_show_button_and_loads_the_pick_part(w
     assert "Heights" not in page and 'id="zmin"' not in page and ">Show<" not in page
     assert '<script src="/region_pick.js">' in page
     assert web.get("/region_pick.js").status_code == 200
+
+
+def test_a_snapped_point_carries_the_regions_of_the_floor_it_lands_on(web, routes):
+    """A point clicked, dragged or moved to another floor in Draw mode."""
+    with_regions(routes)
+
+    assert get(web, "/api/maps/fixture_cave/snap", x=105, y=-45, z=-12)["point"]["regions"] == ["Bridge"]
+    assert get(web, "/api/maps/fixture_cave/snap", x=105, y=-45, z=-20)["point"]["regions"] == ["West"]
