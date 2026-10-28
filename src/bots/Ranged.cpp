@@ -49,6 +49,7 @@ namespace Bots
             case RangedKind::Bow: return 2480;      // Shoot Bow
             case RangedKind::Gun: return 7918;      // Shoot Gun
             case RangedKind::Crossbow: return 7919; // Shoot Crossbow
+            case RangedKind::Wand: return 5019;     // Shoot
             case RangedKind::None: break;
         }
         return NoSpell;
@@ -56,6 +57,8 @@ namespace Bots
 
     bool CanFire(RangedWeapon const& weapon)
     {
+        if (weapon.kind == RangedKind::Wand)
+            return true;
         return weapon.kind != RangedKind::None && weapon.ammoEntry != 0 && weapon.ammoCount > 0;
     }
 
@@ -69,6 +72,12 @@ namespace Bots
     bool InShotFrom(BotView const& view, Position const& at, Guid target)
     {
         return ShotReachAt(view.GetSpellDistanceFrom(at, target)) == ShotReach::InRange && view.CanSeeFrom(at, target);
+    }
+
+    bool InWandShot(BotView const& view, Guid target)
+    {
+        return view.GetSpellDistance(target) <= ShotMaxYards
+            && view.CanSeeFrom(view.GetPosition(view.GetSelf()), target);
     }
 
     bool FindShotOnPath(BotView const& view, Guid target, Position& spot)
