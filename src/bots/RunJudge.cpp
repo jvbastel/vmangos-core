@@ -234,7 +234,7 @@ namespace Bots
             auto const first = m_firstHitMs.find(seen.enemy);
             if (first == m_firstHitMs.end())
             {
-                if (seen.victim == EnemyVictim::Healer)
+                if (seen.victim == EnemyVictim::Healer && seen.hitVictim)
                     m_firstHitMs[seen.enemy] = nowMs;
                 continue;
             }

@@ -58,6 +58,9 @@ struct RunCombatNote
         // jvbastel/WOWAI#168: a spell of the bot went out on `enemy` (any
         // unit).
         Cast,
+        // jvbastel/WOWAI#174: `enemy` swung at the bot (hit or not) or hit
+        // it with a spell (or the spell missed): a real hit.
+        Hit,
     };
 
     Kind kind;
@@ -163,6 +166,8 @@ class BotRun
         // which enemy hits which member and which enemies the group attacks,
         // and fails the run at a lost mob.
         void WatchThreat(int64 nowMs);
+        // jvbastel/WOWAI#174: the healer bots of the run group.
+        std::set<Bots::Guid> HealerGuids();
         // The names of the enemy and the member, for the log and the result.
         std::pair<std::string, std::string> HitNames(Bots::Guid enemy, Bots::Guid member) const;
         // The facts of the run for the judge, the result, and the trace: the
@@ -293,8 +298,11 @@ class BotRun
         uint32 m_groupId = 0; // The run group, from FormGroup to the end of the run.
         std::set<uint32> m_bossKills;
         Bots::ThreatWatch m_threat;
+        // jvbastel/WOWAI#174: the real hits of enemies on members.
+        Bots::RealHitGate m_realHits;
         std::vector<std::pair<std::string, std::string>> m_threatNames; // The enemy and the member of each loss.
-        Bots::LostMobWatch m_lostMobs;
+        // jvbastel/WOWAI#174: from the first real hit, with a backstop.
+        Bots::RealHitLostMobWatch m_lostMobs;
         std::vector<std::pair<std::string, std::string>> m_lostMobNames; // The enemy and the member of each lost mob.
         bool m_aborted = false; // A GM stopped the run.
         std::unique_ptr<Bots::RunJudge> m_judge;

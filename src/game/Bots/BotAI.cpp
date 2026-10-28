@@ -95,7 +95,7 @@ void BotAI::OnPacketReceived(WorldPacket const* packet)
     // OnSpellDamageLog).
     uint16 const opcode = packet->GetOpcode();
     bool const runLog = (opcode == SMSG_SPELLLOGMISS || opcode == SMSG_SPELL_FAILED_OTHER ||
-        opcode == SMSG_SPELLNONMELEEDAMAGELOG) && sBotMgr.HasTestDriver();
+        opcode == SMSG_SPELLNONMELEEDAMAGELOG || opcode == SMSG_ATTACKERSTATEUPDATE) && sBotMgr.HasTestDriver();
     if (!IsInboxOpcode(opcode) && !runLog)
         return;
     if (packet->GetOpcode() == SMSG_NEW_WORLD)
@@ -132,6 +132,7 @@ void BotAI::UpdateAI(uint32 const diff)
     Bots::ThinkState state = Bots::ThinkStateFor(me->IsInCombat(), IsNearPlayer());
     if (m_thinkTimer.Advance(diff, state))
         Think();
+    FaceMeleeVictim();
 
     // At each update, not only at the think: the group sees a meal start or
     // end at once, so no pull goes out while a member sits down to eat.
@@ -142,6 +143,21 @@ void BotAI::UpdateAI(uint32 const diff)
         // The bot that holds the tap notes its own boss kill (BossFights.h).
         m_tapWatch.Update(adapter, *Coordinator(), SteadyMs());
     }
+}
+
+void BotAI::FaceMeleeVictim()
+{
+    // jvbastel/WOWAI#174: a client turns to its melee target; a bot does not.
+    // A bot that walked back to a spot (the tank to its fight spot) stood with
+    // its back to its victim and swung at nothing for seconds: no white
+    // damage, so no rage. A standing bot that melee attacks a victim in reach
+    // and not in front turns to it.
+    Unit* victim = me->GetVictim();
+    if (!victim || !me->HasUnitState(UNIT_STATE_MELEE_ATTACKING) || !me->IsStopped() || me->IsFacingTarget(victim)
+        || !me->CanReachWithMeleeAutoAttack(victim))
+        return;
+    me->SetOrientation(me->GetAngle(victim));
+    me->SetFacingToObject(victim);
 }
 
 void BotAI::KeepLevelCorrect()
@@ -200,6 +216,9 @@ void BotAI::HandlePacket(WorldPacket const& packet)
         case SMSG_SPELLNONMELEEDAMAGELOG:
             OnSpellDamageLog(packet);
             return;
+        case SMSG_ATTACKERSTATEUPDATE:
+            OnAttackerStateUpdate(packet);
+            return;
         case SMSG_RESURRECT_REQUEST:
             AcceptResurrect(packet);
             return;
@@ -235,6 +254,22 @@ void BotAI::OnSpellMissLog(WorldPacket const& packet)
     uint8 extended = 0;
     data >> spell >> caster >> extended >> count;
     SpellEntry const* entry = sSpellMgr.GetSpellEntry(spell);
+    // jvbastel/WOWAI#174: a spell of an enemy that missed this bot is a real
+    // hit too (a miss counts, as a melee miss does).
+    if (caster.IsCreatureOrPet())
+    {
+        for (uint32 i = 0; i < count; ++i)
+        {
+            ObjectGuid target;
+            uint8 missInfo = 0;
+            data >> target >> missInfo;
+            if (extended)
+                data.read_skip(2 * sizeof(float));
+            if (target == me->GetObjectGuid())
+                sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::Hit, me->GetObjectGuid(), caster, spell, 0});
+        }
+        return;
+    }
     if (caster != me->GetObjectGuid() || !entry || !entry->HasEffect(SPELL_EFFECT_INTERRUPT_CAST))
         return;
     for (uint32 i = 0; i < count; ++i)
@@ -275,9 +310,28 @@ void BotAI::OnSpellDamageLog(WorldPacket const& packet)
     ObjectGuid target, attacker;
     uint32 spell = 0, damage = 0;
     data >> target.ReadAsPackedClientBuildAware() >> attacker.ReadAsPackedClientBuildAware() >> spell >> damage;
+    // jvbastel/WOWAI#174: a spell of an enemy that hit this bot is a real hit.
+    if (target == me->GetObjectGuid() && attacker.IsCreatureOrPet())
+        sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::Hit, me->GetObjectGuid(), attacker, spell, damage});
     if (target != me->GetObjectGuid() || spell != Bots::Taragaman::FireNova || attacker.GetEntry() != Bots::Taragaman::Entry)
         return;
     sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::FireNovaHit, me->GetObjectGuid(), attacker, spell, damage});
+}
+
+void BotAI::OnAttackerStateUpdate(WorldPacket const& packet)
+{
+    // jvbastel/WOWAI#174: a melee swing of an enemy at this bot, hit or not,
+    // in a scripted run: a real hit, which starts the healer's threat-loss
+    // and pickup clocks.
+    if (!sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        return;
+    WorldPacket data(packet);
+    uint32 hitInfo = 0;
+    ObjectGuid attacker, target;
+    data >> hitInfo >> attacker.ReadAsPackedClientBuildAware() >> target.ReadAsPackedClientBuildAware();
+    if (target != me->GetObjectGuid() || !attacker.IsCreatureOrPet())
+        return;
+    sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::Hit, me->GetObjectGuid(), attacker, 0, 0});
 }
 
 void BotAI::HandleCommand(BotCommandMessage const& message)

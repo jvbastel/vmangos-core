@@ -78,3 +78,51 @@ namespace Bots
         m_unattacked = std::move(next);
     }
 }
+
+// jvbastel/WOWAI#174: the first real hit on the healer.
+namespace Bots
+{
+    std::vector<EnemyOnMember> RealHitGate::Gate(
+        std::vector<EnemyOnMember> const& hits, std::set<Guid> const& healers) const
+    {
+        std::vector<EnemyOnMember> gated;
+        for (EnemyOnMember const& hit : hits)
+            if (!healers.count(hit.member) || HasHit(hit.enemy, hit.member))
+                gated.push_back(hit);
+        return gated;
+    }
+}
+
+// jvbastel/WOWAI#174: the lost-mob clock from the first real hit, with a
+// backstop.
+namespace Bots
+{
+    void RealHitLostMobWatch::Update(std::vector<EnemyOnMember> const& hits, RealHitGate const& gate,
+        std::vector<Guid> const& attacked, std::int64_t nowMs, Guid holder, HitNamer const& name)
+    {
+        std::vector<EnemyOnMember> realHits;
+        for (EnemyOnMember const& hit : hits)
+            if (gate.HasHitAnyone(hit.enemy) || gate.HasNoHitNotes(hit.member))
+                realHits.push_back(hit);
+        std::size_t const hitBefore = m_hitWatch.LostMobs().size(), backstopBefore = m_backstop.LostMobs().size();
+        m_hitWatch.Update(realHits, attacked, nowMs, holder, name);
+        m_backstop.Update(hits, attacked, nowMs, holder, name);
+        auto const add = [this](LostMob const& mob, bool backstop, std::size_t index) {
+            for (LostMob const& lost : m_lost)
+                if (lost.enemy == mob.enemy)
+                    return;
+            m_lost.push_back(mob);
+            m_from.push_back({backstop, index});
+        };
+        for (std::size_t i = hitBefore; i < m_hitWatch.LostMobs().size(); ++i)
+            add(m_hitWatch.LostMobs()[i], false, i);
+        for (std::size_t i = backstopBefore; i < m_backstop.LostMobs().size(); ++i)
+            add(m_backstop.LostMobs()[i], true, i);
+        for (std::size_t i = 0; i < m_lost.size(); ++i)
+        {
+            LostMob const& from = (m_from[i].first ? m_backstop : m_hitWatch).LostMobs()[m_from[i].second];
+            m_lost[i].member = from.member;
+            m_lost[i].endMs = from.endMs;
+        }
+    }
+}

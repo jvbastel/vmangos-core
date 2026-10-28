@@ -44,6 +44,13 @@ namespace Bots
             // jvbastel/WOWAI#174: in a fight, Battle Shout (10 rage) takes
             // only spare rage: a Sunder Armor's 15 stay after it.
             std::uint32_t const BattleShoutRage = 25;
+            // jvbastel/WOWAI#174: Shield Block (10 rage) waits for a joined
+            // enemy's early Sunder Armor (15) below this rage, for at most
+            // EarlyVisitWaitMs from when the tank first waits for it, that is
+            // the first think with the enemy due and the rage short (a far pack takes
+            // 7-10 s to arrive, then the 3 s of the judge count).
+            std::uint32_t const ShieldBlockSpareRage = 25;
+            std::int64_t const EarlyVisitWaitMs = 15000;
 
             // jvbastel/WOWAI#116: Shield Block.
             // Rage for Shield Block from it.
@@ -77,6 +84,10 @@ namespace Bots
             // at most this far from it: a farther one would lead it through
             // more packs.
             float const PickUpYards = 40.0f;
+            // jvbastel/WOWAI#174: the tank steps toward a caster on the
+            // healer at most this far from it (PickCasterToStepTo).
+            float const CasterStepYards = 12.0f;
+            int const StepToACasterOnTheHealer = 54;
 
             // jvbastel/WOWAI#168: the rule priorities (P + N) of the
             // abilities on the loose enemy: Taunt, then Sunder Armor or
@@ -384,6 +395,38 @@ namespace Bots
                 if (loose != NoGuid && CastableRank(context.view, Taunt, loose) == NoSpell && MemberCannotCome(context, loose))
                     return loose;
                 return NoGuid;
+            }
+
+            // jvbastel/WOWAI#174 (the player's decision, an exception to
+            // #169): Taunt has the melee range in this game, and a caster on
+            // the healer stays where it casts. The tank steps toward the
+            // nearest loose enemy that is a caster (mana, or a cast), attacks
+            // the healer, stands out of melee reach but within
+            // CasterStepYards, and out of the reach of a pack outside the
+            // fight. NoGuid else, or when the focus hits another member (the
+            // focus comes first, spec #102).
+            Guid PickCasterToStepTo(BotContext const& context)
+            {
+                if (!FightsFocus(context))
+                    return NoGuid;
+                Guid const focusVictim = context.view.GetVictim(context.group.GetFocusTarget());
+                if (focusVictim != NoGuid && focusVictim != Self(context))
+                    return NoGuid;
+                Guid const healer = context.group.GetHealer();
+                Guid best = NoGuid;
+                for (Guid enemy : LooseEnemies(context))
+                {
+                    float const yards = context.view.GetDistance(enemy);
+                    bool const caster =
+                        context.view.GetMana(enemy).max > 0 || context.view.GetCurrentCast(enemy) != NoSpell;
+                    if (healer == NoGuid || context.view.GetVictim(enemy) != healer || !caster
+                        || yards <= MeleeContactYards || yards > CasterStepYards
+                        || InOtherPacksReach(context, context.view.GetPosition(enemy)))
+                        continue;
+                    if (best == NoGuid || yards < context.view.GetDistance(best))
+                        best = enemy;
+                }
+                return best;
             }
 
             // The tank attacks unit `unit` in melee, and is in melee reach of
@@ -774,30 +817,46 @@ namespace Bots
                 return best;
             }
 
-            // jvbastel/WOWAI#174: the tank keeps its rage for the early
-            // visits: a joined enemy of the fight is due one (DueEarlyVisit),
-            // wherever it stands. At its low level the tank gains a few rage
-            // a second, and a Demoralizing Shout or Shield Block on the way
-            // leaves too little for the Sunder Armor when the enemy arrives.
-            bool KeepsRageForAnEarlyVisit(BotContext const& context, PullPacks const& packs, EarlyVisits const& visits)
+            // jvbastel/WOWAI#174: Shield Block waits for the early visits. Its
+            // own record: since when each joined enemy is due its visit, in
+            // the pull of `pullTarget`.
+            struct RageWait
             {
-                if (!FightsFocus(context))
-                    return false;
-                std::vector<Guid> const loose = LooseEnemies(context);
-                std::vector<Guid> const enemies = EnemiesInFight(context);
-                return std::any_of(enemies.begin(), enemies.end(),
-                    [&](Guid enemy) { return DueEarlyVisit(context, packs, visits, loose, enemy); });
-            }
+                Guid pullTarget = NoGuid;
+                std::map<Guid, std::int64_t> dueSinceMs;
+            };
+            using RageWaitPtr = std::shared_ptr<RageWait>;
 
-            // The rage rule `rule` waits while the tank keeps its rage for an
-            // early visit (KeepsRageForAnEarlyVisit).
-            Rule WaitsForTheEarlyVisits(Rule rule, PullPacksPtr const& packs, EarlyVisitsPtr const& visits)
+            // Shield Block and Demoralizing Shout hold back for the early
+            // visits (#172 before #116 and #114 for this case, as the player
+            // allowed; the opener at the start of a pull, with no joined
+            // enemy, is unchanged): a joined enemy of the fight is due its
+            // visit (DueEarlyVisit, wherever it stands, also on a member) since less than
+            // EarlyVisitWaitMs, and Shield Block's rage would leave less than
+            // a Sunder Armor's (ShieldBlockSpareRage). At its low level the
+            // tank gains a few rage a second: a Shield Block on the way leaves
+            // too little for the Sunder Armor when the enemy arrives. An enemy
+            // that never comes holds it back no longer than the cap.
+            bool RageWaitsForAnEarlySunder(
+                BotContext const& context, PullPacks const& packs, EarlyVisits const& visits, RageWait& wait)
             {
-                Trigger const trigger = rule.trigger;
-                rule.trigger = [trigger, packs, visits](BotContext const& context) {
-                    return trigger(context) && !KeepsRageForAnEarlyVisit(context, *packs, *visits);
-                };
-                return rule;
+                Guid const pullTarget = context.group.GetPull().target;
+                if (wait.pullTarget != pullTarget)
+                    wait = RageWait{pullTarget, {}};
+                if (!FightsFocus(context) || Rage(context) >= ShieldBlockSpareRage)
+                    return false;
+                // A joined enemy on a member (a loose enemy) counts too: its
+                // pickup needs a Sunder Armor's rage while Taunt waits.
+                std::vector<Guid> const noLoose;
+                bool waits = false;
+                for (Guid enemy : EnemiesInFight(context))
+                {
+                    if (!DueEarlyVisit(context, packs, visits, noLoose, enemy))
+                        continue;
+                    std::int64_t const since = wait.dueSinceMs.emplace(enemy, context.nowMs).first->second;
+                    waits = waits || context.nowMs - since < EarlyVisitWaitMs;
+                }
+                return waits;
             }
 
             // The rule `rule` notes the enemy that `target` picks as visited.
@@ -864,6 +923,8 @@ namespace Bots
             TargetPicker const goOutTarget = [pick](BotContext const& context) { return GoOutTarget(context, *pick); };
             // jvbastel/WOWAI#172: and its own early visits.
             EarlyVisitsPtr const earlyVisits = std::make_shared<EarlyVisits>();
+            // jvbastel/WOWAI#174: and its own Shield Block wait.
+            RageWaitPtr const rageWait = std::make_shared<RageWait>();
             TargetPicker const earlyVisit = [pullPacks, earlyVisits](BotContext const& context) {
                 return PickEarlyVisit(context, *pullPacks, *earlyVisits);
             };
@@ -877,8 +938,14 @@ namespace Bots
                         return FightsFocus(context) && !context.view.HasAura(Self(context), DefensiveStance);
                     },
                     DefensiveStance, PickSelf),
-                WaitsForTheEarlyVisits(CastRule("demoralizing shout", P + 50, ShoutDue, DemoralizingShout, PickSelf), pullPacks,
-                    earlyVisits),
+                // jvbastel/WOWAI#174: it waits for the early visits while
+                // the rage is short (RageWaitsForAnEarlySunder).
+                CastRule("demoralizing shout", P + 50,
+                    [pullPacks, earlyVisits, rageWait](BotContext const& context) {
+                        return ShoutDue(context)
+                            && !RageWaitsForAnEarlySunder(context, *pullPacks, *earlyVisits, *rageWait);
+                    },
+                    DemoralizingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
@@ -1119,7 +1186,7 @@ namespace Bots
                         // first, and hits its attacker until it keeps threat
                         // on it (jvbastel/WOWAI#126, #169).
                         Guid const kept = keptEnemy(context);
-                        if (goOutTarget(context) != NoGuid
+                        if (goOutTarget(context) != NoGuid || PickCasterToStepTo(context) != NoGuid
                             || (kept != NoGuid && context.view.GetVictim(Self(context)) == kept))
                             return false;
                         ChaseState const chase = context.view.GetChase();
@@ -1168,6 +1235,17 @@ namespace Bots
                         },
                         ThreatAbilityOn(looseEnemy)},
                     looseEnemy, keep),
+                // jvbastel/WOWAI#174: a short step toward a caster on the
+                // healer out of Taunt range (PickCasterToStepTo). In reach,
+                // the rules above take it.
+                Rule{"step to a caster on the healer", P + StepToACasterOnTheHealer,
+                    [](BotContext const& context) {
+                        return PickCasterToStepTo(context) != NoGuid && !ShoutTakesThem(context);
+                    },
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) {
+                            context.actions.KeepMovingTo(context.view.GetPosition(PickCasterToStepTo(context)));
+                        }}},
                 // jvbastel/WOWAI#169: the tank chases no loose enemy. The one
                 // exception: the member that it attacks cannot move (rooted
                 // or stunned), and Taunt cannot reach it (or waits for its
@@ -1204,43 +1282,31 @@ namespace Bots
                 // A ready Revenge goes to the threat target on a visit
                 // (jvbastel/WOWAI#117), and counts as its ability there. On
                 // the focus, it ends the visit.
-                // jvbastel/WOWAI#174: it waits while a joined enemy comes
-                // for its early visit, which takes the ready Revenge.
-                CountsInThreatVisit(WaitsForTheEarlyVisits(CastRule("revenge", P + 40, FightsFocus, Revenge, revengeTarget),
-                                        pullPacks, earlyVisits),
-                    revengeTarget, visit),
+                CountsInThreatVisit(CastRule("revenge", P + 40, FightsFocus, Revenge, revengeTarget), revengeTarget, visit),
                 // Below Revenge: more blocks give more Revenge. The cast
                 // check covers the shield and the cooldown.
-                WaitsForTheEarlyVisits(CastRule("shield block", P + 38,
-                                           [](BotContext const& context) {
-                                               return FightsFocus(context)
-                                                   && context.view.HasAura(Self(context), DefensiveStance)
-                                                   && Rage(context) >= ShieldBlockRage
-                                                   && IsHitInMelee(context, MeleeContactYards);
-                                           },
-                                           ShieldBlock, PickSelf),
-                    pullPacks, earlyVisits),
+                // jvbastel/WOWAI#174: it waits for the early visits while
+                // the rage is short (RageWaitsForAnEarlySunder).
+                CastRule("shield block", P + 38,
+                    [pullPacks, earlyVisits, rageWait](BotContext const& context) {
+                        return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
+                            && Rage(context) >= ShieldBlockRage && IsHitInMelee(context, MeleeContactYards)
+                            && !RageWaitsForAnEarlySunder(context, *pullPacks, *earlyVisits, *rageWait);
+                    },
+                    ShieldBlock, PickSelf),
                 // jvbastel/WOWAI#117: one Sunder Armor on the threat target
                 // (a ready Revenge goes there through the revenge rule, so
                 // this rule only sunders), then the focus again. The focus
                 // of the group stays.
-                CountsInThreatVisit(WaitsForTheEarlyVisits(CastRule("threat target", P + 37,
-                                                               [visit](BotContext const& context) {
-                                                                   return ThreatVisitDue(context, *visit);
-                                                               },
-                                                               SunderArmor, PickThreatTarget),
-                                        pullPacks, earlyVisits),
+                CountsInThreatVisit(CastRule("threat target", P + 37,
+                                        [visit](BotContext const& context) { return ThreatVisitDue(context, *visit); },
+                                        SunderArmor, PickThreatTarget),
                     PickThreatTarget, visit),
-                CountsInThreatVisit(WaitsForTheEarlyVisits(CastRule("heroic strike", P + 35,
-                                                               [](BotContext const& context) {
-                                                                   return FightsFocus(context) && Rage(context) >= SpareRage;
-                                                               },
-                                                               HeroicStrike, PickFocusTarget),
-                                        pullPacks, earlyVisits),
+                CountsInThreatVisit(CastRule("heroic strike", P + 35,
+                                        [](BotContext const& context) { return FightsFocus(context) && Rage(context) >= SpareRage; },
+                                        HeroicStrike, PickFocusTarget),
                     PickFocusTarget, visit),
-                CountsInThreatVisit(
-                    WaitsForTheEarlyVisits(CastRule("sunder armor", P + 30, FightsFocus, SunderArmor, PickFocusTarget),
-                        pullPacks, earlyVisits),
+                CountsInThreatVisit(CastRule("sunder armor", P + 30, FightsFocus, SunderArmor, PickFocusTarget),
                     PickFocusTarget, visit),
                 Rule{"top up the ammo", P + 20,
                     [](BotContext const& context) {
@@ -1257,13 +1323,12 @@ namespace Bots
                             context.actions.TopUpAmmo(
                                 AmmoPlan(context));
                         }}},
-                WaitsForTheEarlyVisits(CastRule("battle shout", P + 25,
-                                           [](BotContext const& context) {
-                                               return FightsFocus(context) && Rage(context) >= BattleShoutRage
-                                                   && !context.view.HasAura(Self(context), BattleShout);
-                                           },
-                                           BattleShout, PickSelf),
-                    pullPacks, earlyVisits),
+                CastRule("battle shout", P + 25,
+                    [](BotContext const& context) {
+                        return FightsFocus(context) && Rage(context) >= BattleShoutRage
+                            && !context.view.HasAura(Self(context), BattleShout);
+                    },
+                    BattleShout, PickSelf),
             };
             rules.insert(rules.end(), opener.begin(), opener.end());
             return std::make_shared<Strategy const>(Strategy{"warrior tank", std::move(rules)});
