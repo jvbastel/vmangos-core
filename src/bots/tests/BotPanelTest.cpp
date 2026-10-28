@@ -66,30 +66,47 @@ TEST(BotPanel, LeavesOutTheWorldBots)
     EXPECT_EQ(names.front(), "Grukk");
 }
 
-TEST(BotPanel, ReadsTheListRequestOfTheAddOn)
+// The add-on asks with a whisper to the player's own name: the 1.12 client
+// sends no party add-on message without a group, and the panel is mostly
+// used with no group.
+TEST(BotPanel, ReadsTheListRequestOfTheAddOnAsAWhisperToTheSender)
 {
-    EXPECT_TRUE(IsBotPanelRequest("WOWAI_BOTS\t1:list"));
+    EXPECT_TRUE(IsBotPanelRequest("Thrallson", "Thrallson", "WOWAI_BOTS 1:list"));
+}
+
+TEST(BotPanel, TheNameOfTheSenderMatchesInAnyCase)
+{
+    EXPECT_TRUE(IsBotPanelRequest("Thrallson", "thrallson", "WOWAI_BOTS 1:list"));
+}
+
+TEST(BotPanel, AWhisperOfTheRequestToAnotherPlayerIsNoRequest)
+{
+    EXPECT_FALSE(IsBotPanelRequest("Thrallson", "Grukk", "WOWAI_BOTS 1:list"));
 }
 
 TEST(BotPanel, IgnoresOtherMessages)
 {
-    EXPECT_FALSE(IsBotPanelRequest("WOWAI_ROLE\t1:tank"));
-    EXPECT_FALSE(IsBotPanelRequest("WOWAI_BOTS\t2:list"));
-    EXPECT_FALSE(IsBotPanelRequest("WOWAI_BOTS\t1:clear"));
-    EXPECT_FALSE(IsBotPanelRequest("WOWAI_BOTS1:list"));
+    EXPECT_FALSE(IsBotPanelRequest("Thrallson", "Thrallson", "WOWAI_ROLE 1:tank"));
+    EXPECT_FALSE(IsBotPanelRequest("Thrallson", "Thrallson", "WOWAI_BOTS 2:list"));
+    EXPECT_FALSE(IsBotPanelRequest("Thrallson", "Thrallson", "WOWAI_BOTS 1:clear"));
+    EXPECT_FALSE(IsBotPanelRequest("Thrallson", "Thrallson", "WOWAI_BOTS1:list"));
+    EXPECT_FALSE(IsBotPanelRequest("Thrallson", "Thrallson", "hello"));
 }
 
+// The answer is system messages to the player alone: the client gives them
+// to the add-on (CHAT_MSG_SYSTEM) also with no group, and the add-on hides
+// them from the chat frames.
 TEST(BotPanel, TheAnswerClearsThePanelThenSendsOneMessagePerBot)
 {
     std::vector<PanelBot> const listed = PanelBotsFor(TheTenBots(), GearFaction::Alliance);
     std::vector<std::string> const expected = {
-        "WOWAI_BOTS\t1:clear",
-        "WOWAI_BOTS\t1:bot:tank:Aldric",
-        "WOWAI_BOTS\t1:bot:healer:Brenna",
-        "WOWAI_BOTS\t1:bot:melee:Corwin",
-        "WOWAI_BOTS\t1:bot:ranged:Fizzwick",
-        "WOWAI_BOTS\t1:bot:ranged:Nixie",
-        "WOWAI_BOTS\t1:end",
+        "WOWAI_BOTS 1:clear",
+        "WOWAI_BOTS 1:bot:tank:Aldric",
+        "WOWAI_BOTS 1:bot:healer:Brenna",
+        "WOWAI_BOTS 1:bot:melee:Corwin",
+        "WOWAI_BOTS 1:bot:ranged:Fizzwick",
+        "WOWAI_BOTS 1:bot:ranged:Nixie",
+        "WOWAI_BOTS 1:end",
     };
 
     EXPECT_EQ(BotPanelMessages(listed), expected);
@@ -97,7 +114,7 @@ TEST(BotPanel, TheAnswerClearsThePanelThenSendsOneMessagePerBot)
 
 TEST(BotPanel, AnEmptyPanelStillGetsClearAndEnd)
 {
-    std::vector<std::string> const expected = {"WOWAI_BOTS\t1:clear", "WOWAI_BOTS\t1:end"};
+    std::vector<std::string> const expected = {"WOWAI_BOTS 1:clear", "WOWAI_BOTS 1:end"};
 
     EXPECT_EQ(BotPanelMessages({}), expected);
 }

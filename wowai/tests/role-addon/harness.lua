@@ -1,7 +1,8 @@
 -- A stub of the 1.12 client API that loads the WowaiRole add-on in a Lua 5.0
 -- interpreter, clicks its role buttons, fires the group events, and checks
 -- the party add-on messages it sends (jvbastel/WOWAI#197). It also feeds the
--- bot panel (WowaiBots.lua, #198) a list and clicks its buttons. Run by
+-- bot panel (WowaiBots.lua, #198) a list as system messages, clicks its
+-- buttons, and checks what the chat frames show. Run by
 -- wowai/tests/role-addon.test.sh:
 --   lua harness.lua <addon folder>
 local folder = arg[1]
@@ -20,12 +21,9 @@ local globals, frames, sent
 local partySize = 0
 function GetNumPartyMembers() return partySize end
 function GetNumRaidMembers() return 0 end
--- `sent`: the role choice messages. `panelSent`: those of the bot panel.
-local panelSent
+-- `sent`: the role choice messages.
 function SendAddonMessage(prefix, text, kind)
-	local list = sent
-	if prefix == "WOWAI_BOTS" then list = panelSent end
-	table.insert(list, kind .. " " .. prefix .. "\t" .. text)
+	table.insert(sent, kind .. " " .. prefix .. "\t" .. text)
 end
 function getglobal(name) return globals[name] end
 local whispers
@@ -84,8 +82,12 @@ local function Last() return sent[table.getn(sent)] end
 
 -- A login: the client loads the toc files, then the saved variables.
 -- `lateVariables`: VARIABLES_LOADED after PLAYER_ENTERING_WORLD.
+-- The chat frames of FrameXML: ChatFrame_OnEvent(event) shows a line.
+local chatShown
+local function FrameXMLChatFrame(e) table.insert(chatShown, e .. " " .. tostring(arg1)) end
 local function Login(lateVariables)
-	globals, frames, sent, panelSent, whispers = {}, {}, {}, {}, {}
+	globals, frames, sent, whispers, chatShown = {}, {}, {}, {}, {}
+	ChatFrame_OnEvent = FrameXMLChatFrame
 	UIParent = NewObject("UIParent")
 	WowaiRole = nil
 	local toc = io.open(folder .. "/WowaiRole.toc")
@@ -153,16 +155,22 @@ check("the unfold shows them", globals.WowaiRole_tank:IsShown() and WowaiRoleDB.
 
 
 -- jvbastel/WOWAI#198: the bot panel.
-local function LastPanel() return panelSent[table.getn(panelSent)] end
-local function Sent(text)
-	for _, line in ipairs(panelSent) do
-		if line == text then return true end
+local REQUEST = "WHISPER Thrallson WOWAI_BOTS 1:list"
+local function LastWhisper() return whispers[table.getn(whispers)] end
+local function Requests()
+	local n = 0
+	for _, line in ipairs(whispers) do
+		if line == REQUEST then n = n + 1 end
 	end
-	return false
+	return n
 end
-local function Answer(texts, sender)
+-- The server's answer: system messages, through the add-on's events and
+-- the chat frames, as the client gives them.
+local function Answer(texts)
 	for _, text in ipairs(texts) do
-		Fire("CHAT_MSG_ADDON", "WOWAI_BOTS", text, "PARTY", sender or "Thrallson")
+		Fire("CHAT_MSG_SYSTEM", "WOWAI_BOTS " .. text)
+		arg1 = "WOWAI_BOTS " .. text
+		ChatFrame_OnEvent("CHAT_MSG_SYSTEM")
 	end
 end
 local HORDE = { "1:clear", "1:bot:tank:Grukk", "1:bot:healer:Hela", "1:bot:melee:Shanka", "1:bot:ranged:Ezzra",
@@ -175,7 +183,8 @@ end
 WowaiRoleDB = nil
 partySize = 0
 Login()
-check("the panel asks for the list at login, also with no group", Sent("PARTY WOWAI_BOTS\t1:list"))
+check("the panel asks for the list at login, with no group, by a whisper to the player", Requests() == 1,
+	tostring(LastWhisper()))
 check("no rows before the list comes", getglobal("WowaiBotsName1") == nil or not getglobal("WowaiBotsName1"):IsShown())
 local heightBefore = WowaiRole.frame.height
 Answer(HORDE)
@@ -187,12 +196,16 @@ role, name = Row(5)
 check("a second bot of a role has no label", role == "" and name == "Morzul", tostring(role) .. " " .. tostring(name))
 check("the frame grows to hold the rows", WowaiRole.frame.height > heightBefore,
 	tostring(heightBefore) .. " -> " .. tostring(WowaiRole.frame.height))
+check("the chat frames do not show the panel's messages", table.getn(chatShown) == 0, tostring(chatShown[1]))
+arg1 = "You are now AFK."
+ChatFrame_OnEvent("CHAT_MSG_SYSTEM")
+check("the chat frames still show other system messages", chatShown[1] == "CHAT_MSG_SYSTEM You are now AFK.", tostring(chatShown[1]))
 local heightFive = WowaiRole.frame.height
 
 Click("WowaiBotsInvite1")
-check("Invite whispers invite to the bot", whispers[table.getn(whispers)] == "WHISPER Grukk invite", whispers[table.getn(whispers)])
+check("Invite whispers invite to the bot", LastWhisper() == "WHISPER Grukk invite", LastWhisper())
 Click("WowaiBotsDismiss2")
-check("Dismiss whispers dismiss to the bot", whispers[table.getn(whispers)] == "WHISPER Hela dismiss", whispers[table.getn(whispers)])
+check("Dismiss whispers dismiss to the bot", LastWhisper() == "WHISPER Hela dismiss", LastWhisper())
 
 Answer({ "1:clear", "1:bot:tank:Aldric", "1:end" })
 role, name, shown = Row(1)
@@ -200,19 +213,16 @@ check("a new list replaces the old one", name == "Aldric" and not getglobal("Wow
 check("the frame shrinks with the list", WowaiRole.frame.height < heightFive,
 	tostring(heightFive) .. " -> " .. tostring(WowaiRole.frame.height))
 
-Answer({ "1:clear", "1:bot:tank:Spoof", "1:end" }, "Otherguy")
-role, name = Row(1)
-check("a list from another player is ignored", name == "Aldric", tostring(name))
-Fire("CHAT_MSG_ADDON", "WOWAI_ROLE", "1:clear", "PARTY", "Thrallson")
-check("a message of another prefix is ignored", Row(1) == "Tank")
+Answer({ "2:clear", "2:bot:tank:Later", "2:end" })
+check("a list of another version is ignored", Row(1) == "Tank" and getglobal("WowaiBotsName1"):GetText() == "Aldric")
+Fire("CHAT_MSG_SYSTEM", "WOWAI_BOTSX 1:clear")
+check("a message of another prefix is ignored", getglobal("WowaiBotsName1"):GetText() == "Aldric")
 
-local before = table.getn(panelSent)
 Click("WowaiBotsRefresh")
-check("Refresh asks for the list again", table.getn(panelSent) == before + 1 and LastPanel() == "PARTY WOWAI_BOTS\t1:list")
-before = table.getn(panelSent)
+check("Refresh asks for the list again", Requests() == 2 and LastWhisper() == REQUEST, LastWhisper())
 partySize = 1
 Fire("PARTY_MEMBERS_CHANGED")
-check("a group change asks for the list again", table.getn(panelSent) == before + 1 and LastPanel() == "PARTY WOWAI_BOTS\t1:list")
+check("a group change does not ask again (the list does not depend on the group)", Requests() == 2)
 
 Click("WowaiRoleFold")
 check("the fold hides the panel", not getglobal("WowaiBotsRefresh"):IsVisible())

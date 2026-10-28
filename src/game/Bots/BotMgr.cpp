@@ -1118,20 +1118,13 @@ void BotMgr::SendBotPanel(ObjectGuid playerGuid)
     {
         BotRecord const& record = pair.second;
         // The faction of an offline bot too, from the character cache.
-        bool const horde = sObjectMgr.GetPlayerTeamByGUID(ObjectGuid(HIGHGUID_PLAYER, pair.first)) == HORDE;
-        bots.push_back({record.entry->name, RoleOf(record.role),
-            horde ? Bots::GearFaction::Horde : Bots::GearFaction::Alliance, record.worldBot});
+        Bots::GearFaction const faction = FactionOfTeam(sObjectMgr.GetPlayerTeamByGUID(ObjectGuid(HIGHGUID_PLAYER, pair.first)));
+        bots.push_back({record.entry->name, RoleOf(record.role), faction, record.worldBot});
     }
-    std::vector<Bots::PanelBot> const listed = Bots::PanelBotsFor(bots,
-        player->GetTeam() == HORDE ? Bots::GearFaction::Horde : Bots::GearFaction::Alliance);
-    // From the player itself, like the echo of its own party add-on message:
-    // the client gives it to the add-on (CHAT_MSG_ADDON), not to a chat frame.
+    std::vector<Bots::PanelBot> const listed = Bots::PanelBotsFor(bots, FactionOfTeam(player->GetTeam()));
+    // System messages: the client gives them to the add-on with no group too.
+    ChatHandler handler(player->GetSession());
     for (std::string const& message : Bots::BotPanelMessages(listed))
-    {
-        WorldPacket data;
-        ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, message.c_str(), LANG_ADDON, 0, player->GetObjectGuid(),
-            player->GetName());
-        player->GetSession()->SendPacket(&data);
-    }
+        handler.SendSysMessage(message.c_str());
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s gets the bot panel: %u bots", player->GetName(), uint32(listed.size()));
 }

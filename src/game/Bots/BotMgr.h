@@ -298,7 +298,7 @@ class BotMgr
         mutable std::mutex m_roleChoicesLock;
         std::map<uint64 /*player GUID*/, Bots::RoleChoice> m_roleChoices;
         // jvbastel/WOWAI#198: the group bots of the player's faction, as
-        // party add-on messages to the player alone (Bots::BotPanelMessages).
+        // system messages to the player alone (Bots::BotPanelMessages).
         void SendBotPanel(ObjectGuid playerGuid);
         Bots::Inbox<ObjectGuid> m_panelRequests;
 };

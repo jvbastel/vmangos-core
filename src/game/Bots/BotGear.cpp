@@ -163,9 +163,14 @@ Bots::GearScores const* BotGear::FindScores(std::string const& name) const
     return found == m_scores.end() ? nullptr : &found->second;
 }
 
+Bots::GearFaction FactionOfTeam(uint32 team)
+{
+    return team == ALLIANCE ? Bots::GearFaction::Alliance : Bots::GearFaction::Horde;
+}
+
 Bots::GearDraw EquipFromGearTemplate(Player* player, Bots::GearTemplate const& gearTemplate)
 {
-    Bots::GearFaction const faction = player->GetTeam() == ALLIANCE ? Bots::GearFaction::Alliance : Bots::GearFaction::Horde;
+    Bots::GearFaction const faction = FactionOfTeam(player->GetTeam());
     Bots::GearDraw draw = Bots::DrawGear(gearTemplate, player->GetGUIDLow(), player->GetLevel(), sWorld.GetWowPatch(), faction);
 
     for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)

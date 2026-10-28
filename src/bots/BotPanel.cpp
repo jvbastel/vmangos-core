@@ -1,6 +1,7 @@
 #include "BotPanel.h"
 
 #include <algorithm>
+#include <cctype>
 
 namespace Bots
 {
@@ -8,7 +9,15 @@ namespace Bots
     {
         std::string PanelMessage(std::string const& text)
         {
-            return std::string(BotPanelPrefix) + "\t" + BotPanelVersion + ":" + text;
+            return std::string(BotPanelPrefix) + " " + BotPanelVersion + ":" + text;
+        }
+
+        bool SameName(std::string const& a, std::string const& b)
+        {
+            return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char x, char y)
+                {
+                    return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+                });
         }
     }
 
@@ -27,9 +36,9 @@ namespace Bots
         return bots;
     }
 
-    bool IsBotPanelRequest(std::string const& message)
+    bool IsBotPanelRequest(std::string const& sender, std::string const& receiver, std::string const& text)
     {
-        return message == PanelMessage("list");
+        return text == PanelMessage("list") && SameName(sender, receiver);
     }
 
     std::vector<std::string> BotPanelMessages(std::vector<PanelBot> const& listed)

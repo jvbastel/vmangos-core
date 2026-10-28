@@ -2,11 +2,14 @@
 -- For the vanilla 1.12 client (Lua 5.0).
 --
 -- The panel asks the server for the group bots of the player's faction with
--- a party add-on message: prefix "WOWAI_BOTS", text "1:list". The server
--- answers with party add-on messages to the player alone, from the player:
--- "1:clear", then "1:bot:<role>:<name>" per bot in role order, then "1:end"
--- (Bots::BotPanelMessages, src/bots/BotPanel.h in the core fork). The panel
--- asks on entering the world, on each group change, and on a click of Refresh.
+-- a whisper to the player's own name: "WOWAI_BOTS 1:list". The server takes
+-- that whisper (nobody gets it) and answers with system messages to the
+-- player alone: "WOWAI_BOTS 1:clear", then "WOWAI_BOTS 1:bot:<role>:<name>"
+-- per bot in role order, then "WOWAI_BOTS 1:end" (Bots::BotPanelMessages,
+-- src/bots/BotPanel.h in the core fork). Both work with no group: the 1.12
+-- client sends a party add-on message only in a party. The add-on hides these
+-- system messages from the chat frames. The panel asks on entering the world
+-- and on a click of Refresh.
 --
 -- Invite and Dismiss whisper "invite" and "dismiss" to the bot: the same
 -- server path as the typed bot commands. The server logs an offline bot in,
@@ -27,8 +30,18 @@ local incoming = {}  -- the bots of the list that is coming in
 local bots = {}      -- the bots on the panel: { role, name }
 local received       -- a whole list came
 
+-- "WOWAI_BOTS 1:", the start of each panel message.
+local function Head()
+	return WowaiBots.PREFIX .. " " .. WowaiBots.VERSION .. ":"
+end
+
 function WowaiBots.Request()
-	SendAddonMessage(WowaiBots.PREFIX, WowaiBots.VERSION .. ":list", "PARTY")
+	SendChatMessage(Head() .. "list", "WHISPER", nil, UnitName("player"))
+end
+
+-- True for a system message of the panel.
+function WowaiBots.IsPanelMessage(text)
+	return type(text) == "string" and string.sub(text, 1, string.len(Head())) == Head()
 end
 
 function WowaiBots.Invite(name)
@@ -103,13 +116,12 @@ function WowaiBots.Render()
 	WowaiRole.SetSectionHeight(section, HEADER_HEIGHT + count * ROW_HEIGHT + 4)
 end
 
--- An add-on message of the panel, from the server.
+-- A system message of the panel, from the server.
 function WowaiBots.OnMessage(text)
-	local version = WowaiBots.VERSION .. ":"
-	if string.sub(text, 1, string.len(version)) ~= version then
+	if not WowaiBots.IsPanelMessage(text) then
 		return
 	end
-	local body = string.sub(text, string.len(version) + 1)
+	local body = string.sub(text, string.len(Head()) + 1)
 	if body == "clear" then
 		incoming = {}
 	elseif body == "end" then
@@ -146,16 +158,21 @@ end)
 
 local events = CreateFrame("Frame", "WowaiBotsEvents")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
-events:RegisterEvent("PARTY_MEMBERS_CHANGED")
-events:RegisterEvent("CHAT_MSG_ADDON")
+events:RegisterEvent("CHAT_MSG_SYSTEM")
 events:SetScript("OnEvent", function()
-	if event == "CHAT_MSG_ADDON" then
-		-- The answer comes from the player itself: a list from another
-		-- member of the party is not ours.
-		if arg1 == WowaiBots.PREFIX and arg4 == UnitName("player") then
-			WowaiBots.OnMessage(arg2)
-		end
+	if event == "CHAT_MSG_SYSTEM" then
+		WowaiBots.OnMessage(arg1)
 	else
 		WowaiBots.Request()
 	end
 end)
+
+-- The chat frames do not show the panel's system messages. In 1.12 each chat
+-- frame calls the global ChatFrame_OnEvent(event), with arg1 the text.
+local ShowInChatFrame = ChatFrame_OnEvent
+function ChatFrame_OnEvent(event)
+	if event == "CHAT_MSG_SYSTEM" and WowaiBots.IsPanelMessage(arg1) then
+		return
+	end
+	ShowInChatFrame(event)
+end
