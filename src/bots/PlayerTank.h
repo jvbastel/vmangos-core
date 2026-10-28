@@ -30,7 +30,8 @@ namespace Bots
     //   or an enemy out of the fight keeps the last focus.
     // - The bot notes at `nowMs` whether the tank is top of the focus's
     //   threat list (GroupCoordinator::NoteTankOnTop): the tank holds threat
-    //   PlayerTankHoldMs after it got on top (TankHoldsThreat).
+    //   PlayerTankHoldMs after it got on top (TankHoldsThreat). A bot that
+    //   does not see the tank or the focus alive notes nothing.
     void WatchPlayerTank(BotView const& view, GroupCoordinator& group, std::int64_t nowMs);
 }
 

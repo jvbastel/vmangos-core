@@ -24,7 +24,9 @@ namespace Bots
     Guid NextGroupTank(std::vector<GroupMember> const& members, Guid leader, Guid current, bool currentIsBotTank)
     {
         Guid const pick = PickGroupTank(members, leader);
-        if (pick == NoGuid && currentIsBotTank)
+        // A bot tank out of `members` stays, also over a human leader: the
+        // group stays a bot-tank group (merge review of jvbastel/WOWAI#189).
+        if (currentIsBotTank && (pick == NoGuid || IsHumanTank(members, pick)))
             return current;
         return pick;
     }

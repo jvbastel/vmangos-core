@@ -29,6 +29,10 @@ namespace Bots
         if (target != NoGuid && IsInCombatWithTheGroup(view, target))
             group.SetFocusTarget(target);
         Guid const focus = group.GetFocusTarget();
+        // A bot that does not see the tank or the focus has no threat to
+        // read: it notes nothing, so it does not start the clock again.
+        if (focus != NoGuid && (!IsAlive(view, tank) || !IsAlive(view, focus)))
+            return;
         group.NoteTankOnTop(focus != NoGuid && IsTopOfThreat(view, tank, focus), nowMs);
     }
 }

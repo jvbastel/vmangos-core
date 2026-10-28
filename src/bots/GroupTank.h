@@ -32,9 +32,10 @@ namespace Bots
     bool IsHumanTank(std::vector<GroupMember> const& members, Guid tank);
 
     // The tank that the group coordinator gets now, when its tank is
-    // `current`: the pick of PickGroupTank. With no pick, `current` stays
-    // only when it is a bot tank (`currentIsBotTank`): the tank bot sets
-    // itself, also from another map. A human tank who gives up the lead, or
+    // `current`: the pick of PickGroupTank. With no pick, or a human pick,
+    // `current` stays when it is a bot tank (`currentIsBotTank`): the tank
+    // bot sets itself, also from another map, and a bot-tank group does not
+    // become a player-tank group while its tank is away. A human tank who gives up the lead, or
     // leaves the map, is no tank any more.
     Guid NextGroupTank(std::vector<GroupMember> const& members, Guid leader, Guid current, bool currentIsBotTank);
 }

@@ -463,7 +463,7 @@ namespace Bots
             }
             bool HasRoomFor(AmmoTopUp const&) const override { return !m_bagsFull; }
             // jvbastel/WOWAI#189: the tank's target. Unset: NoGuid.
-            void SetSelectedTarget(Guid unit, Guid target) { m_targetOf[unit] = target; }
+            void SetTargetOf(Guid unit, Guid target) { m_targetOf[unit] = target; }
             Guid GetTargetOf(Guid unit) const override
             {
                 auto found = m_targetOf.find(unit);

@@ -1487,7 +1487,7 @@ TEST(PriestHealerPlayerTank, HealsTheTankAtOnceBeforeTheThreatLead)
     priest.fake.SetPowerKind(Human, Bots::PowerKind::Mana);
     priest.group.SetTank(Human, true);
     priest.fake.SetVictim(Kobold, Human);
-    priest.fake.SetSelectedTarget(Human, Kobold);
+    priest.fake.SetTargetOf(Human, Kobold);
     priest.fake.SetThreatRatio(Human, Kobold, 1.5f);
     priest.fake.SetInCombat(Healer);
     Bots::WatchPlayerTank(priest.fake, priest.group, 0);

@@ -46,7 +46,6 @@ TEST(GroupTank, ALeaderOutOfTheMembersGivesNoTank)
     EXPECT_EQ(PickGroupTank({Bot(BotHealer, BotRole::Healer), Bot(BotMage, BotRole::Ranged)}, Player), NoGuid);
 }
 
-
 // Merge review of spec #131: a human tank who leaves the map, or gives up
 // the lead, is no tank any more. A bot tank stays (it sets itself).
 TEST(GroupTank, AHumanTankWhoLeavesIsNoTankAnyMore)
@@ -81,4 +80,12 @@ TEST(GroupTank, OnlyAHumanTankMakesAPlayerTankGroup)
     EXPECT_TRUE(Bots::IsHumanTank(members, Player));
     EXPECT_FALSE(Bots::IsHumanTank(members, BotTank));
     EXPECT_FALSE(Bots::IsHumanTank(members, NoGuid));
+}
+
+// Merge review of jvbastel/WOWAI#189: a bot tank that is not in `members`
+// (on another map, or zoning) stays the tank. The human leader does not take
+// over and make a player-tank group of a bot-tank group.
+TEST(GroupTank, ABotTankOutOfTheMembersStaysTheTankOverAHumanLeader)
+{
+    EXPECT_EQ(NextGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player, BotTank, true), BotTank);
 }

@@ -522,11 +522,12 @@ Bots::Guid BotAI::GroupTankNow(Bots::Guid current, bool& playerTank) const
         bool const isBot = sBotMgr.BotRoleOf(player, role);
         members.push_back({slot.guid.GetRawValue(), isBot, role});
     }
-    // The current tank stays when it is a bot tank, also on another map.
+    // The current tank stays when it is a bot tank of this group, also on
+    // another map (a bot tank that left the group does not stay).
     Player const* currentPlayer = current != Bots::NoGuid ? ObjectAccessor::FindPlayer(ObjectGuid(current)) : nullptr;
     Bots::BotRole currentRole = Bots::BotRole::Ranged;
-    bool const currentIsBotTank = currentPlayer && sBotMgr.BotRoleOf(currentPlayer, currentRole)
-        && currentRole == Bots::BotRole::Tank;
+    bool const currentIsBotTank = currentPlayer && group->IsMember(ObjectGuid(current))
+        && sBotMgr.BotRoleOf(currentPlayer, currentRole) && currentRole == Bots::BotRole::Tank;
     Bots::Guid const tank = Bots::NextGroupTank(members, group->GetLeaderGuid().GetRawValue(), current, currentIsBotTank);
     playerTank = Bots::IsHumanTank(members, tank);
     return tank;

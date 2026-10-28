@@ -63,11 +63,11 @@ TEST(PlayerTankFocus, TheFocusFollowsTheTanksTargetInCombat)
     bots.Fights(Kobold);
     bots.Fights(Wolf);
 
-    bots.fake.SetSelectedTarget(Human, Kobold);
+    bots.fake.SetTargetOf(Human, Kobold);
     bots.Watch(0);
     EXPECT_EQ(bots.group.GetFocusTarget(), Kobold);
 
-    bots.fake.SetSelectedTarget(Human, Wolf);
+    bots.fake.SetTargetOf(Human, Wolf);
     bots.Watch(100);
     EXPECT_EQ(bots.group.GetFocusTarget(), Wolf);
 }
@@ -76,14 +76,14 @@ TEST(PlayerTankFocus, AFriendlyOrEmptyTargetKeepsTheLastFocus)
 {
     PlayerTankGroup bots;
     bots.Fights(Kobold);
-    bots.fake.SetSelectedTarget(Human, Kobold);
+    bots.fake.SetTargetOf(Human, Kobold);
     bots.Watch(0);
 
-    bots.fake.SetSelectedTarget(Human, Healer);
+    bots.fake.SetTargetOf(Human, Healer);
     bots.Watch(100);
     EXPECT_EQ(bots.group.GetFocusTarget(), Kobold);
 
-    bots.fake.SetSelectedTarget(Human, NoGuid);
+    bots.fake.SetTargetOf(Human, NoGuid);
     bots.Watch(200);
     EXPECT_EQ(bots.group.GetFocusTarget(), Kobold);
 }
@@ -92,7 +92,7 @@ TEST(PlayerTankFocus, AnEnemyNotInCombatWithTheGroupIsNotTheFocus)
 {
     PlayerTankGroup bots;
     // The wolf stands in its pack: no fight, no threat of any member.
-    bots.fake.SetSelectedTarget(Human, Wolf);
+    bots.fake.SetTargetOf(Human, Wolf);
     bots.Watch(0);
     EXPECT_EQ(bots.group.GetFocusTarget(), NoGuid);
 
@@ -107,7 +107,7 @@ TEST(PlayerTankFocus, AnEnemyThatHitsAMemberIsInCombatWithTheGroup)
     PlayerTankGroup bots;
     // The kobold hits the healer; the tank has no threat on it yet.
     bots.fake.SetVictim(Kobold, Healer);
-    bots.fake.SetSelectedTarget(Human, Kobold);
+    bots.fake.SetTargetOf(Human, Kobold);
     bots.Watch(0);
     EXPECT_EQ(bots.group.GetFocusTarget(), Kobold);
 }
@@ -117,7 +117,7 @@ TEST(PlayerTankFocus, ABotTankGroupKeepsItsOwnFocus)
     PlayerTankGroup bots;
     bots.group.SetTank(0x11);
     bots.Fights(Kobold);
-    bots.fake.SetSelectedTarget(Human, Kobold);
+    bots.fake.SetTargetOf(Human, Kobold);
     bots.Watch(0);
     EXPECT_EQ(bots.group.GetFocusTarget(), NoGuid);
 }
@@ -126,7 +126,7 @@ TEST(PlayerTankThreat, ADamageBotWaitsTwoSecondsOfTheTankOnTop)
 {
     PlayerTankGroup bots;
     bots.Fights(Kobold, 1.4f);
-    bots.fake.SetSelectedTarget(Human, Kobold);
+    bots.fake.SetTargetOf(Human, Kobold);
 
     bots.Watch(0);
     EXPECT_EQ(bots.Target(0), NoGuid);
@@ -141,7 +141,7 @@ TEST(PlayerTankThreat, TheWaitStartsWhenTheTankGetsOnTop)
     PlayerTankGroup bots;
     // The healer is above the tank on the kobold at first.
     bots.Fights(Kobold, 0.8f);
-    bots.fake.SetSelectedTarget(Human, Kobold);
+    bots.fake.SetTargetOf(Human, Kobold);
     bots.Watch(0);
     bots.Watch(1000);
     bots.fake.SetThreatRatio(Human, Kobold, 1.2f);
@@ -162,14 +162,34 @@ TEST(PlayerTankThreat, ANewFocusStartsTheWaitAgain)
     PlayerTankGroup bots;
     bots.Fights(Kobold);
     bots.Fights(Wolf);
-    bots.fake.SetSelectedTarget(Human, Kobold);
+    bots.fake.SetTargetOf(Human, Kobold);
     bots.Watch(0);
     bots.Watch(2000);
     EXPECT_EQ(bots.Target(2000), Kobold);
 
-    bots.fake.SetSelectedTarget(Human, Wolf);
+    bots.fake.SetTargetOf(Human, Wolf);
     bots.Watch(2100);
     EXPECT_EQ(bots.Target(2100), NoGuid);
     bots.Watch(4100);
     EXPECT_EQ(bots.Target(4100), Wolf);
+}
+
+// Merge review of jvbastel/WOWAI#189: a bot that does not see the tank or
+// the focus (its view gives no threat) notes nothing. It does not start the
+// clock again for the bots that see them.
+TEST(PlayerTankThreat, ABotThatDoesNotSeeTheFocusKeepsTheClock)
+{
+    PlayerTankGroup bots;
+    FakeBot away{Healer};
+    away.SetGroupMembers({Human, Rogue});
+    away.SetTargetOf(Human, Kobold);
+    bots.Fights(Kobold);
+    bots.fake.SetTargetOf(Human, Kobold);
+
+    bots.Watch(0);
+    Bots::WatchPlayerTank(away, bots.group, 1000);
+    bots.Watch(1500);
+    Bots::WatchPlayerTank(away, bots.group, 1900);
+    bots.Watch(2000);
+    EXPECT_EQ(bots.Target(2000), Kobold);
 }
