@@ -1,14 +1,18 @@
 # Record a dungeon route
 
-A route file tells the bots where to walk in a dungeon and which packs to fight. You make it with GM commands. You never type coordinates.
+A route file tells the bots where to walk in a dungeon and which packs to fight. You never type coordinates.
 
-**The way to make a route file is the trace and build flow:** you walk the dungeon one time as a group walks it, and the server records your path (the trace). Then `.route build` makes the route file around that path: the packs, the pull points, the quest objectives, and the boss list. Every route point lies on the path that you walked, so the bots never walk over a wall or lava that you did not walk. Sections 1 to 7 tell you how.
+**The main way to make a route file is the dungeon map** (`wowai/docs/dungeon-map.md`, ADR 0003 in the WOWAI repo). On that local page, you draw the route line on the navmesh floor and set the pack order. The page saves the trace and the hand pack order. Then `.route build` makes the route file from them (section 5), and no one walks the dungeon.
+
+**The other way is the GM trace:** you walk the dungeon one time as a group walks it, and the server records your path (the trace). Then `.route build` makes the route file around that path: the packs, the pull points, the quest objectives, and the boss list. Every route point lies on the path that you walked, so the bots never walk over a wall or lava that you did not walk. Sections 1 to 7 tell you how.
 
 Two older ways stay for fixes and for tests (see "Other ways" at the end): `.route generate` (a route from the navmesh, whose path can cross walls and lava), and the hand recorder `.route add point` and `.route add pack`.
 
 The route file of a dungeon is `bots/data/routes/<route>.txt` in the fork, for example `bots/data/routes/ragefire_chasm.txt`. Its trace is `bots/data/routes/<route>.trace.txt`, next to it. Commit both. The route format is in `src/bots/Route.h`, the trace format in `src/bots/RouteTrace.h`.
 
 ## 1. Start the test realm
+
+If you drew the route on the dungeon map, you only need a realm for `.route build` (section 5): see `wowai/docs/dungeon-map.md`, section 7.
 
 Record on the test realm, never on the play realm. In WSL, in the fork:
 
@@ -84,18 +88,20 @@ A teleport, a flight, or a step of more than 20 yards does not go into the trace
 .route build ragefire_chasm bosses=11517,11520,11518,11519
 ```
 
-Without `bosses=`, the build takes the boss list of the existing route file. The four Ragefire Chasm bosses are Oggleflint (11517), Taragaman the Hungerer (11520), Jergosh the Invoker (11518), and Bazzalan (11519). The command works in the game, on the console, and over SOAP: it needs no character.
+Without `bosses=`, the build takes the boss list of the existing route file. The four Ragefire Chasm bosses are Oggleflint (11517), Taragaman the Hungerer (11520), Jergosh the Invoker (11518), and Bazzalan (11519). The command works in the game, on the console, and over SOAP.
+
+The build reads the hand pack order `<route>.order.txt` too (see "Hand pack order" below). If that file has a `pack` line, the build needs the navmesh of the map, so it needs a character on the map of the dungeon: `.route build ragefire_chasm <character> ...`. In the game, your own character counts when it stands on that map. Without a `pack` line, the build needs no character, and a character only adds the walk check.
 
 The build uses the rules of `.route generate`, with your trace as the center line:
 
 - The packs: the creature groups and the spawns within 8 yards of each other.
-- A pack is on the route when the trace comes within aggro range plus the margin of it. The route fights the packs in the order that the trace reaches them.
+- A pack is on the route when the trace comes within aggro range plus the margin of it. The route fights the packs in the order that the trace reaches them. The hand pack order changes this: it moves packs, adds packs off the trace, and skips packs.
 - A pull point on the trace before each pack, where the trace first comes that near, outside the aggro range of the pack.
 - Route points along the trace every 10 yards, with a radius of 2 yards. Each checkpoint is a route point at its exact spot, and the 10 yards count again from it.
 - The trace must pass each boss within aggro range.
 - The quests of the dungeon: a visit point on the trace nearest the spot, and the kill counts and quest items that the packs on the trace meet.
 
-The build does not add a pack off the trace, and it plans no path of its own. When the packs on the trace are too few, it prints the missing objective and the nearest packs that hold it, with their spawn and position. Walk an extra trace there (section 4), and build again.
+The build adds a pack off the trace only when a `pack` line of the hand pack order names it. Then the route walks along the navmesh from the step before to the pull point of the pack, and back. The build plans no other path of its own. When the packs on the trace are too few, it prints the missing objective and the nearest packs that hold it, with their spawn and position. Walk an extra trace there (section 4), and build again.
 
 It writes `bots/data/routes/<route>.txt` and prints a summary: the point count, the packs in order, the quests with their objectives, the boss list, each unmet boss or objective, and "Check:" lines for points to look at in the game. In the game, it also prints a walk check of the navmesh.
 
@@ -119,6 +125,34 @@ Check that the route follows your trace and has the right packs. When a pack is 
 ## 7. Commit the files
 
 The files are in your fork tree: `bots/data/routes/ragefire_chasm.txt` and `bots/data/routes/ragefire_chasm.trace.txt`. The answers in the game show the path inside the container, `bots/routes/...`, which is the same file. Check them and commit both.
+
+## Hand pack order (`<route>.order.txt`)
+
+The hand pack order file is `bots/data/routes/<route>.order.txt`, beside the route file. `.route generate` and `.route build` both read it. The dungeon map writes it (Save order), and you can also write it by hand. Commit it with the route file.
+
+```
+# The big trogg room: the open floor first.
+pack 48653 # pack8, Ragefire Trogg
+pack 48662 # pack9, Ragefire Shaman
+skip 48670 # pack19, Ragefire Shaman
+```
+
+- `pack <spawn guid>`: the packs of these lines come in this order, from where the route meets the first of them.
+- A `pack` line of a pack that the route does not fight adds the pack. The route walks from the step before to its pull point, and back to the line.
+- `skip <spawn guid>`: the route does not pull the pack. The builders leave it out before they place the packs, so no quest objective takes it back.
+- The packs that the file does not name keep the order of the generator, or of the trace.
+- A guid names the pack that holds that mob. The dungeon map writes the pack key, the spawn guid of the first mob of the pack. Guids stay the same at each build, but `packN` names do not.
+- `#` starts a comment. Each guid comes once in the file.
+
+The added packs count toward the kill and item objectives of the quests, and the skipped packs do not.
+
+The command prints `Hand pack order <file>: <n> packs in order, <n> skipped.` These give a `Check:` line, and the command goes on:
+
+- a guid of no pack, a pack named twice, or a pack that the file both names and skips (it skips it);
+- an added pack that no navmesh path reaches (it stays off the route);
+- a skipped pack: the route passes it within its aggro range. The line names the pack, the distance and the route point. The pack can join a fight as an extra pack. Move the line away from it, or do not skip it.
+
+If the file is there but cannot be read, or has a bad line, `.route generate` and `.route build` stop with an error and write no route. With no file, the order is the order of the generator or of the trace.
 
 ## Other ways
 
@@ -161,8 +195,18 @@ Stand in the dungeon (or name an online character in it), with flying off. Then:
 .route generate ragefire_chasm [character] bosses=11517,11520,11518,11519 [seed=1]
 ```
 
-The generator reads the spawns, creature groups, patrols, quests, and quest drops that the server loaded, and the navmesh of the map. It writes `bots/data/routes/<route>.txt` and prints the packs in order, the quests with their objectives, and a walk check. Without `bosses=`, it takes the boss list of the existing file. The same seed gives the same file, and the file records its seed.
+The generator reads the spawns, creature groups, patrols, quests, and quest drops that the server loaded, the navmesh of the map, and the hand pack order (see "Hand pack order" above). It writes `bots/data/routes/<route>.txt` and prints the packs in order, the quests with their objectives, and a walk check. Without `bosses=`, it takes the boss list of the existing file. The same seed gives the same file, and the file records its seed.
 
 Settings, all optional, as `name=value`: `seed`, `aggro` (20), `margin` (5), `pull` (35: the most path length from a pull point to its pack), `cluster` (8), `spacing` (10), `radius` (2), `side` (3), `alt` (7), `gap` (3), `wide` (10), `wall` (1.5). `src/bots/RouteGenerator.h` says what each one does.
 
 A generated file also has a quest list (`quest`, `kill`, `item`, `visit` lines), and `quest <id>` at the end of the point and pack lines that are only there for a quest. A run without quests skips those.
+
+### Export a map for the dungeon map
+
+On the console (no character is needed):
+
+```
+.route export 389 [cluster=8] [bosses=11517,11520,11518,11519]
+```
+
+It writes `bots/data/routes/map_<id>.export.txt`: every pack of the map (its key is the spawn guid of its first mob, as in the route and the `.order.txt` file), each mob with its position, wander radius and patrol path, the quests with their objectives, the bosses, and the names. The dungeon map reads it without a running server. Without `bosses=`, the bosses come from the route files of the map. Keep `cluster` at the value of the route, or the pack keys differ. Run it again for each content patch, and commit the files. `src/bots/RouteExport.h` describes the format.

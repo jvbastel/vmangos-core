@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dungeon map</title>
+<style>
+  :root { --bg: #1c1f21; --panel: #26292c; --text: #e6e1d6; --muted: #9a958b; --route: #e2453c;
+          --pack: #f2b134; --boss: #ff7a2f; --pull: #4ea3ff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+               font: 14px system-ui, sans-serif; }
+  header { display: flex; gap: 16px; align-items: center; padding: 8px 12px; background: var(--panel);
+           flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  header label { color: var(--muted); }
+  header input { width: 6em; background: var(--bg); color: var(--text); border: 1px solid #444; padding: 2px 4px; }
+  button { background: #3a3e42; color: var(--text); border: 1px solid #555; padding: 3px 10px; cursor: pointer; }
+  #status { color: var(--muted); }
+  #status.error { color: #ff8a80; }
+  #map { width: 100%; height: calc(100% - 44px); display: block; cursor: grab; user-select: none; }
+  #map.dragging { cursor: grabbing; }
+  .route { fill: none; stroke: var(--route); stroke-width: 2; vector-effect: non-scaling-stroke; opacity: 0.85; }
+  .pull-line { stroke: var(--pull); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-dasharray: 4 3; }
+  .pull { stroke: var(--pull); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Dungeon map</h1>
+  <label>Heights <input id="zmin" placeholder="lowest"> to <input id="zmax" placeholder="highest"></label>
+  <button id="apply">Show</button>
+  <button id="fit">Fit</button>
+  <span id="status">Loading...</span>
+</header>
+<svg id="map" xmlns="http://www.w3.org/2000/svg">
+  <image id="floor"></image>
+  <g id="overlay"></g>
+</svg>
+<script src="/map_common.js"></script>
+<script>
+// The shared helpers (SVG, el, sx, sy, toMap, sizeMarks) are in map_common.js.
+const map = document.getElementById("map");
+const overlay = document.getElementById("overlay");
+const status = document.getElementById("status");
+const route = new URLSearchParams(location.search).get("route");
+let view = null;   // {x, y, w, h} of the viewBox, in yards
+let bounds = null;
+let yardsPerPixel = 1;
+
+// Marks and labels keep their size on screen at every zoom (setView) and at
+// every redraw: a node that any script adds anywhere in the map gets its size
+// here at once, so no script sizes its own marks (a click needs a hit circle
+// with its radius before the first zoom).
+new MutationObserver(() => sizeMarks(map, yardsPerPixel)).observe(map, {childList: true, subtree: true});
+
+function setView(v) {
+  view = v;
+  map.setAttribute("viewBox", `${v.x} ${v.y} ${v.w} ${v.h}`);
+  yardsPerPixel = Math.max(v.w / map.clientWidth, v.h / map.clientHeight);
+  overlay.style.setProperty("--k", yardsPerPixel);
+  sizeMarks(map, yardsPerPixel);
+  document.dispatchEvent(new CustomEvent("mapview", {detail: yardsPerPixel}));
+}
+
+function fit() {
+  if (!bounds) return;
+  const pad = 10;
+  setView({x: -bounds.y_max - pad, y: -bounds.x_max - pad,
+           w: bounds.y_max - bounds.y_min + 2 * pad, h: bounds.x_max - bounds.x_min + 2 * pad});
+}
+
+function draw(data) {
+  bounds = data.floor.bounds;
+  const floor = document.getElementById("floor");
+  floor.setAttribute("href", data.floor.image);
+  floor.setAttribute("x", -bounds.y_max);
+  floor.setAttribute("y", -bounds.x_max);
+  floor.setAttribute("width", bounds.y_max - bounds.y_min);
+  floor.setAttribute("height", bounds.x_max - bounds.x_min);
+  floor.setAttribute("preserveAspectRatio", "none");
+  overlay.replaceChildren();
+  el("polyline", {class: "route", points: data.line.map(p => `${sx(p)},${sy(p)}`).join(" ")}, overlay);
+  for (const pack of data.packs) {
+    if (!pack.pull_point) continue;
+    el("line", {class: "pull-line", x1: sx(pack.pull_point), y1: sy(pack.pull_point), x2: sx(pack), y2: sy(pack)},
+       overlay);
+    el("path", {class: "pull", "data-cross": `${sx(pack.pull_point)} ${sy(pack.pull_point)}`}, overlay);
+  }
+  document.dispatchEvent(new CustomEvent("mapdata", {detail: data}));  // map_packs.js draws the packs
+  document.title = `Dungeon map: ${data.route}`;
+  document.getElementById("title").textContent = `${data.route} (map ${data.map_id})`;
+  status.textContent = `${data.packs.filter(p => p.on_route).length} of ${data.packs.length} packs on the route, ${data.line.length} points; heights ${bounds.z_min} to ${bounds.z_max}`;
+}
+
+async function load(keepView) {
+  if (!route) { status.textContent = "Open the page with ?route=<route name>."; return; }
+  const params = new URLSearchParams();
+  for (const id of ["zmin", "zmax"]) {
+    const value = document.getElementById(id).value.trim();
+    if (value !== "") params.set(id === "zmin" ? "z_min" : "z_max", value);
+  }
+  status.className = "";
+  status.textContent = "Loading...";
+  const response = await fetch(`/api/maps/${encodeURIComponent(route)}?${params}`);
+  const data = await response.json();
+  if (!response.ok) {
+    status.className = "error";
+    status.textContent = data.detail || response.statusText;
+    return;
+  }
+  const old = view;
+  draw(data);
+  if (keepView && old) setView(old); else fit();
+}
+
+// Pan with the mouse, zoom with the wheel round the pointer (toMap).
+let drag = null;
+map.addEventListener("mousedown", e => { if (view) { drag = {x: e.clientX, y: e.clientY, view: {...view}}; map.classList.add("dragging"); } });
+window.addEventListener("mouseup", () => { drag = null; map.classList.remove("dragging"); });
+window.addEventListener("mousemove", e => {
+  if (!drag) return;
+  const r = map.getBoundingClientRect(), k = Math.max(drag.view.w / r.width, drag.view.h / r.height);
+  setView({...drag.view, x: drag.view.x - (e.clientX - drag.x) * k, y: drag.view.y - (e.clientY - drag.y) * k});
+});
+map.addEventListener("wheel", e => {
+  if (!view) return;
+  e.preventDefault();
+  const at = toMap(e), f = Math.exp(e.deltaY * 0.0015);
+  setView({x: at.x - (at.x - view.x) * f, y: at.y - (at.y - view.y) * f, w: view.w * f, h: view.h * f});
+}, {passive: false});
+window.addEventListener("resize", () => view && setView(view));
+document.getElementById("apply").addEventListener("click", () => load(true));
+document.getElementById("fit").addEventListener("click", fit);
+load(false);
+</script>
+<script src="/walked_path.js"></script>
+<script src="/map_draw.js"></script>
+<script src="/map_packs.js"></script>
+<script src="/map_quests.js"></script>
+<script src="/map_draft.js"></script>
+<script src="/pack_order.js"></script>
+</body>
+</html>

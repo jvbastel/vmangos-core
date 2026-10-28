@@ -167,6 +167,16 @@ namespace Bots
         // A visit spot must be this near the trace.
         float visitRange = 5.0f;
         std::function<std::string(std::uint32_t entry)> entryName;
+        // The hand pack order of the order file beside the trace
+        // (RouteHandOrder.h): spawn guids in the order to fight their packs,
+        // and the skipped packs.
+        std::vector<std::uint32_t> packOrder;
+        std::vector<std::uint32_t> skippedPacks;
+        // The navmesh, for the walk to a moved or added pack of the hand
+        // order. A build with a hand pack order needs it; the other builds
+        // do not use it. Of the settings, the hand order also uses
+        // pullPathLimit, levelPathFactor, and levelPathSlack.
+        RouteNav* nav = nullptr;
     };
 
     // A pack off the trace that holds spawns of an objective.
@@ -218,6 +228,10 @@ namespace Bots
     // - The quests of the generator: a visit point on the line nearest the
     //   spot. No pack off the line is added: an unmet kill count or item
     //   lists the nearest packs that hold it.
+    // - The hand pack order, as in the generator: a skipped pack is off the
+    //   route, and the named packs come in their order, an added pack with
+    //   a navmesh walk to its pull point and back. A walk within aggro range
+    //   of a skipped pack is a warning.
     TraceBuild BuildTraceRoute(TraceBuildInput const& input);
 }
 

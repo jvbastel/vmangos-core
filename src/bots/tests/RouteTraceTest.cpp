@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
 
 using Bots::Position;
 using Bots::Trace;
@@ -546,4 +547,147 @@ TEST(RouteTraceBuild, TwoQuestsAtOneSpotShareTheVisitPoint)
     ASSERT_NE(second, nullptr);
     ASSERT_EQ(second->objectives.size(), 1u);
     EXPECT_EQ(second->objectives[0].point, "q5722_maur_grimtotem");
+}
+
+namespace
+{
+    // An open floor at z 0 from x -10 to 200 and y -60 to 60, with sight
+    // everywhere.
+    class OpenNav : public Bots::RouteNav
+    {
+    public:
+        bool Path(Position const& from, Position const& to, std::vector<Position>& path) override
+        {
+            if (!OnMesh(from) || !OnMesh(to))
+                return false;
+            path = {from, to};
+            return true;
+        }
+        Position Reach(Position const& from, float dx, float dy, float distance) override
+        {
+            float const norm = std::hypot(dx, dy);
+            Position last = from;
+            for (float d = 0.1f; d <= distance + 1e-4f; d += 0.1f)
+            {
+                Position const next{from.x + dx / norm * d, from.y + dy / norm * d, 0.0f};
+                if (!OnMesh(next))
+                    break;
+                last = next;
+            }
+            return last;
+        }
+        bool OnMesh(Position const& p) override { return p.x >= -10 && p.x <= 200 && p.y >= -60 && p.y <= 60; }
+        bool LineOfSight(Position const&, Position const&) override { return true; }
+    };
+
+    std::vector<std::uint32_t> FoughtGuids(Route const& route)
+    {
+        std::vector<std::uint32_t> guids;
+        for (Bots::RouteStep const& step : route.steps)
+            if (step.kind == RouteStepKind::Pack)
+                guids.push_back(route.packs[step.index].mobs[0].spawnGuid);
+        return guids;
+    }
+
+    bool HasWarning(std::vector<std::string> const& warnings, std::string const& start)
+    {
+        return std::any_of(warnings.begin(), warnings.end(),
+            [&start](std::string const& w) { return w.compare(0, start.size(), start) == 0; });
+    }
+}
+
+TEST(RouteTraceBuild, AppliesTheHandPackOrder)
+{
+    OpenNav nav;
+    TraceBuildInput input = Corridor();
+    input.spawns = {Mob(1, 100, 70.0f, 15.0f), Mob(2, 101, 30.0f, -20.0f)};
+    ASSERT_EQ(FoughtGuids(Bots::BuildTraceRoute(input).route), (std::vector<std::uint32_t>{2, 1}));
+
+    input.packOrder = {1, 2};
+    input.nav = &nav;
+    TraceBuild const built = Bots::BuildTraceRoute(input);
+    ASSERT_TRUE(built.ok) << built.error;
+    EXPECT_EQ(FoughtGuids(built.route), (std::vector<std::uint32_t>{1, 2}));
+    EXPECT_EQ(Bots::FindPack(built.route, "pack1")->mobs[0].spawnGuid, 1u);
+    std::vector<std::string> const names = StepNames(built.route);
+    auto at = [&names](std::string const& name) { return std::find(names.begin(), names.end(), name) - names.begin(); };
+    EXPECT_EQ(at("pull_pack1") + 1, at("pack1"));
+    EXPECT_EQ(at("pull_pack2") + 1, at("pack2"));
+    // A second build gives the same route.
+    EXPECT_EQ(StepNames(Bots::BuildTraceRoute(input).route), names);
+}
+
+TEST(RouteTraceBuild, AHandPackOrderWithNoNavmeshIsAnError)
+{
+    TraceBuildInput input = Corridor();
+    input.spawns = {Mob(1, 100, 70.0f, 15.0f), Mob(2, 101, 30.0f, -20.0f)};
+    input.packOrder = {1, 2};
+    TraceBuild const built = Bots::BuildTraceRoute(input);
+    EXPECT_FALSE(built.ok);
+    EXPECT_EQ(built.error, "the hand pack order needs the navmesh: give a character on the map of the route");
+}
+
+TEST(RouteTraceBuild, AnAddedPackJoinsTheRouteWithAPullPointOffTheTrace)
+{
+    OpenNav nav;
+    TraceBuildInput input = Corridor();
+    input.spawns = {Mob(3, 102, 50.0f, 40.0f)}; // 40 yards off the trace.
+    ASSERT_TRUE(Bots::BuildTraceRoute(input).route.packs.empty());
+
+    input.packOrder = {3};
+    input.nav = &nav;
+    TraceBuild const built = Bots::BuildTraceRoute(input);
+    ASSERT_TRUE(built.ok) << built.error;
+    EXPECT_EQ(FoughtGuids(built.route), (std::vector<std::uint32_t>{3}));
+    Bots::RoutePoint const* pull = Bots::FindPoint(built.route, "pull_pack1");
+    ASSERT_NE(pull, nullptr);
+    float const distance = Bots::Distance2d(pull->places[0].position, {50.0f, 40.0f, 0.0f});
+    EXPECT_GE(distance, 20.0f);
+    EXPECT_LE(distance, 25.0f + 0.5f);
+    std::vector<std::string> const names = StepNames(built.route);
+    auto at = [&names](std::string const& name) { return std::find(names.begin(), names.end(), name) - names.begin(); };
+    EXPECT_EQ(at("pull_pack1") + 1, at("pack1"));
+    // The route goes on along the trace after the pack, to its end.
+    std::vector<Bots::RoutePoint const*> const points = PointsOf(built.route);
+    EXPECT_FLOAT_EQ(points.back()->places[0].position.x, 100.0f);
+}
+
+TEST(RouteTraceBuild, ASkippedPackLeavesTheRouteWithAWarningWhenTheTracePassesInItsAggroRange)
+{
+    TraceBuildInput input = Corridor();
+    input.spawns = {Mob(1, 100, 30.0f, -15.0f), Mob(3, 102, 50.0f, 40.0f)};
+    input.skippedPacks = {1, 3};
+    TraceBuild const built = Bots::BuildTraceRoute(input);
+
+    ASSERT_TRUE(built.ok) << built.error;
+    EXPECT_TRUE(built.route.packs.empty());
+    EXPECT_TRUE(HasWarning(built.warnings, "the route passes the skipped pack of spawn 1 at 15 yards"));
+    EXPECT_FALSE(HasWarning(built.warnings, "the route passes the skipped pack of spawn 3 "));
+}
+
+TEST(RouteTraceBuild, AnAddedPackCountsForTheKillObjectiveOfAQuest)
+{
+    OpenNav nav;
+    TraceBuildInput input = Corridor();
+    input.spawns = {
+        Mob(1, 100, 30.0f, 10.0f), // On the route.
+        Mob(2, 100, 50.0f, 40.0f), // Off the route, 40 yards.
+        Mob(3, 100, 54.0f, 40.0f), // Its pack.
+    };
+    Bots::GeneratorQuest quest{5723, {}, {}};
+    Bots::QuestObjective kill{Bots::QuestObjectiveKind::Kill};
+    kill.entry = 100;
+    kill.count = 3;
+    quest.objectives.push_back(kill);
+    input.quests = {quest};
+    ASSERT_EQ(Bots::BuildTraceRoute(input).unmet.size(), 1u);
+
+    input.packOrder = {2};
+    input.nav = &nav;
+    TraceBuild const built = Bots::BuildTraceRoute(input);
+    ASSERT_TRUE(built.ok) << built.error;
+    EXPECT_EQ(built.route.packs.size(), 2u);
+    EXPECT_TRUE(built.unmet.empty());
+    ASSERT_EQ(built.objectives.size(), 1u);
+    EXPECT_EQ(built.objectives[0].have, 3u);
 }
