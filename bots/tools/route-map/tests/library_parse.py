@@ -91,7 +91,8 @@ def _program() -> Path:
 @functools.cache
 def _order_program() -> Path:
     return _build("order_parse", ORDER_MAIN,
-                  ["RouteGenerator.cpp", "Route.cpp", "DataFields.cpp", "DataTokenizer.cpp"])
+                  ["RouteGenerator.cpp", "RouteHandOrder.cpp", "RouteSight.cpp", "Route.cpp", "DataFields.cpp",
+                   "DataTokenizer.cpp"])
 
 
 def library_pack_order(text: str) -> list[int] | str:
