@@ -14,6 +14,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 
+import navmesh
 import route_file
 
 
@@ -44,9 +45,26 @@ def create_app(settings: Settings) -> FastAPI:
         except route_file.RouteFileError as error:
             raise HTTPException(422, f"{path}: {error}")
 
+    meshes = {}
+
+    def load_navmesh(map_id):
+        if map_id not in meshes:
+            try:
+                meshes[map_id] = navmesh.Navmesh.load(settings.navmesh, map_id)
+            except navmesh.NavmeshError as error:
+                raise HTTPException(422, f"navmesh: {error}")
+        return meshes[map_id]
+
+    @app.get("/api/maps/{name}/floors")
+    def floors(name: str, x: float, y: float):
+        """The floors at (x, y), lowest first."""
+        mesh = load_navmesh(load_route(name).map_id)
+        return {"floors": [{"z": round(f.z, 2), "lava": f.poly.lava} for f in mesh.floors(x, y)]}
+
     @app.get("/api/maps/{name}")
     def load_map(name: str):
         route = load_route(name)
+        mesh = load_navmesh(route.map_id)
         return {
             "route": route.name,
             "map_id": route.map_id,

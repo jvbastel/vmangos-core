@@ -33,3 +33,32 @@ def test_the_map_has_the_route_packs_with_label_order_place_mobs_and_pull_point(
                                 {"guid": 502, "entry": 11319, "name": "Ragefire Shaman"}]
     assert packs[0]["pull_point"] == {"name": "pull_pack1", "x": 104.0, "y": -48.0, "z": -20.0}
     assert packs[1]["pull_point"]["name"] == "pull_bazzalan"
+
+
+def test_a_point_of_the_fixture_tile_comes_back_at_its_wow_position_on_each_stacked_floor(tmp_path):
+    web = client(tmp_path)
+
+    stacked = web.get("/api/maps/fixture_cave/floors", params={"x": 105, "y": -45}).json()["floors"]
+    lava = web.get("/api/maps/fixture_cave/floors", params={"x": 112, "y": -45}).json()["floors"]
+    outside = web.get("/api/maps/fixture_cave/floors", params={"x": 105, "y": -55}).json()["floors"]
+
+    assert stacked == [{"z": -20.0, "lava": False}, {"z": -12.0, "lava": False}]
+    assert lava == [{"z": -20.0, "lava": True}]
+    assert outside == []
+
+
+def test_a_navmesh_of_another_version_is_a_clear_error(tmp_path):
+    for case, (version, words) in enumerate([({"mmap_version": 5}, "mmap version 5"), ({"dt_version": 6}, "Detour version 6"),
+                           ({"link_size": 12}, "64-bit poly refs")]):
+        response = client(tmp_path / str(case), **version).get("/api/maps/fixture_cave")
+
+        assert response.status_code == 422
+        assert words in response.json()["detail"]
+
+
+def test_a_map_with_no_navmesh_tiles_is_a_clear_error(tmp_path):
+    write_route(tmp_path / "routes", text="route fixture_cave 33\n")
+    response = TestClient(map_web.create_app(settings(tmp_path))).get("/api/maps/fixture_cave")
+
+    assert response.status_code == 422
+    assert "no navmesh tiles of map 33" in response.json()["detail"]
