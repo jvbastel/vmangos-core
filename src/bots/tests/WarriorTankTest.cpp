@@ -670,11 +670,13 @@ namespace
 
 // In taunt range, the taunt cannot go out (it was resisted and waits for
 // its cooldown): the tank tells the damage bots that no taunt comes, so
-// they attack the focus (WOWAI#93 review).
+// they attack the focus (WOWAI#93 review). Taunt has the melee range
+// (jvbastel/WOWAI#174).
 TEST(WarriorTank, TellsTheGroupWhenTheTauntCannotCome)
 {
     FocusOnTheHealer tank;
     tank.fake.SetCannotCast(Warrior::Taunt);
+    tank.fake.SetDistance(Wolf, 3.0f);
 
     tank.Think();
 
@@ -691,11 +693,13 @@ TEST(WarriorTank, ATankWithoutTauntTellsTheGroupToo)
     EXPECT_TRUE(tank.group.IsTauntGivenUp(Wolf));
 }
 
+// Final review of jvbastel/WOWAI#165, item 3: out of the melee range of
+// Taunt (15 yards), the failed cast is no reason to give the taunt up. The
+// healer brings the focus to the tank.
 TEST(WarriorTank, AFocusOutOfTauntRangeStillGetsItsTaunt)
 {
     FocusOnTheHealer tank;
     tank.fake.SetCannotCast(Warrior::Taunt);
-    tank.fake.SetDistance(Wolf, 35.0f);
 
     tank.Think();
 

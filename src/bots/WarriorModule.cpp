@@ -25,8 +25,6 @@ namespace Bots
             // Rage for Bloodrage below it, and for Heroic Strike from it.
             std::uint32_t const LowRage = 20;
             std::uint32_t const SpareRage = 45;
-            // The range of Taunt.
-            float const TauntYards = 20.0f;
             // Out of shooting range (Ranged.h), the tank walks to this.
             float const ShootStandYards = 25.0f;
             // A chase into shooting range counts as ended only after this
@@ -1168,8 +1166,11 @@ namespace Bots
 
                 // The focus hits another member, and the taunt cannot come:
                 // the tank knows no Taunt, or it cannot cast it in range (it
-                // waits for its cooldown, after a resist). The damage bots
-                // then attack the focus, or nobody but the tank does.
+                // waits for its cooldown, after a resist). Taunt has the
+                // melee range (MeleeContactYards, jvbastel/WOWAI#174): out
+                // of it the member brings the focus, and the taunt comes
+                // then. The damage bots then attack the focus, or nobody
+                // but the tank does.
                 Bookkeeping("give up the taunt", P + 64,
                     [](BotContext const& context) {
                         Guid const focus = PickFocusTarget(context);
@@ -1179,7 +1180,7 @@ namespace Bots
                             return false;
                         SpellId const taunt = HighestKnownRank(context.view, Taunt);
                         return taunt == NoSpell || (context.view.HasAura(Self(context), DefensiveStance)
-                            && context.view.GetDistance(focus) <= TauntYards && !context.view.CanCast(taunt, focus));
+                            && context.view.GetDistance(focus) <= MeleeContactYards && !context.view.CanCast(taunt, focus));
                     },
                     [](BotContext const& context) { context.group.GiveUpTaunt(PickFocusTarget(context)); }),
 
@@ -1221,8 +1222,7 @@ namespace Bots
                                 context.actions.Chase(focus);
                         }}},
                 // Over the attack: a new focus that hits another member is
-                // taunted off at once, from up to 20 yards, before the walk
-                // to it.
+                // taunted off as soon as it is in the melee range of Taunt.
                 CastRule("taunt", P + 63,
                     [](BotContext const& context) {
                         Guid const victim = context.view.GetVictim(PickFocusTarget(context));
