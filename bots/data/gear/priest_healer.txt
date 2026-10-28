@@ -246,8 +246,10 @@ item chest 2568 3-9 0 0.15  # Brown Linen Vest, white, craft
 item chest 2612 3-9 0 0.15  # Plain Robe, white, vendor
 item chest 3260 3-7 0 0.08  # Scarlet Initiate Robes, white, creature
 item chest 3270 4-6 0 0.10  # Flax Vest, white, quest
-item chest 16606 4-6 0 1.00  # Juju Hex Robes, green, quest
-item chest 16607 4-6 0 1.00  # Acolyte's Sacrificial Robes, green, quest
+item chest 16604 4-6 0 1.00 alliance  # Moon Robes of Elune, green, quest
+item chest 16605 4-6 0 1.00 alliance  # Friar's Robes of the Light, green, quest
+item chest 16606 4-6 0 1.00 horde  # Juju Hex Robes, green, quest
+item chest 16607 4-6 0 1.00 horde  # Acolyte's Sacrificial Robes, green, quest
 item chest 795 5-11 0 0.18  # Knitted Tunic, white, vendor
 item chest 2364 5-11 0 0.18  # Woven Vest, white, vendor
 item chest 6238 5-11 0 1.09  # Brown Linen Robe, green, craft
