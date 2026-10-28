@@ -1,0 +1,12 @@
+# Settings of the dungeon map (map_web.py). A relative path is relative to
+# this folder.
+
+[paths]
+# The mmap tiles of the server: the navmesh folder of the extracted data.
+# `--navmesh DIR` overrides it.
+navmesh = "/mnt/c/Games/vmangos-deploy/storage/mangosd/extracted-data/mmaps"
+# The route files of the bots (<route>.txt).
+routes = "../../data/routes"
+# The export files of `.route export` (one file per map). They sit beside
+# the route files.
+exports = "../../data/routes"
