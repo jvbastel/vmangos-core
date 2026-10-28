@@ -82,6 +82,7 @@ namespace Bots
         virtual CastInfo GetCast(Guid unit) const = 0;
 
         // The power of unit `unit`. {0, 0} for a unit that the bot cannot see.
+        // Rage in rage points (0-100), as the player sees it.
         virtual Power GetPower(Guid unit) const = 0;
         // The kind of power of unit `unit`: mana, rage, or energy. A warrior
         // and a druid in bear form have rage. None for a unit that the bot

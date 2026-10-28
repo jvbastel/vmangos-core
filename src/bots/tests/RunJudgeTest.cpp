@@ -844,33 +844,65 @@ TEST(ExtraPackThreatCheck, ASunderOnAnotherEnemyDoesNotCount)
     EXPECT_NE(check.Failure().find("Ragefire Trogg"), std::string::npos);
 }
 
-// The pulled pack (no extra pack), an enemy on another member, and one that
-// left the tank's reach or died before 3 s are no failure.
-TEST(ExtraPackThreatCheck, LeavesOutThePulledPackAndEnemiesOffTheTank)
+// The pulled pack (no extra pack), and an enemy that never reached the tank
+// (it stays on another member), are no failure.
+TEST(ExtraPackThreatCheck, LeavesOutThePulledPackAndEnemiesThatNeverReachedTheTank)
 {
     Bots::ExtraPackThreatCheck check(ThreeSeconds());
-    check.Observe(0, {OnTank(JoinFocus, "Focus", true, false), OnTank(JoinTrogg, "Ragefire Trogg"),
-                         OnTank(JoinShaman, "Ragefire Shaman")});
-    check.Observe(2000, {OnTank(JoinFocus, "Focus", true, false), Seen(JoinTrogg, "Ragefire Trogg",
-                                                                    Bots::EnemyVictim::Healer)});
+    check.Observe(0, {OnTank(JoinFocus, "Focus", true, false), Seen(JoinTrogg, "Ragefire Trogg",
+                                                                Bots::EnemyVictim::Healer)});
     check.Observe(9000, {OnTank(JoinFocus, "Focus", true, false), Seen(JoinTrogg, "Ragefire Trogg",
-                                                                    Bots::EnemyVictim::Healer)});
+                                                                   Bots::EnemyVictim::Healer)});
 
     EXPECT_EQ(check.Failure(), "");
 }
 
-// An enemy that comes back to the tank gets a new 3 s.
-TEST(ExtraPackThreatCheck, CountsAgainFromABackToTheTank)
+// One that reached the tank and died before 3 s is no failure.
+TEST(ExtraPackThreatCheck, LeavesOutAnEnemyThatDiedBeforeTheLimit)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(9000, {});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+// jvbastel/WOWAI#174: the 3 s count from the FIRST reach and never start
+// again. An enemy that leaves the tank (to another member, or out of reach
+// for an update) and comes back cannot dodge the check.
+TEST(ExtraPackThreatCheck, KeepsTheClockOfTheFirstReachWhenTheEnemyLeavesAndComesBack)
 {
     Bots::ExtraPackThreatCheck check(ThreeSeconds());
     check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
     check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
-    check.Observe(5000, {OnTank(JoinTrogg, "Ragefire Trogg")});
-    check.Observe(7500, {OnTank(JoinTrogg, "Ragefire Trogg")});
-    EXPECT_EQ(check.Failure(), "");
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(3100, {OnTank(JoinTrogg, "Ragefire Trogg")});
 
-    check.Observe(8100, {OnTank(JoinTrogg, "Ragefire Trogg")});
     EXPECT_NE(check.Failure(), "");
+}
+
+TEST(ExtraPackThreatCheck, AnUpdateOutOfReachDoesNotStartTheClockAgain)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(2000, {OnTank(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(2500, {});
+    check.Observe(3100, {OnTank(JoinTrogg, "Ragefire Trogg")});
+
+    EXPECT_NE(check.Failure(), "");
+}
+
+// An enemy that reached the tank and then went to another member with no
+// Sunder Armor or Revenge fails all the same: the tank had it in reach.
+TEST(ExtraPackThreatCheck, FailsAnEnemyThatLeftTheTankWithNoSunderOrRevenge)
+{
+    Bots::ExtraPackThreatCheck check(ThreeSeconds());
+    check.Observe(0, {OnTank(JoinTrogg, "Ragefire Trogg")});
+    check.Observe(1000, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+    check.Observe(3100, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Healer)});
+
+    EXPECT_NE(check.Failure().find("Ragefire Trogg"), std::string::npos);
 }
 
 TEST(ExtraPackThreatCheck, ChecksNothingWithNoLimit)

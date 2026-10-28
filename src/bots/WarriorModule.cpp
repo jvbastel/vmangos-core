@@ -41,6 +41,10 @@ namespace Bots
             float const DemoralizingShoutYards = 10.0f;
             std::size_t const DemoralizingShoutEnemies = 2;
 
+            // jvbastel/WOWAI#174: in a fight, Battle Shout (10 rage) takes
+            // only spare rage: a Sunder Armor's 15 stay after it.
+            std::uint32_t const BattleShoutRage = 25;
+
             // jvbastel/WOWAI#116: Shield Block.
             // Rage for Shield Block from it.
             std::uint32_t const ShieldBlockRage = 10;
@@ -730,24 +734,32 @@ namespace Bots
                 return found == packs.packOf.end() || found->second != 0;
             }
 
-            // The joined enemy due its early visit: an enemy of the fight
-            // that joined the pull (JoinedThePull), is no loose enemy (the
-            // pickup takes those), had no visit and has no Sunder Armor yet,
-            // and Revenge or Sunder Armor reaches now. Of several, the lowest
+            // A joined enemy is due its early visit: an enemy of the fight
+            // that joined the pull (JoinedThePull), is not the focus and no
+            // loose enemy (the pickup takes those), and had no visit and has
+            // no Sunder Armor yet. Where it stands does not count.
+            bool DueEarlyVisit(BotContext const& context, PullPacks const& packs, EarlyVisits const& visits,
+                std::vector<Guid> const& loose, Guid enemy)
+            {
+                bool const samePull = visits.pullTarget == context.group.GetPull().target;
+                return enemy != context.group.GetFocusTarget() && !Contains(loose, enemy)
+                    && JoinedThePull(context, packs, enemy) && !(samePull && visits.done.count(enemy))
+                    && !context.view.HasAura(enemy, SunderArmor);
+            }
+
+            // The joined enemy due its early visit (DueEarlyVisit) that
+            // Revenge or Sunder Armor reaches now. Of several, the lowest
             // threat ratio of the tank, then the nearest. NoGuid when none.
             Guid PickEarlyVisit(BotContext const& context, PullPacks const& packs, EarlyVisits const& visits)
             {
                 if (!FightsFocus(context))
                     return NoGuid;
-                Guid const focus = context.group.GetFocusTarget();
-                bool const samePull = visits.pullTarget == context.group.GetPull().target;
                 std::vector<Guid> const loose = LooseEnemies(context);
                 Guid best = NoGuid;
                 float bestRatio = 0.0f;
                 for (Guid enemy : EnemiesInFight(context))
                 {
-                    if (enemy == focus || Contains(loose, enemy) || !JoinedThePull(context, packs, enemy)
-                        || (samePull && visits.done.count(enemy)) || context.view.HasAura(enemy, SunderArmor)
+                    if (!DueEarlyVisit(context, packs, visits, loose, enemy)
                         || (CastableRank(context.view, Revenge, enemy) == NoSpell
                             && CastableRank(context.view, SunderArmor, enemy) == NoSpell))
                         continue;
@@ -760,6 +772,32 @@ namespace Bots
                     }
                 }
                 return best;
+            }
+
+            // jvbastel/WOWAI#174: the tank keeps its rage for the early
+            // visits: a joined enemy of the fight is due one (DueEarlyVisit),
+            // wherever it stands. At its low level the tank gains a few rage
+            // a second, and a Demoralizing Shout or Shield Block on the way
+            // leaves too little for the Sunder Armor when the enemy arrives.
+            bool KeepsRageForAnEarlyVisit(BotContext const& context, PullPacks const& packs, EarlyVisits const& visits)
+            {
+                if (!FightsFocus(context))
+                    return false;
+                std::vector<Guid> const loose = LooseEnemies(context);
+                std::vector<Guid> const enemies = EnemiesInFight(context);
+                return std::any_of(enemies.begin(), enemies.end(),
+                    [&](Guid enemy) { return DueEarlyVisit(context, packs, visits, loose, enemy); });
+            }
+
+            // The rage rule `rule` waits while the tank keeps its rage for an
+            // early visit (KeepsRageForAnEarlyVisit).
+            Rule WaitsForTheEarlyVisits(Rule rule, PullPacksPtr const& packs, EarlyVisitsPtr const& visits)
+            {
+                Trigger const trigger = rule.trigger;
+                rule.trigger = [trigger, packs, visits](BotContext const& context) {
+                    return trigger(context) && !KeepsRageForAnEarlyVisit(context, *packs, *visits);
+                };
+                return rule;
             }
 
             // The rule `rule` notes the enemy that `target` picks as visited.
@@ -839,7 +877,8 @@ namespace Bots
                         return FightsFocus(context) && !context.view.HasAura(Self(context), DefensiveStance);
                     },
                     DefensiveStance, PickSelf),
-                CastRule("demoralizing shout", P + 50, ShoutDue, DemoralizingShout, PickSelf),
+                WaitsForTheEarlyVisits(CastRule("demoralizing shout", P + 50, ShoutDue, DemoralizingShout, PickSelf), pullPacks,
+                    earlyVisits),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
@@ -1165,28 +1204,43 @@ namespace Bots
                 // A ready Revenge goes to the threat target on a visit
                 // (jvbastel/WOWAI#117), and counts as its ability there. On
                 // the focus, it ends the visit.
-                CountsInThreatVisit(CastRule("revenge", P + 40, FightsFocus, Revenge, revengeTarget), revengeTarget, visit),
+                // jvbastel/WOWAI#174: it waits while a joined enemy comes
+                // for its early visit, which takes the ready Revenge.
+                CountsInThreatVisit(WaitsForTheEarlyVisits(CastRule("revenge", P + 40, FightsFocus, Revenge, revengeTarget),
+                                        pullPacks, earlyVisits),
+                    revengeTarget, visit),
                 // Below Revenge: more blocks give more Revenge. The cast
                 // check covers the shield and the cooldown.
-                CastRule("shield block", P + 38,
-                    [](BotContext const& context) {
-                        return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
-                            && Rage(context) >= ShieldBlockRage && IsHitInMelee(context, MeleeContactYards);
-                    },
-                    ShieldBlock, PickSelf),
+                WaitsForTheEarlyVisits(CastRule("shield block", P + 38,
+                                           [](BotContext const& context) {
+                                               return FightsFocus(context)
+                                                   && context.view.HasAura(Self(context), DefensiveStance)
+                                                   && Rage(context) >= ShieldBlockRage
+                                                   && IsHitInMelee(context, MeleeContactYards);
+                                           },
+                                           ShieldBlock, PickSelf),
+                    pullPacks, earlyVisits),
                 // jvbastel/WOWAI#117: one Sunder Armor on the threat target
                 // (a ready Revenge goes there through the revenge rule, so
                 // this rule only sunders), then the focus again. The focus
                 // of the group stays.
-                CountsInThreatVisit(CastRule("threat target", P + 37,
-                                        [visit](BotContext const& context) { return ThreatVisitDue(context, *visit); },
-                                        SunderArmor, PickThreatTarget),
+                CountsInThreatVisit(WaitsForTheEarlyVisits(CastRule("threat target", P + 37,
+                                                               [visit](BotContext const& context) {
+                                                                   return ThreatVisitDue(context, *visit);
+                                                               },
+                                                               SunderArmor, PickThreatTarget),
+                                        pullPacks, earlyVisits),
                     PickThreatTarget, visit),
-                CountsInThreatVisit(CastRule("heroic strike", P + 35,
-                                        [](BotContext const& context) { return FightsFocus(context) && Rage(context) >= SpareRage; },
-                                        HeroicStrike, PickFocusTarget),
+                CountsInThreatVisit(WaitsForTheEarlyVisits(CastRule("heroic strike", P + 35,
+                                                               [](BotContext const& context) {
+                                                                   return FightsFocus(context) && Rage(context) >= SpareRage;
+                                                               },
+                                                               HeroicStrike, PickFocusTarget),
+                                        pullPacks, earlyVisits),
                     PickFocusTarget, visit),
-                CountsInThreatVisit(CastRule("sunder armor", P + 30, FightsFocus, SunderArmor, PickFocusTarget),
+                CountsInThreatVisit(
+                    WaitsForTheEarlyVisits(CastRule("sunder armor", P + 30, FightsFocus, SunderArmor, PickFocusTarget),
+                        pullPacks, earlyVisits),
                     PickFocusTarget, visit),
                 Rule{"top up the ammo", P + 20,
                     [](BotContext const& context) {
@@ -1203,11 +1257,13 @@ namespace Bots
                             context.actions.TopUpAmmo(
                                 AmmoPlan(context));
                         }}},
-                CastRule("battle shout", P + 25,
-                    [](BotContext const& context) {
-                        return FightsFocus(context) && !context.view.HasAura(Self(context), BattleShout);
-                    },
-                    BattleShout, PickSelf),
+                WaitsForTheEarlyVisits(CastRule("battle shout", P + 25,
+                                           [](BotContext const& context) {
+                                               return FightsFocus(context) && Rage(context) >= BattleShoutRage
+                                                   && !context.view.HasAura(Self(context), BattleShout);
+                                           },
+                                           BattleShout, PickSelf),
+                    pullPacks, earlyVisits),
             };
             rules.insert(rules.end(), opener.begin(), opener.end());
             return std::make_shared<Strategy const>(Strategy{"warrior tank", std::move(rules)});

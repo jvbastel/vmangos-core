@@ -320,19 +320,24 @@ namespace Bots
     {
         if (!m_limit.set)
             return;
-        std::map<Guid, std::int64_t> inReach;
         for (FightEnemySeen const& seen : enemies)
         {
-            if (!seen.extraPack || seen.victim != EnemyVictim::Tank || !seen.inTankMelee)
+            if (!seen.extraPack)
                 continue;
-            auto const since = m_inReachMs.find(seen.enemy);
-            std::int64_t const fromMs = since == m_inReachMs.end() ? nowMs : since->second;
-            inReach[seen.enemy] = fromMs;
-            if (!m_threatCast.count(seen.enemy) && nowMs - fromMs > std::int64_t(m_limit.most) * 1000
+            // jvbastel/WOWAI#174: the clock starts at the first reach and
+            // never starts again, so an enemy that leaves the tank (another
+            // victim, or out of reach for an update) cannot dodge the check.
+            auto since = m_inReachMs.find(seen.enemy);
+            if (since == m_inReachMs.end())
+            {
+                if (seen.victim != EnemyVictim::Tank || !seen.inTankMelee)
+                    continue;
+                since = m_inReachMs.emplace(seen.enemy, nowMs).first;
+            }
+            if (!m_threatCast.count(seen.enemy) && nowMs - since->second > std::int64_t(m_limit.most) * 1000
                 && m_failure.empty())
                 m_failure = seen.name + " got no Sunder Armor or Revenge from the tank " + std::to_string(m_limit.most) +
                     " s after it reached the tank's melee reach (limit of line " + std::to_string(m_limit.line) + ")";
         }
-        m_inReachMs = std::move(inReach);
     }
 }

@@ -285,9 +285,10 @@ namespace Bots
     // `expect extra_pack_threat_seconds <n>`: each extra-pack enemy that
     // attacks the tank gets a Sunder Armor or Revenge from the tank within
     // <n> s of reaching the tank's melee reach; one from before (an early
-    // visit, a pickup) counts too. The <n> s start again when it leaves the
-    // tank (another victim, or out of reach) and comes back. One that died
-    // is no failure.
+    // visit, a pickup) counts too. The <n> s count from its FIRST reach and
+    // do not start again when it leaves the tank and comes back
+    // (jvbastel/WOWAI#174); it fails at any later update while it still
+    // attacks a member. One that died is no failure.
     class ExtraPackThreatCheck
     {
     public:
@@ -302,7 +303,7 @@ namespace Bots
 
     private:
         ScriptLimit m_limit;
-        std::map<Guid, std::int64_t> m_inReachMs; // On the tank in reach since.
+        std::map<Guid, std::int64_t> m_inReachMs; // First on the tank in reach.
         std::set<Guid> m_threatCast;              // Got Sunder Armor or Revenge.
         std::string m_failure;
     };

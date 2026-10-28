@@ -2533,7 +2533,13 @@ TEST(WarriorTankEarlySunder, AJoinedEnemyOutOfReachGetsItsSunderWhenItArrives)
     JoinTank tank;
     tank.Join(Wolf);
     tank.fake.SetDistance(Wolf, 12.0f);
-    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+    // jvbastel/WOWAI#174: it waits with its rage (no cast on the kobold).
+    std::vector<std::string> const waits = tank.ThinkAt(0);
+    for (std::string const& deed : waits)
+    {
+        ASSERT_EQ(deed.find("move to"), std::string::npos) << deed;
+        ASSERT_NE(deed, CastOn(Warrior::SunderArmor, Kobold));
+    }
 
     tank.fake.SetDistance(Wolf, 2.0f);
     EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
@@ -2797,4 +2803,92 @@ TEST(WarriorTankHoldsItsSpot, ALackOfRageDoesNotRestartThePickInMeleeReach)
     tank.fake.SetCannotCast(Warrior::SunderArmor, false);
 
     EXPECT_EQ(tank.ThinkAt(4500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// jvbastel/WOWAI#174: the tank keeps its rage for the early Sunder Armor of
+// each joined enemy (#172). While a joined enemy waits for its early visit,
+// no rage goes to Demoralizing Shout, Shield Block, Heroic Strike or a
+// Sunder Armor on another enemy.
+namespace
+{
+    bool CastsAny(std::vector<std::string> const& deeds, std::vector<std::string> const& casts)
+    {
+        for (std::string const& cast : casts)
+            if (std::find(deeds.begin(), deeds.end(), cast) != deeds.end())
+                return true;
+        return false;
+    }
+}
+
+TEST(WarriorTankRagePool, SpendsNoRageWhileAJoinedEnemyComesForItsEarlySunder)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    tank.fake.SetDistance(Wolf, 12.0f);
+    tank.fake.SetPower(Tank, 40, 100);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(CastsAny(deeds, {CastOn(Warrior::DemoralizingShout, Tank), CastOn(Warrior::ShieldBlock, Tank),
+                                     CastOn(Warrior::SunderArmor, Kobold), CastOn(Warrior::HeroicStrike, Kobold)}))
+        << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankRagePool, TheKeptRageGoesToTheJoinedEnemyWhenItArrives)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    tank.fake.SetDistance(Wolf, 12.0f);
+    tank.ThinkAt(0);
+
+    tank.fake.SetDistance(Wolf, 2.0f);
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
+
+// Once each joined enemy had its visit, the rage goes where it went before.
+TEST(WarriorTankRagePool, SpendsAgainOnceEachJoinedEnemyHadItsVisit)
+{
+    JoinTank tank;
+    tank.Join(Wolf);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+    tank.fake.SetAura(Wolf, Warrior::SunderArmor);
+
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
+}
+
+// jvbastel/WOWAI#174: in a fight, Battle Shout takes only spare rage: the
+// tank keeps a Sunder Armor's rage after it. So the 10 rage of the opening
+// Bloodrage stay for the threat.
+TEST(WarriorTankRagePool, BattleShoutWaitsUntilASunderArmorsRageIsLeftAfterIt)
+{
+    WarriorTank tank;
+    tank.InFightWithKobold();
+    tank.fake.SetAura(Tank, Warrior::BattleShout, false);
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+    tank.fake.SetPower(Tank, 20, 100);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_FALSE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::BattleShout, Tank)})) << ::testing::PrintToString(tank.fake.Deeds());
+
+    tank.fake.SetPower(Tank, 25, 100);
+    tank.fake.ClearDeeds();
+    tank.Think();
+    EXPECT_TRUE(CastsAny(tank.fake.Deeds(), {CastOn(Warrior::BattleShout, Tank)})) << ::testing::PrintToString(tank.fake.Deeds());
+}
+
+// A ready Revenge waits for the joined enemy too: on the focus it would put
+// Revenge on its cooldown just before the joined enemy arrives.
+TEST(WarriorTankRagePool, RevengeOnTheFocusWaitsWhileAJoinedEnemyComes)
+{
+    JoinTank tank;
+    tank.fake.SetCannotCast(Warrior::Revenge, false);
+    tank.Join(Wolf);
+    tank.fake.SetDistance(Wolf, 12.0f);
+
+    EXPECT_FALSE(CastsAny(tank.ThinkAt(0), {CastOn(Warrior::Revenge, Kobold)}));
+
+    tank.fake.SetDistance(Wolf, 2.0f);
+    EXPECT_EQ(tank.ThinkAt(1500), (std::vector<std::string>{CastOn(Warrior::Revenge, Wolf)}));
 }
