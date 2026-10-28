@@ -79,14 +79,15 @@
 
   function drawPatrol(patrol, parent) {
     const points = patrol.points.map(p => [sx(p), sy(p)]);
-    const line = el("polyline", {class: "patrol", points: points.map(p => p.join(",")).join(" ")}, parent);
+    const line = drawLine(patrol.points, {class: "patrol"}, parent);
     el("title", {}, line).textContent = `Patrol: ${patrol.name} (guid ${patrol.guid}, pack ${patrol.pack})`;
     // An arrow in the middle of each leg, in walk order.
     for (let i = 0; i + 1 < points.length; i++) {
       const [x1, y1] = points[i], [x2, y2] = points[i + 1];
       if (Math.hypot(x2 - x1, y2 - y1) < 1) continue;
       el("path", {class: "patrol-arrow",
-                  "data-arrow": `${(x1 + x2) / 2} ${(y1 + y2) / 2} ${Math.atan2(y2 - y1, x2 - x1)}`}, parent);
+                  "data-arrow": `${(x1 + x2) / 2} ${(y1 + y2) / 2} ${Math.atan2(y2 - y1, x2 - x1)}`,
+                  ...pieceMark(patrol.points[i], patrol.points[i + 1])}, parent);
     }
   }
 
@@ -94,12 +95,12 @@
     const kind = pack.on_route ? "on" : "off";
     const boss = pack.bosses.length > 0;
     const dot = el("circle", {class: `pk ${kind}` + (boss ? " boss" : ""), cx: sx(pack), cy: sy(pack),
-                              "data-r": pack.on_route ? 6 : 5}, parent);
+                              "data-r": pack.on_route ? 6 : 5, ...regionMark(pack)}, parent);
     el("title", {}, dot).textContent =
       (pack.on_route ? `${pack.label} (#${pack.order} in the pack order)` : "Not on the route") +
       `\nkey ${pack.key}\n` + pack.mobs.map(m => `${m.name} (${m.entry}, guid ${m.guid})`).join("\n");
     const label = el("text", {class: `pk-label ${kind}`, x: sx(pack), y: sy(pack),
-                              "data-size": pack.on_route ? 12 : 10, "data-halo": 3}, parent);
+                              "data-size": pack.on_route ? 12 : 10, "data-halo": 3, ...regionMark(pack)}, parent);
     const first = pack.on_route ? `${pack.order} ${pack.label}` : (boss ? "" : mobSummary(pack));
     const lines = [];
     if (first) lines.push([first, ""]);
@@ -120,7 +121,7 @@
       groups[name] = el("g", {id: `packs-${name}`}, overlay);
     }
     for (const w of data.wanderers || []) {
-      const circle = el("circle", {class: "wander", cx: sx(w), cy: sy(w), r: w.radius}, groups.wander);
+      const circle = el("circle", {class: "wander", cx: sx(w), cy: sy(w), r: w.radius, ...regionMark(w)}, groups.wander);
       el("title", {}, circle).textContent = `${w.name} wanders ${w.radius} yd (guid ${w.guid})`;
     }
     for (const p of data.patrols || []) drawPatrol(p, groups.patrol);

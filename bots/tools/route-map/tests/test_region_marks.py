@@ -148,3 +148,11 @@ def test_the_map_request_has_no_height_filter(web):
     whole = get(web, "/api/maps/fixture_cave")["floor"]["bounds"]
 
     assert get(web, "/api/maps/fixture_cave", z_min=-15, z_max=0)["floor"]["bounds"] == whole
+
+
+def test_the_page_has_no_heights_fields_or_show_button_and_loads_the_pick_part(web):
+    page = web.get("/").text
+
+    assert "Heights" not in page and 'id="zmin"' not in page and ">Show<" not in page
+    assert '<script src="/region_pick.js">' in page
+    assert web.get("/region_pick.js").status_code == 200

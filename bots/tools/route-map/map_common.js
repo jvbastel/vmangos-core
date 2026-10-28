@@ -42,3 +42,29 @@ function sizeMarks(root, yardsPerPixel) {
     node.setAttribute("d", `M${x - d} ${y - d}L${x + d} ${y + d}M${x - d} ${y + d}L${x + d} ${y - d}`);
   }
 }
+
+// Region marks (ticket #184): the map data gives each position the regions
+// it is in (`regions`, only when the map has regions). regionMark ties an SVG
+// mark to the regions of its position (data-regions), pieceMark a line piece
+// to those of its two ends (data-ends). region_pick.js fades and hides marks
+// by these attributes. With no regions they add nothing.
+function regionMark(p) {
+  return p && p.regions ? {"data-regions": JSON.stringify(p.regions)} : {};
+}
+function pieceMark(a, b) {
+  return a && b && a.regions && b.regions ? {"data-ends": JSON.stringify([a.regions, b.regions])} : {};
+}
+
+// A line through WoW positions: one polyline, or, when its points carry
+// regions, a group of one line per piece (each piece fades on its own).
+function drawLine(points, attrs, parent) {
+  if (!points.some(p => p.regions)) {
+    return el("polyline", {...attrs, points: points.map(p => `${sx(p)},${sy(p)}`).join(" ")}, parent);
+  }
+  const group = el("g", {}, parent);
+  for (let i = 0; i + 1 < points.length; i++) {
+    const a = points[i], b = points[i + 1];
+    el("line", {...attrs, x1: sx(a), y1: sy(a), x2: sx(b), y2: sy(b), ...pieceMark(a, b)}, group);
+  }
+  return group;
+}

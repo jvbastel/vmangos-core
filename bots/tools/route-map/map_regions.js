@@ -180,6 +180,7 @@
     if (!response.ok) { say(data.detail || response.statusText, true); return; }
     regions = data.regions;
     say(`Saved ${regions.length} regions to ${data.file}.`);
+    document.dispatchEvent(new CustomEvent("regionssaved"));  // region_pick.js reloads the map data
     redraw();
   });
 

@@ -129,16 +129,16 @@
       const pack = packs.get(key);
       if (!pack) continue;
       const circle = el("circle", {class: "po-aggro" + (near.has(key) ? " near" : ""), cx: sx(pack), cy: sy(pack),
-                                   r: pack.aggro_radius}, group);
+                                   r: pack.aggro_radius, ...regionMark(pack)}, group);
       el("title", {}, circle).textContent = `${nameOf(pack)}: skipped, aggro range ${pack.aggro_radius} yards`;
-      el("path", {class: "po-cross", "data-cross": `${sx(pack)} ${sy(pack)} 5`}, group);
+      el("path", {class: "po-cross", "data-cross": `${sx(pack)} ${sy(pack)} 5`, ...regionMark(pack)}, group);
     }
     hand.forEach((key, i) => {
       const pack = packs.get(key);
       if (!pack) return;
-      el("circle", {class: "po-ring", cx: sx(pack), cy: sy(pack), "data-r": 10}, group);
+      el("circle", {class: "po-ring", cx: sx(pack), cy: sy(pack), "data-r": 10, ...regionMark(pack)}, group);
       el("text", {class: "po-num", x: sx(pack), y: sy(pack), "text-anchor": "end", "data-size": 13, "data-dx": -9,
-                  "data-dy": 14, "data-halo": 3}, group).textContent = `h${i + 1}`;
+                  "data-dy": 14, "data-halo": 3, ...regionMark(pack)}, group).textContent = `h${i + 1}`;
     });
     if (!mode) return;
     for (const pack of packs.values()) {

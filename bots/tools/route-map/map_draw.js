@@ -97,7 +97,8 @@
     lines.forEach((line, l) => line.pieces.forEach((piece, i) => {
       if (!piece) return;
       const poly = el("polyline", {class: "draw-piece" + (l ? " branch" : "") + (piece.warnings.length ? " warn" : ""),
-                                   points: piece.points.map(p => `${sx(p)},${sy(p)}`).join(" ")}, layer);
+                                   points: piece.points.map(p => `${sx(p)},${sy(p)}`).join(" "),
+                                   ...pieceMark(line.points[i], line.points[i + 1])}, layer);
       el("title", {}, poly).textContent =
         `${l ? `branch ${l}, ` : ""}piece ${i + 1}: ${Math.round(piece.length * 10) / 10} yards` +
         piece.warnings.map(w => `\n${w.text}`).join("");
@@ -105,7 +106,8 @@
     lines.forEach((line, l) => line.points.forEach((point, i) => {
       const dot = el("circle", {class: "draw-point" + (l ? " branch" : "") + (point.mark ? " mark" : "") +
                                   (isSelected(l, i) ? " selected" : ""), cx: sx(point), cy: sy(point),
-                                "data-r": point.mark ? 6 : 4, "data-line": l, "data-index": i}, layer);
+                                "data-r": point.mark ? 6 : 4, "data-line": l, "data-index": i,
+                                ...regionMark(point)}, layer);
       const title = el("title", {}, dot);
       const floors = point.floors || [];
       title.textContent = `${l ? `branch ${l}, ` : ""}point ${i + 1}: ` +

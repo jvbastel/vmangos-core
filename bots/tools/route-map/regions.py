@@ -261,6 +261,11 @@ def add_routes(app: FastAPI, maps):
     def script():
         return FileResponse(HERE / "map_regions.js", media_type="text/javascript")
 
+    @app.get("/region_pick.js")
+    def pick_script():
+        """The page part that picks a region and fades or hides the others (#184)."""
+        return FileResponse(HERE / "region_pick.js", media_type="text/javascript")
+
     def answer(map_id: int, regions: list[Region]) -> dict:
         name = file_name(map_id)
         return {"file": name, "exists": (maps.settings.routes / name).is_file(),

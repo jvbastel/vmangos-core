@@ -27,13 +27,11 @@
 <body>
 <header>
   <h1 id="title">Dungeon map</h1>
-  <label>Heights <input id="zmin" placeholder="lowest"> to <input id="zmax" placeholder="highest"></label>
-  <button id="apply">Show</button>
   <button id="fit">Fit</button>
   <span id="status">Loading...</span>
 </header>
 <svg id="map" xmlns="http://www.w3.org/2000/svg">
-  <image id="floor"></image>
+  <g id="floor"></g>
   <g id="overlay"></g>
 </svg>
 <script src="/map_common.js"></script>
@@ -71,20 +69,23 @@ function fit() {
 
 function draw(data) {
   bounds = data.floor.bounds;
+  // One image of all the ground, or with regions one ground image per region
+  // (data-region) and one of the ground in no region, lowest first.
   const floor = document.getElementById("floor");
-  floor.setAttribute("href", data.floor.image);
-  floor.setAttribute("x", -bounds.y_max);
-  floor.setAttribute("y", -bounds.x_max);
-  floor.setAttribute("width", bounds.y_max - bounds.y_min);
-  floor.setAttribute("height", bounds.x_max - bounds.x_min);
-  floor.setAttribute("preserveAspectRatio", "none");
+  floor.replaceChildren();
+  for (const part of data.floor.images || [{region: null, image: data.floor.image}]) {
+    el("image", {href: part.image, x: -bounds.y_max, y: -bounds.x_max, width: bounds.y_max - bounds.y_min,
+                 height: bounds.x_max - bounds.x_min, preserveAspectRatio: "none",
+                 ...(part.region === null ? {} : {"data-region": part.region})}, floor);
+  }
   overlay.replaceChildren();
-  el("polyline", {class: "route", points: data.line.map(p => `${sx(p)},${sy(p)}`).join(" ")}, overlay);
+  drawLine(data.line, {class: "route"}, overlay);
   for (const pack of data.packs) {
     if (!pack.pull_point) continue;
-    el("line", {class: "pull-line", x1: sx(pack.pull_point), y1: sy(pack.pull_point), x2: sx(pack), y2: sy(pack)},
-       overlay);
-    el("path", {class: "pull", "data-cross": `${sx(pack.pull_point)} ${sy(pack.pull_point)}`}, overlay);
+    el("line", {class: "pull-line", x1: sx(pack.pull_point), y1: sy(pack.pull_point), x2: sx(pack), y2: sy(pack),
+                ...pieceMark(pack.pull_point, pack)}, overlay);
+    el("path", {class: "pull", "data-cross": `${sx(pack.pull_point)} ${sy(pack.pull_point)}`,
+                ...regionMark(pack.pull_point)}, overlay);
   }
   document.dispatchEvent(new CustomEvent("mapdata", {detail: data}));  // map_packs.js draws the packs
   document.title = `Dungeon map: ${data.route}`;
@@ -94,14 +95,9 @@ function draw(data) {
 
 async function load(keepView) {
   if (!route) { status.textContent = "Open the page with ?route=<route name>."; return; }
-  const params = new URLSearchParams();
-  for (const id of ["zmin", "zmax"]) {
-    const value = document.getElementById(id).value.trim();
-    if (value !== "") params.set(id === "zmin" ? "z_min" : "z_max", value);
-  }
   status.className = "";
   status.textContent = "Loading...";
-  const response = await fetch(`/api/maps/${encodeURIComponent(route)}?${params}`);
+  const response = await fetch(`/api/maps/${encodeURIComponent(route)}`);
   const data = await response.json();
   if (!response.ok) {
     status.className = "error";
@@ -129,13 +125,13 @@ map.addEventListener("wheel", e => {
   setView({x: at.x - (at.x - view.x) * f, y: at.y - (at.y - view.y) * f, w: view.w * f, h: view.h * f});
 }, {passive: false});
 window.addEventListener("resize", () => view && setView(view));
-document.getElementById("apply").addEventListener("click", () => load(true));
 document.getElementById("fit").addEventListener("click", fit);
 load(false);
 </script>
 <script src="/walked_path.js"></script>
 <script src="/map_draw.js"></script>
 <script src="/map_regions.js"></script>
+<script src="/region_pick.js"></script>
 <script src="/map_packs.js"></script>
 <script src="/map_quests.js"></script>
 <script src="/map_draft.js"></script>
