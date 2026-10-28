@@ -623,7 +623,9 @@ realm_soap() {
 
 # The bots of the scripted runs (bots/data/bottests/*.txt name them): the
 # four version 1 bots and the test driver, a frost Mage with a fixed gear
-# template. `.wowai bot create` makes the bot accounts too. A bot that
+# template. Then the Alliance set of the same five classes and roles
+# (jvbastel/WOWAI#199), with the Alliance race of each class and the
+# generated gear. `.wowai bot create` makes the bot accounts too. A bot that
 # exists already stays as it is.
 realm_bots=(
   "Grukk warrior tank"
@@ -631,6 +633,11 @@ realm_bots=(
   "Shanka rogue melee"
   "Morzul warlock ranged"
   "Ezzra mage ranged troll gear test_driver_mage"
+  "Aldric warrior tank alliance"
+  "Brenna priest healer alliance"
+  "Corwin rogue melee alliance"
+  "Fizzwick mage ranged alliance"
+  "Nixie warlock ranged alliance"
 )
 
 realm_setup_bots() {
