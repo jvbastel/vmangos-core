@@ -71,6 +71,10 @@ struct BotRecord
     // The bot was in a group at its last update. A bot whose group goes away
     // (a removal by the player, or the end of the group) logs out.
     bool wasInGroup = false;
+    // jvbastel/WOWAI#196: the steady clock (ms) of the last teleport of the
+    // bot after the player tank, through an instance entry or exit.
+    int64 lastTankFollowMs = 0;
+    bool triedTankFollow = false;
 };
 
 // The gear that EquipCharacter put on, for the result file of a run.
@@ -254,6 +258,9 @@ class BotMgr
         void RunGroupCommand(GroupCommandMessage const& message);
         bool RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player* player);
         void UpdateGroupOf(BotRecord& record);
+        // jvbastel/WOWAI#196: the bot follows the player tank into or out of
+        // an instance (bots/DungeonFollow.h).
+        void FollowTankThroughInstance(BotRecord& record);
         // The group has a member that is no WOWAI bot, online or not.
         bool HasPlayerMember(Group const& group) const;
         void PutOnPendingGear(BotRecord& record);
