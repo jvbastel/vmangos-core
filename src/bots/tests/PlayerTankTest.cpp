@@ -193,3 +193,39 @@ TEST(PlayerTankThreat, ABotThatDoesNotSeeTheFocusKeepsTheClock)
     bots.Watch(2000);
     EXPECT_EQ(bots.Target(2000), Kobold);
 }
+
+// jvbastel/WOWAI#191: the skull and cross marks set the focus in a
+// player-tank group. Skull in combat with the group, else cross in combat
+// with the group, else the tank's target (jvbastel/WOWAI#189).
+namespace
+{
+    Bots::Guid const Murloc = 0xF130000302000044;
+
+    struct MarkedGroup : PlayerTankGroup
+    {
+        MarkedGroup()
+        {
+            fake.SetHealth(Murloc, 200, 200);
+        }
+
+        void Marks(Bots::Guid skull, Bots::Guid cross)
+        {
+            Bots::BotView::GroupMarks marks;
+            marks.skull = skull;
+            marks.cross = cross;
+            fake.SetGroupMarks(marks);
+        }
+    };
+}
+
+TEST(PlayerTankMarks, ASkullInCombatBeatsTheCrossAndTheTanksTarget)
+{
+    MarkedGroup bots;
+    bots.Fights(Kobold);
+    bots.Fights(Wolf);
+    bots.Fights(Murloc);
+    bots.Marks(Wolf, Murloc);
+    bots.fake.SetTargetOf(Human, Kobold);
+    bots.Watch(0);
+    EXPECT_EQ(bots.group.GetFocusTarget(), Wolf);
+}

@@ -469,6 +469,9 @@ namespace Bots
                 auto found = m_targetOf.find(unit);
                 return found == m_targetOf.end() ? NoGuid : found->second;
             }
+            // jvbastel/WOWAI#191: the group's marks. Unset: no marks.
+            void SetGroupMarks(GroupMarks const& marks) { m_marks = marks; }
+            GroupMarks GetGroupMarks() const override { return m_marks; }
             bool IsMeleeAttacking() const override { return GetVictim(m_self) != NoGuid && !m_noMeleeSwing; }
             bool IsMoving(Guid unit) const override
             {
@@ -610,6 +613,7 @@ namespace Bots
             std::map<Guid, bool> m_inCombat;
             std::map<Guid, Guid> m_victim;
             std::map<Guid, Guid> m_targetOf; // jvbastel/WOWAI#189.
+            GroupMarks m_marks; // jvbastel/WOWAI#191.
             std::map<std::pair<Guid, Guid>, float> m_threatRatio;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
