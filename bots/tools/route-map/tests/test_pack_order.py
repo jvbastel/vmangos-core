@@ -217,3 +217,13 @@ def test_saving_the_ragefire_order_in_a_new_order_keeps_every_hand_comment():
     assert saved.startswith(text.split("\n\n", 1)[0] + "\n\n")
     assert saved.index("# The first trogg, on the ramp.\npack 48648 #") > saved.index("pack 43582")
     assert [guid for _, guid in pack_order.parse(saved)] == list(reversed(guids))
+
+
+def test_the_loaded_map_has_both_the_pack_order_and_the_quest_badges(tmp_path):
+    # #154 and #155 both add parts to the load-map call.
+    loaded = app(tmp_path, "pack 600\n").get("/api/maps/fixture_cave").json()
+
+    assert (loaded["pack_order"]["hand"], loaded["pack_order"]["generator"]) == ([600], [501])
+    assert [p["key"] for p in loaded["packs"]] == [501, 600, 700, 800]
+    assert [(b["pack"], b["quest"], b["count"]) for b in loaded["quest_badges"]] == [(501, 5723, 1), (700, 5723, 1)]
+    assert [q["quest"] for q in loaded["quests"]] == [5723]

@@ -29,6 +29,7 @@ from fastapi.responses import HTMLResponse
 import export_file
 import floor_image
 import map_packs
+import map_quests
 import navmesh
 import pack_order
 import route_draft
@@ -140,23 +141,28 @@ def create_app(settings: Settings) -> FastAPI:
     def load_map(name: str, z_min: Optional[float] = None, z_max: Optional[float] = None):
         """The map of a route: the floor image (only heights z_min to z_max
         when given) with its bounds, the route line, every pack of the map (the
-        export file) with the route's packs marked, the patrols, the wanderers
-        and the bosses."""
+        export file) with the route's packs marked, the patrols, the wanderers,
+        the bosses, and the quest objectives with what the route meets."""
         route = load_route(name)
-        packs = map_packs.map_part(route, load_export(route.map_id))
+        export = load_export(route.map_id)
+        # One pack per key (pack_order merges route packs that share one): the
+        # quest badges count the packs of that list.
+        packs = map_packs.map_part(route, export)
+        packs.update(pack_order.map_part(name, packs, settings.routes))
         return {
             "route": route.name,
             "map_id": route.map_id,
             "floor": load_floor(route, z_min, z_max),
             "line": [vars(p) for p in route.line],
             **packs,
-            **pack_order.map_part(name, packs, settings.routes),
+            **map_quests.map_part(route, export, packs["packs"]),
         }
 
     walked_path.add_routes(app)
     route_draw.add_routes(app, settings, load_route, load_navmesh)
     map_packs.add_routes(app)
     pack_order.add_routes(app, settings, load_route, lambda route: map_packs.map_part(route, load_export(route.map_id)))
+    map_quests.add_routes(app)
     route_draft.add_routes(app, settings, load_route)
     return app
 
