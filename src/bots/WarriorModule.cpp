@@ -1,5 +1,6 @@
 #include "WarriorModule.h"
 #include "CommonRules.h"
+#include "DamageRules.h"
 #include "BotGeometry.h"
 #include "ExtraPackWatch.h"
 #include "FightSpot.h"
@@ -321,15 +322,18 @@ namespace Bots
             }
 
             // The focus target attacks another member, and that member can
-            // come to the tank (no MemberCannotCome): the tank holds its
-            // fight spot, and the member brings the focus to it
-            // (jvbastel/WOWAI#169, #170, #171). Since #173 a next focus can
-            // be any enemy in the fight, also one across the room.
+            // come to the tank (no MemberCannotCome) and is not at it yet
+            // (AtTankYards): the tank holds its fight spot, and the member
+            // brings the focus to it (jvbastel/WOWAI#169, #170, #171). Since
+            // #173 a next focus can be any enemy in the fight, also one
+            // across the room. A member at the tank walks no more: an
+            // attacker on its far side the tank takes the few steps to.
             bool FocusOnAMemberThatCanCome(BotContext const& context)
             {
                 Guid const focus = PickFocusTarget(context);
                 Guid const victim = context.view.GetVictim(focus);
-                return victim != NoGuid && victim != Self(context) && !MemberCannotCome(context, focus);
+                return victim != NoGuid && victim != Self(context) && context.view.GetDistance(victim) > AtTankYards
+                    && !MemberCannotCome(context, focus);
             }
 
             // The tank can act on loose enemy `enemy` (jvbastel/WOWAI#169):

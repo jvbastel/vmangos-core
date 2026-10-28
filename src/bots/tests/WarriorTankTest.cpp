@@ -2045,6 +2045,7 @@ TEST(WarriorTank, StaysOnTheFocusOnAMemberBeforeItTakesALooseEnemy)
     tank.fake.SetVictim(Bat, Healer);
     tank.fake.SetDistance(Bat, 8.0f);
     tank.fake.SetDistance(Kobold, 12.0f);
+    tank.fake.SetDistance(Rogue, 12.0f);
 
     tank.Think();
     tank.Think();
@@ -3081,6 +3082,7 @@ namespace
         NextFocusOnTheRogue()
         {
             fake.SetVictim(Wolf, Rogue);
+            fake.SetDistance(Rogue, 20.0f);
             fake.SetDistance(Wolf, 20.0f);
             fake.SetCannotCast(Warrior::Taunt);
             fake.SetHealth(Kobold, 0, 200);
@@ -3106,6 +3108,24 @@ TEST(WarriorTankNextFocus, GoesToANextFocusOnAMemberThatCannotMove)
 {
     NextFocusOnTheRogue tank;
     tank.fake.SetRootedOrStunned(Rogue);
+
+    ASSERT_EQ(tank.Think(), "the focus dies");
+    tank.Think();
+    tank.Think();
+
+    std::vector<std::string> const deeds = tank.fake.Deeds();
+    EXPECT_TRUE(Has(deeds, "chase 0xf130000302000033")) << ::testing::PrintToString(deeds);
+}
+
+// Item 1 in a run (join_three_healer): the member came and stands at the
+// tank (AtTankYards), but its attacker hits it from the far side, out of the
+// tank's melee reach. The member walks no more, so the tank takes the few
+// steps to the focus; else nobody hits it (a lost mob).
+TEST(WarriorTankNextFocus, AttacksAFocusOnAMemberThatStandsAtTheTank)
+{
+    NextFocusOnTheRogue tank;
+    tank.fake.SetDistance(Rogue, 6.0f);
+    tank.fake.SetDistance(Wolf, 9.0f);
 
     ASSERT_EQ(tank.Think(), "the focus dies");
     tank.Think();
