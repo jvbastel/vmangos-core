@@ -160,6 +160,21 @@ TEST(PeelWatch, PartyDamageThatEndsTheFreezeBeforeTheTankArrivesBreaksIt)
     EXPECT_EQ(watch.NovasBrokenByParty(), 1u);
 }
 
+// The damage of the nova itself shows in the update that starts the freeze:
+// it is no party damage.
+TEST(PeelWatch, TheDamageOfTheNovaItselfBreaksNoFreeze)
+{
+    PeelWatch watch;
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f)}), 0);
+    watch.Update(Seen({Frozen(On(Enforcer, Healer, 2.0f, 980))}), 500);
+    watch.Update(Seen({Frozen(On(Enforcer, Healer, 2.0f, 980))}), 1500);
+    watch.Update(Seen({On(Enforcer, Healer, 2.0f, 980)}), 2000);
+
+    ASSERT_EQ(watch.Freezes().size(), 1u);
+    EXPECT_FALSE(watch.Freezes()[0].brokenByParty);
+    EXPECT_EQ(watch.NovasBrokenByParty(), 0u);
+}
+
 TEST(PeelWatch, TheTankMayBreakTheFreezeWhenItArrives)
 {
     PeelWatch const watch = AGoodPeel();

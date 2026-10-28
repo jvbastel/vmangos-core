@@ -45,7 +45,8 @@ namespace Bots
 
             if (!t.open && e.frozenBy == NoGuid)
                 continue;
-            if (!t.open)
+            bool const opens = !t.open;
+            if (opens)
             {
                 // A new freeze: a freeze of the same caster in this update
                 // is the same nova.
@@ -86,7 +87,9 @@ namespace Bots
             PeelFreeze& f = m_freezes[t.freeze];
             if (e.tankHasIt && f.tankMs < 0)
                 f.tankMs = nowMs;
-            if (hit && f.tankMs < 0)
+            // The update that opens the freeze shows the damage of the nova
+            // itself: only a later hit is party damage.
+            if (hit && !opens && f.tankMs < 0)
                 t.hitBeforeTank = true;
             if (f.onHealer)
             {

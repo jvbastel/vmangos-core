@@ -187,7 +187,6 @@ namespace Bots
                 if (n != 3 || w[2] != "healer")
                     return false;
                 c.name = w[1];
-                c.text = w[2];
                 return true;
             }
             if (keyword == "expect")

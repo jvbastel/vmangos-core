@@ -351,6 +351,8 @@ TEST(RunScript, ALooseEnemyGoesOnlyToTheHealer)
 {
     EXPECT_EQ(ErrorOf(Head + "loose shamans1 tank\n"), "line 6: use: loose <pack> healer");
     EXPECT_EQ(ErrorOf(Head + "loose shamans1\n"), "line 6: use: loose <pack> healer");
+    EXPECT_EQ(ErrorOf(Head + "expect peel_nova now\n"),
+        "line 6: use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect peel_nova");
 }
 
 TEST(RunScript, NeedsTheHeadBeforeTheScenarios)
