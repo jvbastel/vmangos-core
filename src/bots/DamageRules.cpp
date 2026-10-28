@@ -94,12 +94,11 @@ namespace Bots
     namespace
     {
         // PickDamageTarget, with no enemy that `hold` holds (Holds). The
-        // attack target of the player is held only for melee: a melee
-        // member never attacks a frozen enemy.
+        // attack target of the player is never held: the player's command
+        // wins, even on a frozen enemy.
         Guid PickTarget(BotContext const& context, Hold hold)
         {
-            if (IsAlive(context.view, context.attackTarget)
-                && !(hold == Hold::Melee && Holds(context, context.attackTarget, hold)))
+            if (IsAlive(context.view, context.attackTarget))
                 return context.attackTarget;
             Guid const healer = PickEnemyHealer(context);
             if (healer != NoGuid && !Holds(context, healer, hold))

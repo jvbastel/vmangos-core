@@ -569,11 +569,13 @@ TEST(DamageTarget, MeleeDamageDoesNotHitBackAFrozenAttacker)
     EXPECT_EQ(bot.MeleeTarget(), Kobold);
 }
 
-TEST(DamageTarget, MeleeDamageDoesNotAttackAFrozenAttackTargetOfThePlayer)
+// The player's command wins: the attack target of the player is attacked,
+// even when frozen.
+TEST(DamageTarget, MeleeDamageAttacksAFrozenAttackTargetOfThePlayer)
 {
     FrozenWolfOnTheHealer bot;
 
-    EXPECT_EQ(bot.MeleeTarget(Wolf), Kobold);
+    EXPECT_EQ(bot.MeleeTarget(Wolf), Wolf);
 }
 
 TEST(DamageTarget, MeleeDamageWaitsWhileTheTanksTargetIsFrozen)
