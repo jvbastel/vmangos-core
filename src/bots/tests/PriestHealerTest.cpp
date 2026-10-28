@@ -397,7 +397,7 @@ TEST(PriestHealer, NamesItsSpellsByTheFirstRank)
     text << file.rdbuf();
     for (char const* line : {"139\tRenew\tRank 1", "17\tPower Word: Shield\tRank 1", "2050\tLesser Heal\tRank 1",
              "2054\tHeal\tRank 1", "1243\tPower Word: Fortitude\tRank 1", "588\tInner Fire\tRank 1",
-             "586\tFade\tRank 1"})
+             "586\tFade\tRank 1", "2061\tFlash Heal\tRank 1"})
         EXPECT_NE(text.str().find(std::string("\n") + line + "\n"), std::string::npos) << line;
 }
 
@@ -676,6 +676,15 @@ namespace
         priest.fake.SetKnownSpell(Priest::FlashHeal);
         priest.fake.SetHealRank(Priest::FlashHeal, 224, 125);
     }
+
+    // A level 26 healer: it knows Flash Heal rank 2 too.
+    void KnowFlashHealRank2(PriestHealer& priest)
+    {
+        KnowFlashHeal(priest);
+        priest.fake.SetSpellChain({Priest::FlashHeal, FlashHeal2});
+        priest.fake.SetKnownSpell(FlashHeal2);
+        priest.fake.SetHealRank(FlashHeal2, 297, 155);
+    }
 }
 
 TEST(PriestHealerFlashHeal, FlashHealsARageTankNearDeath)
@@ -692,20 +701,14 @@ TEST(PriestHealerFlashHeal, FlashHealsARageTankNearDeath)
 
 TEST(PriestHealerFlashHeal, NamesFlashHealByItsFirstRank)
 {
-    std::ifstream file(std::string(BOT_TEST_DATA_DIR) + "/learnable-spells.tsv", std::ios::binary);
-    std::ostringstream text;
-    text << file.rdbuf();
-    EXPECT_NE(text.str().find("\n2061\tFlash Heal\tRank 1\n"), std::string::npos);
+    // PriestHealer.NamesItsSpellsByTheFirstRank finds 2061 in the data.
     EXPECT_EQ(Priest::FlashHeal, 2061u);
 }
 
 TEST(PriestHealerFlashHeal, ABigWoundNearDeathGetsTheHighestRank)
 {
     PriestHealer priest;
-    KnowFlashHeal(priest);
-    priest.fake.SetSpellChain({Priest::FlashHeal, FlashHeal2});
-    priest.fake.SetKnownSpell(FlashHeal2);
-    priest.fake.SetHealRank(FlashHeal2, 297, 155);
+    KnowFlashHealRank2(priest);
     priest.InFight();
     // 450 missing: no rank covers it.
     priest.fake.SetHealth(Tank, 150, 600);
@@ -718,10 +721,7 @@ TEST(PriestHealerFlashHeal, ABigWoundNearDeathGetsTheHighestRank)
 TEST(PriestHealerFlashHeal, ASmallerWoundNearDeathGetsTheRankThatCoversIt)
 {
     PriestHealer priest;
-    KnowFlashHeal(priest);
-    priest.fake.SetSpellChain({Priest::FlashHeal, FlashHeal2});
-    priest.fake.SetKnownSpell(FlashHeal2);
-    priest.fake.SetHealRank(FlashHeal2, 297, 155);
+    KnowFlashHealRank2(priest);
     priest.InFight();
     // 220 missing: rank 1 (224) covers it.
     priest.fake.SetHealth(Tank, 80, 300);
@@ -742,6 +742,33 @@ TEST(PriestHealerFlashHeal, AMemberAboveTheFractionGetsASlowHeal)
     priest.Think();
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerFlashHeal, AMemberAtExactlyTheFractionGetsASlowHeal)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.InFight();
+    // 30% health: the band is "below" the fraction.
+    priest.fake.SetHealth(Tank, 180, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerFlashHeal, ALowManaBotNearDeathDropsToALesserHeal)
+{
+    PriestHealer priest;
+    KnowFlashHeal(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 150, 600);
+    // 100 mana: no rank of Flash Heal (125) or Heal (155) fits.
+    priest.fake.SetMana(Healer, 100, 400);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(LesserHeal3, Tank)}));
 }
 
 TEST(PriestHealerFlashHeal, ABotThatDoesNotKnowFlashHealKeepsItsHeals)
@@ -785,20 +812,33 @@ TEST(PriestHealerFlashHeal, AShieldedMemberStillNearDeathGetsFlashHeal)
 // Spec #131, story 24: Holy Nova pulls the enemies near the healer and heals
 // little per mana. No rule casts it, even when the bot knows it, the whole
 // group is hurt, and no other spell can be cast.
-TEST(PriestHealerFlashHeal, NeverCastsHolyNova)
+namespace
 {
+    enum class Situation
+    {
+        OutOfFight,
+        InFight,
+        HealerIsTheVictim,
+    };
+}
+
+TEST(PriestHealerHolyNova, NeverCastsHolyNova)
+{
+    // Rank 1 is the talent (not in the learnable spells), rank 2 is 15430.
     Bots::SpellId const HolyNova = 15237;
-    std::string const castHolyNova = "cast " + std::to_string(HolyNova) + " ";
+    Bots::SpellId const HolyNova2 = 15430;
     for (std::uint32_t current : {30u, 100u, 200u, 400u, 550u, 600u})
-        for (int situation = 0; situation < 3; ++situation)
+        for (Situation situation : {Situation::OutOfFight, Situation::InFight, Situation::HealerIsTheVictim})
             for (bool othersBlocked : {false, true})
             {
                 PriestHealer priest;
                 KnowFlashHeal(priest);
+                priest.fake.SetSpellChain({HolyNova, HolyNova2});
                 priest.fake.SetKnownSpell(HolyNova);
-                if (situation >= 1)
+                priest.fake.SetKnownSpell(HolyNova2);
+                if (situation != Situation::OutOfFight)
                     priest.InFight();
-                if (situation == 2)
+                if (situation == Situation::HealerIsTheVictim)
                     priest.fake.SetVictim(Kobold, Healer);
                 for (Bots::Guid member : {Healer, Tank, Mage})
                     priest.fake.SetHealth(member, current, 600);
@@ -811,7 +851,12 @@ TEST(PriestHealerFlashHeal, NeverCastsHolyNova)
                 priest.Think();
 
                 for (std::string const& deed : priest.fake.Deeds())
-                    EXPECT_NE(deed.compare(0, castHolyNova.size(), castHolyNova), 0)
-                        << deed << " at " << current << " health, situation " << situation;
+                    for (Bots::SpellId nova : {HolyNova, HolyNova2})
+                    {
+                        std::string const castNova = "cast " + std::to_string(nova) + " ";
+                        EXPECT_NE(deed.compare(0, castNova.size(), castNova), 0)
+                            << deed << " at " << current << " health, situation "
+                            << static_cast<int>(situation);
+                    }
             }
 }

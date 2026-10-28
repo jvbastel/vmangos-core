@@ -17,6 +17,8 @@ namespace Bots
             // jvbastel/WOWAI#135: a member below this fraction dies before a
             // slow heal lands. It gets Flash Heal (from level 20), which
             // costs the most mana per health, so no other member gets it.
+            // It is equal to ShieldBelow on purpose: the band that the
+            // shield skips (a rage tank) is the band that Flash Heal takes.
             float const FlashHealBelow = 0.3f;
 
             // jvbastel/WOWAI#111: in a pull, the healer waits this long
