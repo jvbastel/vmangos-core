@@ -44,6 +44,13 @@ namespace BotHooks
     // role choice of the sender (BotMgr::SetRoleChoice). Same threads as
     // OnPlayerChat.
     void OnPartyAddonMessage(Player* sender, std::string const& text);
+
+    // jvbastel/WOWAI#198: WorldSession::HandleChatMessageOpcode, at the top
+    // of the whisper branch (not for LANG_ADDON). The list request of the bot
+    // panel, a whisper to the sender's own name, queues the panel for the
+    // sender (BotMgr::QueueBotPanelRequest). True: the hook took the whisper,
+    // and the core does not send it. Same threads as OnPlayerChat.
+    bool OnWhisperToSelf(Player* sender, std::string const& receiverName, std::string const& text);
 }
 
 #endif

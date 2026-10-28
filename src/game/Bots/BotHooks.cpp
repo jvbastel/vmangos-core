@@ -9,6 +9,7 @@
 #include "BotAI.h"
 #include "BotCommand.h"
 #include "BotMgr.h"
+#include "BotPanel.h"
 #include "GroupCommand.h"
 #include "Group.h"
 #include "Player.h"
@@ -152,4 +153,13 @@ void BotHooks::OnPartyAddonMessage(Player* sender, std::string const& text)
     sBotMgr.SetRoleChoice(sender->GetObjectGuid(), message.choice);
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s sends the role choice \"%s\"", sender->GetName(),
         text.substr(text.find('\t') + 1).c_str());
+}
+
+// jvbastel/WOWAI#198: the bot panel asks for its list.
+bool BotHooks::OnWhisperToSelf(Player* sender, std::string const& receiverName, std::string const& text)
+{
+    if (!sender || sender->IsBot() || !Bots::IsBotPanelRequest(sender->GetName(), receiverName, text))
+        return false;
+    sBotMgr.QueueBotPanelRequest(sender->GetObjectGuid());
+    return true;
 }
