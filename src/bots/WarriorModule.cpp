@@ -450,12 +450,19 @@ namespace Bots
             {
                 Guid focus = NoGuid; // The focus of the fight of the keep.
                 Guid enemy = NoGuid;
+                // jvbastel/WOWAI#168: the tank cast an ability on the enemy
+                // since it turned to it, and when it turned to it.
+                bool castOn = false;
+                std::int64_t sinceMs = 0;
             };
             using ThreatKeepPtr = std::shared_ptr<ThreatKeep>;
 
             // The enemy that the tank keeps threat on: the one it last taunted
             // off or picked up in this fight, while it lives, is in the fight
-            // and not yet back on the tank (KeepThreatLead). NoGuid else.
+            // and not yet back on the tank (KeepThreatLead). Back on the tank
+            // too while the tank cast no ability on it yet, for ThreatLossMs
+            // (jvbastel/WOWAI#168: no turn to a threat target without a
+            // cast). NoGuid else.
             Guid PickKeptEnemy(BotContext const& context, ThreatKeep const& keep)
             {
                 Guid const focus = context.group.GetFocusTarget();
@@ -464,22 +471,32 @@ namespace Bots
                     || !IsAlive(context.view, enemy))
                     return NoGuid;
                 Guid const victim = context.view.GetVictim(enemy);
+                bool const castDue = !keep.castOn && context.nowMs - keep.sinceMs < ThreatLossMs;
                 if (victim == NoGuid
-                    || (victim == Self(context) && context.view.GetThreatRatio(Self(context), enemy) >= KeepThreatLead))
+                    || (victim == Self(context) && context.view.GetThreatRatio(Self(context), enemy) >= KeepThreatLead
+                        && !castDue))
                     return NoGuid;
                 return enemy;
             }
 
             // The rule `rule` notes the enemy that `target` picks as the
-            // enemy the tank keeps threat on, when it runs.
-            Rule KeepsThreatOn(Rule rule, TargetPicker target, ThreatKeepPtr const& keep)
+            // enemy the tank keeps threat on, when it runs. `casts`: the
+            // rule casts an ability on it (not a plain attack).
+            Rule KeepsThreatOn(Rule rule, TargetPicker target, ThreatKeepPtr const& keep, bool casts = true)
             {
                 std::function<void(BotContext const&)> const run = rule.action.run;
-                rule.action.run = [run, target, keep](BotContext const& context) {
+                rule.action.run = [run, target, keep, casts](BotContext const& context) {
                     Guid const enemy = target(context);
                     run(context);
-                    keep->focus = context.group.GetFocusTarget();
+                    Guid const focus = context.group.GetFocusTarget();
+                    if (keep->enemy != enemy || keep->focus != focus)
+                    {
+                        keep->castOn = false;
+                        keep->sinceMs = context.nowMs;
+                    }
+                    keep->focus = focus;
                     keep->enemy = enemy;
+                    keep->castOn = keep->castOn || casts;
                 };
                 return rule;
             }
@@ -938,7 +955,7 @@ namespace Bots
                                                     },
                                                     pickUpTarget),
                                   goneIn, pick),
-                    pickUpTarget, keep),
+                    pickUpTarget, keep, false),
                 // jvbastel/WOWAI#126: after the taunt or the pick-up, Revenge
                 // or Sunder Armor on that enemy until it is back on the tank,
                 // then the focus again. Each counts in a visit to the threat
@@ -950,10 +967,11 @@ namespace Bots
                              Guid const enemy = keptEnemy(context);
                              return CastableRank(context.view, ThreatTargetAbility(context, enemy), enemy) != NoSpell;
                          },
-                            [keptEnemy](BotContext const& context) {
+                            [keptEnemy, keep](BotContext const& context) {
                                 Guid const enemy = keptEnemy(context);
                                 SpellId const ability = ThreatTargetAbility(context, enemy);
                                 context.actions.CastSpell(RankForTarget(context.view, ability, enemy), enemy);
+                                keep->castOn = true;
                             }}},
                     keptEnemy, visit),
                 // A broken pull: too many loose enemies to taunt one by one.

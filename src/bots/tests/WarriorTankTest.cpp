@@ -2336,3 +2336,29 @@ TEST(WarriorTankLooseEnemy, GoesBackToTheFocusWhenNoLooseEnemyIsLeft)
 
     EXPECT_EQ(tank.ThinkAt(500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Kobold)}));
 }
+
+// A picked-up enemy turns to the tank before the tank hit it with an
+// ability (join_three run 1): the tank casts one on it all the same, then
+// goes back to the focus. No turn to a threat target without a cast.
+TEST(WarriorTankLooseEnemy, CastsOnAPickedUpEnemyThatComesToItBeforeItGoesBackToTheFocus)
+{
+    BatOnTheFarHealer tank;
+    tank.fake.SetPower(Tank, 30, 100);
+    tank.fake.SetCannotCast(Warrior::Revenge);
+    tank.Think();
+    ASSERT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
+    tank.fake.SetVictim(Tank, Bat);
+    tank.fake.SetDistance(Bat, 2.0f);
+    tank.fake.SetVictim(Bat, Tank);
+    tank.fake.SetThreatRatio(Tank, Bat, 2.0f);
+
+    tank.fake.ClearDeeds();
+    tank.nowMs = 300;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+
+    tank.fake.ClearDeeds();
+    tank.nowMs = 600;
+    tank.Think();
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Kobold), Chase(Kobold)}));
+}
