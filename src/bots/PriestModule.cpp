@@ -39,6 +39,11 @@ namespace Bots
             float const ResurrectReachYards = 29.0f;
             float const ResurrectCastYards = 26.0f;
 
+            // jvbastel/WOWAI#170: an attacked healer walks to the tank until
+            // it is this near, so that its attackers follow it into the
+            // tank's melee range.
+            float const AtTheTankYards = 3.0f;
+
             using MemberFilter = bool (*)(BotContext const& context, Guid member);
 
             bool AnyMember(BotContext const&, Guid)
@@ -108,6 +113,30 @@ namespace Bots
             {
                 Guid const self = PickSelf(context);
                 return context.view.IsInCombat(self) && !context.view.GetAttackers(self).empty();
+            }
+
+            // jvbastel/WOWAI#170: the bot notes its health on each think
+            // that reaches this rule. It shields itself only when an enemy
+            // attacks it and its health falls (HealthFallMs): a shield on a
+            // full bot costs mana and makes heal threat.
+            bool ShieldsItself(BotContext const& context)
+            {
+                Guid const self = PickSelf(context);
+                bool const falls = context.group.NoteHealthFalls(self, context.view.GetHealth(self).current,
+                    context.nowMs);
+                return falls && IsAttacked(context) && CanTakeShield(context.view, self);
+            }
+
+            // jvbastel/WOWAI#170: an enemy attacks the bot, and the living
+            // tank stands farther than AtTheTankYards. Not while the bot
+            // casts: a step would stop the heal.
+            bool WalksToTheTank(BotContext const& context)
+            {
+                Guid const self = PickSelf(context);
+                Guid const tank = context.group.GetTank();
+                return IsAttacked(context) && tank != NoGuid && tank != self
+                    && context.view.GetCurrentCast(self) == NoSpell
+                    && IsAlive(context.view, tank) && context.view.GetDistance(tank) > AtTheTankYards;
             }
 
             bool OutOfCombat(BotContext const& context)
@@ -254,13 +283,10 @@ namespace Bots
             std::vector<Rule> rules = {
                 // An enemy attacks the Priest: it never fights back. It drops
                 // its threat with Fade, so that the enemy goes back to the
-                // tank, and shields itself.
+                // tank. jvbastel/WOWAI#170: it shields itself only while its
+                // health falls, and walks to the tank (P + 55, below).
                 CastRule("fade", P + 90, IsAttacked, Fade, PickSelf),
-                CastRule("shield itself", P + 86,
-                    [](BotContext const& context) {
-                        return IsAttacked(context) && CanTakeShield(context.view, PickSelf(context));
-                    },
-                    PowerWordShield, PickSelf),
+                CastRule("shield itself", P + 86, ShieldsItself, PowerWordShield, PickSelf),
 
                 // The heals, the most urgent first. Each picks the most
                 // hurt member that needs it. At level 16 the Priest knows no
@@ -282,6 +308,16 @@ namespace Bots
                 HealRule("lesser heal a badly hurt member", P + 75, LesserHeal, HealBelow),
                 CastRule("renew", P + 70, SomeoneBelow(RenewBelow, HasNoRenew), Renew, HurtMember(RenewBelow, HasNoRenew)),
                 HealRule("lesser heal", P + 65, LesserHeal, LesserHealBelow),
+
+                // jvbastel/WOWAI#170: an attacked healer walks into the tank's
+                // melee range, so that the tank can take its attackers. Under
+                // every heal: it heals between steps (a cast stops the walk).
+                // Over "go to a hurt member": the attackers follow it.
+                Rule{"walk to the tank", P + 55, WalksToTheTank,
+                    BotAction{[](BotContext const&) { return true; },
+                        [](BotContext const& context) {
+                            context.actions.KeepMovingTo(context.view.GetPosition(context.group.GetTank()));
+                        }}},
 
                 // A hurt member out of reach: the bot follows it. It stays
                 // near it until the fight ends and the command takes over.

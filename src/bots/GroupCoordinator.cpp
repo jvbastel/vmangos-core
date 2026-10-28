@@ -515,4 +515,21 @@ namespace Bots
         events.swap(m_events);
         return events;
     }
+
+    // jvbastel/WOWAI#170
+    bool GroupCoordinator::NoteHealthFalls(Guid bot, std::uint32_t health, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        std::vector<HealthNote>& notes = m_healthNotes[bot];
+        // A note from the future (the clock went back) is dropped too.
+        notes.erase(std::remove_if(notes.begin(), notes.end(),
+                        [nowMs](HealthNote const& note) {
+                            return nowMs - note.atMs > HealthFallMs || note.atMs > nowMs;
+                        }),
+            notes.end());
+        bool const falls = std::any_of(notes.begin(), notes.end(),
+            [health](HealthNote const& note) { return note.health > health; });
+        notes.push_back(HealthNote{nowMs, health});
+        return falls;
+    }
 }

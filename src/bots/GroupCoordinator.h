@@ -137,6 +137,10 @@ namespace Bots
     // kill or roll after this time, so that a respawned creature counts again.
     std::int64_t const GroupEventMemoryMs = 60 * 1000;
 
+    // jvbastel/WOWAI#170: a bot whose health is lower than at any time in
+    // this many milliseconds before is losing health (NoteHealthFalls).
+    std::int64_t const HealthFallMs = 2000;
+
     // The clocks of a held pull, both from the engage (PullState::engagedMs)
     // and both once the tank is back at its fight spot
     // (PullState::backAtFightSpot), in this order:
@@ -361,6 +365,11 @@ namespace Bots
         // manager takes them on the world thread.
         std::vector<GroupEvent> TakeEvents();
 
+        // jvbastel/WOWAI#170: the health of bot `bot` at `nowMs` (its own
+        // note, each think). True when it is below the highest health
+        // noted in the HealthFallMs before: the bot is losing health.
+        bool NoteHealthFalls(Guid bot, std::uint32_t health, std::int64_t nowMs);
+
     private:
         // A pull is on, and `puller` is its puller. The caller holds the lock.
         bool PullsNow(Guid puller) const;
@@ -394,6 +403,14 @@ namespace Bots
         std::vector<Guid> m_enemyHealers;                 // In mark order.
         BossFight m_bossFight = {NoGuid, 0};
         BossFight m_bossFought = {NoGuid, 0};
+        // jvbastel/WOWAI#170: by bot, its health notes of the last
+        // HealthFallMs, oldest first.
+        struct HealthNote
+        {
+            std::int64_t atMs;
+            std::uint32_t health;
+        };
+        std::map<Guid, std::vector<HealthNote>> m_healthNotes;
     };
 }
 
