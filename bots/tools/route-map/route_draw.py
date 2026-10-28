@@ -3,8 +3,11 @@ click to the floor, join two points with a floor path, save the trace file
 of the open route. map_web.create_app adds these calls with add_routes; the
 page part is map_draw.js.
 
-    GET  /api/maps/{route}/snap?x=&y=[&z=]   the floor point of a click, and the floor heights there
-    POST /api/maps/{route}/path              {"start": {x, y, z}, "end": {x, y, z}}: the floor path and its warnings
+    GET  /api/maps/{route}/snap?x=&y=[&z=][&through=<region>...]
+                                             the floor point of a click, and the floor heights there; the ground
+                                             of the regions named in through (faded or hidden) is left out (#185)
+    POST /api/maps/{route}/path              {"start": {x, y, z}, "end": {x, y, z}, "through": [names]}: the floor
+                                             path and its warnings; the path may run through any region
     POST /api/maps/{route}/trace             {"points": [{x, y, z, joined, mark, note}, ...], "branches": [[...], ...]}:
                                              writes <route>.trace.txt (each branch is a later walk)
 """
@@ -14,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -35,6 +38,7 @@ class Spot(BaseModel):
 class PathAsk(BaseModel):
     start: Spot
     end: Spot
+    through: list[str] = []  # the faded or hidden regions (#185): a path may still run through them
 
 
 class TraceAsk(BaseModel):
@@ -69,9 +73,10 @@ def add_routes(app: FastAPI, maps):
         return FileResponse(HERE / "map_draw.js", media_type="text/javascript")
 
     @app.get("/api/maps/{name}/snap")
-    def snap(name: str, x: float, y: float, z: Optional[float] = None):
+    def snap(name: str, x: float, y: float, z: Optional[float] = None, through: list[str] = Query([])):
         map_id = maps.route(name).map_id
-        point, floors = graph(map_id).snap(x, y, z)
+        passed = [r for r in maps.regions(map_id) if r.name in through]
+        point, floors = graph(map_id).snap(x, y, z, through=lambda p: any(r.holds(*p) for r in passed))
         if point is None:
             raise HTTPException(422, "no floor on this map")
         return {"point": regions.mark(_xyz(point), maps.regions(map_id)),  # the regions it is in (#184)
