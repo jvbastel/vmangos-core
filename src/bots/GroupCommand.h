@@ -42,7 +42,14 @@ namespace Bots
         bool botInOtherGroup;  // The bot is a member of another group.
         bool playerMayInvite;  // The player has no group, or leads it or assists.
         bool groupFull;        // The group of the player has no free place.
+        // jvbastel/WOWAI#197: the bot has the tank role, and the group of
+        // the player refuses a bot tank (GroupTank.h, RefusesBotTank).
+        bool secondTank = false;
     };
+
+    // jvbastel/WOWAI#197: the line of a bot tank that the player who picked
+    // tank invites. The bot says it in party chat, to the player.
+    char const* const SecondTankRefusalLine = "You tank this group, so I stay out of it.";
 
     // The steps of a group command, in this order. An offline bot only logs
     // in: the bot manager plans again when the bot is in the world.
@@ -56,6 +63,9 @@ namespace Bots
         bool teleport; // To the player.
         bool leaveGroup;
         bool logout;
+        // jvbastel/WOWAI#197: the bot says `line` in party chat, to the
+        // player. Else the server tells it to the player.
+        bool lineFromBot = false;
     };
 
     GroupCommandPlan PlanGroupCommand(GroupCommandKind kind, GroupFacts const& facts);

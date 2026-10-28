@@ -3,6 +3,7 @@
 
 #include "BotRecipe.h"
 #include "BotTypes.h"
+#include "RoleChoice.h"
 
 #include <vector>
 
@@ -19,9 +20,14 @@ namespace Bots
         // tank flag).
         bool isBot;
         BotRole role;
+        // jvbastel/WOWAI#197: the role choice of a human, from the role
+        // choice add-on. None for a bot, and for a human with no add-on or
+        // no pick.
+        RoleChoice choice = RoleChoice::None;
     };
 
-    // The group's tank: the first bot in `members` with the tank role.
+    // The group's tank: the first human in `members` whose role choice is
+    // tank (jvbastel/WOWAI#197). Else the first bot with the tank role.
     // With none, the leader `leader` when it is a human in `members`, of any
     // class (jvbastel/WOWAI#189, the player tank): a human who leads a group
     // of bots with no bot tank tanks the fights. Else NoGuid.
@@ -38,6 +44,18 @@ namespace Bots
     // become a player-tank group while its tank is away. A human tank who gives up the lead, or
     // leaves the map, is no tank any more.
     Guid NextGroupTank(std::vector<GroupMember> const& members, Guid leader, Guid current, bool currentIsBotTank);
+
+    // jvbastel/WOWAI#197: never two tanks. A human in `members` picked tank
+    // (role choice): the group takes no bot with the tank role.
+    bool RefusesBotTank(std::vector<GroupMember> const& members);
+
+    // jvbastel/WOWAI#197: `bot` is a bot with the tank role in `members`,
+    // and the group refuses a bot tank (RefusesBotTank): it leaves.
+    bool MustLeaveAsSecondTank(std::vector<GroupMember> const& members, Guid bot);
+
+    // jvbastel/WOWAI#197: the one party chat line of a bot tank that leaves
+    // (MustLeaveAsSecondTank).
+    char const* const SecondTankLeaveLine = "You tank now, so I leave the group.";
 }
 
 #endif

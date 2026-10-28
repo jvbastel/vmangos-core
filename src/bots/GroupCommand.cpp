@@ -74,6 +74,12 @@ namespace Bots
             return plan;
         }
 
+        if (!facts.botInPlayerGroup && facts.secondTank)
+        {
+            plan.line = SecondTankRefusalLine;
+            plan.lineFromBot = true;
+            return plan;
+        }
         if (!facts.botInPlayerGroup)
         {
             if (facts.botInOtherGroup)

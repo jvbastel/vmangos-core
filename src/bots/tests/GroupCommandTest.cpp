@@ -169,3 +169,39 @@ TEST(GroupCommandPlan, DismissRefusesABotOutsideTheGroup)
     EXPECT_STREQ(plan.line, "That bot is not in your group.");
     EXPECT_STREQ(Bots::PlanGroupCommand(GroupCommandKind::Dismiss, unknown).line, "No bot has that name.");
 }
+
+// jvbastel/WOWAI#197: never two tanks. The player picked tank (role choice)
+// and invites a bot tank: the bot says no in party chat, and stays out.
+TEST(GroupCommand, ASecondTankIsRefusedWithALineOfTheBot)
+{
+    Bots::GroupFacts facts = FreeBot();
+    facts.secondTank = true;
+
+    Bots::GroupCommandPlan plan = Bots::PlanGroupCommand(GroupCommandKind::Invite, facts);
+
+    EXPECT_FALSE(plan.ok);
+    EXPECT_STREQ(plan.line, Bots::SecondTankRefusalLine);
+    EXPECT_TRUE(plan.lineFromBot);
+    EXPECT_FALSE(plan.login);
+    EXPECT_FALSE(plan.addToGroup);
+}
+
+TEST(GroupCommand, ASecondTankCanStillBeDismissed)
+{
+    Bots::GroupFacts facts = FreeBot();
+    facts.botInPlayerGroup = true;
+    facts.secondTank = true;
+
+    Bots::GroupCommandPlan plan = Bots::PlanGroupCommand(GroupCommandKind::Dismiss, facts);
+
+    EXPECT_TRUE(plan.ok);
+    EXPECT_TRUE(plan.leaveGroup);
+}
+
+TEST(GroupCommand, OtherRefusalsAreLinesOfTheServer)
+{
+    Bots::GroupFacts facts = FreeBot();
+    facts.groupFull = true;
+
+    EXPECT_FALSE(Bots::PlanGroupCommand(GroupCommandKind::Invite, facts).lineFromBot);
+}
