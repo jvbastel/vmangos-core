@@ -127,9 +127,8 @@ namespace Bots
             // fallback.
             bool PullsFromRange(BotContext const& context)
             {
-                RangedWeapon const weapon = context.view.GetRangedWeapon();
                 Guid const target = PickPullTarget(context);
-                if (!CanFire(weapon) || !context.view.KnowsSpell(ShootSpell(weapon.kind)))
+                if (!CanShoot(context.view))
                     return false;
                 if (ShotReachAt(context.view.GetSpellDistance(target)) == ShotReach::TooNear
                     && !context.group.GetPull().hasShootSpot)

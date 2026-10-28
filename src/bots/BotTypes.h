@@ -59,6 +59,15 @@ namespace Bots
         std::uint32_t current;
         std::uint32_t max;
     };
+
+    // The kind of power of a unit (BotView::GetPowerKind).
+    enum class PowerKind
+    {
+        None, // A unit that the bot cannot see, or another kind (a pet's focus).
+        Mana,
+        Rage,
+        Energy,
+    };
 }
 
 #endif

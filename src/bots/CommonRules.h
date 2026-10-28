@@ -1,6 +1,7 @@
 #ifndef WOWAI_BOTS_COMMON_RULES_H
 #define WOWAI_BOTS_COMMON_RULES_H
 
+#include "SpellBook.h"
 #include "Strategy.h"
 
 // Small parts that the class modules share to build their rules.
@@ -48,11 +49,17 @@ namespace Bots
     // `current` as a percent of `max`, rounded down. 0 when `max` is 0.
     std::uint32_t Percent(std::uint32_t current, std::uint32_t max);
 
-    // A rule that casts the highest known rank of the spell whose first rank
-    // is `firstRank` that the level of the picked unit allows, on that unit
-    // (SpellBook.h, CastableRank). The bot can do it when it knows such a
-    // rank and can cast it now.
-    Rule CastRule(std::string name, int priority, Trigger trigger, SpellId firstRank, TargetPicker target);
+    // Picks the rank of the spell whose first rank is `firstRank` that the
+    // bot casts on unit `target` now, or NoSpell (SpellBook.h).
+    using RankChoice = std::function<SpellId(BotView const& view, SpellId firstRank, Guid target)>;
+
+    // A rule that casts the rank of the spell whose first rank is
+    // `firstRank` that `rank` picks, on the picked unit. By default the
+    // highest known rank that the level of the unit allows (SpellBook.h,
+    // CastableRank). A heal passes CastableHealRank (jvbastel/WOWAI#134).
+    // The bot can do it when `rank` picks a rank.
+    Rule CastRule(std::string name, int priority, Trigger trigger, SpellId firstRank, TargetPicker target,
+        RankChoice rank = CastableRank);
 
     // A rule that starts the melee attack of the picked unit and runs to it.
     Rule MeleeRule(std::string name, int priority, Trigger trigger, TargetPicker target);

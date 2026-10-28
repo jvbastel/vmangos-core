@@ -1,7 +1,9 @@
 build priest_healer priest healer
 # Priest healer: a Holy leveling build (healing talents from level 20,
 # Spiritual Healing at the end). The first 10 points (Wand Specialization
-# and Spirit Tap) help the bot kill alone while it levels.
+# and Spirit Tap) serve the wand that the bot shoots between heals
+# (jvbastel/WOWAI#133): more wand damage, and more spirit regen after
+# the bot lands a killing blow.
 # Source: Icy Veins, "WoW Classic Holy Priest Leveling Talent Build from 1 to 60",
 # https://www.icy-veins.com/wow-classic/holy-priest-leveling-talent-build-from-1-to-60
 # (read on 2026-10-24 from the Wayback Machine copy of 2025-12-06). Copied in

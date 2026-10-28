@@ -137,3 +137,14 @@ TEST(Shot, FromASpotNeedsRangeAndSight)
     EXPECT_FALSE(Bots::InShotFrom(fake, {-15, 0, 0}, Kobold)); // 35 yards.
     EXPECT_FALSE(Bots::InShotFrom(fake, {14, 0, -100}, Kobold)); // Far under it.
 }
+
+// jvbastel/WOWAI#133: the wand of the Priest healer.
+TEST(Wand, FiresWithShootAndNoAmmo)
+{
+    std::uint32_t const LesserMagicWand = 11287;
+    RangedWeapon const wand = Weapon(RangedKind::Wand, LesserMagicWand, 0, 0);
+
+    EXPECT_EQ(5019u, Bots::ShootSpell(RangedKind::Wand));
+    EXPECT_TRUE(Bots::CanFire(wand));
+    EXPECT_EQ(0u, PlanAmmoTopUp(wand, 16).count);
+}

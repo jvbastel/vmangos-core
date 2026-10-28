@@ -68,6 +68,9 @@ namespace Bots
         virtual void Drink() = 0;
         // Say `line` in party chat.
         virtual void SayParty(std::string const& line, PartyLine kind) = 0;
+        // Review of spec #131: stop the shot that is going
+        // (BotView::GetShotTarget), and nothing else: a cast goes on.
+        virtual void StopShot() = 0;
         // Bring the ammo up to `topUp` silently, from nothing: no vendor
         // and no money (Ranged.h). The arrows or bullets go in the bags and
         // become the ammo of the ammo slot; a thrown stack grows in place.
