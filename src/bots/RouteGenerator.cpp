@@ -213,9 +213,95 @@ namespace Bots
                 block.insert(block.end(), steps.begin(), steps.end());
             kept.insert(kept.begin() + at, block.begin(), block.end());
 
-            std::vector<Event> result;
+            // A pull point of the generator suits the order of the line. In
+            // the hand order, a pack fought later may still live near it.
+            // Then the pull point moves to a spot around its pack, out of
+            // the aggro range of the pack and within the pull range, that
+            // pulls no pack of later: the one with the shortest walk from
+            // the step before.
+            std::vector<std::size_t> foughtAt(packs.size(), kept.size());
+            for (std::size_t e = 0; e < kept.size(); ++e)
+                if (kept[e].kind == EventKind::Pack)
+                    foughtAt[kept[e].pack] = e;
+            float const range = settings.aggroRange + settings.margin;
+            auto pullsLater = [&](Position const& place, std::size_t e, std::size_t own) {
+                for (std::size_t p = 0; p < packs.size(); ++p)
+                    if (p != own && foughtAt[p] > e && DistanceToPack(place, packs[p], spawns) < settings.aggroRange &&
+                        SightOf(place, packs[p], spawns, settings, nav, settings.aggroRange).sight == Sight::Pullable)
+                        return true;
+                return false;
+            };
             bool hasLast = false;
             Position last{};
+            for (std::size_t e = 0; e < kept.size(); ++e)
+            {
+                Event& step = kept[e];
+                std::size_t const p = step.pack;
+                if (step.kind == EventKind::Pull && rankOf(step) < named.size() && pullsLater(step.center, e, p))
+                {
+                    Position const leader = spawns[packs[p].members[0]].position;
+                    float best = -1.0f;
+                    for (int k = 0; k < 16; ++k)
+                    {
+                        // Out from the leader until the pack, with its wander
+                        // and its other members, is in the pull band.
+                        float const angle = float(k) * 6.2831853f / 16.0f;
+                        Position place = leader;
+                        bool inBand = false;
+                        for (float reach = (settings.aggroRange + range) / 2.0f; !inBand && reach <= 2.0f * range;
+                             reach += settings.margin / 2.0f)
+                        {
+                            place = nav.Reach(leader, std::cos(angle), std::sin(angle), reach);
+                            float const distance = DistanceToPack(place, packs[p], spawns);
+                            inBand = distance >= settings.aggroRange && distance <= range;
+                            // A wall stops the spot, or it went past the band.
+                            if (distance > range || Distance2d(place, leader) < reach - 0.5f)
+                                break;
+                        }
+                        if (!inBand)
+                            continue;
+                        PackSight const sight = SightOf(place, packs[p], spawns, settings, nav, range);
+                        if (sight.sight != Sight::Pullable || sight.path > settings.pullPathLimit ||
+                            pullsLater(place, e, p))
+                            continue;
+                        float walk = 0.0f;
+                        std::vector<Position> path;
+                        if (hasLast)
+                        {
+                            if (!nav.Path(last, place, path))
+                                continue;
+                            walk = PathLength(path);
+                        }
+                        if (best < 0.0f || walk < best)
+                        {
+                            best = walk;
+                            step.center = place;
+                        }
+                    }
+                    std::string const pack = "the pack of spawn " + std::to_string(spawns[packs[p].members[0]].guid);
+                    if (best >= 0.0f)
+                    {
+                        // Sideways is across the way to the pack.
+                        float const length = std::max(1e-3f, Distance2d(step.center, leader));
+                        step.dx = (leader.x - step.center.x) / length;
+                        step.dy = (leader.y - step.center.y) / length;
+                        warnings.push_back("the hand order moves the pull point of " + pack + " to " +
+                            Format(step.center) + ": the pull point of the line pulls a pack fought later");
+                    }
+                    else
+                        warnings.push_back("the hand order: no pull point around " + pack +
+                            " keeps out of the packs fought later; it keeps the pull point of the line at " +
+                            Format(step.center));
+                }
+                if (step.kind != EventKind::Pack)
+                {
+                    hasLast = true;
+                    last = step.center;
+                }
+            }
+
+            std::vector<Event> result;
+            hasLast = false;
             bool lastRejoin = false;
             for (Event const& e : kept)
             {

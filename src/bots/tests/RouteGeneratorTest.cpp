@@ -895,6 +895,41 @@ TEST(RagefireChasmRoute, TheCommittedRouteFightsTheHandOrderedPacksInTheirOrder)
         EXPECT_LT(stepOf[k - 1], stepOf[k]) << "spawn " << order.guids[k] << " comes too early";
 }
 
+TEST(RouteGenerator, AHandOrderedPackGetsAPullPointThatDoesNotPullAPackOfLater)
+{
+    // A big room. Pack 1 stands by the line, pack 2 off it to the south:
+    // the line reaches pack 2 right next to pack 1. The hand order fights
+    // pack 2 first, so its pull point must keep out of the aggro range of
+    // pack 1, which still lives. Pack 2 wanders, so its aggro range reaches
+    // farther from its spawn.
+    FakeNav nav;
+    nav.rooms = {{0, 200, -40, 40}};
+    Bots::GeneratorInput input;
+    input.name = "test_room";
+    input.mapId = 389;
+    input.entrance = {2, 0, 0};
+    input.spawns = {Spawn(1, 11318, 100, 5), Spawn(2, 11318, 110, -22, 5.0f), Spawn(5, 100, 195, 0)};
+    input.bosses = {100};
+    ASSERT_EQ(FoughtGuids(Bots::GenerateRoute(input, nav).route), (std::vector<std::uint32_t>{1, 2, 5}));
+
+    input.packOrder = {2, 1};
+    Bots::GeneratedRoute generated = Bots::GenerateRoute(input, nav);
+    ASSERT_TRUE(generated.ok) << generated.error;
+    Bots::Route const& route = generated.route;
+    ASSERT_EQ(FoughtGuids(route), (std::vector<std::uint32_t>{2, 1, 5}));
+    Bots::RoutePoint const* pull = nullptr;
+    for (Bots::RoutePoint const& point : route.points)
+        if (point.name == "pull_pack1")
+            pull = &point;
+    ASSERT_NE(pull, nullptr);
+    for (Bots::RoutePlace const& place : pull->places)
+    {
+        EXPECT_GE(Distance2d(place.position, {100, 5, 0}), input.settings.aggroRange) << "pack 1 joins the pull";
+        EXPECT_LE(Distance2d(place.position, {110, -22, 0}), input.settings.aggroRange + input.settings.margin + 5.0f)
+            << "the pull point is near its pack";
+    }
+}
+
 TEST(RouteGenerator, AHandOrderGuidOfNoPackOnTheRouteIsAWarning)
 {
     FakeNav nav = Dungeon();
