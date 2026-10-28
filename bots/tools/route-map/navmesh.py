@@ -28,6 +28,7 @@ NAV_MAGMA = 0x02
 NAV_SLIME = 0x04
 NAV_STEEP_SLOPES = 0x10
 LAVA = NAV_MAGMA | NAV_SLIME  # the liquids a player path leaves out (PathFinder.cpp)
+LAVA_MARGIN = 10.0
 
 
 class NavmeshError(Exception):
@@ -43,6 +44,8 @@ class Poly:
     tris: list[tuple[Vec, Vec, Vec]]  # the detail triangles: the real floor heights
     flags: int
     walls: list[tuple[Vec, Vec]] = field(default_factory=list)  # edges with no neighbour
+    portals: list[tuple[Vec, Vec]] = field(default_factory=list)  # edges on the tile border to the next tile
+    joined: list["Poly"] = field(default_factory=list, repr=False)  # the neighbours in the same tile
 
     @property
     def lava(self) -> bool:
@@ -95,7 +98,8 @@ def read_tile(path: Path) -> list[Poly]:
     verts = [_wow(struct.unpack_from("<3f", data, verts_at + 12 * i)) for i in range(vert_count)]
     detail_verts = [_wow(struct.unpack_from("<3f", data, detail_verts_at + 12 * i))
                     for i in range(detail_vert_count)]
-    polys = []
+    polys = {}
+    neighbours_of = {}
     for i in range(poly_count):
         at = polys_at + 32 * i
         indices = struct.unpack_from("<6H", data, at + 4)
@@ -111,9 +115,13 @@ def read_tile(path: Path) -> list[Poly]:
 
         tris = [tuple(vertex(k) for k in struct.unpack_from("<3B", data, detail_tris_at + 4 * (tri_base + t)))
                 for t in range(tri_count)]
-        walls = [(points[j], points[(j + 1) % count]) for j in range(count) if neighbours[j] == 0]
-        polys.append(Poly(points, tris, flags, walls))
-    return polys
+        edges = [(points[j], points[(j + 1) % count]) for j in range(count)]
+        polys[i] = Poly(points, tris, flags, [e for e, n in zip(edges, neighbours) if n == 0],
+                        [e for e, n in zip(edges, neighbours) if n & DT_EXT_LINK])
+        neighbours_of[i] = [n - 1 for n in neighbours[:count] if n and not n & DT_EXT_LINK]
+    for i, poly in polys.items():
+        poly.joined = [polys[n] for n in neighbours_of[i] if n in polys]
+    return list(polys.values())
 
 
 def read_map(folder: Path, map_id: int) -> list[Poly]:
@@ -143,6 +151,58 @@ class Floor:
     poly: Poly
 
 
+def _portal_line(edge):
+    """The tile border line of a portal edge and the edge's span on it."""
+    (ax, ay, az), (bx, by, bz) = edge
+    if abs(ax - bx) < 0.01:
+        return ("x", round(ax, 1)), (min(ay, by), max(ay, by)), (az + bz) / 2
+    return ("y", round(ay, 1)), (min(ax, bx), max(ax, bx)), (az + bz) / 2
+
+
+def _parts(polys):
+    """The polys grouped into floor parts: polys joined in their tile, and
+    polys whose portals meet over a tile border. Steep polys join nothing:
+    a chain of steep slopes would join the terrain that the mmap generator
+    leaves round a dungeon."""
+    parent = {id(p): id(p) for p in polys}
+
+    def root(k):
+        while parent[k] != k:
+            parent[k] = parent[parent[k]]
+            k = parent[k]
+        return k
+
+    def join(a, b):
+        if not (a.steep or b.steep):
+            parent[root(id(a))] = root(id(b))
+
+    lines = {}
+    for poly in polys:
+        for other in poly.joined:
+            if id(other) in parent:
+                join(poly, other)
+        for edge in poly.portals:
+            line, span, z = _portal_line(edge)
+            lines.setdefault(line, []).append((span, z, poly))
+    for portals in lines.values():
+        for k, (span, z, poly) in enumerate(portals):
+            for other_span, other_z, other in portals[k + 1:]:
+                if min(span[1], other_span[1]) - max(span[0], other_span[0]) > 0.01 and abs(z - other_z) < 3:
+                    join(poly, other)
+    parts = {}
+    for poly in polys:
+        parts.setdefault(root(id(poly)), []).append(poly)
+    return parts, root
+
+
+def _box(points):
+    return (min(q[0] for q in points), max(q[0] for q in points), min(q[1] for q in points), max(q[1] for q in points))
+
+
+def _overlap(a, b, margin=0.0):
+    return a[0] - margin <= b[1] and b[0] <= a[1] + margin and a[2] - margin <= b[3] and b[2] <= a[3] + margin
+
+
 class Navmesh:
     """The floor of a map: its walkable polygons (steep slopes left out)."""
 
@@ -166,6 +226,30 @@ class Navmesh:
                         found.append(Floor(z, poly))
                         break
         return sorted(found, key=lambda f: f.z)
+
+    def floor_near(self, x: float, y: float, z: float, within: float = 6.0):
+        """The floor at (x, y) nearest height z, if one is within that many yards."""
+        near = [f for f in self.floors(x, y) if abs(f.z - z) <= within]
+        return min(near, key=lambda f: abs(f.z - z)) if near else None
+
+    def joined_to(self, positions) -> list[Poly]:
+        """The floor of the dungeon: the floor parts that hold one of the
+        positions (x, y, z), and the lava parts in their area, give or take
+        LAVA_MARGIN yards (a lava pool behind steep banks). Not the planes that the mmap generator leaves
+        outside the dungeon. All polys when no position stands on a floor."""
+        parts, root = _parts(self.polys)
+        keep = set()
+        for x, y, z in positions:
+            found = self.floor_near(x, y, z)
+            if found:
+                keep.add(root(id(found.poly)))
+        if not keep:
+            return list(self.polys)
+        area = _box([q for k in keep for p in parts[k] for q in p.points])
+        for k, part in parts.items():
+            if any(p.lava for p in part) and _overlap(area, _box([q for p in part for q in p.points]), LAVA_MARGIN):
+                keep.add(k)
+        return [p for k in keep for p in parts[k]]
 
     def bounds(self) -> dict:
         xs = [q[0] for p in self.polys for q in p.points]

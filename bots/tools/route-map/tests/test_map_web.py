@@ -62,3 +62,32 @@ def test_a_map_with_no_navmesh_tiles_is_a_clear_error(tmp_path):
 
     assert response.status_code == 422
     assert "no navmesh tiles of map 33" in response.json()["detail"]
+
+
+def test_the_map_has_the_floor_image_with_the_wow_bounds_of_the_floor(tmp_path):
+    floor = client(tmp_path).get("/api/maps/fixture_cave").json()["floor"]
+
+    assert floor["image"].startswith("data:image/png;base64,")
+    assert floor["bounds"] == {"x_min": 100.0, "x_max": 114.0, "y_min": -50.0, "y_max": -34.0,
+                               "z_min": -20.0, "z_max": -12.0}
+
+
+def test_the_floor_is_only_the_floor_joined_to_the_route(tmp_path):
+    bounds = client(tmp_path).get("/api/maps/fixture_cave").json()["floor"]["bounds"]
+
+    assert bounds["x_max"] == 114.0  # the lava pool over the tile border, not the plane at x 300 to 330
+    assert bounds["y_max"] == -34.0  # the lava pool behind the steep bank
+    assert bounds["z_max"] == -12.0  # the upper floor holds the route point p2
+
+
+def test_a_height_range_draws_only_the_floors_in_it(tmp_path):
+    web = client(tmp_path)
+
+    upper = web.get("/api/maps/fixture_cave", params={"z_min": -15}).json()["floor"]["bounds"]
+    lower = web.get("/api/maps/fixture_cave", params={"z_max": -15}).json()["floor"]["bounds"]
+    empty = web.get("/api/maps/fixture_cave", params={"z_min": 0})
+
+    assert upper == {"x_min": 103.0, "x_max": 107.0, "y_min": -47.0, "y_max": -43.0, "z_min": -12.0, "z_max": -12.0}
+    assert lower == {"x_min": 100.0, "x_max": 114.0, "y_min": -50.0, "y_max": -34.0, "z_min": -20.0, "z_max": -19.0}
+    assert empty.status_code == 422
+    assert "no floor between" in empty.json()["detail"]

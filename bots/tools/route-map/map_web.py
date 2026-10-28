@@ -9,11 +9,14 @@ See spec jvbastel/WOWAI#148 and ADR 0003.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 
+import floor_image
 import navmesh
 import route_file
 
@@ -55,6 +58,21 @@ def create_app(settings: Settings) -> FastAPI:
                 raise HTTPException(422, f"navmesh: {error}")
         return meshes[map_id]
 
+    images = {}
+
+    def load_floor(route, z_min, z_max):
+        key = (route.map_id, tuple((p.x, p.y, p.z) for p in route.line + route.packs), z_min, z_max)
+        if key not in images:
+            mesh = load_navmesh(route.map_id)
+            polys = mesh.joined_to([(p.x, p.y, p.z) for p in route.line + route.packs])
+            try:
+                image = floor_image.render(polys, z_min, z_max)
+            except floor_image.EmptyFloor as error:
+                raise HTTPException(422, str(error))
+            images[key] = {"image": "data:image/png;base64," + base64.b64encode(image.png).decode(),
+                           "bounds": image.bounds}
+        return images[key]
+
     @app.get("/api/maps/{name}/floors")
     def floors(name: str, x: float, y: float):
         """The floors at (x, y), lowest first."""
@@ -62,12 +80,14 @@ def create_app(settings: Settings) -> FastAPI:
         return {"floors": [{"z": round(f.z, 2), "lava": f.poly.lava} for f in mesh.floors(x, y)]}
 
     @app.get("/api/maps/{name}")
-    def load_map(name: str):
+    def load_map(name: str, z_min: Optional[float] = None, z_max: Optional[float] = None):
+        """The map of a route: the floor image (only heights z_min to z_max
+        when given) with its bounds, the route line, and the route's packs."""
         route = load_route(name)
-        mesh = load_navmesh(route.map_id)
         return {
             "route": route.name,
             "map_id": route.map_id,
+            "floor": load_floor(route, z_min, z_max),
             "line": [vars(p) for p in route.line],
             "packs": [pack_view(route, pack, order) for order, pack in enumerate(route.packs, 1)],
         }

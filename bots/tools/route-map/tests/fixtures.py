@@ -21,19 +21,49 @@ STEEP = 0x10
 LOWER = [(100, -50, -20), (110, -50, -20), (110, -40, -20), (100, -40, -20)]
 UPPER = [(103, -47, -12), (107, -47, -12), (107, -43, -12), (103, -43, -12)]
 LAVA = [(110, -50, -20), (114, -50, -20), (114, -40, -20), (110, -40, -20)]
+# A second lava pool north of the lower floor, behind a steep bank: no walk
+# joins it to the floor, but the pool is part of the dungeon.
+BANK = [(100, -40, -20), (110, -40, -20), (110, -38, -19), (100, -38, -19)]
+POOL = [(100, -38, -19), (110, -38, -19), (110, -34, -19), (100, -34, -19)]
 
 
 def floor(points, flags=GROUND, area=1):
     return {"points": points, "flags": flags, "area": area}
 
 
-FLOORS = [floor(LOWER), floor(UPPER), floor(LAVA, flags=MAGMA, area=8)]
+# A flat plane far from the dungeon, not joined to it: the mmap generator
+# leaves such planes in the tiles of some dungeons (the Deadmines).
+OUTSIDE = [(300, 0, 50), (330, 0, 50), (330, 30, 50), (300, 30, 50)]
+
+# Two tiles. The lava pool sits in the second tile, joined to the lower floor
+# over the tile border at x 110.
+FLOORS = [floor(LOWER), floor(UPPER), floor(BANK, flags=GROUND | STEEP, area=3), floor(POOL, flags=MAGMA, area=8)]
+NEXT_TILE = [floor(LAVA, flags=MAGMA, area=8), floor(OUTSIDE)]
 
 
-def tile_bytes(polys, mmap_version=6, dt_version=7, link_size=16, links=2):
+def _neighbours(polys, poly, border_x):
+    """The Detour neis of a poly: 1 + the index of the poly of this tile
+    with the same edge, DT_EXT_LINK on the tile border, else 0 (a wall)."""
+    points = poly["points"]
+    out = []
+    for j, a in enumerate(points):
+        b = points[(j + 1) % len(points)]
+        other = next((k for k, q in enumerate(polys) for i, c in enumerate(q["points"])
+                      if c == b and q["points"][(i + 1) % len(q["points"])] == a), None)
+        if other is not None:
+            out.append(other + 1)
+        elif border_x is not None and a[0] == b[0] == border_x:
+            out.append(0x8000)
+        else:
+            out.append(0)
+    return out + [0] * (6 - len(out))
+
+
+def tile_bytes(polys, mmap_version=6, dt_version=7, link_size=16, links=2, border_x=110):
     """One .mmtile: the 20-byte mmap header and the Detour tile data. Each
     poly is convex and has its own vertices; its detail mesh is a fan of
-    triangles over the poly vertices."""
+    triangles over the poly vertices. Poly edges on the line x = border_x
+    are portals to the next tile."""
     verts = []
     poly_data = b""
     detail_meshes = b""
@@ -44,7 +74,7 @@ def tile_bytes(polys, mmap_version=6, dt_version=7, link_size=16, links=2):
         count = len(poly["points"])
         verts += [(y, z, x) for x, y, z in poly["points"]]
         indices = list(range(first, first + count)) + [0] * (6 - count)
-        poly_data += struct.pack("<I6H6HHBB", 0xFFFFFFFF, *indices, *([0] * 6), poly["flags"], count, poly["area"])
+        poly_data += struct.pack("<I6H6HHBB", 0xFFFFFFFF, *indices, *_neighbours(polys, poly, border_x), poly["flags"], count, poly["area"])
         tris = [(0, k, k + 1) for k in range(1, count - 1)]
         detail_meshes += struct.pack("<IIBBxx", 0, tri_count, 0, len(tris))
         detail_tris += b"".join(struct.pack("<4B", a, b, c, 0) for a, b, c in tris)
@@ -60,11 +90,13 @@ def tile_bytes(polys, mmap_version=6, dt_version=7, link_size=16, links=2):
     return struct.pack("<5I", MMAP_MAGIC, dt_version, mmap_version, len(body), 0) + body
 
 
-def write_tile(folder: Path, map_id: int, polys=FLOORS, **version) -> Path:
+def write_tile(folder: Path, map_id: int, polys=FLOORS, next_tile=NEXT_TILE, **version):
+    """The fixture tiles of the map: polys in tile 31,31 and next_tile in
+    tile 31,32."""
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / f"{map_id:03d}3131.mmtile"
-    path.write_bytes(tile_bytes(polys, **version))
-    return path
+    (folder / f"{map_id:03d}3131.mmtile").write_bytes(tile_bytes(polys, **version))
+    if next_tile:
+        (folder / f"{map_id:03d}3132.mmtile").write_bytes(tile_bytes(next_tile, **version))
 
 
 ROUTE = """\
