@@ -7,6 +7,7 @@
 
 #include "BotMgr.h"
 #include "GhostWalk.h"
+#include "DungeonFollow.h"
 #include "BotAI.h"
 #include "BotAccounts.h"
 #include "Chat.h"
@@ -250,6 +251,8 @@ void BotMgr::Update(uint32 diff)
         PlayerBotEntry& entry = *pair.second.entry;
         if (entry.state == PB_STATE_ONLINE)
             UpdateGroupOf(pair.second);
+        if (entry.state == PB_STATE_ONLINE)
+            FollowTankThroughInstance(pair.second);
         if (entry.state == PB_STATE_OFFLINE)
             pair.second.pendingInvite.Clear();
         if (entry.state == PB_STATE_ONLINE && !pair.second.pendingGear.empty())
@@ -792,6 +795,81 @@ void BotMgr::UpdateGroupOf(BotRecord& record)
         record.entry->state = PB_STATE_OFFLINE;
     }
     record.wasInGroup = group != nullptr;
+}
+
+namespace
+{
+    int64 SteadyNowMs()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
+
+    // What the dungeon follow knows of a member: a far teleport takes the
+    // player out of the world until it lands.
+    Bots::TravelFacts TravelFactsOf(Player const* player)
+    {
+        Bots::TravelFacts facts = {};
+        facts.inWorld = player->IsInWorld() && !player->IsBeingTeleported();
+        facts.alive = player->IsAlive() && !player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST);
+        facts.place = {player->GetMapId(), player->GetInstanceId()};
+        facts.inDungeon = facts.inWorld && player->GetMap()->IsDungeon();
+        return facts;
+    }
+}
+
+void BotMgr::FollowTankThroughInstance(BotRecord& record)
+{
+    // On the world thread, after the maps: the bot and the tank can sit on
+    // two map threads, and none runs now.
+    Player* bot = BotPlayer(record);
+    Group const* group = bot ? bot->GetGroup() : nullptr;
+    if (!group)
+        return;
+
+    // The members on any map: when the tank zones in, the bots are still
+    // outside, and the group coordinator sees nobody on the tank's map.
+    std::vector<Bots::GroupMember> members;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+    {
+        Player const* player = ObjectAccessor::FindPlayer(slot.guid);
+        if (!player || !player->IsInWorld())
+            continue;
+        // A human, or the test driver of a scripted run: no bot role.
+        Bots::BotRole role = Bots::BotRole::Ranged;
+        bool const isBot = BotRoleOf(player, role);
+        members.push_back({slot.guid.GetRawValue(), isBot, role});
+    }
+    Bots::Guid const tankGuid = Bots::HumanTankOf(members, group->GetLeaderGuid().GetRawValue());
+    Player* tank = tankGuid != Bots::NoGuid ? ObjectAccessor::FindPlayer(ObjectGuid(tankGuid)) : nullptr;
+    BotAI const* ai = BotAI::Of(bot);
+    if (!tank || !ai)
+        return;
+
+    int64 const now = SteadyNowMs();
+    Bots::DungeonFollowFacts facts = {};
+    facts.scriptedRun = IsScriptedRunGroup(group);
+    facts.humanTank = true;
+    facts.tank = TravelFactsOf(tank);
+    facts.bot = TravelFactsOf(bot);
+    facts.command = ai->CommandStateNow(true);
+    facts.msSinceLastTry = record.triedTankFollow ? now - record.lastTankFollowMs : Bots::DungeonFollowRetryMs;
+    if (!Bots::FollowsTankThroughInstance(facts))
+        return;
+
+    record.triedTankFollow = true;
+    record.lastTankFollowMs = now;
+    // Next to the tank: on its spot, the follow rule spreads the bots after
+    // the landing. A far teleport: the bot acks SMSG_NEW_WORLD itself
+    // (BotAI::OnPacketReceived), and the bot has no client to show it. An
+    // instance map binds the bot to the group's instance of the tank
+    // (Player::GetBoundInstanceSaveForSelfOrGroup). The new place reaches the
+    // database with the next save of the bot, as any move.
+    bool const sent = bot->TeleportTo(tank->GetMapId(), tank->GetPositionX(), tank->GetPositionY(),
+        tank->GetPositionZ(), tank->GetOrientation());
+    sLog.Out(LOG_BASIC, sent ? LOG_LVL_BASIC : LOG_LVL_ERROR, "[Bots] %s %s the player tank %s %s map %u",
+        bot->GetName(), sent ? "follows" : "cannot follow", tank->GetName(), facts.tank.inDungeon ? "into" : "out to",
+        tank->GetMapId());
 }
 
 bool BotMgr::HasPlayerMember(Group const& group) const

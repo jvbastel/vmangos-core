@@ -57,6 +57,13 @@ class BotAI : public PlayerBotAI
         void OnPacketReceived(WorldPacket const* packet) override;
         void UpdateAI(uint32 const diff) override;
 
+        // jvbastel/WOWAI#196: the command state of the bot now
+        // (Bots::CommandStateNow). On the world thread, after the maps.
+        Bots::CommandState CommandStateNow(bool playerTankGroup) const
+        {
+            return Bots::CommandStateNow(m_commanded, m_commandState, playerTankGroup);
+        }
+
     private:
         void HandlePacket(WorldPacket const& packet);
         // SMSG_PARTYKILLLOG: a boss kill of the group goes to the coordinator.
