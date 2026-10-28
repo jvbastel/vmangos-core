@@ -49,6 +49,7 @@ namespace Bots
             case RangedKind::Bow: return 2480;      // Shoot Bow
             case RangedKind::Gun: return 7918;      // Shoot Gun
             case RangedKind::Crossbow: return 7919; // Shoot Crossbow
+            case RangedKind::Wand: return 5019;     // Shoot
             case RangedKind::None: break;
         }
         return NoSpell;
@@ -56,6 +57,8 @@ namespace Bots
 
     bool CanFire(RangedWeapon const& weapon)
     {
+        if (weapon.kind == RangedKind::Wand)
+            return true;
         return weapon.kind != RangedKind::None && weapon.ammoEntry != 0 && weapon.ammoCount > 0;
     }
 

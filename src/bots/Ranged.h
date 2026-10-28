@@ -6,19 +6,21 @@
 #include <cstdint>
 
 // The ranged weapon of a bot and its ammo, for the ranged pull of the tank
-// (WarriorModule.h). The bot system keeps the ammo topped up for free: bots
-// never buy ammo.
+// (WarriorModule.h) and the wand of the Priest healer (PriestModule.h). The
+// bot system keeps the ammo topped up for free: bots never buy ammo. A wand
+// uses none.
 namespace Bots
 {
     class BotView;
 
     enum class RangedKind
     {
-        None, // No ranged weapon, or a wand.
+        None, // No ranged weapon.
         Thrown,
         Bow,
         Gun,
         Crossbow,
+        Wand, // jvbastel/WOWAI#133: no ammo, and no top-up.
     };
 
     // The ranged weapon that the bot wears.
@@ -56,14 +58,16 @@ namespace Bots
 
     // The top-up that a bot of level `level` needs for `weapon`: the best
     // ammo of its level, when it uses other ammo or has less than
-    // LowAmmo of it. A thrown weapon tops up its own stack.
+    // LowAmmo of it. A thrown weapon tops up its own stack. A wand needs
+    // no top-up.
     AmmoTopUp PlanAmmoTopUp(RangedWeapon const& weapon, std::uint32_t level);
 
-    // The spell that fires the weapon: Throw, Shoot Bow, Shoot Gun, or
-    // Shoot Crossbow. NoSpell for none.
+    // The spell that fires the weapon: Throw, Shoot Bow, Shoot Gun, Shoot
+    // Crossbow, or Shoot (a wand). NoSpell for none.
     SpellId ShootSpell(RangedKind kind);
 
-    // The bot can fire the weapon: it wears one and has ammo for it.
+    // The bot can fire the weapon: it wears one and has ammo for it. A wand
+    // needs no ammo.
     bool CanFire(RangedWeapon const& weapon);
 
     // The one "in shot" rule of the ranged pull (WarriorModule.h, the
