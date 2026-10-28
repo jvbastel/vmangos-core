@@ -187,6 +187,7 @@ expect pack_dead pack9
 # member nearest to them.
 scenario join_three
 expect healer_threat_losses 0  # per pull, through the whole run (jvbastel/WOWAI#165)
+expect damage_chase_yards 25  # no damage bot chases farther from the tank (jvbastel/WOWAI#171)
 teleport p18             # 23 yd from pack13: pull_pack13 is in its aggro reach
 clear 100 pack13 pack14  # only the two packs stay; also the patrol pack7
 command follow
@@ -207,6 +208,7 @@ expect alive
 # and take them off Hela.
 scenario join_three_healer
 expect healer_threat_losses 1  # per pull, through the whole run (jvbastel/WOWAI#165)
+expect damage_chase_yards 25  # no damage bot chases farther from the tank (jvbastel/WOWAI#171)
 teleport p18
 clear 100 pack13 pack14
 command follow
@@ -228,6 +230,7 @@ expect alive
 # from the pull point) on the healer.
 scenario join_four_healer
 expect healer_threat_losses 2  # per pull, through the whole run (jvbastel/WOWAI#165)
+expect damage_chase_yards 25  # no damage bot chases farther from the tank (jvbastel/WOWAI#171)
 teleport pull_pack35
 clear 100 pack35 pack36
 command follow

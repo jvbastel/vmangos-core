@@ -58,6 +58,8 @@ namespace Bots
             return {RunVerdictKind::Failed, "the second wipe"};
         if (!m_overLimit.empty())
             return {RunVerdictKind::Failed, m_overLimit};
+        if (!m_farChase.empty())
+            return {RunVerdictKind::Failed, m_farChase};
         if (nowMs - m_startMs >= RunLimitMs)
             return {RunVerdictKind::Failed, "the run did not end in " + std::to_string(RunLimitMs / 60000) + " min"};
         if (nowMs - m_progressMs >= NoProgressMs)
@@ -70,6 +72,8 @@ namespace Bots
     {
         if (!m_overLimit.empty())
             return {RunVerdictKind::Failed, m_overLimit};
+        if (!m_farChase.empty())
+            return {RunVerdictKind::Failed, m_farChase};
         if (m_killed.size() == m_bosses.size())
             return {RunVerdictKind::Passed, ""};
         return {RunVerdictKind::Failed, "the route ended with " + std::to_string(m_killed.size()) + " of " +
@@ -197,5 +201,22 @@ namespace Bots
             if (!PullFailure(pull).empty())
                 ++failed;
         return failed;
+    }
+}
+
+// jvbastel/WOWAI#171: the chase limit of the damage bots.
+namespace Bots
+{
+    void RunJudge::NoteChase(std::string const& member, BotRole role, std::string const& enemy, float yardsFromTank,
+        std::int64_t nowMs)
+    {
+        ScriptLimit const& limit = m_limits.damageChaseYards;
+        bool const damageBot = role == BotRole::Melee || role == BotRole::Ranged;
+        if (!limit.set || !damageBot || yardsFromTank <= float(limit.most) || !m_farChase.empty())
+            return;
+        char text[256];
+        std::snprintf(text, sizeof(text), "%s chases %s %.1f yd from the tank at %.1f s, over the limit %u of line %zu",
+            member.c_str(), enemy.c_str(), yardsFromTank, nowMs / 1000.0, limit.most, limit.line);
+        m_farChase = text;
     }
 }
