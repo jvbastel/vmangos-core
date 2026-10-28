@@ -293,7 +293,7 @@ namespace Bots
         // The tank of the group, or NoGuid. The bot AI of the tank sets it
         // on each think. For the chase limit (GroupRules.h).
         Guid GetTank() const;
-        // `playerTank`: the tank is a human (GroupTank.h, IsHumanTank).
+        // `playerTank`: the tank is a human (GroupTank.h, GroupTankOf).
         void SetTank(Guid tank, bool playerTank = false);
         // jvbastel/WOWAI#189: the ONE test of a player-tank group: the
         // group's tank is a human, not a bot. The rules of the player tank

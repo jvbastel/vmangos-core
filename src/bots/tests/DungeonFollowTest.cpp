@@ -2,14 +2,10 @@
 
 #include <gtest/gtest.h>
 
-using Bots::BotRole;
 using Bots::CommandState;
 using Bots::DungeonFollowFacts;
 using Bots::FollowsTankThroughInstance;
-using Bots::GroupMember;
-using Bots::HumanTankOf;
 using Bots::MapPlace;
-using Bots::NoGuid;
 using Bots::TravelFacts;
 
 // jvbastel/WOWAI#196: when the player tank goes into an instance or out of
@@ -17,10 +13,6 @@ using Bots::TravelFacts;
 // no command.
 namespace
 {
-    Bots::Guid const Player = 0x0000000000000001;
-    Bots::Guid const BotTank = 0x0000000000000011;
-    Bots::Guid const BotHealer = 0x0000000000000012;
-
     MapPlace const Durotar = {1, 0};
     MapPlace const RagefireChasm = {389, 7};
     MapPlace const OtherRagefireChasm = {389, 8};
@@ -35,16 +27,13 @@ namespace
     {
         DungeonFollowFacts facts;
         facts.scriptedRun = false;
-        facts.humanTank = true;
+        facts.playerTank = true;
         facts.tank = Inside();
         facts.bot = Outside();
         facts.command = CommandState::Follow;
         facts.msSinceLastTry = Bots::DungeonFollowRetryMs;
         return facts;
     }
-
-    GroupMember Human(Bots::Guid guid) { return {guid, false, BotRole::Ranged}; }
-    GroupMember Bot(Bots::Guid guid, BotRole role) { return {guid, true, role}; }
 }
 
 TEST(DungeonFollow, ABotFollowsThePlayerTankIntoTheInstance)
@@ -86,7 +75,7 @@ TEST(DungeonFollow, ABotDoesNotFollowATankWhoTravelsBetweenTwoOpenWorldMaps)
 TEST(DungeonFollow, ABotOfABotTankGroupDoesNotFollow)
 {
     DungeonFollowFacts facts = TankZonedIn();
-    facts.humanTank = false;
+    facts.playerTank = false;
     EXPECT_FALSE(FollowsTankThroughInstance(facts));
 }
 
@@ -157,22 +146,4 @@ TEST(DungeonFollow, AFailedTeleportIsTriedAgainOnlyAfterTheRetryTime)
     EXPECT_FALSE(FollowsTankThroughInstance(facts));
     facts.msSinceLastTry = Bots::DungeonFollowRetryMs;
     EXPECT_TRUE(FollowsTankThroughInstance(facts));
-}
-
-TEST(DungeonFollow, TheHumanLeaderOfAGroupWithNoBotTankIsTheTankToFollow)
-{
-    // Members on any map: the tank zoned in, the bots are still outside.
-    EXPECT_EQ(HumanTankOf({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player), Player);
-}
-
-TEST(DungeonFollow, AGroupWithABotTankHasNoHumanTankToFollow)
-{
-    EXPECT_EQ(HumanTankOf({Human(Player), Bot(BotTank, BotRole::Tank), Bot(BotHealer, BotRole::Healer)}, Player),
-        NoGuid);
-}
-
-TEST(DungeonFollow, AGroupWhoseHumanLeaderIsOutOfTheWorldHasNoTankToFollow)
-{
-    // The game layer leaves out a member that is not in the world.
-    EXPECT_EQ(HumanTankOf({Bot(BotHealer, BotRole::Healer)}, Player), NoGuid);
 }

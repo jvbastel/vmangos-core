@@ -397,7 +397,7 @@ TEST(GroupCoordinator, KeepsTheRoleThatEachMemberSets)
 }
 
 // jvbastel/WOWAI#189: a player-tank group is a group whose tank is a human
-// (GroupTank.h, IsHumanTank). A bot tank, or no tank, makes none.
+// (GroupTank.h, GroupTankOf). A bot tank, or no tank, makes none.
 TEST(GroupCoordinatorPlayerTank, OnlyAHumanTankMakesAPlayerTankGroup)
 {
     Bots::GroupCoordinator group;

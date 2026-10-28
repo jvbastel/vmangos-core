@@ -17,7 +17,7 @@ namespace Bots
         return NoGuid;
     }
 
-    bool IsHumanTank(std::vector<GroupMember> const& members, Guid tank)
+    bool IsPlayerTank(std::vector<GroupMember> const& members, Guid tank)
     {
         for (GroupMember const& member : members)
             if (!member.isBot && member.guid == tank)
@@ -25,15 +25,10 @@ namespace Bots
         return false;
     }
 
-    Guid NextGroupTank(std::vector<GroupMember> const& members, Guid leader, Guid current, bool currentIsBotTank)
+    GroupTank GroupTankOf(std::vector<GroupMember> const& members, Guid leader)
     {
-        Guid const pick = PickGroupTank(members, leader);
-        // A bot tank out of `members` stays, also over a human leader: the
-        // group stays a bot-tank group (merge review of jvbastel/WOWAI#189).
-        // A human who picked tank takes over (jvbastel/WOWAI#197).
-        if (currentIsBotTank && (pick == NoGuid || IsHumanTank(members, pick)) && !RefusesBotTank(members))
-            return current;
-        return pick;
+        Guid const tank = PickGroupTank(members, leader);
+        return {tank, IsPlayerTank(members, tank)};
     }
 
     bool RefusesBotTank(std::vector<GroupMember> const& members)

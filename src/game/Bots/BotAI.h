@@ -19,6 +19,7 @@
 #include "CommandState.h"
 #include "CoordinatorChoice.h"
 #include "GroupCoordinator.h"
+#include "GroupTank.h"
 #include "Inbox.h"
 #include "StartDelay.h"
 #include "Strategy.h"
@@ -95,11 +96,11 @@ class BotAI : public PlayerBotAI
         Bots::LeaderPlace PlaceOfLeader() const;
         // False without a group, or on another map than the group leader.
         bool UsesGroupCoordinator() const;
-        // The group's tank (bots/GroupTank.h, NextGroupTank), when the
-        // coordinator's tank is `current`: the bot tank, else a human
-        // leader of any class on the bot's map (jvbastel/WOWAI#189). NoGuid
-        // for none. `playerTank`: the tank is that human (IsHumanTank).
-        Bots::Guid GroupTankNow(Bots::Guid current, bool& playerTank) const;
+        // The group's tank (bots/GroupTank.h, GroupTankOf) over all of the
+        // group's members (BotMgr::GroupMembersOf): a bot tank of the group
+        // wherever it is, else a human leader of any class
+        // (jvbastel/WOWAI#189). {NoGuid, false} with no group or no tank.
+        Bots::GroupTank GroupTankNow() const;
         // The coordinator of the bot's group, of the group's bots in the
         // bot's place away from the leader, or the bot's own one.
         std::shared_ptr<Bots::GroupCoordinator> Coordinator();

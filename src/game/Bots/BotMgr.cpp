@@ -863,31 +863,12 @@ void BotMgr::FollowTankThroughInstance(BotRecord& record)
         return;
 
     // The members on any map: when the tank zones in, the bots are still
-    // outside, and the group coordinator sees nobody on the tank's map. A
-    // bot of the group counts also when it is offline or in a loading
-    // screen: a bot-tank group does not become a player-tank group while its
-    // tank is away (as NextGroupTank, GroupTank.h).
-    std::vector<Bots::GroupMember> members;
-    for (Group::MemberSlot const& slot : group->GetMemberSlots())
-    {
-        Bots::BotRole role = Bots::BotRole::Ranged;
-        auto const botRecord = slot.guid.IsPlayer() ? m_bots.find(slot.guid.GetCounter()) : m_bots.end();
-        if (botRecord != m_bots.end() && !IsTestDriver(slot.guid))
-        {
-            bool const isBot = Bots::ParseRoleName(botRecord->second.role, role);
-            members.push_back({slot.guid.GetRawValue(), isBot, role});
-            continue;
-        }
-        // A human, or the test driver of a scripted run: no bot role.
-        Player const* player = ObjectAccessor::FindPlayer(slot.guid);
-        if (!player || !player->IsInWorld())
-            continue;
-        bool const isBot = BotRoleOf(player, role);
-        // jvbastel/WOWAI#197: the role choice of a human.
-        members.push_back({slot.guid.GetRawValue(), isBot, role,
-            isBot ? Bots::RoleChoice::None : RoleChoiceOf(slot.guid)});
-    }
-    Bots::Guid const tankGuid = Bots::HumanTankOf(members, group->GetLeaderGuid().GetRawValue());
+    // outside, and the group coordinator sees nobody on the tank's map. The
+    // same rule as the group coordinator's tank (BotAI::GroupTankNow).
+    Bots::GroupTank const groupTank = Bots::GroupTankOf(GroupMembersOf(group, nullptr), group->GetLeaderGuid().GetRawValue());
+    if (!groupTank.playerTank)
+        return;
+    Bots::Guid const tankGuid = groupTank.tank;
     Player* tank = tankGuid != Bots::NoGuid ? ObjectAccessor::FindPlayer(ObjectGuid(tankGuid)) : nullptr;
     BotAI const* ai = BotAI::Of(bot);
     if (!tank || !ai)
@@ -896,7 +877,7 @@ void BotMgr::FollowTankThroughInstance(BotRecord& record)
     int64 const now = SteadyNowMs();
     Bots::DungeonFollowFacts facts = {};
     facts.scriptedRun = IsScriptedRunGroup(group);
-    facts.humanTank = true;
+    facts.playerTank = true;
     facts.tank = TravelFactsOf(tank);
     facts.bot = TravelFactsOf(bot);
     facts.command = ai->CommandStateNow(true);
@@ -1075,21 +1056,34 @@ Bots::RoleChoice BotMgr::RoleChoiceOf(ObjectGuid player) const
     return found == m_roleChoices.end() ? Bots::RoleChoice::None : found->second;
 }
 
+void BotMgr::AddGroupMember(ObjectGuid guid, std::vector<Bots::GroupMember>& members) const
+{
+    // A bot of ours wherever it is: on another map, in a loading screen, or
+    // offline (spec #188 fix-up S5). The test driver of a scripted run sits
+    // in the player's seat: it counts as a human.
+    auto const record = guid.IsPlayer() ? m_bots.find(guid.GetCounter()) : m_bots.end();
+    Bots::BotRole role = Bots::BotRole::Ranged;
+    if (record != m_bots.end() && !IsTestDriver(guid))
+    {
+        bool const isBot = Bots::ParseRoleName(record->second.role, role);
+        members.push_back({guid.GetRawValue(), isBot, role});
+        return;
+    }
+    // A human in the world, on any map, with its role choice
+    // (jvbastel/WOWAI#197).
+    if (!ObjectAccessor::FindPlayer(guid))
+        return;
+    members.push_back({guid.GetRawValue(), false, role, RoleChoiceOf(guid)});
+}
+
 std::vector<Bots::GroupMember> BotMgr::GroupMembersOf(Group const* group, Player const* player) const
 {
     std::vector<Bots::GroupMember> members;
-    auto add = [&](Player const* member) {
-        Bots::BotRole role = Bots::BotRole::Ranged;
-        bool const isBot = BotRoleOf(member, role);
-        members.push_back({member->GetObjectGuid().GetRawValue(), isBot, role,
-            isBot ? Bots::RoleChoice::None : RoleChoiceOf(member->GetObjectGuid())});
-    };
     if (group)
         for (Group::MemberSlot const& slot : group->GetMemberSlots())
-            if (Player const* member = ObjectAccessor::FindPlayer(slot.guid))
-                add(member);
+            AddGroupMember(slot.guid, members);
     if (player && (!group || !group->IsMember(player->GetObjectGuid())))
-        add(player);
+        AddGroupMember(player->GetObjectGuid(), members);
     return members;
 }
 

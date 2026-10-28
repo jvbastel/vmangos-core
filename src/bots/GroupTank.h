@@ -11,7 +11,10 @@
 // (GroupCoordinator::GetTank).
 namespace Bots
 {
-    // A member of the group, as the adapter knows it.
+    // A member of the group, as the game layer knows it
+    // (BotMgr::GroupMembersOf): each bot of the bot system wherever it is
+    // (on another map, in a loading screen, offline), and each human in the
+    // world, on any map.
     struct GroupMember
     {
         Guid guid;
@@ -35,15 +38,21 @@ namespace Bots
 
     // jvbastel/WOWAI#189: `tank` is a human in `members`. The group of such
     // a tank is a player-tank group (GroupCoordinator::IsPlayerTankGroup).
-    bool IsHumanTank(std::vector<GroupMember> const& members, Guid tank);
+    bool IsPlayerTank(std::vector<GroupMember> const& members, Guid tank);
 
-    // The tank that the group coordinator gets now, when its tank is
-    // `current`: the pick of PickGroupTank. With no pick, or a human pick,
-    // `current` stays when it is a bot tank (`currentIsBotTank`): the tank
-    // bot sets itself, also from another map, and a bot-tank group does not
-    // become a player-tank group while its tank is away. A human tank who gives up the lead, or
-    // leaves the map, is no tank any more.
-    Guid NextGroupTank(std::vector<GroupMember> const& members, Guid leader, Guid current, bool currentIsBotTank);
+    struct GroupTank
+    {
+        Guid tank;       // NoGuid: the group has no tank.
+        bool playerTank; // The tank is a human (IsPlayerTank).
+    };
+
+    // Spec #188 fix-up (S5): the ONE rule of who tanks a group, for the
+    // group coordinator (BotAI) and the dungeon follow (BotMgr) alike:
+    // PickGroupTank over all of the group's members (see GroupMember). A bot
+    // tank of the group is its tank wherever it is, so a human (or the test
+    // driver of a scripted run) is the tank only in a group with no bot tank
+    // at all, or with its role choice tank.
+    GroupTank GroupTankOf(std::vector<GroupMember> const& members, Guid leader);
 
     // jvbastel/WOWAI#197: never two tanks. A human in `members` picked tank
     // (role choice): the group takes no bot with the tank role.

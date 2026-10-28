@@ -34,8 +34,8 @@ namespace Bots
         // The group plays a scripted run: the run teleports it itself.
         bool scriptedRun;
         // The group is a player-tank group: its tank is a human
-        // (HumanTankOf).
-        bool humanTank;
+        // (GroupTankOf, GroupTank.h).
+        bool playerTank;
         TravelFacts tank;
         TravelFacts bot;
         // The command state of the bot now (CommandStateNow).
@@ -43,12 +43,6 @@ namespace Bots
         // The time since the last teleport of this bot after the tank.
         std::int64_t msSinceLastTry;
     };
-
-    // The human tank of the group, or NoGuid: PickGroupTank and IsHumanTank
-    // (GroupTank.h, jvbastel/WOWAI#189), over the members on ANY map. The
-    // group coordinator only sees the members on the leader's map, and during
-    // the tank's loading screen nobody is there.
-    Guid HumanTankOf(std::vector<GroupMember> const& members, Guid leader);
 
     // The bot is teleported to the tank now: the group is a player-tank group
     // and no scripted run, both are alive and in the world, they are in two

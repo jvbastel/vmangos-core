@@ -5,7 +5,7 @@
 using Bots::BotRole;
 using Bots::GroupMember;
 using Bots::NoGuid;
-using Bots::NextGroupTank;
+using Bots::GroupTankOf;
 using Bots::PickGroupTank;
 
 // Review of spec #131, story 10: the group's tank is the bot with the tank
@@ -46,22 +46,35 @@ TEST(GroupTank, ALeaderOutOfTheMembersGivesNoTank)
     EXPECT_EQ(PickGroupTank({Bot(BotHealer, BotRole::Healer), Bot(BotMage, BotRole::Ranged)}, Player), NoGuid);
 }
 
-// Merge review of spec #131: a human tank who leaves the map, or gives up
-// the lead, is no tank any more. A bot tank stays (it sets itself).
-TEST(GroupTank, AHumanTankWhoLeavesIsNoTankAnyMore)
+// Spec #188 fix-up (S5): the members are all of the group's members, a bot
+// on any map or offline too. A bot tank of the group is its tank wherever it
+// is: a human leader (or the test driver) does not take over while it is
+// away, so the group never is a player-tank group for a while.
+TEST(GroupTank, ABotTankAwayFromTheLeaderIsTheTankNotTheHumanLeader)
 {
-    EXPECT_EQ(NextGroupTank({Bot(BotHealer, BotRole::Healer)}, Player, Player, false), NoGuid);
-    EXPECT_EQ(NextGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, BotHealer, Player, false), NoGuid);
+    // The bot tank is in a loading screen, on another map, or offline: it
+    // is still a member.
+    Bots::GroupTank const tank =
+        GroupTankOf({Human(Player), Bot(BotHealer, BotRole::Healer), Bot(BotTank, BotRole::Tank)}, Player);
+
+    EXPECT_EQ(tank.tank, BotTank);
+    EXPECT_FALSE(tank.playerTank);
 }
 
-TEST(GroupTank, ABotTankOutOfTheMembersStaysTheTank)
+TEST(GroupTank, AHumanLeaderWithNoBotTankMakesAPlayerTankGroup)
 {
-    EXPECT_EQ(NextGroupTank({Bot(BotHealer, BotRole::Healer)}, BotHealer, BotTank, true), BotTank);
+    Bots::GroupTank const tank = GroupTankOf({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player);
+
+    EXPECT_EQ(tank.tank, Player);
+    EXPECT_TRUE(tank.playerTank);
 }
 
-TEST(GroupTank, APickReplacesTheCurrentTank)
+TEST(GroupTank, AHumanWhoGivesUpTheLeadIsNoTankAnyMore)
 {
-    EXPECT_EQ(NextGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player, NoGuid, false), Player);
+    Bots::GroupTank const tank = GroupTankOf({Human(Player), Bot(BotHealer, BotRole::Healer)}, BotHealer);
+
+    EXPECT_EQ(tank.tank, NoGuid);
+    EXPECT_FALSE(tank.playerTank);
 }
 
 // jvbastel/WOWAI#189: with no bot tank, the human leader is the group's
@@ -77,17 +90,9 @@ TEST(GroupTank, AHumanLeaderOfAnyClassWithNoBotTankIsTheTank)
 TEST(GroupTank, OnlyAHumanTankMakesAPlayerTankGroup)
 {
     std::vector<GroupMember> const members = {Human(Player), Bot(BotTank, BotRole::Tank)};
-    EXPECT_TRUE(Bots::IsHumanTank(members, Player));
-    EXPECT_FALSE(Bots::IsHumanTank(members, BotTank));
-    EXPECT_FALSE(Bots::IsHumanTank(members, NoGuid));
-}
-
-// Merge review of jvbastel/WOWAI#189: a bot tank that is not in `members`
-// (on another map, or zoning) stays the tank. The human leader does not take
-// over and make a player-tank group of a bot-tank group.
-TEST(GroupTank, ABotTankOutOfTheMembersStaysTheTankOverAHumanLeader)
-{
-    EXPECT_EQ(NextGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player, BotTank, true), BotTank);
+    EXPECT_TRUE(Bots::IsPlayerTank(members, Player));
+    EXPECT_FALSE(Bots::IsPlayerTank(members, BotTank));
+    EXPECT_FALSE(Bots::IsPlayerTank(members, NoGuid));
 }
 
 // jvbastel/WOWAI#197: the role choice of the add-on. A human who picked tank
@@ -126,12 +131,13 @@ TEST(GroupTank, ANonTankRoleChoiceChangesNothing)
         Player);
 }
 
-TEST(GroupTank, TheTankRoleChoiceTakesOverFromABotTankThatIsAway)
+TEST(GroupTank, TheTankRoleChoiceTakesOverFromABotTank)
 {
-    EXPECT_EQ(NextGroupTank({HumanWith(Player, Bots::RoleChoice::Tank), Bot(BotHealer, BotRole::Healer)}, Player, BotTank,
-                  true),
-        Player);
-    EXPECT_TRUE(Bots::IsHumanTank({HumanWith(Player, Bots::RoleChoice::Tank)}, Player));
+    Bots::GroupTank const tank =
+        GroupTankOf({HumanWith(Player, Bots::RoleChoice::Tank), Bot(BotTank, BotRole::Tank)}, Player);
+
+    EXPECT_EQ(tank.tank, Player);
+    EXPECT_TRUE(tank.playerTank);
 }
 
 TEST(GroupTank, AGroupWithAHumanTankRoleChoiceTakesNoBotTank)

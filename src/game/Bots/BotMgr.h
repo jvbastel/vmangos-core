@@ -235,11 +235,13 @@ class BotMgr
         // change. From any thread.
         void SetRoleChoice(ObjectGuid player, Bots::RoleChoice choice);
         Bots::RoleChoice RoleChoiceOf(ObjectGuid player) const;
-        // jvbastel/WOWAI#197: the online members of `group`, on any map,
-        // with the bot role of our bots and the role choice of the humans
-        // (GroupTank.h). `player`, when not null and not in the group, is
-        // added: the player who invites into no group yet. World thread, or
-        // a map thread (it reads only GUIDs, bot roles and role choices).
+        // jvbastel/WOWAI#197 and the spec #188 fix-up (S5): the members of
+        // `group` for the group's tank (GroupTank.h): each bot of ours with
+        // its bot role, wherever it is (another map, a loading screen,
+        // offline), and each human in the world, on any map, with its role
+        // choice. `player`, when not null and not in the group, is added:
+        // the player who invites into no group yet. World thread, or a map
+        // thread (it reads only GUIDs, bot roles and role choices).
         std::vector<Bots::GroupMember> GroupMembersOf(Group const* group, Player const* player) const;
 
         // jvbastel/WOWAI#198: from any thread (the chat handlers): the
@@ -261,6 +263,8 @@ class BotMgr
         // jvbastel/WOWAI#196: the bot follows the player tank into or out of
         // an instance (bots/DungeonFollow.h).
         void FollowTankThroughInstance(BotRecord& record);
+        // One member of GroupMembersOf.
+        void AddGroupMember(ObjectGuid guid, std::vector<Bots::GroupMember>& members) const;
         // The group has a member that is no WOWAI bot, online or not.
         bool HasPlayerMember(Group const& group) const;
         void PutOnPendingGear(BotRecord& record);

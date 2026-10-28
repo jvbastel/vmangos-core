@@ -520,35 +520,15 @@ bool BotAI::UsesGroupCoordinator() const
     return CoordinatorChoiceNow() == Bots::CoordinatorChoice::Group;
 }
 
-Bots::Guid BotAI::GroupTankNow(Bots::Guid current, bool& playerTank) const
+Bots::GroupTank BotAI::GroupTankNow() const
 {
-    playerTank = false;
     Group const* group = me->GetGroup();
     if (!group)
-        return Bots::NoGuid;
-    std::vector<Bots::GroupMember> members;
-    for (Group::MemberSlot const& slot : group->GetMemberSlots())
-    {
-        Player const* player = ObjectAccessor::FindPlayer(slot.guid);
-        if (!player || !player->IsInWorld() || !player->IsInMap(me))
-            continue;
-        // A human player, or the test driver of a scripted run, which
-        // stands in for one: no bot role (BotMgr::BotRoleOf).
-        Bots::BotRole role = Bots::BotRole::Ranged;
-        bool const isBot = sBotMgr.BotRoleOf(player, role);
-        // jvbastel/WOWAI#197: the role choice of a human.
-        members.push_back({slot.guid.GetRawValue(), isBot, role,
-            isBot ? Bots::RoleChoice::None : sBotMgr.RoleChoiceOf(slot.guid)});
-    }
-    // The current tank stays when it is a bot tank of this group, also on
-    // another map (a bot tank that left the group does not stay).
-    Player const* currentPlayer = current != Bots::NoGuid ? ObjectAccessor::FindPlayer(ObjectGuid(current)) : nullptr;
-    Bots::BotRole currentRole = Bots::BotRole::Ranged;
-    bool const currentIsBotTank = currentPlayer && group->IsMember(ObjectGuid(current))
-        && sBotMgr.BotRoleOf(currentPlayer, currentRole) && currentRole == Bots::BotRole::Tank;
-    Bots::Guid const tank = Bots::NextGroupTank(members, group->GetLeaderGuid().GetRawValue(), current, currentIsBotTank);
-    playerTank = Bots::IsHumanTank(members, tank);
-    return tank;
+        return {Bots::NoGuid, false};
+    // All of the group's members, a bot on another map or offline too
+    // (spec #188 fix-up S5): a bot tank of the group is the tank wherever
+    // it is.
+    return Bots::GroupTankOf(sBotMgr.GroupMembersOf(group, nullptr), group->GetLeaderGuid().GetRawValue());
 }
 
 std::shared_ptr<Bots::GroupCoordinator> BotAI::Coordinator()
@@ -656,10 +636,15 @@ void BotAI::Think()
     // Only the group coordinator: the leader is on the bot's map.
     else if (UsesGroupCoordinator())
     {
-        bool playerTank = false;
-        Bots::Guid const tank = GroupTankNow(coordinator->GetTank(), playerTank);
-        if (tank != coordinator->GetTank() || playerTank != coordinator->IsPlayerTankGroup())
-            coordinator->SetTank(tank, playerTank);
+        Bots::GroupTank const tank = GroupTankNow();
+        if (tank.tank != coordinator->GetTank() || tank.playerTank != coordinator->IsPlayerTankGroup())
+        {
+            coordinator->SetTank(tank.tank, tank.playerTank);
+            Player const* tankPlayer = ObjectAccessor::FindPlayer(ObjectGuid(tank.tank));
+            sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s sees the group's tank: %s (%s)", me->GetName(),
+                tankPlayer ? tankPlayer->GetName() : (tank.tank == Bots::NoGuid ? "none" : "away"),
+                tank.playerTank ? "player tank" : "bot tank");
+        }
         // jvbastel/WOWAI#192: the bots keep the human tank's trail
         // (TrailFollow.h). Nothing in a bot-tank group.
         Bots::WatchTankTrail(adapter, *coordinator);

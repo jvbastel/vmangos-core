@@ -2,15 +2,9 @@
 
 namespace Bots
 {
-    Guid HumanTankOf(std::vector<GroupMember> const& members, Guid leader)
-    {
-        Guid const tank = PickGroupTank(members, leader);
-        return IsHumanTank(members, tank) ? tank : NoGuid;
-    }
-
     bool FollowsTankThroughInstance(DungeonFollowFacts const& facts)
     {
-        if (facts.scriptedRun || !facts.humanTank)
+        if (facts.scriptedRun || !facts.playerTank)
             return false;
         if (!facts.tank.inWorld || !facts.tank.alive || !facts.bot.inWorld || !facts.bot.alive)
             return false;
