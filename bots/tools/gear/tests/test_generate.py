@@ -9,7 +9,8 @@ from fixtures import creature, item, loot, quest, spawn, tables
 
 BASE = {
     "levels": {"min": 1, "max": 60, "required_level_window": 6},
-    "sources": {"creature_level_margin": 0, "world_drop_level_margin": 3, "include_raids": False},
+    "sources": {"creature_level_margin": 0, "world_drop_level_margin": 3, "include_raids": False,
+                "faction_split": ["horde", "alliance"]},
     "quality": {"min": 1, "epic_min_level": 60, "blue_caps": [[1, 19, 0], [20, 39, 2], [40, 54, 4], [55, 60, 6]]},
     "pool": {"size": 10},
     "roles": {
