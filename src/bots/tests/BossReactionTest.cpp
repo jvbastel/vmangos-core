@@ -194,3 +194,19 @@ TEST(BossReactionSlot, TheEndOfTheFightKeepsAnotherFocus)
 
     EXPECT_EQ(bot.group.GetFocusTarget(), Imp);
 }
+
+// jvbastel/WOWAI#173: a dead boss does not end the pull. The tank's "the focus
+// dies" rule picks the next focus, or ends the pull when no enemy is left.
+TEST(BossReactionSlot, ADeadBossLeavesThePullToTheTank)
+{
+    HealerBot bot;
+    bot.fake.SetVictim(Taragaman, Tank);
+    bot.group.SetFocusTarget(Taragaman);
+    bot.Update();
+
+    bot.fake.SetHealth(Taragaman, 0, 5000);
+    bot.Update();
+
+    EXPECT_EQ(bot.group.GetBossFight().boss, NoGuid);
+    EXPECT_EQ(bot.group.GetFocusTarget(), Taragaman);
+}

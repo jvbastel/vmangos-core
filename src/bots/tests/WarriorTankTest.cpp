@@ -883,7 +883,8 @@ TEST(WarriorTank, TakesTheEnemyOnAMemberAsFocusWhenTheFocusDies)
     rogue.SetHealth(Wolf, 300, 300);
     rogue.SetVictim(Wolf, Healer);
     BotContext context{rogue, rogue, tank.group, Bots::CommandState::Follow, 0x1};
-    context.nowMs = 10000;
+    // Past the hold of the held pull (HoldLimitMs after the engage at 0).
+    context.nowMs = Bots::HoldLimitMs + 2000;
     EXPECT_EQ(Bots::PickDamageTarget(context), Wolf);
 }
 

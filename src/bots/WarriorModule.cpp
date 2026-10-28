@@ -762,8 +762,10 @@ namespace Bots
                             context.group.EndPull();
                         else
                         {
-                            // A pull target that died on its way: the fight
-                            // is on all the same, so the pull is held.
+                            // The pull is held (no change when it is held
+                            // already). A pull target that died on its way
+                            // leaves a held pull, so the tank does not go on
+                            // pulling a dead target.
                             context.group.HoldPull(Self(context), context.nowMs);
                             context.group.SetFocusTarget(next);
                         }
