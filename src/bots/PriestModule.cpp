@@ -87,17 +87,56 @@ namespace Bots
                 return health.max ? float(health.current) / float(health.max) : 1.0f;
             }
 
+            // jvbastel/WOWAI#194: in a player-tank group, a member below
+            // this fraction, or one that dies within DyingSoonMs at its
+            // damage rate, gets a heal before the threat lead.
+            float const PlayerTankDangerBelow = 0.4f;
+            std::int64_t const DyingSoonMs = 3000;
+
+            // jvbastel/WOWAI#194: in a player-tank group, the bot notes the
+            // health of each living member on each think that reaches the
+            // heals, for its damage rate (GroupCoordinator::NoteDamageRate).
+            void NoteDamageRates(BotContext const& context)
+            {
+                if (!context.group.IsPlayerTankGroup())
+                    return;
+                for (Guid member : context.view.GetGroupMembers())
+                    if (IsAlive(context.view, member))
+                        context.group.NoteDamageRate(member, context.view.GetHealth(member).current, context.nowMs);
+            }
+
+            // jvbastel/WOWAI#194: a heal on member `member` may start now.
+            // Always in a bot-tank group (its pull wait is WaitsForTheTank),
+            // and always on the tank. In a player-tank group, a heal on any
+            // other member (the healer too) waits for the threat lead of the
+            // tank (TankHoldsThreat, DamageRules.h): heal threat goes to every
+            // enemy in the fight. Unless the member is in danger: below
+            // PlayerTankDangerBelow, or dying within DyingSoonMs at the damage
+            // rate it lost health at.
+            bool HealMayStart(BotContext const& context, Guid member)
+            {
+                if (!context.group.IsPlayerTankGroup() || member == context.group.GetTank())
+                    return true;
+                std::uint32_t const health = context.view.GetHealth(member).current;
+                float const rate = context.group.NoteDamageRate(member, health, context.nowMs);
+                if (TankHoldsThreat(context) || HealthFraction(context.view, member) < PlayerTankDangerBelow)
+                    return true;
+                return rate > 0.0f && float(health) <= rate * float(DyingSoonMs) / 1000.0f;
+            }
+
             // The living group member with the lowest health fraction below
             // `below` that `filter` accepts, or NoGuid. On a tie, the first
-            // member.
-            Guid MostHurtMember(BotContext const& context, float below, MemberFilter filter)
+            // member. jvbastel/WOWAI#194: with `healable`, only a member
+            // whose heal may start now (HealMayStart).
+            Guid MostHurtMember(BotContext const& context, float below, MemberFilter filter, bool healable = false)
             {
                 Guid most = NoGuid;
                 float lowest = below;
                 for (Guid member : context.view.GetGroupMembers())
                 {
                     float const fraction = HealthFraction(context.view, member);
-                    if (IsAlive(context.view, member) && fraction < lowest && filter(context, member))
+                    if (IsAlive(context.view, member) && fraction < lowest && filter(context, member)
+                        && (!healable || HealMayStart(context, member)))
                     {
                         most = member;
                         lowest = fraction;
@@ -122,7 +161,10 @@ namespace Bots
                 Guid const self = PickSelf(context);
                 bool const falls = context.group.NoteHealthFalls(self, context.view.GetHealth(self).current,
                     context.nowMs);
-                return falls && IsAttacked(context) && CanTakeShield(context.view, self);
+                // jvbastel/WOWAI#194: the shield is a heal on a member other
+                // than the tank: in a player-tank group it waits for the
+                // threat lead too, unless the bot is in danger.
+                return falls && IsAttacked(context) && CanTakeShield(context.view, self) && HealMayStart(context, self);
             }
 
             // jvbastel/WOWAI#170: an enemy attacks the bot, and the living
@@ -148,6 +190,8 @@ namespace Bots
             // (HoldsFireOn, jvbastel/WOWAI#144), with no enemy on the bot,
             // the target in shot range and sight, and no shot going yet.
             // Shoot costs no mana: the spirit regen goes on.
+            // jvbastel/WOWAI#194: not while it holds back on its threat
+            // (HoldsBackOnThreat, DamageRules.h).
             bool ShootsTheFocus(BotContext const& context)
             {
                 Guid const focus = context.group.GetFocusTarget();
@@ -155,7 +199,7 @@ namespace Bots
                     && context.view.GetRangedWeapon().kind == RangedKind::Wand && CanShoot(context.view)
                     && context.view.GetShotTarget() == NoGuid
                     && IsAlive(context.view, focus) && TankHoldsThreat(context) && !HoldsFireOn(context, focus)
-                    && InWandShot(context.view, focus);
+                    && InWandShot(context.view, focus) && !HoldsBackOnThreat(context, focus, RangedTakeoverRatio);
             }
 
             // Review of spec #131: a going shot repeats on its own. The bot
@@ -163,12 +207,13 @@ namespace Bots
             // target is not the focus target, the tank no longer holds
             // threat on it, or an enemy attacks the bot. jvbastel/WOWAI#144:
             // or it holds fire on it (HoldsFireOn, DamageRules.h).
+            // jvbastel/WOWAI#194: or it holds back on its threat.
             bool StopsTheShot(BotContext const& context)
             {
                 Guid const shot = context.view.GetShotTarget();
                 return shot != NoGuid
                     && (shot != context.group.GetFocusTarget() || !TankHoldsThreat(context) || IsAttacked(context)
-                        || HoldsFireOn(context, shot));
+                        || HoldsFireOn(context, shot) || HoldsBackOnThreat(context, shot, RangedTakeoverRatio));
             }
 
             // The first living member without Power Word: Fortitude, or NoGuid.
@@ -264,13 +309,14 @@ namespace Bots
 
             TargetPicker HurtMember(float below, MemberFilter filter = AnyMember)
             {
-                return [below, filter](BotContext const& context) { return MostHurtMember(context, below, filter); };
+                return [below, filter](BotContext const& context) { return MostHurtMember(context, below, filter, true); };
             }
 
             Trigger SomeoneBelow(float below, MemberFilter filter = AnyMember)
             {
                 return [below, filter](BotContext const& context) {
-                    return !WaitsForTheTank(context) && MostHurtMember(context, below, filter) != NoGuid;
+                    NoteDamageRates(context);
+                    return !WaitsForTheTank(context) && MostHurtMember(context, below, filter, true) != NoGuid;
                 };
             }
 

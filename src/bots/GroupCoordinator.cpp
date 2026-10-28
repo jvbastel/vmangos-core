@@ -587,6 +587,56 @@ namespace Bots
         return falls;
     }
 
+    void GroupCoordinator::HoldBackOnThreat(Guid bot, Guid enemy)
+    {
+        Lock lock(m_mutex);
+        m_threatHolds[bot].insert(enemy);
+    }
+
+    void GroupCoordinator::EndThreatHold(Guid bot, Guid enemy)
+    {
+        Lock lock(m_mutex);
+        auto const found = m_threatHolds.find(bot);
+        if (found == m_threatHolds.end())
+            return;
+        found->second.erase(enemy);
+        if (found->second.empty())
+            m_threatHolds.erase(found);
+    }
+
+    bool GroupCoordinator::HoldsBackOnThreat(Guid bot, Guid enemy) const
+    {
+        Lock lock(m_mutex);
+        auto const found = m_threatHolds.find(bot);
+        return found != m_threatHolds.end() && found->second.count(enemy) != 0;
+    }
+
+    std::vector<Guid> GroupCoordinator::GetThreatHolds(Guid bot) const
+    {
+        Lock lock(m_mutex);
+        auto const found = m_threatHolds.find(bot);
+        return found == m_threatHolds.end() ? std::vector<Guid>{}
+                                            : std::vector<Guid>(found->second.begin(), found->second.end());
+    }
+
+    float GroupCoordinator::NoteDamageRate(Guid member, std::uint32_t health, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        std::vector<HealthNote>& notes = m_damageNotes[member];
+        // A note from the future (the clock went back) is dropped too.
+        notes.erase(std::remove_if(notes.begin(), notes.end(),
+                        [nowMs](HealthNote const& note) {
+                            return nowMs - note.atMs > DamageRateMs || note.atMs > nowMs;
+                        }),
+            notes.end());
+        float rate = 0.0f;
+        if (!notes.empty() && notes.front().atMs < nowMs && notes.front().health > health)
+            rate = float(notes.front().health - health) * 1000.0f / float(nowMs - notes.front().atMs);
+        if (notes.empty() || notes.back().atMs < nowMs)
+            notes.push_back(HealthNote{nowMs, health});
+        return rate;
+    }
+
     // jvbastel/WOWAI#193
     bool GroupCoordinator::NoteLowManaCall(Guid bot)
     {
