@@ -146,7 +146,7 @@ namespace Bots
             if (IsAlive(context.view, context.attackTarget))
                 return context.attackTarget;
             Guid const healer = PickEnemyHealer(context);
-            if (healer != NoGuid && !HoldsFireOn(context, healer))
+            if (healer != NoGuid && !HoldsFireOn(context, healer) && !HoldsBackOnThreat(context, healer, takeover))
                 return healer;
             Guid const focus = context.group.GetFocusTarget();
             bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
@@ -233,11 +233,15 @@ namespace Bots
         bool const holds = context.group.HoldsBackOnThreat(self, enemy);
         if (holds && ratio < ThreatStartShare * takeover)
         {
-            context.group.EndThreatHold(self);
+            context.group.EndThreatHold(self, enemy);
             return false;
         }
         if (!holds && ratio >= ThreatStopShare * takeover)
         {
+            // The holds on dead enemies go first, so that they never pile up.
+            for (Guid held : context.group.GetThreatHolds(self))
+                if (!IsAlive(context.view, held))
+                    context.group.EndThreatHold(self, held);
             context.group.HoldBackOnThreat(self, enemy);
             return true;
         }

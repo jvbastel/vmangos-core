@@ -404,11 +404,13 @@ namespace Bots
         bool NoteHealthFalls(Guid bot, std::uint32_t health, std::int64_t nowMs);
 
         // jvbastel/WOWAI#194: the threat throttle (DamageRules.h). Bot `bot`
-        // holds back on enemy `enemy` until EndThreatHold. One enemy per
-        // bot: a new hold replaces the last.
+        // holds back on enemy `enemy` until EndThreatHold of that enemy. A
+        // bot may hold back on several enemies (the focus, an enemy healer).
         void HoldBackOnThreat(Guid bot, Guid enemy);
-        void EndThreatHold(Guid bot);
+        void EndThreatHold(Guid bot, Guid enemy);
         bool HoldsBackOnThreat(Guid bot, Guid enemy) const;
+        // The enemies bot `bot` holds back on.
+        std::vector<Guid> GetThreatHolds(Guid bot) const;
 
         // jvbastel/WOWAI#194: the health of member `member` at `nowMs`, as
         // the healer sees it on each think. Returns the health the member
@@ -464,8 +466,8 @@ namespace Bots
             std::uint32_t health;
         };
         std::map<Guid, std::vector<HealthNote>> m_healthNotes;
-        // jvbastel/WOWAI#194: by bot, the enemy it holds back on.
-        std::map<Guid, Guid> m_threatHolds;
+        // jvbastel/WOWAI#194: by bot, the enemies it holds back on.
+        std::map<Guid, std::set<Guid>> m_threatHolds;
         // jvbastel/WOWAI#194: by member, its health notes of the last
         // DamageRateMs, oldest first (NoteDamageRate).
         std::map<Guid, std::vector<HealthNote>> m_damageNotes;

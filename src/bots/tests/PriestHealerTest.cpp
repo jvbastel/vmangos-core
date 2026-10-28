@@ -1580,3 +1580,79 @@ TEST(PriestHealerPlayerTank, AHurtMemberGetsAHealAfterTheThreatLead)
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Mage)}));
 }
+
+// Review of jvbastel/WOWAI#194: in a player-tank group the wand holds back
+// on the focus at the ranged threat stop, and the healer's own shield waits
+// for the threat lead like any heal on a member other than the tank.
+namespace
+{
+    // The human tank has held the kobold for the threat lead.
+    void PlayerTankHoldsKobold(PriestHealer& priest)
+    {
+        PlayerTankFights(priest);
+        priest.fake.SetTargetOf(Tank, Kobold);
+        priest.fake.SetThreatRatio(Tank, Kobold, 1.5f);
+        Bots::WatchPlayerTank(priest.fake, priest.group, 0);
+        priest.nowMs = Bots::PlayerTankHoldMs;
+        Bots::WatchPlayerTank(priest.fake, priest.group, priest.nowMs);
+    }
+}
+
+TEST(PriestHealerPlayerTank, TheWandHoldsBackAtTheRangedThreatStop)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    PlayerTankHoldsKobold(priest);
+    priest.fake.SetThreatRatio(Healer, Kobold, 1.18f);
+
+    priest.Think();
+
+    for (std::string const& deed : priest.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Priest::Shoot, Kobold));
+}
+
+TEST(PriestHealerPlayerTank, TheWandShootsUnderTheRangedThreatStop)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    PlayerTankHoldsKobold(priest);
+    priest.fake.SetThreatRatio(Healer, Kobold, 1.0f);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Shoot, Kobold)}));
+}
+
+TEST(PriestHealerPlayerTank, DoesNotShieldItselfBeforeTheThreatLead)
+{
+    PriestHealer priest;
+    PlayerTankFights(priest);
+    KoboldOnTheHealer(priest);
+    priest.fake.SetCannotCast(Priest::Fade);
+
+    priest.Think();
+    priest.fake.ClearDeeds();
+    // 40 health in 2 s: the 560 left last far more than 3 s.
+    priest.fake.SetHealth(Healer, 560, 600);
+    priest.nowMs = 500;
+    priest.Think();
+
+    for (std::string const& deed : priest.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Priest::PowerWordShield, Healer));
+}
+
+TEST(PriestHealerPlayerTank, ShieldsItselfInDangerBeforeTheThreatLead)
+{
+    PriestHealer priest;
+    PlayerTankFights(priest);
+    KoboldOnTheHealer(priest);
+    priest.fake.SetCannotCast(Priest::Fade);
+
+    priest.Think();
+    priest.fake.ClearDeeds();
+    priest.fake.SetHealth(Healer, 200, 600);
+    priest.nowMs = 500;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Healer)}));
+}

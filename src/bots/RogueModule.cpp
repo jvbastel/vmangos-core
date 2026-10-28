@@ -52,14 +52,14 @@ namespace Bots
                     context.actions.Chase(target);
             }
 
-            // jvbastel/WOWAI#194: the bot swings at the focus, and holds
-            // back on its threat now (HoldsBackOnThreat, DamageRules.h): the
-            // melee damage target is no longer the focus.
+            // jvbastel/WOWAI#194: the bot swings at an enemy (the focus, an
+            // enemy healer), and holds back on its threat now
+            // (HoldsBackOnThreat, DamageRules.h): the melee damage target is
+            // no longer that enemy.
             bool AtTheThreatStop(BotContext const& context)
             {
                 Guid const victim = context.view.GetVictim(Self(context));
-                return victim != NoGuid && victim == context.group.GetFocusTarget()
-                    && PickMeleeDamageTarget(context) != victim
+                return victim != NoGuid && PickMeleeDamageTarget(context) != victim
                     && context.group.HoldsBackOnThreat(Self(context), victim);
             }
 

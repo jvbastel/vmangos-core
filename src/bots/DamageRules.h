@@ -11,7 +11,8 @@ namespace Bots
 {
     // The damage target of the bot, or NoGuid:
     // 1. the attack target of the player (`attack`), at once;
-    // 2. an enemy healer in the fight (GroupRules.h), until it dies;
+    // 2. an enemy healer in the fight (GroupRules.h), until it dies, while
+    //    the bot does not hold back on its threat (HoldsBackOnThreat);
     // 3. the focus target, once the tank holds threat on it
     //    (TankHoldsThreat below), while the bot does not hold back on its
     //    threat (HoldsBackOnThreat, jvbastel/WOWAI#194), while it is in
@@ -109,7 +110,8 @@ namespace Bots
     // (GroupCoordinator::HoldBackOnThreat). Notes the change. Never in a
     // bot-tank group: its warrior tank keeps threat with its own rules.
     // PickDamageTarget (RangedTakeoverRatio) and PickMeleeDamageTarget
-    // (MeleeTakeoverRatio) skip the focus while it holds. A loose enemy
+    // (MeleeTakeoverRatio) skip the enemy healer and the focus while it
+    // holds on them, and the healer's wand skips the focus. A loose enemy
     // that attacks the bot is no focus: the bot still fights it back.
     bool HoldsBackOnThreat(BotContext const& context, Guid enemy, float takeover);
 }

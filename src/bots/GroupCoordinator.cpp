@@ -585,20 +585,33 @@ namespace Bots
     void GroupCoordinator::HoldBackOnThreat(Guid bot, Guid enemy)
     {
         Lock lock(m_mutex);
-        m_threatHolds[bot] = enemy;
+        m_threatHolds[bot].insert(enemy);
     }
 
-    void GroupCoordinator::EndThreatHold(Guid bot)
+    void GroupCoordinator::EndThreatHold(Guid bot, Guid enemy)
     {
         Lock lock(m_mutex);
-        m_threatHolds.erase(bot);
+        auto const found = m_threatHolds.find(bot);
+        if (found == m_threatHolds.end())
+            return;
+        found->second.erase(enemy);
+        if (found->second.empty())
+            m_threatHolds.erase(found);
     }
 
     bool GroupCoordinator::HoldsBackOnThreat(Guid bot, Guid enemy) const
     {
         Lock lock(m_mutex);
         auto const found = m_threatHolds.find(bot);
-        return found != m_threatHolds.end() && found->second == enemy;
+        return found != m_threatHolds.end() && found->second.count(enemy) != 0;
+    }
+
+    std::vector<Guid> GroupCoordinator::GetThreatHolds(Guid bot) const
+    {
+        Lock lock(m_mutex);
+        auto const found = m_threatHolds.find(bot);
+        return found == m_threatHolds.end() ? std::vector<Guid>{}
+                                            : std::vector<Guid>(found->second.begin(), found->second.end());
     }
 
     float GroupCoordinator::NoteDamageRate(Guid member, std::uint32_t health, std::int64_t nowMs)

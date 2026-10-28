@@ -126,3 +126,57 @@ TEST(ThreatThrottle, AMeleeBotFightsBackALooseEnemyBeforeTheThreatLead)
     bot.fake.SetInCombat(Wolf);
     EXPECT_EQ(bot.Melee(), Wolf);
 }
+
+// Review of jvbastel/WOWAI#194: the throttle holds on every attack in a
+// player-tank group, an enemy healer too. A hold on one enemy leaves the
+// other: the bot goes on to the focus while it holds on the healer.
+TEST(ThreatThrottle, ABotHoldsBackOnAnEnemyHealerToo)
+{
+    Bots::Guid const Shaman = 0xF130000302000044;
+    ThrottledBot bot;
+    bot.fake.SetHealth(Shaman, 200, 200);
+    bot.fake.SetVictim(Shaman, Human);
+    bot.group.MarkEnemyHealer(Shaman);
+    bot.Threat(0.5f);
+    bot.fake.SetThreatRatio(Self, Shaman, 0.98f);
+    EXPECT_EQ(bot.Melee(), Shaman);
+    bot.fake.SetThreatRatio(Self, Shaman, 1.0f);
+    EXPECT_EQ(bot.Melee(), Kobold);
+    bot.fake.SetThreatRatio(Self, Shaman, 0.9f);
+    EXPECT_EQ(bot.Melee(), Kobold);
+    bot.fake.SetThreatRatio(Self, Shaman, 0.87f);
+    EXPECT_EQ(bot.Melee(), Shaman);
+}
+
+TEST(ThreatThrottle, ABotHoldsBackOnTheHealerAndTheFocusAtOnce)
+{
+    Bots::Guid const Shaman = 0xF130000302000044;
+    ThrottledBot bot;
+    bot.fake.SetHealth(Shaman, 200, 200);
+    bot.fake.SetVictim(Shaman, Human);
+    bot.group.MarkEnemyHealer(Shaman);
+    bot.fake.SetThreatRatio(Self, Shaman, 1.0f);
+    bot.Threat(1.0f);
+    EXPECT_EQ(bot.Melee(), NoGuid);
+    // Both still between 80% and 90% of the takeover: both holds stay.
+    bot.fake.SetThreatRatio(Self, Shaman, 0.9f);
+    bot.Threat(0.9f);
+    EXPECT_EQ(bot.Melee(), NoGuid);
+    bot.Threat(0.5f);
+    EXPECT_EQ(bot.Melee(), Kobold);
+}
+
+TEST(ThreatThrottle, AHoldOnADeadEnemyGoesWithTheNextHold)
+{
+    Bots::Guid const Shaman = 0xF130000302000044;
+    ThrottledBot bot;
+    bot.fake.SetHealth(Shaman, 200, 200);
+    bot.fake.SetVictim(Shaman, Human);
+    bot.group.MarkEnemyHealer(Shaman);
+    bot.fake.SetThreatRatio(Self, Shaman, 1.0f);
+    EXPECT_EQ(bot.Melee(), Kobold);
+    bot.fake.SetHealth(Shaman, 0, 200);
+    bot.Threat(1.0f);
+    EXPECT_EQ(bot.Melee(), NoGuid);
+    EXPECT_EQ(bot.group.GetThreatHolds(Self), std::vector<Bots::Guid>{Kobold});
+}
