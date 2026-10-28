@@ -46,7 +46,8 @@ namespace Bots
             std::uint32_t const BattleShoutRage = 25;
             // jvbastel/WOWAI#174: Shield Block (10 rage) waits for a joined
             // enemy's early Sunder Armor (15) below this rage, for at most
-            // EarlyVisitWaitMs from when the enemy joined (a far pack takes
+            // EarlyVisitWaitMs from when the tank first waits for it, that is
+            // the first think with the enemy due and the rage short (a far pack takes
             // 7-10 s to arrive, then the 3 s of the judge count).
             std::uint32_t const ShieldBlockSpareRage = 25;
             std::int64_t const EarlyVisitWaitMs = 15000;

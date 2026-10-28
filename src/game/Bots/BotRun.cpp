@@ -894,6 +894,9 @@ void BotRun::WatchThreat(int64 nowMs)
     std::vector<Bots::MemberAttacks> attacks;
     Bots::Guid holder = Bots::NoGuid;
     Player const* driver = Driver();
+    // jvbastel/WOWAI#174: the driver has no bot AI to note its real hits.
+    if (driver)
+        m_realHits.NoteNoHitNotes(driver->GetObjectGuid().GetRawValue());
     for (Player* member : Members())
     {
         if (!IsLivingMember(member))

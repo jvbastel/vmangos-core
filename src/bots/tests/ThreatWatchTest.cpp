@@ -434,3 +434,51 @@ TEST(RealHitLostMobWatch, AnEnemyIsLostOnce)
 
     EXPECT_EQ(watch.LostMobs().size(), 1u);
 }
+
+// jvbastel/WOWAI#174 (merger review): the clock is the enemy's, from its
+// first real hit on any member. An enemy that turns to another member after
+// its first real hit keeps its clock.
+TEST(RealHitLostMobWatch, AnEnemyThatTurnsToAnotherMemberKeepsItsClock)
+{
+    Bots::RealHitGate gate;
+    gate.NoteRealHit(Enforcer, Rogue);
+    Bots::RealHitLostMobWatch watch;
+    for (std::int64_t now = 0; now <= 5000; now += 1000)
+        watch.Update({{Enforcer, Rogue}}, gate, {}, now);
+    for (std::int64_t now = 6000; now <= 10000; now += 1000)
+        watch.Update({{Enforcer, Healer}}, gate, {}, now);
+    EXPECT_TRUE(watch.LostMobs().empty());
+
+    watch.Update({{Enforcer, Healer}}, gate, {}, 10500);
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].startMs, 0);
+}
+
+// The game layer notes no real hit on a member with no bot AI (the test
+// driver): an enemy on it counts from when it takes it as its victim, as
+// before #174, not only after the backstop.
+TEST(RealHitLostMobWatch, AnEnemyOnAMemberWithNoHitNotesCountsAtOnce)
+{
+    Bots::RealHitGate gate;
+    gate.NoteNoHitNotes(Rogue);
+    Bots::RealHitLostMobWatch watch;
+    watch.Update({{Enforcer, Rogue}}, gate, {}, 0);
+    watch.Update({{Enforcer, Rogue}}, gate, {}, 10500);
+
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+}
+
+// A lost mob's record grows while the enemy stays unattacked, as in
+// LostMobWatch.
+TEST(RealHitLostMobWatch, ALostMobsEndGrowsWhileItStaysUnattacked)
+{
+    Bots::RealHitGate gate;
+    gate.NoteRealHit(Enforcer, Rogue);
+    Bots::RealHitLostMobWatch watch;
+    watch.Update({{Enforcer, Rogue}}, gate, {}, 0);
+    watch.Update({{Enforcer, Rogue}}, gate, {}, 10500);
+    watch.Update({{Enforcer, Rogue}}, gate, {}, 12000);
+
+    ASSERT_EQ(watch.LostMobs().size(), 1u);
+    EXPECT_EQ(watch.LostMobs()[0].endMs, 12000);
+}
