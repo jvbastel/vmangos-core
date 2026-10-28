@@ -155,8 +155,21 @@ def open_browser(url):
         webbrowser.open(url)
 
 
+def refuse_continent_route(command: Command):
+    """Stop with a message when the route is on a continent map. A route that
+    does not parse is left to the page, which shows the error."""
+    path = command.settings.routes / f"{command.route}.txt"
+    try:
+        navmesh.refuse_continent(route_file.parse(path.read_text()).map_id)
+    except (OSError, route_file.RouteFileError):
+        return
+    except navmesh.NavmeshError as error:
+        raise SystemExit(f"route-map: {command.route}: {error}")
+
+
 def main(argv=None):
     command = read_command(argv)
+    refuse_continent_route(command)
     import threading
 
     import uvicorn

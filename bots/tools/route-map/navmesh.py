@@ -124,8 +124,22 @@ def read_tile(path: Path) -> list[Poly]:
     return list(polys.values())
 
 
+# The continent maps. Their thousands of tiles do not fit in memory: a load
+# of map 1 filled a 24 GB VM. The dungeon map is for dungeons only.
+CONTINENTS = {0: "Eastern Kingdoms", 1: "Kalimdor"}
+
+
+def refuse_continent(map_id: int) -> None:
+    """A NavmeshError when map_id is a continent map."""
+    if map_id in CONTINENTS:
+        raise NavmeshError(f"map {map_id} ({CONTINENTS[map_id]}) is a continent; "
+                           "the dungeon map loads dungeon maps only")
+
+
 def read_map(folder: Path, map_id: int) -> list[Poly]:
-    """All polygons of the map's tiles in folder."""
+    """All polygons of the map's tiles in folder. A continent map is refused
+    before any tile is read."""
+    refuse_continent(map_id)
     tiles = sorted(Path(folder).glob(f"{map_id:03d}[0-9][0-9][0-9][0-9].mmtile"))
     if not tiles:
         raise NavmeshError(f"no navmesh tiles of map {map_id} in {folder}")
