@@ -64,6 +64,8 @@ namespace Bots
             // range, power, stance).
             void SetCannotCast(SpellId spell) { m_cannotCast.insert(spell); }
             void SetPower(Guid unit, std::uint32_t current, std::uint32_t max) { m_power[unit] = Power{current, max}; }
+            // Unset: PowerKind::None.
+            void SetPowerKind(Guid unit, PowerKind kind) { m_powerKind[unit] = kind; }
             void SetDistance(Guid unit, float yards) { m_distance[unit] = yards; }
             // The distance as spell ranges measure it. Unset: GetDistance.
             void SetSpellDistance(Guid unit, float yards) { m_spellDistance[unit] = yards; }
@@ -179,6 +181,12 @@ namespace Bots
             // The level of unit `target` is too low for rank `rank` of a
             // buff (BotView::LevelAllowsRank).
             void SetLevelTooLowFor(SpellId rank, Guid target) { m_levelTooLow.insert({rank, target}); }
+            // The average heal and the mana cost of rank `rank`
+            // (BotView::GetHealRank). Unset: {0, 0}.
+            void SetHealRank(SpellId rank, std::uint32_t averageHeal, std::uint32_t manaCost)
+            {
+                m_healRanks[rank] = HealRank{averageHeal, manaCost};
+            }
             void SetRangedWeapon(RangedWeapon const& weapon) { m_ranged = weapon; }
             // A shot of the bot is going (IsShooting).
             void SetShooting(bool shooting = true) { m_shooting = shooting; }
@@ -210,6 +218,11 @@ namespace Bots
             {
                 auto found = m_power.find(unit);
                 return found == m_power.end() ? Power{0, 0} : found->second;
+            }
+            PowerKind GetPowerKind(Guid unit) const override
+            {
+                auto found = m_powerKind.find(unit);
+                return found == m_powerKind.end() ? PowerKind::None : found->second;
             }
             float GetDistance(Guid unit) const override
             {
@@ -286,6 +299,11 @@ namespace Bots
             }
             bool KnowsSpell(SpellId spell) const override { return m_known.count(spell) != 0; }
             bool IsCastLocked(SpellId) const override { return m_stunned || m_silenced; }
+            HealRank GetHealRank(SpellId rank) const override
+            {
+                auto found = m_healRanks.find(rank);
+                return found == m_healRanks.end() ? HealRank{0, 0} : found->second;
+            }
             bool LevelAllowsRank(SpellId rank, Guid target) const override
             {
                 return m_levelTooLow.count({rank, target}) == 0;
@@ -524,6 +542,7 @@ namespace Bots
             std::map<SpellId, SpellId> m_nextRank;
             std::set<SpellId> m_cannotCast;
             std::map<Guid, Power> m_power;
+            std::map<Guid, PowerKind> m_powerKind;
             std::map<Guid, float> m_distance;
             std::map<Guid, float> m_spellDistance;
             std::map<SpellId, float> m_spellRange;
@@ -566,6 +585,7 @@ namespace Bots
             bool m_scriptedMove = false;
             std::set<SpellId> m_castsOnDead;
             std::set<std::pair<SpellId, Guid>> m_cannotCastOn;
+            std::map<SpellId, HealRank> m_healRanks;
             std::set<std::pair<SpellId, Guid>> m_levelTooLow;
             bool m_stunned = false;
             bool m_silenced = false;

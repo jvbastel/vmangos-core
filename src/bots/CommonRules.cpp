@@ -71,19 +71,20 @@ namespace Bots
         return target != context.commandPlayer && IsAlive(context.view, target) && IsGroupMember(context.view, target);
     }
 
-    Rule CastRule(std::string name, int priority, Trigger trigger, SpellId firstRank, TargetPicker target)
+    Rule CastRule(std::string name, int priority, Trigger trigger, SpellId firstRank, TargetPicker target,
+        RankChoice rank)
     {
         Rule rule;
         rule.name = std::move(name);
         rule.priority = priority;
         rule.trigger = std::move(trigger);
-        rule.action.canDo = [firstRank, target](BotContext const& context) {
+        rule.action.canDo = [firstRank, target, rank](BotContext const& context) {
             Guid const unit = target(context);
-            return unit != NoGuid && CastableRank(context.view, firstRank, unit) != NoSpell;
+            return unit != NoGuid && rank(context.view, firstRank, unit) != NoSpell;
         };
-        rule.action.run = [firstRank, target](BotContext const& context) {
+        rule.action.run = [firstRank, target, rank](BotContext const& context) {
             Guid const unit = target(context);
-            context.actions.CastSpell(RankForTarget(context.view, firstRank, unit), unit);
+            context.actions.CastSpell(rank(context.view, firstRank, unit), unit);
         };
         return rule;
     }
