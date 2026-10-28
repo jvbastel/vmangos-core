@@ -2854,8 +2854,10 @@ TEST(WarriorTankRagePool, ShieldBlocksAgainWhenTheJoinedEnemyDoesNotCome)
     tank.fake.SetPower(Tank, 20, 100);
     ASSERT_FALSE(CastsAny(tank.ThinkAt(0), {CastOn(Warrior::ShieldBlock, Tank)}));
     ASSERT_FALSE(CastsAny(tank.ThinkAt(5000), {CastOn(Warrior::ShieldBlock, Tank)}));
+    // The joined enemies of a far pack take 7-10 s to arrive, then 3 s count.
+    ASSERT_FALSE(CastsAny(tank.ThinkAt(14000), {CastOn(Warrior::ShieldBlock, Tank)}));
 
-    EXPECT_EQ(tank.ThinkAt(8100), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
+    EXPECT_EQ(tank.ThinkAt(15100), (std::vector<std::string>{CastOn(Warrior::ShieldBlock, Tank)}));
 }
 
 // Nothing else waits: with the rage there, the tank sunders the focus while
