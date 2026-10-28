@@ -15,11 +15,14 @@ Python path. The script then writes only its scenario:
     results.check("the tank pulls", realm.wait_log(r"Grukk: pull", 10, client))
     results.finish()
 
+realm.roster() and realm.bot(role, faction) give the bots by role, so a
+check names no bot (the roster changes).
 pos(client, guid) and stat(client, guid) read a unit with GM commands.
 dist(a, b), kill(client, guid), and revive_all(realm, client, bots) are the
 small helpers that the checks share.
 Realm(62) works outside the check command too.
 """
+import collections
 import math
 import os
 import re
@@ -31,6 +34,13 @@ import wowclient
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.join(HERE, "..", "realm.sh")
+
+
+# The bot roles in the order of the bot panel, and the race ids of the Alliance.
+ROLES = ["tank", "healer", "melee", "ranged"]
+ALLIANCE_RACES = (1, 3, 4, 7)
+# A bot of the roster (Realm.roster). faction: "horde" or "alliance".
+Bot = collections.namedtuple("Bot", "name role race cls faction")
 
 
 class Realm:
@@ -75,6 +85,29 @@ class Realm:
         """guid -> name of each bot."""
         rows = self.sql("characters", "SELECT c.guid, c.name FROM characters c JOIN bot_character b ON b.guid = c.guid")
         return {int(guid): name for guid, name in (row.split("\t") for row in rows.splitlines() if row)}
+
+    def roster(self, faction=None, role=None):
+        """The group bots of the realm (no world bot), as Bot tuples, in the
+        order of the bot panel (bots/BotPanel.h): by role (tank, healer,
+        melee, ranged), then by name. faction: "horde" or "alliance"; role:
+        a role word. A check names its bots by role through this, never by
+        name: the roster changes."""
+        rows = self.sql("characters", "SELECT c.name, b.role, c.race, c.class FROM characters c "
+                        "JOIN bot_character b ON b.guid = c.guid WHERE b.world_bot = 0")
+        bots = []
+        for row in rows.splitlines():
+            if not row:
+                continue
+            name, bot_role, race, cls = row.split("\t")
+            bot = Bot(name, bot_role, int(race), int(cls),
+                      "alliance" if int(race) in ALLIANCE_RACES else "horde")
+            if (faction is None or bot.faction == faction) and (role is None or bot.role == role):
+                bots.append(bot)
+        return sorted(bots, key=lambda bot: (ROLES.index(bot.role), bot.name))
+
+    def bot(self, role, faction="horde", n=0):
+        """The name of the n-th bot of the role and faction in roster order."""
+        return self.roster(faction, role)[n].name
 
     def mark(self, label="mark"):
         """Mark the end of Server.log: log() starts there."""

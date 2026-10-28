@@ -20,10 +20,6 @@ from wowclient import CHAT_MSG_WHISPER
 
 ACCOUNT = "PLAYER196"
 PLAYER = "Portalrunner"
-HEALER = "Hela"
-MELEE = "Shanka"
-RANGED = "Morzul"
-BOTS = (HEALER, MELEE, RANGED)
 RAGEFIRE = 389
 KALIMDOR = 1
 # Next to the tank: the bots land on its spot, then the trail follow of
@@ -33,6 +29,11 @@ NEAR_YARDS = 22.0
 
 realm = Realm()
 results = Results()
+# The Horde healer, melee member and first ranged member of the roster.
+HEALER = realm.bot("healer")
+MELEE = realm.bot("melee")
+RANGED = realm.bot("ranged")
+BOTS = (HEALER, MELEE, RANGED)
 
 
 def trigger(where):

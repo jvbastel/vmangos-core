@@ -27,18 +27,15 @@ from kit import Realm, Results
 from wowclient import CHAT_MSG_SYSTEM, CHAT_MSG_WHISPER
 
 ALLIANCE_RACES = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 6)
-# name -> (race id, class id, role, gear template and talent build)
-BOTS = {
-    "Aldric": (1, 1, "tank", "warrior_tank"),
-    "Brenna": (3, 5, "healer", "priest_healer"),
-    "Corwin": (1, 4, "melee", "rogue_melee"),
-    "Fizzwick": (7, 8, "ranged", "mage_ranged"),
-    "Nixie": (7, 9, "ranged", "warlock_ranged"),
-}
+CLASS_NAMES = {1: "warrior", 4: "rogue", 5: "priest", 8: "mage", 9: "warlock"}
 GEAR_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "bots", "data", "gear")
 
 realm = Realm()
 results = Results()
+ALLIANCE_BOTS = realm.roster("alliance")
+ALLIANCE_TANK = realm.bot("tank", "alliance")
+ALLIANCE_MELEE = realm.bot("melee", "alliance")
+HORDE_TANK = realm.bot("tank", "horde")
 
 
 def template_entries(name):
@@ -64,11 +61,15 @@ def talent_picks(log, name, build):
     return int(found[-1]) if found else None
 
 
-for name, (race, cls, role, gear) in BOTS.items():
-    row = realm.sql("characters", "SELECT c.race, c.class, c.level, b.role FROM characters c "
-                    "JOIN bot_character b ON b.guid = c.guid WHERE c.name = '%s'" % name)
-    results.check("%s exists as race %d class %d %s at level 16" % (name, race, cls, role),
-                  row == "%d\t%d\t16\t%s" % (race, cls, role), "row %r" % row)
+results.check("the Alliance has a bot of each role", sorted({bot.role for bot in ALLIANCE_BOTS})
+              == ["healer", "melee", "ranged", "tank"], "%s" % (ALLIANCE_BOTS,))
+for bot in ALLIANCE_BOTS:
+    name, role = bot.name, bot.role
+    # The gear template and the talent build of the class and role.
+    gear = "%s_%s" % (CLASS_NAMES.get(bot.cls, "?"), role)
+    row = realm.sql("characters", "SELECT c.level FROM characters c WHERE c.name = '%s'" % name)
+    results.check("%s (%s) is an Alliance race at level 16" % (name, role),
+                  bool((1 << (bot.race - 1)) & ALLIANCE_RACES) and row == "16", "race %d level %r" % (bot.race, row))
     # A level 16 character has 7 talent points (from level 10), as the Horde bots spend them.
     picks = talent_picks(log, name, gear)
     results.check("%s learns 7 talent picks of the build %s" % (name, gear),
@@ -91,14 +92,14 @@ print("== invite")
 alliance = realm.login("PLAYER199A", "Stormson", race=1, cls=1)
 horde = realm.login("PLAYER199H", "Grimson", race=2, cls=1)
 # A run before on this lease left the tanks in the groups of the players.
-alliance.chat(CHAT_MSG_WHISPER, "dismiss", target="Aldric")
-horde.chat(CHAT_MSG_WHISPER, "dismiss", target="Grukk")
+alliance.chat(CHAT_MSG_WHISPER, "dismiss", target=ALLIANCE_TANK)
+horde.chat(CHAT_MSG_WHISPER, "dismiss", target=HORDE_TANK)
 alliance.pump(3)
 horde.pump(3)
 realm.mark("invite")
-alliance.chat(CHAT_MSG_WHISPER, "invite", target="Aldric")
-results.check("the Alliance player invites Aldric, and he joins",
-              realm.wait_log(r"Aldric joins the group of Stormson", 20, alliance))
+alliance.chat(CHAT_MSG_WHISPER, "invite", target=ALLIANCE_TANK)
+results.check("the Alliance player invites the Alliance tank, and it joins",
+              realm.wait_log(r"%s joins the group of Stormson" % ALLIANCE_TANK, 20, alliance))
 
 
 def refused(client, pattern):
@@ -108,21 +109,22 @@ def refused(client, pattern):
 
 print("== other faction")
 realm.mark("other faction")
-horde.chat(CHAT_MSG_WHISPER, "invite Corwin", target="Grukk")
-alliance.chat(CHAT_MSG_WHISPER, "invite Grukk", target="Aldric")
-results.check("the Horde player is told that Corwin is of the other faction",
+horde.chat(CHAT_MSG_WHISPER, "invite " + ALLIANCE_MELEE, target=HORDE_TANK)
+alliance.chat(CHAT_MSG_WHISPER, "invite " + HORDE_TANK, target=ALLIANCE_TANK)
+results.check("the Horde player is told that the Alliance melee bot is of the other faction",
               refused(horde, "That bot is of the other faction."))
-results.check("the Alliance player is told that Grukk is of the other faction",
+results.check("the Alliance player is told that the Horde tank is of the other faction",
               refused(alliance, "That bot is of the other faction."))
 horde.pump(5)
 log = realm.log()
-results.check("Corwin joins no group", "Corwin joins" not in log and "Corwin logs in" not in log, log[-400:])
-results.check("Grukk joins no group", "Grukk joins" not in log, log[-400:])
+results.check("the Alliance melee bot joins no group",
+              "%s joins" % ALLIANCE_MELEE not in log and "%s logs in" % ALLIANCE_MELEE not in log, log[-400:])
+results.check("the Horde tank joins no group", "%s joins" % HORDE_TANK not in log, log[-400:])
 
 print("== Horde")
 realm.mark("horde")
-horde.chat(CHAT_MSG_WHISPER, "invite", target="Grukk")
-results.check("the Horde player invites Grukk, and he joins",
-              realm.wait_log(r"Grukk joins the group of Grimson", 20, horde))
+horde.chat(CHAT_MSG_WHISPER, "invite", target=HORDE_TANK)
+results.check("the Horde player invites the Horde tank, and it joins",
+              realm.wait_log(r"%s joins the group of Grimson" % HORDE_TANK, 20, horde))
 
 results.finish()
