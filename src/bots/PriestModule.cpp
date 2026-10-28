@@ -217,8 +217,8 @@ namespace Bots
                 // dispel: it heals through every debuff.
                 CastRule("shield a member near death", P + 88, SomeoneBelow(ShieldBelow, ShieldHelps),
                     PowerWordShield, HurtMember(ShieldBelow, ShieldHelps)),
-                // jvbastel/WOWAI#134: Lesser Heal and Heal take the rank
-                // that fits the missing health. Renew, the shield, and the
+                // jvbastel/WOWAI#134: Greater Heal, Heal, and Lesser Heal
+                // take the rank that fits the missing health. Renew, the shield, and the
                 // buffs take their highest rank.
                 // jvbastel/WOWAI#136: from level 40, Greater Heal heals the
                 // most per mana: it comes before Heal. A bot that does not

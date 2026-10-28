@@ -668,7 +668,8 @@ namespace
     Bots::SpellId const GreaterHeal2 = 10963;
 
     // The healer knows both ranks of Greater Heal, with the average heals and
-    // mana costs of 1.12, and the ranks of Lesser Heal and Heal.
+    // mana costs of 1.12, and the ranks of Lesser Heal and Heal. It has 2000
+    // mana, enough for every rank.
     void KnowGreaterHeal(PriestHealer& priest)
     {
         KnowTheHealRanks(priest);
@@ -722,7 +723,36 @@ TEST(PriestHealerGreaterHeal, ABotThatDoesNotKnowGreaterHealKeepsHeal)
     PriestHealer priest;
     KnowTheHealRanks(priest);
     priest.InFight();
+    // 400 missing: Heal rank 2 (476) covers it.
     priest.fake.SetHealth(Tank, 200, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerGreaterHeal, AHealerThatCannotPayForGreaterHealCastsHeal)
+{
+    PriestHealer priest;
+    KnowGreaterHeal(priest);
+    priest.InFight();
+    // 300 mana: under the 370 of Greater Heal rank 1, over the 205 of Heal rank 2.
+    priest.fake.SetMana(Healer, 300, 2000);
+    priest.fake.SetHealth(Tank, 200, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerGreaterHeal, ATargetTooLowForGreaterHealGetsHeal)
+{
+    PriestHealer priest;
+    KnowGreaterHeal(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 200, 600);
+    priest.fake.SetLevelTooLowFor(Priest::GreaterHeal, Tank);
+    priest.fake.SetLevelTooLowFor(GreaterHeal2, Tank);
 
     priest.Think();
 
