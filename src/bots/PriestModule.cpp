@@ -204,10 +204,15 @@ namespace Bots
                 // dispel: it heals through every debuff.
                 CastRule("shield a member near death", P + 88, SomeoneBelow(ShieldBelow, CanTakeShield),
                     PowerWordShield, HurtMember(ShieldBelow, CanTakeShield)),
-                CastRule("heal", P + 80, SomeoneBelow(HealBelow), Heal, HurtMember(HealBelow)),
-                CastRule("lesser heal a badly hurt member", P + 75, SomeoneBelow(HealBelow), LesserHeal, HurtMember(HealBelow)),
+                // jvbastel/WOWAI#134: Lesser Heal and Heal take the rank
+                // that fits the missing health. Renew, the shield, and the
+                // buffs take their highest rank.
+                CastRule("heal", P + 80, SomeoneBelow(HealBelow), Heal, HurtMember(HealBelow), CastableHealRank),
+                CastRule("lesser heal a badly hurt member", P + 75, SomeoneBelow(HealBelow), LesserHeal,
+                    HurtMember(HealBelow), CastableHealRank),
                 CastRule("renew", P + 70, SomeoneBelow(RenewBelow, HasNoRenew), Renew, HurtMember(RenewBelow, HasNoRenew)),
-                CastRule("lesser heal", P + 65, SomeoneBelow(LesserHealBelow), LesserHeal, HurtMember(LesserHealBelow)),
+                CastRule("lesser heal", P + 65, SomeoneBelow(LesserHealBelow), LesserHeal, HurtMember(LesserHealBelow),
+                    CastableHealRank),
 
                 // A hurt member out of reach: the bot follows it. It stays
                 // near it until the fight ends and the command takes over.

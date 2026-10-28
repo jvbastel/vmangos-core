@@ -139,7 +139,7 @@ TEST(PriestHealer, DoesNotTryToCastWhileSilenced)
 {
     PriestHealer priest;
     priest.InFight();
-    priest.fake.SetHealth(Tank, 100, 600);
+    priest.fake.SetHealth(Tank, 200, 600);
     priest.fake.SetAura(Tank, Priest::PowerWordFortitude, false);
     priest.Think();
     ASSERT_FALSE(priest.fake.Deeds().empty()) << "without the lock the priest casts";
@@ -504,4 +504,97 @@ TEST(GroupCoordinator, NotesWhenTheTankEngages)
     group.HoldPull(Tank, 9000);
 
     EXPECT_EQ(group.GetPull().engagedMs, 5000);
+}
+
+// jvbastel/WOWAI#134: Lesser Heal and Heal pick their rank by the missing
+// health of the target. Renew keeps its highest rank.
+namespace
+{
+    Bots::SpellId const LesserHeal2 = 2052;
+    Bots::SpellId const LesserHeal3 = 2053;
+    Bots::SpellId const Heal2 = 2055;
+    Bots::SpellId const Renew2 = 6074;
+
+    // The healer knows each rank of Lesser Heal and Heal, and Renew rank 2,
+    // with the average heals and mana costs of 1.12, and has full mana.
+    void KnowTheHealRanks(PriestHealer& priest)
+    {
+        FakeBot& fake = priest.fake;
+        fake.SetSpellChain({Priest::LesserHeal, LesserHeal2, LesserHeal3});
+        fake.SetSpellChain({Priest::Heal, Heal2});
+        fake.SetSpellChain({Priest::Renew, Renew2});
+        for (Bots::SpellId rank : {LesserHeal2, LesserHeal3, Heal2, Renew2})
+            fake.SetKnownSpell(rank);
+        fake.SetHealRank(Priest::LesserHeal, 53, 30);
+        fake.SetHealRank(LesserHeal2, 84, 45);
+        fake.SetHealRank(LesserHeal3, 154, 75);
+        fake.SetHealRank(Priest::Heal, 330, 155);
+        fake.SetHealRank(Heal2, 476, 205);
+        fake.SetHealRank(Priest::Renew, 0, 30);
+        fake.SetHealRank(Renew2, 0, 65);
+        fake.SetMana(Healer, 400, 400);
+    }
+}
+
+TEST(PriestHealerRank, ASmallWoundGetsALowRankOfLesserHeal)
+{
+    PriestHealer priest;
+    KnowTheHealRanks(priest);
+    priest.InFight();
+    // 70 missing, under the Lesser Heal fraction, with Renew on already.
+    priest.fake.SetHealth(Mage, 130, 200);
+    priest.fake.SetAura(Mage, Priest::Renew);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(LesserHeal2, Mage)}));
+}
+
+TEST(PriestHealerRank, AWoundThatHealRankOneCoversGetsHealRankOne)
+{
+    PriestHealer priest;
+    KnowTheHealRanks(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 290, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Heal, Tank)}));
+}
+
+TEST(PriestHealerRank, ABigWoundGetsTheHighestRank)
+{
+    PriestHealer priest;
+    KnowTheHealRanks(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 200, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Heal2, Tank)}));
+}
+
+TEST(PriestHealerRank, ALowLevelTargetKeepsARankThatItsLevelAllows)
+{
+    PriestHealer priest;
+    KnowTheHealRanks(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 200, 600);
+    priest.fake.SetLevelTooLowFor(Heal2, Tank);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Heal, Tank)}));
+}
+
+TEST(PriestHealerRank, RenewKeepsItsHighestRankOnASmallWound)
+{
+    PriestHealer priest;
+    KnowTheHealRanks(priest);
+    priest.InFight();
+    priest.fake.SetHealth(Tank, 500, 600);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Renew2, Tank)}));
 }
