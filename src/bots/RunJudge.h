@@ -221,7 +221,7 @@ namespace Bots
     class HealerPickupCheck
     {
     public:
-        explicit HealerPickupCheck(ScriptLimit limit);
+        explicit HealerPickupCheck(ScriptLimit limit = ScriptLimit());
 
         // The living enemies that attack a member now.
         void Observe(std::int64_t nowMs, std::vector<FightEnemySeen> const& enemies);
@@ -242,7 +242,7 @@ namespace Bots
     class ThreatTargetCastCheck
     {
     public:
-        explicit ThreatTargetCastCheck(ScriptLimit limit);
+        explicit ThreatTargetCastCheck(ScriptLimit limit = ScriptLimit());
 
         // The tank cast a spell on `target` (it went out).
         void NoteCast(Guid target);
