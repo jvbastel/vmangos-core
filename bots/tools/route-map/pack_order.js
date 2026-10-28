@@ -289,7 +289,7 @@
     if (state() === saved) { hand = [...order.hand]; skipped = [...order.skipped]; }
     saved = JSON.stringify([order.hand, order.skipped]);
     file = order.file + (order.exists ? "" : " (no file yet)");
-    loadWarnings = order.warnings;
+    loadWarnings = data.pack_warnings.concat(order.warnings);
     showWarnings(order.skipped_near);
     group = el("g", {id: "po-marks"}, document.getElementById("overlay"));
     changed();

@@ -84,11 +84,17 @@ def route_path(settings: Settings, name: str) -> Path:
     return settings.routes / f"{name}.txt"
 
 
-def create_app(settings: Settings) -> FastAPI:
-    app = FastAPI(title="Dungeon map")
+class MapData:
+    """The loaders of the calls, shared by every part: the route file, the
+    navmesh, the export and the packs of a route's map. A navmesh is read
+    once per map."""
 
-    def load_route(name):
-        path = route_path(settings, name)
+    def __init__(self, settings: Settings):
+        self.settings = settings
+        self._meshes: dict = {}
+
+    def route(self, name: str) -> route_file.Route:
+        path = route_path(self.settings, name)
         if not path.is_file():
             raise HTTPException(404, f"no route file {path}")
         try:
@@ -96,26 +102,50 @@ def create_app(settings: Settings) -> FastAPI:
         except route_file.RouteFileError as error:
             raise HTTPException(422, f"{path}: {error}")
 
+    def navmesh(self, map_id: int) -> navmesh.Navmesh:
+        if map_id not in self._meshes:
+            try:
+                self._meshes[map_id] = navmesh.Navmesh.load(self.settings.navmesh, map_id)
+            except navmesh.NavmeshError as error:
+                raise HTTPException(422, f"navmesh: {error}")
+        return self._meshes[map_id]
+
+    def export(self, map_id: int) -> Optional[export_file.MapExport]:
+        try:
+            return export_file.load(self.settings.exports, map_id)
+        except export_file.ExportFileError as error:
+            raise HTTPException(422, f"export: {error}")
+
+    def packs(self, route: route_file.Route) -> dict:
+        """map_packs' part of the route's map: one pack per key."""
+        return map_packs.map_part(route, self.export(route.map_id))
+
+
+def join_parts(*parts: dict) -> dict:
+    """The parts of the load-map result in one dict; a key in two parts is an error."""
+    joined: dict = {}
+    for part in parts:
+        shared = joined.keys() & part.keys()
+        if shared:
+            raise ValueError(f"load-map parts share the keys {sorted(shared)}")
+        joined.update(part)
+    return joined
+
+
+def create_app(settings: Settings) -> FastAPI:
+    app = FastAPI(title="Dungeon map")
+    maps = MapData(settings)
+
     @app.get("/", response_class=HTMLResponse)
     def page():
         return PAGE.read_text()
-
-    meshes = {}
-
-    def load_navmesh(map_id):
-        if map_id not in meshes:
-            try:
-                meshes[map_id] = navmesh.Navmesh.load(settings.navmesh, map_id)
-            except navmesh.NavmeshError as error:
-                raise HTTPException(422, f"navmesh: {error}")
-        return meshes[map_id]
 
     images = {}
 
     def load_floor(route, z_min, z_max):
         key = (route.map_id, tuple((p.x, p.y, p.z) for p in route.line + route.packs), z_min, z_max)
         if key not in images:
-            mesh = load_navmesh(route.map_id)
+            mesh = maps.navmesh(route.map_id)
             polys = mesh.joined_to([(p.x, p.y, p.z) for p in route.line + route.packs])
             try:
                 image = floor_image.render(polys, z_min, z_max)
@@ -125,46 +155,34 @@ def create_app(settings: Settings) -> FastAPI:
                            "bounds": image.bounds}
         return images[key]
 
-    def load_export(map_id):
-        try:
-            return export_file.load(settings.exports, map_id)
-        except export_file.ExportFileError as error:
-            raise HTTPException(422, f"export: {error}")
-
     @app.get("/api/maps/{name}/floors")
     def floors(name: str, x: float, y: float):
         """The floors at (x, y), lowest first."""
-        mesh = load_navmesh(load_route(name).map_id)
+        mesh = maps.navmesh(maps.route(name).map_id)
         return {"floors": [{"z": round(f.z, 2), "lava": f.poly.lava} for f in mesh.floors(x, y)]}
 
     @app.get("/api/maps/{name}")
     def load_map(name: str, z_min: Optional[float] = None, z_max: Optional[float] = None):
         """The map of a route: the floor image (only heights z_min to z_max
         when given) with its bounds, the route line, every pack of the map (the
-        export file) with the route's packs marked, the patrols, the wanderers,
-        the bosses, and the quest objectives with what the route meets."""
-        route = load_route(name)
-        export = load_export(route.map_id)
-        # One pack per key (pack_order merges route packs that share one): the
-        # quest badges count the packs of that list.
+        export file) with the route's packs marked, the pack order, the
+        patrols, the wanderers, the bosses, and the quest objectives with what
+        the built route meets."""
+        route = maps.route(name)
+        export = maps.export(route.map_id)
         packs = map_packs.map_part(route, export)
-        packs.update(pack_order.map_part(name, packs, settings.routes, route.line, export))
-        return {
-            "route": route.name,
-            "map_id": route.map_id,
-            "floor": load_floor(route, z_min, z_max),
-            "line": [vars(p) for p in route.line],
-            **packs,
-            **map_quests.map_part(route, export, packs["packs"]),
-        }
+        order = pack_order.map_part(name, packs["packs"], settings.routes, route.line, export)
+        quests = map_quests.map_part(route, export, packs["packs"], order["pack_order"]["pulled"])
+        base = {"route": route.name, "map_id": route.map_id, "floor": load_floor(route, z_min, z_max),
+                "line": [vars(p) for p in route.line]}
+        return join_parts(base, packs, order, quests)
 
     walked_path.add_routes(app)
-    route_draw.add_routes(app, settings, load_route, load_navmesh)
+    route_draw.add_routes(app, maps)
     map_packs.add_routes(app)
-    pack_order.add_routes(app, settings, load_route, lambda route: map_packs.map_part(route, load_export(route.map_id)),
-                          lambda route: load_export(route.map_id))
+    pack_order.add_routes(app, maps)
     map_quests.add_routes(app)
-    route_draft.add_routes(app, settings, load_route)
+    route_draft.add_routes(app, maps)
     return app
 
 

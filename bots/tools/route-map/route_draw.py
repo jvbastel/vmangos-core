@@ -54,12 +54,13 @@ def piece_view(piece: floor_path.Piece):
             "straight": round(piece.straight, 1), "warnings": piece.warnings}
 
 
-def add_routes(app: FastAPI, settings, load_route, load_navmesh):
+def add_routes(app: FastAPI, maps):
+    """The draw calls and the page part. maps is map_web's MapData."""
     graphs = {}
 
     def graph(map_id):
         if map_id not in graphs:
-            graphs[map_id] = floor_path.FloorGraph(load_navmesh(map_id))
+            graphs[map_id] = floor_path.FloorGraph(maps.navmesh(map_id))
         return graphs[map_id]
 
     @app.get("/map_draw.js")
@@ -68,23 +69,23 @@ def add_routes(app: FastAPI, settings, load_route, load_navmesh):
 
     @app.get("/api/maps/{name}/snap")
     def snap(name: str, x: float, y: float, z: Optional[float] = None):
-        point, floors = graph(load_route(name).map_id).snap(x, y, z)
+        point, floors = graph(maps.route(name).map_id).snap(x, y, z)
         if point is None:
             raise HTTPException(422, "no floor on this map")
         return {"point": _xyz(point), "floors": [round(h, 2) for h in floors]}
 
     @app.post("/api/maps/{name}/path")
     def path(name: str, ask: PathAsk):
-        return piece_view(graph(load_route(name).map_id).path(_vec(ask.start), _vec(ask.end)))
+        return piece_view(graph(maps.route(name).map_id).path(_vec(ask.start), _vec(ask.end)))
 
     @app.post("/api/maps/{name}/trace")
     def save_trace(name: str, ask: TraceAsk):
         """Writes the trace file of the route from the drawn points: the
         floor path of each piece, as points a few yards apart."""
-        route = load_route(name)
+        route = maps.route(name)
         trace, warnings = route_draft.draft_trace(route.name, route.map_id, ask.points, ask.branches,
                                                   graph(route.map_id).path)
-        path = settings.routes / f"{name}.trace.txt"
+        path = maps.settings.routes / f"{name}.trace.txt"
         part = path.with_suffix(".txt.part")  # write, then rename: a second save never reads half a file
         part.write_text(trace_file.write_trace(trace))
         part.replace(path)

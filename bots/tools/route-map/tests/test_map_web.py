@@ -120,3 +120,24 @@ def test_the_navmesh_option_overrides_the_settings_file(tmp_path):
                                     "--navmesh", str(tmp_path / "other")])
 
     assert command.settings.navmesh == tmp_path / "other"
+
+
+def test_the_parts_of_the_load_map_call_have_no_key_in_common(tmp_path):
+    # load_map joins the parts with **: a shared key would silently overwrite one part.
+    import export_file
+    import map_packs
+    import map_quests
+    import pack_order
+    import route_file
+    from export_fixtures import write_export
+    write_route(tmp_path / "routes")
+    write_export(tmp_path / "exports")
+    route = route_file.parse((tmp_path / "routes" / "fixture_cave.txt").read_text())
+    export = export_file.load(tmp_path / "exports", 389)
+
+    packs = map_packs.map_part(route, export)
+    order = pack_order.map_part("fixture_cave", packs["packs"], tmp_path / "routes", route.line, export)
+    quests = map_quests.map_part(route, export, packs["packs"], order["pack_order"]["pulled"])
+    parts = [{"route", "map_id", "floor", "line"}, set(packs), set(order), set(quests)]
+
+    assert sum(len(p) for p in parts) == len(set().union(*parts))

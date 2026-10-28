@@ -79,7 +79,7 @@ def test_two_route_packs_of_one_export_pack_are_one_pack_of_the_map_with_a_warni
     assert [(p["key"], p["label"], [m["guid"] for m in p["mobs"]]) for p in loaded["packs"]] == [
         (501, "pack1", [501, 502]), (600, "bazzalan", [600]), (700, None, [700, 701]), (800, None, [800])]
     assert loaded["pack_order"]["generator"] == [501, 600]
-    assert loaded["pack_order"]["warnings"] == [
+    assert loaded["pack_warnings"] == [
         "the route packs pack1 and pack2 are one pack of the export (key 501): shown as pack1"]
 
 

@@ -13,10 +13,11 @@ map_quests.js.
   lines between them) comes within VISIT_RANGE of the visit point, the
   visitRange of `.route build`.
 
-The packs are those of pack_order.map_part: the route's packs with the
+The packs are those of map_packs.map_part: the route's packs with the
 route's mobs, and the other export packs with theirs. A pack counts when
-the built route pulls it (`pulled`): it is on the route or added by the
-hand pack order, and not skipped, as `.route build` counts it (#151).
+the built route pulls it (pack_order's `pulled`): it is on the route or
+added by the hand pack order, and not skipped, as `.route build` counts it
+(#151).
 """
 
 from __future__ import annotations
@@ -42,12 +43,13 @@ def _counts(packs: list[dict], entries: set[int]) -> list[tuple[dict, int]]:
     return [(pack, n) for pack, n in counted if n]
 
 
-def _mob_objective(kind: str, entries: set[int], needed: int, packs: list[dict], view: dict) -> dict:
+def _mob_objective(kind: str, entries: set[int], needed: int, packs: list[dict], pulled: set[int],
+                   view: dict) -> dict:
     counted = _counts(packs, entries)
-    on_route = sum(n for pack, n in counted if pack["pulled"])
+    on_route = sum(n for pack, n in counted if pack["key"] in pulled)
     met = on_route >= (needed if kind == "kill" else 1)
     return {"kind": kind, **view, "needed": needed, "on_route": on_route, "met": met,
-            "packs": [{"key": pack["key"], "count": n} for pack, n in counted if not pack["pulled"]]}
+            "packs": [{"key": pack["key"], "count": n} for pack, n in counted if pack["key"] not in pulled]}
 
 
 def _segment_distance(a, b, c) -> float:
@@ -66,8 +68,12 @@ def _visit_objective(visit, line: list[route_file.Point]) -> dict:
     return {"kind": "visit", "name": name, "x": x, "y": y, "z": z, "range": VISIT_RANGE, "met": met, "packs": []}
 
 
-def map_part(route: route_file.Route, export: Optional[export_file.MapExport], packs: list[dict]) -> dict:
-    """The quests of the export, in export order, each with its objectives."""
+def map_part(route: route_file.Route, export: Optional[export_file.MapExport], packs: list[dict],
+             pulled) -> dict:
+    """The quests of the export, in export order, each with its objectives.
+    `packs` is the pack list of map_packs.map_part, `pulled` the keys of the
+    packs that the built route pulls (pack_order.map_part)."""
+    pulled = set(pulled)
     export = export or export_file.MapExport(route.map_id)
     names = export.creature_names
 
@@ -76,9 +82,9 @@ def map_part(route: route_file.Route, export: Optional[export_file.MapExport], p
 
     quests, badges = [], []
     for quest in export.quests:
-        objectives = [_mob_objective("kill", {entry}, count, packs, {"entry": entry, "name": creature(entry)})
+        objectives = [_mob_objective("kill", {entry}, count, packs, pulled, {"entry": entry, "name": creature(entry)})
                       for entry, count in quest.kills]
-        objectives += [_mob_objective("item", set(droppers), count, packs, {
+        objectives += [_mob_objective("item", set(droppers), count, packs, pulled, {
                            "item": item, "name": export.item_names.get(item, str(item)),
                            "dropped_by": [{"entry": e, "name": creature(e)} for e in droppers]})
                        for item, count, droppers in quest.items]

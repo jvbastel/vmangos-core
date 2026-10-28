@@ -43,9 +43,28 @@ def _off_route_pack(pack: export_file.ExportPack, names: dict[int, str], bosses:
             "aggro_radius": AGGRO_RADIUS, "bosses": bosses, "pull_point": None}
 
 
+def merge_shared_keys(packs: list[dict]) -> tuple[list[dict], list[str]]:
+    """One pack per key. A stale route can hold two packs that are one pack
+    of the export (both get its key): the first keeps its place and gains
+    the mobs of the others, with a warning."""
+    merged: dict = {}
+    warnings = []
+    for pack in packs:
+        first = merged.get(pack["key"])
+        if first is None:
+            merged[pack["key"]] = {**pack, "mobs": list(pack["mobs"])}
+            continue
+        first["mobs"] += [m for m in pack["mobs"] if m not in first["mobs"]]
+        warnings.append(f"the route packs {first['label']} and {pack['label']} are one pack of the export "
+                        f"(key {pack['key']}): shown as {first['label']}")
+    return list(merged.values()), warnings
+
+
 def map_part(route: route_file.Route, export: Optional[export_file.MapExport]) -> dict:
-    """The packs (the route's first, in route order, then the others in
-    export order), the patrols, the wanderers and the bosses of the map."""
+    """The packs, one per key (the route's first, in route order, then the
+    others in export order), the warnings of route packs merged into one,
+    the patrols, the wanderers and the bosses of the map. pack_order and
+    map_quests read this pack list."""
     export = export or export_file.MapExport(route.map_id)
     names = dict(export.creature_names)
     for pack in route.packs:
@@ -75,9 +94,11 @@ def map_part(route: route_file.Route, export: Optional[export_file.MapExport]) -
     def mob_view(pack, mob):
         return {"guid": mob.guid, "entry": mob.entry, "name": names.get(mob.entry, ""), "pack": pack.key}
 
+    packs, warnings = merge_shared_keys(packs)
     members = [(pack, mob) for pack in export.packs for mob in pack.mobs]
     return {
         "packs": packs,
+        "pack_warnings": warnings,
         "patrols": [{**mob_view(p, m), "points": [_xyz(*w) for w in m.patrol]} for p, m in members if m.patrol],
         "wanderers": [{**mob_view(p, m), **_xyz(m.x, m.y, m.z), "radius": m.wander}
                       for p, m in members if m.wander > 0 and not m.patrol],

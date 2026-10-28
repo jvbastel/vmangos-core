@@ -90,18 +90,19 @@ def trace_lines(trace: trace_file.Trace) -> list[list[dict]]:
     return lines
 
 
-def add_routes(app: FastAPI, settings, load_route):
+def add_routes(app: FastAPI, maps):
+    """The load-draft call and the page part. maps is map_web's MapData."""
     @app.get("/map_draft.js")
     def script():
         return FileResponse(HERE / "map_draft.js", media_type="text/javascript")
 
     @app.get("/api/maps/{name}/draft")
     def draft(name: str, source: str = "route"):
-        route = load_route(name)
+        route = maps.route(name)
         if source == "route":
             return {"source": source, "lines": route_lines(route)}
         if source == "trace":
-            path: Path = settings.routes / f"{name}.trace.txt"
+            path: Path = maps.settings.routes / f"{name}.trace.txt"
             if not path.is_file():
                 raise HTTPException(404, f"no trace file {path}")
             try:

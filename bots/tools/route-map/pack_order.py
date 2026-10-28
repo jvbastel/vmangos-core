@@ -66,37 +66,19 @@ def parse(text: str) -> list[tuple[int, str, int]]:
     return entries
 
 
-def merge_shared_keys(packs: list[dict]) -> tuple[list[dict], list[str]]:
-    """One pack per key. A stale route can hold two packs that are one pack
-    of the export (map_packs gives both its key): the first keeps its place
-    and gains the mobs of the others, with a warning."""
-    merged: dict = {}
-    warnings = []
-    for pack in packs:
-        first = merged.get(pack["key"])
-        if first is None:
-            merged[pack["key"]] = {**pack, "mobs": list(pack["mobs"])}
-            continue
-        first["mobs"] += [m for m in pack["mobs"] if m not in first["mobs"]]
-        warnings.append(f"the route packs {first['label']} and {pack['label']} are one pack of the export "
-                        f"(key {pack['key']}): shown as {first['label']}")
-    return list(merged.values()), warnings
-
-
-def map_part(name: str, packs: dict, routes: Path, line: list | None = None,
+def map_part(name: str, packs: list[dict], routes: Path, line: list | None = None,
              export: export_file.MapExport | None = None) -> dict:
-    """The packs of the map with one pack per key, each with `pulled` (the
-    built route pulls it: on the route or added, and not skipped), and the
-    current pack order of the route: the hand part (the `pack` lines of the order file,
-    in its order; a pack off the route is an added pack), the skipped packs
-    (its `skip` lines), the generator's part (the other packs of the route,
-    in route order), and the skipped packs that the route line (the route
+    """The current pack order of the route: the hand part (the `pack` lines
+    of the order file, in its order; a pack off the route is an added
+    pack), the skipped packs (its `skip` lines), the generator's part (the
+    other packs of the route, in route order), the packs that the built
+    route pulls (on the route or added, and not skipped, as `.route build`
+    reads the file), and the skipped packs that the route line (the route
     file's points) comes within the aggro range of. `name` is the route
-    file's name, `packs` map_packs.map_part's result; the load-map call puts
-    this part after it, so these packs replace its packs."""
+    file's name, `packs` the pack list of map_packs.map_part."""
     path = routes / file_name(name)
-    merged, warnings = merge_shared_keys(packs["packs"])
-    pack_of = {m["guid"]: p["key"] for p in merged for m in p["mobs"]}
+    warnings: list[str] = []
+    pack_of = {m["guid"]: p["key"] for p in packs for m in p["mobs"]}
     hand: list[int] = []
     skipped: list[int] = []
     if path.is_file():
@@ -118,15 +100,13 @@ def map_part(name: str, packs: dict, routes: Path, line: list | None = None,
                 warnings.append(f"{where} is in pack {key}, already at place {hand.index(key) + 1}; left out")
             else:
                 (skipped if word == "skip" else hand).append(key)
-    for pack in merged:
-        # What the built route pulls, as .route build reads the order file.
-        pack["pulled"] = (pack["on_route"] or pack["key"] in hand) and pack["key"] not in skipped
-    on_route = sorted((p for p in merged if p["on_route"]), key=lambda p: p["order"])
+    on_route = sorted((p for p in packs if p["on_route"]), key=lambda p: p["order"])
     generator = [p["key"] for p in on_route if p["key"] not in hand and p["key"] not in skipped]
-    near = skipped_near(line or [], skipped, export, {p["key"]: p for p in merged})
-    return {"packs": merged, "pack_order": {"file": path.name, "exists": path.is_file(), "hand": hand,
-                                            "skipped": skipped, "generator": generator, "warnings": warnings,
-                                            "skipped_near": near}}
+    pulled = [p["key"] for p in packs if (p["on_route"] or p["key"] in hand) and p["key"] not in skipped]
+    near = skipped_near(line or [], skipped, export, {p["key"]: p for p in packs})
+    return {"pack_order": {"file": path.name, "exists": path.is_file(), "hand": hand, "skipped": skipped,
+                           "generator": generator, "pulled": pulled, "warnings": warnings,
+                           "skipped_near": near}}
 
 
 def _distance(a, b) -> float:
@@ -281,17 +261,16 @@ class SavedOrder(BaseModel):
     skips: list[int] = []  # the pack keys of the skipped packs
 
 
-def add_routes(app: FastAPI, settings, load_route, load_packs, load_export):
-    """The save-order call and the page part. load_packs(route) is the
-    map_packs part of the route's map, load_export(route) its export."""
+def add_routes(app: FastAPI, maps):
+    """The save-order call and the page part. maps is map_web's MapData."""
     @app.get("/pack_order.js")
     def script():
         return FileResponse(HERE / "pack_order.js", media_type="text/javascript")
 
     @app.post("/api/maps/{name}/order")
     def save(name: str, order: SavedOrder):
-        route = load_route(name)
-        packs, _ = merge_shared_keys(load_packs(route)["packs"])
+        route = maps.route(name)
+        packs = maps.packs(route)["packs"]
         known = {p["key"] for p in packs}
         for key in order.packs + order.skips:
             if key not in known:
@@ -300,7 +279,7 @@ def add_routes(app: FastAPI, settings, load_route, load_packs, load_export):
             raise HTTPException(422, "a pack comes twice in the order")
         if set(order.packs) & set(order.skips):
             raise HTTPException(422, "a pack is both in the order and skipped")
-        path = settings.routes / file_name(name)
+        path = maps.settings.routes / file_name(name)
         old_text = path.read_text() if path.is_file() else None
         if old_text is not None:
             try:
@@ -308,5 +287,5 @@ def add_routes(app: FastAPI, settings, load_route, load_packs, load_export):
             except PackOrderError as error:
                 raise HTTPException(422, f"{path}: {error}")
         path.write_text(write(name, order.packs, packs, old_text, order.skips))
-        near = skipped_near(route.line, order.skips, load_export(route), {p["key"]: p for p in packs})
+        near = skipped_near(route.line, order.skips, maps.export(route.map_id), {p["key"]: p for p in packs})
         return {"file": path.name, "packs": len(order.packs), "skips": len(order.skips), "skipped_near": near}
