@@ -29,6 +29,11 @@ namespace Bots
         // The tank stands at `at` now.
         void Note(Position const& at);
         void Clear();
+        // jvbastel/WOWAI#192: the tank walks back over its trail (a retreat
+        // pull of a player tank): when `at` is within TrailStepYards of an
+        // older point than the last, the points after the nearest such
+        // point go. The trail ends where the tank stands again.
+        void CutBackTo(Position const& at);
         // Oldest first: the last point is where the tank stood last.
         std::vector<Position> const& Points() const { return m_points; }
 

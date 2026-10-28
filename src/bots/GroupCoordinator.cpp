@@ -364,8 +364,13 @@ namespace Bots
             return;
         }
         m_fightWay.clear();
-        if (m_pull.phase == PullPhase::None)
-            m_trail.Note(at);
+        if (m_pull.phase != PullPhase::None)
+            return;
+        // jvbastel/WOWAI#192: a player tank that walks back over its trail
+        // cuts it back (TrailFollow.h). A bot tank's trail is as before.
+        if (m_playerTank)
+            m_trail.CutBackTo(at);
+        m_trail.Note(at);
     }
 
     std::vector<Position> GroupCoordinator::GetFightWay() const
