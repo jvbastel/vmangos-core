@@ -309,6 +309,8 @@ class BotRun
         // jvbastel/WOWAI#168: the pass checks of the tank (RunJudge.h).
         Bots::HealerPickupCheck m_pickupCheck;
         Bots::ThreatTargetCastCheck m_castCheck;
+        // jvbastel/WOWAI#172: the tank's threat on an extra-pack enemy at it.
+        Bots::ExtraPackThreatCheck m_threatCheck;
         Bots::HoldWatch m_hold;
         Bots::RunResult m_record; // The result file.
         std::unique_ptr<Bots::QuestProgress> m_quests;

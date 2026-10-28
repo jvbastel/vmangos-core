@@ -1,6 +1,7 @@
 #include "RunJudge.h"
 
 #include "FightSpot.h"
+#include "WarriorModule.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -298,5 +299,40 @@ namespace Bots
         std::snprintf(text, sizeof(text), "%s chases %s %.1f yd from the tank at %.1f s, over the limit %u of line %zu",
             member.c_str(), enemy.c_str(), yardsFromTank, nowMs / 1000.0, limit.most, limit.line);
         m_farChase = text;
+    }
+}
+
+// jvbastel/WOWAI#172: the tank's threat on an extra-pack enemy that comes at
+// it.
+namespace Bots
+{
+    ExtraPackThreatCheck::ExtraPackThreatCheck(ScriptLimit limit) : m_limit(limit)
+    {
+    }
+
+    void ExtraPackThreatCheck::NoteCast(Guid target, SpellId firstRank)
+    {
+        if (firstRank == Warrior::SunderArmor || firstRank == Warrior::Revenge)
+            m_threatCast.insert(target);
+    }
+
+    void ExtraPackThreatCheck::Observe(std::int64_t nowMs, std::vector<FightEnemySeen> const& enemies)
+    {
+        if (!m_limit.set)
+            return;
+        std::map<Guid, std::int64_t> inReach;
+        for (FightEnemySeen const& seen : enemies)
+        {
+            if (!seen.extraPack || seen.victim != EnemyVictim::Tank || !seen.inTankMelee)
+                continue;
+            auto const since = m_inReachMs.find(seen.enemy);
+            std::int64_t const fromMs = since == m_inReachMs.end() ? nowMs : since->second;
+            inReach[seen.enemy] = fromMs;
+            if (!m_threatCast.count(seen.enemy) && nowMs - fromMs > std::int64_t(m_limit.most) * 1000
+                && m_failure.empty())
+                m_failure = seen.name + " got no Sunder Armor or Revenge from the tank " + std::to_string(m_limit.most) +
+                    " s after it reached the tank's melee reach (limit of line " + std::to_string(m_limit.line) + ")";
+        }
+        m_inReachMs = std::move(inReach);
     }
 }

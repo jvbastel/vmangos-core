@@ -81,6 +81,11 @@ namespace Bots
             int const TauntTheLooseEnemy = 56;
             int const ThreatOnTheLooseEnemy = 55;
 
+            // jvbastel/WOWAI#172: the early Sunder Armor on each joined
+            // enemy. Below the pickup (53 to 57) and Challenging Shout (52),
+            // over Demoralizing Shout (50) and the focus rotation.
+            int const EarlySunderOnAJoinedEnemy = 51;
+
             // jvbastel/WOWAI#121: the caster pack. The rule priorities
             // (P + N); the caster wait is CasterComeMs (GroupCoordinator.h).
             int const WarnWhenAPackJoins = 88;
@@ -653,13 +658,19 @@ namespace Bots
             };
             using PullPacksPtr = std::shared_ptr<PullPacks>;
 
+            // The tank is in its own pull of `packs.target`.
+            bool InOwnPull(BotContext const& context, PullPacks const& packs)
+            {
+                PullState const pull = context.group.GetPull();
+                return pull.phase != PullPhase::None && pull.puller == Self(context) && pull.target == packs.target;
+            }
+
             // The packs of the enemies in the fight that joined the fight
             // of the pull and have no warn yet. None out of the pull.
             std::set<std::pair<int, Guid>> JoinedPacks(BotContext const& context, PullPacks const& packs)
             {
                 std::set<std::pair<int, Guid>> joined;
-                PullState const pull = context.group.GetPull();
-                if (pull.phase == PullPhase::None || pull.puller != Self(context) || pull.target != packs.target)
+                if (!InOwnPull(context, packs))
                     return joined;
                 for (Guid enemy : EnemiesInFight(context))
                 {
@@ -695,6 +706,76 @@ namespace Bots
                     if (TankGoesInForTheHealer(context, enemy) && goneIn->insert(enemy).second)
                         Warn(context, PacksPulledAt(context.view, context.view.GetPosition(enemy), FightTarget(context)));
                     run(context);
+                };
+                return rule;
+            }
+
+            // jvbastel/WOWAI#172: the joined enemies that had their early
+            // visit, in the pull of `pullTarget`. Its own record, no group
+            // state.
+            struct EarlyVisits
+            {
+                Guid pullTarget = NoGuid;
+                std::set<Guid> done;
+            };
+            using EarlyVisitsPtr = std::shared_ptr<EarlyVisits>;
+
+            // An enemy of the fight joined the fight of the tank's pull: it
+            // is of no pack of the pull target (PullPacks; a roaming mob too).
+            bool JoinedThePull(BotContext const& context, PullPacks const& packs, Guid enemy)
+            {
+                if (!InOwnPull(context, packs))
+                    return false;
+                auto const found = packs.packOf.find(enemy);
+                return found == packs.packOf.end() || found->second != 0;
+            }
+
+            // The joined enemy due its early visit: an enemy of the fight
+            // that joined the pull (JoinedThePull), is no loose enemy (the
+            // pickup takes those), had no visit and has no Sunder Armor yet,
+            // and Revenge or Sunder Armor reaches now. Of several, the lowest
+            // threat ratio of the tank, then the nearest. NoGuid when none.
+            Guid PickEarlyVisit(BotContext const& context, PullPacks const& packs, EarlyVisits const& visits)
+            {
+                if (!FightsFocus(context))
+                    return NoGuid;
+                Guid const focus = context.group.GetFocusTarget();
+                bool const samePull = visits.pullTarget == context.group.GetPull().target;
+                std::vector<Guid> const loose = LooseEnemies(context);
+                Guid best = NoGuid;
+                float bestRatio = 0.0f;
+                for (Guid enemy : EnemiesInFight(context))
+                {
+                    if (enemy == focus || Contains(loose, enemy) || !JoinedThePull(context, packs, enemy)
+                        || (samePull && visits.done.count(enemy)) || context.view.HasAura(enemy, SunderArmor)
+                        || (CastableRank(context.view, Revenge, enemy) == NoSpell
+                            && CastableRank(context.view, SunderArmor, enemy) == NoSpell))
+                        continue;
+                    float const ratio = context.view.GetThreatRatio(Self(context), enemy);
+                    if (best == NoGuid || ratio < bestRatio
+                        || (ratio == bestRatio && context.view.GetDistance(enemy) < context.view.GetDistance(best)))
+                    {
+                        best = enemy;
+                        bestRatio = ratio;
+                    }
+                }
+                return best;
+            }
+
+            // The rule `rule` notes the enemy that `target` picks as visited.
+            Rule NotesEarlyVisit(Rule rule, TargetPicker target, EarlyVisitsPtr const& visits)
+            {
+                std::function<void(BotContext const&)> const run = rule.action.run;
+                rule.action.run = [run, target, visits](BotContext const& context) {
+                    Guid const enemy = target(context);
+                    run(context);
+                    Guid const pullTarget = context.group.GetPull().target;
+                    if (visits->pullTarget != pullTarget)
+                    {
+                        visits->pullTarget = pullTarget;
+                        visits->done.clear();
+                    }
+                    visits->done.insert(enemy);
                 };
                 return rule;
             }
@@ -743,6 +824,11 @@ namespace Bots
                 return PickLooseEnemy(context, *pick);
             };
             TargetPicker const goOutTarget = [pick](BotContext const& context) { return GoOutTarget(context, *pick); };
+            // jvbastel/WOWAI#172: and its own early visits.
+            EarlyVisitsPtr const earlyVisits = std::make_shared<EarlyVisits>();
+            TargetPicker const earlyVisit = [pullPacks, earlyVisits](BotContext const& context) {
+                return PickEarlyVisit(context, *pullPacks, *earlyVisits);
+            };
             // The opener, highest first: Defensive Stance, then a due
             // Demoralizing Shout (jvbastel/WOWAI#114: threat on each enemy
             // near), and Bloodrage with little rage, which gives the rage.
@@ -1069,6 +1155,13 @@ namespace Bots
                 // A broken pull: too many loose enemies to taunt one by one.
                 CastRule("challenging shout", P + 52,
                     ChallengingShoutDue, ChallengingShout, PickSelf),
+                // jvbastel/WOWAI#172: each enemy that joins the fight gets one
+                // Revenge or Sunder Armor at once, with no threat lead on the
+                // focus (the threat target visits below wait for it).
+                NotesEarlyVisit(Rule{"early sunder on a joined enemy", P + EarlySunderOnAJoinedEnemy,
+                                    [earlyVisit](BotContext const& context) { return earlyVisit(context) != NoGuid; },
+                                    ThreatAbilityOn(earlyVisit)},
+                    earlyVisit, earlyVisits),
                 // A ready Revenge goes to the threat target on a visit
                 // (jvbastel/WOWAI#117), and counts as its ability there. On
                 // the focus, it ends the visit.
