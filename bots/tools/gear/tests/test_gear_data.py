@@ -7,8 +7,8 @@ RULES = gear_data.SourceRules(creature_level_margin=0, world_drop_level_margin=3
 WARRIOR = 1
 
 
-def earliest(world, entry, patch=10, class_id=WARRIOR):
-    return gear_data.earliest_level(world.sources.get(entry, []), patch, class_id, RULES)
+def earliest(world, entry, patch=10, class_id=WARRIOR, faction="horde"):
+    return gear_data.earliest_level(world.sources.get(entry, []), patch, class_id, RULES, faction)
 
 
 def test_a_quest_reward_counts_from_the_quest_level_and_the_quest_patch():
@@ -26,6 +26,7 @@ def test_a_quest_for_alliance_races_or_another_class_is_no_source():
         quests=[quest(1, [100], races=1 | 4), quest(2, [101], classes=1 << 7)]))
 
     assert earliest(world, 100) is None
+    assert earliest(world, 100, faction="alliance") == 10
     assert earliest(world, 101) is None
     assert earliest(world, 101, class_id=8) == 10
 

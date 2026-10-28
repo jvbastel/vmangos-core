@@ -17,15 +17,18 @@ from __future__ import annotations
 
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 PATCHES = range(0, 11)
 LAST_PATCH = PATCHES[-1]
 CLIENT_BUILD = 5875
 
-# The Horde races: orc, undead, tauren, troll. Bots are Horde.
+# The race masks of each faction. Horde: orc, undead, tauren, troll.
+# Alliance: human, dwarf, night elf, gnome.
 HORDE_RACES = (1 << 1) | (1 << 4) | (1 << 5) | (1 << 7)
+ALLIANCE_RACES = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 6)
+FACTION_RACES = {"horde": HORDE_RACES, "alliance": ALLIANCE_RACES}
 
 QUALITY_NAMES = {0: "grey", 1: "white", 2: "green", 3: "blue", 4: "epic", 5: "legendary", 6: "artifact"}
 
@@ -95,8 +98,9 @@ class Item:
     def usable_by(self, class_id):
         return self.allowable_class in (-1, 0) or bool(self.allowable_class & (1 << (class_id - 1)))
 
-    def usable_by_horde(self):
-        return self.allowable_race in (-1, 0) or bool(self.allowable_race & HORDE_RACES)
+    def usable_by_faction(self, faction):
+        """faction: "horde" or "alliance"."""
+        return self.allowable_race in (-1, 0) or bool(self.allowable_race & FACTION_RACES[faction])
 
 
 @dataclass(frozen=True)
@@ -115,6 +119,11 @@ class Source:
     name: str
     levels: tuple
     classes: int = 0      # Class mask of a class quest. 0 for all classes.
+    races: int = 0        # Race mask of a quest for some races only. 0 for all races.
+
+    def open_to(self, faction):
+        """faction: "horde" or "alliance"."""
+        return not self.races or bool(self.races & FACTION_RACES[faction])
 
 
 @dataclass(frozen=True)
@@ -131,13 +140,16 @@ class World:
     entries: frozenset = frozenset()             # Every item_template entry, gear or not.
 
 
-def earliest_level(sources, patch, class_id, rules):
+def earliest_level(sources, patch, class_id, rules, faction):
     """The lowest character level at which one of the sources counts in the
-    content patch, or None. The item's required level is not part of it."""
+    content patch for a character of the class and faction ("horde" or
+    "alliance"), or None. The item's required level is not part of it."""
     best = None
     for source in sources:
         level = source.levels[patch]
         if level is None or (source.classes and not source.classes & (1 << (class_id - 1))):
+            continue
+        if not source.open_to(faction):
             continue
         if source.kind == "creature":
             level -= rules.creature_level_margin
@@ -371,12 +383,10 @@ def build_world(tables):
             sources.setdefault(entry, []).append(source)
 
     for row in tables["quests"]:
-        if row["RequiredRaces"] and not row["RequiredRaces"] & HORDE_RACES:
-            continue
         level = row["QuestLevel"] if row["QuestLevel"] > 0 else row["MinLevel"]
         levels = _patch_levels(_patch_range(row["patch"], LAST_PATCH), level)
         for entry in set(row["items"]):
-            add(entry, Source("quest", row["Title"], levels, row["RequiredClasses"]))
+            add(entry, Source("quest", row["Title"], levels, row["RequiredClasses"], row["RequiredRaces"]))
 
     creatures, contexts = _creature_contexts(tables)
     loot = _LootSources(tables)
@@ -405,8 +415,8 @@ def build_world(tables):
     # Sources count only in the patches in which the item exists.
     for entry, item_sources in sources.items():
         patches = items[entry].patches
-        sources[entry] = [Source(s.kind, s.name, tuple(level if patch in patches else None
-                                                        for patch, level in zip(PATCHES, s.levels)), s.classes)
+        sources[entry] = [replace(s, levels=tuple(level if patch in patches else None
+                                                   for patch, level in zip(PATCHES, s.levels)))
                           for s in item_sources]
     entries = frozenset(row["entry"] for row in tables.get("entries", [])) | frozenset(items)
     return World(items=items, sources=sources, entries=entries)
