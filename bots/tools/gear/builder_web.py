@@ -61,6 +61,7 @@ class LineModel(BaseModel):
     min_level: int
     max_level: int
     min_patch: int
+    factions: str = "both"   # kept as read: the page has no faction field
 
 
 class TemplateModel(BaseModel):

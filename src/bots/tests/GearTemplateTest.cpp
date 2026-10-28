@@ -199,3 +199,13 @@ TEST(GearTemplate, AHordeItemAndAnAllianceItemCanFillOnePosition)
     EXPECT_EQ(ErrorOf(HandHeader + "item head 1 10-20 0 horde\nitem head 2 10-20 0\n"),
         "line 3: Two items fill the position head at level 10 and content patch 0.");
 }
+
+// jvbastel/WOWAI#190 (merge review): the position count is per faction.
+TEST(GearTemplate, ALineForBothFactionsFillsThePositionOfEachFaction)
+{
+    std::string const rings = "item finger 1 10-20 0 horde\nitem finger 2 10-20 0 alliance\nitem finger 3 10-20 0\n";
+
+    EXPECT_TRUE(ParseGearTemplate(HandHeader + rings).ok);
+    EXPECT_EQ(ErrorOf(HandHeader + rings + "item finger 4 10-20 0 horde\n"),
+        "line 5: Three items fill the position finger at level 10 and content patch 0.");
+}

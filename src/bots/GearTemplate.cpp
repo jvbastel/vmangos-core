@@ -151,11 +151,6 @@ namespace Bots
             return false;
         }
 
-        bool SharesFaction(GearItem const& a, GearItem const& b)
-        {
-            return a.factions == GearFactions::Both || b.factions == GearFactions::Both || a.factions == b.factions;
-        }
-
         // A hand-made template has at most one item per position at each
         // level, content patch, and faction, two for finger and trinket. The error is
         // on the first item that overflows a position, at its lowest level.
@@ -166,13 +161,18 @@ namespace Bots
                 GearItem const& item = items[i];
                 for (std::string const& position : CountedPositions(item.slot))
                 {
+                    // Count what one faction wears: a line for both factions
+                    // counts once for the Horde and once for the Alliance.
+                    for (GearFaction faction : { GearFaction::Horde, GearFaction::Alliance })
                     for (std::uint32_t level = item.minLevel; level <= item.maxLevel; ++level)
                     {
+                        if (!FitsFaction(item, faction))
+                            break;
                         std::size_t count = 0;
                         for (std::size_t j = 0; j <= i; ++j)
                         {
                             GearItem const& other = items[j];
-                            if (other.minPatch == item.minPatch && SharesFaction(other, item) && other.minLevel <= level &&
+                            if (other.minPatch == item.minPatch && FitsFaction(other, faction) && other.minLevel <= level &&
                                 level <= other.maxLevel && SharesPosition(other, position))
                                 ++count;
                         }

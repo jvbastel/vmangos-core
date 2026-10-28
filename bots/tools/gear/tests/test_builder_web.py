@@ -43,13 +43,15 @@ def test_the_paste_box_answers_for_each_entry(tmp_path):
 
     results = response.json()["results"]
     assert [(r["entry"], r["ok"]) for r in results] == [(100, True), (2589, False), (7, False)]
-    assert results[0]["line"] == {"slot": "chest", "entry": 100, "min_level": 10, "max_level": 60, "min_patch": 0}
+    assert results[0]["line"] == {"slot": "chest", "entry": 100, "min_level": 10, "max_level": 60, "min_patch": 0,
+                                     "factions": "both"}
 
 
 def test_the_page_saves_a_hand_made_template_and_shows_its_empty_slots(tmp_path):
     web = client(tmp_path)
     template = {"name": "grukk", "class_name": "warrior", "role": "tank",
-                "items": [{"slot": "chest", "entry": 100, "min_level": 10, "max_level": 60, "min_patch": 0}]}
+                "items": [{"slot": "chest", "entry": 100, "min_level": 10, "max_level": 60, "min_patch": 0,
+                           "factions": "both"}]}
 
     checked = web.post("/api/check", json=template).json()
     saved = web.put("/api/templates/grukk", json=template)
