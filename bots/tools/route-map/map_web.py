@@ -149,6 +149,7 @@ def create_app(settings: Settings) -> FastAPI:
         }
 
     route_draw.add_routes(app, settings, load_route, load_navmesh)
+    map_packs.add_routes(app)
     return app
 
 

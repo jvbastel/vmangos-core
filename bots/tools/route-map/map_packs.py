@@ -10,7 +10,11 @@ label is the route's name for it, only for a pack on the route.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
+
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
 
 import export_file
 import route_file
@@ -70,3 +74,10 @@ def map_part(route: route_file.Route, export: Optional[export_file.MapExport]) -
         "bosses": [{**{k: v for k, v in mob_view(p, m).items() if k != "guid"}, **_xyz(m.x, m.y, m.z)}
                    for entry in export.bosses for p, m in members if m.entry == entry],
     }
+
+
+def add_routes(app: FastAPI):
+    """Serves the page part, map_packs.js."""
+    @app.get("/map_packs.js")
+    def script():
+        return FileResponse(Path(__file__).resolve().parent / "map_packs.js", media_type="text/javascript")

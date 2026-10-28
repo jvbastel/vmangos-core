@@ -81,3 +81,12 @@ def test_an_export_file_that_does_not_read_is_a_clear_error(tmp_path):
 
     assert response.status_code == 422
     assert "map_389.export.txt: line 2: a mob line before any pack line" in response.json()["detail"]
+
+
+def test_the_page_loads_the_pack_drawing(tmp_path):
+    write_route(tmp_path / "routes")
+    settings = map_web.Settings(navmesh=tmp_path / "mmaps", routes=tmp_path / "routes", exports=tmp_path / "routes")
+    web = TestClient(map_web.create_app(settings))
+
+    assert '<script src="/map_packs.js">' in web.get("/").text
+    assert "mapdata" in web.get("/map_packs.js").text

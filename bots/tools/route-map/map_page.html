@@ -22,8 +22,6 @@
   .route { fill: none; stroke: var(--route); stroke-width: 2; vector-effect: non-scaling-stroke; opacity: 0.85; }
   .pull-line { stroke: var(--pull); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-dasharray: 4 3; }
   .pull { stroke: var(--pull); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
-  .pack { fill: var(--pack); stroke: #000; stroke-width: 1; vector-effect: non-scaling-stroke; }
-  .pack.boss { fill: var(--boss); }
   .label { fill: #fff; paint-order: stroke; stroke: #000; stroke-width: 3px; stroke-linejoin: round;
            vector-effect: non-scaling-stroke; pointer-events: none; }
 </style>
@@ -101,16 +99,10 @@ function draw(data) {
     el("line", {class: "pull-line", x1: sx(pack.pull_point), y1: sy(pack.pull_point), x2: sx(pack), y2: sy(pack)});
     el("path", {class: "pull", "data-cross": `${sx(pack.pull_point)} ${sy(pack.pull_point)}`});
   }
-  for (const pack of data.packs) {
-    const boss = !/^pack\d+$/.test(pack.label);
-    const dot = el("circle", {class: "pack" + (boss ? " boss" : ""), cx: sx(pack), cy: sy(pack), "data-r": 5});
-    el("title", {}, dot).textContent =
-      `${pack.label} (#${pack.order}, key ${pack.key})\n` + pack.mobs.map(m => `${m.name} (${m.entry}, guid ${m.guid})`).join("\n");
-    el("text", {class: "label", x: sx(pack), y: sy(pack), "data-size": 12}).textContent = `${pack.order} ${pack.label}`;
-  }
+  document.dispatchEvent(new CustomEvent("mapdata", {detail: data}));  // map_packs.js draws the packs
   document.title = `Dungeon map: ${data.route}`;
   document.getElementById("title").textContent = `${data.route} (map ${data.map_id})`;
-  status.textContent = `${data.packs.length} packs, ${data.line.length} points; heights ${bounds.z_min} to ${bounds.z_max}`;
+  status.textContent = `${data.packs.filter(p => p.on_route).length} of ${data.packs.length} packs on the route, ${data.line.length} points; heights ${bounds.z_min} to ${bounds.z_max}`;
 }
 
 async function load(keepView) {
@@ -160,5 +152,6 @@ document.getElementById("fit").addEventListener("click", fit);
 load(false);
 </script>
 <script src="/map_draw.js"></script>
+<script src="/map_packs.js"></script>
 </body>
 </html>
