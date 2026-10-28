@@ -203,7 +203,7 @@ namespace Bots
         return tank != NoGuid && tank != view.GetSelf() && view.GetDistance(tank) > PlayerTankRestYards;
     }
 
-    bool RestsNow(BotView const& view, GroupCoordinator const& group)
+    bool KeepsRestingNow(BotView const& view, GroupCoordinator const& group)
     {
         return RestsNow(view) && !TankLeftTheRest(view, group);
     }

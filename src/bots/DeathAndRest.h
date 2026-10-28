@@ -61,7 +61,7 @@ namespace Bots
 
     // RestsNow, and the tank has not left the rest (TankLeftTheRest). The
     // game layer stands a seated bot up when this is false.
-    bool RestsNow(BotView const& view, GroupCoordinator const& group);
+    bool KeepsRestingNow(BotView const& view, GroupCoordinator const& group);
 }
 
 #endif

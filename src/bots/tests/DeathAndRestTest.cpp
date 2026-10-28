@@ -945,7 +945,7 @@ TEST(PlayerTankRest, ADrinkingBotKeepsDrinkingWithTheTankAt25Yards)
 
     EXPECT_EQ(bot.Think(), "keep resting");
     EXPECT_TRUE(bot.fake.Deeds().empty());
-    EXPECT_TRUE(Bots::RestsNow(bot.fake, bot.group));
+    EXPECT_TRUE(Bots::KeepsRestingNow(bot.fake, bot.group));
 }
 
 TEST(PlayerTankRest, ADrinkingBotStopsAndFollowsWithTheTankAt35Yards)
@@ -954,7 +954,7 @@ TEST(PlayerTankRest, ADrinkingBotStopsAndFollowsWithTheTankAt35Yards)
     SitsAndDrinks(bot);
     TankWalksOff(bot, 35.0f);
 
-    EXPECT_FALSE(Bots::RestsNow(bot.fake, bot.group));
+    EXPECT_FALSE(Bots::KeepsRestingNow(bot.fake, bot.group));
     EXPECT_EQ(bot.Think(), Bots::FollowTankTrailRule);
     EXPECT_EQ(bot.fake.Deeds().size(), 1u);
 }
@@ -977,7 +977,7 @@ TEST(PlayerTankRest, AnEatingBotStopsAndFollowsWithTheTankAt35Yards)
     bot.fake.SetFollowTarget(NoGuid);
     TankWalksOff(bot, 35.0f);
 
-    EXPECT_FALSE(Bots::RestsNow(bot.fake, bot.group));
+    EXPECT_FALSE(Bots::KeepsRestingNow(bot.fake, bot.group));
     EXPECT_EQ(bot.Think(), Bots::FollowTankTrailRule);
 }
 
@@ -990,7 +990,7 @@ TEST(PlayerTankRest, InABotTankGroupADrinkingBotKeepsDrinkingWithTheTankAt35Yard
     bot.fake.SetDistance(Tank, 35.0f);
     bot.fake.SetDistance(Player, 35.0f);
 
-    EXPECT_TRUE(Bots::RestsNow(bot.fake, bot.group));
+    EXPECT_TRUE(Bots::KeepsRestingNow(bot.fake, bot.group));
     EXPECT_EQ(bot.Think(), "keep resting");
 }
 

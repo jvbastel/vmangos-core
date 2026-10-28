@@ -675,7 +675,7 @@ void BotAI::Think()
     // up at once, so the group does not wait for its food aura to run out.
     // In a player-tank group it also stands up once the tank walks off
     // (jvbastel/WOWAI#193): after the tank lookup above.
-    bool const rests = Bots::RestsNow(adapter, *coordinator);
+    bool const rests = Bots::KeepsRestingNow(adapter, *coordinator);
     if (me->IsAlive() && me->GetStandState() != UNIT_STAND_STATE_STAND && (!rests || me->IsInCombat()))
         me->SetStandState(UNIT_STAND_STATE_STAND);
     std::string const reaction = m_bossReaction.Active();
