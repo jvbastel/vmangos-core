@@ -147,3 +147,13 @@ def test_saving_a_trace_returns_the_warnings_of_its_pieces(web):
     saved = web.post("/api/maps/drawn_cave/trace", json={"points": [dict(zip("xyz", c)) for c in clicks]}).json()
 
     assert [(w["piece"], w["kind"]) for w in saved["warnings"]] == [(4, "lava")]
+
+
+def test_the_page_loads_the_route_drawing_script(web):
+    page = web.get("/").text
+    script = web.get("/map_draw.js")
+
+    assert '<script src="/map_draw.js">' in page
+    assert script.status_code == 200
+    assert script.headers["content-type"].startswith("text/javascript")
+    assert "Save trace" in script.text
