@@ -25,6 +25,12 @@ item shield 1005 10-16 0 22      # A shield
   is the file name without `.txt`.
 - `item <slot> <entry> <minLevel>-<maxLevel> <minPatch> <score>`. A hand-made
   item has no score. `<minPatch>` counts like `WowPatch`: 0 = 1.2 ... 10 = 1.12.
+- An `item` line may end with `horde` or `alliance`: only that faction can
+  use and get the item, and only its characters draw or wear it. A line with
+  no faction word is for both factions. One generated template per class and
+  role holds the items of both factions. The generator works out the lines of
+  each faction on their own (pool, blue caps, fill), so the Alliance items
+  never change what a Horde character draws.
 - Slots: `head neck shoulders back chest shirt tabard wrists hands waist legs
   feet finger trinket ranged`, and the weapon slots `mainhand offhand twohand
   shield holdable`. Finger and trinket hold two different items.

@@ -21,7 +21,7 @@ import argparse
 import os
 import sys
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import gear_data
@@ -35,6 +35,7 @@ SLOTS = ["head", "neck", "shoulders", "back", "chest", "shirt", "tabard", "wrist
 WEAPON_SLOTS = ["mainhand", "offhand", "twohand", "shield", "holdable"]
 ARMOR_SLOTS = {"head", "shoulders", "chest", "wrists", "hands", "waist", "legs", "feet"}
 POSITIONS = {"finger": 2, "trinket": 2}
+FACTIONS = ("horde", "alliance")
 
 # What each class can learn to wear and wield: armor type -> the first level.
 # Facts of the game, not settings. All classes wear cloaks and the "misc"
@@ -145,6 +146,7 @@ class Line:
     max_level: int
     min_patch: int
     score: float
+    factions: str = "both"  # "both", "horde", or "alliance": who can use and get the item.
 
 
 def shapes_of(settings, role_name):
@@ -180,11 +182,11 @@ def _armor_level(item, slot, class_name):
     return 1
 
 
-def _candidate_lines(world, settings, role, bans):
+def _candidate_lines(world, settings, role, bans, faction):
     class_id = gear_data.CLASS_IDS[role.class_name]
     lines = []
     for entry, item in world.items.items():
-        if entry in bans or item.excluded or not item.usable_by(class_id) or not item.usable_by_horde():
+        if entry in bans or item.excluded or not item.usable_by(class_id) or not item.usable_by_faction(faction):
             continue
         if item.quality < settings.min_quality or item.quality > 4:
             continue
@@ -206,7 +208,7 @@ def _candidate_lines(world, settings, role, bans):
             # it stays in every later patch, so the levels only go down.
             lows = []
             for patch in gear_data.PATCHES:
-                level = gear_data.earliest_level(sources, patch, class_id, settings.source_rules)
+                level = gear_data.earliest_level(sources, patch, class_id, settings.source_rules, faction)
                 lows.append(None if level is None or patch not in item.patches else max(low, level))
             later = None
             for patch in reversed(gear_data.PATCHES):
@@ -306,18 +308,35 @@ def _fill(settings, role, lines):
     return lines
 
 
-def build_lines(world, settings, role_name, bans):
-    """The item lines of the generated template of a role."""
-    role = settings.roles[role_name]
-    lines = _candidate_lines(world, settings, role, bans)
+def _faction_lines(world, settings, role, bans, faction):
+    """The item lines that a character of the faction draws from."""
+    lines = _candidate_lines(world, settings, role, bans, faction)
     lines = _apply_blue_caps(world, settings, lines)
     lines = _prune(settings, lines)
-    lines = _fill(settings, role, lines)
-    return sorted(lines, key=lambda line: (SLOTS.index(line.slot), line.min_level, line.entry, line.min_patch))
+    return _fill(settings, role, lines)
 
 
-def _source_word(world, entry, patch):
-    sources = [source for source in world.sources.get(entry, []) if source.levels[patch] is not None]
+def build_lines(world, settings, role_name, bans):
+    """The item lines of the generated template of a role.
+
+    Each faction gets its own lines, with its own pool, blue caps, and fill,
+    so the items of one faction never change the lines of the other. A line
+    that both factions have is written once, marked "both"."""
+    role = settings.roles[role_name]
+    per_faction = {faction: set(_faction_lines(world, settings, role, bans, faction)) for faction in FACTIONS}
+    horde, alliance = per_faction["horde"], per_faction["alliance"]
+    lines = [line for line in horde & alliance]
+    lines += [replace(line, factions="horde") for line in horde - alliance]
+    lines += [replace(line, factions="alliance") for line in alliance - horde]
+    return sorted(lines, key=lambda line: (SLOTS.index(line.slot), line.min_level, line.entry, line.min_patch,
+                                           line.factions))
+
+
+def _source_word(world, entry, patch, factions):
+    # A line for both factions names a source of the Horde, as before the marks.
+    faction = "alliance" if factions == "alliance" else "horde"
+    sources = [source for source in world.sources.get(entry, [])
+               if source.levels[patch] is not None and source.open_to(faction)]
     if not sources:
         return "?"
     best = min(sources, key=lambda source: source.levels[patch])
@@ -337,8 +356,10 @@ def render(world, settings, role_name, lines):
     for line in lines:
         item = world.items[line.entry]
         name = " ".join(item.name.split()).replace("#", "")
+        mark = "" if line.factions == "both" else f" {line.factions}"
+        source = _source_word(world, line.entry, line.min_patch, line.factions)
         out.append(f"item {line.slot} {line.entry} {line.min_level}-{line.max_level} {line.min_patch} "
-                   f"{line.score:.2f}  # {name}, {item.quality_name}, {_source_word(world, line.entry, line.min_patch)}")
+                   f"{line.score:.2f}{mark}  # {name}, {item.quality_name}, {source}")
     return "\n".join(out) + "\n"
 
 

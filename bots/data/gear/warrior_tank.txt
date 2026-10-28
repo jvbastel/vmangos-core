@@ -1330,11 +1330,12 @@ item shield 17183 1-7 0 1.46  # Dented Buckler, white, vendor
 item shield 17184 1-7 0 1.46  # Small Shield, white, vendor
 item shield 17185 3-9 0 5.08  # Round Buckler, white, vendor
 item shield 17186 3-9 0 5.08  # Small Targe, white, vendor
-item shield 4911 4-6 0 2.50  # Thick Bark Buckler, white, quest
+item shield 4911 4-6 0 2.50 horde  # Thick Bark Buckler, white, quest
 item shield 1201 5-11 0 7.34  # Dull Heater Shield, white, vendor
 item shield 2376 5-11 0 7.34  # Worn Heater Shield, white, vendor
 item shield 3276 5-6 0 2.50  # Deathguard Buckler, white, quest
 item shield 5395 5-6 0 2.50  # Woodland Shield, white, quest
+item shield 6078 5-6 0 2.50 alliance  # Pikeman Shield, white, quest
 item shield 7109 5-10 0 6.30  # Pioneer Buckler, white, creature
 item shield 1438 6-10 0 6.30  # Warrior's Shield, white, creature
 item shield 15895 6-9 0 5.08  # Burnt Buckler, white, creature

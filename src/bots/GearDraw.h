@@ -11,6 +11,10 @@
 // The gear draw: the items that a character wears from a gear template at a
 // level and content patch.
 //
+// A character draws and wears only the items of its own faction (the
+// faction word of an item line, see GearTemplate.h). The items of the other
+// faction are left out before anything else, so they never change the draw.
+//
 // A generated template:
 // - For each slot, the pool is the items whose level range holds the level
 //   and whose minimum content patch the realm allows, best score first (the
@@ -47,7 +51,8 @@ namespace Bots
         std::vector<GearPick> picks;  // In the order of GearPosition.
     };
 
-    GearDraw DrawGear(GearTemplate const& gearTemplate, std::uint64_t guid, std::uint32_t level, std::uint32_t patch);
+    GearDraw DrawGear(GearTemplate const& gearTemplate, std::uint64_t guid, std::uint32_t level, std::uint32_t patch,
+        GearFaction faction);
 }
 
 #endif

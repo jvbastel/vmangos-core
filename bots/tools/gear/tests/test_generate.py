@@ -100,7 +100,8 @@ def test_excluded_items_are_not_written():
         item(106, stats={STAMINA: 5}, allowable_race=1),
         item(107, stats={STAMINA: 5}))
 
-    assert set(by_entry(lines(world))) == {107}
+    horde = [line for line in lines(world) if line.factions != "alliance"]
+    assert set(by_entry(horde)) == {107}
 
 
 def test_the_ban_file_removes_items_from_every_pool():
@@ -284,3 +285,63 @@ def test_a_slot_to_fill_must_be_a_slot_of_the_template():
     role["fill"] = ["nose"]
     with pytest.raises(ValueError):
         settings(roles__warrior_tank=role)
+
+
+# Ticket #190: one template holds the items of both factions, each line marked.
+HORDE_ONLY, ALLIANCE_ONLY = 1 << 1, 1 << 0  # Orc, Human.
+
+
+def factions(found):
+    return {line.entry: line.factions for line in found}
+
+
+def test_each_line_is_marked_with_the_factions_that_can_use_and_get_the_item():
+    world = gear_data.build_world(tables(
+        items=[item(100, stats={STAMINA: 5}, allowable_race=HORDE_ONLY),
+               item(101, stats={STAMINA: 5}, allowable_race=ALLIANCE_ONLY),
+               item(102, stats={STAMINA: 5}),
+               item(103, stats={STAMINA: 5})],
+        quests=[quest(1, [100, 101, 102]), quest(2, [103], races=ALLIANCE_ONLY | (1 << 2))]))
+
+    assert factions(lines(world)) == {100: "horde", 101: "alliance", 102: "both", 103: "alliance"}
+
+
+def test_a_quest_for_horde_races_only_marks_its_reward_horde():
+    world = gear_data.build_world(tables(
+        items=[item(100, stats={STAMINA: 5})], quests=[quest(1, [100], races=HORDE_ONLY)]))
+
+    assert factions(lines(world)) == {100: "horde"}
+
+
+def test_a_line_for_one_faction_ends_with_the_faction_word():
+    world = gear_data.build_world(tables(
+        items=[item(100, name="Orc Vest", stats={STAMINA: 5}, allowable_race=HORDE_ONLY),
+               item(101, name="Human Vest", stats={STAMINA: 4}, allowable_race=ALLIANCE_ONLY),
+               item(102, name="Plain Vest", stats={STAMINA: 3})],
+        quests=[quest(1, [100, 101, 102])]))
+
+    body = [line for line in generate.render(world, settings(), "warrior_tank", lines(world)).splitlines()
+            if line.startswith("item")]
+    assert body == [
+        "item chest 100 10-16 0 5.00 horde  # Orc Vest, green, quest",
+        "item chest 101 10-16 0 4.00 alliance  # Human Vest, green, quest",
+        "item chest 102 10-16 0 3.00  # Plain Vest, green, quest",
+    ]
+
+
+def test_the_alliance_items_never_change_the_horde_lines():
+    # Eleven Alliance chests that score better than every Horde chest, and
+    # three blue Alliance chests: without a pool and blue caps per faction they
+    # would push the Horde items out of the top of the pool and the blue cap.
+    def chests(first, count, races, quality=2, best=50):
+        return [item(first + i, stats={STAMINA: best - i}, allowable_race=races, quality=quality, required_level=25)
+                for i in range(count)]
+    horde = chests(100, 12, HORDE_ONLY, best=30) + chests(150, 3, HORDE_ONLY, quality=3, best=20)
+    alliance = chests(200, 11, ALLIANCE_ONLY) + chests(250, 3, ALLIANCE_ONLY, quality=3, best=40)
+    horde_world = quest_world(*horde, level=25)
+    both_world = quest_world(*(horde + alliance), level=25)
+
+    before = lines(horde_world)
+    after = [line for line in lines(both_world) if line.factions != "alliance"]
+    assert [(line.slot, line.entry, line.min_level, line.max_level, line.min_patch, line.score) for line in after] == \
+           [(line.slot, line.entry, line.min_level, line.max_level, line.min_patch, line.score) for line in before]
