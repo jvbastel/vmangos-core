@@ -35,9 +35,11 @@ itemname 14396 Shadow Shard
 """
 
 
-def load(tmp_path):
+def load(tmp_path, order=None):
     write_tile(tmp_path / "mmaps", 389)
     write_route(tmp_path / "routes")
+    if order is not None:
+        (tmp_path / "routes" / "fixture_cave.order.txt").write_text(order)
     write_export(tmp_path / "exports", text=EXPORT + QUESTS)
     settings = map_web.Settings(navmesh=tmp_path / "mmaps", routes=tmp_path / "routes", exports=tmp_path / "exports")
     response = TestClient(map_web.create_app(settings)).get("/api/maps/fixture_cave")
@@ -65,6 +67,14 @@ def test_a_kill_objective_is_met_when_the_route_pulls_the_needed_count(tmp_path)
     assert [(o["entry"], o["on_route"], o["met"], o["packs"]) for o in q5728["objectives"]] == [
         (11519, 1, True, []), (11518, 0, False, [{"key": 800, "count": 1}])]
     assert q5728["met"] is False
+
+
+def test_the_hand_pack_order_decides_what_the_route_pulls_an_added_pack_counts_and_a_skipped_pack_does_not(tmp_path):
+    # As .route build (#151): 800 (Jergosh) is added, 600 (Bazzalan) is skipped.
+    q5728 = quest(load(tmp_path, "pack 800\nskip 600\n"), 5728)
+
+    assert [(o["entry"], o["on_route"], o["met"], o["packs"]) for o in q5728["objectives"]] == [
+        (11519, 0, False, [{"key": 600, "count": 1}]), (11518, 1, True, [])]
 
 
 def test_an_item_objective_counts_the_mobs_on_the_route_that_drop_it(tmp_path):

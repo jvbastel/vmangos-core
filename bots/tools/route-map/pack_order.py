@@ -85,8 +85,9 @@ def merge_shared_keys(packs: list[dict]) -> tuple[list[dict], list[str]]:
 
 def map_part(name: str, packs: dict, routes: Path, line: list | None = None,
              export: export_file.MapExport | None = None) -> dict:
-    """The packs of the map with one pack per key, and the current pack
-    order of the route: the hand part (the `pack` lines of the order file,
+    """The packs of the map with one pack per key, each with `pulled` (the
+    built route pulls it: on the route or added, and not skipped), and the
+    current pack order of the route: the hand part (the `pack` lines of the order file,
     in its order; a pack off the route is an added pack), the skipped packs
     (its `skip` lines), the generator's part (the other packs of the route,
     in route order), and the skipped packs that the route line (the route
@@ -117,6 +118,9 @@ def map_part(name: str, packs: dict, routes: Path, line: list | None = None,
                 warnings.append(f"{where} is in pack {key}, already at place {hand.index(key) + 1}; left out")
             else:
                 (skipped if word == "skip" else hand).append(key)
+    for pack in merged:
+        # What the built route pulls, as .route build reads the order file.
+        pack["pulled"] = (pack["on_route"] or pack["key"] in hand) and pack["key"] not in skipped
     on_route = sorted((p for p in merged if p["on_route"]), key=lambda p: p["order"])
     generator = [p["key"] for p in on_route if p["key"] not in hand and p["key"] not in skipped]
     near = skipped_near(line or [], skipped, export, {p["key"]: p for p in merged})

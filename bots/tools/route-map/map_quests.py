@@ -13,8 +13,10 @@ map_quests.js.
   lines between them) comes within VISIT_RANGE of the visit point, the
   visitRange of `.route build`.
 
-The packs are those of map_packs.map_part: the route's packs (on_route) with
-the route's mobs, and the other export packs with theirs.
+The packs are those of pack_order.map_part: the route's packs with the
+route's mobs, and the other export packs with theirs. A pack counts when
+the built route pulls it (`pulled`): it is on the route or added by the
+hand pack order, and not skipped, as `.route build` counts it (#151).
 """
 
 from __future__ import annotations
@@ -42,10 +44,10 @@ def _counts(packs: list[dict], entries: set[int]) -> list[tuple[dict, int]]:
 
 def _mob_objective(kind: str, entries: set[int], needed: int, packs: list[dict], view: dict) -> dict:
     counted = _counts(packs, entries)
-    on_route = sum(n for pack, n in counted if pack["on_route"])
+    on_route = sum(n for pack, n in counted if pack["pulled"])
     met = on_route >= (needed if kind == "kill" else 1)
     return {"kind": kind, **view, "needed": needed, "on_route": on_route, "met": met,
-            "packs": [{"key": pack["key"], "count": n} for pack, n in counted if not pack["on_route"]]}
+            "packs": [{"key": pack["key"], "count": n} for pack, n in counted if not pack["pulled"]]}
 
 
 def _segment_distance(a, b, c) -> float:
