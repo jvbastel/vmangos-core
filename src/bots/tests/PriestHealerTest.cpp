@@ -3,6 +3,7 @@
 #include "PriestModule.h"
 #include "GroupTank.h"
 #include "FakeBot.h"
+#include "PlayerTank.h"
 
 #include <gtest/gtest.h>
 
@@ -576,7 +577,7 @@ namespace
         priest.fake.SetDistance(Human, 20.0f);
         priest.fake.SetAura(Human, Priest::PowerWordFortitude);
         priest.fake.SetPowerKind(Human, power);
-        priest.group.SetTank(Bots::PickGroupTank({{Human, false, Bots::BotRole::Ranged, true},
+        priest.group.SetTank(Bots::PickGroupTank({{Human, false, Bots::BotRole::Ranged},
             {Healer, true, Bots::BotRole::Healer}, {Mage, true, Bots::BotRole::Ranged}}, Human));
         priest.group.SetFocusTarget(Kobold);
         priest.fake.SetVictim(Human, Kobold);
@@ -605,7 +606,7 @@ TEST(PriestHealerRageTank, ShieldsAHumanMemberNearDeathWhenABotTanks)
     priest.fake.SetAura(Human, Priest::PowerWordFortitude);
     // A human warrior that does not tank: the bot tank does.
     priest.fake.SetPowerKind(Human, Bots::PowerKind::Rage);
-    priest.group.SetTank(Bots::PickGroupTank({{Tank, true, Bots::BotRole::Tank}, {Human, false, Bots::BotRole::Ranged, true},
+    priest.group.SetTank(Bots::PickGroupTank({{Tank, true, Bots::BotRole::Tank}, {Human, false, Bots::BotRole::Ranged},
         {Healer, true, Bots::BotRole::Healer}}, Human));
     priest.InFight();
 
@@ -1470,4 +1471,30 @@ TEST(PriestHealerWand, ShootsAFrozenFocusOnTheTank)
     priest.Think();
 
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Shoot, Kobold)}));
+}
+
+// jvbastel/WOWAI#189: in a player-tank group, the healer's heals on the tank
+// never wait: not for a pull (there is none), and not for the threat lead of
+// the tank (PlayerTankHoldMs), which only the damage bots wait for.
+TEST(PriestHealerPlayerTank, HealsTheTankAtOnceBeforeTheThreatLead)
+{
+    PriestHealer priest;
+    priest.fake.SetGroupMembers({Human, Mage});
+    priest.fake.SetHealth(Human, 360, 600);
+    priest.fake.SetDistance(Human, 20.0f);
+    priest.fake.SetAura(Human, Priest::PowerWordFortitude);
+    // A human mage tanks.
+    priest.fake.SetPowerKind(Human, Bots::PowerKind::Mana);
+    priest.group.SetTank(Human, true);
+    priest.fake.SetVictim(Kobold, Human);
+    priest.fake.SetSelectedTarget(Human, Kobold);
+    priest.fake.SetThreatRatio(Human, Kobold, 1.5f);
+    priest.fake.SetInCombat(Healer);
+    Bots::WatchPlayerTank(priest.fake, priest.group, 0);
+    ASSERT_EQ(priest.group.GetFocusTarget(), Kobold);
+    ASSERT_FALSE(priest.group.TankHoldsThreat(0));
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Renew, Human)}));
 }

@@ -13,6 +13,7 @@
 #include "DeathAndRest.h"
 #include "GroupTank.h"
 #include "MemberSpot.h"
+#include "PlayerTank.h"
 #include "WarriorModule.h"
 #include "Group.h"
 #include "ObjectAccessor.h"
@@ -367,6 +368,7 @@ void BotAI::HandleCommand(BotCommandMessage const& message)
     }
 
     m_commandState = outcome.state;
+    m_commanded = true;
     m_commandPlayer = message.player;
     if (message.kind == Bots::BotCommandKind::Stop)
     {
@@ -502,8 +504,9 @@ bool BotAI::UsesGroupCoordinator() const
     return CoordinatorChoiceNow() == Bots::CoordinatorChoice::Group;
 }
 
-Bots::Guid BotAI::GroupTankNow(Bots::Guid current) const
+Bots::Guid BotAI::GroupTankNow(Bots::Guid current, bool& playerTank) const
 {
+    playerTank = false;
     Group const* group = me->GetGroup();
     if (!group)
         return Bots::NoGuid;
@@ -517,14 +520,16 @@ Bots::Guid BotAI::GroupTankNow(Bots::Guid current) const
         // stands in for one: no bot role (BotMgr::BotRoleOf).
         Bots::BotRole role = Bots::BotRole::Ranged;
         bool const isBot = sBotMgr.BotRoleOf(player, role);
-        members.push_back({slot.guid.GetRawValue(), isBot, role, player->GetClass() == CLASS_WARRIOR});
+        members.push_back({slot.guid.GetRawValue(), isBot, role});
     }
     // The current tank stays when it is a bot tank, also on another map.
     Player const* currentPlayer = current != Bots::NoGuid ? ObjectAccessor::FindPlayer(ObjectGuid(current)) : nullptr;
     Bots::BotRole currentRole = Bots::BotRole::Ranged;
     bool const currentIsBotTank = currentPlayer && sBotMgr.BotRoleOf(currentPlayer, currentRole)
         && currentRole == Bots::BotRole::Tank;
-    return Bots::NextGroupTank(members, group->GetLeaderGuid().GetRawValue(), current, currentIsBotTank);
+    Bots::Guid const tank = Bots::NextGroupTank(members, group->GetLeaderGuid().GetRawValue(), current, currentIsBotTank);
+    playerTank = Bots::IsHumanTank(members, tank);
+    return tank;
 }
 
 std::shared_ptr<Bots::GroupCoordinator> BotAI::Coordinator()
@@ -634,15 +639,16 @@ void BotAI::Think()
         coordinator->SetTank(me->GetObjectGuid().GetRawValue());
         Bots::WatchTrail(adapter, *coordinator);
     }
-    // Spec #131, story 10: with no bot tank, a human warrior leader gets
-    // the care of the tank (no shield on a rage tank, PriestModule.cpp).
-    // The game keeps no record of a player's role, so a warrior leader
-    // counts as the tank (GroupTank.h). Only the group coordinator: the leader is on the bot's map.
+    // Spec #131, story 10, and jvbastel/WOWAI#189: with no bot tank, the
+    // human leader, of any class, is the tank: the group is a player-tank
+    // group. The game keeps no record of a player's role (GroupTank.h).
+    // Only the group coordinator: the leader is on the bot's map.
     else if (UsesGroupCoordinator())
     {
-        Bots::Guid const tank = GroupTankNow(coordinator->GetTank());
-        if (tank != coordinator->GetTank())
-            coordinator->SetTank(tank);
+        bool playerTank = false;
+        Bots::Guid const tank = GroupTankNow(coordinator->GetTank(), playerTank);
+        if (tank != coordinator->GetTank() || playerTank != coordinator->IsPlayerTankGroup())
+            coordinator->SetTank(tank, playerTank);
     }
     // jvbastel/WOWAI#143: the Mage's peel nova reads the ranged members
     // from the roles (MageModule.cpp).
@@ -663,7 +669,22 @@ void BotAI::Think()
         case Bots::BossReactionSlot::Change::None:
             break;
     }
+    // jvbastel/WOWAI#189: with no bot command yet, a bot of a player-tank
+    // group follows the tank (the follow rule of the command strategy).
+    if (!m_commanded)
+    {
+        Bots::CommandState const state = Bots::CommandStateNow(false, m_commandState, coordinator->IsPlayerTankGroup());
+        if (state != m_commandState)
+            sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s %s", me->GetName(),
+                state == Bots::CommandState::Follow ? "follows the player tank" : "has no command state");
+        m_commandState = state;
+        if (state == Bots::CommandState::Follow)
+            m_commandPlayer = ObjectGuid(coordinator->GetTank());
+    }
     Bots::WatchGroup(adapter, *coordinator);
+    // jvbastel/WOWAI#189: the focus from the player tank's target, and its
+    // threat lead.
+    Bots::WatchPlayerTank(adapter, *coordinator, SteadyMs());
     Bots::BotContext context = {adapter, adapter, *coordinator, m_commandState, m_commandPlayer.GetRawValue(),
         m_attackTarget.GetRawValue()};
     context.startWaits = m_startGate.Waiting();

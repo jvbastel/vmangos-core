@@ -101,6 +101,8 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool IsMoving(Bots::Guid unit) const override;
         bool HasRoomFor(Bots::AmmoTopUp const& topUp) const override;
         bool IsMeleeAttacking() const override;
+        // jvbastel/WOWAI#189.
+        Bots::Guid GetTargetOf(Bots::Guid unit) const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;

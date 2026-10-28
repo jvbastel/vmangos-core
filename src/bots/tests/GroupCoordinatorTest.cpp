@@ -395,3 +395,15 @@ TEST(GroupCoordinator, KeepsTheRoleThatEachMemberSets)
     EXPECT_FALSE(group.HasRole(Tank, Bots::BotRole::Ranged));
     EXPECT_FALSE(group.HasRole(0x21, Bots::BotRole::Ranged));
 }
+
+// jvbastel/WOWAI#189: a player-tank group is a group whose tank is a human
+// (GroupTank.h, IsHumanTank). A bot tank, or no tank, makes none.
+TEST(GroupCoordinatorPlayerTank, OnlyAHumanTankMakesAPlayerTankGroup)
+{
+    Bots::GroupCoordinator group;
+    EXPECT_FALSE(group.IsPlayerTankGroup());
+    group.SetTank(0x1, true);
+    EXPECT_TRUE(group.IsPlayerTankGroup());
+    group.SetTank(0x11);
+    EXPECT_FALSE(group.IsPlayerTankGroup());
+}

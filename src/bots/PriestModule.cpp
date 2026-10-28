@@ -249,8 +249,12 @@ namespace Bots
             // it, while no member is in danger: the healer waits. When the
             // pull target attacks someone other than the tank, the tank
             // never engages it, and the healer does not wait for that.
+            // jvbastel/WOWAI#189: in a player-tank group the healer never
+            // waits: the human starts each fight, with no pull.
             bool WaitsForTheTank(BotContext const& context)
             {
+                if (context.group.IsPlayerTankGroup())
+                    return false;
                 PullState const pull = context.group.GetPull();
                 Guid const victim = pull.phase == PullPhase::Pulling ? context.view.GetVictim(pull.target) : NoGuid;
                 bool const early = (pull.phase == PullPhase::Pulling && (victim == NoGuid || victim == pull.puller))

@@ -66,4 +66,11 @@ namespace Bots
         }
         return Obey(current);
     }
+
+    CommandState CommandStateNow(bool commanded, CommandState commandedState, bool playerTankGroup)
+    {
+        if (commanded)
+            return commandedState;
+        return playerTankGroup ? CommandState::Follow : CommandState::None;
+    }
 }

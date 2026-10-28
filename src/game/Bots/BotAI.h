@@ -90,8 +90,9 @@ class BotAI : public PlayerBotAI
         bool UsesGroupCoordinator() const;
         // The group's tank (bots/GroupTank.h, NextGroupTank), when the
         // coordinator's tank is `current`: the bot tank, else a human
-        // warrior leader on the bot's map. NoGuid for none.
-        Bots::Guid GroupTankNow(Bots::Guid current) const;
+        // leader of any class on the bot's map (jvbastel/WOWAI#189). NoGuid
+        // for none. `playerTank`: the tank is that human (IsHumanTank).
+        Bots::Guid GroupTankNow(Bots::Guid current, bool& playerTank) const;
         // The coordinator of the bot's group, of the group's bots in the
         // bot's place away from the leader, or the bot's own one.
         std::shared_ptr<Bots::GroupCoordinator> Coordinator();
@@ -108,6 +109,10 @@ class BotAI : public PlayerBotAI
         Bots::Inbox<WorldPacket> m_inbox;
         Bots::Inbox<BotCommandMessage> m_commands;
         Bots::CommandState m_commandState = Bots::CommandState::None;
+        // jvbastel/WOWAI#189: a bot command set m_commandState. Until then
+        // the group decides it (Bots::CommandStateNow): Follow of the tank
+        // in a player-tank group.
+        bool m_commanded = false;
         ObjectGuid m_commandPlayer; // The player of the last command that the bot obeyed.
         // The target of the player at the last `attack`, for a damage bot.
         // It ends when it dies or the bot cannot see it, and at `stop`.

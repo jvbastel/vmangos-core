@@ -19,17 +19,17 @@ namespace Bots
         // tank flag).
         bool isBot;
         BotRole role;
-        // A warrior: the class that tanks in version 1. The adapter reads
-        // it for a human player, whose role the game does not know.
-        bool warrior;
     };
 
     // The group's tank: the first bot in `members` with the tank role.
-    // With none, the leader `leader` when it is a human warrior in
-    // `members`: a warrior who leads a group of bots with no bot tank tanks
-    // the fights. A human of another class is no tank: the damage bots do
-    // not leave its enemies to it. Else NoGuid.
+    // With none, the leader `leader` when it is a human in `members`, of any
+    // class (jvbastel/WOWAI#189, the player tank): a human who leads a group
+    // of bots with no bot tank tanks the fights. Else NoGuid.
     Guid PickGroupTank(std::vector<GroupMember> const& members, Guid leader);
+
+    // jvbastel/WOWAI#189: `tank` is a human in `members`. The group of such
+    // a tank is a player-tank group (GroupCoordinator::IsPlayerTankGroup).
+    bool IsHumanTank(std::vector<GroupMember> const& members, Guid tank);
 
     // The tank that the group coordinator gets now, when its tank is
     // `current`: the pick of PickGroupTank. With no pick, `current` stays
