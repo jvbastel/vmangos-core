@@ -103,14 +103,18 @@ def map_part(name: str, packs: dict, routes: Path, line: list | None = None,
             entries = parse(path.read_text())
         except PackOrderError as error:
             raise HTTPException(422, f"{path}: {error}")
-        for number, word, guid in entries:
+        # The skips first, as the route library's ResolveHandOrder: a skip
+        # wins over a `pack` line of the same pack.
+        for number, word, guid in sorted(entries, key=lambda entry: entry[1] != "skip"):
             key = pack_of.get(guid)
             where = f"{path.name}: line {number}: the guid {guid}"
             if key is None:
                 warnings.append(f"{where} is not a mob of a pack of the map; left out")
-            elif key in hand or key in skipped:
-                place = f"at place {hand.index(key) + 1}" if key in hand else "skipped"
-                warnings.append(f"{where} is in pack {key}, already {place}; left out")
+            elif key in skipped:
+                warnings.append(f"{where} is in pack {key}, which the file skips; it skips it" if word == "pack"
+                                else f"{where} is in pack {key}, already skipped; left out")
+            elif key in hand:
+                warnings.append(f"{where} is in pack {key}, already at place {hand.index(key) + 1}; left out")
             else:
                 (skipped if word == "skip" else hand).append(key)
     on_route = sorted((p for p in merged if p["on_route"]), key=lambda p: p["order"])
@@ -161,12 +165,23 @@ def skipped_near(line: list, skipped: list[int], export: export_file.MapExport |
     """The skipped packs that the route line comes within the aggro range
     of (src/bots/RouteHandOrder.h, SkippedPackWarnings): each with its
     nearest distance and the point that starts the piece of the line where
-    it is nearest. A skipped pack can join a fight there as an extra pack."""
+    it is nearest. A skipped pack can join a fight there as an extra pack.
+    The line is the route file's: a skipped pack that it still pulls gets a
+    note to build the route again, as .route build measures the new route."""
     mobs = {p.key: p.mobs for p in (export.packs if export else [])}
     points = [((p.x, p.y, p.z), p.name) for p in line]
     near = []
     for key in skipped:
         pack = packs[key]
+        pull = f"pull_{pack['label']}"
+        if pack["label"] and any(name == pull for _, name in points):
+            # The route file is the old route, which pulls the pack. .route
+            # build takes it off and measures the new route itself.
+            near.append({"key": key, "distance": 0.0, "point": pull,
+                         "text": f"the route file still pulls the skipped pack {_name(pack)} at its point {pull}: "
+                                 f"run .route build, then read its warnings to see if the new route passes within "
+                                 f"its aggro range"})
+            continue
         best, by = math.inf, ""
         for i, (at, point) in enumerate(points):
             to = points[min(i + 1, len(points) - 1)][0]

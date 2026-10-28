@@ -101,3 +101,22 @@ def test_the_page_part_has_skip_mode_and_sends_the_skips(tmp_path):
     script = app(tmp_path).get("/pack_order.js").text
 
     assert 'id="po-skip"' in script and "skips: skipped" in script and "skipped_near" in script
+
+
+def test_a_pack_both_named_and_skipped_in_the_file_is_skipped_as_in_the_route_library(tmp_path):
+    # ResolveHandOrder reads the skips first: a skip wins over a pack line above it.
+    order = load_order(app(tmp_path, "pack 501\nskip 502\n"))
+
+    assert (order["hand"], order["skipped"]) == ([], [501])
+    assert order["warnings"] == ["fixture_cave.order.txt: line 1: the guid 501 is in pack 501, which the file skips; "
+                                 "it skips it"]
+
+
+def test_a_skipped_pack_that_the_route_file_still_pulls_says_to_build_the_route_again(tmp_path):
+    # The route file still has pull_pack1: the old route, not the one .route build makes.
+    order = load_order(app(tmp_path, "skip 501\n"))
+
+    assert [n["key"] for n in order["skipped_near"]] == [501]
+    assert order["skipped_near"][0]["text"] == (
+        "the route file still pulls the skipped pack pack1 (Ragefire Trogg, Ragefire Shaman) at its point "
+        "pull_pack1: run .route build, then read its warnings to see if the new route passes within its aggro range")
