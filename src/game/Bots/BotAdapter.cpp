@@ -11,6 +11,7 @@
 #include "GameRouteNav.h"
 #include "BotGeometry.h"
 #include "GhostWalk.h"
+#include "MageModule.h"
 #include "CastResult.h"
 #include "Bag.h"
 #include "Corpse.h"
@@ -640,6 +641,19 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
     if (result != SPELL_CAST_OK)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: %s", me->GetName(), spell,
             CastResultLogText(result).c_str());
+    // Final review of spec #142, gap 3 (a nova cast in time froze late or
+    // nothing): the result of each Frost Nova, and the hostile units in its
+    // radius (3D, to their edge) when it goes out.
+    else if (sSpellMgr.GetFirstSpellInChain(spell) == Bots::Mage::FrostNova)
+    {
+        float const radiusYards = 10.0f;
+        std::list<Unit*> near;
+        MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck check(me, me, radiusYards);
+        MaNGOS::UnitListSearcher<MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck> searcher(near, check);
+        Cell::VisitGridObjects(me, searcher, radiusYards);
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s casts Frost Nova %u: ok, %u hostile units within %.0f yd (3D edge)",
+            me->GetName(), spell, uint32(near.size()), radiusYards);
+    }
 }
 
 void BotAdapter::MoveTo(Bots::Position const& destination)
