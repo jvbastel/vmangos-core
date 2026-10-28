@@ -1210,3 +1210,15 @@ Bots::Guid BotAdapter::GetTargetOf(Bots::Guid unit) const
         return player->GetSelectionGuid().GetRawValue();
     return found->GetTargetGuid().GetRawValue();
 }
+
+// jvbastel/WOWAI#191: the group's marks. Read only: a bot never sets a mark.
+Bots::BotView::GroupMarks BotAdapter::GetGroupMarks() const
+{
+    GroupMarks marks;
+    if (Group const* group = me->GetGroup())
+    {
+        marks.skull = group->GetTargetWithIcon(RAID_TARGET_ICON_SKULL).GetRawValue();
+        marks.cross = group->GetTargetWithIcon(RAID_TARGET_ICON_CROSS).GetRawValue();
+    }
+    return marks;
+}
