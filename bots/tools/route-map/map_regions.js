@@ -11,6 +11,14 @@
 // 5 yd above the ground there (where ground stacks, the panel asks which).
 // A new region is named "Region N". "Save regions" writes the regions file
 // of the map; the server refuses a region that is not valid.
+//
+// Edits (ticket jvbastel/WOWAI#183): in Regions mode, with no new outline
+// being drawn, each outline point of a region shows as a handle to drag, and the list has the name, the two heights and a Delete button of
+// each region. Edits stay on the page until "Save regions", which sends the
+// whole list through the same checked save: a refused save leaves the file
+// as it was and the edits on the page, with the error. A field edit, a drag
+// and Esc redraw only the map layer, not the list: rebuilding the list would
+// drop the focus, a half-typed value and the click that ends a field edit.
 (() => {
   const style = document.createElement("style");
   style.textContent = `
@@ -20,13 +28,17 @@
               stroke-dasharray: 5 3; pointer-events: none; }
     .rg-point { fill: #ffe14d; stroke: #000; stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: none; }
     .rg-point.first { fill: #fff; cursor: pointer; pointer-events: all; }
+    .rg-handle { fill: #78beff; stroke: #000; stroke-width: 1; vector-effect: non-scaling-stroke; cursor: move;
+                 pointer-events: all; }
     .rg-name { fill: #bfe0ff; paint-order: stroke; stroke: #000; stroke-linejoin: round; pointer-events: none; }
     button.rg-on { background: #78beff; color: #000; }
-    #rg-panel { position: fixed; left: 8px; bottom: 8px; width: 240px; max-height: 40%; overflow-y: auto;
+    #rg-panel { position: fixed; left: 8px; bottom: 8px; width: 270px; max-height: 40%; overflow-y: auto;
                 background: rgba(38, 41, 44, 0.95); border: 1px solid #555; padding: 6px 8px; display: none; }
     #rg-panel h2 { font-size: 14px; margin: 2px 0 6px; }
     #rg-panel ol { margin: 6px 0; padding-left: 1.4em; }
     #rg-panel .heights { color: var(--muted); }
+    #rg-panel li input.name { width: 120px; }
+    #rg-panel li input.low, #rg-panel li input.high { width: 60px; }
     #rg-info { color: var(--muted); margin: 4px 0; white-space: pre-wrap; }
     #rg-info.error { color: #ff8a80; }`;
   document.head.appendChild(style);
@@ -70,10 +82,13 @@
   // The SVG points of WoW (x, y) pairs.
   const svgPoints = points => points.map(([x, y]) => `${sx({y})},${sy({x})}`).join(" ");
 
-  function redraw() {
+  // The map layer and the step text.
+  function drawLayer() {
     layer.replaceChildren();
-    for (const region of regions) {
+    for (const [r, region] of regions.entries()) {
       el("polygon", {class: "rg-area", points: svgPoints(region.outline)}, layer);
+      if (on && !outline.length) region.outline.forEach(([x, y], i) => el("circle", {class: "rg-handle",
+        cx: sx({y}), cy: sy({x}), "data-r": 5, "data-region": r, "data-index": i}, layer));
       const n = region.outline.length;
       const mid = region.outline.reduce(([a, b], [x, y]) => [a + x / n, b + y / n], [0, 0]);
       el("text", {class: "rg-name", x: sx({y: mid[1]}), y: sy({x: mid[0]}), "data-size": 12, "data-halo": 3,
@@ -84,18 +99,54 @@
       outline.forEach(([x, y], i) => el("circle", {class: "rg-point" + (i === 0 && !closed ? " first" : ""),
         cx: sx({y}), cy: sy({x}), "data-r": i === 0 ? 6 : 4}, layer));
     }
-    list.replaceChildren(...regions.map(region => {
-      const li = document.createElement("li");
-      li.innerHTML = `<span class="name"></span> <span class="heights"></span>`;
-      li.querySelector(".name").textContent = region.name;
-      li.querySelector(".heights").textContent =
-        `z ${region.low} to ${region.high}, ${region.outline.length} points`;
-      return li;
-    }));
     step.textContent = !on ? "" : closed ? "Click the ground of the region to set its height range."
       : outline.length ? `${outline.length} points: click on, then click the first point or Close.`
       : "Click the map to start the outline of a new region.";
   }
+
+  function redraw() {
+    drawLayer();
+    list.replaceChildren(...regions.map(region => on ? editRow(region) : showRow(region)));
+  }
+
+  function showRow(region) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="name"></span> <span class="heights"></span>`;
+    li.querySelector(".name").textContent = region.name;
+    li.querySelector(".heights").textContent = `z ${region.low} to ${region.high}, ${region.outline.length} points`;
+    return li;
+  }
+
+  // The name, the two heights and Delete of a region. The server checks them on save.
+  function editRow(region) {
+    const li = document.createElement("li");
+    li.innerHTML = `<input class="name" title="Name"> <button class="delete" title="Delete this region">Delete</button>
+      <div class="heights">z <input class="low" type="number" step="0.5" title="Low height">
+      to <input class="high" type="number" step="0.5" title="High height">, ${region.outline.length} points</div>`;
+    const name = li.querySelector("input.name"), low = li.querySelector("input.low"),
+          high = li.querySelector("input.high");
+    name.value = region.name; low.value = region.low; high.value = region.high;
+    name.addEventListener("change", () => { region.name = name.value; markEdited(); });
+    for (const [input, key] of [[low, "low"], [high, "high"]]) input.addEventListener("change", () => {
+      if (input.value === "" || !isFinite(Number(input.value))) { input.value = region[key]; return; }
+      region[key] = round(Number(input.value));
+      markEdited();
+    });
+    li.querySelector("button.delete").addEventListener("click", () => {
+      regions.splice(regions.indexOf(region), 1);
+      say(`Deleted ${region.name}. Not saved yet.`);
+      redraw();
+    });
+    return li;
+  }
+
+  // A field or point edit: the list rows already show it.
+  function markEdited(text) {
+    say(text || "Edited. Not saved yet.");
+    drawLayer();
+  }
+
+  const round = v => Math.round(v * 100) / 100;
 
   function newName() {
     const names = new Set(regions.map(r => r.name));
@@ -108,21 +159,21 @@
     if (outline.length < 3) { say("An outline needs at least 3 points.", true); return; }
     closed = true;
     say("");
-    redraw();
+    drawLayer();
   }
 
   function cancel() {
     outline = []; closed = false; floorsBox.replaceChildren();
-    redraw();
+    drawLayer();
   }
 
   // The height range of the new region: 5 yd below to 5 yd above the ground z.
   function finish(z) {
-    const round = v => Math.round(v * 100) / 100;
     const region = {name: newName(), low: round(z - 5), high: round(z + 5), outline};
     regions.push(region);
     say(`${region.name}: z ${region.low} to ${region.high}. Not saved yet.`);
     cancel();
+    redraw();
   }
 
   async function setHeight(event) {
@@ -145,18 +196,42 @@
   // is off while Regions mode is on, and the event stops here: also for the
   // Order and Skip click of pack_order.js on the same element (it loads later).
   let down = null;
-  map.addEventListener("mousedown", e => { down = {x: e.clientX, y: e.clientY}; }, true);
+  let dragEnd = false;  // the click that ends a point drag (its target can be the layer: the handle is redrawn)
+  map.addEventListener("mousedown", e => { down = {x: e.clientX, y: e.clientY}; dragEnd = false; }, true);
   map.addEventListener("click", e => {
     if (!on || !view) return;
     e.stopImmediatePropagation();
     if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;  // a pan
+    if (dragEnd || e.target.classList.contains("rg-handle")) { dragEnd = false; return; }  // a point drag
     if (closed) { setHeight(e); return; }
     if (e.target.classList.contains("first")) { closeOutline(); return; }
     const at = toMap(e);
-    outline.push([Math.round(-at.y * 100) / 100, Math.round(-at.x * 100) / 100]);
-    redraw();
+    outline.push([round(-at.y), round(-at.x)]);
+    drawLayer();
   }, true);
   window.addEventListener("keydown", e => { if (on && e.key === "Escape") cancel(); });
+
+  // Drag an outline point of a region (no pan, no new outline point).
+  let moving = null;
+  layer.addEventListener("mousedown", e => {
+    if (!on || !view || e.button !== 0 || !e.target.classList.contains("rg-handle")) return;
+    e.stopPropagation();
+    moving = {region: regions[Number(e.target.dataset.region)], index: Number(e.target.dataset.index), moved: false};
+  });
+  window.addEventListener("mousemove", e => {
+    if (!moving) return;
+    const at = toMap(e);
+    moving.region.outline[moving.index] = [round(-at.y), round(-at.x)];
+    moving.moved = true;
+    drawLayer();
+  });
+  window.addEventListener("mouseup", () => {
+    if (!moving) return;
+    const {region, index, moved} = moving;
+    moving = null;
+    dragEnd = true;
+    if (moved) markEdited(`Moved point ${index + 1} of ${region.name}. Not saved yet.`);
+  });
 
   function setOn(next) {
     on = next;
@@ -166,7 +241,8 @@
     if (on && drawButton.classList.contains("on")) drawButton.click();  // Draw mode off
     if (on) map.style.cursor = "crosshair";
     else if (!drawButton.classList.contains("on")) map.style.cursor = "";
-    if (!on) cancel(); else redraw();
+    if (!on) cancel();
+    redraw();
   }
   modeButton.addEventListener("click", () => setOn(!on));
   drawButton.addEventListener("click", () => { if (on && drawButton.classList.contains("on")) setOn(false); });
@@ -178,7 +254,7 @@
                                                   body: JSON.stringify({regions})});
     const data = await response.json();
     if (!response.ok) { say(data.detail || response.statusText, true); return; }
-    regions = data.regions;
+    regions = data.regions; file = data.file;
     say(`Saved ${regions.length} regions to ${data.file}.`);
     redraw();
   });
