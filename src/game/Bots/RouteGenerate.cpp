@@ -12,7 +12,9 @@
 // The settings are seed, aggro, margin, pull, level, levelslack, cluster,
 // spacing, radius, side, alt, gap, wide, wall, and bosses (entries split by commas, in run order). With
 // no bosses setting, the boss list of the existing route file is used. See
-// RouteGenerator.h of the bot library for what each one does.
+// RouteGenerator.h of the bot library for what each one does. The hand pack
+// order of <route>.order.txt, when the file is there, sets the order of the
+// packs it names.
 // A ghost route name, for example ghost_389, makes the ghost route of that
 // dungeon instead (bots/GhostWalk.h): stand at the graveyard of the dungeon.
 //
@@ -447,6 +449,15 @@ bool RunGenerate(ChatHandler& handler, char* args)
     input.settings = settings;
     input.entryName = RouteFiles::EntryName;
     input.quests = QuestsOf(character->GetZoneId(), input.spawns);
+    std::string orderText;
+    std::string const orderPath = RouteFiles::OrderPathOf(names[0]);
+    if (RouteFiles::Read(orderPath, orderText))
+    {
+        Bots::PackOrderResult const order = Bots::ParsePackOrder(orderText);
+        if (!order.ok)
+            return Fail(handler, orderPath + ": " + order.error);
+        input.packOrder = order.guids;
+    }
 
     // The navmesh tiles load with the terrain of their grid.
     TerrainInfo const* terrain = character->GetTerrain();
