@@ -132,6 +132,33 @@ namespace Bots
             return candidate;
         }
 
+        float const TwoPi = 6.2831853f;
+        // The directions around a pack in which a moved pull point is sought.
+        int const PullSearchDirections = 16;
+
+        // The spot in the pull band of the pack, out from its leader in the
+        // direction `angle`: out of the aggro range of the pack, with its
+        // wander and its other members, and within aggro range plus margin.
+        // False when a wall stops the spot before the band.
+        bool PullBandSpot(Position const& leader, float angle, GeneratorPack const& pack,
+            std::vector<GeneratorSpawn> const& spawns, GeneratorSettings const& settings, RouteNav& nav,
+            Position& spot)
+        {
+            float const range = settings.aggroRange + settings.margin;
+            for (float reach = (settings.aggroRange + range) / 2.0f; reach <= 2.0f * range;
+                 reach += settings.margin / 2.0f)
+            {
+                spot = nav.Reach(leader, std::cos(angle), std::sin(angle), reach);
+                float const distance = DistanceToPack(spot, pack, spawns);
+                if (distance >= settings.aggroRange && distance <= range)
+                    return true;
+                // Past the band, or stopped short by a wall.
+                if (distance > range || Distance2d(spot, leader) < reach - 0.5f)
+                    return false;
+            }
+            return false;
+        }
+
         // The hand pack order (WOWAI#147). The pull point and the fight of
         // each named pack move, in the order of the hand, to where the route
         // fought the first of them. The other steps keep their order. A named
@@ -241,24 +268,11 @@ namespace Bots
                 {
                     Position const leader = spawns[packs[p].members[0]].position;
                     float best = -1.0f;
-                    for (int k = 0; k < 16; ++k)
+                    for (int k = 0; k < PullSearchDirections; ++k)
                     {
-                        // Out from the leader until the pack, with its wander
-                        // and its other members, is in the pull band.
-                        float const angle = float(k) * 6.2831853f / 16.0f;
-                        Position place = leader;
-                        bool inBand = false;
-                        for (float reach = (settings.aggroRange + range) / 2.0f; !inBand && reach <= 2.0f * range;
-                             reach += settings.margin / 2.0f)
-                        {
-                            place = nav.Reach(leader, std::cos(angle), std::sin(angle), reach);
-                            float const distance = DistanceToPack(place, packs[p], spawns);
-                            inBand = distance >= settings.aggroRange && distance <= range;
-                            // A wall stops the spot, or it went past the band.
-                            if (distance > range || Distance2d(place, leader) < reach - 0.5f)
-                                break;
-                        }
-                        if (!inBand)
+                        Position place;
+                        if (!PullBandSpot(leader, float(k) * TwoPi / float(PullSearchDirections), packs[p], spawns,
+                                settings, nav, place))
                             continue;
                         PackSight const sight = SightOf(place, packs[p], spawns, settings, nav, range);
                         if (sight.sight != Sight::Pullable || sight.path > settings.pullPathLimit ||
