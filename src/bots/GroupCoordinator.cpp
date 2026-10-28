@@ -515,4 +515,21 @@ namespace Bots
         events.swap(m_events);
         return events;
     }
+
+    // jvbastel/WOWAI#170
+    bool GroupCoordinator::NoteHealthFalls(Guid bot, std::uint32_t health, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        std::vector<std::pair<std::int64_t, std::uint32_t>>& notes = m_healthNotes[bot];
+        notes.erase(std::remove_if(notes.begin(), notes.end(),
+                        [nowMs](std::pair<std::int64_t, std::uint32_t> const& note) {
+                            return nowMs - note.first > HealthFallMs || note.first > nowMs;
+                        }),
+            notes.end());
+        bool falls = false;
+        for (std::pair<std::int64_t, std::uint32_t> const& note : notes)
+            falls = falls || note.second > health;
+        notes.emplace_back(nowMs, health);
+        return falls;
+    }
 }

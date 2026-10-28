@@ -246,23 +246,13 @@ TEST(PriestHealer, FadesWhenAnEnemyAttacksIt)
     EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Fade, Healer)}));
 }
 
-TEST(PriestHealer, ShieldsItselfWhenAnEnemyAttacksIt)
-{
-    PriestHealer priest;
-    priest.InFight();
-    priest.fake.SetVictim(Kobold, Healer);
-    priest.fake.SetCannotCast(Priest::Fade);
-
-    priest.Think();
-
-    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Healer)}));
-}
-
 TEST(PriestHealer, NeverAttacksAnEnemyThatAttacksIt)
 {
     PriestHealer priest;
     priest.InFight();
     priest.fake.SetVictim(Kobold, Healer);
+    // jvbastel/WOWAI#170: the healer is at the tank, so it does not walk.
+    priest.fake.SetDistance(Tank, 2.0f);
     priest.fake.SetCannotCast(Priest::Fade);
     priest.fake.SetAura(Healer, Priest::WeakenedSoul);
 
@@ -865,6 +855,8 @@ TEST(PriestHealerWand, NeverShootsAnEnemyThatAttacksIt)
     GiveWand(priest);
     priest.InFight();
     priest.fake.SetVictim(Kobold, Healer);
+    // jvbastel/WOWAI#170: the healer is at the tank, so it does not walk.
+    priest.fake.SetDistance(Tank, 2.0f);
     priest.fake.SetCannotCast(Priest::Fade);
     priest.fake.SetAura(Healer, Priest::WeakenedSoul);
 
@@ -921,6 +913,8 @@ TEST(PriestHealerWand, StopsTheShotWhenAnEnemyAttacksIt)
     priest.InFight();
     priest.fake.SetShotTarget(Kobold);
     priest.fake.SetVictim(Kobold, Healer);
+    // jvbastel/WOWAI#170: the healer is at the tank, so it does not walk.
+    priest.fake.SetDistance(Tank, 2.0f);
     priest.fake.SetCannotCast(Priest::Fade);
     priest.fake.SetAura(Healer, Priest::WeakenedSoul);
 
@@ -1279,4 +1273,158 @@ TEST(PriestHealerHolyNova, NeverCastsHolyNova)
                             << static_cast<int>(situation);
                     }
             }
+}
+
+// jvbastel/WOWAI#170 (spec #165, stories 5 to 8): an enemy attacks the
+// healer. It casts Fade first, then walks into the tank's melee range, so
+// that its attackers follow it to the tank. Each heal comes before a step.
+// It shields itself only when it is attacked and its health falls.
+namespace
+{
+    Bots::Position const TankPlace{10.0f, 0.0f, 0.0f};
+
+    // The kobold leaves the tank and attacks the healer, 20 yards from the
+    // tank.
+    void KoboldOnTheHealer(PriestHealer& priest)
+    {
+        priest.InFight();
+        priest.fake.SetPosition(Healer, {-10.0f, 0.0f, 0.0f});
+        priest.fake.SetPosition(Tank, TankPlace);
+        priest.fake.SetVictim(Kobold, Healer);
+    }
+
+    std::string const WalkToTheTank = "keep move to 10 0 0";
+}
+
+TEST(PriestHealerAttacked, FadesFirstThenWalksToTheTank)
+{
+    PriestHealer priest;
+    KoboldOnTheHealer(priest);
+
+    priest.Think();
+    // Fade is on its cooldown now.
+    priest.fake.SetCannotCast(Priest::Fade);
+    priest.nowMs = 100;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Fade, Healer), WalkToTheTank}));
+}
+
+TEST(PriestHealerAttacked, KeepsWalkingUntilItIsInTheTanksMeleeRange)
+{
+    PriestHealer priest;
+    KoboldOnTheHealer(priest);
+    priest.fake.SetCannotCast(Priest::Fade);
+
+    priest.Think();
+    priest.fake.SetDistance(Tank, 6.0f);
+    priest.nowMs = 1000;
+    priest.Think();
+    priest.fake.SetDistance(Tank, 2.0f);
+    priest.nowMs = 2000;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{WalkToTheTank, WalkToTheTank}));
+}
+
+TEST(PriestHealerAttacked, HealsBeforeItWalks)
+{
+    PriestHealer priest;
+    KoboldOnTheHealer(priest);
+    priest.fake.SetCannotCast(Priest::Fade);
+    priest.fake.SetHealth(Mage, 120, 300);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Heal, Mage)}));
+}
+
+TEST(PriestHealerAttacked, DoesNotWalkToTheTankWhenNothingAttacksIt)
+{
+    PriestHealer priest;
+    priest.InFight();
+    priest.fake.SetPosition(Healer, {-10.0f, 0.0f, 0.0f});
+    priest.fake.SetPosition(Tank, TankPlace);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{}));
+}
+
+TEST(PriestHealerAttacked, DoesNotShieldItselfWhileItsHealthHolds)
+{
+    PriestHealer priest;
+    KoboldOnTheHealer(priest);
+    priest.fake.SetCannotCast(Priest::Fade);
+
+    for (int think = 0; think < 5; ++think)
+    {
+        priest.nowMs = think * 500;
+        priest.Think();
+    }
+
+    for (std::string const& deed : priest.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Priest::PowerWordShield, Healer));
+}
+
+TEST(PriestHealerAttacked, ShieldsItselfWhenAttackedAndItsHealthFalls)
+{
+    PriestHealer priest;
+    KoboldOnTheHealer(priest);
+    priest.fake.SetCannotCast(Priest::Fade);
+
+    priest.Think();
+    priest.fake.ClearDeeds();
+    priest.fake.SetHealth(Healer, 560, 600);
+    priest.nowMs = 500;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::PowerWordShield, Healer)}));
+}
+
+TEST(PriestHealerAttacked, DoesNotShieldItselfWhenItsHealthFallsWithoutAnAttacker)
+{
+    // A damage over time spell: the health falls, but no enemy attacks it.
+    PriestHealer priest;
+    priest.InFight();
+    priest.fake.SetHealth(Healer, 600, 600);
+    priest.Think();
+    priest.fake.SetHealth(Healer, 560, 600);
+    priest.nowMs = 500;
+    priest.Think();
+
+    for (std::string const& deed : priest.fake.Deeds())
+        EXPECT_NE(deed, CastOn(Priest::PowerWordShield, Healer));
+}
+
+TEST(PriestHealerAttacked, DoesNotShieldItselfForAnOldHit)
+{
+    // The health fell long ago, and holds since then.
+    PriestHealer priest;
+    KoboldOnTheHealer(priest);
+    priest.fake.SetCannotCast(Priest::Fade);
+    priest.Think();
+    priest.fake.SetHealth(Healer, 560, 600);
+    priest.fake.SetCannotCastOn(Priest::PowerWordShield, Healer);
+    priest.nowMs = 500;
+    priest.Think();
+    priest.fake.ClearDeeds();
+    priest.fake.SetCanCastOn(Priest::PowerWordShield, Healer);
+    priest.nowMs = 5000;
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{WalkToTheTank}));
+}
+
+TEST(PriestHealerAttacked, DoesNotWalkAwayFromAHealItCasts)
+{
+    // A step would stop the heal.
+    PriestHealer priest;
+    KoboldOnTheHealer(priest);
+    priest.fake.SetCannotCast(Priest::Fade);
+    priest.fake.SetCurrentCast(Healer, Priest::Heal);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{}));
 }
