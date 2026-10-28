@@ -3,6 +3,7 @@
 
 #include "BotTypes.h"
 #include "Ranged.h"
+#include "RoleChoice.h"
 
 #include <limits>
 #include <vector>
@@ -267,6 +268,10 @@ namespace Bots
             Guid cross = NoGuid;
         };
         virtual GroupMarks GetGroupMarks() const = 0;
+        // jvbastel/WOWAI#197: the role choice of group member `member`, from
+        // the role choice add-on (RoleChoice.h). RoleChoice::None for a bot,
+        // and for a human with no add-on or no pick.
+        virtual RoleChoice GetRoleChoice(Guid member) const = 0;
     };
 }
 

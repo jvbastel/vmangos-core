@@ -472,6 +472,13 @@ namespace Bots
             // jvbastel/WOWAI#191: the group's marks. Unset: no marks.
             void SetGroupMarks(GroupMarks const& marks) { m_marks = marks; }
             GroupMarks GetGroupMarks() const override { return m_marks; }
+            // jvbastel/WOWAI#197: a member's role choice. Unset: RoleChoice::None.
+            void SetRoleChoice(Guid member, RoleChoice choice) { m_roleChoice[member] = choice; }
+            RoleChoice GetRoleChoice(Guid member) const override
+            {
+                auto found = m_roleChoice.find(member);
+                return found == m_roleChoice.end() ? RoleChoice::None : found->second;
+            }
             bool IsMeleeAttacking() const override { return GetVictim(m_self) != NoGuid && !m_noMeleeSwing; }
             bool IsMoving(Guid unit) const override
             {
@@ -614,6 +621,7 @@ namespace Bots
             std::map<Guid, Guid> m_victim;
             std::map<Guid, Guid> m_targetOf; // jvbastel/WOWAI#189.
             GroupMarks m_marks; // jvbastel/WOWAI#191.
+            std::map<Guid, RoleChoice> m_roleChoice; // jvbastel/WOWAI#197.
             std::map<std::pair<Guid, Guid>, float> m_threatRatio;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
