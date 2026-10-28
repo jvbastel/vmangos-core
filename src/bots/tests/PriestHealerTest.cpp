@@ -653,13 +653,13 @@ namespace
         fake.SetSpellChain({Priest::Renew, Renew2});
         for (Bots::SpellId rank : {LesserHeal2, LesserHeal3, Heal2, Renew2})
             fake.SetKnownSpell(rank);
-        fake.SetHealRank(Priest::LesserHeal, 53, 30);
-        fake.SetHealRank(LesserHeal2, 84, 45);
-        fake.SetHealRank(LesserHeal3, 154, 75);
-        fake.SetHealRank(Priest::Heal, 330, 155);
-        fake.SetHealRank(Heal2, 476, 205);
-        fake.SetHealRank(Priest::Renew, 0, 30);
-        fake.SetHealRank(Renew2, 0, 65);
+        fake.SetRankAmounts(Priest::LesserHeal, 53, 30);
+        fake.SetRankAmounts(LesserHeal2, 84, 45);
+        fake.SetRankAmounts(LesserHeal3, 154, 75);
+        fake.SetRankAmounts(Priest::Heal, 330, 155);
+        fake.SetRankAmounts(Heal2, 476, 205);
+        fake.SetRankAmounts(Priest::Renew, 0, 30);
+        fake.SetRankAmounts(Renew2, 0, 65);
         fake.SetMana(Healer, 400, 400);
     }
 }
@@ -970,8 +970,8 @@ namespace
         fake.SetSpellChain({Priest::GreaterHeal, GreaterHeal2});
         fake.SetKnownSpell(Priest::GreaterHeal);
         fake.SetKnownSpell(GreaterHeal2);
-        fake.SetHealRank(Priest::GreaterHeal, 982, 370);
-        fake.SetHealRank(GreaterHeal2, 1270, 455);
+        fake.SetRankAmounts(Priest::GreaterHeal, 982, 370);
+        fake.SetRankAmounts(GreaterHeal2, 1270, 455);
         fake.SetMana(Healer, 2000, 2000);
     }
 }
@@ -1078,7 +1078,7 @@ namespace
     {
         KnowTheHealRanks(priest);
         priest.fake.SetKnownSpell(Priest::FlashHeal);
-        priest.fake.SetHealRank(Priest::FlashHeal, 224, 125);
+        priest.fake.SetRankAmounts(Priest::FlashHeal, 224, 125);
     }
 
     // A level 26 healer: it knows Flash Heal rank 2 too.
@@ -1087,7 +1087,7 @@ namespace
         KnowFlashHeal(priest);
         priest.fake.SetSpellChain({Priest::FlashHeal, FlashHeal2});
         priest.fake.SetKnownSpell(FlashHeal2);
-        priest.fake.SetHealRank(FlashHeal2, 297, 155);
+        priest.fake.SetRankAmounts(FlashHeal2, 297, 155);
     }
 }
 

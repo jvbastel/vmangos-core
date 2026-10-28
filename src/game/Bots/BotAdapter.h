@@ -72,7 +72,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         bool CanCast(Bots::SpellId spell, Bots::Guid target) const override;
         bool LevelAllowsRank(Bots::SpellId rank, Bots::Guid target) const override;
         bool IsCastLocked(Bots::SpellId spell) const override;
-        Bots::HealRank GetHealRank(Bots::SpellId rank) const override;
+        Bots::RankAmounts GetRankAmounts(Bots::SpellId rank) const override;
         std::vector<Bots::Guid> GetGroupMembers() const override;
         uint32 GetEntry(Bots::Guid unit) const override;
         Bots::Position GetPosition(Bots::Guid unit) const override;

@@ -1,20 +1,30 @@
 #include "SpellBook.h"
 
+#include <vector>
+
 namespace Bots
 {
     namespace
     {
-        // The highest rank in the chain from `firstRank` that the bot knows
-        // and that `allows` accepts. A bot can miss a rank in the middle, so
-        // the walk goes through the whole chain.
+        // The ranks in the chain from `firstRank` that the bot knows and
+        // that `allows` accepts, lowest first. A bot can miss a rank in the
+        // middle, so the walk goes through the whole chain.
+        template <typename Allows>
+        std::vector<SpellId> KnownRanks(BotView const& view, SpellId firstRank, Allows allows)
+        {
+            std::vector<SpellId> ranks;
+            for (SpellId rank = firstRank; rank != NoSpell; rank = view.GetNextRank(rank))
+                if (view.KnowsSpell(rank) && allows(rank))
+                    ranks.push_back(rank);
+            return ranks;
+        }
+
+        // The highest of KnownRanks, or NoSpell.
         template <typename Allows>
         SpellId HighestRank(BotView const& view, SpellId firstRank, Allows allows)
         {
-            SpellId highest = NoSpell;
-            for (SpellId rank = firstRank; rank != NoSpell; rank = view.GetNextRank(rank))
-                if (view.KnowsSpell(rank) && allows(rank))
-                    highest = rank;
-            return highest;
+            std::vector<SpellId> const ranks = KnownRanks(view, firstRank, allows);
+            return ranks.empty() ? NoSpell : ranks.back();
         }
 
         // No stun or silence locks the cast of `rank` (BotView::IsCastLocked),
@@ -46,20 +56,16 @@ namespace Bots
         Health const health = view.GetHealth(target);
         std::uint32_t const missing = health.max > health.current ? health.max - health.current : 0;
         std::uint32_t const mana = view.GetMana(view.GetSelf()).current;
-        SpellId highest = NoSpell;
-        for (SpellId rank = firstRank; rank != NoSpell; rank = view.GetNextRank(rank))
-        {
-            HealRank const heal = view.GetHealRank(rank);
-            // The real CanCast checks the mana too. The mana check here keeps
-            // the choice inside BotView's contract, so the fake bot models
-            // it and a low-mana bot drops to a cheaper rank.
-            if (!view.KnowsSpell(rank) || !view.LevelAllowsRank(rank, target) || heal.manaCost > mana
-                || !CanCastNow(view, rank, target))
-                continue;
-            if (heal.averageHeal >= missing)
+        // The real CanCast checks the mana too. The mana check here keeps
+        // the choice inside BotView's contract, so the fake bot models it
+        // and a low-mana bot drops to a cheaper rank.
+        std::vector<SpellId> const ranks = KnownRanks(view, firstRank, [&view, target, mana](SpellId rank) {
+            return view.LevelAllowsRank(rank, target) && view.GetRankAmounts(rank).manaCost <= mana
+                && CanCastNow(view, rank, target);
+        });
+        for (SpellId rank : ranks)
+            if (view.GetRankAmounts(rank).averageHeal >= missing)
                 return rank;
-            highest = rank;
-        }
-        return highest;
+        return ranks.empty() ? NoSpell : ranks.back();
     }
 }

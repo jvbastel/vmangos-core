@@ -573,14 +573,14 @@ bool BotAdapter::IsCastLocked(Bots::SpellId spell) const
     return false;
 }
 
-Bots::HealRank BotAdapter::GetHealRank(Bots::SpellId rank) const
+Bots::RankAmounts BotAdapter::GetRankAmounts(Bots::SpellId rank) const
 {
     // The mean of SpellCaster::CalculateSpellEffectValue for each direct
     // heal effect, at the level of the bot, without the spell mods of the
     // talents and without +healing (jvbastel/WOWAI#134).
     SpellEntry const* entry = sSpellMgr.GetSpellEntry(rank);
     if (!entry)
-        return Bots::HealRank{0, 0};
+        return Bots::RankAmounts{0, 0};
     int32 level = int32(me->GetLevel());
     if (entry->maxLevel > 0 && level > int32(entry->maxLevel))
         level = int32(entry->maxLevel);
@@ -598,7 +598,7 @@ Bots::HealRank BotAdapter::GetHealRank(Bots::SpellId rank) const
         heal += entry->EffectBasePoints[i] + level * entry->EffectRealPointsPerLevel[i] + random;
     }
     uint32 const cost = Powers(entry->powerType) == POWER_MANA ? Spell::CalculatePowerCost(entry, me) : 0;
-    return Bots::HealRank{heal > 0.0f ? uint32(heal + 0.5f) : 0, cost};
+    return Bots::RankAmounts{heal > 0.0f ? uint32(heal + 0.5f) : 0, cost};
 }
 
 std::vector<Bots::Guid> BotAdapter::GetGroupMembers() const

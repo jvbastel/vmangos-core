@@ -76,9 +76,9 @@ namespace
         bot.SetSpellChain({LesserHeal1, LesserHeal2, LesserHeal3});
         for (Bots::SpellId rank : {LesserHeal1, LesserHeal2, LesserHeal3})
             bot.SetKnownSpell(rank);
-        bot.SetHealRank(LesserHeal1, 53, 30);
-        bot.SetHealRank(LesserHeal2, 84, 45);
-        bot.SetHealRank(LesserHeal3, 154, 75);
+        bot.SetRankAmounts(LesserHeal1, 53, 30);
+        bot.SetRankAmounts(LesserHeal2, 84, 45);
+        bot.SetRankAmounts(LesserHeal3, 154, 75);
         bot.SetMana(Self, 400, 400);
         bot.SetHealth(Tank, 600 - missing, 600);
         return bot;

@@ -28,7 +28,7 @@ namespace Bots
     // `target`. Of the known ranks of the heal whose first rank is
     // `firstRank` that the bot can cast on the target now (as CastableRank:
     // the target level allows it, no lock, CanCast) and whose mana cost the
-    // bot has (BotView::GetHealRank), the lowest whose average heal covers
+    // bot has (BotView::GetRankAmounts), the lowest whose average heal covers
     // the missing health. When none covers it, the highest of them. NoSpell
     // when the bot can cast no rank. It has the shape of CastableRank, so a
     // CastRule casts a heal with it (CommonRules.h).

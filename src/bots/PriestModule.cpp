@@ -65,11 +65,12 @@ namespace Bots
             }
 
             // Review of spec #131: Flash Heal only for a member that dies
-            // before a slow heal lands. A shielded member does not: the
-            // shield holds the damage off.
-            bool HasNoShield(BotContext const& context, Guid member)
+            // before a slow heal lands. Only in a fight (story 22): out of
+            // it, nothing hits the member. And not under the shield: it
+            // holds the damage off.
+            bool TakesFlashHeal(BotContext const& context, Guid member)
             {
-                return !context.view.HasAura(member, PowerWordShield);
+                return IsGroupInCombat(context.view) && !context.view.HasAura(member, PowerWordShield);
             }
 
             bool HasNoRenew(BotContext const& context, Guid member)
@@ -123,7 +124,8 @@ namespace Bots
             {
                 Guid const focus = context.group.GetFocusTarget();
                 return context.view.IsInCombat(PickSelf(context)) && !IsAttacked(context)
-                    && context.view.GetRangedWeapon().kind == RangedKind::Wand && context.view.GetShotTarget() == NoGuid
+                    && context.view.GetRangedWeapon().kind == RangedKind::Wand && CanShoot(context.view)
+                    && context.view.GetShotTarget() == NoGuid
                     && IsAlive(context.view, focus) && TankHoldsThreat(context) && InWandShot(context.view, focus);
             }
 
@@ -236,6 +238,14 @@ namespace Bots
                     return !WaitsForTheTank(context) && MostHurtMember(context, below, filter) != NoGuid;
                 };
             }
+
+            // jvbastel/WOWAI#134: a heal with rank choice (CastableHealRank)
+            // on the most hurt member below `below` that `filter` accepts.
+            Rule HealRule(std::string name, int priority, SpellId heal, float below, MemberFilter filter = AnyMember)
+            {
+                return CastRule(std::move(name), priority, SomeoneBelow(below, filter), heal, HurtMember(below, filter),
+                    CastableHealRank);
+            }
         }
 
         std::shared_ptr<Strategy const> MakeHealerStrategy()
@@ -260,27 +270,18 @@ namespace Bots
                 // jvbastel/WOWAI#135: a member near death that the shield
                 // skips (a rage tank, Weakened Soul) gets the fast heal. A
                 // member under its shield gets a slow heal.
-                // Only in a fight (spec story 22): out of it, nothing hits
-                // the member, and the slow heal lands in time.
-                CastRule("flash heal a member near death", P + 87,
-                    [](BotContext const& context) {
-                        return IsGroupInCombat(context.view) && SomeoneBelow(FlashHealBelow, HasNoShield)(context);
-                    },
-                    FlashHeal, HurtMember(FlashHealBelow, HasNoShield), CastableHealRank),
+                HealRule("flash heal a member near death", P + 87, FlashHeal, FlashHealBelow, TakesFlashHeal),
                 // jvbastel/WOWAI#134: Greater Heal, Heal, and Lesser Heal
                 // take the rank that fits the missing health. Renew, the shield, and the
                 // buffs take their highest rank.
                 // jvbastel/WOWAI#136: from level 40, Greater Heal heals the
                 // most per mana: it comes before Heal. A bot that does not
                 // know it goes on to Heal.
-                CastRule("greater heal a badly hurt member", P + 82, SomeoneBelow(HealBelow), GreaterHeal,
-                    HurtMember(HealBelow), CastableHealRank),
-                CastRule("heal", P + 80, SomeoneBelow(HealBelow), Heal, HurtMember(HealBelow), CastableHealRank),
-                CastRule("lesser heal a badly hurt member", P + 75, SomeoneBelow(HealBelow), LesserHeal,
-                    HurtMember(HealBelow), CastableHealRank),
+                HealRule("greater heal a badly hurt member", P + 82, GreaterHeal, HealBelow),
+                HealRule("heal", P + 80, Heal, HealBelow),
+                HealRule("lesser heal a badly hurt member", P + 75, LesserHeal, HealBelow),
                 CastRule("renew", P + 70, SomeoneBelow(RenewBelow, HasNoRenew), Renew, HurtMember(RenewBelow, HasNoRenew)),
-                CastRule("lesser heal", P + 65, SomeoneBelow(LesserHealBelow), LesserHeal, HurtMember(LesserHealBelow),
-                    CastableHealRank),
+                HealRule("lesser heal", P + 65, LesserHeal, LesserHealBelow),
 
                 // A hurt member out of reach: the bot follows it. It stays
                 // near it until the fight ends and the command takes over.

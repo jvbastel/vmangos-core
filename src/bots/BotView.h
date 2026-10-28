@@ -31,14 +31,16 @@ namespace Bots
         bool interruptible;
     };
 
-    // jvbastel/WOWAI#134: one rank of a heal, for the rank choice
+    // jvbastel/WOWAI#134: the amounts of one rank of any spell, cast by the
+    // bot (BotView::GetRankAmounts). The rank choice of a heal reads them
     // (SpellBook.h, CastableHealRank).
-    struct HealRank
+    struct RankAmounts
     {
-        // The average direct heal of the rank by the bot, from the spell
-        // data: no +healing, no crit, no talent. 0 for a spell without a
-        // direct heal.
+        // The average direct heal of the rank, from the spell data: no
+        // +healing, no crit, no talent. 0 for a spell without a direct heal
+        // (Renew, a damage spell).
         std::uint32_t averageHeal;
+        // The mana cost of the rank. 0 for a spell that costs no mana.
         std::uint32_t manaCost;
     };
 
@@ -151,7 +153,7 @@ namespace Bots
         // jvbastel/WOWAI#134: the average direct heal and the mana cost of
         // rank `rank` of a spell, cast by the bot. Any spell: one with no
         // direct heal (Renew) has averageHeal 0. {0, 0} for an unknown spell.
-        virtual HealRank GetHealRank(SpellId rank) const = 0;
+        virtual RankAmounts GetRankAmounts(SpellId rank) const = 0;
 
         // The members of the bot's group that the bot can see, the bot
         // first. Only the bot when it is in no group.

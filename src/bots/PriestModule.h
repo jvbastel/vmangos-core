@@ -1,6 +1,7 @@
 #ifndef WOWAI_BOTS_PRIEST_MODULE_H
 #define WOWAI_BOTS_PRIEST_MODULE_H
 
+#include "Ranged.h"
 #include "Strategy.h"
 
 #include <memory>
@@ -20,7 +21,7 @@ namespace Bots
         SpellId const Renew = 139;
         // jvbastel/WOWAI#133: the wand shot between heals. It repeats on its
         // own until a cast stops it.
-        SpellId const Shoot = 5019;
+        SpellId const Shoot = WandShoot;
         SpellId const PowerWordShield = 17;
         SpellId const PowerWordFortitude = 1243;
         SpellId const InnerFire = 588;
