@@ -20,8 +20,10 @@
 //   corner cut.
 // - A retreat pull (the tank walks back toward the bots): the trail is cut
 //   back, the spots move back with it, and the bots walk back too.
-// - In combat (the bot, the tank or the group) the rule does not fire:
-//   today's fight rules take over.
+// - A bot in combat does not follow the trail: today's fight rules take
+//   over. A bot not in combat yet follows it also while the tank or the
+//   group fights, along the cleared way of the fight, cut back to the tank
+//   (spec #188 fix-up S3, a retreat pull).
 // Bot-tank groups do not change: the rule is for a player-tank group only.
 namespace Bots
 {

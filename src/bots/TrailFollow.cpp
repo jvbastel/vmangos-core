@@ -108,6 +108,21 @@ namespace Bots
             return bots;
         }
 
+        // The tank's trail. In the tank's fight the trail is empty: then the
+        // cleared way of the fight, cut back to where the tank stands
+        // (spec #188 fix-up S3, a retreat pull).
+        std::vector<Position> TrailNow(GroupCoordinator const& group, Position const& tank)
+        {
+            std::vector<Position> trail = group.GetTrail();
+            if (!trail.empty())
+                return trail;
+            Trail fight;
+            for (Position const& at : group.GetFightWay())
+                fight.Note(at);
+            fight.CutBackTo(tank);
+            return fight.Points();
+        }
+
         // The spot of this bot, and the way it walks. False with no role.
         bool MyTrailSpot(BotContext const& context, std::vector<Position>& way, Position& spot)
         {
@@ -128,8 +143,8 @@ namespace Bots
                 if (RoleOf(context.group, bots[i], other) && other == role)
                     ++roleCount;
             }
-            Guid const tank = context.group.GetTank();
-            way = TankWay(context.view.GetPosition(tank), context.group.GetTrail());
+            Position const tank = context.view.GetPosition(context.group.GetTank());
+            way = TankWay(tank, TrailNow(context.group, tank));
             spot = FindTrailSpot(context.view, way, context.view.GetPosition(self), role, inRole, roleCount, sideIndex);
             return true;
         }
@@ -139,7 +154,10 @@ namespace Bots
             Guid const self = context.view.GetSelf();
             Guid const tank = context.group.GetTank();
             if (!FollowsTheTankTrail(context) || context.command != CommandState::Follow || context.startWaits
-                || context.view.IsInCombat(self) || context.view.IsInCombat(tank) || IsGroupInCombat(context.view)
+                // Spec #188 fix-up (S3): the bot's own combat only. A bot not
+                // in the fight yet walks the trail behind the tank, also
+                // while the tank or the group fights (a retreat pull).
+                || context.view.IsInCombat(self)
                 // A damage bot on its way to its target.
                 || IsAlive(context.view, context.view.GetChase().target))
                 return false;

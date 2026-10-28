@@ -205,14 +205,11 @@ TEST(TrailFollow, WhenTheTankWalksBackTheBotsWalkBackAndStayBehindIt)
 
 TEST(TrailFollow, InCombatTheTrailFollowDoesNotFire)
 {
-    for (Bots::Guid const fighter : {Self, Tank})
-    {
-        Bot bot(BotRole::Ranged);
-        bot.Walk(North(0.0f, 40.0f));
-        bot.fake.SetInCombat(fighter);
+    Bot bot(BotRole::Ranged);
+    bot.Walk(North(0.0f, 40.0f));
+    bot.fake.SetInCombat(Self);
 
-        EXPECT_NE(bot.Think(), "follow the tank's trail");
-    }
+    EXPECT_NE(bot.Think(), "follow the tank's trail");
 }
 
 TEST(TrailFollow, ABotInPlaceStandsStill)
@@ -306,4 +303,25 @@ TEST(TrailFollow, AWalkBackCutsTheTrailToTheNewestNearPoint)
     group.KeepTrail({0.0f, 0.9f, 0.0f}, false);
 
     EXPECT_EQ(group.GetTrail().size(), 2u);
+}
+
+// Spec #188 fix-up (S3, story 38): the trail follow keys on the bot's own
+// combat. A retreat pull: the tank shoots a pack (it is in combat) and walks
+// back. A bot not in the fight yet walks back with it along the trail.
+TEST(TrailFollow, ABotNotInTheFightWalksBackWithTheTankOnARetreatPull)
+{
+    Bot bot(BotRole::Healer);
+    bot.Walk(North(0.0f, 40.0f));
+    bot.fake.SetPosition(Self, {1.5f, 27.5f, 0.0f});
+    // The tank shot a pack: it is in combat, and walks back south.
+    bot.fake.SetInCombat(Tank);
+    std::vector<Position> back;
+    for (float y = 39.0f; y >= 22.0f; y -= 1.0f)
+        back.push_back({0.0f, y, 0.0f});
+    bot.Walk(back);
+
+    EXPECT_EQ(bot.Think(), "follow the tank's trail");
+    Position const step = bot.MovedTo();
+    // Back south, behind the tank.
+    EXPECT_LT(step.y, 22.0f);
 }
