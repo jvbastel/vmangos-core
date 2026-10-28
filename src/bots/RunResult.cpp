@@ -222,6 +222,30 @@ namespace Bots
                 {"damage", hit.damage}, {"time_s", Seconds(hit.ms)}});
         j["fire_nova_hits"] = novas;
 
+        // The peel nova and the step back (jvbastel/WOWAI#145).
+        Json peel = Json::array();
+        std::size_t forOthers = 0, broken = 0;
+        for (RunPeelNova const& nova : r.peelNovas)
+        {
+            peel.push_back({{"caster", nova.caster}, {"time_s", Seconds(nova.ms)}, {"victims", nova.victims},
+                {"for_others", nova.forOthers},
+                {"healer_reach_s", nova.healerReachMs < 0 ? Json() : Json(Seconds(nova.healerReachMs))},
+                {"broken_by_party", nova.brokenByParty}});
+            forOthers += nova.forOthers ? 1 : 0;
+            broken += nova.brokenByParty ? 1 : 0;
+        }
+        j["peel_novas"] = peel;
+        j["novas_for_others"] = forOthers;
+        j["novas_broken_by_party"] = broken;
+        Json freezes = Json::array();
+        for (RunFreeze const& f : r.freezes)
+            freezes.push_back({{"enemy", f.enemy}, {"victim", TextOrNull(f.victim)}, {"time_s", Seconds(f.startMs)},
+                {"seconds", Seconds(f.endMs - f.startMs)},
+                {"tank_s", f.tankMs < 0 ? Json() : Json(Seconds(f.tankMs))}, {"broken_by_party", f.brokenByParty},
+                {"healer", f.onHealer ? Json({{"yards_from_enemy", f.healerYards},
+                    {"yards_from_tank", f.healerTankYards}, {"sees_tank", f.healerSeesTank}}) : Json()}});
+        j["freezes"] = freezes;
+
         Json chat = Json::array();
         for (RunChatEvent const& event : r.chatEvents)
         {

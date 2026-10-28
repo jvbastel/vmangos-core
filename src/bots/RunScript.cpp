@@ -69,7 +69,9 @@ namespace Bots
             if (keyword == "route")
                 return "use: route [noquests]";
             if (keyword == "expect")
-                return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive";
+                return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect peel_nova";
+            if (keyword == "loose")
+                return "use: loose <pack> healer";
             if (keyword == "script")
                 return "use: script <name> <route>";
             if (keyword == "driver")
@@ -179,11 +181,24 @@ namespace Bots
                     c.quests = RunQuests::Skip;
                 return n == 1 || c.quests == RunQuests::Skip;
             }
+            if (keyword == "loose")
+            {
+                c.kind = ScriptCommandKind::Loose;
+                if (n != 3 || w[2] != "healer")
+                    return false;
+                c.name = w[1];
+                return true;
+            }
             if (keyword == "expect")
             {
                 if (n == 2 && w[1] == "alive")
                 {
                     c.kind = ScriptCommandKind::ExpectAlive;
+                    return true;
+                }
+                if (n == 2 && w[1] == "peel_nova")
+                {
+                    c.kind = ScriptCommandKind::ExpectPeelNova;
                     return true;
                 }
                 if (n == 3 && w[1] == "boss_dead")
@@ -205,7 +220,7 @@ namespace Bots
         bool IsCommandKeyword(std::string const& word)
         {
             for (char const* keyword : {"teleport", "move", "command", "whisper", "target", "clear", "refill", "wait", "expect",
-                     "fight", "release", "route"})
+                     "fight", "release", "route", "loose"})
                 if (word == keyword)
                     return true;
             return false;
@@ -310,7 +325,8 @@ namespace Bots
                 std::string const at = "line " + std::to_string(c.line) + ": the route " + route.name;
                 bool const point = c.kind == ScriptCommandKind::Teleport || c.kind == ScriptCommandKind::Move;
                 bool const pack = !c.name.empty() && (c.kind == ScriptCommandKind::Target ||
-                    c.kind == ScriptCommandKind::ExpectPackDead || c.kind == ScriptCommandKind::Fight);
+                    c.kind == ScriptCommandKind::ExpectPackDead || c.kind == ScriptCommandKind::Fight ||
+                    c.kind == ScriptCommandKind::Loose);
                 if (point && !FindPoint(route, c.name))
                     return at + " has no point named " + c.name;
                 if (pack && !FindPack(route, c.name))

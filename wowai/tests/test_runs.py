@@ -106,6 +106,19 @@ class Summary(unittest.TestCase):
                          "threat losses 3 (healer 2), lost mobs 0, extra packs 0")
 
 
+    def test_counts_the_peel_novas_of_a_run_with_novas(self):
+        """jvbastel/WOWAI#145: the novas cast for others and those that party damage broke."""
+        result = {
+            "run": 7, "script": "ragefire_chasm", "scenario": "peel_nova", "result": "passed", "reason": None,
+            "duration_s": 70.0, "bosses_killed": [], "wipes": [], "deaths": {"Ezzra": []},
+            "threat_losses": [], "lost_mobs": [], "peel_novas": [{}, {}], "novas_for_others": 2,
+            "novas_broken_by_party": 1,
+        }
+        self.assertEqual(runs.summary(result),
+                         "ragefire_chasm peel_nova run 7: passed after 70 s, bosses 0, wipes 0, deaths 0, "
+                         "threat losses 0, lost mobs 0, extra packs 0, peel novas 2 (for others 2, "
+                         "broken by party 1)")
+
 def a_three_enemy_run(losses):
     """A run of the three-enemy scenario (jvbastel/WOWAI#118): one pull of
     the miners at 30 s, and the threat losses (member, time_s) after it."""
