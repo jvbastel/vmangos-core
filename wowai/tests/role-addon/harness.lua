@@ -69,7 +69,8 @@ end
 local function Last() return sent[table.getn(sent)] end
 
 -- A login: the client loads the toc files, then the saved variables.
-local function Login()
+-- `lateVariables`: VARIABLES_LOADED after PLAYER_ENTERING_WORLD.
+local function Login(lateVariables)
 	globals, frames, sent = {}, {}, {}
 	UIParent = NewObject("UIParent")
 	WowaiRole = nil
@@ -80,8 +81,13 @@ local function Login()
 		end
 	end
 	toc:close()
-	Fire("VARIABLES_LOADED")
-	Fire("PLAYER_ENTERING_WORLD")
+	if lateVariables then
+		Fire("PLAYER_ENTERING_WORLD")
+		Fire("VARIABLES_LOADED")
+	else
+		Fire("VARIABLES_LOADED")
+		Fire("PLAYER_ENTERING_WORLD")
+	end
 end
 
 WowaiRoleDB = nil
@@ -110,12 +116,17 @@ Click("WowaiRole_tank")
 partySize = 0
 Login()
 check("the pick survives a logout", WowaiRole.GetRole() == "tank" and globals.WowaiRole_tank.highlight)
-check("nothing is sent at login with no group", table.getn(sent) == 0)
+check("a pick is sent at login, also with no group", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
 partySize = 2
 Fire("PARTY_MEMBERS_CHANGED")
 check("the pick is sent again on joining a group", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
 Login()
 check("a login in a group sends the pick", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
+
+-- In 1.12 VARIABLES_LOADED can come after PLAYER_ENTERING_WORLD.
+partySize = 0
+Login(true)
+check("a login with late saved variables sends the pick, with no group", Last() == "PARTY WOWAI_ROLE\t1:tank", Last())
 
 -- The fold, and a later section (the bot panel of #198).
 local built = false

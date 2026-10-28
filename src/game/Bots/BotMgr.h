@@ -281,6 +281,7 @@ class BotMgr
         std::atomic<uint64> m_testDriver{0};
         Bots::SeededRandom m_random{std::random_device()()};
         // jvbastel/WOWAI#197: written on the packet threads, read on the maps.
+        void DropOfflineRoleChoices();
         mutable std::mutex m_roleChoicesLock;
         std::map<uint64 /*player GUID*/, Bots::RoleChoice> m_roleChoices;
 };

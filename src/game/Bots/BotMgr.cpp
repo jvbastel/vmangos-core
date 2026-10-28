@@ -247,6 +247,7 @@ void BotMgr::Update(uint32 diff)
         m_lines.Push(std::move(line));
     SendLines();
     DropOldCoordinators();
+    DropOfflineRoleChoices();
     TakeGroupEvents();
     // The chat of a scripted run: the events sent (the player messages of
     // the update, and the group events above), and the answers.
@@ -947,6 +948,20 @@ void BotMgr::SetRoleChoice(ObjectGuid player, Bots::RoleChoice choice)
 {
     std::lock_guard<std::mutex> lock(m_roleChoicesLock);
     m_roleChoices[player.GetRawValue()] = choice;
+}
+
+// A player who logs out loses the role choice: with no add-on at the next
+// login, the tracer rule applies again. The add-on sends it at each login.
+void BotMgr::DropOfflineRoleChoices()
+{
+    std::lock_guard<std::mutex> lock(m_roleChoicesLock);
+    for (auto it = m_roleChoices.begin(); it != m_roleChoices.end();)
+    {
+        if (ObjectAccessor::FindPlayer(ObjectGuid(it->first)))
+            ++it;
+        else
+            it = m_roleChoices.erase(it);
+    }
 }
 
 Bots::RoleChoice BotMgr::RoleChoiceOf(ObjectGuid player) const

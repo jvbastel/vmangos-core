@@ -7,9 +7,8 @@
 -- Bots::ParseRoleChoiceMessage (src/bots/RoleChoice.h in the core fork).
 -- A new text format takes a new version number on both sides.
 --
--- The add-on sends the pick on a new pick (also with no group), when the
--- player joins a group, on each group change, and at login when the player
--- is in a group.
+-- The add-on sends the pick on a new pick and at login (both also with no
+-- group), when the player joins a group, and on each group change.
 --
 -- This file holds the state and the messages. WowaiRoleFrame.lua holds the
 -- frame. Other parts of the add-on (the bot panel, #198) add their own file
@@ -96,6 +95,10 @@ events:SetScript("OnEvent", function()
 		for _, listener in ipairs(listeners) do
 			listener()
 		end
+		-- The server forgets the pick at logout: send it at login, also
+		-- with no group, so that it is known before the first invite. In
+		-- 1.12 this event can also come after PLAYER_ENTERING_WORLD.
+		WowaiRole.Send(WowaiRole.GetRole() ~= "none")
 	elseif event == "PLAYER_ENTERING_WORLD" or event == "PARTY_MEMBERS_CHANGED" then
 		if WowaiRoleDB then
 			WowaiRole.Send()
