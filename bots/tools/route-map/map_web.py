@@ -28,6 +28,7 @@ from fastapi.responses import HTMLResponse
 
 import floor_image
 import navmesh
+import route_draw
 import route_file
 
 
@@ -80,11 +81,16 @@ def pack_view(route, pack, order):
             "mobs": [vars(m) for m in pack.mobs], "pull_point": vars(pull) if pull else None}
 
 
+def route_path(settings: Settings, name: str) -> Path:
+    """The route file of the route name."""
+    return settings.routes / f"{name}.txt"
+
+
 def create_app(settings: Settings) -> FastAPI:
     app = FastAPI(title="Dungeon map")
 
     def load_route(name):
-        path = settings.routes / f"{name}.txt"
+        path = route_path(settings, name)
         if not path.is_file():
             raise HTTPException(404, f"no route file {path}")
         try:
@@ -140,6 +146,7 @@ def create_app(settings: Settings) -> FastAPI:
             "packs": [pack_view(route, pack, order) for order, pack in enumerate(route.packs, 1)],
         }
 
+    route_draw.add_routes(app, settings, load_route, load_navmesh)
     return app
 
 
@@ -155,8 +162,21 @@ def open_browser(url):
         webbrowser.open(url)
 
 
+def refuse_continent_route(command: Command):
+    """Stop with a message when the route is on a continent map. A route that
+    does not parse is left to the page, which shows the error."""
+    path = route_path(command.settings, command.route)
+    try:
+        navmesh.refuse_continent(route_file.parse(path.read_text()).map_id)
+    except (OSError, route_file.RouteFileError):
+        return
+    except navmesh.NavmeshError as error:
+        raise SystemExit(f"route-map: {command.route}: {error}")
+
+
 def main(argv=None):
     command = read_command(argv)
+    refuse_continent_route(command)
     import threading
 
     import uvicorn
