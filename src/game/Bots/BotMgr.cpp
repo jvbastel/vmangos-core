@@ -837,15 +837,25 @@ void BotMgr::FollowTankThroughInstance(BotRecord& record)
         return;
 
     // The members on any map: when the tank zones in, the bots are still
-    // outside, and the group coordinator sees nobody on the tank's map.
+    // outside, and the group coordinator sees nobody on the tank's map. A
+    // bot of the group counts also when it is offline or in a loading
+    // screen: a bot-tank group does not become a player-tank group while its
+    // tank is away (as NextGroupTank, GroupTank.h).
     std::vector<Bots::GroupMember> members;
     for (Group::MemberSlot const& slot : group->GetMemberSlots())
     {
+        Bots::BotRole role = Bots::BotRole::Ranged;
+        auto const botRecord = slot.guid.IsPlayer() ? m_bots.find(slot.guid.GetCounter()) : m_bots.end();
+        if (botRecord != m_bots.end() && !IsTestDriver(slot.guid))
+        {
+            bool const isBot = Bots::ParseRoleName(botRecord->second.role, role);
+            members.push_back({slot.guid.GetRawValue(), isBot, role});
+            continue;
+        }
+        // A human, or the test driver of a scripted run: no bot role.
         Player const* player = ObjectAccessor::FindPlayer(slot.guid);
         if (!player || !player->IsInWorld())
             continue;
-        // A human, or the test driver of a scripted run: no bot role.
-        Bots::BotRole role = Bots::BotRole::Ranged;
         bool const isBot = BotRoleOf(player, role);
         members.push_back({slot.guid.GetRawValue(), isBot, role});
     }
@@ -874,8 +884,11 @@ void BotMgr::FollowTankThroughInstance(BotRecord& record)
     // instance map binds the bot to the group's instance of the tank
     // (Player::GetBoundInstanceSaveForSelfOrGroup). The new place reaches the
     // database with the next save of the bot, as any move.
+    // Another instance of the same map: force the far teleport, else the
+    // game moves the bot inside its own instance.
+    uint32 const options = facts.tank.place.map == facts.bot.place.map ? TELE_TO_FORCE_MAP_CHANGE : 0;
     bool const sent = bot->TeleportTo(tank->GetMapId(), tank->GetPositionX(), tank->GetPositionY(),
-        tank->GetPositionZ(), tank->GetOrientation());
+        tank->GetPositionZ(), tank->GetOrientation(), options);
     sLog.Out(LOG_BASIC, sent ? LOG_LVL_BASIC : LOG_LVL_ERROR, "[Bots] %s %s the player tank %s %s map %u",
         bot->GetName(), sent ? "follows" : "cannot follow", tank->GetName(), facts.tank.inDungeon ? "into" : "out to",
         tank->GetMapId());
