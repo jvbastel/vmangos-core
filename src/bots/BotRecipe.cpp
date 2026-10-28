@@ -195,7 +195,7 @@ namespace Bots
 
     BotRecipeResult ParseBotRecipe(std::vector<std::string> const& allWords)
     {
-        char const* const usage = "Usage: <name> <class> <role> [race] [gear <template>]";
+        char const* const usage = "Usage: <name> <class> <role> [race|horde|alliance] [gear <template>]";
         std::vector<std::string> words = allWords;
         std::string gearTemplate;
         for (std::size_t i = 3; i < words.size(); ++i)

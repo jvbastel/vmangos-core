@@ -4,8 +4,11 @@
     wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t199_alliance_bots.py
 
-Run it once on a new lease: on a second run the bots are in the groups of
-the players already, so they do not join again.
+The players dismiss the tanks first, so that a second run on the same lease
+starts with no group (the groups of a run are kept in the characters
+database). The talent check reads the "learned" line that a bot logs at its
+first login only, so it needs the Server.log of the mangosd that made the
+bots: run it before the slot restarts mangosd.
 
 1. bots: the five Alliance bots exist with their race, class and role, at
    level 16, with the talent build of the class and role, and every item that
@@ -87,6 +90,11 @@ for name, (race, cls, role, gear) in BOTS.items():
 print("== invite")
 alliance = realm.login("PLAYER199A", "Stormson", race=1, cls=1)
 horde = realm.login("PLAYER199H", "Grimson", race=2, cls=1)
+# A run before on this lease left the tanks in the groups of the players.
+alliance.chat(CHAT_MSG_WHISPER, "dismiss", target="Aldric")
+horde.chat(CHAT_MSG_WHISPER, "dismiss", target="Grukk")
+alliance.pump(3)
+horde.pump(3)
 realm.mark("invite")
 alliance.chat(CHAT_MSG_WHISPER, "invite", target="Aldric")
 results.check("the Alliance player invites Aldric, and he joins",

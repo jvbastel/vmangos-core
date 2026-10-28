@@ -80,7 +80,7 @@ TEST(BotRecipe, RefusesAnUnknownClassOrRole)
 
 TEST(BotRecipe, RefusesTooFewOrTooManyWords)
 {
-    std::string const usage = "Usage: <name> <class> <role> [race] [gear <template>]";
+    std::string const usage = "Usage: <name> <class> <role> [race|horde|alliance] [gear <template>]";
 
     EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior"}).error, usage);
     EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior", "tank", "orc", "extra"}).error, usage);
