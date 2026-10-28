@@ -818,27 +818,29 @@ namespace Bots
             // jvbastel/WOWAI#174: Shield Block waits for the early visits. Its
             // own record: since when each joined enemy is due its visit, in
             // the pull of `pullTarget`.
-            struct ShieldBlockWait
+            struct RageWait
             {
                 Guid pullTarget = NoGuid;
                 std::map<Guid, std::int64_t> dueSinceMs;
             };
-            using ShieldBlockWaitPtr = std::shared_ptr<ShieldBlockWait>;
+            using RageWaitPtr = std::shared_ptr<RageWait>;
 
-            // Shield Block holds back for the early visits (#172 before #116,
-            // as the player allowed): a joined enemy of the fight is due its
+            // Shield Block and Demoralizing Shout hold back for the early
+            // visits (#172 before #116 and #114 for this case, as the player
+            // allowed; the opener at the start of a pull, with no joined
+            // enemy, is unchanged): a joined enemy of the fight is due its
             // visit (DueEarlyVisit, wherever it stands, also on a member) since less than
             // EarlyVisitWaitMs, and Shield Block's rage would leave less than
             // a Sunder Armor's (ShieldBlockSpareRage). At its low level the
             // tank gains a few rage a second: a Shield Block on the way leaves
             // too little for the Sunder Armor when the enemy arrives. An enemy
             // that never comes holds it back no longer than the cap.
-            bool ShieldBlockWaits(
-                BotContext const& context, PullPacks const& packs, EarlyVisits const& visits, ShieldBlockWait& wait)
+            bool RageWaitsForAnEarlySunder(
+                BotContext const& context, PullPacks const& packs, EarlyVisits const& visits, RageWait& wait)
             {
                 Guid const pullTarget = context.group.GetPull().target;
                 if (wait.pullTarget != pullTarget)
-                    wait = ShieldBlockWait{pullTarget, {}};
+                    wait = RageWait{pullTarget, {}};
                 if (!FightsFocus(context) || Rage(context) >= ShieldBlockSpareRage)
                     return false;
                 // A joined enemy on a member (a loose enemy) counts too: its
@@ -920,7 +922,7 @@ namespace Bots
             // jvbastel/WOWAI#172: and its own early visits.
             EarlyVisitsPtr const earlyVisits = std::make_shared<EarlyVisits>();
             // jvbastel/WOWAI#174: and its own Shield Block wait.
-            ShieldBlockWaitPtr const shieldBlockWait = std::make_shared<ShieldBlockWait>();
+            RageWaitPtr const rageWait = std::make_shared<RageWait>();
             TargetPicker const earlyVisit = [pullPacks, earlyVisits](BotContext const& context) {
                 return PickEarlyVisit(context, *pullPacks, *earlyVisits);
             };
@@ -934,7 +936,14 @@ namespace Bots
                         return FightsFocus(context) && !context.view.HasAura(Self(context), DefensiveStance);
                     },
                     DefensiveStance, PickSelf),
-                CastRule("demoralizing shout", P + 50, ShoutDue, DemoralizingShout, PickSelf),
+                // jvbastel/WOWAI#174: it waits for the early visits while
+                // the rage is short (RageWaitsForAnEarlySunder).
+                CastRule("demoralizing shout", P + 50,
+                    [pullPacks, earlyVisits, rageWait](BotContext const& context) {
+                        return ShoutDue(context)
+                            && !RageWaitsForAnEarlySunder(context, *pullPacks, *earlyVisits, *rageWait);
+                    },
+                    DemoralizingShout, PickSelf),
                 CastRule("bloodrage", P + 45,
                     [](BotContext const& context) { return FightsFocus(context) && Rage(context) < LowRage; },
                     Bloodrage, PickSelf),
@@ -1275,12 +1284,12 @@ namespace Bots
                 // Below Revenge: more blocks give more Revenge. The cast
                 // check covers the shield and the cooldown.
                 // jvbastel/WOWAI#174: it waits for the early visits while
-                // the rage is short (ShieldBlockWaits).
+                // the rage is short (RageWaitsForAnEarlySunder).
                 CastRule("shield block", P + 38,
-                    [pullPacks, earlyVisits, shieldBlockWait](BotContext const& context) {
+                    [pullPacks, earlyVisits, rageWait](BotContext const& context) {
                         return FightsFocus(context) && context.view.HasAura(Self(context), DefensiveStance)
                             && Rage(context) >= ShieldBlockRage && IsHitInMelee(context, MeleeContactYards)
-                            && !ShieldBlockWaits(context, *pullPacks, *earlyVisits, *shieldBlockWait);
+                            && !RageWaitsForAnEarlySunder(context, *pullPacks, *earlyVisits, *rageWait);
                     },
                     ShieldBlock, PickSelf),
                 // jvbastel/WOWAI#117: one Sunder Armor on the threat target

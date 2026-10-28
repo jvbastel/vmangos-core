@@ -3011,3 +3011,43 @@ TEST(WarriorTankRagePool, HoldsBackShieldBlockWhileAJoinedEnemyComesOnTheHealer)
 
     EXPECT_FALSE(CastsAny(deeds, {CastOn(Warrior::ShieldBlock, Tank)})) << ::testing::PrintToString(deeds);
 }
+
+// jvbastel/WOWAI#174 (the player's second decision): while a joined enemy
+// comes for its early Sunder Armor and the rage is short, Demoralizing Shout
+// waits too. The #114 opener at the start of a pull is unchanged.
+TEST(WarriorTankRagePool, HoldsBackDemoralizingShoutWhileAJoinedEnemyComesAndTheRageIsShort)
+{
+    ComingWolfTank tank;
+    tank.fake.SetKnownSpell(Warrior::DemoralizingShout);
+    tank.fake.SetDistance(Wolf, 8.0f);
+    tank.fake.SetPower(Tank, 20, 100);
+
+    std::vector<std::string> const deeds = tank.ThinkAt(0);
+
+    EXPECT_FALSE(CastsAny(deeds, {CastOn(Warrior::DemoralizingShout, Tank)})) << ::testing::PrintToString(deeds);
+}
+
+TEST(WarriorTankRagePool, ShoutsWhileAJoinedEnemyComesWhenASunderArmorsRageIsLeft)
+{
+    ComingWolfTank tank;
+    tank.fake.SetKnownSpell(Warrior::DemoralizingShout);
+    tank.fake.SetDistance(Wolf, 8.0f);
+    tank.fake.SetPower(Tank, 25, 100);
+
+    EXPECT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::DemoralizingShout, Tank)}));
+}
+
+// The #114 opener: at the start of a pull, with no joined enemy, the shout
+// goes out from its 10 rage, at a lone enemy too.
+TEST(WarriorTankRagePool, TheOpenerShoutAtThePullStartIsUnchanged)
+{
+    WarriorTank tank;
+    tank.fake.SetKnownSpell(Warrior::DemoralizingShout);
+    tank.InFightWithKobold();
+    tank.fake.SetCannotCast(Warrior::Bloodrage);
+    tank.fake.SetPower(Tank, 10, 100);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::DemoralizingShout, Tank)}));
+}
