@@ -148,8 +148,9 @@ namespace Bots
         // now: a stun, a fear, a confuse; a silence or a school lockout for
         // a magic spell; a pacify for a physical one (Spell::CheckCasterAuras).
         virtual bool IsCastLocked(SpellId spell) const = 0;
-        // jvbastel/WOWAI#134: the average heal and the mana cost of rank
-        // `rank` of a spell, cast by the bot. {0, 0} for an unknown spell.
+        // jvbastel/WOWAI#134: the average direct heal and the mana cost of
+        // rank `rank` of a spell, cast by the bot. Any spell: one with no
+        // direct heal (Renew) has averageHeal 0. {0, 0} for an unknown spell.
         virtual HealRank GetHealRank(SpellId rank) const = 0;
 
         // The members of the bot's group that the bot can see, the bot

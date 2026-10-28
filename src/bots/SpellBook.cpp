@@ -16,6 +16,13 @@ namespace Bots
                     highest = rank;
             return highest;
         }
+
+        // No stun or silence locks the cast of `rank` (BotView::IsCastLocked),
+        // and BotView::CanCast allows it on unit `target` now.
+        bool CanCastNow(BotView const& view, SpellId rank, Guid target)
+        {
+            return !view.IsCastLocked(rank) && view.CanCast(rank, target);
+        }
     }
 
     SpellId HighestKnownRank(BotView const& view, SpellId firstRank)
@@ -31,7 +38,7 @@ namespace Bots
     SpellId CastableRank(BotView const& view, SpellId firstRank, Guid target)
     {
         SpellId const rank = RankForTarget(view, firstRank, target);
-        return rank != NoSpell && !view.IsCastLocked(rank) && view.CanCast(rank, target) ? rank : NoSpell;
+        return rank != NoSpell && CanCastNow(view, rank, target) ? rank : NoSpell;
     }
 
     SpellId CastableHealRank(BotView const& view, SpellId firstRank, Guid target)
@@ -43,8 +50,11 @@ namespace Bots
         for (SpellId rank = firstRank; rank != NoSpell; rank = view.GetNextRank(rank))
         {
             HealRank const heal = view.GetHealRank(rank);
+            // The real CanCast checks the mana too. The mana check here keeps
+            // the choice inside BotView's contract, so the fake bot models
+            // it and a low-mana bot drops to a cheaper rank.
             if (!view.KnowsSpell(rank) || !view.LevelAllowsRank(rank, target) || heal.manaCost > mana
-                || view.IsCastLocked(rank) || !view.CanCast(rank, target))
+                || !CanCastNow(view, rank, target))
                 continue;
             if (heal.averageHeal >= missing)
                 return rank;

@@ -51,7 +51,7 @@ namespace Bots
 
     // Picks the rank of the spell whose first rank is `firstRank` that the
     // bot casts on unit `target` now, or NoSpell (SpellBook.h).
-    using RankChoice = SpellId (*)(BotView const& view, SpellId firstRank, Guid target);
+    using RankChoice = std::function<SpellId(BotView const& view, SpellId firstRank, Guid target)>;
 
     // A rule that casts the rank of the spell whose first rank is
     // `firstRank` that `rank` picks, on the picked unit. By default the
