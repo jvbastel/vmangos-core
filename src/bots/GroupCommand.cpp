@@ -74,6 +74,11 @@ namespace Bots
             return plan;
         }
 
+        if (facts.botOfOtherFaction)
+        {
+            plan.line = "That bot is of the other faction.";
+            return plan;
+        }
         if (!facts.botInPlayerGroup)
         {
             if (facts.botInOtherGroup)
