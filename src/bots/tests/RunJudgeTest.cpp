@@ -913,3 +913,39 @@ TEST(ExtraPackThreatCheck, ChecksNothingWithNoLimit)
 
     EXPECT_EQ(check.Failure(), "");
 }
+
+// jvbastel/WOWAI#174 (the player's decision): the 6 s of the healer pickup
+// count from the enemy's first real hit on the healer, not from when it took
+// the healer as its victim far away.
+namespace
+{
+    Bots::FightEnemySeen OnHealer(Bots::Guid enemy, std::string name, bool hit)
+    {
+        Bots::FightEnemySeen seen = Seen(enemy, std::move(name), Bots::EnemyVictim::Healer);
+        seen.hitVictim = hit;
+        return seen;
+    }
+}
+
+TEST(HealerPickupCheck, CountsFromTheFirstRealHitOnTheHealer)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(0, {OnHealer(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(5000, {OnHealer(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(5500, {OnHealer(JoinTrogg, "Ragefire Trogg", true)});
+    check.Observe(11400, {OnHealer(JoinTrogg, "Ragefire Trogg", true)});
+    EXPECT_EQ(check.Failure(), "");
+    check.Observe(11500, {Seen(JoinTrogg, "Ragefire Trogg", Bots::EnemyVictim::Tank)});
+
+    EXPECT_EQ(check.Failure(), "");
+}
+
+TEST(HealerPickupCheck, FailsAnEnemyNotOnTheTank6SecondsAfterItsFirstRealHit)
+{
+    Bots::HealerPickupCheck check(SixSeconds());
+    check.Observe(0, {OnHealer(JoinTrogg, "Ragefire Trogg", false)});
+    check.Observe(5500, {OnHealer(JoinTrogg, "Ragefire Trogg", true)});
+    check.Observe(11600, {OnHealer(JoinTrogg, "Ragefire Trogg", true)});
+
+    EXPECT_NE(check.Failure(), "");
+}

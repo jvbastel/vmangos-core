@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -152,6 +153,33 @@ namespace Bots
             text << (i ? "; " : " (") << HitText(hits[i]) << (i + 1 == hits.size() ? ")" : "");
         return text.str();
     }
+}
+
+// jvbastel/WOWAI#174 (the player's decision): the threat-loss clock of an
+// enemy on the healer starts at its first real hit on the healer (a melee
+// swing, hit or not, or a spell at the healer), not when it takes the healer
+// as its victim from afar. The game layer notes each real hit; the gate lets
+// a hit on a healer through to ThreatWatch only after that.
+namespace Bots
+{
+    inline bool operator==(EnemyOnMember const& a, EnemyOnMember const& b)
+    {
+        return a.enemy == b.enemy && a.member == b.member;
+    }
+
+    class RealHitGate
+    {
+    public:
+        // Enemy `enemy` swung at or cast at member `member`.
+        void NoteRealHit(Guid enemy, Guid member) { m_hit.insert({enemy, member}); }
+        bool HasHit(Guid enemy, Guid member) const { return m_hit.count({enemy, member}) != 0; }
+        // `hits` with each hit on one of `healers` left out until its first
+        // real hit.
+        std::vector<EnemyOnMember> Gate(std::vector<EnemyOnMember> const& hits, std::set<Guid> const& healers) const;
+
+    private:
+        std::set<std::pair<Guid, Guid>> m_hit;
+    };
 }
 
 #endif

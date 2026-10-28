@@ -67,6 +67,8 @@ class BotAI : public PlayerBotAI
         void OnSpellMissLog(WorldPacket const& packet);
         void OnSpellFailedOther(WorldPacket const& packet);
         void OnSpellDamageLog(WorldPacket const& packet);
+        // jvbastel/WOWAI#174: an enemy's melee swing at the bot.
+        void OnAttackerStateUpdate(WorldPacket const& packet);
         void HandleCommand(BotCommandMessage const& message);
         void StartCommand(Player* player);
         // The start delay: begins and ends the waits of m_startGate.

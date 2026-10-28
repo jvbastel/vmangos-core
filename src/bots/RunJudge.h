@@ -226,11 +226,14 @@ namespace Bots
         EnemyVictim victim;
         // jvbastel/WOWAI#172: in the tank's melee reach.
         bool inTankMelee = false;
+        // jvbastel/WOWAI#174: it has really hit its victim (a swing or a
+        // spell at it, RealHitGate), not only taken it as its victim.
+        bool hitVictim = true;
     };
 
     // `expect healer_pickup_seconds <n>`: each extra-pack enemy that hits
     // the healer attacks the tank within <n> s of its first hit on the
-    // healer. One that died is no failure; one that attacks another
+    // healer (jvbastel/WOWAI#174: its first real hit, FightEnemySeen::hitVictim). One that died is no failure; one that attacks another
     // member at <n> s is.
     class HealerPickupCheck
     {

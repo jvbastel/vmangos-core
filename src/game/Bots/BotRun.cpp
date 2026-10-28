@@ -332,6 +332,7 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     m_result.clear();
     m_bossKills.clear();
     m_threat = Bots::ThreatWatch();
+    m_realHits = Bots::RealHitGate();
     m_lostMobs = Bots::LostMobWatch(sBotMgr.GetSettings().lostMobMs);
     m_threatNames.clear();
     m_lostMobNames.clear();
@@ -878,6 +879,15 @@ bool BotRun::DriverArrived(Player const* driver) const
     return Bots::Distance2d(at, {m_moveX, m_moveY, 0.0f}) <= m_moveRadius + ArriveSlackYards;
 }
 
+std::set<Bots::Guid> BotRun::HealerGuids()
+{
+    std::set<Bots::Guid> healers;
+    for (Player* member : Members())
+        if (member && sBotMgr.IsHealerBot(member))
+            healers.insert(member->GetObjectGuid().GetRawValue());
+    return healers;
+}
+
 void BotRun::WatchThreat(int64 nowMs)
 {
     std::vector<Bots::EnemyOnMember> hitsOnNonTanks, hits;
@@ -913,7 +923,8 @@ void BotRun::WatchThreat(int64 nowMs)
         return names.first + " on " + names.second;
     };
     std::size_t const known = m_threat.Losses().size();
-    m_threat.Update(hitsOnNonTanks, nowMs, name);
+    // jvbastel/WOWAI#174: a hit on the healer counts from its first real hit.
+    m_threat.Update(m_realHits.Gate(hitsOnNonTanks, HealerGuids()), nowMs, name);
     for (std::size_t i = known; i < m_threat.Losses().size(); ++i)
     {
         Bots::ThreatLoss const& loss = m_threat.Losses()[i];
@@ -1732,7 +1743,8 @@ void BotRun::WatchTank(int64 nowMs)
         RememberName(enemy);
         seen.push_back({enemy->GetObjectGuid().GetRawValue(), NameOf(enemy->GetObjectGuid()),
             m_extraPacks.IsExtraPackEnemy(spawn->GetDBTableGUIDLow()), whom,
-            victim == tank && enemy->CanReachWithMeleeAutoAttack(tank)});
+            victim == tank && enemy->CanReachWithMeleeAutoAttack(tank),
+            m_realHits.HasHit(enemy->GetObjectGuid().GetRawValue(), victim->GetObjectGuid().GetRawValue())});
     }
     m_pickupCheck.Observe(nowMs, seen);
     if (!m_pickupCheck.Failure().empty())
@@ -2092,6 +2104,9 @@ void BotRun::TakeCombatNotes(int64 nowMs)
                         NameOf(note.enemy));
                 break;
             }
+            case RunCombatNote::Kind::Hit:
+                m_realHits.NoteRealHit(enemy, who);
+                break;
             case RunCombatNote::Kind::FireNovaHit:
             {
                 uint32 const fight = Bots::FightNumber(m_record.pulls);

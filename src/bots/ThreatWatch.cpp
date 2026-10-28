@@ -78,3 +78,17 @@ namespace Bots
         m_unattacked = std::move(next);
     }
 }
+
+// jvbastel/WOWAI#174: the first real hit on the healer.
+namespace Bots
+{
+    std::vector<EnemyOnMember> RealHitGate::Gate(
+        std::vector<EnemyOnMember> const& hits, std::set<Guid> const& healers) const
+    {
+        std::vector<EnemyOnMember> gated;
+        for (EnemyOnMember const& hit : hits)
+            if (!healers.count(hit.member) || HasHit(hit.enemy, hit.member))
+                gated.push_back(hit);
+        return gated;
+    }
+}
