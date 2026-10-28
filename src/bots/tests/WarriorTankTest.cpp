@@ -1,6 +1,7 @@
 #include "ClassModules.h"
 #include "DamageRules.h"
 #include "KeepOut.h"
+#include "MageModule.h"
 #include "WarriorModule.h"
 #include "FakeBot.h"
 #include "MemberSpot.h"
@@ -2181,4 +2182,28 @@ TEST(WarriorTank, PicksUpTheNextLooseEnemyWhenTheFirstIsInTheReachOfAnotherPack)
     tank.Think();
 
     EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Wolf), Chase(Wolf)}));
+}
+
+// jvbastel/WOWAI#144: Frost Nova froze the loose enemy on the healer. The
+// tank picks it up all the same: Taunt, or the walk to it; breaking the
+// freeze is fine.
+TEST(WarriorTank, TauntsAFrozenEnemyOffTheHealer)
+{
+    GroupInFight tank;
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetAura(Bat, Bots::Mage::FrostNova);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{CastOn(Warrior::Taunt, Bat)}));
+}
+
+TEST(WarriorTank, GoesToAFrozenEnemyOnTheHealerOutOfTauntRange)
+{
+    BatOnTheFarHealer tank;
+    tank.fake.SetAura(Bat, Bots::Mage::FrostNova);
+
+    tank.Think();
+
+    EXPECT_EQ(tank.fake.Deeds(), (std::vector<std::string>{Attack(Bat), Chase(Bat)}));
 }

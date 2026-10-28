@@ -23,9 +23,18 @@ namespace Bots
     //    the chase limit (GroupRules.h). Outside a pull, not while it hits
     //    another member and the tank lives: the bot waits for the taunt,
     //    unless the tank gave it up (GroupCoordinator::GiveUpTaunt).
+    // jvbastel/WOWAI#144: a ranged damage bot holds fire on an enemy frozen
+    // by Frost Nova (HoldsFireOn) in steps 2 to 4: a hit breaks the freeze.
+    // DoTs already on it stay.
     Guid PickDamageTarget(BotContext const& context);
 
-    // The damage target of a melee bot (PickDamageTarget): not one in the
+    // jvbastel/WOWAI#144: enemy `enemy` is frozen by Frost Nova, and its
+    // target is not the tank: a ranged bot starts no new cast or shot on it,
+    // so that the freeze holds until the tank picks it up or it ends (8 s).
+    bool HoldsFireOn(BotContext const& context, Guid enemy);
+
+    // The damage target of a melee bot (PickDamageTarget, with no hold of
+    // fire on a frozen enemy: melee keeps to its targets): not one in the
     // reach of a pack outside the fight (KeepOut.h, jvbastel/WOWAI#121).
     // The keep-out rule would step the bot out again, and its chase take it
     // back in: a loop. The member that the enemy hits steps out itself and

@@ -1,6 +1,7 @@
 #include "MageModule.h"
 #include "CommonRules.h"
 #include "DamageRules.h"
+#include "StepBack.h"
 
 namespace Bots
 {
@@ -50,6 +51,7 @@ namespace Bots
                 CastRule("frost nova", P + 90,
                     [](BotContext const& context) { return IsHitInMelee(context, FrostNovaYards); }, FrostNova,
                     PickSelf),
+                StepBackRule(P + 89, BotRole::Ranged),
                 CastRule("ice barrier", P + 85,
                     [](BotContext const& context) {
                         return IsAttacked(context) && !context.view.HasAura(Self(context), IceBarrier);

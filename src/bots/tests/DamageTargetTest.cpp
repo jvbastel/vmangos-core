@@ -1,6 +1,7 @@
 #include "DamageRules.h"
 #include "FakeBot.h"
 #include "GroupRules.h"
+#include "MageModule.h"
 
 #include <gtest/gtest.h>
 
@@ -465,4 +466,84 @@ TEST(DamageTarget, AttacksALooseEnemyWhileTheRangedPulledFocusRunsToTheTank)
     bot.fake.SetVictim(Wolf, Healer);
 
     EXPECT_EQ(bot.Target(NoGuid, 2000), Wolf);
+}
+
+// jvbastel/WOWAI#144: ranged damage holds fire on an enemy frozen by Frost
+// Nova until the tank is its target or the freeze ends: a hit breaks the
+// freeze.
+namespace
+{
+    Bots::Guid const FrozenHealer = 0x12;
+
+    // The tank holds the kobold; the wolf hits the healer, frozen.
+    struct FrozenWolfOnTheHealer : DamageBot
+    {
+        FrozenWolfOnTheHealer()
+        {
+            fake.SetHealth(Tank, 600, 600);
+            fake.SetHealth(FrozenHealer, 300, 300);
+            fake.SetGroupMembers({Tank, FrozenHealer});
+            group.SetTank(Tank);
+            group.StartPull(Tank, Kobold);
+            Bots::Tests::HoldThreat(group, Tank);
+            fake.SetVictim(Kobold, Tank);
+            fake.SetVictim(Wolf, FrozenHealer);
+            fake.SetAura(Wolf, Bots::Mage::FrostNova);
+        }
+
+        Bots::Guid MeleeTarget()
+        {
+            BotContext const context{fake, fake, group, Bots::CommandState::Follow, 0x1};
+            return Bots::PickMeleeDamageTarget(context);
+        }
+    };
+}
+
+TEST(DamageTarget, HoldsFireOnAFrozenLooseEnemy)
+{
+    FrozenWolfOnTheHealer bot;
+
+    EXPECT_EQ(bot.Target(), Kobold);
+}
+
+TEST(DamageTarget, AttacksAFrozenEnemyOnceTheTankIsItsTarget)
+{
+    FrozenWolfOnTheHealer bot;
+    bot.group.SetFocusTarget(Wolf);
+    bot.fake.SetVictim(Wolf, Tank);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
+TEST(DamageTarget, AttacksTheLooseEnemyOnceTheFreezeEnds)
+{
+    FrozenWolfOnTheHealer bot;
+    bot.fake.SetAura(Wolf, Bots::Mage::FrostNova, false);
+
+    EXPECT_EQ(bot.Target(), Wolf);
+}
+
+TEST(DamageTarget, HoldsFireOnAFrozenFocusOnAnotherMember)
+{
+    FrozenWolfOnTheHealer bot;
+    bot.fake.SetVictim(Wolf, Tank);
+    bot.fake.SetAura(Wolf, Bots::Mage::FrostNova, false);
+    bot.fake.SetVictim(Kobold, FrozenHealer);
+    bot.fake.SetAura(Kobold, Bots::Mage::FrostNova);
+
+    EXPECT_EQ(bot.Target(), NoGuid);
+}
+
+TEST(DamageTarget, MeleeDamageIsNotHeldByTheFreeze)
+{
+    FrozenWolfOnTheHealer bot;
+
+    EXPECT_EQ(bot.MeleeTarget(), Wolf);
+}
+
+TEST(DamageTarget, TheAttackTargetOfThePlayerIsNotHeld)
+{
+    FrozenWolfOnTheHealer bot;
+
+    EXPECT_EQ(bot.Target(Wolf), Wolf);
 }

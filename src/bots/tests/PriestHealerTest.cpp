@@ -1,4 +1,5 @@
 #include "ClassModules.h"
+#include "MageModule.h"
 #include "PriestModule.h"
 #include "GroupTank.h"
 #include "FakeBot.h"
@@ -1279,4 +1280,46 @@ TEST(PriestHealerHolyNova, NeverCastsHolyNova)
                             << static_cast<int>(situation);
                     }
             }
+}
+
+// jvbastel/WOWAI#144: the wand holds fire on a focus frozen by Frost Nova
+// that hits another member (HoldsFireOn, DamageRules.h): a shot breaks the
+// freeze.
+TEST(PriestHealerWand, DoesNotShootAFrozenFocusOnAnotherMember)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetVictim(Kobold, Mage);
+    priest.fake.SetAura(Kobold, Bots::Mage::FrostNova);
+
+    priest.Think();
+
+    EXPECT_TRUE(priest.fake.Deeds().empty());
+}
+
+TEST(PriestHealerWand, StopsTheShotWhenTheFocusIsFrozenOnAnotherMember)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetShotTarget(Kobold);
+    priest.fake.SetVictim(Kobold, Mage);
+    priest.fake.SetAura(Kobold, Bots::Mage::FrostNova);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{"stop the shot"}));
+}
+
+TEST(PriestHealerWand, ShootsAFrozenFocusOnTheTank)
+{
+    PriestHealer priest;
+    GiveWand(priest);
+    priest.InFight();
+    priest.fake.SetAura(Kobold, Bots::Mage::FrostNova);
+
+    priest.Think();
+
+    EXPECT_EQ(priest.fake.Deeds(), (std::vector<std::string>{CastOn(Priest::Shoot, Kobold)}));
 }

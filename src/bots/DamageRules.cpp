@@ -2,6 +2,7 @@
 #include "CommonRules.h"
 #include "GroupRules.h"
 #include "KeepOut.h"
+#include "MageModule.h"
 
 #include <algorithm>
 #include <vector>
@@ -27,7 +28,7 @@ namespace Bots
         // member other than the living tank, the bot included, in the
         // order of the group members. It skips the
         // enemy `skip`. The tank holds its own attackers.
-        std::vector<Guid> LooseEnemies(BotContext const& context, Guid skip)
+        std::vector<Guid> LooseEnemies(BotContext const& context, Guid skip, bool holdFire)
         {
             Guid const tank = context.group.GetTank();
             bool const tankLives = IsAlive(context.view, tank);
@@ -36,7 +37,7 @@ namespace Bots
                 if (IsAlive(context.view, member) && !(tankLives && member == tank))
                     for (Guid attacker : context.view.GetAttackers(member))
                         if (attacker != skip && IsAlive(context.view, attacker) && IsInChaseLimit(context, attacker)
-                            && !Contains(enemies, attacker))
+                            && !Contains(enemies, attacker) && !(holdFire && HoldsFireOn(context, attacker)))
                             enemies.push_back(attacker);
             return enemies;
         }
@@ -64,9 +65,9 @@ namespace Bots
         // first that no member attacks; else the bot's own victim; else the
         // first. So the damage bots spread over the loose enemies, no enemy
         // stays lost, and two bots on one enemy do not swap back and forth.
-        Guid PickLooseEnemy(BotContext const& context, Guid skip)
+        Guid PickLooseEnemy(BotContext const& context, Guid skip, bool holdFire)
         {
-            std::vector<Guid> const enemies = LooseEnemies(context, skip);
+            std::vector<Guid> const enemies = LooseEnemies(context, skip, holdFire);
             if (enemies.empty())
                 return NoGuid;
             Guid const own = context.view.GetVictim(context.view.GetSelf());
@@ -80,27 +81,42 @@ namespace Bots
         }
     }
 
+    namespace
+    {
+        // PickDamageTarget; `holdFire`: not an enemy that the bot holds
+        // fire on (HoldsFireOn), but the attack target of the player.
+        Guid PickTarget(BotContext const& context, bool holdFire)
+        {
+            if (IsAlive(context.view, context.attackTarget))
+                return context.attackTarget;
+            Guid const healer = PickEnemyHealer(context);
+            if (healer != NoGuid && !(holdFire && HoldsFireOn(context, healer)))
+                return healer;
+            Guid const focus = context.group.GetFocusTarget();
+            bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
+            Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid, holdFire);
+            if (loose != NoGuid)
+                return loose;
+            if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
+                && IsInChaseLimit(context, focus) && !(holdFire && HoldsFireOn(context, focus)))
+                return focus;
+            return NoGuid;
+        }
+    }
+
+    bool HoldsFireOn(BotContext const& context, Guid enemy)
+    {
+        return context.view.HasAura(enemy, Mage::FrostNova) && context.view.GetVictim(enemy) != context.group.GetTank();
+    }
+
     Guid PickDamageTarget(BotContext const& context)
     {
-        if (IsAlive(context.view, context.attackTarget))
-            return context.attackTarget;
-        Guid const healer = PickEnemyHealer(context);
-        if (healer != NoGuid)
-            return healer;
-        Guid const focus = context.group.GetFocusTarget();
-        bool const waitForTaunt = IsAlive(context.view, focus) && FocusHitsAnotherMember(context, focus);
-        Guid const loose = PickLooseEnemy(context, waitForTaunt ? focus : NoGuid);
-        if (loose != NoGuid)
-            return loose;
-        if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
-            && IsInChaseLimit(context, focus))
-            return focus;
-        return NoGuid;
+        return PickTarget(context, true);
     }
 
     Guid PickMeleeDamageTarget(BotContext const& context)
     {
-        Guid const target = PickDamageTarget(context);
+        Guid const target = PickTarget(context, false);
         return target != NoGuid && InOtherPacksReach(context, context.view.GetPosition(target)) ? NoGuid : target;
     }
 

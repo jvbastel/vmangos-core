@@ -285,6 +285,10 @@ namespace Bots
         // trail is empty. While a pull is on, the trail does not grow.
         void KeepTrail(Position at, bool fights);
         std::vector<Position> GetTrail() const;
+        // jvbastel/WOWAI#144: the cleared way of the fight that is on: the
+        // trail as it was when the tank began to fight, oldest first. Empty
+        // out of a fight. The step back walks back along it (StepBack.h).
+        std::vector<Position> GetFightWay() const;
 
         // The enemy healers: the enemies that cast a heal in a fight. The
         // damage bots attack them first (GroupRules.h).
@@ -382,6 +386,7 @@ namespace Bots
         Guid m_tank = NoGuid;
         Guid m_healer = NoGuid;
         Trail m_trail;
+        std::vector<Position> m_fightWay;
         std::vector<MemberSpot> m_memberSpots;
         // Counts each change of m_memberSpots but the in-place notes.
         std::uint64_t m_memberSpotsVersion = 0;

@@ -320,9 +320,22 @@ namespace Bots
         // A pull keeps the trail as it was at its start: the tank's walk to
         // its shoot spot is no cleared way.
         if (fights)
+        {
+            // The first think of the fight: the trail becomes its cleared way.
+            if (!m_trail.Points().empty())
+                m_fightWay = m_trail.Points();
             m_trail.Clear();
-        else if (m_pull.phase == PullPhase::None)
+            return;
+        }
+        m_fightWay.clear();
+        if (m_pull.phase == PullPhase::None)
             m_trail.Note(at);
+    }
+
+    std::vector<Position> GroupCoordinator::GetFightWay() const
+    {
+        Lock lock(m_mutex);
+        return m_fightWay;
     }
 
     std::vector<Position> GroupCoordinator::GetTrail() const

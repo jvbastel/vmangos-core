@@ -1,6 +1,7 @@
 #include "WarlockModule.h"
 #include "CommonRules.h"
 #include "DamageRules.h"
+#include "StepBack.h"
 
 namespace Bots
 {
@@ -54,6 +55,9 @@ namespace Bots
                             && !context.view.HasAura(Self(context), DemonSkin);
                     },
                     DemonSkin, PickSelf),
+
+                // jvbastel/WOWAI#144: out of reach of a frozen enemy first.
+                StepBackRule(P + 89, BotRole::Ranged),
 
                 // The fight: the Imp attacks the damage target, and the
                 // Warlock runs into casting range of it.
