@@ -234,17 +234,19 @@ def a_full_run_that_passes():
     group = ["Grukk", "Hela", "Shanka", "Morzul"]
     chat = [
         {"event": "boss_kill", "to": None, "time_s": 300.0, "reached": True,
-         "lines": [{"bot": "Grukk", "time_s": 302.0}, {"bot": "Hela", "time_s": 303.0}]},
+         "lines": [{"bot": "Grukk", "time_s": 302.0, "channel": "party"},
+                   {"bot": "Hela", "time_s": 303.0, "channel": "party"}]},
         {"event": "loot_roll", "to": None, "time_s": 310.0, "reached": True,
-         "lines": [{"bot": "Shanka", "time_s": 312.0}]},
+         "lines": [{"bot": "Shanka", "time_s": 312.0, "channel": "party"}]},
         {"event": "rest", "to": None, "time_s": 320.0, "reached": True,
-         "lines": [{"bot": "Morzul", "time_s": 321.0}]},
+         "lines": [{"bot": "Morzul", "time_s": 321.0, "channel": "party"}]},
     ]
     for bot in group:
         chat.append({"event": "player_message", "to": bot, "time_s": 25.0, "reached": True,
-                     "lines": [{"bot": bot, "time_s": 27.0}]})
+                     "lines": [{"bot": bot, "time_s": 27.0, "channel": "whisper"}]})
     chat.append({"event": "player_message", "to": None, "time_s": 26.0, "reached": True,
-                 "lines": [{"bot": "Grukk", "time_s": 28.0}, {"bot": "Hela", "time_s": 29.0}]})
+                 "lines": [{"bot": "Grukk", "time_s": 28.0, "channel": "party"},
+                           {"bot": "Hela", "time_s": 29.0, "channel": "party"}]})
     return {
         "run": 1, "script": "ragefire_chasm", "scenario": "full", "full_run": True, "result": "passed",
         "reason": None, "duration_s": 1900.0, "driver": "Ezzra", "group": group,
@@ -372,10 +374,38 @@ class Thresholds(unittest.TestCase):
     def test_each_whisper_gets_an_answer_of_its_bot(self):
         result = a_full_run_that_passes()
         whisper = [e for e in result["chat_events"] if e["to"] == "Hela"][0]
-        whisper["lines"] = [{"bot": "Grukk", "time_s": 27.0}]
-        self.assertEqual(self.fails(result), ["the whisper to Hela got no answer from Hela"])
+        whisper["lines"] = [{"bot": "Grukk", "time_s": 27.0, "channel": "whisper"}]
+        self.assertEqual(self.fails(result), ["the whisper to Hela got no answer from Hela",
+                                              "the whisper to Hela got an answer from Grukk, only Hela expected"])
         result["chat_events"].remove(whisper)
         self.assertEqual(self.fails(result), ["the test driver whispered Hela 0 times, once expected"])
+
+    # Spec section 9: "player_message, whisper | 1 bot: the bot that got the
+    # whisper", and "a whisper gets a whisper, and party chat gets party chat".
+    def test_only_the_whispered_bot_answers_once(self):
+        result = a_full_run_that_passes()
+        whisper = [e for e in result["chat_events"] if e["to"] == "Hela"][0]
+        whisper["lines"].append({"bot": "Hela", "time_s": 28.0, "channel": "whisper"})
+        self.assertEqual(self.fails(result), ["the whisper to Hela got 2 answers from Hela, 1 expected"])
+
+    def test_a_whisper_gets_a_whisper(self):
+        result = a_full_run_that_passes()
+        whisper = [e for e in result["chat_events"] if e["to"] == "Hela"][0]
+        whisper["lines"][0]["channel"] = "party"
+        self.assertEqual(self.fails(result), ["Hela answered the whisper to Hela in party, whisper expected"])
+
+    def test_the_party_message_gets_party_chat(self):
+        result = a_full_run_that_passes()
+        party = [e for e in result["chat_events"] if e["event"] == "player_message" and e["to"] is None][0]
+        party["lines"][1]["channel"] = "whisper"
+        self.assertEqual(self.fails(result), ["Hela answered the party message in whisper, party expected"])
+
+    def test_a_result_file_without_channels_checks_no_channel(self):
+        result = a_full_run_that_passes()
+        for event in result["chat_events"]:
+            for line in event["lines"]:
+                del line["channel"]
+        self.assertEqual(self.fails(result), [])
 
     def test_the_party_message_gets_one_or_two_answers(self):
         result = a_full_run_that_passes()

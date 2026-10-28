@@ -107,6 +107,12 @@ the first `up`). The kit sets the first five itself:
                           Default: <WOWAI_DEPLOY_DIR>/storage/mangosd/extracted-data
   WOWAI_BOTCHAT_SRC       A clone of the chat service repository, which the
                           botchat service runs. Default: ~/wowai/botchat
+  WOWAI_BOTCHAT_LLM       The LLM backend of the chat service: fake (fixed
+                          lines) or llama (the real LLM, through the same
+                          llama-server on Windows as the play realm). Default:
+                          fake. To switch a running realm, run `up` again
+                          with the new value, for example
+                          WOWAI_BOTCHAT_LLM=llama realm.sh --ticket <N> up
   WOWAI_BOTS_DATA         The bot data files (gear templates, route files,
                           ...), read and written by mangosd. Default:
                           bots/data of the fork tree that runs `realm up`
@@ -329,6 +335,12 @@ realm_prepare() {
   local botchat
   botchat="$(realpath -m "$(realm_setting WOWAI_BOTCHAT_SRC "$HOME/wowai/botchat")")"
   [ -f "$botchat/Dockerfile" ] || die "no chat service in $botchat (clone jvbastel/botchat there, or set WOWAI_BOTCHAT_SRC)"
+  local botchat_llm
+  botchat_llm="$(realm_setting WOWAI_BOTCHAT_LLM fake)"
+  case "$botchat_llm" in
+    fake|llama) ;;
+    *) die "WOWAI_BOTCHAT_LLM must be fake or llama, not $botchat_llm" ;;
+  esac
 
   local env
   env="$(cat <<EOF
@@ -341,6 +353,7 @@ WOWAI_REALM_DIR=$realm_dir
 WOWAI_DEV_INSTALL=$install_dir
 WOWAI_REALM_DATA=$data
 WOWAI_BOTCHAT_SRC=$botchat
+WOWAI_BOTCHAT_LLM=$botchat_llm
 WOWAI_BOTS_DATA=$bots_data
 WOWAI_REALM_LOGIN_PORT=$(realm_default_setting WOWAI_REALM_LOGIN_PORT)
 WOWAI_REALM_WORLD_PORT=$(realm_default_setting WOWAI_REALM_WORLD_PORT)

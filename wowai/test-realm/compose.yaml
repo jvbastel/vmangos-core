@@ -92,10 +92,11 @@ services:
       - VMANGOS_DATABASE_USER=mangos
       - VMANGOS_DATABASE_PASSWORD=${WOWAI_REALM_DB_PASSWORD:?}
 
-  # The chat service, with the fake LLM backend. It runs the source of the
-  # chat service repository (WOWAI_BOTCHAT_SRC) from a bind mount with
-  # `uvicorn --reload`, so a Python edit takes effect at once. The image holds
-  # only Python and the dependencies. The core reaches it at
+  # The chat service, with the fake LLM backend (WOWAI_BOTCHAT_LLM=llama: the
+  # real LLM, through the same llama-server as the play realm). It runs the
+  # source of the chat service repository (WOWAI_BOTCHAT_SRC) from a bind
+  # mount with `uvicorn --reload`, so a Python edit takes effect at once. The
+  # image holds only Python and the dependencies. The core reaches it at
   # http://botchat:8000.
   botchat:
     image: wowai-botchat:dev
@@ -120,7 +121,7 @@ services:
       - ${WOWAI_BOTCHAT_SRC:?}:/app:ro
     environment:
       - TZ=${WOWAI_REALM_TZ:-Etc/UTC}
-      - BOTCHAT_LLM=fake
+      - BOTCHAT_LLM=${WOWAI_BOTCHAT_LLM:-fake}
       - BOTCHAT_DB_PASSWORD=${WOWAI_REALM_BOTCHAT_DB_PASSWORD:?}
 
 volumes:

@@ -286,7 +286,7 @@ void BotChat::PostGroupEvent(uint32 groupId, Bots::GroupEvent const& event)
 
     // The fact that only the game knows: the boss name, or the item name.
     std::string name;
-    if (event.kind == Bots::GroupEventKind::BossKill)
+    if (event.kind == Bots::GroupEventKind::BossKill || (event.kind == Bots::GroupEventKind::Wipe && event.entry))
     {
         if (CreatureInfo const* info = sObjectMgr.GetCreatureTemplate(event.entry))
             name = info->name;

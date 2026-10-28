@@ -227,7 +227,7 @@ namespace Bots
         {
             Json lines = Json::array();
             for (RunChatLine const& line : event.lines)
-                lines.push_back({{"bot", line.bot}, {"time_s", Seconds(line.ms)}});
+                lines.push_back({{"bot", line.bot}, {"time_s", Seconds(line.ms)}, {"channel", line.channel}});
             chat.push_back({{"event", event.event}, {"to", TextOrNull(event.to)}, {"time_s", Seconds(event.ms)},
                 {"reached", event.reached}, {"lines", lines}});
         }
