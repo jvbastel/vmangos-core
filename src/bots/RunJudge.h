@@ -152,7 +152,8 @@ namespace Bots
     // pack unavoidable.
     // `pullJudged` is false when the run could not mark the packs at the
     // pull (no living tank, no target): then a pack with no flee or patrol
-    // is "not judged", and not avoidable.
+    // is "not judged", and not avoidable. A pack sent by the script's `join`
+    // command (`cause.scripted`) is unavoidable all the same.
     ExtraPackMark JudgeExtraPack(bool pullJudged, ExtraPackMark const* atPull, ExtraPackCause const& cause);
 
     // Why the pull fails: its first unwarned or avoidable extra pack. Empty
