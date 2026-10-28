@@ -224,6 +224,8 @@ namespace Bots
         // as a pack that joined, or a pet of an enemy of one.
         bool extraPack;
         EnemyVictim victim;
+        // jvbastel/WOWAI#172: in the tank's melee reach.
+        bool inTankMelee = false;
     };
 
     // `expect healer_pickup_seconds <n>`: each extra-pack enemy that hits
@@ -272,6 +274,36 @@ namespace Bots
         // Casts on another unit than the target, before the turn to it.
         std::set<Guid> m_castsAhead;
         std::vector<std::string> m_misses;
+        std::string m_failure;
+    };
+}
+
+// jvbastel/WOWAI#172: the tank's threat on an extra-pack enemy that comes at
+// it. The game layer feeds it like the checks above.
+namespace Bots
+{
+    // `expect extra_pack_threat_seconds <n>`: each extra-pack enemy that
+    // attacks the tank gets a Sunder Armor or Revenge from the tank within
+    // <n> s of reaching the tank's melee reach; one from before (an early
+    // visit, a pickup) counts too. The <n> s start again when it leaves the
+    // tank (another victim, or out of reach) and comes back. One that died
+    // is no failure.
+    class ExtraPackThreatCheck
+    {
+    public:
+        explicit ExtraPackThreatCheck(ScriptLimit limit = ScriptLimit());
+
+        // A spell of the tank went out on `target`: `firstRank`, the first
+        // rank of its chain.
+        void NoteCast(Guid target, SpellId firstRank);
+        // The living enemies that attack a member now (inTankMelee set).
+        void Observe(std::int64_t nowMs, std::vector<FightEnemySeen> const& enemies);
+        std::string const& Failure() const { return m_failure; }
+
+    private:
+        ScriptLimit m_limit;
+        std::map<Guid, std::int64_t> m_inReachMs; // On the tank in reach since.
+        std::set<Guid> m_threatCast;              // Got Sunder Armor or Revenge.
         std::string m_failure;
     };
 }

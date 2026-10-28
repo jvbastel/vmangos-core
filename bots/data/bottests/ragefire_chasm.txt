@@ -190,6 +190,7 @@ expect healer_threat_losses 0  # per pull, through the whole run (jvbastel/WOWAI
 expect healer_pickup_seconds 6        # an extra-pack enemy on the healer is on the tank in 6 s (#168)
 expect threat_targets_without_cast 0  # the tank casts on each threat target it turns to (#168)
 expect damage_chase_yards 25  # no damage bot chases farther from the tank (jvbastel/WOWAI#171)
+expect extra_pack_threat_seconds 3   # an extra-pack enemy on the tank gets Sunder Armor or Revenge in 3 s of melee reach (#172)
 teleport p18             # 23 yd from pack13: pull_pack13 is in its aggro reach
 clear 100 pack13 pack14  # only the two packs stay; also the patrol pack7
 command follow
