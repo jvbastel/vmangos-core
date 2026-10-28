@@ -61,9 +61,14 @@
     return data;
   }
 
+  // The faded or hidden regions (region_pick.js): a snap leaves their ground
+  // out, a path may still run through them (#185).
+  const through = () => (window.regionPick ? window.regionPick.faded() : []);
+
   async function snap(x, y, z) {
     const params = new URLSearchParams({x, y});
     if (z !== undefined && z !== null) params.set("z", z);
+    for (const name of through()) params.append("through", name);
     const found = await call(`snap?${params}`);
     return {...found.point, floors: found.floors, joined: true, mark: false, note: ""};
   }
@@ -71,7 +76,7 @@
   async function join(line, i) {
     const a = line.points[i], b = line.points[i + 1];
     line.pieces[i] = b.joined === false ? null :
-      await call("path", {start: {x: a.x, y: a.y, z: a.z}, end: {x: b.x, y: b.y, z: b.z}});
+      await call("path", {start: {x: a.x, y: a.y, z: a.z}, end: {x: b.x, y: b.y, z: b.z}, through: through()});
   }
 
   // Recompute the pieces next to point i of line l, then redraw.

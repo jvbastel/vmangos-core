@@ -99,10 +99,12 @@ class FloorGraph:
         found = [(z, i) for i, p in enumerate(self.polys) if (z := _height(p, x, y)) is not None]
         return sorted(found)
 
-    def snap(self, x: float, y: float, z: float | None = None):
+    def snap(self, x: float, y: float, z: float | None = None, through=lambda point: False):
         """The floor point of a click and the floor heights there. Where
         floors stack, the floor nearest z (the top floor without z). A click
-        off the floor (in a wall) goes to the nearest floor point."""
+        off the floor (in a wall) goes to the nearest floor point. A floor
+        point that through(point) holds is left out (the click goes through
+        it), unless every floor there is such a point."""
         found = self.floors_at(x, y)
         if not found:
             best = None
@@ -120,7 +122,7 @@ class FloorGraph:
                 return None, []
             x, y = best[1]
             found = self.floors_at(x, y)
-        heights = [h for h, _ in found]
+        heights = [h for h, _ in found if not through((x, y, h))] or [h for h, _ in found]
         chosen = min(heights, key=lambda h: abs(h - z)) if z is not None else heights[-1]
         return (x, y, chosen), heights
 
