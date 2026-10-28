@@ -38,7 +38,7 @@ class Spot(BaseModel):
 class PathAsk(BaseModel):
     start: Spot
     end: Spot
-    through: list[str] = []  # the faded or hidden regions (#185): a path may still run through them
+    through: list[str] = []  # the faded or hidden regions (#185); checked, not used: a path may run through them
 
 
 class TraceAsk(BaseModel):
@@ -75,11 +75,12 @@ def add_routes(app: FastAPI, maps):
     @app.get("/api/maps/{name}/snap")
     def snap(name: str, x: float, y: float, z: Optional[float] = None, through: list[str] = Query([])):
         map_id = maps.route(name).map_id
-        passed = [r for r in maps.regions(map_id) if r.name in through]
+        map_regions = maps.regions(map_id)
+        passed = [r for r in map_regions if r.name in through]
         point, floors = graph(map_id).snap(x, y, z, through=lambda p: any(r.holds(*p) for r in passed))
         if point is None:
             raise HTTPException(422, "no floor on this map")
-        return {"point": regions.mark(_xyz(point), maps.regions(map_id)),  # the regions it is in (#184)
+        return {"point": regions.mark(_xyz(point), map_regions),  # the regions it is in (#184)
                 "floors": [round(h, 2) for h in floors]}
 
     @app.post("/api/maps/{name}/path")
