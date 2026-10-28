@@ -277,6 +277,24 @@ Bots::Power BotAdapter::GetPower(Bots::Guid unit) const
     return {found->GetPower(power), found->GetMaxPower(power)};
 }
 
+Bots::PowerKind BotAdapter::GetPowerKind(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found)
+        return Bots::PowerKind::None;
+    switch (found->GetPowerType())
+    {
+        case POWER_MANA:
+            return Bots::PowerKind::Mana;
+        case POWER_RAGE:
+            return Bots::PowerKind::Rage;
+        case POWER_ENERGY:
+            return Bots::PowerKind::Energy;
+        default:
+            return Bots::PowerKind::None;
+    }
+}
+
 float BotAdapter::GetDistance(Bots::Guid unit) const
 {
     Unit const* found = Find(unit);
@@ -553,6 +571,34 @@ bool BotAdapter::IsCastLocked(Bots::SpellId spell) const
     if (entry->PreventionType == SPELL_PREVENTION_TYPE_PACIFY)
         return me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
     return false;
+}
+
+Bots::RankAmounts BotAdapter::GetRankAmounts(Bots::SpellId rank) const
+{
+    // The mean of SpellCaster::CalculateSpellEffectValue for each direct
+    // heal effect, at the level of the bot, without the spell mods of the
+    // talents and without +healing (jvbastel/WOWAI#134).
+    SpellEntry const* entry = sSpellMgr.GetSpellEntry(rank);
+    if (!entry)
+        return Bots::RankAmounts{0, 0};
+    int32 level = int32(me->GetLevel());
+    if (entry->maxLevel > 0 && level > int32(entry->maxLevel))
+        level = int32(entry->maxLevel);
+    else if (level < int32(entry->baseLevel))
+        level = int32(entry->baseLevel);
+    level -= int32(entry->spellLevel);
+    float heal = 0.0f;
+    for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+    {
+        if (entry->Effect[i] != SPELL_EFFECT_HEAL)
+            continue;
+        int32 const baseDice = int32(entry->EffectBaseDice[i]);
+        int32 const randomPoints = int32(entry->EffectDieSides[i] + level * entry->EffectDicePerLevel[i]);
+        float const random = randomPoints <= 1 ? float(baseDice) : (baseDice + randomPoints) / 2.0f;
+        heal += entry->EffectBasePoints[i] + level * entry->EffectRealPointsPerLevel[i] + random;
+    }
+    uint32 const cost = Powers(entry->powerType) == POWER_MANA ? Spell::CalculatePowerCost(entry, me) : 0;
+    return Bots::RankAmounts{heal > 0.0f ? uint32(heal + 0.5f) : 0, cost};
 }
 
 std::vector<Bots::Guid> BotAdapter::GetGroupMembers() const
@@ -981,9 +1027,12 @@ Bots::RangedWeapon BotAdapter::GetRangedWeapon() const
         case ITEM_SUBCLASS_WEAPON_BOW: weapon.kind = Bots::RangedKind::Bow; break;
         case ITEM_SUBCLASS_WEAPON_GUN: weapon.kind = Bots::RangedKind::Gun; break;
         case ITEM_SUBCLASS_WEAPON_CROSSBOW: weapon.kind = Bots::RangedKind::Crossbow; break;
-        default: return weapon; // A wand needs no pull rules.
+        case ITEM_SUBCLASS_WEAPON_WAND: weapon.kind = Bots::RangedKind::Wand; break;
+        default: return weapon;
     }
     weapon.entry = proto->ItemId;
+    if (weapon.kind == Bots::RangedKind::Wand)
+        return weapon; // A wand uses no ammo.
     if (weapon.kind == Bots::RangedKind::Thrown)
     {
         // Each throw uses up one of the worn stack (Spell::TakeAmmo).
@@ -1001,6 +1050,20 @@ Bots::RangedWeapon BotAdapter::GetRangedWeapon() const
         weapon.ammoCount = me->GetItemCount(ammo);
     }
     return weapon;
+}
+
+Bots::Guid BotAdapter::GetShotTarget() const
+{
+    // The wand's Shoot sits in the auto-repeat slot until a cast of the
+    // generic slot stops it (Unit::SetCurrentCastedSpell).
+    Spell const* shot = me->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL);
+    return shot ? shot->m_targets.getUnitTargetGuid().GetRawValue() : Bots::NoGuid;
+}
+
+void BotAdapter::StopShot()
+{
+    // The auto-repeat slot only: a heal in the generic slot goes on.
+    me->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
 }
 
 uint32 BotAdapter::GetLevel(Bots::Guid unit) const

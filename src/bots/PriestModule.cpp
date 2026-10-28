@@ -1,5 +1,7 @@
 #include "PriestModule.h"
 #include "CommonRules.h"
+#include "DamageRules.h"
+#include "Ranged.h"
 #include "SafePlace.h"
 #include "SpellBook.h"
 
@@ -14,6 +16,12 @@ namespace Bots
             float const HealBelow = 0.5f;
             float const LesserHealBelow = 0.7f;
             float const RenewBelow = 0.9f;
+            // jvbastel/WOWAI#135: a member below this fraction dies before a
+            // slow heal lands. It gets Flash Heal (from level 20), which
+            // costs the most mana per health, so no other member gets it.
+            // It is equal to ShieldBelow on purpose: the band that the
+            // shield skips (a rage tank) is the band that Flash Heal takes.
+            float const FlashHealBelow = 0.3f;
 
             // jvbastel/WOWAI#111: in a pull, the healer waits this long
             // after the tank engages (HoldPull) before its first heal, so
@@ -31,9 +39,9 @@ namespace Bots
             float const ResurrectReachYards = 29.0f;
             float const ResurrectCastYards = 26.0f;
 
-            using MemberFilter = bool (*)(BotView const& view, Guid member);
+            using MemberFilter = bool (*)(BotContext const& context, Guid member);
 
-            bool AnyMember(BotView const&, Guid)
+            bool AnyMember(BotContext const&, Guid)
             {
                 return true;
             }
@@ -43,9 +51,31 @@ namespace Bots
                 return !view.HasAura(member, WeakenedSoul) && !view.HasAura(member, PowerWordShield);
             }
 
-            bool HasNoRenew(BotView const& view, Guid member)
+            // jvbastel/WOWAI#132: the shield absorbs the damage that gives a
+            // rage tank its rage, so the tank would lose threat. The group's
+            // tank with rage (a warrior, a druid in bear form) gets a heal.
+            bool IsRageTank(BotContext const& context, Guid member)
             {
-                return !view.HasAura(member, Renew);
+                return member == context.group.GetTank() && context.view.GetPowerKind(member) == PowerKind::Rage;
+            }
+
+            bool ShieldHelps(BotContext const& context, Guid member)
+            {
+                return CanTakeShield(context.view, member) && !IsRageTank(context, member);
+            }
+
+            // Review of spec #131: Flash Heal only for a member that dies
+            // before a slow heal lands. Only in a fight (story 22): out of
+            // it, nothing hits the member. And not under the shield: it
+            // holds the damage off.
+            bool TakesFlashHeal(BotContext const& context, Guid member)
+            {
+                return IsGroupInCombat(context.view) && !context.view.HasAura(member, PowerWordShield);
+            }
+
+            bool HasNoRenew(BotContext const& context, Guid member)
+            {
+                return !context.view.HasAura(member, Renew);
             }
 
             float HealthFraction(BotView const& view, Guid unit)
@@ -64,7 +94,7 @@ namespace Bots
                 for (Guid member : context.view.GetGroupMembers())
                 {
                     float const fraction = HealthFraction(context.view, member);
-                    if (IsAlive(context.view, member) && fraction < lowest && filter(context.view, member))
+                    if (IsAlive(context.view, member) && fraction < lowest && filter(context, member))
                     {
                         most = member;
                         lowest = fraction;
@@ -83,6 +113,31 @@ namespace Bots
             bool OutOfCombat(BotContext const& context)
             {
                 return !context.view.IsInCombat(PickSelf(context));
+            }
+
+            // jvbastel/WOWAI#133: the bot shoots the focus target with its
+            // wand: in a fight, once the tank holds threat on it
+            // (TankHoldsThreat, DamageRules.h), with no enemy on the bot,
+            // the target in shot range and sight, and no shot going yet.
+            // Shoot costs no mana: the spirit regen goes on.
+            bool ShootsTheFocus(BotContext const& context)
+            {
+                Guid const focus = context.group.GetFocusTarget();
+                return context.view.IsInCombat(PickSelf(context)) && !IsAttacked(context)
+                    && context.view.GetRangedWeapon().kind == RangedKind::Wand && CanShoot(context.view)
+                    && context.view.GetShotTarget() == NoGuid
+                    && IsAlive(context.view, focus) && TankHoldsThreat(context) && InWandShot(context.view, focus);
+            }
+
+            // Review of spec #131: a going shot repeats on its own. The bot
+            // stops it when the shot no longer fits ShootsTheFocus: its
+            // target is not the focus target, the tank no longer holds
+            // threat on it, or an enemy attacks the bot.
+            bool StopsTheShot(BotContext const& context)
+            {
+                Guid const shot = context.view.GetShotTarget();
+                return shot != NoGuid
+                    && (shot != context.group.GetFocusTarget() || !TankHoldsThreat(context) || IsAttacked(context));
             }
 
             // The first living member without Power Word: Fortitude, or NoGuid.
@@ -183,6 +238,14 @@ namespace Bots
                     return !WaitsForTheTank(context) && MostHurtMember(context, below, filter) != NoGuid;
                 };
             }
+
+            // jvbastel/WOWAI#134: a heal with rank choice (CastableHealRank)
+            // on the most hurt member below `below` that `filter` accepts.
+            Rule HealRule(std::string name, int priority, SpellId heal, float below, MemberFilter filter = AnyMember)
+            {
+                return CastRule(std::move(name), priority, SomeoneBelow(below, filter), heal, HurtMember(below, filter),
+                    CastableHealRank);
+            }
         }
 
         std::shared_ptr<Strategy const> MakeHealerStrategy()
@@ -202,12 +265,23 @@ namespace Bots
                 // The heals, the most urgent first. Each picks the most
                 // hurt member that needs it. At level 16 the Priest knows no
                 // dispel: it heals through every debuff.
-                CastRule("shield a member near death", P + 88, SomeoneBelow(ShieldBelow, CanTakeShield),
-                    PowerWordShield, HurtMember(ShieldBelow, CanTakeShield)),
-                CastRule("heal", P + 80, SomeoneBelow(HealBelow), Heal, HurtMember(HealBelow)),
-                CastRule("lesser heal a badly hurt member", P + 75, SomeoneBelow(HealBelow), LesserHeal, HurtMember(HealBelow)),
+                CastRule("shield a member near death", P + 88, SomeoneBelow(ShieldBelow, ShieldHelps),
+                    PowerWordShield, HurtMember(ShieldBelow, ShieldHelps)),
+                // jvbastel/WOWAI#135: a member near death that the shield
+                // skips (a rage tank, Weakened Soul) gets the fast heal. A
+                // member under its shield gets a slow heal.
+                HealRule("flash heal a member near death", P + 87, FlashHeal, FlashHealBelow, TakesFlashHeal),
+                // jvbastel/WOWAI#134: Greater Heal, Heal, and Lesser Heal
+                // take the rank that fits the missing health. Renew, the shield, and the
+                // buffs take their highest rank.
+                // jvbastel/WOWAI#136: from level 40, Greater Heal heals the
+                // most per mana: it comes before Heal. A bot that does not
+                // know it goes on to Heal.
+                HealRule("greater heal a badly hurt member", P + 82, GreaterHeal, HealBelow),
+                HealRule("heal", P + 80, Heal, HealBelow),
+                HealRule("lesser heal a badly hurt member", P + 75, LesserHeal, HealBelow),
                 CastRule("renew", P + 70, SomeoneBelow(RenewBelow, HasNoRenew), Renew, HurtMember(RenewBelow, HasNoRenew)),
-                CastRule("lesser heal", P + 65, SomeoneBelow(LesserHealBelow), LesserHeal, HurtMember(LesserHealBelow)),
+                HealRule("lesser heal", P + 65, LesserHeal, LesserHealBelow),
 
                 // A hurt member out of reach: the bot follows it. It stays
                 // near it until the fight ends and the command takes over.
@@ -231,6 +305,15 @@ namespace Bots
                         return !IsGroupInCombat(context.view) && DeadMemberOutOfReach(context) != NoGuid;
                     },
                     BotAction{[](BotContext const&) { return true; }, GoToCorpse}},
+
+                // jvbastel/WOWAI#133: between heals, the wand on the focus
+                // target. Each heal comes first, and its cast stops the shot.
+                // Review of spec #131: a shot that no longer fits stops
+                // (StopsTheShot). The stop ends the shot only, never a heal.
+                Rule{"stop the shot", P + 31, StopsTheShot,
+                    BotAction{[](BotContext const&) { return true; },
+                        [](BotContext const& context) { context.actions.StopShot(); }}},
+                CastRule("shoot the focus target", P + 30, ShootsTheFocus, Shoot, PickFocusTarget),
 
                 // The buffs, out of combat only: in a fight the mana is for
                 // the heals.

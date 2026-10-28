@@ -84,6 +84,10 @@ class BotAI : public PlayerBotAI
         Bots::LeaderPlace PlaceOfLeader() const;
         // False without a group, or on another map than the group leader.
         bool UsesGroupCoordinator() const;
+        // The group's tank (bots/GroupTank.h, NextGroupTank), when the
+        // coordinator's tank is `current`: the bot tank, else a human
+        // warrior leader on the bot's map. NoGuid for none.
+        Bots::Guid GroupTankNow(Bots::Guid current) const;
         // The coordinator of the bot's group, of the group's bots in the
         // bot's place away from the leader, or the bot's own one.
         std::shared_ptr<Bots::GroupCoordinator> Coordinator();

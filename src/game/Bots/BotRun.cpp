@@ -1525,7 +1525,9 @@ void BotRun::TraceMembers(int64 nowMs)
         if (target)
             state.target = UnitText(target);
         state.spell = 0;
-        for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL})
+        // The auto-repeat spell last: the wand shot of the healer between
+        // its heals (jvbastel/WOWAI#133).
+        for (CurrentSpellTypes type : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL, CURRENT_AUTOREPEAT_SPELL})
             if (Spell const* spell = member->GetCurrentSpell(type))
             {
                 state.spell = spell->m_spellInfo->Id;

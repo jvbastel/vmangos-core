@@ -6,19 +6,21 @@
 #include <cstdint>
 
 // The ranged weapon of a bot and its ammo, for the ranged pull of the tank
-// (WarriorModule.h). The bot system keeps the ammo topped up for free: bots
-// never buy ammo.
+// (WarriorModule.h) and the wand of the Priest healer (PriestModule.h). The
+// bot system keeps the ammo topped up for free: bots never buy ammo. A wand
+// uses none.
 namespace Bots
 {
     class BotView;
 
     enum class RangedKind
     {
-        None, // No ranged weapon, or a wand.
+        None, // No ranged weapon.
         Thrown,
         Bow,
         Gun,
         Crossbow,
+        Wand, // jvbastel/WOWAI#133: no ammo, and no top-up.
     };
 
     // The ranged weapon that the bot wears.
@@ -56,15 +58,24 @@ namespace Bots
 
     // The top-up that a bot of level `level` needs for `weapon`: the best
     // ammo of its level, when it uses other ammo or has less than
-    // LowAmmo of it. A thrown weapon tops up its own stack.
+    // LowAmmo of it. A thrown weapon tops up its own stack. A wand needs
+    // no top-up.
     AmmoTopUp PlanAmmoTopUp(RangedWeapon const& weapon, std::uint32_t level);
 
-    // The spell that fires the weapon: Throw, Shoot Bow, Shoot Gun, or
-    // Shoot Crossbow. NoSpell for none.
+    // jvbastel/WOWAI#133: Shoot, the shot of a wand (spell range 4).
+    SpellId const WandShoot = 5019;
+
+    // The spell that fires the weapon: Throw, Shoot Bow, Shoot Gun, Shoot
+    // Crossbow, or Shoot (a wand, WandShoot). NoSpell for none.
     SpellId ShootSpell(RangedKind kind);
 
-    // The bot can fire the weapon: it wears one and has ammo for it.
+    // The bot can fire the weapon: it wears one and has ammo for it. A wand
+    // needs no ammo.
     bool CanFire(RangedWeapon const& weapon);
+
+    // The bot can fire the ranged weapon that it wears (CanFire), and knows
+    // its shoot spell (ShootSpell).
+    bool CanShoot(BotView const& view);
 
     // The one "in shot" rule of the ranged pull (WarriorModule.h, the
     // fight spot search of FightSpot.h). The shoot spells reach from
@@ -84,8 +95,14 @@ namespace Bots
     // Where a target `spellYards` away (spell distance) is for a shot.
     ShotReach ShotReachAt(float spellYards);
 
-    // A bot at `at` can shoot unit `target`: in range and in sight.
-    bool InShotFrom(BotView const& view, Position const& at, Guid target);
+    // A bot at `at` can shoot unit `target`: from `minYards` (spell
+    // distance) to ShotMaxYards, and in sight.
+    bool InShotFrom(BotView const& view, Position const& at, Guid target, float minYards = ShotMinYards);
+
+    // jvbastel/WOWAI#133: the bot can shoot unit `target` with a wand from
+    // where it stands (InShotFrom). WandShoot reaches up to ShotMaxYards
+    // with no minimum, unlike the other shoot spells.
+    bool InWandShot(BotView const& view, Guid target);
 
     // The length of a step of the path search of FindShotOnPath.
     float const ShotPathStepYards = 1.0f;
