@@ -1,5 +1,6 @@
 #include "BotGeometry.h"
 #include "RouteGenerator.h"
+#include "RouteHandOrder.h"
 
 #include <gtest/gtest.h>
 

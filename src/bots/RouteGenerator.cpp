@@ -7,10 +7,8 @@
 #include "RouteSight.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
 #include <map>
 #include <numeric>
 #include <set>
@@ -765,36 +763,6 @@ namespace Bots
 
         for (std::string const& warning : SkippedPackWarnings(route, packs, spawns, hand.skipped, settings.aggroRange))
             result.warnings.push_back(warning);
-        result.ok = true;
-        return result;
-    }
-
-    PackOrderResult ParsePackOrder(std::string const& text)
-    {
-        PackOrderResult result;
-        for (DataLine const& line : TokenizeLines(text))
-        {
-            std::string error;
-            unsigned long guid = 0;
-            char* end = nullptr;
-            bool const skip = !line.words.empty() && line.words[0] == "skip";
-            if (line.words.size() == 2 && (skip || line.words[0] == "pack") &&
-                std::isdigit(static_cast<unsigned char>(line.words[1][0])))
-                guid = std::strtoul(line.words[1].c_str(), &end, 10);
-            if (!end || *end != '\0' || guid == 0 || guid > 0xffffffffUL)
-                error = "use: pack <spawn guid>, or skip <spawn guid>";
-            else if (std::find(result.guids.begin(), result.guids.end(), std::uint32_t(guid)) != result.guids.end() ||
-                std::find(result.skips.begin(), result.skips.end(), std::uint32_t(guid)) != result.skips.end())
-                error = "the guid " + line.words[1] + " is already in the order";
-            if (!error.empty())
-            {
-                result.guids.clear();
-                result.skips.clear();
-                result.error = "line " + std::to_string(line.number) + ": " + error;
-                return result;
-            }
-            (skip ? result.skips : result.guids).push_back(std::uint32_t(guid));
-        }
         result.ok = true;
         return result;
     }

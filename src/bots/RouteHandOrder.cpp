@@ -1,6 +1,7 @@
 #include "RouteHandOrder.h"
 #include "BotGeometry.h"
 #include "DataFields.h"
+#include "DataTokenizer.h"
 #include "RouteLine.h"
 #include "RouteSight.h"
 
@@ -63,6 +64,33 @@ namespace Bots
             }
             return at;
         }
+    }
+
+    PackOrderResult ParsePackOrder(std::string const& text)
+    {
+        PackOrderResult result;
+        for (DataLine const& line : TokenizeLines(text))
+        {
+            std::string error;
+            std::uint32_t guid = 0;
+            bool const skip = !line.words.empty() && line.words[0] == "skip";
+            if (line.words.size() != 2 || !(skip || line.words[0] == "pack") ||
+                !DataFields::ReadNumber(line.words[1], guid) || guid == 0)
+                error = "use: pack <spawn guid>, or skip <spawn guid>";
+            else if (std::find(result.guids.begin(), result.guids.end(), guid) != result.guids.end() ||
+                std::find(result.skips.begin(), result.skips.end(), guid) != result.skips.end())
+                error = "the guid " + line.words[1] + " is already in the order";
+            if (!error.empty())
+            {
+                result.guids.clear();
+                result.skips.clear();
+                result.error = "line " + std::to_string(line.number) + ": " + error;
+                return result;
+            }
+            (skip ? result.skips : result.guids).push_back(guid);
+        }
+        result.ok = true;
+        return result;
     }
 
     HandOrderPacks ResolveHandOrder(std::vector<std::uint32_t> const& order, std::vector<std::uint32_t> const& skips,

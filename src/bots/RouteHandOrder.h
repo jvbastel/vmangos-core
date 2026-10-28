@@ -10,7 +10,7 @@
 #include <vector>
 
 // The hand pack order (WOWAI#147, #151) of the order file
-// <route>.order.txt (ParsePackOrder in RouteGenerator.h), as the route
+// <route>.order.txt (ParsePackOrder), as the route
 // generator and the trace build (RouteTrace.h) both apply it to their steps.
 // Packs are named by the spawn guid of a mob, by custom the first mob.
 //
@@ -50,6 +50,20 @@ namespace Bots
         // the step, or took a step before it away.
         bool rejoin = false;
     };
+
+    // The hand pack order file, <route>.order.txt beside the route file. One
+    // line per pack: `pack <spawn guid>`, in the order to fight them, or
+    // `skip <spawn guid>` for a pack to leave off the route. Spawn guids
+    // stay the same at each regen, unlike the pack names. The generator and
+    // the trace build apply it (RouteHandOrder.h).
+    struct PackOrderResult
+    {
+        bool ok = false;
+        std::vector<std::uint32_t> guids; // The `pack` lines, in order.
+        std::vector<std::uint32_t> skips; // The `skip` lines.
+        std::string error; // "line <n>: ..." when not ok.
+    };
+    PackOrderResult ParsePackOrder(std::string const& text);
 
     // The packs of the hand order.
     struct HandOrderPacks

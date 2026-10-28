@@ -41,6 +41,7 @@
 #include "BotGeometry.h"
 #include "BotMgr.h"
 #include "Chat.h"
+#include "DataFields.h"
 #include "Database/DatabaseEnv.h"
 #include "GameRouteNav.h"
 #include "GhostWalk.h"
@@ -57,6 +58,7 @@
 #include "RouteExport.h"
 #include "RouteFiles.h"
 #include "RouteGenerator.h"
+#include "RouteHandOrder.h"
 #include "RouteTrace.h"
 #include "WorldSession.h"
 
@@ -730,11 +732,9 @@ bool RunExport(ChatHandler& handler, char* args)
         if (!error.empty())
             return Fail(handler, error);
     }
-    char* end = nullptr;
-    unsigned long const number = words.size() == 1 ? std::strtoul(words[0].c_str(), &end, 10) : 0;
-    if (!number || *end != '\0')
+    std::uint32_t mapId = 0;
+    if (words.size() != 1 || !Bots::DataFields::ReadNumber(words[0], mapId) || !mapId)
         return Fail(handler, "Usage: .route export <map id> [cluster=<yards>] [bosses=<entry>,<entry>,...]");
-    uint32 const mapId = uint32(number);
     AreaTriggerTeleport const* entrance = sObjectMgr.GetMapEntranceTrigger(mapId);
     if (!entrance)
         return Fail(handler, "Map " + std::to_string(mapId) + " has no entrance area trigger. Is it a dungeon?");

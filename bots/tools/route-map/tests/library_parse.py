@@ -1,5 +1,5 @@
 """Parse a trace file (src/bots/RouteTrace.cpp, ParseTrace) or a hand pack
-order file (src/bots/RouteGenerator.cpp, ParsePackOrder) with the route
+order file (src/bots/RouteHandOrder.cpp, ParsePackOrder) with the route
 library itself, not with the Python reader: a small program built once per
 test session with the host g++. The tests that use it are skipped when there
 is no g++."""
@@ -47,7 +47,7 @@ int main()
 
 
 ORDER_MAIN = r"""
-#include "RouteGenerator.h"
+#include "RouteHandOrder.h"
 #include <cstdio>
 #include <iostream>
 #include <iterator>

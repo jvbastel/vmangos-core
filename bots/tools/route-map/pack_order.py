@@ -7,7 +7,7 @@ part is pack_order.js.
 
 The order file has one `pack <spawn guid>` line per pack, in the order to
 fight them, and one `skip <spawn guid>` line per skipped pack (src/bots/
-RouteGenerator.h, ParsePackOrder; src/bots/RouteHandOrder.h). A `pack` line
+RouteHandOrder.h, ParsePackOrder). A `pack` line
 of a pack that is not on the route adds it to the route (#156). A guid names
 the pack that holds that mob; this tool writes the pack key, the spawn guid
 of the pack's first mob. The packs that the file does not name keep the
