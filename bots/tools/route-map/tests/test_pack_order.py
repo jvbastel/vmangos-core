@@ -64,7 +64,7 @@ def test_an_order_file_that_does_not_read_is_a_clear_error(tmp_path):
     response = app(tmp_path, "pack 600\npack six\n").get("/api/maps/fixture_cave")
 
     assert response.status_code == 422
-    assert "fixture_cave.order.txt: line 2: use: pack <spawn guid>" in response.json()["detail"]
+    assert "fixture_cave.order.txt: line 2: use: pack <spawn guid>, or skip <spawn guid>" in response.json()["detail"]
 
 
 def test_two_route_packs_of_one_export_pack_are_one_pack_of_the_map_with_a_warning(tmp_path):
@@ -206,7 +206,7 @@ def test_saving_the_ragefire_order_in_a_new_order_keeps_every_hand_comment():
     from pathlib import Path
     real = Path(__file__).resolve().parents[3] / "data" / "routes" / "ragefire_chasm.order.txt"
     text = real.read_text()
-    guids = [guid for _, guid in pack_order.parse(text)]
+    guids = [guid for _, _, guid in pack_order.parse(text)]
     packs = [{"key": g, "label": f"p{g}", "mobs": [{"guid": g, "name": "Mob", "entry": 1}]} for g in guids]
 
     saved = pack_order.write("ragefire_chasm", list(reversed(guids)), packs, text)
@@ -216,7 +216,7 @@ def test_saving_the_ragefire_order_in_a_new_order_keeps_every_hand_comment():
     assert sorted(line for line in saved.splitlines() if line.startswith("#")) == sorted(comments)
     assert saved.startswith(text.split("\n\n", 1)[0] + "\n\n")
     assert saved.index("# The first trogg, on the ramp.\npack 48648 #") > saved.index("pack 43582")
-    assert [guid for _, guid in pack_order.parse(saved)] == list(reversed(guids))
+    assert [guid for _, _, guid in pack_order.parse(saved)] == list(reversed(guids))
 
 
 def test_the_loaded_map_has_both_the_pack_order_and_the_quest_badges(tmp_path):
@@ -235,7 +235,7 @@ def test_saving_over_an_order_file_that_does_not_read_is_a_clear_error_and_keeps
     response = web.post("/api/maps/fixture_cave/order", json={"packs": [600]})
 
     assert response.status_code == 422
-    assert "fixture_cave.order.txt: line 2: use: pack <spawn guid>" in response.json()["detail"]
+    assert "fixture_cave.order.txt: line 2: use: pack <spawn guid>, or skip <spawn guid>" in response.json()["detail"]
     assert (tmp_path / "routes" / "fixture_cave.order.txt").read_text() == "pack 600\npack six\n"
 
 

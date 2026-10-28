@@ -63,7 +63,9 @@ int main()
         return 0;
     }
     for (std::uint32_t guid : result.guids)
-        std::printf("%u\n", guid);
+        std::printf("pack %u\n", guid);
+    for (std::uint32_t guid : result.skips)
+        std::printf("skip %u\n", guid);
     return 0;
 }
 """
@@ -95,13 +97,24 @@ def _order_program() -> Path:
                    "DataTokenizer.cpp"])
 
 
-def library_pack_order(text: str) -> list[int] | str:
-    """What ParsePackOrder reads from the text: the guids in order, or the
+def library_order(text: str) -> dict | str:
+    """What ParsePackOrder reads from the text: {"packs": the guids of the
+    `pack` lines in order, "skips": the guids of the `skip` lines}, or the
     error ("line <n>: ...")."""
     out = subprocess.run([str(_order_program())], input=text, check=True, capture_output=True, text=True).stdout
     if out.startswith("error "):
         return out[len("error "):].strip()
-    return [int(line) for line in out.split()]
+    order = {"packs": [], "skips": []}
+    for line in out.splitlines():
+        word, guid = line.split()
+        order[word + "s"].append(int(guid))
+    return order
+
+
+def library_pack_order(text: str) -> list[int] | str:
+    """The guids of the `pack` lines that ParsePackOrder reads, or its error."""
+    order = library_order(text)
+    return order if isinstance(order, str) else order["packs"]
 
 
 def library_parse(text: str) -> dict:
