@@ -65,6 +65,19 @@ namespace Bots
         return !UnitsWithin(context.view, context.view.GetAttackers(context.view.GetSelf()), yards).empty();
     }
 
+    std::vector<Guid> EnemiesHittingInMelee(BotView const& view, Guid member)
+    {
+        Guid const self = view.GetSelf();
+        std::vector<Guid> enemies;
+        for (Guid enemy : view.GetAttackers(member))
+        {
+            float const yards = member == self ? view.GetDistance(enemy) : view.GetDistanceBetween(enemy, member);
+            if (IsAlive(view, enemy) && yards <= MeleeHitYards)
+                enemies.push_back(enemy);
+        }
+        return enemies;
+    }
+
     bool FollowsAMember(BotContext const& context)
     {
         Guid const target = context.view.GetFollowTarget();

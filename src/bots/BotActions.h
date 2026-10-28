@@ -35,6 +35,10 @@ namespace Bots
         virtual void KeepMovingTo(Position const& destination) = 0;
         // Start the melee attack of unit `target`.
         virtual void Attack(Guid target) = 0;
+        // Stop the melee attack and the chase (final review of spec #142,
+        // finding 2): a running swing would break a freeze. The bot keeps
+        // its spot.
+        virtual void StopAttack() = 0;
         // Run to unit `target` and stay in melee range of it.
         virtual void Chase(Guid target) = 0;
         // Run behind unit `target` and stay in melee range there.
@@ -46,6 +50,10 @@ namespace Bots
         virtual void Stand() = 0;
         // The pet of the bot attacks unit `target`.
         virtual void PetAttack(Guid target) = 0;
+        // The pet of the bot stops its attack and comes back to the bot,
+        // like the follow command of the pet bar (final review of spec
+        // #142, finding 3): its spells would break a freeze.
+        virtual void PetStop() = 0;
         // Follow unit `unit` at a short distance.
         virtual void Follow(Guid unit) = 0;
         // Do the next step of the corpse loot: walk to the corpse, open it,

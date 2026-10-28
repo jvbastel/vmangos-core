@@ -4,6 +4,7 @@
 #include "Ranged.h"
 #include "SafePlace.h"
 #include "SpellBook.h"
+#include "StepBack.h"
 
 namespace Bots
 {
@@ -31,13 +32,15 @@ namespace Bots
             std::int64_t const HealDelayMs = 2000;
             float const DangerBelow = 0.5f;
 
-            // The heals reach 40 yards. The bot goes nearer to a hurt member
-            // beyond this distance.
-            float const HealReachYards = 36.0f;
             // Resurrection reaches 30 yards. A corpse beyond this distance is
             // out of reach, and the bot casts from this near.
             float const ResurrectReachYards = 29.0f;
             float const ResurrectCastYards = 26.0f;
+
+            // jvbastel/WOWAI#170: an attacked healer walks to the tank until
+            // it is this near, so that its attackers follow it into the
+            // tank's melee range.
+            float const AtTheTankYards = 3.0f;
 
             using MemberFilter = bool (*)(BotContext const& context, Guid member);
 
@@ -110,6 +113,30 @@ namespace Bots
                 return context.view.IsInCombat(self) && !context.view.GetAttackers(self).empty();
             }
 
+            // jvbastel/WOWAI#170: the bot notes its health on each think
+            // that reaches this rule. It shields itself only when an enemy
+            // attacks it and its health falls (HealthFallMs): a shield on a
+            // full bot costs mana and makes heal threat.
+            bool ShieldsItself(BotContext const& context)
+            {
+                Guid const self = PickSelf(context);
+                bool const falls = context.group.NoteHealthFalls(self, context.view.GetHealth(self).current,
+                    context.nowMs);
+                return falls && IsAttacked(context) && CanTakeShield(context.view, self);
+            }
+
+            // jvbastel/WOWAI#170: an enemy attacks the bot, and the living
+            // tank stands farther than AtTheTankYards. Not while the bot
+            // casts: a step would stop the heal.
+            bool WalksToTheTank(BotContext const& context)
+            {
+                Guid const self = PickSelf(context);
+                Guid const tank = context.group.GetTank();
+                return IsAttacked(context) && tank != NoGuid && tank != self
+                    && context.view.GetCurrentCast(self) == NoSpell
+                    && IsAlive(context.view, tank) && context.view.GetDistance(tank) > AtTheTankYards;
+            }
+
             bool OutOfCombat(BotContext const& context)
             {
                 return !context.view.IsInCombat(PickSelf(context));
@@ -117,7 +144,8 @@ namespace Bots
 
             // jvbastel/WOWAI#133: the bot shoots the focus target with its
             // wand: in a fight, once the tank holds threat on it
-            // (TankHoldsThreat, DamageRules.h), with no enemy on the bot,
+            // (TankHoldsThreat, DamageRules.h), and it holds no fire on it
+            // (HoldsFireOn, jvbastel/WOWAI#144), with no enemy on the bot,
             // the target in shot range and sight, and no shot going yet.
             // Shoot costs no mana: the spirit regen goes on.
             bool ShootsTheFocus(BotContext const& context)
@@ -126,18 +154,21 @@ namespace Bots
                 return context.view.IsInCombat(PickSelf(context)) && !IsAttacked(context)
                     && context.view.GetRangedWeapon().kind == RangedKind::Wand && CanShoot(context.view)
                     && context.view.GetShotTarget() == NoGuid
-                    && IsAlive(context.view, focus) && TankHoldsThreat(context) && InWandShot(context.view, focus);
+                    && IsAlive(context.view, focus) && TankHoldsThreat(context) && !HoldsFireOn(context, focus)
+                    && InWandShot(context.view, focus);
             }
 
             // Review of spec #131: a going shot repeats on its own. The bot
             // stops it when the shot no longer fits ShootsTheFocus: its
             // target is not the focus target, the tank no longer holds
-            // threat on it, or an enemy attacks the bot.
+            // threat on it, or an enemy attacks the bot. jvbastel/WOWAI#144:
+            // or it holds fire on it (HoldsFireOn, DamageRules.h).
             bool StopsTheShot(BotContext const& context)
             {
                 Guid const shot = context.view.GetShotTarget();
                 return shot != NoGuid
-                    && (shot != context.group.GetFocusTarget() || !TankHoldsThreat(context) || IsAttacked(context));
+                    && (shot != context.group.GetFocusTarget() || !TankHoldsThreat(context) || IsAttacked(context)
+                        || HoldsFireOn(context, shot));
             }
 
             // The first living member without Power Word: Fortitude, or NoGuid.
@@ -254,13 +285,13 @@ namespace Bots
             std::vector<Rule> rules = {
                 // An enemy attacks the Priest: it never fights back. It drops
                 // its threat with Fade, so that the enemy goes back to the
-                // tank, and shields itself.
+                // tank. jvbastel/WOWAI#170: it shields itself only while its
+                // health falls, and walks to the tank (P + 55, below).
                 CastRule("fade", P + 90, IsAttacked, Fade, PickSelf),
-                CastRule("shield itself", P + 86,
-                    [](BotContext const& context) {
-                        return IsAttacked(context) && CanTakeShield(context.view, PickSelf(context));
-                    },
-                    PowerWordShield, PickSelf),
+                // jvbastel/WOWAI#144: out of reach of a frozen enemy, before
+                // the heals; the spot keeps the tank in reach and sight.
+                StepBackRule(P + 89, BotRole::Healer),
+                CastRule("shield itself", P + 86, ShieldsItself, PowerWordShield, PickSelf),
 
                 // The heals, the most urgent first. Each picks the most
                 // hurt member that needs it. At level 16 the Priest knows no
@@ -282,6 +313,16 @@ namespace Bots
                 HealRule("lesser heal a badly hurt member", P + 75, LesserHeal, HealBelow),
                 CastRule("renew", P + 70, SomeoneBelow(RenewBelow, HasNoRenew), Renew, HurtMember(RenewBelow, HasNoRenew)),
                 HealRule("lesser heal", P + 65, LesserHeal, LesserHealBelow),
+
+                // jvbastel/WOWAI#170: an attacked healer walks into the tank's
+                // melee range, so that the tank can take its attackers. Under
+                // every heal: it heals between steps (a cast stops the walk).
+                // Over "go to a hurt member": the attackers follow it.
+                Rule{"walk to the tank", P + 55, WalksToTheTank,
+                    BotAction{[](BotContext const&) { return true; },
+                        [](BotContext const& context) {
+                            context.actions.KeepMovingTo(context.view.GetPosition(context.group.GetTank()));
+                        }}},
 
                 // A hurt member out of reach: the bot follows it. It stays
                 // near it until the fight ends and the command takes over.

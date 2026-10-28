@@ -1,4 +1,5 @@
 #include "ClassModules.h"
+#include "MageModule.h"
 #include "WarlockModule.h"
 #include "FakeBot.h"
 
@@ -203,4 +204,73 @@ TEST(Warlock, TheImpCastsFireboltAndBloodPactOnItsOwn)
 
     EXPECT_EQ(autocast, (std::vector<Bots::SpellId>{Warlock::Firebolt, Warlock::BloodPact}));
     EXPECT_TRUE(Bots::PetAutocastSpells(Bots::BotClass::Rogue).empty());
+}
+
+// Final review of spec #142, finding 3: Frost Nova freezes the enemy that
+// the Imp already attacks. Its Firebolts would break the freeze, so the
+// Warlock calls the Imp back, unless the tank holds the enemy or the player
+// chose it.
+namespace
+{
+    Bots::Guid const Healer = 0x0000000000000012;
+
+    // The tank holds the kobold. The Imp attacks the wolf, which hits the
+    // healer 20 yd from the Warlock, and the wolf is frozen.
+    struct ImpOnAFrozenWolf : WarlockBot
+    {
+        ImpOnAFrozenWolf()
+        {
+            fake.SetGroupMembers({Tank, Healer, Self});
+            group.SetTank(Tank);
+            for (Bots::Guid unit : {Tank, Healer})
+                fake.SetHealth(unit, 400, 400);
+            InFightWithKobold();
+            fake.SetVictim(Wolf, Healer);
+            fake.SetVictim(Imp, Wolf);
+            fake.SetDistance(Wolf, 20.0f);
+            fake.SetAura(Wolf, Bots::Mage::FrostNova);
+        }
+    };
+}
+
+TEST(Warlock, CallsTheImpOffAFrozenEnemy)
+{
+    ImpOnAFrozenWolf warlock;
+
+    warlock.Think();
+
+    EXPECT_EQ(warlock.fake.Deeds(), (std::vector<std::string>{"stop the pet"}));
+}
+
+TEST(Warlock, SendsTheImpToTheTanksTargetAfterTheStop)
+{
+    ImpOnAFrozenWolf warlock;
+    warlock.Think();
+    warlock.fake.ClearDeeds();
+
+    warlock.Think();
+
+    EXPECT_EQ(warlock.fake.Deeds(), (std::vector<std::string>{"pet attack 0xf130000302000022"}));
+}
+
+TEST(Warlock, LeavesTheImpOnAFrozenEnemyThatTheTankHolds)
+{
+    ImpOnAFrozenWolf warlock;
+    warlock.fake.SetVictim(Wolf, Tank);
+
+    warlock.Think();
+
+    for (std::string const& deed : warlock.fake.Deeds())
+        EXPECT_NE(deed, "stop the pet");
+}
+
+TEST(Warlock, LeavesTheImpOnAFrozenAttackTargetOfThePlayer)
+{
+    ImpOnAFrozenWolf warlock;
+    warlock.attackTarget = Wolf;
+
+    warlock.Think();
+
+    for (std::string const& deed : warlock.fake.Deeds())
+        EXPECT_NE(deed, "stop the pet");
 }

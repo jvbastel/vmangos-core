@@ -11,6 +11,7 @@
 #include "GameRouteNav.h"
 #include "BotGeometry.h"
 #include "GhostWalk.h"
+#include "MageModule.h"
 #include "CastResult.h"
 #include "Bag.h"
 #include "Corpse.h"
@@ -274,7 +275,14 @@ Bots::Power BotAdapter::GetPower(Bots::Guid unit) const
     if (!found)
         return {0, 0};
     Powers const power = found->GetPowerType();
-    return {found->GetPower(power), found->GetMaxPower(power)};
+    // jvbastel/WOWAI#174: the core keeps rage in tenths (0-1000). The bot
+    // library counts rage points (0-100), as the player sees them and as the
+    // tooltips read. The core's spell costs stay in tenths: CanCast compares
+    // them with the core's rage. The warrior's thresholds (LowRage 20,
+    // SpareRage 45) were ten times too low, so Heroic Strike went out from
+    // 4.5 rage.
+    uint32 const scale = power == POWER_RAGE ? 10 : 1;
+    return {found->GetPower(power) / scale, found->GetMaxPower(power) / scale};
 }
 
 Bots::PowerKind BotAdapter::GetPowerKind(Bots::Guid unit) const
@@ -293,6 +301,21 @@ Bots::PowerKind BotAdapter::GetPowerKind(Bots::Guid unit) const
         default:
             return Bots::PowerKind::None;
     }
+}
+
+bool BotAdapter::WearsCloth(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found || found->GetTypeId() != TYPEID_PLAYER)
+        return false;
+    uint8 const playerClass = found->GetClass();
+    return playerClass == CLASS_MAGE || playerClass == CLASS_WARLOCK || playerClass == CLASS_PRIEST;
+}
+
+bool BotAdapter::IsRootedOrStunned(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    return found && found->HasUnitState(UNIT_STATE_ROOT | UNIT_STATE_STUNNED);
 }
 
 float BotAdapter::GetDistance(Bots::Guid unit) const
@@ -527,11 +550,9 @@ bool BotAdapter::CanCast(Bots::SpellId spell, Bots::Guid target) const
     // victim failed on each think (out of range, or not in front).
     if (unit != me && entry->rangeIndex == SPELL_RANGE_IDX_COMBAT && !entry->IsNextMeleeSwingSpell())
     {
+        // CastSpell turns the bot to the unit (jvbastel/WOWAI#174), so a
+        // unit beside or behind it counts too.
         if (!me->CanReachWithMeleeSpellAttack(unit))
-            return false;
-        // CastSpell turns the bot to its victim. Another unit must be in
-        // front already.
-        if (unit != me->GetVictim() && !me->IsFacingTarget(unit))
             return false;
     }
     else if (unit != me && entry->EffectImplicitTargetA[0] != TARGET_UNIT_CASTER)
@@ -622,6 +643,13 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
         return;
     if (unit != me)
     {
+        // jvbastel/WOWAI#174: the bot turns to the unit for the cast check
+        // at once. SetFacingToObject alone does nothing while the bot moves
+        // (a chase), and turns it only at the next spline update, so a Taunt
+        // or a Sunder Armor on an enemy beside or behind it failed (not in
+        // front).
+        if (!me->IsFacingTarget(unit))
+            me->SetOrientation(me->GetAngle(unit));
         me->SetFacingToObject(unit);
         me->SetTargetGuid(unit->GetObjectGuid());
     }
@@ -633,6 +661,10 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
     if (result == SPELL_CAST_OK && castToStop && sBotMgr.IsScriptedRunGroup(me->GetGroup()))
         sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::InterruptAttempt, me->GetObjectGuid(), unit->GetObjectGuid(),
             castToStop, 0});
+    // Each cast of a member of a scripted run: the run checks that the tank
+    // casts on each threat target (jvbastel/WOWAI#168).
+    if (result == SPELL_CAST_OK && sBotMgr.IsScriptedRunGroup(me->GetGroup()))
+        sBotMgr.Run().QueueCombatNote({RunCombatNote::Kind::Cast, me->GetObjectGuid(), unit->GetObjectGuid(), spell, 0});
     // Like CombatBotBaseAI::DoCastSpell: a spell with a cast time ends when the
     // caster moves (for example when it follows or chases a unit), so stop the bot.
     if (result == SPELL_CAST_OK && entry->GetCastTime(me) > 0 && (me->IsMoving() || !me->IsStopped()))
@@ -640,6 +672,19 @@ void BotAdapter::CastSpell(Bots::SpellId spell, Bots::Guid target)
     if (result != SPELL_CAST_OK)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s cannot cast %u: %s", me->GetName(), spell,
             CastResultLogText(result).c_str());
+    // Final review of spec #142, gap 3 (a nova cast in time froze late or
+    // nothing): the result of each Frost Nova, and the hostile units in its
+    // radius (3D, to their edge) when it goes out.
+    else if (sSpellMgr.GetFirstSpellInChain(spell) == Bots::Mage::FrostNova)
+    {
+        float const radiusYards = 10.0f;
+        std::list<Unit*> hostiles;
+        MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck check(me, me, radiusYards);
+        MaNGOS::UnitListSearcher<MaNGOS::AnyUnfriendlyUnitInObjectRangeCheck> searcher(hostiles, check);
+        Cell::VisitGridObjects(me, searcher, radiusYards);
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s casts Frost Nova %u: ok, %u hostile units within %.0f yd (3D edge)",
+            me->GetName(), spell, uint32(hostiles.size()), radiusYards);
+    }
 }
 
 void BotAdapter::MoveTo(Bots::Position const& destination)
@@ -667,6 +712,15 @@ void BotAdapter::Attack(Bots::Guid target)
         me->SetTargetGuid(unit->GetObjectGuid());
         me->Attack(unit, true);
     }
+}
+
+void BotAdapter::StopAttack()
+{
+    // Like the `stop` command (BotAI), but the cast goes on: only the swing
+    // and the chase end. The bot stands where it is.
+    me->AttackStop();
+    if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == CHASE_MOTION_TYPE)
+        Stand();
 }
 
 void BotAdapter::Chase(Bots::Guid target)
@@ -729,6 +783,17 @@ void BotAdapter::PetAttack(Bots::Guid target)
     sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s sends its pet %s (0x%016llx) to %s: pet victim %s",
         me->GetName(), pet->GetName(), (unsigned long long)pet->GetObjectGuid().GetRawValue(),
         unit->GetObjectGuid().GetString().c_str(), pet->GetVictim() ? pet->GetVictim()->GetObjectGuid().GetString().c_str() : "none");
+}
+
+void BotAdapter::PetStop()
+{
+    // Like the follow command of the pet bar: the attack and the cast end,
+    // and the pet comes back.
+    Pet* pet = me->GetPet();
+    if (!pet || !pet->IsAlive() || !pet->GetCharmInfo())
+        return;
+    pet->HandlePetCommand(COMMAND_FOLLOW, nullptr);
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s calls its pet %s back", me->GetName(), pet->GetName());
 }
 
 void BotAdapter::Follow(Bots::Guid unit)

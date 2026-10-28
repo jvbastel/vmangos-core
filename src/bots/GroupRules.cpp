@@ -1,4 +1,5 @@
 #include "GroupRules.h"
+#include "DamageRules.h"
 #include "CommonRules.h"
 #include "MageModule.h"
 #include "PriestModule.h"
@@ -239,13 +240,7 @@ namespace Bots
     bool IsInChaseLimit(BotContext const& context, Guid unit)
     {
         Guid const tank = context.group.GetTank();
-        if (!IsAlive(context.view, tank) || context.view.GetDistanceBetween(unit, tank) <= ChaseEnemyYards)
-            return true;
-        // An enemy that hits another member: that member does not come to
-        // the tank, so the bot goes to it, while the enemy stays near it.
-        Guid const victim = context.view.GetVictim(unit);
-        return victim != Self(context) && IsAlive(context.view, victim) && IsGroupMember(context.view, victim)
-            && context.view.GetDistanceBetween(unit, victim) <= ChaseEnemyYards;
+        return !IsAlive(context.view, tank) || context.view.GetDistanceBetween(unit, tank) <= ChaseEnemyYards;
     }
 
     Guid PickEnemyHealer(BotContext const& context)
@@ -290,8 +285,13 @@ namespace Bots
         // The bot stops the chase. PickDamageTarget skips the enemy until
         // it is in the chase limit again.
         if (IsDamageRole(role))
+        {
             rules.push_back(AlwaysRule("come back to the tank", P + 80, ChasesTooFar,
                 [](BotContext const& context) { context.actions.Follow(context.group.GetTank()); }));
+            // Under the interrupts and the chase limit, over the class
+            // rules (jvbastel/WOWAI#171).
+            rules.push_back(WalkToTankRule(P + 79));
+        }
         return std::make_shared<Strategy const>(Strategy{"group rules", std::move(rules)});
     }
 }

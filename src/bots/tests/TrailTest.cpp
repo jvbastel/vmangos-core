@@ -124,3 +124,44 @@ TEST(Trail, APullFreezesTheTrail)
 
     EXPECT_EQ(Xs(group.GetTrail()), (std::vector<float>{0, 2, 4}));
 }
+
+// jvbastel/WOWAI#144: in a fight the trail is empty, but the step back
+// (StepBack.h) walks back along the cleared way of the fight: the trail as
+// it was when the fight began.
+TEST(Trail, AFightKeepsTheClearedWayItBeganOn)
+{
+    FakeBot fake{Tank};
+    fake.SetHealth(Tank, 600, 600);
+    GroupCoordinator group;
+    for (float x : {0.0f, 2.0f, 4.0f})
+    {
+        fake.SetPosition(Tank, {x, 0, 0});
+        Bots::WatchTrail(fake, group);
+    }
+
+    fake.SetInCombat(Tank);
+    for (float x : {6.0f, 8.0f})
+    {
+        fake.SetPosition(Tank, {x, 0, 0});
+        Bots::WatchTrail(fake, group);
+    }
+
+    EXPECT_TRUE(group.GetTrail().empty());
+    EXPECT_EQ(Xs(group.GetFightWay()), (std::vector<float>{0, 2, 4}));
+}
+
+TEST(Trail, TheClearedWayOfAFightEndsWithTheFight)
+{
+    FakeBot fake{Tank};
+    fake.SetHealth(Tank, 600, 600);
+    GroupCoordinator group;
+    fake.SetPosition(Tank, {0, 0, 0});
+    Bots::WatchTrail(fake, group);
+    fake.SetInCombat(Tank);
+    Bots::WatchTrail(fake, group);
+
+    fake.SetInCombat(Tank, false);
+    Bots::WatchTrail(fake, group);
+
+    EXPECT_TRUE(group.GetFightWay().empty());
+}

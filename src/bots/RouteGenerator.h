@@ -153,7 +153,8 @@ namespace Bots
 
     // The packs to add for a kill count or an item: the nearest packs off the
     // route that hold `entries`, until the packs of the route and the added
-    // packs hold `count` spawns of them.
+    // packs hold `count` spawns of them. A pack marked in `skipped` (by
+    // pack, or empty) is never added.
     struct PackFill
     {
         std::vector<std::size_t> added; // Indices into the packs, nearest first.
@@ -161,7 +162,7 @@ namespace Bots
     };
     PackFill FillCount(std::vector<GeneratorPack> const& packs, std::vector<bool> const& onRoute,
         std::vector<float> const& distanceToRoute, std::vector<GeneratorSpawn> const& spawns,
-        std::vector<std::uint32_t> const& entries, std::uint32_t count);
+        std::vector<std::uint32_t> const& entries, std::uint32_t count, std::vector<bool> const& skipped = {});
 
     // A spot to visit for a quest, for example the corpse that ends it.
     struct GeneratorVisit
@@ -190,6 +191,12 @@ namespace Bots
         GeneratorSettings settings;
         // The creature name of an entry, for the names of the boss packs.
         std::function<std::string(std::uint32_t entry)> entryName;
+        // The hand pack order (RouteHandOrder.h): spawn guids, each of a mob
+        // of one pack (by custom its first mob), in the order to fight the
+        // packs. A pack that the route does not fight is added.
+        std::vector<std::uint32_t> packOrder;
+        // The skipped packs: spawn guids of packs to leave off the route.
+        std::vector<std::uint32_t> skippedPacks;
     };
 
     // How far the route got with a quest objective.

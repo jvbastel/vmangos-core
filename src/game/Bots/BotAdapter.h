@@ -52,6 +52,8 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         Bots::CastInfo GetCast(Bots::Guid unit) const override;
         Bots::Power GetPower(Bots::Guid unit) const override;
         Bots::PowerKind GetPowerKind(Bots::Guid unit) const override;
+        bool WearsCloth(Bots::Guid unit) const override;
+        bool IsRootedOrStunned(Bots::Guid unit) const override;
         float GetDistance(Bots::Guid unit) const override;
         float GetSpellDistance(Bots::Guid unit) const override;
         float GetSpellDistanceFrom(Bots::Position const& place, Bots::Guid unit) const override;
@@ -105,11 +107,13 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         void MoveTo(Bots::Position const& destination) override;
         void KeepMovingTo(Bots::Position const& destination) override;
         void Attack(Bots::Guid target) override;
+        void StopAttack() override;
         void Chase(Bots::Guid target) override;
         void ChaseBehind(Bots::Guid target) override;
         void ChaseToRange(Bots::Guid target, float yards) override;
         void Stand() override;
         void PetAttack(Bots::Guid target) override;
+        void PetStop() override;
         void Follow(Bots::Guid unit) override;
         void Loot(bool mayMove) override;
         void Release() override;

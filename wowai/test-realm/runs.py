@@ -25,7 +25,7 @@ the fake LLM backend; for runs with the real LLM, start the realm with
 WOWAI_BOTCHAT_LLM=llama (realm.sh, settings). The chat checks are the same.
 For each run, the script starts it with `.wowai run start`, asks `.wowai run status` every 10 s
 until the run ends, and stops a run that takes too long. mangosd writes each
-result file, and the trace of a run that did not pass, to the folder runs/ of
+result file, and the trace of a full run or of a run that did not pass, to the folder runs/ of
 its logs, which the realm mounts at <realm folder>/storage/mangosd/logs/runs.
 The script copies them from there to the out folder and prints one line per
 run, and one line per pull: its threat losses, the healer's, and whether it
@@ -94,6 +94,10 @@ def summary(result):
         if marks:
             line += "; " + ", ".join(marks)
         line += ")"
+    # The peel novas (jvbastel/WOWAI#145), when the run had any.
+    if result.get("peel_novas"):
+        line += ", peel novas %d (for others %d, broken by party %d)" % (
+            len(result["peel_novas"]), result["novas_for_others"], result["novas_broken_by_party"])
     # A pull with an unwarned or avoidable extra pack fails (jvbastel/WOWAI#123).
     # It is counted and shown here, but it does not fail the run (user decision).
     failed = [(i + 1, pull["failure"]) for i, pull in enumerate(result.get("pulls", []))

@@ -18,6 +18,7 @@
 #include "Inbox.h"
 #include "InterruptWatch.h"
 #include "ObjectGuid.h"
+#include "PeelWatch.h"
 #include "Route.h"
 #include "RouteQuests.h"
 #include "RunJudge.h"
@@ -55,6 +56,12 @@ struct RunCombatNote
         InterruptMissed,
         CastStopped,
         FireNovaHit,
+        // jvbastel/WOWAI#168: a spell of the bot went out on `enemy` (any
+        // unit).
+        Cast,
+        // jvbastel/WOWAI#174: `enemy` swung at the bot (hit or not) or hit
+        // it with a spell (or the spell missed): a real hit.
+        Hit,
     };
 
     Kind kind;
@@ -74,7 +81,8 @@ struct RunCombatNote
 // A scenario with a `route` line is a full run: it passes when the last boss
 // of the route dies. Each run ends at the rules of Bots::RunJudge, and
 // writes one result file (Bots::RunResult) to Bots.Run.ResultDir; a failed
-// or stopped run also writes the trace of its last 3 minutes there.
+// or stopped run also writes the trace of its last 3 minutes there, and a
+// full run the trace of the whole run, passed or not (jvbastel/WOWAI#152).
 class BotRun
 {
     public:
@@ -130,7 +138,8 @@ class BotRun
         // The one end of a run, passed or failed. In this order:
         // 1. The result line, for the GM and the log.
         // 2. The result file, and the trace of the last 3 minutes of a run
-        //    that did not pass (spec section 10), while the group still is.
+        //    that did not pass (spec section 10), or of the whole of a full
+        //    run, while the group still is.
         // 3. The phase Closing: the group stays until the chat of the run is
         //    said or dropped (Bots::RunEndWaitsForChat), so that the last
         //    boss_kill, wipe, or loot_roll gets its line. Then EndClosing.
@@ -160,6 +169,8 @@ class BotRun
         // which enemy hits which member and which enemies the group attacks,
         // and fails the run at a lost mob.
         void WatchThreat(int64 nowMs);
+        // jvbastel/WOWAI#174: the healer bots of the run group.
+        std::set<Bots::Guid> HealerGuids();
         // The names of the enemy and the member, for the log and the result.
         std::pair<std::string, std::string> HitNames(Bots::Guid enemy, Bots::Guid member) const;
         // The facts of the run for the judge, the result, and the trace: the
@@ -187,6 +198,9 @@ class BotRun
         // what each member attacks and casts at, and the enemies of the
         // group. At the end of the fight, EndFight.
         void WatchFight(int64 nowMs);
+        // jvbastel/WOWAI#168: feeds the pass checks of the tank, and gives
+        // the judge their failure.
+        void WatchTank(int64 nowMs);
         // The fight summary into the result, the trace, and the log.
         void EndFight(int64 nowMs);
         // The packs of the route that join the fight of the last pull
@@ -214,6 +228,14 @@ class BotRun
         // each bot.
         void WatchCombat(int64 nowMs);
         void TakeCombatNotes(int64 nowMs);
+        // The peel novas and the step back of the healer (Bots::PeelWatch,
+        // jvbastel/WOWAI#145): what each enemy of the fight does, whether
+        // Frost Nova holds it, and where the healer stands.
+        void WatchPeel(int64 nowMs);
+        // The living healer and tank of the group, or null.
+        Player* LivingMemberOfRole(Bots::BotRole role) const;
+        // `loose <pack> healer`: a living mob of the pack attacks the healer.
+        bool Loose(Bots::ScriptCommand const& command, std::string& detail);
         // A living member knows an interrupt spell that is ready, and has
         // the power for it.
         bool InterrupterFree() const;
@@ -232,9 +254,12 @@ class BotRun
         // A living mob of the pack near the test driver, or null.
         Creature* LivingMobOf(std::string const& pack) const;
         bool Fight(Bots::ScriptCommand const& command, std::string& detail);
+        // A `join`: the pack attacks a member (RunScript.h).
+        bool Join(Bots::ScriptCommand const& command, std::string& detail);
         // A pull of the result: a `fight`, or a `command pull`.
         void RecordPull(Bots::ScriptCommand const& command);
-        // Writes the result file, and the trace when the run did not pass.
+        // Writes the result file, and the trace of a full run or of a run
+        // that did not pass.
         void WriteResultFiles();
         // Writes the result file only: at the end of Closing again, with the
         // chat lines that came while the group waited for them.
@@ -261,6 +286,7 @@ class BotRun
         bool ExpectBossDead(uint32 entry, std::string& detail);
         bool ExpectPackDead(std::string const& pack, std::string& detail);
         bool ExpectAlive(std::string& detail);
+        bool ExpectPeelNova(std::string& detail);
         // The revive rule of the scripted runs (jvbastel/WOWAI#72): the run
         // cuts the ghost run short. Out of combat, a released member
         // revives at once at the living member nearest to its corpse. In a
@@ -285,19 +311,34 @@ class BotRun
         uint32 m_groupId = 0; // The run group, from FormGroup to the end of the run.
         std::set<uint32> m_bossKills;
         Bots::ThreatWatch m_threat;
+        // jvbastel/WOWAI#174: the real hits of enemies on members.
+        Bots::RealHitGate m_realHits;
         std::vector<std::pair<std::string, std::string>> m_threatNames; // The enemy and the member of each loss.
-        Bots::LostMobWatch m_lostMobs;
+        // jvbastel/WOWAI#174: from the first real hit, with a backstop.
+        Bots::RealHitLostMobWatch m_lostMobs;
         std::vector<std::pair<std::string, std::string>> m_lostMobNames; // The enemy and the member of each lost mob.
         bool m_aborted = false; // A GM stopped the run.
         std::unique_ptr<Bots::RunJudge> m_judge;
         Bots::InterruptWatch m_interrupts;
         Bots::ChaseWatch m_chases;
+        Bots::PeelWatch m_peel;
+        // The victim of each enemy that the peel saw, and whether it was in
+        // melee of it, for the trace.
+        std::map<ObjectGuid, std::pair<ObjectGuid, bool>> m_peelContact;
+        // Whether the Frost Nova of each member was ready at the last update:
+        // a nova went out when it is no longer ready (final review of spec #142).
+        std::map<ObjectGuid, bool> m_novaReady;
         Bots::Inbox<RunCombatNote> m_combatNotes;
         std::map<ObjectGuid, std::string> m_unitNames;
         std::map<uint64, std::size_t> m_chatEvents; // By event id: the index in m_record.chatEvents.
         Bots::RunTrace m_trace;
         Bots::FightWatch m_fight;
         Bots::ExtraPackWatch m_extraPacks;
+        // jvbastel/WOWAI#168: the pass checks of the tank (RunJudge.h).
+        Bots::HealerPickupCheck m_pickupCheck;
+        Bots::ThreatTargetCastCheck m_castCheck;
+        // jvbastel/WOWAI#172: the tank's threat on an extra-pack enemy at it.
+        Bots::ExtraPackThreatCheck m_threatCheck;
         Bots::HoldWatch m_hold;
         Bots::RunResult m_record; // The result file.
         std::unique_ptr<Bots::QuestProgress> m_quests;
@@ -318,6 +359,8 @@ class BotRun
         std::map<ObjectGuid, std::string> m_pullFled;
         Bots::PullChoices m_pullChoices;
         std::map<std::string, Bots::ExtraPackCause> m_joinCause;
+        // The packs that a `join` of the script sent into a fight.
+        std::set<std::string> m_scriptJoins;
         // MarkPullPacks saw a living tank and the target at the last pull.
         bool m_pullJudged = false;
         // Where the test driver stood at its last move along the route.

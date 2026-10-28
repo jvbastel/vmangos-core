@@ -318,3 +318,55 @@ TEST(RunResult, NamesTheHealers)
 
     EXPECT_EQ(Json::parse(Bots::RunResultJson(r))["healers"], Json::parse(R"(["Hela"])"));
 }
+
+// jvbastel/WOWAI#145: the peel novas, the novas cast for others (the victim
+// is not the Mage), the novas that party damage broke before the tank
+// arrived, and each freeze with where the healer ended.
+TEST(RunResult, WritesThePeelNovasAndTheirFreezes)
+{
+    RunResult r = AFailedFullRun();
+    r.peelNovas = {{"Ezzra", 62000, {"Hela"}, true, 1200, false}, {"Ezzra", 90000, {"Ezzra"}, false, -1, true}};
+    Bots::RunFreeze healer{"Searing Blade Enforcer", "Hela", 62000, 64500, 64000, false, true, 10.5f, 20.0f, true};
+    Bots::RunFreeze self{"Earthborer", "Ezzra", 90000, 91000, -1, true, false, 0.0f, 0.0f, false};
+    r.freezes = {healer, self};
+
+    Json const j = Json::parse(Bots::RunResultJson(r));
+
+    EXPECT_EQ(j["peel_novas"], Json::parse(R"([
+        {"caster": "Ezzra", "time_s": 62.0, "victims": ["Hela"], "for_others": true, "healer_reach_s": 1.2,
+         "broken_by_party": false},
+        {"caster": "Ezzra", "time_s": 90.0, "victims": ["Ezzra"], "for_others": false, "healer_reach_s": null,
+         "broken_by_party": true}])"));
+    EXPECT_EQ(j["novas_for_others"], 1);
+    EXPECT_EQ(j["novas_broken_by_party"], 1);
+    EXPECT_EQ(j["freezes"], Json::parse(R"([
+        {"enemy": "Searing Blade Enforcer", "victim": "Hela", "time_s": 62.0, "seconds": 2.5, "tank_s": 64.0,
+         "broken_by_party": false, "healer": {"yards_from_enemy": 10.5, "yards_from_tank": 20.0, "sees_tank": true}},
+        {"enemy": "Earthborer", "victim": "Ezzra", "time_s": 90.0, "seconds": 1.0, "tank_s": null,
+         "broken_by_party": true, "healer": null}])"));
+}
+
+TEST(RunResult, ARunWithNoNovaHasZeroCounts)
+{
+    Json const j = Json::parse(Bots::RunResultJson(AFailedFullRun()));
+
+    EXPECT_EQ(j["peel_novas"], Json::array());
+    EXPECT_EQ(j["novas_for_others"], 0);
+    EXPECT_EQ(j["novas_broken_by_party"], 0);
+    EXPECT_EQ(j["freezes"], Json::array());
+}
+
+// Final review of spec #142, finding 14: a Frost Nova that went out with an
+// enemy in its radius and froze nothing (a resist).
+TEST(RunResult, ANovaThatFrozeNothingIsAResultFact)
+{
+    Bots::RunResult r = AFailedFullRun();
+    r.novasFrozeNothing = {{"Ezzra", 34900, 1, 200}, {"Ezzra", 90000, 2, -1}};
+
+    Json const j = Json::parse(Bots::RunResultJson(r));
+
+    EXPECT_EQ(j["novas_froze_nothing"], Json::parse(R"([
+        {"caster": "Ezzra", "time_s": 34.9, "enemies_in_radius": 1, "healer_reach_s": 0.2},
+        {"caster": "Ezzra", "time_s": 90.0, "enemies_in_radius": 2, "healer_reach_s": null}])"));
+    EXPECT_EQ(Json::parse(Bots::RunResultJson(AFailedFullRun()))["novas_froze_nothing"], Json::array());
+}

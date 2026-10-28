@@ -12,21 +12,36 @@
 // The settings are seed, aggro, margin, pull, level, levelslack, cluster,
 // spacing, radius, side, alt, gap, wide, wall, and bosses (entries split by commas, in run order). With
 // no bosses setting, the boss list of the existing route file is used. See
-// RouteGenerator.h of the bot library for what each one does.
+// RouteGenerator.h of the bot library for what each one does. The hand pack
+// order of <route>.order.txt, when the file is there, sets the order of the
+// packs it names, adds the named packs that the route does not fight, and
+// leaves out the skipped packs (bots/RouteHandOrder.h).
 // A ghost route name, for example ghost_389, makes the ghost route of that
 // dungeon instead (bots/GhostWalk.h): stand at the graveyard of the dungeon.
 //
 // The route build command makes the route file around the GM trace of the
 // route (RouteTraceCommands.cpp, bots/RouteTrace.h), with the same packs and
-// quests, and with no navmesh path of its own:
+// quests:
 //   .route build <route> [character] [setting=value ...]
 // The settings are aggro, margin, cluster, spacing, radius, visit, and
 // bosses. With a character on the map of the route, it also runs the walk
-// check of the navmesh.
+// check of the navmesh. The hand pack order of <route>.order.txt, when the
+// file is there, sets the order, the skipped packs and the added packs, as
+// for .route generate. Its walks to moved and added packs are navmesh paths,
+// so an order with `pack` lines needs a character on the map of the route.
+//
+// The export command writes every pack, patrol, quest objective and boss of
+// a map to <Bots.DataDir>/routes/map_<id>.export.txt (bots/RouteExport.h),
+// for the dungeon map. It needs no character, and runs on the console:
+//   .route export <map id> [cluster=<yards>] [bosses=<entry>,<entry>,...]
+// With no bosses setting, the bosses are those of the route files of the
+// map. The quests are those of the zone of the map's entrance, plus the
+// quests that a spawn of the map starts or ends, as for .route generate.
 
 #include "BotGeometry.h"
 #include "BotMgr.h"
 #include "Chat.h"
+#include "DataFields.h"
 #include "Database/DatabaseEnv.h"
 #include "GameRouteNav.h"
 #include "GhostWalk.h"
@@ -40,8 +55,10 @@
 #include "GridMap.h"
 #include "QuestDef.h"
 #include "Route.h"
+#include "RouteExport.h"
 #include "RouteFiles.h"
 #include "RouteGenerator.h"
+#include "RouteHandOrder.h"
 #include "RouteTrace.h"
 #include "WorldSession.h"
 
@@ -49,8 +66,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
+#include <sys/stat.h>
 
 namespace
 {
@@ -326,6 +345,37 @@ namespace
         handler.SendSysMessage(line.c_str());
         return false;
     }
+
+    // The hand pack order file of a route (bots/RouteHandOrder.h), for
+    // .route generate and .route build. No file is an empty order. A file
+    // that is there but cannot be read, or that has a bad line, fails the
+    // command: it never makes a route without the order that the file holds.
+    bool ReadPackOrder(ChatHandler& handler, std::string const& route, Bots::PackOrderResult& order)
+    {
+        std::string const path = RouteFiles::OrderPathOf(route);
+        order = Bots::PackOrderResult();
+        order.ok = true;
+        struct stat info;
+        if (stat(path.c_str(), &info) != 0)
+            return true;
+        std::string text;
+        if (!RouteFiles::Read(path, text))
+            return Fail(handler, "Cannot read the hand pack order " + path + ".");
+        order = Bots::ParsePackOrder(text);
+        if (!order.ok)
+            return Fail(handler, path + ": " + order.error);
+        handler.PSendSysMessage("Hand pack order %s: %u packs in order, %u skipped.", path.c_str(),
+            uint32(order.guids.size()), uint32(order.skips.size()));
+        return true;
+    }
+
+    // The navmesh tiles load with the terrain of their grid.
+    void LoadNavmeshTiles(Player* character, std::vector<Bots::GeneratorSpawn> const& spawns)
+    {
+        TerrainInfo const* terrain = character->GetTerrain();
+        for (Bots::GeneratorSpawn const& spawn : spawns)
+            terrain->GetHeightStatic(spawn.position.x, spawn.position.y, spawn.position.z);
+    }
 }
 
 namespace
@@ -447,12 +497,15 @@ bool RunGenerate(ChatHandler& handler, char* args)
     input.settings = settings;
     input.entryName = RouteFiles::EntryName;
     input.quests = QuestsOf(character->GetZoneId(), input.spawns);
+    Bots::PackOrderResult order;
+    if (!ReadPackOrder(handler, names[0], order))
+        return false;
+    input.packOrder = order.guids;
+    input.skippedPacks = order.skips;
 
     // The navmesh tiles load with the terrain of their grid.
-    TerrainInfo const* terrain = character->GetTerrain();
-    terrain->GetHeightStatic(input.entrance.x, input.entrance.y, input.entrance.z);
-    for (Bots::GeneratorSpawn const& spawn : input.spawns)
-        terrain->GetHeightStatic(spawn.position.x, spawn.position.y, spawn.position.z);
+    character->GetTerrain()->GetHeightStatic(input.entrance.x, input.entrance.y, input.entrance.z);
+    LoadNavmeshTiles(character, input.spawns);
 
     Bots::GeneratedRoute const generated = Bots::GenerateRoute(input, nav);
     if (!generated.ok)
@@ -578,6 +631,27 @@ bool RunBuild(ChatHandler& handler, char* args)
     input.entryName = RouteFiles::EntryName;
     input.quests = QuestsOf(zoneId, input.spawns);
 
+    // The hand pack order beside the trace. Its walks to moved and added
+    // packs need the navmesh of the character's map.
+    Bots::PackOrderResult order;
+    if (!ReadPackOrder(handler, names[0], order))
+        return false;
+    input.packOrder = order.guids;
+    input.skippedPacks = order.skips;
+    std::unique_ptr<GameRouteNav> nav;
+    if (character)
+    {
+        nav.reset(new GameRouteNav(character));
+        if (nav->Ready())
+        {
+            LoadNavmeshTiles(character, input.spawns);
+            input.nav = nav.get();
+        }
+    }
+    if (!order.guids.empty() && !input.nav)
+        return Fail(handler, "The hand pack order " + RouteFiles::OrderPathOf(names[0]) + " needs the navmesh of map " +
+            std::to_string(mapId) + ": give a character on that map, .route build " + names[0] + " <character>.");
+
     Bots::TraceBuild const built = Bots::BuildTraceRoute(input);
     if (!built.ok)
         return Fail(handler, "The route was not made: " + built.error);
@@ -618,24 +692,120 @@ bool RunBuild(ChatHandler& handler, char* args)
         handler.PSendSysMessage("Check: %s", warning.c_str());
 
     uint32 problems = 0;
-    if (character)
+    if (input.nav)
     {
-        GameRouteNav nav(character);
-        if (nav.Ready())
-        {
-            std::vector<std::string> const lines = Bots::CheckRouteWalk(route, nav);
-            problems = uint32(lines.size());
-            if (lines.empty())
-                handler.SendSysMessage("Walk check: each point is on the navmesh, and each path to the next point has no lava.");
-            for (std::string const& line : lines)
-                handler.PSendSysMessage("Walk check: %s", line.c_str());
-        }
+        std::vector<std::string> const lines = Bots::CheckRouteWalk(route, *input.nav);
+        problems = uint32(lines.size());
+        if (lines.empty())
+            handler.SendSysMessage("Walk check: each point is on the navmesh, and each path to the next point has no lava.");
+        for (std::string const& line : lines)
+            handler.PSendSysMessage("Walk check: %s", line.c_str());
     }
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] .route build wrote %s: %u steps, %u packs, %u unmet, %u walk problems.",
         path.c_str(), uint32(route.steps.size()), uint32(route.packs.size()),
         uint32(built.unmet.size() + built.unmetBosses.size()), problems);
     return true;
 }
+}
+
+namespace
+{
+bool RunExport(ChatHandler& handler, char* args)
+{
+    Bots::GeneratorSettings settings;
+    std::vector<uint32> bosses;
+    bool bossSetting = false;
+    std::vector<std::string> words;
+    for (std::string const& word : Words(args))
+    {
+        std::size_t const equals = word.find('=');
+        if (equals == std::string::npos)
+        {
+            words.push_back(word);
+            continue;
+        }
+        std::string const key = word.substr(0, equals);
+        if (key != "cluster" && key != "bosses")
+            return Fail(handler, "Unknown setting " + key + ". Use cluster or bosses.");
+        bossSetting = bossSetting || key == "bosses";
+        std::string const error = ReadSetting(word, settings, bosses);
+        if (!error.empty())
+            return Fail(handler, error);
+    }
+    std::uint32_t mapId = 0;
+    if (words.size() != 1 || !Bots::DataFields::ReadNumber(words[0], mapId) || !mapId)
+        return Fail(handler, "Usage: .route export <map id> [cluster=<yards>] [bosses=<entry>,<entry>,...]");
+    AreaTriggerTeleport const* entrance = sObjectMgr.GetMapEntranceTrigger(mapId);
+    if (!entrance)
+        return Fail(handler, "Map " + std::to_string(mapId) + " has no entrance area trigger. Is it a dungeon?");
+
+    if (!bossSetting)
+        for (Bots::Route const& route : RouteFiles::RoutesOfMap(mapId))
+            for (uint32 boss : route.bosses)
+                if (std::find(bosses.begin(), bosses.end(), boss) == bosses.end())
+                    bosses.push_back(boss);
+    if (bosses.empty())
+        handler.PSendSysMessage("Map %u has no route file with bosses: the export has no bosses. Give them with "
+            "bosses=<entry>,<entry>,...", mapId);
+
+    std::vector<Bots::GeneratorSpawn> const spawns = SpawnsOf(mapId);
+    uint32 const zoneId = sTerrainMgr.GetZoneId(mapId, entrance->destination.x, entrance->destination.y,
+        entrance->destination.z);
+    Bots::MapExport map = Bots::MakeExport(mapId, spawns, bosses, QuestsOf(zoneId, spawns), settings.clusterDistance);
+
+    // The names for the page.
+    Bots::RouteNames const names = RouteFiles::Names();
+    auto nameCreature = [&map, &names](uint32 entry) { map.creatureNames[entry] = names.entry(entry); };
+    for (Bots::ExportPack const& pack : map.packs)
+        for (Bots::ExportMob const& mob : pack.mobs)
+            nameCreature(mob.entry);
+    for (uint32 boss : map.bosses)
+        nameCreature(boss);
+    for (Bots::GeneratorQuest const& quest : map.quests)
+    {
+        map.questNames[quest.id] = names.quest(quest.id);
+        for (Bots::QuestObjective const& objective : quest.objectives)
+        {
+            if (objective.kind == Bots::QuestObjectiveKind::Kill)
+                nameCreature(objective.entry);
+            if (objective.kind == Bots::QuestObjectiveKind::Item)
+            {
+                map.itemNames[objective.item] = names.item(objective.item);
+                for (uint32 entry : objective.entries)
+                    nameCreature(entry);
+            }
+        }
+    }
+
+    std::string const path = RouteFiles::ExportPathOf(mapId);
+    if (!RouteFiles::Write(path, Bots::WriteExport(map)))
+        return Fail(handler, "Cannot write " + path + ". Does the routes folder exist?");
+
+    uint32 mobs = 0;
+    uint32 patrols = 0;
+    for (Bots::ExportPack const& pack : map.packs)
+        for (Bots::ExportMob const& mob : pack.mobs)
+        {
+            ++mobs;
+            patrols += mob.patrol.empty() ? 0 : 1;
+        }
+    handler.PSendSysMessage("Export of map %u: %u packs, %u mobs, %u patrols, %u quests, %u bosses. File %s.", mapId,
+        uint32(map.packs.size()), mobs, patrols, uint32(map.quests.size()), uint32(map.bosses.size()), path.c_str());
+    for (uint32 boss : map.bosses)
+        if (std::none_of(spawns.begin(), spawns.end(), [boss](Bots::GeneratorSpawn const& s) { return s.entry == boss; }))
+            handler.PSendSysMessage("Check: the map has no spawn of the boss %u %s.", boss, RouteFiles::EntryName(boss).c_str());
+    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] .route export wrote %s: %u packs, %u mobs.", path.c_str(),
+        uint32(map.packs.size()), mobs);
+    return true;
+}
+}
+
+bool ChatHandler::HandleRouteExportCommand(char* args)
+{
+    if (RunExport(*this, args))
+        return true;
+    SetSentErrorMessage(true);
+    return false;
 }
 
 bool ChatHandler::HandleRouteBuildCommand(char* args)

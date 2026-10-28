@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Open the dungeon map of a route.
+#
+#   bots/tools/route-map/route-map <route> [--navmesh DIR] [map_web.py options]
+#
+# For example `bots/tools/route-map/route-map ragefire_chasm`. The page
+# serves http://127.0.0.1:8766/?route=<route> until Ctrl+C.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec uv run --project "$here" "$here/map_web.py" "$@"
