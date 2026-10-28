@@ -16,6 +16,7 @@ import heapq
 import math
 from dataclasses import dataclass, field
 
+import geometry
 import navmesh
 
 PLAYER_FLAGS = 0x01 | 0x08  # NAV_GROUND | NAV_WATER: the include flags of a player's path filter
@@ -38,24 +39,12 @@ def _cross(o, a, b):
     return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
 
 
-def _dist(a, b):
-    return math.dist(a, b)
-
-
 def _height(poly, x, y):
     for tri in poly.tris:
         z = navmesh._height_on(tri, x, y)
         if z is not None:
             return z
     return None
-
-
-def _closest_on_segment(p, a, b):
-    ax, ay, bx, by = a[0], a[1], b[0], b[1]
-    dx, dy = bx - ax, by - ay
-    length2 = dx * dx + dy * dy
-    t = 0.0 if length2 == 0 else max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - ay) * dy) / length2))
-    return (ax + t * dx, ay + t * dy)
 
 
 def _centre(poly):
@@ -120,7 +109,7 @@ class FloorGraph:
             for poly in self.polys:
                 n = len(poly.points)
                 for k in range(n):
-                    q = _closest_on_segment((x, y), poly.points[k], poly.points[(k + 1) % n])
+                    q = geometry.closest_on_segment((x, y), poly.points[k][:2], poly.points[(k + 1) % n][:2])
                     h = _height(poly, *q)
                     if h is None:
                         continue
@@ -144,7 +133,7 @@ class FloorGraph:
         best = {start: 0.0}
         came = {}
         entry = {start: (a[0], a[1])}
-        queue = [(_dist(a[:2], b[:2]), start)]
+        queue = [(math.dist(a[:2], b[:2]), start)]
         while queue:
             _, i = heapq.heappop(queue)
             if i == goal:
@@ -158,15 +147,15 @@ class FloorGraph:
                 if not self.walkable(j, lava_too) and j != goal:
                     continue
                 mid = ((edge[0][0] + edge[1][0]) / 2, (edge[0][1] + edge[1][1]) / 2)
-                cost = best[i] + _dist(entry[i], mid)
+                cost = best[i] + math.dist(entry[i], mid)
                 if cost < best.get(j, math.inf):
                     best[j], came[j], entry[j] = cost, (i, edge), mid
-                    heapq.heappush(queue, (cost + _dist(mid, b[:2]), j))
+                    heapq.heappush(queue, (cost + math.dist(mid, b[:2]), j))
         return None
 
     def path(self, a: navmesh.Vec, b: navmesh.Vec) -> Piece:
         """The floor path from a to b, with its warnings."""
-        straight = _dist(a, b)
+        straight = math.dist(a, b)
         start, goal = self._poly_at(a), self._poly_at(b)
         found = None
         warnings = []
@@ -182,7 +171,7 @@ class FloorGraph:
         polys, portals = found
         corners = _string_pull(a, b, polys, portals, self.polys)
         points = self._dense(corners, [self.polys[i] for i in polys], a[2], b)
-        length = sum(_dist(p, q) for p, q in zip(points, points[1:]))
+        length = sum(math.dist(p, q) for p, q in zip(points, points[1:]))
         if (abs(b[2] - a[2]) >= LEVEL_CHANGE and length > LONG_WAY * straight
                 and length - straight > LONG_WAY_MIN):
             warnings.append({"kind": "level", "text": f"another level by a long way round: "
@@ -194,7 +183,7 @@ class FloorGraph:
         height of the corridor polys (the floor nearest the last height)."""
         points = [(corners[0][0], corners[0][1], z)]
         for p, q in zip(corners, corners[1:]):
-            steps = max(1, math.ceil(_dist(p, q) / STEP))
+            steps = max(1, math.ceil(math.dist(p, q) / STEP))
             for k in range(1, steps + 1):
                 x, y = p[0] + (q[0] - p[0]) * k / steps, p[1] + (q[1] - p[1]) * k / steps
                 heights = [h for poly in corridor if (h := _height(poly, x, y)) is not None]

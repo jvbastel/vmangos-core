@@ -22,7 +22,6 @@ added by the hand pack order, and not skipped, as `.route build` counts it
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 from typing import Optional
 
@@ -30,6 +29,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 import export_file
+import geometry
 import route_file
 
 # How near a route point must come to a visit point. The quest visits of a
@@ -52,19 +52,9 @@ def _mob_objective(kind: str, entries: set[int], needed: int, packs: list[dict],
             "packs": [{"key": pack["key"], "count": n} for pack, n in counted if pack["key"] not in pulled]}
 
 
-def _segment_distance(a, b, c) -> float:
-    """The distance from c to the straight line from a to b."""
-    ab = [b[i] - a[i] for i in range(3)]
-    length2 = sum(v * v for v in ab)
-    t = 0.0 if length2 == 0 else max(0.0, min(1.0, sum((c[i] - a[i]) * ab[i] for i in range(3)) / length2))
-    return math.dist([a[i] + t * ab[i] for i in range(3)], c)
-
-
 def _visit_objective(visit, line: list[route_file.Point]) -> dict:
     x, y, z, name = visit
-    points = [(p.x, p.y, p.z) for p in line]
-    segments = list(zip(points, points[1:])) or [(p, p) for p in points]
-    met = any(_segment_distance(a, b, (x, y, z)) <= VISIT_RANGE for a, b in segments)
+    met = geometry.polyline_distance((x, y, z), [(p.x, p.y, p.z) for p in line]) <= VISIT_RANGE
     return {"kind": "visit", "name": name, "x": x, "y": y, "z": z, "range": VISIT_RANGE, "met": met, "packs": []}
 
 

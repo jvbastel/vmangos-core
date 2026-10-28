@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import export_file
+import geometry
 
 HERE = Path(__file__).resolve().parent
 
@@ -109,24 +110,13 @@ def map_part(name: str, packs: list[dict], routes: Path, line: list | None = Non
                            "skipped_near": near}}
 
 
-def _distance(a, b) -> float:
-    return math.dist(a, b)
-
-
-def _to_segment(p, a, b) -> float:
-    ab = [b[i] - a[i] for i in range(3)]
-    length = sum(c * c for c in ab)
-    t = 0.0 if length == 0 else max(0.0, min(1.0, sum((p[i] - a[i]) * ab[i] for i in range(3)) / length))
-    return _distance(p, [a[i] + t * ab[i] for i in range(3)])
-
-
 def _to_mob(p, mob: export_file.ExportMob) -> float:
     """The route library's DistanceToPack for one mob: to its spot less its
     wander distance, or to its patrol path."""
     at = (mob.x, mob.y, mob.z)
-    distance = max(0.0, _distance(p, at) - mob.wander)
+    distance = max(0.0, math.dist(p, at) - mob.wander)
     for waypoint in mob.patrol:
-        distance = min(distance, _to_segment(p, at, waypoint))
+        distance = min(distance, geometry.segment_distance(p, at, waypoint))
         at = waypoint
     return distance
 
@@ -134,7 +124,7 @@ def _to_mob(p, mob: export_file.ExportMob) -> float:
 def _to_mob_on_piece(a, b, mob: export_file.ExportMob) -> float:
     """The mob's distance to the piece of line a-b, at 1-yard steps along
     it, as the route library walks it."""
-    length = _distance(a, b)
+    length = math.dist(a, b)
     steps = int(length) + 1
     return min(_to_mob([a[i] + (b[i] - a[i]) * min(s, length) / (length or 1) for i in range(3)], mob)
                for s in range(steps + 1))
