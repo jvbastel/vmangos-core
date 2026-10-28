@@ -125,6 +125,90 @@ TEST(RunJudge, TheLastBossKillWinsOverALimitOfTheSameUpdate)
 }
 
 
+// jvbastel/WOWAI#167: a scenario's `expect healer_threat_losses <n>` line
+// (RunScript.h) limits the threat losses on the healer in each pull.
+namespace
+{
+    Bots::ScriptLimits HealerLimit(std::uint32_t most)
+    {
+        Bots::ScriptLimits limits;
+        limits.healerThreatLosses = {true, most, 205};
+        return limits;
+    }
+}
+
+TEST(RunJudge, HealerThreatLossesUpToTheLimitOfAPullPass)
+{
+    RunJudge judge({}, 0, HealerLimit(1));
+    judge.NotePull("pack13");
+    judge.NoteHealerThreatLoss("Searing Blade Cultist on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+    EXPECT_EQ(judge.AtScriptEnd().kind, RunVerdictKind::Passed);
+}
+
+TEST(RunJudge, OneHealerThreatLossOverTheLimitOfAPullFailsTheRunWithTheCount)
+{
+    RunJudge judge({}, 0, HealerLimit(1));
+    judge.NotePull("pack13");
+    judge.NoteHealerThreatLoss("Searing Blade Cultist on Hela");
+    judge.NoteHealerThreatLoss("Searing Blade Enforcer on Hela");
+
+    RunVerdict const verdict = judge.Judge(Minute);
+    EXPECT_EQ(verdict.kind, RunVerdictKind::Failed);
+    EXPECT_EQ(verdict.reason, "healer threat losses 2 in pull 1 (pack13), over the limit 1 of line 205: "
+                              "Searing Blade Cultist on Hela; Searing Blade Enforcer on Hela");
+    EXPECT_EQ(judge.AtScriptEnd().reason, verdict.reason);
+}
+
+TEST(RunJudge, AZeroLimitFailsAtTheFirstHealerThreatLoss)
+{
+    RunJudge judge({}, 0, HealerLimit(0));
+    judge.NotePull("Molten Elemental");
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+
+    judge.NoteHealerThreatLoss("Molten Elemental on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).reason,
+        "healer threat losses 1 in pull 1 (Molten Elemental), over the limit 0 of line 205: Molten Elemental on Hela");
+}
+
+TEST(RunJudge, EachPullHasItsOwnCountOfHealerThreatLosses)
+{
+    RunJudge judge({}, 0, HealerLimit(1));
+    judge.NotePull("pack1");
+    judge.NoteHealerThreatLoss("Ragefire Trogg on Hela");
+    judge.NotePull("pack2");
+    judge.NoteHealerThreatLoss("Ragefire Shaman on Hela");
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+
+    judge.NoteHealerThreatLoss("Ragefire Trogg on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).reason, "healer threat losses 2 in pull 2 (pack2), over the limit 1 of line 205: "
+                                          "Ragefire Shaman on Hela; Ragefire Trogg on Hela");
+}
+
+TEST(RunJudge, HealerThreatLossesBeforeTheFirstPullCountToo)
+{
+    RunJudge judge({}, 0, HealerLimit(0));
+    judge.NoteHealerThreatLoss("Ragefire Trogg on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).reason,
+        "healer threat losses 1 before the first pull, over the limit 0 of line 205: Ragefire Trogg on Hela");
+}
+
+TEST(RunJudge, WithNoLimitHealerThreatLossesNeverFailTheRun)
+{
+    RunJudge judge({}, 0);
+    judge.NotePull("pack13");
+    for (int i = 0; i < 9; ++i)
+        judge.NoteHealerThreatLoss("Ragefire Trogg on Hela");
+
+    EXPECT_EQ(judge.Judge(Minute).kind, RunVerdictKind::Running);
+    EXPECT_EQ(judge.AtScriptEnd().kind, RunVerdictKind::Passed);
+}
+
+
 // jvbastel/WOWAI#123: the judge marks each extra pack avoidable or
 // unavoidable. It runs the fight spot rules of #105 and #121 (FightSpot.h)
 // again for the pack, on the real packs at the pull, from the tank's

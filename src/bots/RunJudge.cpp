@@ -7,9 +7,30 @@
 
 namespace Bots
 {
-    RunJudge::RunJudge(std::vector<std::uint32_t> bosses, std::int64_t startMs)
-        : m_bosses(std::move(bosses)), m_startMs(startMs), m_progressMs(startMs)
+    RunJudge::RunJudge(std::vector<std::uint32_t> bosses, std::int64_t startMs, ScriptLimits limits)
+        : m_bosses(std::move(bosses)), m_limits(limits), m_startMs(startMs), m_progressMs(startMs)
     {
+    }
+
+    void RunJudge::NotePull(std::string const& name)
+    {
+        ++m_pulls;
+        m_pull = name;
+        m_healerLosses.clear();
+    }
+
+    void RunJudge::NoteHealerThreatLoss(std::string const& name)
+    {
+        m_healerLosses.push_back(name);
+        ScriptLimit const& limit = m_limits.healerThreatLosses;
+        if (!limit.set || m_healerLosses.size() <= limit.most || !m_overLimit.empty())
+            return;
+        std::string const pull = m_pulls == 0 ? std::string("before the first pull")
+                                              : "in pull " + std::to_string(m_pulls) + " (" + m_pull + ")";
+        m_overLimit = "healer threat losses " + std::to_string(m_healerLosses.size()) + " " + pull +
+            ", over the limit " + std::to_string(limit.most) + " of line " + std::to_string(limit.line) + ": ";
+        for (std::size_t i = 0; i < m_healerLosses.size(); ++i)
+            m_overLimit += (i ? "; " : "") + m_healerLosses[i];
     }
 
     void RunJudge::NoteBossKill(std::uint32_t entry, std::int64_t nowMs)
@@ -35,6 +56,8 @@ namespace Bots
             return {RunVerdictKind::Passed, ""};
         if (m_wipes >= FailingWipe)
             return {RunVerdictKind::Failed, "the second wipe"};
+        if (!m_overLimit.empty())
+            return {RunVerdictKind::Failed, m_overLimit};
         if (nowMs - m_startMs >= RunLimitMs)
             return {RunVerdictKind::Failed, "the run did not end in " + std::to_string(RunLimitMs / 60000) + " min"};
         if (nowMs - m_progressMs >= NoProgressMs)
@@ -45,6 +68,8 @@ namespace Bots
 
     RunVerdict RunJudge::AtScriptEnd() const
     {
+        if (!m_overLimit.empty())
+            return {RunVerdictKind::Failed, m_overLimit};
         if (m_killed.size() == m_bosses.size())
             return {RunVerdictKind::Passed, ""};
         return {RunVerdictKind::Failed, "the route ended with " + std::to_string(m_killed.size()) + " of " +

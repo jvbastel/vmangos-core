@@ -72,7 +72,7 @@ namespace Bots
             if (keyword == "route")
                 return "use: route [noquests]";
             if (keyword == "expect")
-                return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive";
+                return "use: expect boss_dead <entry> | expect pack_dead <pack> | expect alive | expect healer_threat_losses <n>";
             if (keyword == "script")
                 return "use: script <name> <route>";
             if (keyword == "driver")
@@ -228,6 +228,26 @@ namespace Bots
         {
             return {false, RunScript(), "line " + std::to_string(line) + ": " + message};
         }
+
+        // `expect <name> <n>`: a limit of the scenario, not a command.
+        bool IsLimitLine(std::vector<std::string> const& w)
+        {
+            return w[0] == "expect" && w.size() >= 2 && w[1] == "healer_threat_losses";
+        }
+
+        // Empty when the line sets the limit, else the error.
+        std::string ReadLimit(std::vector<std::string> const& w, std::size_t line, ScriptScenario& scenario)
+        {
+            ScriptLimit& limit = scenario.limits.healerThreatLosses;
+            std::uint32_t most = 0;
+            if (w.size() != 3 || !ReadNumber(w[2], most))
+                return Usage(w[0]);
+            if (limit.set)
+                return "the scenario " + scenario.name + " sets " + w[1] + " on line " + std::to_string(limit.line) +
+                    " already";
+            limit = {true, most, line};
+            return "";
+        }
     }
 
     RunScriptResult ParseRunScript(std::string const& text)
@@ -290,6 +310,13 @@ namespace Bots
             {
                 if (script.scenarios.empty())
                     return Fail(line.number, "a command needs a scenario line above it");
+                if (IsLimitLine(w))
+                {
+                    std::string const error = ReadLimit(w, line.number, script.scenarios.back());
+                    if (!error.empty())
+                        return Fail(line.number, error);
+                    continue;
+                }
                 ScriptCommand command;
                 command.line = line.number;
                 command.source = Join(w, 0);

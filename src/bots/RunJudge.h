@@ -4,6 +4,7 @@
 #include "BotView.h"
 #include "FightSpot.h"
 #include "RunResult.h"
+#include "RunScript.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -19,8 +20,11 @@
 // - A run fails at the second wipe, after 70 minutes, or after 3 minutes
 //   with no progress: no kill, no damage dealt, and no movement along the
 //   route. (A lost mob fails it too: bots/ThreatWatch.h.)
-// - A threat loss never fails it, on the healer or not: the judge does not
-//   see them. The result counts them (RunResult.h).
+// - A threat loss on a member who is not the healer never fails it. The
+//   result counts them (RunResult.h). Threat losses on the healer fail it
+//   only when the scenario limits them (`expect healer_threat_losses <n>`,
+//   RunScript.h, jvbastel/WOWAI#167): one pull with more than <n> fails the
+//   run, in a scenario and in a full run.
 // - An extra pack fails its pull when it had no warn, or when a better pull
 //   could have kept it out (jvbastel/WOWAI#123, below). A failed pull is
 //   counted and shown in the result, but it does not fail the run (user
@@ -50,8 +54,17 @@ namespace Bots
     {
     public:
         // `bosses`: the boss list of the route for a full run, empty for a
-        // scenario. The start counts as progress.
-        RunJudge(std::vector<std::uint32_t> bosses, std::int64_t startMs);
+        // scenario. The start counts as progress. `limits`: those of the
+        // scenario's `expect` lines.
+        RunJudge(std::vector<std::uint32_t> bosses, std::int64_t startMs, ScriptLimits limits = ScriptLimits());
+
+        // A new pull (a `fight`, or a `command pull`): the pack, or the
+        // target of a pull with no pack. Its healer threat losses count
+        // from 0.
+        void NotePull(std::string const& name);
+        // A threat loss on the healer ("<enemy> on <member>", ThreatWatch.h)
+        // in the last pull, or before the first one.
+        void NoteHealerThreatLoss(std::string const& name);
 
         // A boss kill is progress too.
         void NoteBossKill(std::uint32_t entry, std::int64_t nowMs);
@@ -69,6 +82,12 @@ namespace Bots
 
     private:
         std::vector<std::uint32_t> m_bosses;
+        ScriptLimits m_limits;
+        std::size_t m_pulls = 0;
+        std::string m_pull;                      // The name of the last pull.
+        std::vector<std::string> m_healerLosses; // In the last pull.
+        // The reason of the first pull over the limit, or empty.
+        std::string m_overLimit;
         std::set<std::uint32_t> m_killed;
         std::int64_t m_startMs;
         std::int64_t m_progressMs;
