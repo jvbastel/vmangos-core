@@ -121,11 +121,12 @@ def _strip_blank(lines: list[str]) -> list[str]:
     return lines
 
 
-def layout(text: str) -> tuple[list[str], list[tuple[int, list[str]]], list[str]]:
+def layout(text: str) -> tuple[list[str], list[tuple[int, str, list[str]]], list[str]]:
     """The hand comments of an order file: its header (the lines above the
     last blank line before the first pack line), each pack line's guid with
-    the comment block above it (the lines since the previous pack line, or
-    since the header), and the lines after the last pack line."""
+    the comment at the end of its line and the comment block above it (the
+    lines since the previous pack line, or since the header), and the lines
+    after the last pack line."""
     lines = text.splitlines()
     at = [i for i, line in enumerate(lines) if _is_pack_line(line)]
     if not at:
@@ -139,25 +140,29 @@ def layout(text: str) -> tuple[list[str], list[tuple[int, list[str]]], list[str]
     packs = []
     for n, i in enumerate(at):
         block = first if n == 0 else lines[at[n - 1] + 1:i]
-        packs.append((int(lines[i].split("#", 1)[0].split()[1]), _strip_blank(block)))
+        code, _, comment = lines[i].partition("#")
+        packs.append((int(code.split()[1]), comment.strip(), _strip_blank(block)))
     return _strip_blank(header), packs, _strip_blank(lines[at[-1] + 1:])
 
 
 def write(route_name: str, keys: list[int], packs: list[dict], old_text: str | None = None) -> str:
     """The text of the order file: one `pack <key>` line per pack, with its
-    route name and its mobs as a comment. The hand comments of the old file
-    stay: its header at the top, the comment block above a pack line with
+    route name and its mobs as a comment, or the comment of its old line.
+    The hand comments of the old file stay: its header at the top, the comment block above a pack line with
     that pack, the blocks of packs that left the order and the lines after
     the last pack at the end."""
     by_key = {p["key"]: p for p in packs}
     pack_of = {m["guid"]: p["key"] for p in packs for m in p["mobs"]}
     header, old_packs, footer = layout(old_text) if old_text is not None else ([], [], [])
     blocks: dict[int, list[str]] = {}
+    comments: dict[int, str] = {}
     given_back: list[list[str]] = []
-    for guid, block in old_packs:
+    for guid, comment, block in old_packs:
         key = pack_of.get(guid)
         if key in keys and key not in blocks:
             blocks[key] = block
+            if comment:
+                comments[key] = comment
         elif block:
             given_back.append(block)
     out = list(header or HEADER.format(route=route_name).splitlines())
@@ -169,7 +174,7 @@ def write(route_name: str, keys: list[int], packs: list[dict], old_text: str | N
         elif n == 0:
             out += [""]
         names = ", ".join(m["name"] or str(m["entry"]) for m in pack["mobs"])
-        out.append(f"pack {key} # {pack['label'] or 'off the route'}, {names}")
+        out.append(f"pack {key} # {comments.get(key) or (pack['label'] or 'off the route') + ', ' + names}")
     for block in given_back + ([footer] if footer else []):
         out += [""] + block
     return "\n".join(out) + "\n"
@@ -198,5 +203,10 @@ def add_routes(app: FastAPI, settings, load_route, load_packs):
             raise HTTPException(422, "a pack comes twice in the order")
         path = settings.routes / file_name(name)
         old_text = path.read_text() if path.is_file() else None
+        if old_text is not None:
+            try:
+                parse(old_text)
+            except PackOrderError as error:
+                raise HTTPException(422, f"{path}: {error}")
         path.write_text(write(name, order.packs, packs, old_text))
         return {"file": path.name, "packs": len(order.packs)}

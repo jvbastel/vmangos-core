@@ -227,3 +227,20 @@ def test_the_loaded_map_has_both_the_pack_order_and_the_quest_badges(tmp_path):
     assert [p["key"] for p in loaded["packs"]] == [501, 600, 700, 800]
     assert [(b["pack"], b["quest"], b["count"]) for b in loaded["quest_badges"]] == [(501, 5723, 1), (700, 5723, 1)]
     assert [q["quest"] for q in loaded["quests"]] == [5723]
+
+
+def test_saving_over_an_order_file_that_does_not_read_is_a_clear_error_and_keeps_it(tmp_path):
+    web = app(tmp_path, "pack 600\npack six\n")
+
+    response = web.post("/api/maps/fixture_cave/order", json={"packs": [600]})
+
+    assert response.status_code == 422
+    assert "fixture_cave.order.txt: line 2: use: pack <spawn guid>" in response.json()["detail"]
+    assert (tmp_path / "routes" / "fixture_cave.order.txt").read_text() == "pack 600\npack six\n"
+
+
+def test_saving_keeps_the_hand_comment_at_the_end_of_an_old_pack_line(tmp_path):
+    _, text = save(tmp_path, "pack 600 # the boss, pull him to the door\npack 502\n", [501, 600])
+
+    assert "pack 600 # the boss, pull him to the door\n" in text
+    assert "pack 501 # pack1, Ragefire Trogg, Ragefire Shaman\n" in text
