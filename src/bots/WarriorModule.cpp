@@ -268,22 +268,23 @@ namespace Bots
 
             // The tank can act on loose enemy `enemy` (jvbastel/WOWAI#169):
             // from its spot, as the members bring their attackers to it, once
-            // Taunt, Revenge or Sunder Armor reaches it; or after a walk to a
-            // member that cannot come (MemberCannotCome). It chases no other.
+            // Taunt reaches it now or it stands in melee contact (Revenge or
+            // Sunder Armor, whatever the rage: a lack of rage does not drop
+            // the pick); or after a walk to a member that cannot come
+            // (MemberCannotCome). It chases no other.
             bool CanTakeLooseEnemy(BotContext const& context, Guid enemy)
             {
                 return CastableRank(context.view, Taunt, enemy) != NoSpell
-                    || CastableRank(context.view, Revenge, enemy) != NoSpell
-                    || CastableRank(context.view, SunderArmor, enemy) != NoSpell || MemberCannotCome(context, enemy);
+                    || context.view.GetDistance(enemy) <= MeleeContactYards || MemberCannotCome(context, enemy);
             }
 
             // The loose enemy that the tank takes now (jvbastel/WOWAI#168).
             // It keeps its choice until that enemy attacks the tank, dies or
             // is no loose enemy any more, the tank cannot act on it any more
             // (CanTakeLooseEnemy: it went out of range), or ThreatLossMs
-            // pass. Then it
-            // chooses again: the lowest PickupRank, the nearest of a rank,
-            // and the enemy it gave up on last only when no other is left.
+            // pass. Then it chooses again: the lowest PickupRank, the
+            // nearest of a rank, and the enemy it gave up on last only when
+            // no other is left.
             // NoGuid out of the fight on the focus, or with no loose enemy
             // that the tank can take (CanTakeLooseEnemy).
             Guid PickLooseEnemy(BotContext const& context, LoosePick& pick)

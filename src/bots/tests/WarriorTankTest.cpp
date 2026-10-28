@@ -2512,3 +2512,19 @@ TEST(WarriorTankHoldsItsSpot, WalksBackToTheFightSpotWhileALooseEnemyIsOutOfRang
     EXPECT_EQ(tank.Think(), "walk back to the fight spot");
     ExpectNoMoveTo(tank.fake.Deeds(), Wolf);
 }
+
+// A lack of rage does not drop the tank's pick in melee reach, so it does not
+// restart the pick's 4 s: after them the tank takes the wolf (jvbastel/WOWAI#169
+// review).
+TEST(WarriorTankHoldsItsSpot, ALackOfRageDoesNotRestartThePickInMeleeReach)
+{
+    LooseEnemiesTank tank;
+    tank.fake.SetVictim(Bat, Healer);
+    tank.fake.SetVictim(Wolf, Rogue);
+    ASSERT_EQ(tank.ThinkAt(0), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Bat)}));
+    tank.fake.SetCannotCast(Warrior::SunderArmor);
+    ASSERT_EQ(tank.ThinkAt(2000), std::vector<std::string>{});
+    tank.fake.SetCannotCast(Warrior::SunderArmor, false);
+
+    EXPECT_EQ(tank.ThinkAt(4500), (std::vector<std::string>{CastOn(Warrior::SunderArmor, Wolf)}));
+}
