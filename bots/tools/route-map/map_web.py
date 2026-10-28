@@ -30,6 +30,7 @@ import export_file
 import floor_image
 import map_packs
 import navmesh
+import pack_order
 import route_draft
 import route_draw
 import route_file
@@ -141,12 +142,14 @@ def create_app(settings: Settings) -> FastAPI:
         export file) with the route's packs marked, the patrols, the wanderers
         and the bosses."""
         route = load_route(name)
+        packs = map_packs.map_part(route, load_export(route.map_id))
         return {
             "route": route.name,
             "map_id": route.map_id,
             "floor": load_floor(route, z_min, z_max),
             "line": [vars(p) for p in route.line],
-            **map_packs.map_part(route, load_export(route.map_id)),
+            **packs,
+            **pack_order.map_part(route, packs, settings.routes),
         }
 
     route_draw.add_routes(app, settings, load_route, load_navmesh)
