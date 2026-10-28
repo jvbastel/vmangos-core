@@ -229,20 +229,27 @@ namespace Bots
         }
     }
 
-    GearDraw DrawGear(GearTemplate const& gearTemplate, std::uint64_t guid, std::uint32_t level, std::uint32_t patch)
+    GearDraw DrawGear(GearTemplate const& gearTemplate, std::uint64_t guid, std::uint32_t level, std::uint32_t patch,
+        GearFaction faction)
     {
-        if (gearTemplate.kind == GearTemplateKind::Hand)
-            return WearHandMade(gearTemplate, level, patch);
+        GearTemplate gear = gearTemplate;
+        gear.items.erase(std::remove_if(gear.items.begin(), gear.items.end(), [faction](GearItem const& item)
+        {
+            return !FitsFaction(item, faction);
+        }), gear.items.end());
+
+        if (gear.kind == GearTemplateKind::Hand)
+            return WearHandMade(gear, level, patch);
 
         GearDraw draw;
         for (GearSlot slot : ArmorSlots)
-            DrawSlot(gearTemplate, slot, guid, level, patch, draw.picks);
-        if (WeaponShape const* shape = ChooseShape(gearTemplate, guid, level, patch))
+            DrawSlot(gear, slot, guid, level, patch, draw.picks);
+        if (WeaponShape const* shape = ChooseShape(gear, guid, level, patch))
         {
             draw.shape = shape->name;
             for (GearSlot slot : shape->slots)
                 if (IsWeaponSlot(slot))
-                    DrawSlot(gearTemplate, slot, guid, level, patch, draw.picks);
+                    DrawSlot(gear, slot, guid, level, patch, draw.picks);
         }
         SortByPosition(draw.picks);
         return draw;

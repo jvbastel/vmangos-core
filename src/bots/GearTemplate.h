@@ -22,7 +22,7 @@
 //
 //   template <name> <class> <role> generated|hand
 //   shape <shapeName> <weaponSlot> [<weaponSlot>]       (generated only)
-//   item <slot> <entry> <minLevel>-<maxLevel> <minPatch> <score>   # Item name
+//   item <slot> <entry> <minLevel>-<maxLevel> <minPatch> <score> [horde|alliance]   # Item name
 //
 // - `template` is the first line, once. The name has only the characters
 //   a-z, 0-9, `_`, and `-`, and it is the file name without `.txt`. The class
@@ -40,6 +40,11 @@
 //   10 = 1.12. `<score>` is a decimal number above 0, from the stat weights of
 //   the generator. A generated item must have a score. A hand-made item has
 //   no score: its line ends after `<minPatch>`.
+// - The last word of an `item` line may be `horde` or `alliance`: only a
+//   character of that faction can use and get the item, and only it draws or
+//   wears the item. A line with no faction word is for both factions, so an
+//   older template with no faction words is for both factions. The generator
+//   writes one template per class and role with the items of both factions.
 // - Slots, with the equipment position that each one fills:
 //     head neck shoulders back chest shirt tabard wrists hands waist legs
 //     feet ranged           one position each (ranged is also the wand)
@@ -57,8 +62,9 @@
 //   The generator writes only the shapes that the spec allows for the class
 //   and role.
 // - A hand-made template has at most one item per position at each level
-//   and content patch (two for finger and trinket). It may leave positions
-//   empty.
+//   and content patch (two for finger and trinket), counted per faction:
+//   a Horde item and an Alliance item may share a position. It may leave
+//   positions empty.
 //
 // Examples, with made-up entries:
 //
@@ -67,6 +73,7 @@
 //   item head 1001 14-20 0 31.5      # A helm
 //   item finger 1002 12-18 0 12      # A ring
 //   item finger 1003 14-20 3 15.75   # A ring of patch 1.5 and later
+//   item finger 1008 14-20 0 14 alliance  # A quest reward of the Alliance only
 //   item mainhand 1004 12-18 0 40.25 # A one-handed sword
 //   item shield 1005 10-16 0 22      # A shield
 //
@@ -134,6 +141,21 @@ namespace Bots
         Hand,
     };
 
+    // The faction of a character, for the gear draw.
+    enum class GearFaction
+    {
+        Horde,
+        Alliance,
+    };
+
+    // The factions that can use and get an item of a template.
+    enum class GearFactions
+    {
+        Both,
+        Horde,
+        Alliance,
+    };
+
     struct GearItem
     {
         GearSlot slot;
@@ -143,7 +165,11 @@ namespace Bots
         std::uint32_t minPatch;
         double score;      // 0 in a hand-made template.
         std::size_t line;  // The line in the file, for messages.
+        GearFactions factions;
     };
+
+    // True when a character of the faction can use and get the item.
+    bool FitsFaction(GearItem const& item, GearFaction faction);
 
     struct WeaponShape
     {

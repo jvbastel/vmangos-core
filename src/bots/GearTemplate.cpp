@@ -151,8 +151,13 @@ namespace Bots
             return false;
         }
 
+        bool SharesFaction(GearItem const& a, GearItem const& b)
+        {
+            return a.factions == GearFactions::Both || b.factions == GearFactions::Both || a.factions == b.factions;
+        }
+
         // A hand-made template has at most one item per position at each
-        // level and content patch, two for finger and trinket. The error is
+        // level, content patch, and faction, two for finger and trinket. The error is
         // on the first item that overflows a position, at its lowest level.
         std::string CheckHandPositions(std::vector<GearItem> const& items, std::size_t& badLine)
         {
@@ -167,7 +172,7 @@ namespace Bots
                         for (std::size_t j = 0; j <= i; ++j)
                         {
                             GearItem const& other = items[j];
-                            if (other.minPatch == item.minPatch && other.minLevel <= level &&
+                            if (other.minPatch == item.minPatch && SharesFaction(other, item) && other.minLevel <= level &&
                                 level <= other.maxLevel && SharesPosition(other, position))
                                 ++count;
                         }
@@ -182,6 +187,17 @@ namespace Bots
             }
             return "";
         }
+    }
+
+    bool FitsFaction(GearItem const& item, GearFaction faction)
+    {
+        switch (item.factions)
+        {
+            case GearFactions::Horde: return faction == GearFaction::Horde;
+            case GearFactions::Alliance: return faction == GearFaction::Alliance;
+            case GearFactions::Both: break;
+        }
+        return true;
     }
 
     char const* GearSlotName(GearSlot slot)
@@ -302,13 +318,17 @@ namespace Bots
             }
             else if (words[0] == "item")
             {
-                if (generated && words.size() != 6)
-                    return Fail(line.number, "Use: item <slot> <entry> <minLevel>-<maxLevel> <minPatch> <score>");
-                if (!generated && words.size() != 5)
-                    return Fail(line.number, "Use: item <slot> <entry> <minLevel>-<maxLevel> <minPatch> (a hand-made item has no score)");
+                std::size_t const fields = generated ? 6 : 5;
+                double ignored = 0.0;
+                bool const handScore = !generated && words.size() == fields + 1 && ParseScore(words[fields], ignored);
+                if (generated && words.size() != fields && words.size() != fields + 1)
+                    return Fail(line.number, "Use: item <slot> <entry> <minLevel>-<maxLevel> <minPatch> <score> [horde|alliance]");
+                if (!generated && ((words.size() != fields && words.size() != fields + 1) || handScore))
+                    return Fail(line.number, "Use: item <slot> <entry> <minLevel>-<maxLevel> <minPatch> [horde|alliance] (a hand-made item has no score)");
                 GearItem item;
                 item.line = line.number;
                 item.score = 0.0;
+                item.factions = GearFactions::Both;
                 if (!ParseSlot(words[1], item.slot))
                     return Fail(line.number, "Unknown slot '" + words[1] + "'.");
                 if (!ParseNumber(words[2], item.entry) || item.entry == 0)
@@ -320,6 +340,17 @@ namespace Bots
                     return Fail(line.number, "The content patch '" + words[4] + "' is not a number from 0 to 10.");
                 if (generated && (!ParseScore(words[5], item.score) || !(item.score > 0.0)))
                     return Fail(line.number, "The score '" + words[5] + "' is not a number above 0.");
+                if (words.size() == fields + 1)
+                {
+                    std::string const& faction = words[fields];
+                    if (faction == "horde")
+                        item.factions = GearFactions::Horde;
+                    else if (faction == "alliance")
+                        item.factions = GearFactions::Alliance;
+                    else
+                        return Fail(line.number, "The faction '" + faction +
+                            "' is not horde or alliance. A line for both factions has no faction word.");
+                }
                 gear.items.push_back(item);
             }
             else
