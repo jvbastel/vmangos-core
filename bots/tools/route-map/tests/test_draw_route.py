@@ -47,3 +47,68 @@ def test_a_click_in_a_wall_lands_on_the_nearest_floor(web):
     point = snap(web, x=8, y=13, z=0)["point"]  # in the wall block, 3 yards from L1
 
     assert point == {"x": 8.0, "y": 10.0, "z": 0.0}
+
+
+def path(web, start, end):
+    response = web.post("/api/maps/drawn_cave/path", json={"start": dict(zip("xyz", start)), "end": dict(zip("xyz", end))})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def on_floor(web, point):
+    return any(abs(z - point["z"]) < 0.05 for z in snap(web, x=point["x"], y=point["y"])["floors"])
+
+
+def test_a_path_between_two_points_goes_round_the_wall(web):
+    piece = path(web, (5, 5, 0), (5, 25, 0))  # the wall block stands between them
+
+    points = piece["points"]
+    assert (points[0], points[-1]) == ({"x": 5.0, "y": 5.0, "z": 0.0}, {"x": 5.0, "y": 25.0, "z": 0.0})
+    assert max(p["x"] for p in points) >= 20  # round the east end of the wall, through L4
+    assert all(not (p["x"] < 19.9 and 10.1 < p["y"] < 19.9) for p in points)  # never in the wall
+    assert all(on_floor(web, p) and p["z"] == 0.0 for p in points)
+    assert piece["straight"] == 20.0
+    assert 40 <= piece["length"] <= 45  # 5,5 -> 20,10 -> 20,20 -> 5,25: 15.8 + 10 + 15.8
+    assert piece["warnings"] == []
+
+
+def test_a_path_up_the_ramp_follows_the_ramp_height(web):
+    piece = path(web, (25, 5, 0), (45, 5, 8))
+
+    on_ramp = [p for p in piece["points"] if 30 <= p["x"] <= 40]
+    assert len(on_ramp) >= 3
+    assert all(abs(p["z"] - 8 * (p["x"] - 30) / 10) < 0.05 for p in on_ramp)
+    assert piece["warnings"] == []
+
+
+def test_a_path_over_lava_gets_a_warning(web):
+    piece = path(web, (5, 5, 0), (-15, 5, 0))  # the island J: the only way is over the lava cell I
+
+    assert [w["kind"] for w in piece["warnings"]] == ["lava"]
+    assert piece["points"][-1] == {"x": -15.0, "y": 5.0, "z": 0.0}
+
+
+def test_a_path_to_another_level_by_a_long_way_round_gets_a_warning(web):
+    piece = path(web, (5, 5, 0), (5, 5, 8))  # from L1 to the ledge over it: round by the ramp
+
+    assert [w["kind"] for w in piece["warnings"]] == ["level"]
+    assert piece["length"] > 60  # 5,5 -> 40,0 up the ramp -> 40,0 -> 5,5 on the upper walk
+    assert max(p["z"] for p in piece["points"]) == 8.0
+
+
+def test_a_path_that_keeps_off_lava_when_it_can_has_no_warning(web):
+    assert path(web, (5, 5, 0), (25, 25, 0))["warnings"] == []
+    assert path(web, (25, 5, 0), (45, 5, 8))["warnings"] == []  # up the ramp to another level: the short way
+
+
+def test_two_points_with_no_floor_path_get_a_straight_line_and_a_warning(tmp_path):
+    from draw_fixtures import cell
+    from fixtures import floor
+    write_tile(tmp_path / "mmaps", 389, polys=[floor(cell(0, 0)), floor(cell(30, 0))], next_tile=None)
+    write_route(tmp_path / "routes", "drawn_cave", ROUTE)
+    settings = map_web.Settings(navmesh=tmp_path / "mmaps", routes=tmp_path / "routes", exports=tmp_path / "routes")
+
+    piece = path(TestClient(map_web.create_app(settings)), (5, 5, 0), (35, 5, 0))
+
+    assert [w["kind"] for w in piece["warnings"]] == ["no_path"]
+    assert len(piece["points"]) == 2
