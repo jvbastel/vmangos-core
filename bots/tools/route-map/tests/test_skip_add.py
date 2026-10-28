@@ -95,3 +95,9 @@ def test_saving_keeps_the_hand_comment_above_a_pack_that_is_now_skipped(tmp_path
     text = (tmp_path / "routes" / ORDER).read_text()
     assert "# Bazzalan hits hard.\nskip 600 #" in text
     assert library_order(text) == {"packs": [501], "skips": [600]}
+
+
+def test_the_page_part_has_skip_mode_and_sends_the_skips(tmp_path):
+    script = app(tmp_path).get("/pack_order.js").text
+
+    assert 'id="po-skip"' in script and "skips: skipped" in script and "skipped_near" in script
