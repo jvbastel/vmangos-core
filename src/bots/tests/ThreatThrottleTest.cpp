@@ -40,15 +40,17 @@ namespace
             fake.SetHealth(Kobold, 200, 200);
             fake.SetHealth(Wolf, 200, 200);
             fake.SetDistance(Human, 3.0f);
-            group.SetTank(Human, true);
-            fake.SetVictim(Kobold, Human);
-            fake.SetThreatRatio(Human, Kobold, 1.5f);
-            fake.SetTargetOf(Human, Kobold);
-            Bots::WatchPlayerTank(fake, group, 0);
             if (held)
-                Bots::WatchPlayerTank(fake, group, nowMs);
+                nowMs = Bots::Tests::PlayerTankHoldsThreat(fake, group, Human, Kobold);
             else
+            {
+                group.SetTank(Human, true);
+                fake.SetVictim(Kobold, Human);
+                fake.SetThreatRatio(Human, Kobold, 1.5f);
+                fake.SetTargetOf(Human, Kobold);
+                Bots::WatchPlayerTank(fake, group, 0);
                 nowMs = 0;
+            }
         }
 
         // The bot's threat on the kobold, as a ratio of the tank's.

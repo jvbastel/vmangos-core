@@ -314,12 +314,7 @@ namespace
     {
         rogue.fake.SetGroupMembers({Player});
         rogue.fake.SetDistance(Player, 3.0f);
-        rogue.group.SetTank(Player, true);
-        rogue.fake.SetVictim(Kobold, Player);
-        rogue.fake.SetTargetOf(Player, Kobold);
-        rogue.fake.SetThreatRatio(Player, Kobold, 1.5f);
-        Bots::WatchPlayerTank(rogue.fake, rogue.group, 0);
-        Bots::WatchPlayerTank(rogue.fake, rogue.group, Bots::PlayerTankHoldMs);
+        Bots::Tests::PlayerTankHoldsThreat(rogue.fake, rogue.group, Player, Kobold);
         rogue.fake.SetThreatRatio(Self, Kobold, ratio);
         rogue.fake.SetVictim(Self, Kobold);
         rogue.fake.ChaseBehind(Kobold);

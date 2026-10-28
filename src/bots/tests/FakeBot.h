@@ -5,6 +5,7 @@
 #include "BotGeometry.h"
 #include "BotView.h"
 #include "GroupCoordinator.h"
+#include "PlayerTank.h"
 
 #include <algorithm>
 #include <cmath>
@@ -694,6 +695,22 @@ namespace Bots
         {
             group.HoldPull(puller, nowMs - HoldContactMs);
             group.NoteFocusContact(nowMs - HoldContactMs);
+        }
+
+        // The player-tank twin of HoldThreat (spec #188): `tank` is the
+        // player tank of a player-tank group, enemy `enemy` hits it and is
+        // its target, and the tank is top of the enemy's threat list from 0
+        // to PlayerTankHoldMs (WatchPlayerTank). Returns the time from which
+        // the tank holds threat on it (GroupCoordinator::TankHoldsThreat).
+        inline std::int64_t PlayerTankHoldsThreat(FakeBot& fake, GroupCoordinator& group, Guid tank, Guid enemy)
+        {
+            group.SetTank(tank, true);
+            fake.SetVictim(enemy, tank);
+            fake.SetTargetOf(tank, enemy);
+            fake.SetThreatRatio(tank, enemy, 1.5f);
+            WatchPlayerTank(fake, group, 0);
+            WatchPlayerTank(fake, group, PlayerTankHoldMs);
+            return PlayerTankHoldMs;
         }
     }
 }

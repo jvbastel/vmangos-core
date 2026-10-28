@@ -1569,11 +1569,7 @@ TEST(PriestHealerPlayerTank, AHurtMemberGetsAHealAfterTheThreatLead)
 {
     PriestHealer priest;
     PlayerTankFights(priest);
-    priest.fake.SetTargetOf(Tank, Kobold);
-    priest.fake.SetThreatRatio(Tank, Kobold, 1.5f);
-    Bots::WatchPlayerTank(priest.fake, priest.group, 0);
-    priest.nowMs = Bots::PlayerTankHoldMs;
-    Bots::WatchPlayerTank(priest.fake, priest.group, priest.nowMs);
+    priest.nowMs = Bots::Tests::PlayerTankHoldsThreat(priest.fake, priest.group, Tank, Kobold);
     priest.fake.SetHealth(Mage, 360, 600);
 
     priest.Think();
@@ -1590,11 +1586,7 @@ namespace
     void PlayerTankHoldsKobold(PriestHealer& priest)
     {
         PlayerTankFights(priest);
-        priest.fake.SetTargetOf(Tank, Kobold);
-        priest.fake.SetThreatRatio(Tank, Kobold, 1.5f);
-        Bots::WatchPlayerTank(priest.fake, priest.group, 0);
-        priest.nowMs = Bots::PlayerTankHoldMs;
-        Bots::WatchPlayerTank(priest.fake, priest.group, priest.nowMs);
+        priest.nowMs = Bots::Tests::PlayerTankHoldsThreat(priest.fake, priest.group, Tank, Kobold);
     }
 }
 

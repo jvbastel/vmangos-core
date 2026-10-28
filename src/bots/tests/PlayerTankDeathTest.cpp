@@ -91,12 +91,8 @@ namespace
             for (Bots::Guid member : {Human, Healer, Mage, Rogue})
                 fake.SetInCombat(member);
             fake.SetInCombat(Kobold);
-            fake.SetVictim(Kobold, Human);
+            nowMs = Bots::Tests::PlayerTankHoldsThreat(fake, group, Human, Kobold);
             fake.SetThreatRatio(Human, Kobold, Bots::UnrivalledThreat);
-            fake.SetTargetOf(Human, Kobold);
-            Bots::WatchPlayerTank(fake, group, 0);
-            nowMs = Bots::PlayerTankHoldMs;
-            Bots::WatchPlayerTank(fake, group, nowMs);
         }
 
         // The watches of the bot AI before a think.
