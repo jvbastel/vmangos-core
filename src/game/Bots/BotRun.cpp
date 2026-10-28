@@ -347,7 +347,9 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
     EndMove();
     m_aborted = false;
     m_judge.reset(new Bots::RunJudge(fullRun ? m_route.bosses : std::vector<uint32>(), 0));
-    m_trace = Bots::RunTrace();
+    // A full run keeps its whole trace, for the walked path on the dungeon
+    // map (jvbastel/WOWAI#152); another run its last 3 minutes.
+    m_trace = Bots::RunTrace(fullRun ? Bots::TraceKeepWholeRun : Bots::TraceKeepMs);
     m_fight = Bots::FightWatch();
     {
         std::map<uint32, std::string> packOf;
@@ -481,7 +483,8 @@ void BotRun::Finish(bool passed, std::string const& reason)
     m_trace.Add(RunMs(), m_result);
     // The driver may rest again.
     EndMove();
-    // 2. The result file, and the trace of a run that did not pass.
+    // 2. The result file, and the trace of a full run or of a run that did
+    // not pass.
     m_record.movesStopped = m_move.StopCount();
     m_record.durationMs = RunMs();
     m_record.outcome = passed ? Bots::RunOutcome::Passed : m_aborted ? Bots::RunOutcome::Aborted : Bots::RunOutcome::Failed;
@@ -1798,7 +1801,7 @@ void BotRun::WriteResultFiles()
     std::string const stem = Bots::RunFileStem(m_record);
     std::string const path = dir + "/" + stem;
     m_record.traceFile.clear();
-    if (m_record.outcome != Bots::RunOutcome::Passed)
+    if (m_record.fullRun || m_record.outcome != Bots::RunOutcome::Passed)
     {
         if (WriteFile(path + ".trace.txt", m_trace.Text()))
             m_record.traceFile = stem + ".trace.txt";

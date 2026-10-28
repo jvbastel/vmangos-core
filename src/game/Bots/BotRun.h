@@ -74,7 +74,8 @@ struct RunCombatNote
 // A scenario with a `route` line is a full run: it passes when the last boss
 // of the route dies. Each run ends at the rules of Bots::RunJudge, and
 // writes one result file (Bots::RunResult) to Bots.Run.ResultDir; a failed
-// or stopped run also writes the trace of its last 3 minutes there.
+// or stopped run also writes the trace of its last 3 minutes there, and a
+// full run the trace of the whole run, passed or not (jvbastel/WOWAI#152).
 class BotRun
 {
     public:
@@ -130,7 +131,8 @@ class BotRun
         // The one end of a run, passed or failed. In this order:
         // 1. The result line, for the GM and the log.
         // 2. The result file, and the trace of the last 3 minutes of a run
-        //    that did not pass (spec section 10), while the group still is.
+        //    that did not pass (spec section 10), or of the whole of a full
+        //    run, while the group still is.
         // 3. The phase Closing: the group stays until the chat of the run is
         //    said or dropped (Bots::RunEndWaitsForChat), so that the last
         //    boss_kill, wipe, or loot_roll gets its line. Then EndClosing.
@@ -234,7 +236,8 @@ class BotRun
         bool Fight(Bots::ScriptCommand const& command, std::string& detail);
         // A pull of the result: a `fight`, or a `command pull`.
         void RecordPull(Bots::ScriptCommand const& command);
-        // Writes the result file, and the trace when the run did not pass.
+        // Writes the result file, and the trace of a full run or of a run
+        // that did not pass.
         void WriteResultFiles();
         // Writes the result file only: at the end of Closing again, with the
         // chat lines that came while the group waited for them.

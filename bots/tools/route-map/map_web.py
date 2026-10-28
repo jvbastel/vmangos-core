@@ -34,6 +34,7 @@ import navmesh
 import route_draft
 import route_draw
 import route_file
+import walked_path
 
 
 HERE = Path(__file__).resolve().parent
@@ -153,6 +154,7 @@ def create_app(settings: Settings) -> FastAPI:
             **map_quests.map_part(route, export, packs["packs"]),
         }
 
+    walked_path.add_routes(app)
     route_draw.add_routes(app, settings, load_route, load_navmesh)
     map_packs.add_routes(app)
     map_quests.add_routes(app)
