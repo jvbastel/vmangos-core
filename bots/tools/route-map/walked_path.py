@@ -15,6 +15,8 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
+import regions
+
 HERE = Path(__file__).resolve().parent
 SCRIPT = HERE / "walked_path.js"
 
@@ -36,8 +38,9 @@ def read(text: str) -> list[dict]:
     return [{"name": name, "points": points} for name, points in members.items()]
 
 
-def add_routes(app: FastAPI) -> None:
-    """The walked path call and the page's layer script."""
+def add_routes(app: FastAPI, maps) -> None:
+    """The walked path call and the page's layer script. maps is map_web's
+    MapData: each position carries the regions it is in (regions.mark)."""
 
     @app.get("/api/maps/{name}/walked")
     def walked(name: str, trace: str):
@@ -49,7 +52,7 @@ def add_routes(app: FastAPI) -> None:
         members = read(path.read_text(errors="replace"))
         if not members:
             raise HTTPException(422, f"{path}: no member positions (`<time> <member> at <x> <y> <z>` lines)")
-        return {"trace": path.name, "members": members}
+        return regions.mark({"trace": path.name, "members": members}, maps.regions(maps.route(name).map_id))
 
     @app.get("/walked_path.js")
     def script():

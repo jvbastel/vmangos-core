@@ -3,8 +3,13 @@ click to the floor, join two points with a floor path, save the trace file
 of the open route. map_web.create_app adds these calls with add_routes; the
 page part is map_draw.js.
 
-    GET  /api/maps/{route}/snap?x=&y=[&z=]   the floor point of a click, and the floor heights there
-    POST /api/maps/{route}/path              {"start": {x, y, z}, "end": {x, y, z}}: the floor path and its warnings
+    GET  /api/maps/{route}/snap?x=&y=[&z=][&through=<region>...][&through_no_region=true]
+                                             the floor point of a click, and the floor heights there; the ground
+                                             of the regions named in through (faded or hidden) is left out, and
+                                             with through_no_region the ground in no region too.
+                                             With regions, floor_regions gives the regions of each height
+    POST /api/maps/{route}/path              {"start": {x, y, z}, "end": {x, y, z}, "through": [names]}: the floor
+                                             path and its warnings; the path may run through any region
     POST /api/maps/{route}/trace             {"points": [{x, y, z, joined, mark, note}, ...], "branches": [[...], ...]}:
                                              writes <route>.trace.txt (each branch is a later walk)
 """
@@ -14,11 +19,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import floor_path
+import regions
 import route_draft
 import trace_file
 
@@ -34,6 +40,7 @@ class Spot(BaseModel):
 class PathAsk(BaseModel):
     start: Spot
     end: Spot
+    through: list[str] = []  # the faded or hidden regions; checked, not used: a path may run through them
 
 
 class TraceAsk(BaseModel):
@@ -68,11 +75,22 @@ def add_routes(app: FastAPI, maps):
         return FileResponse(HERE / "map_draw.js", media_type="text/javascript")
 
     @app.get("/api/maps/{name}/snap")
-    def snap(name: str, x: float, y: float, z: Optional[float] = None):
-        point, floors = graph(maps.route(name).map_id).snap(x, y, z)
+    def snap(name: str, x: float, y: float, z: Optional[float] = None, through: list[str] = Query([]),
+             through_no_region: bool = False):
+        map_id = maps.route(name).map_id
+        map_regions = maps.regions(map_id)
+
+        def goes_through(p):
+            held = regions.regions_at(map_regions, *p)
+            return any(region in through for region in held) or (through_no_region and bool(map_regions) and not held)
+
+        point, floors = graph(map_id).snap(x, y, z, through=goes_through)
         if point is None:
             raise HTTPException(422, "no floor on this map")
-        return {"point": _xyz(point), "floors": [round(h, 2) for h in floors]}
+        found = {"point": regions.mark(_xyz(point), map_regions), "floors": [round(h, 2) for h in floors]}
+        if map_regions:  # the page's ground chooser takes a chosen ground's regions from here
+            found["floor_regions"] = [regions.regions_at(map_regions, point[0], point[1], h) for h in floors]
+        return found
 
     @app.post("/api/maps/{name}/path")
     def path(name: str, ask: PathAsk):

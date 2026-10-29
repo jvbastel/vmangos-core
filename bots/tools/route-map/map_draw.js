@@ -1,6 +1,6 @@
 // The route drawing of the dungeon map (tickets jvbastel/WOWAI#157, #158). It
 // needs the globals of map_page.html (map, route, view) and of map_common.js
-// (SVG, el, sx, sy, toMap).
+// (el, sx, sy, svgPoints, toMap, call, regionMark, pieceMark).
 // The page sizes the points (data-r) at each zoom and each redraw.
 //
 // Draw mode: a click adds a point to the active line, snapped to the floor.
@@ -50,28 +50,29 @@
   let active = 0;               // the line that a click adds to
   let selected = null;          // {line, index}
   let fromTrace = false;        // the drawing started from the trace file
-  const api = path => `/api/maps/${encodeURIComponent(route)}/${path}`;
   const isSelected = (l, i) => selected && selected.line === l && selected.index === i;
 
-  async function call(path, body) {
-    const response = await fetch(api(path), body === undefined ? {} :
-      {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || response.statusText);
-    return data;
-  }
+  // The faded or hidden regions (region_pick.js): a snap leaves their ground
+  // out, a path may still run through them. The ground in no region too, when
+  // it is faded (throughNoRegion).
+  const through = () => (window.regionPick ? window.regionPick.faded() : []);
+  const throughNoRegion = () => Boolean(window.regionPick && window.regionPick.noRegion());
 
   async function snap(x, y, z) {
     const params = new URLSearchParams({x, y});
     if (z !== undefined && z !== null) params.set("z", z);
+    for (const name of through()) params.append("through", name);
+    if (throughNoRegion()) params.set("through_no_region", "true");
     const found = await call(`snap?${params}`);
-    return {...found.point, floors: found.floors, joined: true, mark: false, note: ""};
+    // floorRegions: the regions of each floor height (only on a map with regions).
+    return {...found.point, floors: found.floors, floorRegions: found.floor_regions, joined: true, mark: false,
+            note: ""};
   }
 
   async function join(line, i) {
     const a = line.points[i], b = line.points[i + 1];
     line.pieces[i] = b.joined === false ? null :
-      await call("path", {start: {x: a.x, y: a.y, z: a.z}, end: {x: b.x, y: b.y, z: b.z}});
+      await call("path", {start: {x: a.x, y: a.y, z: a.z}, end: {x: b.x, y: b.y, z: b.z}, through: through()});
   }
 
   // Recompute the pieces next to point i of line l, then redraw.
@@ -97,7 +98,8 @@
     lines.forEach((line, l) => line.pieces.forEach((piece, i) => {
       if (!piece) return;
       const poly = el("polyline", {class: "draw-piece" + (l ? " branch" : "") + (piece.warnings.length ? " warn" : ""),
-                                   points: piece.points.map(p => `${sx(p)},${sy(p)}`).join(" ")}, layer);
+                                   points: svgPoints(piece.points),
+                                   ...pieceMark(line.points[i], line.points[i + 1])}, layer);
       el("title", {}, poly).textContent =
         `${l ? `branch ${l}, ` : ""}piece ${i + 1}: ${Math.round(piece.length * 10) / 10} yards` +
         piece.warnings.map(w => `\n${w.text}`).join("");
@@ -105,7 +107,8 @@
     lines.forEach((line, l) => line.points.forEach((point, i) => {
       const dot = el("circle", {class: "draw-point" + (l ? " branch" : "") + (point.mark ? " mark" : "") +
                                   (isSelected(l, i) ? " selected" : ""), cx: sx(point), cy: sy(point),
-                                "data-r": point.mark ? 6 : 4, "data-line": l, "data-index": i}, layer);
+                                "data-r": point.mark ? 6 : 4, "data-line": l, "data-index": i,
+                                ...regionMark(point)}, layer);
       const title = el("title", {}, dot);
       const floors = point.floors || [];
       title.textContent = `${l ? `branch ${l}, ` : ""}point ${i + 1}: ` +
@@ -136,7 +139,10 @@
       button.textContent = `floor at z ${z}` + (z === point.z ? " (this one)" : "");
       button.addEventListener("click", async () => {
         chooser.style.display = "none";
-        lines[l].points[i] = {...point, z};
+        // The regions of the chosen floor come with the snap: a new snap would
+        // leave out the ground of regions faded since then.
+        const regions = point.floorRegions && point.floorRegions[point.floors.indexOf(z)];
+        lines[l].points[i] = {...point, z, ...(regions ? {regions} : {})};
         await rejoin(l, i);
       });
       chooser.appendChild(button);

@@ -61,7 +61,8 @@
     const pack = packsByKey.get(key);
     if (!pack || typeof setView !== "function" || !view) return;  // the page's view (map_page.html)
     setView({...view, x: sx(pack) - view.w / 2, y: sy(pack) - view.h / 2});
-    const ring = el("circle", {class: "q-flash", cx: sx(pack), cy: sy(pack), r: 14 * yardsPerPixel}, group);
+    const ring = el("circle", {class: "q-flash", cx: sx(pack), cy: sy(pack), r: 14 * yardsPerPixel,
+                                ...regionMark(pack)}, group);
     setTimeout(() => ring.remove(), 1500);
   }
 
@@ -132,13 +133,13 @@
       if (!pack) continue;
       const at = `${sx(pack)} ${sy(pack)}`;
       const met = badges.every(b => metQuests.has(b.quest));
-      const dot = el("circle", {class: "q-badge" + (met ? " met" : ""), "data-badge": at}, group);
+      const dot = el("circle", {class: "q-badge" + (met ? " met" : ""), "data-badge": at, ...regionMark(badges[0])}, group);
       el("title", {}, dot).textContent = badges.map(b => b.text).join("\n");
-      el("text", {class: "q-badge-text", "data-badge": at}, group).textContent = "!";
+      el("text", {class: "q-badge-text", "data-badge": at, ...regionMark(badges[0])}, group).textContent = "!";
     }
     for (const q of quests) for (const o of q.objectives) {
       if (o.kind !== "visit") continue;
-      const pin = el("path", {class: "q-pin" + (o.met ? " met" : ""), "data-pin": `${sx(o)} ${sy(o)}`}, group);
+      const pin = el("path", {class: "q-pin" + (o.met ? " met" : ""), "data-pin": `${sx(o)} ${sy(o)}`, ...regionMark(o)}, group);
       el("title", {}, pin).textContent = `${q.quest} ${q.name}: visit ${o.name}` +
         (o.met ? " (on the route)" : ` (the route does not come within ${o.range} yd)`);
     }

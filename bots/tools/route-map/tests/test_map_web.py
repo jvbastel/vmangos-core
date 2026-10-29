@@ -80,19 +80,6 @@ def test_the_floor_is_only_the_floor_joined_to_the_route(tmp_path):
     assert bounds["z_max"] == -12.0  # the upper floor holds the route point p2
 
 
-def test_a_height_range_draws_only_the_floors_in_it(tmp_path):
-    web = client(tmp_path)
-
-    upper = web.get("/api/maps/fixture_cave", params={"z_min": -15}).json()["floor"]["bounds"]
-    lower = web.get("/api/maps/fixture_cave", params={"z_max": -15}).json()["floor"]["bounds"]
-    empty = web.get("/api/maps/fixture_cave", params={"z_min": 0})
-
-    assert upper == {"x_min": 103.0, "x_max": 107.0, "y_min": -47.0, "y_max": -43.0, "z_min": -12.0, "z_max": -12.0}
-    assert lower == {"x_min": 100.0, "x_max": 114.0, "y_min": -50.0, "y_max": -34.0, "z_min": -20.0, "z_max": -19.0}
-    assert empty.status_code == 422
-    assert "no floor between" in empty.json()["detail"]
-
-
 def test_the_page_is_served(tmp_path):
     response = client(tmp_path).get("/")
 

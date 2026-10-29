@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import math
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,7 @@ import map_packs
 import map_quests
 import navmesh
 import pack_order
+import regions
 import route_draft
 import route_draw
 import route_file
@@ -116,6 +118,13 @@ class MapData:
         except export_file.ExportFileError as error:
             raise HTTPException(422, f"export: {error}")
 
+    def regions(self, map_id: int) -> list[regions.Region]:
+        """The regions of the map (regions.py), none with no regions file."""
+        try:
+            return regions.load(self.settings.routes, map_id)
+        except regions.RegionsError as error:
+            raise HTTPException(422, f"regions: {error}")
+
     def packs(self, route: route_file.Route) -> dict:
         """map_packs' part of the route's map: one pack per key."""
         return map_packs.map_part(route, self.export(route.map_id))
@@ -130,6 +139,17 @@ def join_parts(*parts: dict) -> dict:
             raise ValueError(f"load-map parts share the keys {sorted(shared)}")
         joined.update(part)
     return joined
+
+
+def mark_regions(data: dict, map_regions: list[regions.Region]) -> dict:
+    """The load-map result with region marks (regions.mark): every position
+    carries the regions it is in, and a quest badge those of its pack."""
+    if not map_regions:
+        return data
+    data = regions.mark(data, map_regions)
+    pack_regions = {p["key"]: p["regions"] for p in data["packs"]}
+    data["quest_badges"] = [{**b, "regions": pack_regions.get(b["pack"], [])} for b in data["quest_badges"]]
+    return data
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -147,18 +167,48 @@ def create_app(settings: Settings) -> FastAPI:
 
     images = {}
 
-    def load_floor(route, z_min, z_max):
-        key = (route.map_id, tuple((p.x, p.y, p.z) for p in route.line + route.packs), z_min, z_max)
+    def data_url(png: bytes) -> str:
+        return "data:image/png;base64," + base64.b64encode(png).decode()
+
+    def load_floor(route, map_regions):
+        """The floor of the route's map: one image of all the ground, or with
+        regions, one ground image per region and one of the ground in no
+        region (floor_parts)."""
+        key = (route.map_id, tuple((p.x, p.y, p.z) for p in route.line + route.packs), repr(map_regions))
         if key not in images:
             mesh = maps.navmesh(route.map_id)
             polys = mesh.joined_to([(p.x, p.y, p.z) for p in route.line + route.packs])
             try:
-                image = floor_image.render(polys, z_min, z_max)
+                if not map_regions:
+                    image = floor_image.render(polys)
+                    images[key] = {"image": data_url(image.png), "bounds": image.bounds}
+                else:
+                    images[key] = floor_parts(polys, map_regions)
             except floor_image.EmptyFloor as error:
                 raise HTTPException(422, str(error))
-            images[key] = {"image": "data:image/png;base64," + base64.b64encode(image.png).decode(),
-                           "bounds": image.bounds}
         return images[key]
+
+    def floor_parts(polys, map_regions):
+        """The ground images, lowest first (the mean height of their ground),
+        each {"region": its name, or None for the ground in no region,
+        "image"}, all with the bounds of the whole floor. A poly is in a
+        region when its middle is: the mean of its points. A poly in two
+        regions (at a border) is in both images."""
+        names = [None] + [r.name for r in map_regions]
+        parts: dict = {name: [] for name in names}
+        for poly in polys:
+            n = len(poly.points)
+            mid = (sum(q[0] for q in poly.points) / n, sum(q[1] for q in poly.points) / n, poly.mean_z)
+            for name in regions.regions_at(map_regions, *mid) or [None]:
+                parts[name].append(poly)
+        bounds, pngs = floor_image.render_parts(polys, [parts[name] for name in names])
+
+        def height(name):
+            part = parts[name]
+            return sum(p.mean_z for p in part) / len(part) if part else -math.inf
+
+        layers = sorted(zip(names, pngs), key=lambda layer: height(layer[0]))
+        return {"bounds": bounds, "images": [{"region": name, "image": data_url(png)} for name, png in layers]}
 
     @app.get("/api/maps/{name}/floors")
     def floors(name: str, x: float, y: float):
@@ -167,9 +217,9 @@ def create_app(settings: Settings) -> FastAPI:
         return {"floors": [{"z": round(f.z, 2), "lava": f.poly.lava} for f in mesh.floors(x, y)]}
 
     @app.get("/api/maps/{name}")
-    def load_map(name: str, z_min: Optional[float] = None, z_max: Optional[float] = None):
-        """The map of a route: the floor image (only heights z_min to z_max
-        when given) with its bounds, the route line, every pack of the map (the
+    def load_map(name: str):
+        """The map of a route: the floor (load_floor) with its bounds, the
+        route line, every pack of the map (the
         export file) with the route's packs marked, the pack order, the
         patrols, the wanderers, the bosses, and the quest objectives with what
         the built route meets."""
@@ -178,16 +228,18 @@ def create_app(settings: Settings) -> FastAPI:
         packs = map_packs.map_part(route, export)
         order = pack_order.map_part(name, packs["packs"], settings.routes, route.line, export)
         quests = map_quests.map_part(route, export, packs["packs"], order["pack_order"]["pulled"])
-        base = {"route": route.name, "map_id": route.map_id, "floor": load_floor(route, z_min, z_max),
+        map_regions = maps.regions(route.map_id)
+        base = {"route": route.name, "map_id": route.map_id, "floor": load_floor(route, map_regions),
                 "line": [vars(p) for p in route.line]}
-        return join_parts(base, packs, order, quests)
+        return mark_regions(join_parts(base, packs, order, quests), map_regions)
 
-    walked_path.add_routes(app)
+    walked_path.add_routes(app, maps)
     route_draw.add_routes(app, maps)
     map_packs.add_routes(app)
     pack_order.add_routes(app, maps)
     map_quests.add_routes(app)
     route_draft.add_routes(app, maps)
+    regions.add_routes(app, maps)
     return app
 
 

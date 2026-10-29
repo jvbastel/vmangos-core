@@ -22,6 +22,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+import regions
 import trace_file
 
 HERE = Path(__file__).resolve().parent
@@ -100,7 +101,7 @@ def add_routes(app: FastAPI, maps):
     def draft(name: str, source: str = "route"):
         route = maps.route(name)
         if source == "route":
-            return {"source": source, "lines": route_lines(route)}
+            return regions.mark({"source": source, "lines": route_lines(route)}, maps.regions(route.map_id))
         if source == "trace":
             path: Path = maps.settings.routes / f"{name}.trace.txt"
             if not path.is_file():
@@ -109,5 +110,6 @@ def add_routes(app: FastAPI, maps):
                 trace = trace_file.parse(path.read_text())
             except trace_file.TraceFileError as error:
                 raise HTTPException(422, f"{path}: {error}")
-            return {"source": source, "file": str(path), "lines": trace_lines(trace)}
+            return regions.mark({"source": source, "file": str(path), "lines": trace_lines(trace)},
+                                maps.regions(route.map_id))
         raise HTTPException(422, "source is route or trace")
