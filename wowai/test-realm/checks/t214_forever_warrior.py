@@ -30,8 +30,8 @@ import struct
 import sys
 import time
 
-from kit import Realm, Results, pos
-from wowclient import MSG_MOVE_HEARTBEAT, WorldClient, unpack_guid
+from kit import Realm, Results, stand_before
+from wowclient import WorldClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
 CMSG_ATTACKSWING = 321
@@ -102,15 +102,13 @@ w.gm(".cheat god on", select=me)
 w.gm(".cheat criticals off", select=me)
 w.set_active_mover()
 
-# The boar at the Warrior's place; the Warrior steps 2 yards west of it and faces east, towards it.
-here = pos(w, me)
+# A boar at the Warrior's place; the Warrior stands 2 yards west of where it is once frozen, facing it.
 w.gm(".npc spawn add %d" % BOAR, wait=1.5)
 low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % BOAR).split()[-1])
 boar = (0xF130 << 48) | (BOAR << 24) | low
 w.gm(".modify hp 1000000 1000000", select=boar)
 w.gm(".aura %d" % FREEZE, select=boar)
-w.move(MSG_MOVE_HEARTBEAT, here[0] - 2.0, here[1], here[2], 0.0)
-w.pump(1)
+stand_before(w, boar)
 
 
 def equip(entry):
@@ -227,7 +225,9 @@ w.select(boar)
 w.send(CMSG_ATTACKSWING, struct.pack("<Q", boar))
 w.pump(SWING_SECONDS)
 w.send(CMSG_ATTACKSTOP)
-w.pump(4)
+# Each crit applies Deep Wound again, which restarts its 3 sec tick timer: while the Warrior swings every
+# 2 sec it hardly ticks. After the last swing it ticks every 3 sec: wait for two ticks.
+w.pump(8)
 deep = [d for s, d in w.ticks[start:] if s == DEEP_WOUND]
 deep_lines = re.findall(r"\[Forever\] Warrior DoT crit: \S+ spell %d " % DEEP_WOUND, realm.log())
 results.check("Deep Wound ticks on the boar", len(deep) >= 2, "%r" % deep)
