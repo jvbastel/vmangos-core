@@ -179,4 +179,59 @@ check "no command removes a slot" bash -c "! grep -E ' (down|rm)( |$)' '$FAKE_DO
 check "each Compose project is a slot or the baseline" bash -c \
   "! grep -oE -- '--project-name [^ ]+' '$FAKE_DOCKER_LOG' | grep -vE -- '--project-name wowai-test-([1-5]|baseline)$'"
 
+# --- Core settings of a lease, with the real dev script ---
+
+# A vmangos-deploy folder with an example mangosd.conf, extracted data, and a
+# chat service: what `realm config` reads.
+mkdir -p "$tmp/deploy/config" "$tmp/data/5875" "$WOWAI_BOTCHAT_SRC"
+touch "$WOWAI_BOTCHAT_SRC/Dockerfile"
+cat > "$tmp/deploy/config/mangosd.conf.example" <<'EOF'
+WowPatch = 10
+SOAP.Enabled = 0
+Rate.XP.Kill = 1
+Instance.PerHourLimit = 5
+Instance.UnloadDelay = 1800000
+LogLevel.File = 0
+EOF
+touch "$tmp/deploy/config/realmd.conf.example"
+export WOWAI_DEPLOY_DIR="$tmp/deploy" WOWAI_REALM_DATA="$tmp/data"
+
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 21 acquire --set Rate.XP.Kill=3 --set 'Forever.DataDir="/opt/forever dbc"'
+check "acquire with --set succeeds" test "$code" -eq 0
+check "acquire does not give --set to the dev script" bash -c "! grep -q -- '--set' <<<'$out'"
+s21="$(slot_of 21)"
+conf="$WOWAI_POOL_DIR/$s21/config/mangosd.conf"
+run_kit --ticket 21 config
+check "config succeeds" test "$code" -eq 0
+check "a setting of the lease that the file has gets its value" grep -qx 'Rate.XP.Kill = 3' "$conf"
+check "a setting of the lease that the file lacks is added" grep -qx 'Forever.DataDir = "/opt/forever dbc"' "$conf"
+check "the file has each setting once" test "$(grep -c '^Rate.XP.Kill' "$conf")" = 1
+check "the scripted runs still get their instance limit" grep -qx 'Instance.PerHourLimit = 100000' "$conf"
+check "the scripted runs still get their unload delay" grep -qx 'Instance.UnloadDelay = 120000' "$conf"
+check "the kit still raises the file log level" grep -qx 'LogLevel.File = 3' "$conf"
+check "SOAP is still on" grep -qx 'SOAP.Enabled = 1' "$conf"
+inode="$(stat -c %i "$conf")"
+
+run_kit --ticket 21 release
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 22 acquire
+check "the next lease gets the same slot" test "$(slot_of 22)" = "$s21"
+run_kit --ticket 22 config
+check "a lease with no settings gets the default value" grep -qx 'Rate.XP.Kill = 1' "$conf"
+check "a setting that the last lease added is gone" bash -c "! grep -q '^Forever.DataDir' '$conf'"
+check "the scripted run settings stay with no lease settings" grep -qx 'Instance.PerHourLimit = 100000' "$conf"
+check "the configuration file keeps its inode" test "$(stat -c %i "$conf")" = "$inode"
+
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 22 acquire --set Rate.XP.Kill=2
+run_kit --ticket 22 config
+check "a second acquire of a held lease writes its own settings" grep -qx 'Rate.XP.Kill = 2' "$conf"
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 22 acquire
+run_kit --ticket 22 config
+check "a second acquire with no settings gets the defaults" grep -qx 'Rate.XP.Kill = 1' "$conf"
+
+for bad in 'Rate.XP.Kill' '=1' 'Bad Name=1' $'Rate.XP.Kill=a\nb'; do
+  WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 23 acquire --set "$bad"
+  check "--set $(printf %q "$bad") is refused" test "$code" -ne 0
+done
+check "a refused request gets no lease" test -z "$(slot_of 23)"
+
 finish
