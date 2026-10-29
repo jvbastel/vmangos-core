@@ -341,6 +341,7 @@ void LoadDBCStores(std::string const& dataPath)
     }
 
     LoadDBC(talentDbcLocales, bar, badDbcFiles, sTalentTabStore,             Forever::DbcPath(dbcPath), "TalentTab.dbc");
+    Forever::LoadStockTalents(dbcPath);
 
     LoadDBC(availableDbcLocales, bar, badDbcFiles, sTaxiPathStore,            dbcPath, "TaxiPath.dbc");
     for (uint32 i = 1; i < sTaxiPathStore.GetNumRows(); ++i)

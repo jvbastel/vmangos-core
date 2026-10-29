@@ -57,3 +57,7 @@ sql/migrations/20261029120000_world.sql
 src/game/Database/DBCStores.cpp
 src/game/Spells/SpellMgr.cpp
 src/game/ObjectMgr.cpp
+# Spec hook 12: the Forever rules switch at login (WOWAI#208). The migration of the characters table
+# forever_character (the rules each character last logged in under); one call in
+# WorldSession::HandlePlayerLogin (CharacterHandler.cpp, above) and one in LoadDBCStores (above).
+sql/migrations/20261029140000_characters.sql
