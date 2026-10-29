@@ -270,3 +270,42 @@ def test_the_talent_rows_are_in_tree_tier_column_order_as_in_the_stock_table(out
         return [struct.unpack_from("<4I", data, 20 + i * fields * 4)[1:4] for i in range(records)]
     assert order(STOCK / "Talent.dbc") == sorted(order(STOCK / "Talent.dbc"))
     assert order(out / "client" / "DBFilesClient" / "Talent.dbc") == sorted(order(out / "client" / "DBFilesClient" / "Talent.dbc"))
+
+
+# Spell.dbc 1.12.1: 11 Stances (1 << (form - 1): Battle 0x10000, Defensive 0x20000, Berserker 0x40000).
+SPELL_STANCES = 11
+BATTLE_STANCE, DEFENSIVE_STANCE = 0x10000, 0x20000
+
+
+def test_vanguard_charge_is_stock_charge_that_the_client_allows_in_defensive_stance(out):
+    # WOWAI#216: Vanguard swaps each Charge rank (100, 6178, 11578) for its Vanguard Charge (60127-60129).
+    # The client checks the stance of a spell itself, so the new rows need Battle and Defensive Stance.
+    client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    stock, _ = read_dbc(STOCK / "Spell.dbc")
+    server = server_spells(out)
+    for rank, (vanguard, charge) in enumerate(((60127, 100), (60128, 6178), (60129, 11578))):
+        assert stock[charge][SPELL_STANCES] == BATTLE_STANCE
+        row = client[vanguard]
+        assert row[SPELL_STANCES] == BATTLE_STANCE | DEFENSIVE_STANCE, vanguard
+        assert int(server[vanguard]["stances"]) == BATTLE_STANCE | DEFENSIVE_STANCE, vanguard
+        # The rest is the stock rank: effects, rage, range, cooldown, family (so Improved Charge applies).
+        assert row[1:SPELL_STANCES] == stock[charge][1:SPELL_STANCES], vanguard
+        assert row[SPELL_STANCES + 1:SPELL_NAME] == stock[charge][SPELL_STANCES + 1:SPELL_NAME], vanguard
+        assert row[160:163] == stock[charge][160:163], vanguard
+        assert text(row[SPELL_NAME]) == "Charge" and text(row[SPELL_RANK]) == "Rank %d" % (rank + 1)
+
+
+def test_the_vanguard_talent_is_a_passive_spell_that_the_rules_switch_knows(out):
+    # The core swaps Charge when a Warrior learns the Vanguard talent spell, and back when it loses it
+    # (src/game/Forever/Vanguard.cpp). Its IDs must be the spec IDs.
+    client, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    assert client[60119][6] & 0x40  # passive: a talent, no button
+    vanguard = (ROOT / "src" / "game" / "Forever" / "Vanguard.cpp").read_text(encoding="utf-8")
+    assert re.search(r"\bVanguardTalentSpell = 60119;", vanguard)
+    pairs = re.findall(r"\{ (\d+), (\d+) \}", vanguard)
+    assert [tuple(map(int, p)) for p in pairs] == [(100, 60127), (6178, 60128), (11578, 60129)]
+    rows = {row["name"]: row for row in spec_rows()}
+    assert spells_of(rows["Vanguard"]) == [60119]
+    charge = [row for row in spec_rows("ability") if row["name"] == "Charge"][0]
+    assert list(zip(spells_of(charge), map(int, charge["sourceSpells"].split(",")))) == \
+        [(60127, 100), (60128, 6178), (60129, 11578)]
