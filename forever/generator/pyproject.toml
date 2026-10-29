@@ -1,0 +1,18 @@
+[project]
+name = "wowai-forever"
+version = "0.1.0"
+description = "The generator of the Forever rules data: Forever DBC folder, client spell rows, Forever server tables."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
