@@ -84,6 +84,7 @@
 #include "world/world_event_wareffort.h"
 #include "BotHooks.h"
 #include "Forever.h"
+#include "ForeverProtection.h"
 
 #include <climits>
 
@@ -6880,6 +6881,10 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply)
     // Some bonus parry talents are weapon specific in early patches.
     if (slot == EQUIPMENT_SLOT_MAINHAND)
         UpdateParryPercentage();
+
+    // WOWAI Forever rules (#219): Defiance and Bastion follow the shield in the off hand.
+    if (slot == EQUIPMENT_SLOT_OFFHAND)
+        Forever::OnOffHandChanged(this, item, apply);
 
     sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "_ApplyItemMods complete.");
 }
