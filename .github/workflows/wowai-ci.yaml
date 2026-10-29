@@ -152,6 +152,7 @@ jobs:
           wowai/release/tests/release-core.test.sh
           wowai/tests/check-kit.test.sh --quick
           wowai/tests/realm-pool.test.sh
+          wowai/tests/forever-client.test.sh
           wowai/tests/game-layer-map.test.sh
           python3 wowai/tests/test_wowclient.py
           python3 wowai/tests/test_runs.py
