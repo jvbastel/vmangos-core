@@ -70,6 +70,12 @@ sql/migrations/20261029140000_characters.sql
 src/game/Objects/Unit.cpp
 src/game/Spells/SpellAuras.cpp
 src/game/Spells/SpellEffects.cpp
+# Spec hook 13: the Forever baseline spells and base abilities (WOWAI#212): one call in Player::GiveLevel
+# (Player.cpp, above), and the Forever Bloodthirst damage in the stock Bloodthirst script.
+src/scripts/spells/spell_warrior.cpp
+# #213 (Victory Rush): one call into src/game/Forever/VictoryRush.h each in Unit::Kill (Unit.cpp),
+# Aura::HandleAuraDummy (SpellAuras.cpp), Spell::EffectSchoolDMG and Spell::EffectDummy (SpellEffects.cpp).
+# The three files are listed above (#214).
 # Spec hook 13, #219 (Forever Protection talents): one call each into ForeverProtection.h for the shield
 # gate of Defiance and Bastion (Spell::CheckCast, Player::_ApplyItemMods, HandlePlayerLogin), Iron Will
 # (Spell::DoSpellHitOnUnit) and Master of Defense (Unit::ProcSkillsAndReactives). Player.cpp,

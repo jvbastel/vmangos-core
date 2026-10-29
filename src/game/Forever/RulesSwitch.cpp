@@ -87,7 +87,7 @@ namespace
     // The steps of the switch of a Warrior to the rules `to`. The extension point of the switch: a later
     // step goes here as one call, before the action bars are cleaned (OnLogin), so that a button of a
     // spell that a step takes away leaves the bars too.
-    //   #212: with to == Rules::Forever, learn the baseline Forever abilities of the level.
+    //   #212: with to == Rules::Forever, learn the baseline Forever abilities of the level (done below).
     //   #216: with to == Rules::Vanilla, give back stock Charge.
     void SwitchWarrior(Player* player, Rules to)
     {
@@ -105,6 +105,11 @@ namespace
 
         if (to == Rules::Vanilla)
             Forever::GiveBackStockCharge(player);
+
+        // #212: the baseline Forever abilities of the level, with no trainer visit.
+        if (to == Rules::Forever)
+            if (uint32 learned = Forever::LearnBaselineSpells(player))
+                sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] %s learns %u baseline spells of level %u.", player->GetName(), learned, player->GetLevel());
     }
 
     // Takes the buttons of the spells that the switch took away off the action bars. A button of a
@@ -162,7 +167,11 @@ void Forever::OnLogin(Player* player, MasterPlayer* master)
     Rules const from = StoredRules(guid, found);
     Rules const to = ActiveRules();
     if (found && from == to)
+    {
+        // A baseline spell that a refresh of the spec added since the last login (#212).
+        LearnBaselineSpells(player);
         return;
+    }
 
     // Only the Warrior has Forever rules; another class only gets its rules stored.
     bool const switched = from != to && player->GetClass() == CLASS_WARRIOR;

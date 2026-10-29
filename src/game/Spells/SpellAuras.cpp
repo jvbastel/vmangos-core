@@ -50,6 +50,7 @@
 #include "MovementPacketSender.h"
 #include "ZoneScript.h"
 #include "ForeverWarrior.h"
+#include "VictoryRush.h"
 #include "LoveIsInTheAir.h"
 #include "Utilities/Random.h"
 
@@ -1636,6 +1637,9 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
         return;
 
     Unit* target = GetTarget();
+
+    // Forever rules: Victorious sets the aura state of Victory Rush (jvbastel/WOWAI#213).
+    Forever::OnVictoriousAura(target, GetId(), apply);
 
     // AT APPLY
     if (apply)

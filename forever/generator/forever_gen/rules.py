@@ -11,7 +11,7 @@ Icon rule: a stock SpellIcon.dbc ID, and never a core spell marker on a new or c
 """
 from collections import Counter
 
-from .spec import SpecError, talents
+from .spec import SKILL_LINE, SpecError, talents
 
 MAX_TIERS, MAX_COLUMNS, MAX_TALENTS_PER_TREE, MAX_RANKS = 7, 4, 20, 5
 WARRIOR_TABS = {"arms": 161, "fury": 164, "protection": 163}
@@ -90,6 +90,8 @@ def check_ids(spec, stock):
                     raise SpecError("%s is no stock spell: a base row changes stock spells" % where)
                 if not low <= spell <= high:
                     raise SpecError("%s is outside the free ID range %d-%d" % (where, low, high))
+            if SKILL_LINE in row.fields and spell in stock_spells:
+                raise SpecError("%s: a skill line takes the ID of its spell, so only a new spell gets one" % where)
 
 
 def check_icons(spec, stock, marker_icons):

@@ -4,13 +4,16 @@ Three outputs, all from the same rows, so that the client and the server never d
   dbc/                  the Forever DBC folder of the server core (Forever.DataDir): the talent tables
   client/DBFilesClient/ the DBCs of the client data patch
   client/client-data-patch.MPQ  the client data patch: those DBCs in one MPQ
-  sql/forever_world.sql the Forever server tables (forever_spell_template, ...) of the world database
+  sql/forever_world.sql the Forever server tables (forever_spell_template, ...) of the world database, and
+                        forever_baseline_spell: the spells that the core teaches at their level (#212)
+The client data patch holds the talent tables, the spell table and the skill line abilities.
 """
 import os
 
 from . import client_patch, rules
 from .dbc import Dbc
-from .spec import FIELDS, NAME_SUBTEXT, PROC_EVENT, proc_event, talents
+from .spec import (BASELINE, FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
+                   SUPERSEDED_BY, proc_event, talents)
 
 # TalentTab.dbc IDs of the Warrior trees.
 WARRIOR_TABS = rules.WARRIOR_TABS
@@ -30,6 +33,12 @@ SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 CLIENT_BUILD = 5875
 FOREVER_TABLES = ("forever_spell_template", "forever_spell_chain", "forever_spell_proc_event",
                   "forever_skill_line_ability")
+# The spells that the core teaches a Warrior at their spellLevel, with no trainer (#212). Only the generated
+# SQL makes this table: the core reads it only with Forever.Rules = 1.
+BASELINE_TABLE = "forever_baseline_spell"
+# SkillLineAbility.dbc 1.12.1: 0 ID, 1 SkillLine, 2 Spell, 3 RaceMask, 4 ClassMask, 5-6 exclude masks,
+# 7 MinSkillRank, 8 SupersededBy, 9 AcquireMethod (0: a trainer or the core teaches it), 10-14 0.
+WARRIOR_CLASS_MASK = 1
 
 
 class Stock:
@@ -40,6 +49,7 @@ class Stock:
         self.talent_tab = Dbc.read(os.path.join(folder, "TalentTab.dbc"))
         self.spell = Dbc.read(os.path.join(folder, "Spell.dbc"))
         self.spell_icon = Dbc.read(os.path.join(folder, "SpellIcon.dbc"))
+        self.skill_line_ability = Dbc.read(os.path.join(folder, "SkillLineAbility.dbc"))
 
 
 def spell_ranks(spec):
@@ -68,8 +78,39 @@ def spell_changes(row, rank):
             changes += [("effectBasePoints%d" % k, values[rank] - 1), ("effectDieSides%d" % k, 1),
                         ("effectBaseDice%d" % k, 1)]
     changes += [(name, values[rank]) for name, values in row.fields.items()
-                if name != NAME_SUBTEXT and not name.startswith(PROC_EVENT)]
+                if name not in GENERATOR_KEYS and not name.startswith(PROC_EVENT)]
     return changes
+
+
+def skill_line_abilities(spec):
+    """(ID, skill line, spell, superseded by) of each spell of a row with a skill line. The ID is the
+    spell ID: a new spell is in the free range, so its ID is free in SkillLineAbility.dbc too."""
+    abilities = []
+    for row in spec.rows:
+        if SKILL_LINE not in row.fields:
+            continue
+        for rank, spell in enumerate(row.spells):
+            if SUPERSEDED_BY in row.fields:
+                superseded = row.fields[SUPERSEDED_BY][rank]
+            else:
+                superseded = row.spells[rank + 1] if rank + 1 < len(row.spells) else 0
+            abilities.append((spell, row.fields[SKILL_LINE][rank], spell, superseded))
+    return sorted(abilities)
+
+
+def baseline_spells(spec):
+    return sorted(spell for row in spec.rows if BASELINE in row.fields
+                  for rank, spell in enumerate(row.spells) if row.fields[BASELINE][rank])
+
+
+def client_skill_line_ability_table(abilities, stock):
+    """SkillLineAbility.dbc: every stock row byte for byte, then the new rows."""
+    table = stock.skill_line_ability.copy()
+    for ability_id, skill, spell, superseded in abilities:
+        row = [0] * table.fields
+        row[0], row[1], row[2], row[4], row[7], row[8] = ability_id, skill, spell, WARRIOR_CLASS_MASK, 1, superseded
+        table.rows.append(row)
+    return table
 
 
 def spell_texts(row, rank, stock_rank_text):
@@ -156,6 +197,8 @@ def server_sql(spec, spells, stock):
         if description is not None:
             values.append(("description", _sql_text(description)))
         values += [(column, str(value)) for column, value in spell_changes(row, rank)]
+        if SCRIPT_NAME in row.fields:
+            values.append(("script_name", _sql_text(row.fields[SCRIPT_NAME][rank])))
         lines += [
             "",
             "-- %s rank %d, %s." % (row.name, rank + 1,
@@ -168,7 +211,41 @@ def server_sql(spec, spells, stock):
         ]
     for row in spec.rows:
         lines += proc_event_sql(row)
+    lines += _server_skill_line_abilities(skill_line_abilities(spec))
+    lines += _server_baseline(baseline_spells(spec))
     return "\n".join(lines) + "\n"
+
+
+def _server_skill_line_abilities(abilities):
+    """The forever_skill_line_ability rows: each a copy of a stock row (for the shape) with every column set."""
+    lines = []
+    for ability_id, skill, spell, superseded in abilities:
+        values = [("id", ability_id), ("build", CLIENT_BUILD), ("skill_id", skill), ("spell_id", spell),
+                  ("race_mask", 0), ("class_mask", WARRIOR_CLASS_MASK), ("req_skill_value", 1),
+                  ("superseded_by_spell", superseded), ("learn_on_get_skill", 0), ("max_value", 0),
+                  ("min_value", 0), ("req_train_points", 0)]
+        lines += [
+            "",
+            "-- The skill line ability of spell %d." % spell,
+            "CREATE TEMPORARY TABLE `forever_sla_new` SELECT * FROM `skill_line_ability` WHERE `build`=%d "
+            "ORDER BY `id` LIMIT 1;" % CLIENT_BUILD,
+            "UPDATE `forever_sla_new` SET %s;" % ", ".join("`%s`=%d" % kv for kv in values),
+            "INSERT INTO `forever_skill_line_ability` SELECT * FROM `forever_sla_new`;",
+            "DROP TEMPORARY TABLE `forever_sla_new`;",
+        ]
+    return lines
+
+
+def _server_baseline(spells):
+    lines = ["", "-- The baseline spells: the core teaches each at its spellLevel with no trainer.",
+             "DROP TABLE IF EXISTS `%s`;" % BASELINE_TABLE,
+             "CREATE TABLE `%s` (`spell_id` SMALLINT UNSIGNED NOT NULL, PRIMARY KEY (`spell_id`));" % BASELINE_TABLE]
+    if spells:
+        lines.append("INSERT INTO `%s` (`spell_id`) VALUES %s;" % (BASELINE_TABLE,
+                                                                  ", ".join("(%d)" % s for s in spells)))
+    return lines
+
+
 
 
 def proc_event_sql(row):
@@ -203,6 +280,7 @@ def generate(spec, stock_folder, out, marker_icons):
     talents = in_client_order(talent_table(spec, stock))
     spell_table = client_spell_table(spells, stock)
     sql = server_sql(spec, spells, stock)
+    abilities = client_skill_line_ability_table(skill_line_abilities(spec), stock)
 
     server_dbc = os.path.join(out, "dbc")
     client_dbc = os.path.join(out, "client", "DBFilesClient")
@@ -213,6 +291,7 @@ def generate(spec, stock_folder, out, marker_icons):
         talents.write(os.path.join(folder, "Talent.dbc"))
         stock.talent_tab.write(os.path.join(folder, "TalentTab.dbc"))
     spell_table.write(os.path.join(client_dbc, "Spell.dbc"))
+    abilities.write(os.path.join(client_dbc, "SkillLineAbility.dbc"))
     with open(os.path.join(sql_dir, "forever_world.sql"), "w", encoding="utf-8", newline="\n") as file:
         file.write(sql)
     client_patch.write(os.path.join(out, "client"))

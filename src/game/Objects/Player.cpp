@@ -3217,6 +3217,7 @@ void Player::GiveLevel(uint32 level)
         pet->SynchronizeLevelWithOwner();
 
     BotHooks::OnLevelUp(this);
+    Forever::LearnBaselineSpells(this);
 }
 
 void Player::UpdateFreeTalentPoints(bool resetIfNeed)

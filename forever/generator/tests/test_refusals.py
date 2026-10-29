@@ -127,3 +127,9 @@ def test_a_marker_icon_on_a_changed_stock_spell(tmp_path):
 def test_an_icon_that_is_no_stock_icon(tmp_path):
     lines = change_row(spec_lines(), "Bloodthrill", icon="99999")
     assert "no stock SpellIcon.dbc ID" in refused(tmp_path, lines)
+
+
+def test_a_skill_line_on_a_stock_spell(tmp_path):
+    # A skill line ability takes the ID of its spell: only a new spell's ID is free in SkillLineAbility.dbc.
+    error = refused(tmp_path, change_row(spec_lines(), "Berserker Rage", set="skillLine=256"))
+    assert "skill line" in error and "18499" in error
