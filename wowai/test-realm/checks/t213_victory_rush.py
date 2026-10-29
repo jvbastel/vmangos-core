@@ -76,7 +76,7 @@ def spawn_boar(client, level=None):
     """A boar at the client's place; its guid."""
     guid = spawn(realm, client)
     if level is not None:
-        client.gm(".npc level %d" % level, select=guid)
+        client.gm(".npc set level %d" % level, select=guid)
     return guid
 
 
