@@ -60,3 +60,27 @@ def test_victory_rush_needs_no_weapon(client, server):
     row = client[VICTORY_RUSH]
     assert (int32(row[EQUIPPED_ITEM_CLASS]), row[EQUIPPED_ITEM_SUBCLASS_MASK]) == (-1, 0)
     assert int(server[VICTORY_RUSH]["equippedItemClass"]) == -1
+
+
+BATTLE_SHOUT = (6673, 5242, 6192, 11549, 11550, 11551, 25289)
+DEMORALIZING_SHOUT = (1160, 6190, 11554, 11555, 11556)
+SPELL_EFFECT_THREAT = 63
+
+
+def test_battle_shout_gains_the_client_attack_power_per_level(client):
+    assert [per_level(client[s]) for s in BATTLE_SHOUT] == [0.3, 0.3, 0.3, 0.6, 0.6, 0.6, 0.6]
+
+
+def test_demoralizing_shout_loses_the_client_attack_power_per_level(client):
+    assert [per_level(client[s]) for s in DEMORALIZING_SHOUT] == [-1.4] * 5
+
+
+def test_demoralizing_shout_threat_grows_per_level_on_every_target_hit(client):
+    # Client: effect 2 THREAT 11/19/27/35/43 + 0.8 per level, on the targets of effect 1. The flat part stays
+    # in the stock spell_threat rows (the same 11/19/27/35/43), so effect 2 adds only the per-level part.
+    for spell in DEMORALIZING_SHOUT:
+        row = client[spell]
+        assert row[EFFECT + 1] == SPELL_EFFECT_THREAT
+        assert row[TARGET_A + 1] == row[TARGET_A]
+        assert int32(row[BASE_POINTS + 1]) + 1 == 0
+        assert per_level(row, 1) == 0.8
