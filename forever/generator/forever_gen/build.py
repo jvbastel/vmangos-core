@@ -23,6 +23,8 @@ TALENT_FIELDS = 21
 SPELL_ATTRIBUTES, SPELL_ICON = 6, 117
 SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION = 120, 129, 138
 SPELL_ATTR_PASSIVE = 0x40
+# The one 64-bit `set` column: the generator writes its high word into the next Spell.dbc field.
+SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 
 # The world database build of the Forever rows (SUPPORTED_CLIENT_BUILD of the core).
 CLIENT_BUILD = 5875
@@ -118,6 +120,8 @@ def client_spell_table(spells, stock):
         target[0] = spell
         for name, value in spell_changes(row, rank):
             target[FIELDS[name] if name != "spellIconId" else SPELL_ICON] = value & 0xFFFFFFFF
+            if name == SPELL_FAMILY_FLAGS:
+                target[FIELDS[name] + 1] = (value >> 32) & 0xFFFFFFFF
         stock_rank_text = "" if new else table.text(target[SPELL_RANK])
         for first, value in zip((SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION), spell_texts(row, rank, stock_rank_text)):
             # enUS only: the other locale strings of the stock row would be stale.

@@ -25,7 +25,9 @@ NO_TREE = "-"
 FIELDS = {"category": 2, "attributes": 6, "stances": 11, "casterAuraState": 16, "castingTimeIndex": 18,
           "recoveryTime": 19, "categoryRecoveryTime": 20, "procFlags": 24, "procChance": 25, "procCharges": 26,
           "baseLevel": 28, "spellLevel": 29, "durationIndex": 30, "manaCost": 32, "rangeIndex": 36,
-          "equippedItemClass": 58, "equippedItemSubClassMask": 59}
+          "equippedItemClass": 58, "equippedItemSubClassMask": 59,
+          # 64 bits: Spell.dbc holds the low word here and the high word in the next field.
+          "spellFamilyFlags": 161}
 for _k in range(3):
     for _name, _first in (("effect", 61), ("effectDieSides", 64), ("effectBaseDice", 67), ("effectBasePoints", 76),
                           ("effectImplicitTargetA", 82), ("effectRadiusIndex", 88), ("effectApplyAuraName", 91),
