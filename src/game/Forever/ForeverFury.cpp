@@ -75,7 +75,7 @@ namespace
     }
 }
 
-void Forever::OnLeaveCombat(Unit* unit)
+void Forever::StartLingeringRage(Unit* unit)
 {
     if (!IsForeverWarrior(unit) || !unit->IsAlive() || !unit->IsInWorld() || !unit->GetPower(POWER_RAGE))
         return;
@@ -143,7 +143,7 @@ void Forever::OnMeleeDamageDealt(Unit* attacker, Unit* victim, DamageEffectType 
     if (heal)
         attacker->DealHeal(attacker, heal, buff->GetSpellProto());
     if (buff->DropAuraCharge())
-        attacker->RemoveSpellAuraHolder(buff, AURA_REMOVE_BY_EXPIRE);
+        attacker->RemoveAurasDueToSpell(GoreDrinkerBuff);   // by ID, as the stock proc charges do
 }
 
 void Forever::OnDamageTaken(Unit* attacker, Unit* victim, uint32 damage, DamageEffectType damagetype)

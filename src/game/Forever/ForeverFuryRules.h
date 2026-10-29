@@ -79,7 +79,7 @@ namespace FuryRules
         switch (spellId)
         {
             case 12880: case 14201: case 14202: case 14203: case 14204:    // Enrage
-            case 18499:                                                     // Berserker Rage
+            case BerserkerRage:
             case 2687:                                                      // Bloodrage
             case 12328:                                                     // Death Wish
             case 23881: case 23892: case 23893: case 23894:                 // Bloodthirst

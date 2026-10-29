@@ -25,7 +25,7 @@ namespace Forever
 {
     // Unit::Update, when a player drops out of combat: a Warrior with Lingering Rage and rage gets the
     // Lingering Rage buff for the talent's delay (2-10 sec).
-    void OnLeaveCombat(Unit* unit);
+    void StartLingeringRage(Unit* unit);
 
     // Player::RegenerateAll, out of combat: false while the Lingering Rage buff runs (no rage decay).
     bool RageDecays(Player const* player);

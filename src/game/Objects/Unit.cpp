@@ -283,7 +283,7 @@ void Unit::Update(uint32 update_diff, uint32 p_time)
 
                         ClearInCombat();
                         // Forever rules: Lingering Rage holds the rage after combat (jvbastel/WOWAI#218).
-                        Forever::OnLeaveCombat(this);
+                        Forever::StartLingeringRage(this);
                     }
                 }
             }
