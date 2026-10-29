@@ -52,6 +52,7 @@
 #include "ScriptMgr.h"
 #include "SocialMgr.h"
 #include "ForeverWarrior.h"
+#include "VictoryRush.h"
 
 using namespace Spells;
 using ExecuteLogInfo = WorldPackets::Spell::SpellLogExecute::ExecuteLogInfo;
@@ -308,6 +309,8 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
 {
     if (unitTarget && unitTarget->IsAlive())
     {
+        // Forever rules: Victory Rush adds a percent of attack power (jvbastel/WOWAI#213).
+        Forever::VictoryRushDamage(this, effect_idx);
         if (damage >= 0)
             m_damage += damage;
     }
@@ -316,6 +319,10 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
 void Spell::EffectDummy(SpellEffectIndex effIdx)
 {
     if (!unitTarget && !gameObjTarget && !itemTarget && !corpseTarget)
+        return;
+
+    // Forever rules: the heal of Victory Rush (jvbastel/WOWAI#213).
+    if (Forever::VictoryRushDummy(this, effIdx))
         return;
 
     // selection by spell family
