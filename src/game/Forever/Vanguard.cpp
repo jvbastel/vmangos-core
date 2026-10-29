@@ -24,6 +24,7 @@
 #include "WorldSession.h"
 
 #include <memory>
+#include <string>
 #include <unordered_set>
 
 namespace
@@ -214,8 +215,9 @@ void Forever::OnSpellLearned(Player* player, uint32 spellId)
 
 void Forever::OnSpellRemoved(Player* player, uint32 spellId)
 {
-    if (spellId == VanguardTalentSpell && player->GetClass() == CLASS_WARRIOR)
-        GiveBackStockChargeInWorld(player);
+    if (spellId != VanguardTalentSpell || !RulesOn() || player->GetClass() != CLASS_WARRIOR)
+        return;
+    GiveBackStockChargeInWorld(player);
 }
 
 void Forever::GiveBackStockCharge(Player* player)
@@ -232,10 +234,12 @@ void Forever::GiveBackStockCharge(Player* player)
     SetActive(player, stock, true);
 
     // The buttons of the Vanguard Charge are still in the database until the switch saves the bars.
+    std::string vanguardCharges;
+    for (ChargeRank const& rank : ChargeRanks)
+        vanguardCharges += (vanguardCharges.empty() ? "" : ", ") + std::to_string(rank.vanguard);
     std::unique_ptr<QueryResult> result(CharacterDatabase.PQuery(
-        "SELECT `button` FROM `character_action` WHERE `guid` = %u AND `type` = %u AND `action` IN (%u, %u, %u)",
-        player->GetGUIDLow(), uint32(ACTION_BUTTON_SPELL), ChargeRanks[0].vanguard, ChargeRanks[1].vanguard,
-        ChargeRanks[2].vanguard));
+        "SELECT `button` FROM `character_action` WHERE `guid` = %u AND `type` = %u AND `action` IN (%s)",
+        player->GetGUIDLow(), uint32(ACTION_BUTTON_SPELL), vanguardCharges.c_str()));
     MasterPlayer* master = player->GetSession()->GetMasterPlayer();
     if (!result || !master)
         return;
