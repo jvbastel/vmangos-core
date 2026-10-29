@@ -60,6 +60,7 @@
 #include "Errors.h"
 #include "Utilities/Random.h"
 #include "ForeverWarrior.h"
+#include "VictoryRush.h"
 #include "ForeverFury.h"
 
 #include <limits>
@@ -1115,6 +1116,9 @@ void Unit::Kill(Unit* pVictim, SpellEntry const* spellProto, bool durabilityLoss
     // To be replaced if possible using ProcDamageAndSpell
     if (pVictim != this) // The one who has the fatal blow
         ProcDamageAndSpell(ProcSystemArguments(pVictim, PROC_FLAG_KILL, PROC_FLAG_HEARTBEAT, PROC_EX_NONE, 0, 0));
+
+    // Forever rules: the Warrior with the killing blow gets Victorious (jvbastel/WOWAI#213).
+    Forever::OnKillForVictoryRush(this, pVictim);
 
     DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamageAttackStop");
 

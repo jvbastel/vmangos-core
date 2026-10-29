@@ -101,6 +101,11 @@ jobs:
         shell: bash
         run: wowai/tests/forever-warrior-rules.test.sh
 
+      # The pure rules of Victory Rush under the Forever rules (#213), with the host compiler.
+      - name: Run the Forever Victory Rush rules test
+        shell: bash
+        run: wowai/tests/forever-victory-rush.test.sh
+
       # The pure rules of the Forever Fury talents (#218), with the host compiler.
       - name: Run the Forever Fury rules test
         shell: bash
