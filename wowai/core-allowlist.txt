@@ -50,7 +50,7 @@ src/game/Objects/TemporarySummon.h
 # generator, the fork's own Forever folder, the migration of the forever_* world tables, and one
 # call into Forever.h in each loader that reads Forever data: the config (World.cpp, above), the
 # talent tables (DBCStores.cpp), and the spell rows (SpellMgr.cpp: spell_template, spell_chain,
-# spell_proc_event; ObjectMgr.cpp: skill_line_ability).
+# spell_proc_event, spell_threat; ObjectMgr.cpp: skill_line_ability).
 forever/**
 src/game/Forever/**
 sql/migrations/20261029120000_world.sql
@@ -91,3 +91,7 @@ src/game/Objects/SpellCaster.cpp
 # Gore Drinker and Improved Berserker Rage (Spell::cast).
 # SpellCaster.cpp is listed above (#217), Spell.cpp below.
 src/game/Spells/Spell.cpp
+# Spec hook 13, #204 final fix pass (client 70685): one call each into ForeverWarrior.h for the Anger
+# Management rage tick (Aura::PeriodicTick, SpellAuras.cpp), the out-of-combat rage loss
+# (Player::Regenerate, Player.cpp) and the Revenge attack power (Spell::EffectSchoolDMG, SpellEffects.cpp).
+# The three files are listed above.

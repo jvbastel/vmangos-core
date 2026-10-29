@@ -62,9 +62,14 @@ int main()
     Check("a hit or a block (not a dodge or parry): no Rage", !MasterOfDefenseCanProc(false, true, 100));
     Check("no talent (chance 0): no Rage", !MasterOfDefenseCanProc(true, true, 0));
 
-    // Iron Will: Stun and Fear durations, 3/6/9/12/15% shorter.
+    // Iron Will: Charm and Stun durations (client 70685: mechanics 1 and 12), 3/6/9/12/15% shorter.
+    Check("Iron Will shortens a Stun", IronWillShortens(1u << (12 - 1)));
+    Check("Iron Will shortens a Charm", IronWillShortens(1u << (1 - 1)));
+    Check("Iron Will shortens a spell with a Stun among other mechanics", IronWillShortens((1u << (12 - 1)) | (1u << (7 - 1))));
+    Check("Iron Will does not shorten a Fear", !IronWillShortens(1u << (5 - 1)));
+    Check("Iron Will does not shorten a spell with no mechanic", !IronWillShortens(0));
     Equal("Iron Will 5/5 makes a 6 sec stun 5.1 sec", IronWillDuration(6000, 15), 5100);
-    Equal("Iron Will 1/5 makes a 10 sec fear 9.7 sec", IronWillDuration(10000, 3), 9700);
+    Equal("Iron Will 1/5 makes a 10 sec charm 9.7 sec", IronWillDuration(10000, 3), 9700);
     Equal("no Iron Will: the duration stays", IronWillDuration(3000, 0), 3000);
     Equal("a duration that does not divide evenly rounds down", IronWillDuration(1001, 15), 850);
     Equal("a value above 100% never makes a negative duration", IronWillDuration(3000, 150), 0);

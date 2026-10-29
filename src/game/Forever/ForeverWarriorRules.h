@@ -8,8 +8,9 @@
 #ifndef WOWAI_GAME_FOREVER_WARRIOR_RULES_H
 #define WOWAI_GAME_FOREVER_WARRIOR_RULES_H
 
-// The pure math of the Forever Warrior mechanics (jvbastel/WOWAI#214): rage from weapon speed and the
-// Deep Wounds bleed. No game header, so wowai/tests/forever-warrior-rules.test.sh tests it on the host.
+// The pure math of the Forever Warrior mechanics (jvbastel/WOWAI#214): rage from weapon speed, the rage
+// of Anger Management and Dual Wield Specialization, the Deep Wounds bleed and the attack power part of
+// Revenge. No game header, so wowai/tests/forever-warrior-rules.test.sh tests it on the host.
 // ForeverWarrior.cpp calls it from the core hooks. The chosen formulas and their sources are in the
 // header of forever/warrior.tsv ("Warrior mechanics").
 
@@ -26,21 +27,54 @@ namespace WarriorRules
     constexpr float OffHandFactor = 0.5f;
     // Blizzard, 2 Oct: a critical basic attack gives 100% more rage.
     constexpr float CritFactor = 2.0f;
+    // The rank spells of Dual Wield Specialization, rank 1 first (forever/warrior.tsv).
+    constexpr uint32_t DualWieldSpecializationRanks[] = { 23584, 23585, 23586, 23587, 23588 };
     // A Warrior without a usable weapon swings with the unarmed speed of the core (BASE_ATTACK_TIME).
     constexpr uint32_t UnarmedSpeedMs = 2000;
+    // Revenge: a percent of attack power on top of the base damage. Only the client hotfix of Revenge has
+    // it (SpellDescriptionVariables 1024: 0.225 in Defensive Stance, else 0.25; still pushed to build
+    // 1.60.1.70685), not the 70685 DB2 itself. Improved Revenge raises the whole damage (a damage modifier).
+    constexpr float RevengeAttackPowerPct = 25.0f;
+    constexpr float RevengeDefensiveAttackPowerPct = 22.5f;
     // Deep Wound (12721): 12 sec with a tick every 3 sec.
     constexpr uint32_t DeepWoundTicks = 4;
 
     // The rage (in rage points, not tenths) of one melee swing that hits. Only the base speed of the
     // weapon counts, so haste gives more swings but not more rage per swing. Level and damage do not count.
-    inline float SwingRage(uint32_t weaponSpeedMs, bool twoHand, bool offHand, bool crit)
+    // `offHandRagePct`: Dual Wield Specialization (effect 2 of the rank, 10-50, client 70685) gives an
+    // off-hand hit that much more rage.
+    inline float SwingRage(uint32_t weaponSpeedMs, bool twoHand, bool offHand, bool crit, int32_t offHandRagePct = 0)
     {
         float rage = float(weaponSpeedMs) / 1000.0f * (twoHand ? TwoHandRagePerSecond : OneHandRagePerSecond);
         if (offHand)
-            rage *= OffHandFactor;
+            rage *= OffHandFactor * (1.0f + float(offHandRagePct > 0 ? offHandRagePct : 0) / 100.0f);
         if (crit)
             rage *= CritFactor;
         return rage;
+    }
+
+    // Anger Management (12296, client 70685): its rage regeneration ticks only in combat, and out of combat
+    // the rage loss is `reductionPct` (effect 2 of the talent, 30) smaller.
+    constexpr uint32_t AngerManagementSpell = 12296;
+
+    inline bool AngerManagementTicks(bool inCombat)
+    {
+        return inCombat;
+    }
+
+    // The rage that one out-of-combat decay tick takes (`stockLoss`, in tenths) with `reductionPct` off.
+    inline float RageDecay(float stockLoss, int32_t reductionPct)
+    {
+        int32_t const pct = reductionPct < 0 ? 0 : (reductionPct > 100 ? 100 : reductionPct);
+        return stockLoss * float(100 - pct) / 100.0f;
+    }
+
+    // The attack power part of the Revenge damage.
+    inline float RevengeAttackPowerBonus(float attackPower, bool defensiveStance)
+    {
+        if (attackPower <= 0.0f)
+            return 0.0f;
+        return attackPower * (defensiveStance ? RevengeDefensiveAttackPowerPct : RevengeAttackPowerPct) / 100.0f;
     }
 
     // The damage of a Warrior DoT tick that crits: x2 (melee crit), then the crit damage talents
