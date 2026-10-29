@@ -31,7 +31,7 @@ import re
 import struct
 import sys
 
-from kit import Realm, Results, kill, pos
+from kit import Realm, Results, clear_backpack, kill, pos
 from wowclient import MSG_MOVE_HEARTBEAT, WorldClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
@@ -142,6 +142,7 @@ results = Results()
 name = "Foreverprot" if forever else "Vanillaprot"
 c = realm.login(ACCOUNT, name, race=2, cls=1, client_class=ProtectionClient)
 me = c.guid
+clear_backpack(realm, c)   # a run before filled it with the same items
 level = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % me) or 1)
 if level < LEVEL:
     c.gm(".levelup %d" % (LEVEL - level), select=me)

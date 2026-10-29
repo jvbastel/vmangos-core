@@ -150,6 +150,20 @@ def pos(client, guid):
     return None
 
 
+def clear_backpack(realm, client):
+    """Deletes every item kind found in the backpack of the client's character (`.deleteitem`, all copies,
+    worn ones too), so that a check that runs again on the same character can add its items: a full
+    backpack makes `.additem` fail without an error the check sees."""
+    client.gm(".save", select=client.guid)
+    rows = realm.sql("characters", "SELECT item_id, COUNT(*) FROM character_inventory WHERE guid = %d AND item_id IN "
+                     "(SELECT item_id FROM (SELECT item_id FROM character_inventory WHERE guid = %d AND bag = 0 "
+                     "AND slot BETWEEN 23 AND 38) AS pack) GROUP BY item_id" % (client.guid, client.guid))
+    for line in rows.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0].isdigit():
+            client.gm(".deleteitem %s %s" % (parts[0], parts[1]), select=client.guid, wait=0.5)
+
+
 def stand_before(client, guid, distance=2.0):
     """Moves the client's character `distance` yards west (-X) of the unit, facing it (east, +X). A unit
     read where it stands now: a new creature can wander off its spawn point before a GM stun lands, so

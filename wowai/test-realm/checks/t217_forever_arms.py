@@ -36,7 +36,7 @@ import struct
 import sys
 import time
 
-from kit import Realm, Results, stand_before
+from kit import Realm, Results, clear_backpack, stand_before
 from wowclient import WorldClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
@@ -58,6 +58,8 @@ SKILL_SPELLS = (196, 197, 198, 201)
 HAND_AXE = 2134        # one-hand axe, 2.0 sec
 LARGE_AXE = 2491       # two-hand axe, 2.8 sec
 LARGE_AXE_SPEED = 2.8
+WORN_SHORTSWORD = 25       # one-hand sword, 1.9 sec
+WORN_WOODEN_BUCKLER = 876
 
 BATTLE_STANCE, DEFENSIVE_STANCE = 2457, 71
 REND_1, OVERPOWER_1, SLAM_1464, SHIELD_BASH_1 = 772, 7384, 1464, 72
@@ -134,6 +136,7 @@ realm = Realm()
 results = Results()
 w = realm.login("PLAYER217", "Foreverarms" if forever else "Vanillaarms", race=2, cls=1, client_class=ArmsClient)
 me = w.guid
+clear_backpack(realm, w)   # a run before filled it with the same weapons
 level = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % me) or 1)
 if level < LEVEL:
     w.gm(".levelup %d" % (LEVEL - level), select=me)
@@ -278,14 +281,9 @@ else:
     results.check("no Forever Weaponmaster armor line with the rules off", not armor_lines, "%r" % armor_lines[:3])
 
 # Weaponmaster: no sword proc from Shield Bash ----------------------------------------------------------
-# Items with a row per patch can change type (18957 is a two-hand sword in an older patch row): skip them.
-# 'Monster - ...' items are for creatures only; an item that needs a profession skill (Phytoblade) cannot be worn.
-PATCHED = "SELECT entry FROM item_template GROUP BY entry HAVING COUNT(*) > 1"
-sword = first_entry("SELECT entry FROM item_template WHERE class = 2 AND subclass = 7 AND inventory_type IN (13, 21) "
-                    "AND required_level <= 1 AND required_skill = 0 AND name NOT LIKE 'Monster%%' AND entry NOT IN (%s) "
-                    "ORDER BY delay DESC, entry LIMIT 1" % PATCHED)
-shield = first_entry("SELECT entry FROM item_template WHERE class = 4 AND subclass = 6 AND required_level <= 1 "
-                     "AND required_skill = 0 AND name NOT LIKE 'Monster%%' AND entry NOT IN (%s) ORDER BY entry LIMIT 1" % PATCHED)
+# Fixed starter items, as for the axes: item_template queries picked creature-only, two-row, profession
+# and later-patch items that a player cannot wear here.
+sword, shield = WORN_SHORTSWORD, WORN_WOODEN_BUCKLER
 results.check("a one-hand sword and a shield are worn", sword and shield and equip(sword) and equip(shield),
               "sword %d, shield %d" % (sword, shield))
 w.gm(".cheat procs on", select=me)

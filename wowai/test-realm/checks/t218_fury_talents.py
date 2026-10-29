@@ -36,7 +36,7 @@ import struct
 import sys
 import time
 
-from kit import Realm, Results, stand_before, stat
+from kit import Realm, Results, clear_backpack, stand_before, stat
 from wowclient import WorldClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
@@ -104,6 +104,7 @@ realm = Realm()
 results = Results()
 w = realm.login("PLAYER218", NAME, race=2, cls=1, client_class=FuryClient)
 me = w.guid
+clear_backpack(realm, w)   # a run before filled it with the same weapons
 level = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % me) or 1)
 if level < LEVEL:
     w.gm(".levelup %d" % (LEVEL - level), select=me)
