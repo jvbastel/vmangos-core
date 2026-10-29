@@ -154,7 +154,7 @@ def login(account, name, cls):
     return client
 
 
-name = "Victorywar" if forever else "Vanillawar"
+name = "Victorywar" if forever else "Vanillarush"
 # A new character reaches level 30 with `.levelup`, which teaches the baseline spells of each level (#212).
 w = login("PLAYER213", name, 1)
 me = w.guid
@@ -170,7 +170,7 @@ if not forever:
     results.check("a kill of a level %d boar sets no bit 0x20 for the Warrior" % LEVEL, state >= 0 and not state & VICTORIOUS_BIT,
                   "aura state %d" % state)
     results.check("no Forever Victorious line", not re.findall(VICTORIOUS_LINE % name, realm.log()))
-    r = login("PLAYER213R", "Vanillarogue", 4)
+    r = login("PLAYER213R", "Plainrushr", 4)
     state = kill_boar(r, LEVEL)
     results.check("a kill of a level %d boar sets no bit 0x20 for a Rogue" % LEVEL, state >= 0 and not state & VICTORIOUS_BIT,
                   "aura state %d" % state)
