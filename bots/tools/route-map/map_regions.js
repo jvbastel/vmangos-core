@@ -183,12 +183,13 @@
   }
 
   // The ground under the click, without the ground of the faded or hidden
-  // regions (as a Draw mode click): the player sets the height on the ground
-  // they see.
+  // regions and, when faded, of the ground in no region (as a Draw mode
+  // click): the player sets the height on the ground they see.
   async function setHeight(event) {
     const at = toMap(event);
     const params = new URLSearchParams({x: -at.y, y: -at.x});
     for (const name of window.regionPick ? window.regionPick.faded() : []) params.append("through", name);
+    if (window.regionPick && window.regionPick.noRegion()) params.set("through_no_region", "true");
     let found;
     try { found = await call(`snap?${params}`); } catch (error) { say(error.message, true); return; }
     if (found.floors.length <= 1) { finish(found.point.z); return; }

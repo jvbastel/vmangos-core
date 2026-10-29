@@ -53,13 +53,16 @@
   const isSelected = (l, i) => selected && selected.line === l && selected.index === i;
 
   // The faded or hidden regions (region_pick.js): a snap leaves their ground
-  // out, a path may still run through them.
+  // out, a path may still run through them. The ground in no region too, when
+  // it is faded (throughNoRegion).
   const through = () => (window.regionPick ? window.regionPick.faded() : []);
+  const throughNoRegion = () => Boolean(window.regionPick && window.regionPick.noRegion());
 
   async function snap(x, y, z) {
     const params = new URLSearchParams({x, y});
     if (z !== undefined && z !== null) params.set("z", z);
     for (const name of through()) params.append("through", name);
+    if (throughNoRegion()) params.set("through_no_region", "true");
     const found = await call(`snap?${params}`);
     // floorRegions: the regions of each floor height (only on a map with regions).
     return {...found.point, floors: found.floors, floorRegions: found.floor_regions, joined: true, mark: false,

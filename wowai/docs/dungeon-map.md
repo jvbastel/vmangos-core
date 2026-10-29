@@ -134,19 +134,19 @@ Edits are lost if you leave the page before you save them.
 
 ### Pick a region
 
-The panel lists **None** and each region. Pick one. The picked region and the ground in no region show as normal. Each other region fades. Its ground, packs, mobs, patrols, quest marks, route points and trace points fade with it. A piece of the route line fades only when both of its ends are in faded regions, so you see where the line comes into your region. Where a mark is in two regions (at a border), the more visible state wins.
+The panel lists **None** and each region. Pick one. Only the picked region shows as normal. Each other region fades, and so does the ground in no region. The ground, packs, mobs, patrols, quest marks, route points and trace points of each fade with it. A piece of the route line fades only when both of its ends are in faded regions, so you see where the line comes into your region. Where a mark is in two regions (at a border), the more visible state wins.
 
-- **Hide the other regions** hides the other regions instead of fading them. Use it when a busy upper corridor is in your way. Fade is the default, so that you still see where the other regions are.
+- **Hide the other regions** hides the other regions and the ground in no region, instead of fading them. Use it when a busy upper corridor is in your way. Fade is the default, so that you still see where the other regions are.
 - **None** shows the whole map, as with no regions.
 - The view stays where it is when you pick a region.
 - The page does not keep the pick. It opens on **None**.
-- A pack in a faded region stays in the pack order list. Click it there to pick its region.
+- A pack in a faded region stays in the pack order list. Click it there to pick its region. For a pack in no region, the click picks **None**.
 
 ### Click through faded regions
 
 Clicks go through a faded or hidden region, to the ground and the packs under it. A faded mark takes no click, no drag and shows no tooltip.
 
-- In Draw mode, a click lands only on ground that is not in a faded or hidden region. The first point of a line lands on the highest of that ground. Each next point lands on the height of that ground nearest the point before it. The "floor at z N" chooser lists only that ground. If all the ground at the click is in faded regions, the click lands on it as with no pick.
+- In Draw mode, a click lands only on ground that is not faded or hidden: the ground of the picked region. The first point of a line lands on the highest of that ground. Each next point lands on the height of that ground nearest the point before it. The "floor at z N" chooser lists only that ground. If all the ground at the click is faded or hidden, the click lands on it as with no pick.
 - A path between two points can still go through a faded region. So a route can go from the ground at one height to the ground at another.
 - Order and Skip clicks reach the packs under a faded region.
 

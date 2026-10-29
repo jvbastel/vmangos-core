@@ -1,11 +1,12 @@
 // Pick a region on the dungeon map (ticket jvbastel/WOWAI#184, spec #179):
 // the player picks one region, or "None", in the regions panel, and every
-// other region fades, or hides with the switch. The picked region and the
-// ground in no region show as normal. "None" shows the whole map. The pick
-// is not saved: the page opens on "None".
+// other region fades, or hides with the switch. The ground in no region
+// fades or hides with them, so only the picked region shows as normal.
+// "None" shows the whole map. The pick is not saved: the page opens on "None".
 //
 // The server owns the rules: the map data gives one ground image per region
-// (an <image data-region> in #floor), and each position carries its regions,
+// (an <image data-region> in #floor, and an <image data-no-region> of the ground
+// in no region), and each position carries its regions ([] for none),
 // which the drawing scripts put on their marks (regionMark and pieceMark of
 // map_common.js: data-regions, data-ends). This part only sets the opacity
 // of the images and marks, with no new request, and keeps the view.
@@ -14,13 +15,16 @@
 //
 // Clicks go through a faded or hidden mark or image (pointer-events none, so
 // also no drag and no tooltip): the player clicks the ground and the packs
-// under it. Draw mode sends the faded names with its snap requests, so a
-// click lands on the ground the player sees. A click on a pack in the
-// pack order list (pack_order.js) whose marks are faded picks its region.
+// under it. Draw mode sends the faded names (and through_no_region when the ground
+// in no region is faded) with its snap requests, so a click lands on the
+// ground the player sees. A click on a pack in the pack order list
+// (pack_order.js) whose marks are faded picks its region, or "None" for a
+// pack in no region.
 //
 // Other scripts read the pick through window.regionPick (picked, hide,
-// faded: the names of the regions not shown as normal) or the "regionpick"
-// event, sent at each change.
+// faded: the names of the regions not shown as normal, noRegion: whether the
+// ground in no region is not shown as normal) or the "regionpick" event,
+// sent at each change.
 (() => {
   const style = document.createElement("style");
   style.textContent = `
@@ -51,22 +55,25 @@
   const list = document.getElementById("rp-list");
   const hideBox = document.getElementById("rp-hide");
 
+  // region null: the ground in no region, which fades or hides as an unpicked region.
   const stateOf = region => picked === null || region === picked ? "normal" : hide ? "hidden" : "faded";
   const best = states => states.reduce((a, b) => RANK[a] >= RANK[b] ? a : b, "hidden");
-  // A position in no region shows as normal; in several, the most visible state wins.
-  const markState = regions => regions.length ? best(regions.map(stateOf)) : "normal";
+  // A position in no region takes the state of that ground; in several regions, the most visible state wins.
+  const markState = regions => regions.length ? best(regions.map(stateOf)) : stateOf(null);
 
   function apply() {
     for (const node of map.querySelectorAll("[data-region]")) show(node, stateOf(node.dataset.region));
+    for (const node of map.querySelectorAll("[data-no-region]")) show(node, stateOf(null));
     for (const node of map.querySelectorAll("[data-regions]")) show(node, markState(JSON.parse(node.dataset.regions)));
     for (const node of map.querySelectorAll("[data-ends]")) show(node, best(JSON.parse(node.dataset.ends).map(markState)));
   }
 
   const faded = () => names.filter(name => stateOf(name) !== "normal");
+  const noRegion = () => names.length > 0 && stateOf(null) !== "normal";
 
   function changed() {
     apply();
-    document.dispatchEvent(new CustomEvent("regionpick", {detail: {picked, hide, faded: faded()}}));
+    document.dispatchEvent(new CustomEvent("regionpick", {detail: {picked, hide, faded: faded(), noRegion: noRegion()}}));
   }
 
   function drawList() {
@@ -88,12 +95,13 @@
   }
 
   // A pack in a faded or hidden region stays in the pack order list: a click
-  // on it there picks its region (the first one), so the player sees it.
+  // on it there picks its region (the first one), or "None" for a pack in no
+  // region, so the player sees it.
   document.addEventListener("click", e => {
     const li = e.target.closest && e.target.closest("#po-panel li");
     if (!li || e.target.closest("button")) return;
     const regions = packRegions.get(Number(li.dataset.key)) || [];
-    if (regions.length && markState(regions) !== "normal") pick(regions[0]);
+    if (markState(regions) !== "normal") pick(regions.length ? regions[0] : null);
   });
 
   hideBox.addEventListener("change", () => { hide = hideBox.checked; changed(); });
@@ -112,5 +120,5 @@
   // Marks drawn later (a draft, a walk, a redraw) get the state at once.
   new MutationObserver(apply).observe(map, {childList: true, subtree: true});
 
-  window.regionPick = {picked: () => picked, hide: () => hide, faded, pick};
+  window.regionPick = {picked: () => picked, hide: () => hide, faded, noRegion, pick};
 })();

@@ -101,3 +101,21 @@ def test_a_path_refuses_a_through_that_is_not_a_list_of_names(web):
     response = web.post("/api/maps/drawn_cave/path", json={"start": {"x": 25, "y": 5, "z": 0},
                                                            "end": {"x": 45, "y": 5, "z": 8}, "through": "Upper"})
     assert response.status_code == 422
+
+
+def test_a_click_through_the_ground_in_no_region_lands_on_the_picked_region(web, routes):
+    """With a region picked, the ground in no region fades or hides too: here
+    only Lower is a region, so the upper walk is in no region."""
+    (routes / "map_389.regions.txt").write_text("region -2 2 -5 -15 55 -15 55 32 -5 32 name Lower\n")
+
+    found = snap(web, x=5, y=5, through_no_region=True)
+
+    assert found["point"] == {"x": 5.0, "y": 5.0, "z": 0.0, "regions": ["Lower"]}
+    assert found["floors"] == [0.0]
+    assert snap(web, x=5, y=5)["point"]["z"] == 8.0  # without it, the top ground as before
+
+
+def test_a_click_through_the_ground_in_no_region_on_a_map_with_no_regions_snaps_as_before(web, routes):
+    (routes / "map_389.regions.txt").unlink()
+
+    assert snap(web, x=5, y=5, through_no_region=True)["point"]["z"] == 8.0

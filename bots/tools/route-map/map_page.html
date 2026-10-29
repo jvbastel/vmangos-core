@@ -70,13 +70,13 @@ function fit() {
 function draw(data) {
   bounds = data.floor.bounds;
   // One image of all the ground, or with regions one ground image per region
-  // (data-region) and one of the ground in no region, lowest first.
+  // (data-region) and one of the ground in no region (data-no-region), lowest first.
   const floor = document.getElementById("floor");
   floor.replaceChildren();
   for (const part of data.floor.images || [{region: null, image: data.floor.image}]) {
     el("image", {href: part.image, x: -bounds.y_max, y: -bounds.x_max, width: bounds.y_max - bounds.y_min,
                  height: bounds.x_max - bounds.x_min, preserveAspectRatio: "none",
-                 ...(part.region === null ? {} : {"data-region": part.region})}, floor);
+                 ...(part.region === null ? {"data-no-region": ""} : {"data-region": part.region})}, floor);
   }
   overlay.replaceChildren();
   drawLine(data.line, {class: "route"}, overlay);
