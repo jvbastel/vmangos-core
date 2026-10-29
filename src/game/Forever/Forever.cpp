@@ -95,4 +95,6 @@ void Forever::LoadSpellTemplate(std::function<void(uint32)> const& resize, std::
         } while (result->NextRow());
     }
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] Loaded %u Forever spell rows on top of the stock spells.", count);
+
+    LoadBaselineSpells();
 }

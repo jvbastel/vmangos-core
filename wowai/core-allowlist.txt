@@ -70,3 +70,6 @@ sql/migrations/20261029140000_characters.sql
 src/game/Objects/Unit.cpp
 src/game/Spells/SpellAuras.cpp
 src/game/Spells/SpellEffects.cpp
+# Spec hook 13: the Forever baseline spells and base abilities (WOWAI#212): one call in Player::GiveLevel
+# (Player.cpp, above), and the Forever Bloodthirst damage in the stock Bloodthirst script.
+src/scripts/spells/spell_warrior.cpp
