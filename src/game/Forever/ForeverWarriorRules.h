@@ -26,6 +26,8 @@ namespace WarriorRules
     constexpr float OffHandFactor = 0.5f;
     // Blizzard, 2 Oct: a critical basic attack gives 100% more rage.
     constexpr float CritFactor = 2.0f;
+    // The rank spells of Dual Wield Specialization, rank 1 first (forever/warrior.tsv).
+    constexpr uint32_t DualWieldSpecializationRanks[] = { 23584, 23585, 23586, 23587, 23588 };
     // A Warrior without a usable weapon swings with the unarmed speed of the core (BASE_ATTACK_TIME).
     constexpr uint32_t UnarmedSpeedMs = 2000;
     // Revenge: a percent of attack power on top of the base damage. Only the client hotfix of Revenge has
@@ -38,11 +40,13 @@ namespace WarriorRules
 
     // The rage (in rage points, not tenths) of one melee swing that hits. Only the base speed of the
     // weapon counts, so haste gives more swings but not more rage per swing. Level and damage do not count.
-    inline float SwingRage(uint32_t weaponSpeedMs, bool twoHand, bool offHand, bool crit)
+    // `offHandRagePct`: Dual Wield Specialization (effect 2 of the rank, 10-50, client 70685) gives an
+    // off-hand hit that much more rage.
+    inline float SwingRage(uint32_t weaponSpeedMs, bool twoHand, bool offHand, bool crit, int32_t offHandRagePct = 0)
     {
         float rage = float(weaponSpeedMs) / 1000.0f * (twoHand ? TwoHandRagePerSecond : OneHandRagePerSecond);
         if (offHand)
-            rage *= OffHandFactor;
+            rage *= OffHandFactor * (1.0f + float(offHandRagePct > 0 ? offHandRagePct : 0) / 100.0f);
         if (crit)
             rage *= CritFactor;
         return rage;

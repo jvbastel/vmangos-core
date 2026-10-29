@@ -15,6 +15,7 @@
 #include "Player.h"
 #include "SpellAuras.h"
 #include "SpellEntry.h"
+#include "SpellMgr.h"
 #include "Unit.h"
 #include "World.h"
 #include "Utilities/Random.h"
@@ -32,6 +33,21 @@ namespace
 
     // Defensive Stance: Revenge takes a lower attack power percent in it.
     uint32 const DefensiveStanceSpell = 71;
+
+    // The off-hand rage percent of Dual Wield Specialization: effect 2 of the highest rank the Warrior has
+    // (10-50), or 0.
+    int32 OffHandRagePct(Player const* warrior)
+    {
+        auto const& ranks = WarriorRules::DualWieldSpecializationRanks;
+        for (std::size_t i = sizeof(ranks) / sizeof(ranks[0]); i > 0; --i)
+        {
+            if (!warrior->HasAura(ranks[i - 1]))
+                continue;
+            SpellEntry const* spellInfo = sSpellMgr.GetSpellEntry(ranks[i - 1]);
+            return spellInfo ? spellInfo->CalculateSimpleValue(EFFECT_INDEX_1) : 0;
+        }
+        return 0;
+    }
 
     // The weapon of a hand that the Warrior can swing (not broken, usable), or nullptr (unarmed).
     Item* SwingWeapon(Player const* warrior, WeaponAttackType attackType)
@@ -67,7 +83,8 @@ bool Forever::RewardSwingRage(Unit* attacker, CleanDamage const* cleanDamage)
         twoHand = weapon->GetProto()->InventoryType == INVTYPE_2HWEAPON;
     }
 
-    float const rage = WarriorRules::SwingRage(speedMs, twoHand, offHand, crit) *
+    int32 const offHandRagePct = offHand ? OffHandRagePct(warrior) : 0;
+    float const rage = WarriorRules::SwingRage(speedMs, twoHand, offHand, crit, offHandRagePct) *
         sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_RAGE_INCOME);
     uint32 const tenths = uint32(rage * 10);
     warrior->ModifyPower(POWER_RAGE, tenths);

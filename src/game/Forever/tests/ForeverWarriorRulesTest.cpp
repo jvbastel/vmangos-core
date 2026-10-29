@@ -39,6 +39,9 @@ int main()
     Near("an off-hand hit gives half", SwingRage(1900, false, true, false), 3.287f);
     Near("a crit gives 100% more", SwingRage(2900, true, false, true), 26.1f);
     Near("an off-hand crit: half, then double", SwingRage(1900, false, true, true), 6.574f);
+    Near("Dual Wield Specialization 5/5: an off-hand hit gives 50% more", SwingRage(1900, false, true, false, 50), 4.9305f);
+    Near("Dual Wield Specialization 1/5 on an off-hand crit", SwingRage(1900, false, true, true, 10), 7.2314f);
+    Near("Dual Wield Specialization leaves the main hand alone", SwingRage(1900, false, false, false, 50), 6.574f);
 
     // DoT crits.
     Near("a DoT tick crit deals double", DotCritDamage(5.0f, 0.0f), 10.0f);
