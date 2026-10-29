@@ -22,8 +22,9 @@ NO_TREE = "-"
 
 # The spell_template columns that the `set` column may change, with their field index in Spell.dbc 1.12.1.
 # The two tables have the same order (Spell.dbc has no `build` column and holds 8 locales per string).
-FIELDS = {"category": 2, "attributes": 6, "attributesEx3": 9, "stances": 11, "casterAuraState": 16, "castingTimeIndex": 18,
-          "recoveryTime": 19, "categoryRecoveryTime": 20, "interruptFlags": 21, "procFlags": 24, "procChance": 25, "procCharges": 26,
+FIELDS = {"category": 2, "attributes": 6, "attributesEx": 7, "attributesEx3": 9, "stances": 11, "casterAuraState": 16, "castingTimeIndex": 18,
+          "recoveryTime": 19, "categoryRecoveryTime": 20, "interruptFlags": 21, "auraInterruptFlags": 22, "channelInterruptFlags": 23,
+          "procFlags": 24, "procChance": 25, "procCharges": 26,
           "baseLevel": 28, "spellLevel": 29, "durationIndex": 30, "manaCost": 32, "rangeIndex": 36,
           "equippedItemClass": 58, "equippedItemSubClassMask": 59,
           # The global cooldown: its category (133 for the Warrior abilities) and its time in ms.

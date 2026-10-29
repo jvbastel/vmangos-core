@@ -67,3 +67,14 @@ def test_victorious_is_a_20_sec_dummy_aura(out):
     row = client_spells(out)[VICTORIOUS]
     assert row[EFFECT] == APPLY_AURA and row[APPLY_AURA_NAME] == AURA_DUMMY
     assert row[DURATION_INDEX] == DURATION_20_SEC
+
+
+def test_victorious_is_no_channel_that_a_move_or_a_cast_ends(out):
+    # Its source spell (17189) is a channel (attributesEx 0x4, interrupt flags 15, channel flags 8): the
+    # core then ends the aura at the next move or cast, and Victory Rush fails with "You can't do that yet".
+    # Client 402975 is a plain 20 sec aura.
+    ATTRIBUTES_EX, INTERRUPT_FLAGS, AURA_INTERRUPT_FLAGS, CHANNEL_INTERRUPT_FLAGS = 7, 21, 22, 23
+    row = client_spells(out)[VICTORIOUS]
+    assert (row[ATTRIBUTES_EX], row[INTERRUPT_FLAGS], row[AURA_INTERRUPT_FLAGS], row[CHANNEL_INTERRUPT_FLAGS]) == (0, 0, 0, 0)
+    server = server_spells(out)[VICTORIOUS]
+    assert [int(server[c]) for c in ("attributesEx", "interruptFlags", "auraInterruptFlags", "channelInterruptFlags")] == [0, 0, 0, 0]
