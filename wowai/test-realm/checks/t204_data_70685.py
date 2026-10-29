@@ -50,7 +50,6 @@ if level < LEVEL:
     w.gm(".levelup %d" % (LEVEL - level), select=me)
 w.gm(".cheat god on", select=me)
 w.gm(".cheat criticals off", select=me)
-w.gm(".cast %d triggered" % BATTLE_STANCE, select=me)   # a run before ends in Defensive Stance
 w.set_active_mover()
 here = pos(w, me)
 
@@ -105,6 +104,7 @@ results.check("Battle Shout rank 1 at level 60 gives %d attack power" % expected
 w.gm(".unaura %d" % BATTLE_SHOUT_1, select=me)
 
 # Threat: Sunder Armor rank 1 and Demoralizing Shout rank 1, each on a fresh boar.
+w.gm(".cast %d triggered" % BATTLE_STANCE, select=me)   # a run before ends in Defensive Stance
 w.move(MSG_MOVE_HEARTBEAT, here[0] - 2.0, here[1], here[2], 0.0)
 w.pump(1)
 threat = {}
