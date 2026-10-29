@@ -136,20 +136,21 @@ reasons, went = w.cast(VICTORY_RUSH, dummy)
 results.check("after a grey kill Victory Rush fails with the caster aura state",
               not went and SPELL_FAILED_CASTER_AURASTATE in reasons, "reasons %r, went %s" % (reasons, went))
 
-# A kill that yields experience.
+# A kill that yields experience. Each GM command takes about a second and the window is 20 sec, so all
+# that the cast needs is read or set before the kill.
+_, max_health, _, _ = stat(w, me)
+w.gm(".modify hp %d %d" % (max_health // 2, max_health), select=me)
+before_dummy = stat(w, dummy)[0]
+ap = attack_power(w)
+w.gm(".learn %d" % REND, select=me)
+w.gm(".modify rage 1000", select=me)
 realm.mark("xp kill")
 state = kill_boar(w, LEVEL)
 killed_at = time.time()
 results.check("a kill of a level %d boar sets bit 0x20 (the client shows Victory Rush usable)" % LEVEL,
               state >= 0 and bool(state & VICTORIOUS_BIT), "aura state %d" % state)
 results.check("the server logs the Victorious line", bool(re.findall(VICTORIOUS_LINE % name, realm.log())))
-_, max_health, _, _ = stat(w, me)
-w.gm(".modify hp %d %d" % (max_health // 2, max_health), select=me)
 before_heal = stat(w, me)[0]
-before_dummy = stat(w, dummy)[0]
-ap = attack_power(w)
-w.gm(".learn %d" % REND, select=me)
-w.gm(".modify rage 1000", select=me)
 reasons, went = w.cast(VICTORY_RUSH, dummy, wait=0.3)
 # Client 70685: Victory Rush starts the global cooldown (1.5 sec), so Rend right after it is not ready.
 rend_reasons, rend_went = w.cast(REND, dummy, wait=0.3)
