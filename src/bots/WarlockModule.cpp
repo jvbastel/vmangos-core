@@ -83,6 +83,7 @@ namespace Bots
                     {[](BotContext const& context) { return IsAlive(context.view, context.view.GetPet()); },
                         [](BotContext const& context) { context.actions.PetAttack(PickDamageTarget(context)); }}},
                 CloseInRule(P + 75),
+                TargetSightRule(P + 75),
 
                 CastRule("life tap", P + 60,
                     [](BotContext const& context) {

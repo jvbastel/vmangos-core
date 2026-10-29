@@ -90,6 +90,19 @@ namespace Bots
     // damage target.
     Rule CloseInRule(int priority);
 
+    // jvbastel/WOWAI#160: a rule of a ranged damage bot. With its damage
+    // target in casting range but out of its sight (BotView::CanSeeFrom, as
+    // a cast checks it), the bot casts nothing, and CloseInRule does not
+    // move it. It walks to a spot that sees the target, the nearest first,
+    // as the healer does for the tank (HealerSight.h): the cast place round
+    // the target (SafePlace.h, FindSafeCastPlace) within RangedStandYards,
+    // safe of the packs outside the fight (KeepOut.h). With no safe spot,
+    // it chases the target to RangedStandYards: the chase path ends in
+    // sight. Not while the bot casts: a step would stop the cast. The rule
+    // has its own name, so that Server.log shows the bot out of sight.
+    Rule TargetSightRule(int priority);
+    char const* const TargetSightRuleName = "get in sight of the target";
+
     // A rule of each damage bot (jvbastel/WOWAI#171): when a living enemy
     // attacks the bot and it is farther than AtTankYards from the living
     // tank, it walks to the tank, so that the tank can take the enemy off
