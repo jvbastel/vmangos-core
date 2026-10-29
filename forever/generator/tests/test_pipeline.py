@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from forever_gen import client_patch
+
 ROOT = Path(__file__).resolve().parents[3]
 SPEC = ROOT / "forever" / "warrior.tsv"
 GENERATOR = ROOT / "forever" / "generator" / "generate.py"
@@ -153,7 +155,7 @@ def test_two_runs_give_the_same_bytes(out, tmp_path):
 
 def test_the_client_data_patch_holds_the_client_tables(out):
     import mpyq
-    archive = mpyq.MPQArchive(str(out / "client" / "client-data-patch.MPQ"), listfile=True)
+    archive = mpyq.MPQArchive(str(out / "client" / client_patch.PATCH_NAME), listfile=True)
     names = sorted(name.decode() for name in archive.files)
     assert names == ["DBFilesClient\\Spell.dbc", "DBFilesClient\\Talent.dbc", "DBFilesClient\\TalentTab.dbc"]
     for name in names:

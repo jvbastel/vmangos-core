@@ -30,7 +30,7 @@ marker_name=wowai-forever-client.txt
 # The 1.12.1 client loads Data/patch.MPQ, then Data/patch-?.MPQ in name order;
 # a later archive wins. patch-9 sorts after the stock patch-2.
 patch_name="patch-9.MPQ"
-main_client="${WOWAI_MAIN_CLIENT:-/mnt/c/Games/WoW-1.12.1}"
+main_client="${WOWAI_MAIN_CLIENT:-/mnt/c/Games/WoW-1.12.1}"  # a Windows path works too
 pool_dir="${WOWAI_POOL_DIR:-$HOME/wowai/slots}"
 
 die() {
@@ -43,16 +43,44 @@ usage() {
   exit 2
 }
 
-# Refuse the main client folder and the folders in it, by any spelling.
+# A Windows path (C:\Games\x or C:/Games/x) as the WSL path /mnt/c/Games/x.
+# Other paths stay as they are.
+unix_path() {
+  case "$1" in
+    [A-Za-z]:[\\/]* | [A-Za-z]:)
+      local drive rest
+      drive="$(printf '%s' "${1:0:1}" | tr '[:upper:]' '[:lower:]')"
+      rest="${1:2}"
+      printf '/mnt/%s%s' "$drive" "${rest//\\//}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+main_client="$(unix_path "$main_client")"
+
+# Refuse the main client folder and the folders in it, by any spelling:
+# a Windows path, another letter case on /mnt/c, a symlink, a relative path.
+# Same folder means same device and inode (test -ef), checked for the folder
+# and every folder above it that exists.
 refuse_main() {
-  local folder main
-  folder="$(realpath -m "$1")"
-  main="$(realpath -m "$main_client")"
+  local folder main dir
+  folder="$(realpath -m "$(unix_path "$1")")"
+  main="$(realpath -m "$(unix_path "$main_client")")"
   [ "$folder" != "$main" ] ||
     die "$1 is the main client folder ($main_client). It stays vanilla: use a second client copy."
   case "$folder/" in
     "$main"/*) die "$1 is inside the main client folder ($main_client). It stays vanilla." ;;
   esac
+  [ -e "$main" ] || return 0
+  dir="$folder"
+  while :; do
+    if [ -e "$dir" ] && [ "$dir" -ef "$main" ]; then
+      [ "$dir" != "$folder" ] ||
+        die "$1 is the main client folder ($main_client). It stays vanilla: use a second client copy."
+      die "$1 is inside the main client folder ($main_client). It stays vanilla."
+    fi
+    [ "$dir" != / ] || break
+    dir="$(dirname "$dir")"
+  done
 }
 
 check_slot() {
@@ -72,6 +100,7 @@ setup() {
   [ -n "$folder" ] && [ -n "$slot" ] || usage
   check_slot "$slot"
   refuse_main "$folder"
+  folder="$(unix_path "$folder")"
   if [ ! -e "$folder" ]; then
     [ -f "$main_client/WoW.exe" ] || die "no client at $main_client to copy (set WOWAI_MAIN_CLIENT)"
     echo "Copying the main client $main_client to $folder..."
@@ -108,6 +137,7 @@ install() {
   done
   [ -n "$folder" ] || usage
   refuse_main "$folder"
+  folder="$(unix_path "$folder")"
   [ -f "$folder/$marker_name" ] ||
     die "$folder has no marker file $marker_name: run 'wowai/forever-client.sh setup' on it first"
   if [ -z "$patch" ]; then

@@ -61,7 +61,9 @@ def new_spells(spec, stock):
 
 
 def talent_table(spec, stock):
-    """Talent.dbc: the stock rows of the other classes in their order, then the spec rows by ID."""
+    """Talent.dbc: the stock rows of the other classes, then the spec rows by ID.
+
+    generate puts the rows in client order afterwards (in_client_order)."""
     stock_talents = stock.talent.by_id()
     stock_spells = stock.spell.by_id()
     low, high = spec.id_range
