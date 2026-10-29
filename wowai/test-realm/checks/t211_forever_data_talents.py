@@ -26,15 +26,12 @@ import struct
 import sys
 
 from kit import Realm, Results
-from wowclient import WorldClient, unpack_guid
+from wowclient import SpellClient, unpack_guid
 
-SMSG_LEARNED_SPELL = 299
 SMSG_SET_FLAT_SPELL_MODIFIER = 614
 SMSG_SET_PCT_SPELL_MODIFIER = 615
 SMSG_PERIODICAURALOG = 590
 SMSG_SPELLENERGIZELOG = 337
-CMSG_LEARN_TALENT = 593
-CMSG_CAST_SPELL = 302
 SPELL_AURA_PERIODIC_ENERGIZE = 24
 POWER_RAGE = 1
 
@@ -52,21 +49,18 @@ BLOODRAGE, BLOODRAGE_OVER_TIME = 2687, 29131
 LEVEL = 60
 
 
-class TalentClient(WorldClient):
+class TalentClient(SpellClient):
     """Keeps the learned spells, the spell modifier totals, and the Rage log of the character."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.learned = []
         self.mods = {}         # (flat or pct, bit, op) -> value
         self.energize = []     # (spell, amount)
         self.ticks = []        # (spell, amount)
 
     def _observe(self, opcode, body):
         super()._observe(opcode, body)
-        if opcode == SMSG_LEARNED_SPELL:
-            self.learned.append(struct.unpack_from("<I", body, 0)[0])
-        elif opcode in (SMSG_SET_FLAT_SPELL_MODIFIER, SMSG_SET_PCT_SPELL_MODIFIER):
+        if opcode in (SMSG_SET_FLAT_SPELL_MODIFIER, SMSG_SET_PCT_SPELL_MODIFIER):
             bit, op, value = struct.unpack_from("<BBi", body, 0)
             self.mods["flat" if opcode == SMSG_SET_FLAT_SPELL_MODIFIER else "pct", bit, op] = value
         elif opcode == SMSG_SPELLENERGIZELOG:
@@ -83,19 +77,6 @@ class TalentClient(WorldClient):
                 power, amount = struct.unpack_from("<II", body, pos + 12)
                 if power == POWER_RAGE:
                     self.ticks.append((spell, amount))
-
-    def learn_talent(self, talent, rank=0):
-        """The spells that the server teaches for one CMSG_LEARN_TALENT."""
-        start = len(self.learned)
-        self.send(CMSG_LEARN_TALENT, struct.pack("<II", talent, rank))
-        self.pump(1.5)
-        return self.learned[start:]
-
-    def learn_ranks(self, talent, ranks):
-        return [spell for rank in range(ranks) for spell in self.learn_talent(talent, rank)]
-
-    def cast_on_self(self, spell):
-        self.send(CMSG_CAST_SPELL, struct.pack("<IH", spell, 0))
 
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -150,7 +131,7 @@ if mode == "forever":
     c.gm(".cooldown", select=me)
     c.energize.clear()
     c.ticks.clear()
-    c.cast_on_self(BLOODRAGE)
+    c.cast_at(BLOODRAGE)
     c.pump(4)
     instant = [amount for spell, amount in c.energize if spell == BLOODRAGE]
     ticks = [amount for spell, amount in c.ticks if spell == BLOODRAGE_OVER_TIME]
