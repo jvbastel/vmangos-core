@@ -127,3 +127,14 @@ def test_enrage_triggers_on_any_damaging_attack_taken(out, client):
     # The damage auras: +2..10% Physical damage for 12 sec, no swing charges.
     assert [modifier(client, s)[2] for s in (12880, 14201, 14202, 14203, 14204)] == [2, 4, 6, 8, 10]
     assert [(client[s][PROC_FLAGS], client[s][PROC_CHARGES]) for s in (12880, 14204)] == [(0, 0), (0, 0)]
+
+
+def test_every_slam_rank_shares_one_18_sec_cooldown(client):
+    # Client 70685: Slam ranks 1-5 share category 2412 with an 18 sec category cooldown. A 1.12 player keeps
+    # the lower ranks in the spellbook, so a cooldown of each rank alone would let rank 1 follow rank 5.
+    ranks = (60126, 1464, 8820, 11604, 11605)
+    categories = {client[s][2] for s in ranks}
+    stock, _ = read_dbc(STOCK / "Spell.dbc")
+    assert len(categories) == 1 and not categories & {row[2] for row in stock.values()}
+    assert [(client[s][19], client[s][20]) for s in ranks] == [(0, 18000)] * 5
+
