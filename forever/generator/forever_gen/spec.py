@@ -1,21 +1,74 @@
-"""The spec file: one row per talent (later also per new ability and changed base ability)."""
+"""The spec file: one row per talent, per new ability and per changed base ability.
+
+The rules that need the stock data (tree rules, ID clashes, icons) are in rules.py. This module only reads
+the rows and refuses a row that it cannot read.
+"""
 import re
 from collections import namedtuple
 
-Talent = namedtuple("Talent", "talent_id tree tier column ranks required_talent required_rank name icon port "
-                              "spells source_spells effect1 tooltip")
-Spec = namedtuple("Spec", "id_range talents")
+# kind: talent, ability (a new spell that no talent teaches) or base (a changed stock spell).
+# required_talents: the prerequisite talent IDs (the tree rules allow at most one).
+# effects: three lists, one per spell effect, of the value of each rank, or None to keep the source value.
+# fields: {spell_template column: [value of each rank]}, see FIELDS.
+# tooltip: the description of the rank spells, or None to keep the stock description.
+Row = namedtuple("Row", "kind talent_id tree tier column ranks required_talents required_rank name icon port "
+                        "spells source_spells effects fields tooltip notes")
+Spec = namedtuple("Spec", "id_range rows")
 
+KINDS = ("talent", "ability", "base")
 TREES = ("arms", "fury", "protection")
 PORTS = ("data", "C++", "substitute")
+NO_TREE = "-"
+
+# The spell_template columns that the `set` column may change, with their field index in Spell.dbc 1.12.1.
+# The two tables have the same order (Spell.dbc has no `build` column and holds 8 locales per string).
+FIELDS = {"category": 2, "attributes": 6, "stances": 11, "casterAuraState": 16, "castingTimeIndex": 18,
+          "recoveryTime": 19, "categoryRecoveryTime": 20, "procFlags": 24, "procChance": 25, "procCharges": 26,
+          "baseLevel": 28, "spellLevel": 29, "durationIndex": 30, "manaCost": 32, "rangeIndex": 36,
+          "equippedItemClass": 58, "equippedItemSubClassMask": 59}
+for _k in range(3):
+    for _name, _first in (("effect", 61), ("effectDieSides", 64), ("effectBaseDice", 67), ("effectBasePoints", 76),
+                          ("effectImplicitTargetA", 82), ("effectRadiusIndex", 88), ("effectApplyAuraName", 91),
+                          ("effectItemType", 103), ("effectMiscValue", 106), ("effectTriggerSpell", 109)):
+        FIELDS["%s%d" % (_name, _k + 1)] = _first + _k
+# A text field: the rank text of the spellbook ("Rank 2").
+NAME_SUBTEXT = "nameSubtext"
+
+COLUMNS = ("kind", "talentId", "tree", "tier", "column", "ranks", "requiredTalent", "requiredRank", "name",
+           "icon", "port", "spells", "sourceSpells", "effect1", "effect2", "effect3", "set", "tooltip", "notes")
 
 
 class SpecError(Exception):
     """The spec breaks a rule. The generator writes nothing."""
 
 
+def _int(text):
+    return int(text, 0)
+
+
 def _ints(text, sep):
-    return [int(v) for v in text.split(sep)]
+    return [_int(v) for v in text.split(sep)]
+
+
+def _per_rank(where, text, ranks, parse=_int):
+    values = [parse(v) for v in text.split("/")]
+    if len(values) == 1:
+        values = values * ranks
+    if len(values) != ranks:
+        raise SpecError("%s: %d values for %d ranks" % (where, len(values), ranks))
+    return values
+
+
+def _fields(where, text, ranks):
+    if text == "-":
+        return {}
+    fields = {}
+    for item in text.split(";"):
+        name, _, value = item.partition("=")
+        if name not in FIELDS and name != NAME_SUBTEXT:
+            raise SpecError("%s: unknown set field '%s'" % (where, name))
+        fields[name] = _per_rank("%s %s" % (where, name), value, ranks, str if name == NAME_SUBTEXT else _int)
+    return fields
 
 
 def read(path):
@@ -27,27 +80,41 @@ def read(path):
     id_range = (int(m.group(1)), int(m.group(2)))
 
     lines = [line for line in text.splitlines() if line and not line.startswith("#")]
-    header = lines[0].split("\t")
-    talents = []
+    header = tuple(lines[0].split("\t"))
+    if header != COLUMNS:
+        raise SpecError("%s: the column line is not %s" % (path, "\t".join(COLUMNS)))
+    rows = []
     for number, line in enumerate(lines[1:], start=2):
         values = line.split("\t")
         if len(values) != len(header):
             raise SpecError("%s: data line %d has %d columns, not %d" % (path, number, len(values), len(header)))
-        row = dict(zip(header, values))
-        if row["kind"] != "talent":
-            raise SpecError("%s: data line %d: unknown kind '%s'" % (path, number, row["kind"]))
-        talent = Talent(
-            talent_id=int(row["talentId"]), tree=row["tree"], tier=int(row["tier"]), column=int(row["column"]),
-            ranks=int(row["ranks"]), required_talent=int(row["requiredTalent"]),
-            required_rank=int(row["requiredRank"]), name=row["name"], icon=int(row["icon"]), port=row["port"],
-            spells=_ints(row["spells"], ","), source_spells=_ints(row["sourceSpells"], ","),
-            effect1=_ints(row["effect1"], "/"), tooltip=row["tooltip"])
-        if talent.tree not in TREES:
-            raise SpecError("talent %d: unknown tree '%s'" % (talent.talent_id, talent.tree))
-        if talent.port not in PORTS:
-            raise SpecError("talent %d: unknown port type '%s'" % (talent.talent_id, talent.port))
-        if not len(talent.spells) == len(talent.source_spells) == len(talent.effect1) == talent.ranks:
-            raise SpecError("talent %d: spells, sourceSpells and effect1 need one value per rank (%d)"
-                            % (talent.talent_id, talent.ranks))
-        talents.append(talent)
-    return Spec(id_range, talents)
+        raw = dict(zip(header, values))
+        where = "%s (data line %d)" % (raw["name"], number)
+        if raw["kind"] not in KINDS:
+            raise SpecError("%s: unknown kind '%s'" % (where, raw["kind"]))
+        ranks = int(raw["ranks"])
+        effects = [None if raw[c] == "-" else _per_rank("%s %s" % (where, c), raw[c], ranks)
+                   for c in ("effect1", "effect2", "effect3")]
+        row = Row(
+            kind=raw["kind"], talent_id=int(raw["talentId"]), tree=raw["tree"], tier=int(raw["tier"]),
+            column=int(raw["column"]), ranks=ranks,
+            required_talents=[t for t in _ints(raw["requiredTalent"], ",") if t],
+            required_rank=int(raw["requiredRank"]), name=raw["name"], icon=int(raw["icon"]), port=raw["port"],
+            spells=_ints(raw["spells"], ","), source_spells=_ints(raw["sourceSpells"], ","), effects=effects,
+            fields=_fields(where, raw["set"], ranks), tooltip=None if raw["tooltip"] == "-" else raw["tooltip"],
+            notes=raw["notes"])
+        if row.port not in PORTS:
+            raise SpecError("%s: unknown port type '%s'" % (where, row.port))
+        if row.kind == "talent" and row.tree not in TREES:
+            raise SpecError("%s: unknown tree '%s'" % (where, row.tree))
+        if row.kind != "talent" and (row.tree != NO_TREE or row.talent_id or row.tier or row.column
+                                     or row.required_talents):
+            raise SpecError("%s: an %s row has no talent ID, tree, tier, column or prerequisite" % (where, row.kind))
+        if not len(row.spells) == len(row.source_spells) == ranks:
+            raise SpecError("%s: spells and sourceSpells need one value per rank (%d)" % (where, ranks))
+        rows.append(row)
+    return Spec(id_range, rows)
+
+
+def talents(spec):
+    return [row for row in spec.rows if row.kind == "talent"]
