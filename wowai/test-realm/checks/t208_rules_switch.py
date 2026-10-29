@@ -16,11 +16,13 @@ setup   (rules off) A player Warrior at level 20 learns two vanilla talents: Imp
         and Heroic Strike (78, a trainer spell that both rule sets have).
 forever (rules on) The first login switches: no vanilla talent in the spellbook (login packet and
         character_spell), their buttons are gone, Heroic Strike and its button stay, the stored rules are
-        Forever, and the free talent points teach the Forever Improved Rend (60000). A second login under
-        the same rules changes nothing. After the logout the bars get the Forever spell.
+        Forever. Both talents are also in the Forever trees with their stock IDs (#210), so this shows
+        that the reset covers them. The free talent points teach Cruelty 5/5 (talent 157, 12320-12856,
+        in both rule sets) and the Forever-only Lingering Rage (talent 60002, rank 1 60106). A second
+        login under the same rules changes nothing. After the logout the bars get Lingering Rage.
 vanilla (rules off) The first login switches back: no Forever spell and no button of it, a talent
-        reset (talent 127 teaches 12286 again), the stored rules are vanilla. A second login changes
-        nothing.
+        reset (no Cruelty; talent 127 teaches 12286 again), the stored rules are vanilla. A second login
+        changes nothing.
 """
 import struct
 import sys
@@ -43,7 +45,10 @@ IMPROVED_REND = 127
 IMPROVED_HEROIC_STRIKE = 124
 STOCK_REND_1 = 12286
 STOCK_HEROIC_STRIKE_1 = 12282
-FOREVER_REND_1 = 60000
+CRUELTY = 157
+CRUELTY_SPELLS = (12320, 12852, 12853, 12855, 12856)
+LINGERING_RAGE = 60002
+FOREVER_LINGERING_RAGE_1 = 60106
 HEROIC_STRIKE = 78
 # Action bar buttons that the check owns (0-119; the high ones are free on a new character).
 BUTTON_REND, BUTTON_IMPROVED_HS, BUTTON_HEROIC_STRIKE, BUTTON_FOREVER = 110, 111, 112, 113
@@ -168,20 +173,25 @@ elif mode == "forever":
                   BUTTON_REND not in bars and BUTTON_IMPROVED_HS not in bars, "%r" % bars)
     results.check("the Heroic Strike button stays", bars.get(BUTTON_HEROIC_STRIKE) == HEROIC_STRIKE, "%r" % bars)
     results.check("the realm stores the Forever rules", stored_rules() == RULES["forever"], "rules %r" % stored_rules())
-    rend = c.learn_talent(IMPROVED_REND)
-    results.check("the talent points are free: Improved Rend teaches the Forever rank 1",
-                  rend == [FOREVER_REND_1], "learned %r" % rend)
-    check_same_rules_relog(FOREVER_REND_1)
+    cruelty = [spell for rank in range(5) for spell in c.learn_talent(CRUELTY, rank)]
+    lingering = c.learn_talent(LINGERING_RAGE)
+    results.check("the talent points are free: Cruelty 5/5 and the Forever Lingering Rage are learned",
+                  cruelty == list(CRUELTY_SPELLS) and lingering == [FOREVER_LINGERING_RAGE_1],
+                  "learned %r %r" % (cruelty, lingering))
+    check_same_rules_relog(FOREVER_LINGERING_RAGE_1)
     c.logout()
-    put_buttons([(BUTTON_FOREVER, FOREVER_REND_1)])
+    put_buttons([(BUTTON_FOREVER, FOREVER_LINGERING_RAGE_1)])
 else:
     results.check("the first login under the vanilla rules switches",
                   realm.wait_log(SWITCH % (NAME, "Forever", "vanilla"), 5, c))
     spells = c.initial_spells or set()
-    results.check("the login sends no Forever spell", c.initial_spells is not None and FOREVER_REND_1 not in spells)
+    results.check("the login sends no Forever spell", c.initial_spells is not None and FOREVER_LINGERING_RAGE_1 not in spells)
+    results.check("the login sends no Cruelty (talent reset)", not spells & set(CRUELTY_SPELLS),
+                  "%r" % (spells & set(CRUELTY_SPELLS)))
     results.check("the login keeps Heroic Strike", HEROIC_STRIKE in spells)
     saved = saved_spells()
-    results.check("character_spell has no Forever spell", FOREVER_REND_1 not in saved)
+    results.check("character_spell has no Forever spell", FOREVER_LINGERING_RAGE_1 not in saved)
+    results.check("character_spell has no Cruelty", not saved & set(CRUELTY_SPELLS))
     bars = buttons()
     results.check("the button of the Forever spell is gone", BUTTON_FOREVER not in bars, "%r" % bars)
     results.check("the Heroic Strike button stays", bars.get(BUTTON_HEROIC_STRIKE) == HEROIC_STRIKE, "%r" % bars)
