@@ -28,11 +28,23 @@ to the shared test realm: that needs --shared.
   wowai/test-realm/realm.sh baseline | gc
 
 Kit commands:
-  acquire              Lease a free slot, or find the slot that the ticket
+  acquire [--set <Name>=<value>]... [services]
+                       Lease a free slot, or find the slot that the ticket
                        holds. Build the worktree into the slot's dev install,
                        reset the database to the baseline (a new lease only),
                        and start the slot. Stops with a list of the holders
                        when all slots have a lease.
+                       --set: a core setting of the lease request, written
+                       into the slot's mangosd.conf (a line "<Name> =
+                       <value>", in place of the line of that name, or at
+                       the end). Give the value as mangosd.conf has it, a
+                       string with its quotes, for example
+                         --set Forever.Rules=1 --set 'Forever.DataDir="/opt/forever"'
+                       The lease keeps the settings of its last acquire: an
+                       acquire with no --set gives the default values. Each
+                       acquire writes mangosd.conf again from the example
+                       file of vmangos-deploy, so no setting of an earlier
+                       lease (or of a hand edit) stays.
   release              Stop the checks of the pid files, keep the logs, stop
                        the slot (`docker compose stop`) and its dev container,
                        and delete the lease.
@@ -64,6 +76,9 @@ the shared test realm (or on the realm that the WOWAI_REALM_* settings name).
                        Mark the log, then run a Python check script with
                        the kit's Python client on its path. Keeps a pid file.
   env                  Print the settings that the ticket gives.
+  config               Write the .env and the configuration files of the
+                       realm folder (up, build, and acquire do it too). A
+                       running mangosd reads them at its next start.
   down                 Kit: `release`. Shared: `docker compose down [args]`.
   setup                Create the GM account again (`up` does it too) and
                        restart a running mangosd. Then create the bots of
@@ -81,7 +96,8 @@ uses them for each tree that leases S), its lease in S.lease
 logs/t<N>/<time>/ (`release`, `gc`) and logs/t<N>/<time>-restart/
 (`restart`). Slot S is the Compose project wowai-test-S, with the ports
 login 3730+S, world 8090+S, and SOAP 7880+S. The kit raises LogLevel.File
-to 3, so the rules of the bots are in Server.log.
+to 3, so the rules of the bots are in Server.log. The lease file also holds
+the core settings of `acquire --set` (set=<Name>=<value> lines).
 
 `acquire`, `up` (with no dev build yet), and `build` build into
 WOWAI_DEV_INSTALL (the kit: the slot's install folder). For the shared test
@@ -144,8 +160,9 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     done
   }
 
-  # Take a free slot for the ticket, or find the one that it holds. Sets
-  # slot, and lease_state to new or held. The pool lock makes the look for a
+  # Take a free slot for the ticket, or find the one that it holds, and write
+  # the core settings of the request into its lease. Arguments: the ticket,
+  # then <Name>=<value> each. Sets slot, and lease_state to new or held. The pool lock makes the look for a
   # free slot and the write of the lease one step.
   kit_lease() {
     local ticket="$1" n holders="" worktree
@@ -169,7 +186,17 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
       mv "$pool_dir/$slot.lease.new" "$pool_dir/$slot.lease"
       lease_state=new
     fi
+    kit_lease_settings "${@:2}"
     exec 8>&-
+  }
+
+  # Write the core settings of this acquire into the slot's lease, in place
+  # of the ones of an earlier acquire. Arguments: <Name>=<value> each. Runs
+  # under the pool lock (kit_lease), so a release or gc cannot cut in.
+  kit_lease_settings() {
+    local lease="$pool_dir/$slot.lease"
+    { grep -v '^set=' "$lease" || true; [ "$#" -eq 0 ] || printf 'set=%s\n' "$@"; } > "$lease.new"
+    mv "$lease.new" "$lease"
   }
 
   # The settings of a slot, for the ticket that leases it.
@@ -265,13 +292,21 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
     [[ "$ticket" =~ ^[1-9][0-9]{0,2}$ ]] || kit_die "the ticket number must be 1 to 999, not '$ticket'"
     case "$1" in
       acquire)
-        kit_lease "$ticket"
+        shift
+        settings=()
+        while [ "$#" -gt 0 ] && [ "$1" = --set ]; do
+          [ "$#" -ge 2 ] || kit_die "--set needs <Name>=<value>"
+          [[ "$2" =~ ^[A-Za-z][A-Za-z0-9_.]*=.+$ && "$2" != *$'\n'* ]] ||
+            kit_die "--set needs <Name>=<value> (a core config name, then one line), not '$2'"
+          settings+=("$2")
+          shift 2
+        done
+        kit_lease "$ticket" "${settings[@]}"
         echo "Ticket $ticket: slot $slot ($lease_state lease)."
         kit_slot_env "$slot" "$ticket"
         # A held lease keeps its database, and so the image and the
         # passwords in the slot's .env.
         [ "$lease_state" != new ] || kit_baseline
-        shift
         exec "$kit_dev" realm acquire "$lease_state" "$@"
         ;;
       *)
@@ -373,9 +408,12 @@ EOF
   (umask 077 && printf '%s\n' "$env" > "$realm_dir/.env")
 
   # The configuration files of vmangos-deploy, with the play realm's game
-  # settings and SOAP on. Made once; later edits stay.
+  # settings and SOAP on. The shared realm makes it once, and later edits
+  # stay. A slot writes it again at each acquire (and up, build, config),
+  # so no edit of an earlier lease stays. The write keeps the inode (see
+  # realm_edit_config).
   local example="$deploy_dir/config"
-  if [ ! -f "$realm_dir/config/mangosd.conf" ]; then
+  if [ -n "${WOWAI_REALM_LEASE:-}" ] || [ ! -f "$realm_dir/config/mangosd.conf" ]; then
     tr -d '\r' < "$example/mangosd.conf.example" | sed \
       -e 's/^WowPatch = .*/WowPatch = 0/' \
       -e 's/^GameType = .*/GameType = 0/' \
@@ -393,9 +431,29 @@ EOF
     realm_edit_config "$realm_dir/config/mangosd.conf" \
       -e "s/^LogLevel.File = .*/LogLevel.File = $WOWAI_REALM_LOG_FILE_LEVEL/"
   fi
+  # The kit: the core settings of the lease request (`acquire --set`), last.
+  if [ -n "${WOWAI_REALM_LEASE:-}" ]; then
+    local setting
+    while IFS= read -r setting; do
+      realm_set_config "$realm_dir/config/mangosd.conf" "${setting%%=*}" "${setting#*=}"
+    done < <(sed -n 's/^set=//p' "$WOWAI_REALM_LEASE")
+  fi
   if [ ! -f "$realm_dir/config/realmd.conf" ]; then
     tr -d '\r' < "$example/realmd.conf.example" > "$realm_dir/config/realmd.conf"
   fi
+}
+
+# Set a value of a configuration file: the line "<name> = <value>" in place
+# of the line of that name, or at the end. Arguments: the file, the name, and
+# the value, as the file has it (a string with its quotes).
+realm_set_config() {
+  local file="$1" edited
+  edited="$(name="$2" value="$3" awk '
+    { key = $0; sub(/[ \t]*=.*/, "", key) }
+    key == ENVIRON["name"] { if (!done) print ENVIRON["name"] " = " ENVIRON["value"]; done = 1; next }
+    { print }
+    END { if (!done) print ENVIRON["name"] " = " ENVIRON["value"] }' "$file")"
+  [ "$edited" = "$(cat "$file")" ] || printf '%s\n' "$edited" > "$file"
 }
 
 realm_env() { sed -n "s/^$1=//p" "$realm_dir/.env" | tail -n 1; }
@@ -850,6 +908,7 @@ cmd_realm() {
     sql) cmd_realm_sql "$@" ;;
     down) cmd_realm_down "$@" ;;
     acquire) cmd_realm_acquire "$@" ;;
+    config) realm_prepare ;;
     release) cmd_realm_release ;;
     baseline) cmd_realm_baseline ;;
     wait) realm_wait_ready "$@" ;;
