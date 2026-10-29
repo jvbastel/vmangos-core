@@ -57,6 +57,19 @@ namespace Forever
     // On a login under other rules, a Warrior gets a talent reset and loses the spells that are not in
     // the active rule set, and those spells leave its action bars. Then the character is saved.
     void OnLogin(Player* player, MasterPlayer* master);
+
+    // Vanguard (Vanguard.cpp, WOWAI#216): the talent swaps Charge for Vanguard Charge, which the client
+    // allows in Defensive Stance, in the spellbook and on the action bars.
+    // Player::LearnSpell, at its end, for a spell that is not learned as a dependent of another: after
+    // the Vanguard talent or a stock Charge rank, with the rules on, a Warrior with the talent gets the
+    // Vanguard Charge of its highest stock Charge rank in place of Charge.
+    void OnSpellLearned(Player* player, uint32 spellId);
+    // Player::RemoveSpell, at its end: when a Warrior loses the Vanguard talent (a talent reset), stock
+    // Charge comes back on the same buttons.
+    void OnSpellRemoved(Player* player, uint32 spellId);
+    // The rules switch to vanilla (RulesSwitch.cpp), at login: the highest stock Charge rank comes back
+    // in the spellbook and on the buttons of the Vanguard Charge that the vanilla core no longer knows.
+    void GiveBackStockCharge(Player* player);
 }
 
 #endif

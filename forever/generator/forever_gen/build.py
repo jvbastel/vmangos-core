@@ -10,7 +10,7 @@ import os
 
 from . import client_patch, rules
 from .dbc import Dbc
-from .spec import FIELDS, NAME_SUBTEXT, talents
+from .spec import FIELDS, NAME_SUBTEXT, PROC_EVENT, proc_event, talents
 
 # TalentTab.dbc IDs of the Warrior trees.
 WARRIOR_TABS = rules.WARRIOR_TABS
@@ -23,6 +23,8 @@ TALENT_FIELDS = 21
 SPELL_ATTRIBUTES, SPELL_ICON = 6, 117
 SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION = 120, 129, 138
 SPELL_ATTR_PASSIVE = 0x40
+# The one 64-bit `set` column: the generator writes its high word into the next Spell.dbc field.
+SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 
 # The world database build of the Forever rows (SUPPORTED_CLIENT_BUILD of the core).
 CLIENT_BUILD = 5875
@@ -65,7 +67,8 @@ def spell_changes(row, rank):
         if values is not None:
             changes += [("effectBasePoints%d" % k, values[rank] - 1), ("effectDieSides%d" % k, 1),
                         ("effectBaseDice%d" % k, 1)]
-    changes += [(name, values[rank]) for name, values in row.fields.items() if name != NAME_SUBTEXT]
+    changes += [(name, values[rank]) for name, values in row.fields.items()
+                if name != NAME_SUBTEXT and not name.startswith(PROC_EVENT)]
     return changes
 
 
@@ -118,6 +121,8 @@ def client_spell_table(spells, stock):
         target[0] = spell
         for name, value in spell_changes(row, rank):
             target[FIELDS[name] if name != "spellIconId" else SPELL_ICON] = value & 0xFFFFFFFF
+            if name == SPELL_FAMILY_FLAGS:
+                target[FIELDS[name] + 1] = (value >> 32) & 0xFFFFFFFF
         stock_rank_text = "" if new else table.text(target[SPELL_RANK])
         for first, value in zip((SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION), spell_texts(row, rank, stock_rank_text)):
             # enUS only: the other locale strings of the stock row would be stale.
@@ -133,7 +138,7 @@ def _sql_text(value):
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
-def server_sql(spells, stock):
+def server_sql(spec, spells, stock):
     """The Forever server tables. Each spec spell is a copy of the stock server row of its source spell
     (with the core's own fixes), with the spec values set on top. The tables are made again in the shape
     of the stock tables first, so that a new column of a stock table cannot break the copies."""
@@ -161,7 +166,32 @@ def server_sql(spells, stock):
             "INSERT INTO `forever_spell_template` SELECT * FROM `forever_spell_new`;",
             "DROP TEMPORARY TABLE `forever_spell_new`;",
         ]
+    for row in spec.rows:
+        lines += proc_event_sql(row)
     return "\n".join(lines) + "\n"
+
+
+def proc_event_sql(row):
+    """The forever_spell_proc_event row of the first rank of a spec row that sets procEvent columns: a copy
+    of the stock row of the spell (the core's build range), else a row with the table defaults."""
+    values = proc_event(row)
+    if not values:
+        return []
+    spell = row.spells[0]
+    source = row.source_spells[0]
+    return [
+        "",
+        "-- %s: the proc event of rank 1 (the core gives it to the higher ranks)." % row.name,
+        "CREATE TEMPORARY TABLE `forever_proc_new` LIKE `spell_proc_event`;",
+        "INSERT INTO `forever_proc_new` SELECT * FROM `spell_proc_event` WHERE `entry`=%d AND %d BETWEEN `build_min` "
+        "AND `build_max`;" % (source, CLIENT_BUILD),
+        "SET @forever_proc_rows = (SELECT COUNT(*) FROM `forever_proc_new`);",
+        "INSERT INTO `forever_proc_new` (`entry`) SELECT %d FROM DUAL WHERE @forever_proc_rows = 0;" % source,
+        "UPDATE `forever_proc_new` SET %s;" % ", ".join(
+            "`%s`=%d" % kv for kv in [("entry", spell)] + sorted(values.items())),
+        "INSERT INTO `forever_spell_proc_event` SELECT * FROM `forever_proc_new`;",
+        "DROP TEMPORARY TABLE `forever_proc_new`;",
+    ]
 
 
 def generate(spec, stock_folder, out, marker_icons):
@@ -172,7 +202,7 @@ def generate(spec, stock_folder, out, marker_icons):
     spells = spell_ranks(spec)
     talents = in_client_order(talent_table(spec, stock))
     spell_table = client_spell_table(spells, stock)
-    sql = server_sql(spells, stock)
+    sql = server_sql(spec, spells, stock)
 
     server_dbc = os.path.join(out, "dbc")
     client_dbc = os.path.join(out, "client", "DBFilesClient")

@@ -175,6 +175,19 @@ def test_a_changed_base_ability_has_its_forever_values(out):
     assert (server[6572]["effectBasePoints1"], server[6572]["effectBaseDice1"], server[6572]["effectDieSides1"]) == ("19", "1", "5")
 
 
+def test_battle_shout_reaches_the_raid(out):
+    # jvbastel/WOWAI#215: each rank of Battle Shout targets the raid within the caster's range (56) and the
+    # caster (1), in place of the stock party within the caster's range (20). The raid target of the core
+    # leaves the caster out, so the caster comes from target B.
+    client, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    stock, _ = read_dbc(STOCK / "Spell.dbc")
+    server = server_spells(out)
+    for spell in (6673, 5242, 6192, 11549, 11550, 11551, 25289):
+        assert (stock[spell][82], stock[spell][85]) == (20, 0), spell
+        assert (client[spell][82], client[spell][85]) == (56, 1), spell
+        assert (server[spell]["effectImplicitTargetA1"], server[spell]["effectImplicitTargetB1"]) == ("56", "1"), spell
+
+
 def test_a_new_spell_is_a_copy_of_its_source_with_the_spec_values(out):
     client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
     stock, _ = read_dbc(STOCK / "Spell.dbc")
@@ -257,3 +270,42 @@ def test_the_talent_rows_are_in_tree_tier_column_order_as_in_the_stock_table(out
         return [struct.unpack_from("<4I", data, 20 + i * fields * 4)[1:4] for i in range(records)]
     assert order(STOCK / "Talent.dbc") == sorted(order(STOCK / "Talent.dbc"))
     assert order(out / "client" / "DBFilesClient" / "Talent.dbc") == sorted(order(out / "client" / "DBFilesClient" / "Talent.dbc"))
+
+
+# Spell.dbc 1.12.1: 11 Stances (1 << (form - 1): Battle 0x10000, Defensive 0x20000, Berserker 0x40000).
+SPELL_STANCES = 11
+BATTLE_STANCE, DEFENSIVE_STANCE = 0x10000, 0x20000
+
+
+def test_vanguard_charge_is_stock_charge_that_the_client_allows_in_defensive_stance(out):
+    # WOWAI#216: Vanguard swaps each Charge rank (100, 6178, 11578) for its Vanguard Charge (60127-60129).
+    # The client checks the stance of a spell itself, so the new rows need Battle and Defensive Stance.
+    client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    stock, _ = read_dbc(STOCK / "Spell.dbc")
+    server = server_spells(out)
+    for rank, (vanguard, charge) in enumerate(((60127, 100), (60128, 6178), (60129, 11578))):
+        assert stock[charge][SPELL_STANCES] == BATTLE_STANCE
+        row = client[vanguard]
+        assert row[SPELL_STANCES] == BATTLE_STANCE | DEFENSIVE_STANCE, vanguard
+        assert int(server[vanguard]["stances"]) == BATTLE_STANCE | DEFENSIVE_STANCE, vanguard
+        # The rest is the stock rank: effects, rage, range, cooldown, family (so Improved Charge applies).
+        assert row[1:SPELL_STANCES] == stock[charge][1:SPELL_STANCES], vanguard
+        assert row[SPELL_STANCES + 1:SPELL_NAME] == stock[charge][SPELL_STANCES + 1:SPELL_NAME], vanguard
+        assert row[160:163] == stock[charge][160:163], vanguard
+        assert text(row[SPELL_NAME]) == "Charge" and text(row[SPELL_RANK]) == "Rank %d" % (rank + 1)
+
+
+def test_the_vanguard_talent_is_a_passive_spell_that_the_rules_switch_knows(out):
+    # The core swaps Charge when a Warrior learns the Vanguard talent spell, and back when it loses it
+    # (src/game/Forever/Vanguard.cpp). Its IDs must be the spec IDs.
+    client, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    assert client[60119][6] & 0x40  # passive: a talent, no button
+    vanguard = (ROOT / "src" / "game" / "Forever" / "Vanguard.cpp").read_text(encoding="utf-8")
+    assert re.search(r"\bVanguardTalentSpell = 60119;", vanguard)
+    pairs = re.findall(r"\{ (\d+), (\d+) \}", vanguard)
+    assert [tuple(map(int, p)) for p in pairs] == [(100, 60127), (6178, 60128), (11578, 60129)]
+    rows = {row["name"]: row for row in spec_rows()}
+    assert spells_of(rows["Vanguard"]) == [60119]
+    charge = [row for row in spec_rows("ability") if row["name"] == "Charge"][0]
+    assert list(zip(spells_of(charge), map(int, charge["sourceSpells"].split(",")))) == \
+        [(60127, 100), (60128, 6178), (60129, 11578)]

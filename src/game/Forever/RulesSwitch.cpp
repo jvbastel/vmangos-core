@@ -102,6 +102,9 @@ namespace
             for (StockTalentSpell const& talent : stockTalentSpells)
                 if (talent.classMask & player->GetClassMask())
                     UnlearnTalentSpell(player, talent.spell);
+
+        if (to == Rules::Vanilla)
+            Forever::GiveBackStockCharge(player);
     }
 
     // Takes the buttons of the spells that the switch took away off the action bars. A button of a
