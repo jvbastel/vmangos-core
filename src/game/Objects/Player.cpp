@@ -84,8 +84,6 @@
 #include "world/world_event_wareffort.h"
 #include "BotHooks.h"
 #include "Forever.h"
-#include "ForeverProtection.h"
-#include "ForeverFury.h"
 
 #include <climits>
 
@@ -2280,7 +2278,7 @@ void Player::RegenerateAll()
             HasAuraType(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT) || IsPolymorphed())
     {
         RegenerateHealth();
-        // Forever rules: no rage decay while Lingering Rage runs (jvbastel/WOWAI#218).
+        // WOWAI Forever rules (#218): no rage decay while Lingering Rage runs.
         if (!IsInCombat() && !HasAuraType(SPELL_AURA_INTERRUPT_REGEN) && Forever::RageDecays(this))
             Regenerate(POWER_RAGE);
     }
@@ -3470,7 +3468,8 @@ bool Player::AddSpell(uint32 spellId, bool active, bool learning, bool dependent
     if (!spellInfo)
     {
         // do character spell book cleanup (all characters)
-        if (!IsInWorld() && !learning)                      // spell load case
+        // WOWAI Forever rules (#204, review S1): not for a Forever-only spell while the rules are off.
+        if (!IsInWorld() && !learning && !Forever::KeepsRowsOfUnknownSpell(spellId)) // spell load case
         {
             sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "Player::AddSpell: nonexistent in SpellStore spell #%u request, deleting for all characters in `character_spell`.", spellId);
             CharacterDatabase.PExecute("DELETE FROM `character_spell` WHERE `spell` = '%u'", spellId);

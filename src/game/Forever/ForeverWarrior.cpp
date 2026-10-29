@@ -37,11 +37,6 @@ namespace
     }
 }
 
-bool Forever::IsForeverWarrior(Unit const* unit)
-{
-    return RulesOn() && unit && unit->IsPlayer() && unit->GetClass() == CLASS_WARRIOR;
-}
-
 bool Forever::RewardSwingRage(Unit* attacker, CleanDamage const* cleanDamage)
 {
     if (!IsForeverWarrior(attacker))

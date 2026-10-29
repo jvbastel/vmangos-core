@@ -6,8 +6,9 @@
 */
 
 #include "ForeverFury.h"
+#include "Forever.h"
 #include "ForeverFuryRules.h"
-#include "ForeverWarrior.h"
+#include "ForeverTalents.h"
 #include "DamageStructs.h"
 #include "Log.h"
 #include "Player.h"
@@ -23,19 +24,8 @@ using namespace Forever::FuryRules;
 
 namespace
 {
-    // The rank spell of a talent that `unit` has (its passive aura), or nullptr.
-    template <std::size_t N>
-    SpellEntry const* TalentRank(Unit const* unit, uint32 const (&ranks)[N])
-    {
-        uint32 const rank = KnownRank(ranks, [unit](uint32 id) { return unit->HasAura(id); });
-        return rank ? sSpellMgr.GetSpellEntry(ranks[rank - 1]) : nullptr;
-    }
-
-    // The value of effect `eff` of a talent rank spell (the spec value: base points + 1).
-    int32 TalentValue(SpellEntry const* rank, SpellEffectIndex eff)
-    {
-        return rank ? rank->CalculateSimpleValue(eff) : 0;
-    }
+    using Forever::Talents::RankByAura;
+    using Forever::Talents::RankEffectValue;
 
     // A self buff of the Forever data. False when the Forever spell row is missing (no Forever data).
     bool CastBuff(Unit* unit, uint32 buffId)
@@ -82,7 +72,7 @@ void Forever::StartLingeringRage(Unit* unit)
 
     // Lingering Rage: effect 1 of the rank is the delay in ms (2000-10000). The buff stops the decay
     // (RageDecays); its spell lasts 10 sec, so set the duration of the rank.
-    int32 const delayMs = TalentValue(TalentRank(unit, LingeringRageRanks), EFFECT_INDEX_0);
+    int32 const delayMs = RankEffectValue(RankByAura(unit, LingeringRageRanks), EFFECT_INDEX_0);
     if (delayMs <= 0 || !CastBuff(unit, LingeringRageBuff))
         return;
     if (SpellAuraHolder* holder = unit->GetSpellAuraHolder(LingeringRageBuff))
@@ -104,7 +94,7 @@ float Forever::OffHandHitBonus(Unit const* attacker, WeaponAttackType attType)
 {
     if (attType != OFF_ATTACK || !IsForeverWarrior(attacker))
         return 0.0f;
-    return float(FuryRules::OffHandHitBonus(true, TalentValue(TalentRank(attacker, FuriousPrecisionRanks), EFFECT_INDEX_0)));
+    return float(FuryRules::OffHandHitBonus(true, RankEffectValue(RankByAura(attacker, FuriousPrecisionRanks), EFFECT_INDEX_0)));
 }
 
 void Forever::OnSpellCast(Unit* caster, SpellEntry const* spellInfo)
@@ -113,13 +103,13 @@ void Forever::OnSpellCast(Unit* caster, SpellEntry const* spellInfo)
         return;
 
     // Gore Drinker: the buff gives the next 3 melee attacks the heal (OnMeleeDamageDealt).
-    if (IsGoreDrinkerTrigger(spellInfo->Id) && TalentRank(caster, GoreDrinkerRanks) && CastBuff(caster, GoreDrinkerBuff))
+    if (IsGoreDrinkerTrigger(spellInfo->Id) && RankByAura(caster, GoreDrinkerRanks) && CastBuff(caster, GoreDrinkerBuff))
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Gore Drinker: %s gets the buff from spell %u.", caster->GetName(), spellInfo->Id);
 
     // Improved Berserker Rage: effect 2 of the rank is the chance (50/100). Its rage part is stock (23690/1).
-    if (spellInfo->Id == BerserkerRage)
+    if (spellInfo->Id == BerserkerRageSpell)
     {
-        int32 const chance = TalentValue(TalentRank(caster, ImprovedBerserkerRageRanks), EFFECT_INDEX_1);
+        int32 const chance = RankEffectValue(RankByAura(caster, ImprovedBerserkerRageRanks), EFFECT_INDEX_1);
         if (RemovesSnares(chance, rand_chance_f()))
         {
             RemoveMovementImpairing(caster);
@@ -139,7 +129,7 @@ void Forever::OnMeleeDamageDealt(Unit* attacker, Unit* victim, DamageEffectType 
         return;
 
     // Effect 2 of the rank: tenths of a percent of the maximum health (5 = 0.5%, 10 = 1%).
-    uint32 const heal = GoreDrinkerHeal(attacker->GetMaxHealth(), TalentValue(TalentRank(attacker, GoreDrinkerRanks), EFFECT_INDEX_1));
+    uint32 const heal = GoreDrinkerHeal(attacker->GetMaxHealth(), RankEffectValue(RankByAura(attacker, GoreDrinkerRanks), EFFECT_INDEX_1));
     if (heal)
         attacker->DealHeal(attacker, heal, buff->GetSpellProto());
     if (buff->DropAuraCharge())
@@ -153,8 +143,8 @@ void Forever::OnDamageTaken(Unit* attacker, Unit* victim, uint32 damage, DamageE
 
     // Blood Craze: effect 2 of the rank is the percent (20), effect 1 the stock heal trigger (16488/90/91).
     // The stock proc on a crit taken stays; a crit of more than 20% refreshes the same heal.
-    SpellEntry const* rank = TalentRank(victim, BloodCrazeRanks);
-    if (!rank || !BloodCrazeTriggers(damage, victim->GetMaxHealth(), TalentValue(rank, EFFECT_INDEX_1)))
+    SpellEntry const* rank = RankByAura(victim, BloodCrazeRanks);
+    if (!rank || !BloodCrazeTriggers(damage, victim->GetMaxHealth(), RankEffectValue(rank, EFFECT_INDEX_1)))
         return;
     victim->CastSpell(victim, rank->EffectTriggerSpell[EFFECT_INDEX_0], true);
     sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Blood Craze: %s took %u of %u health in one hit.",

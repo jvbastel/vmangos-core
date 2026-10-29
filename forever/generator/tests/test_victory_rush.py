@@ -22,6 +22,7 @@ EFFECT, BASE_POINTS, APPLY_AURA_NAME = 61, 76, 91
 SCHOOL_DAMAGE, DUMMY, APPLY_AURA, AURA_DUMMY = 2, 3, 6, 4
 DURATION_20_SEC = 18  # SpellDuration.dbc: 20000 ms
 RULES = ROOT / "src" / "game" / "Forever" / "VictoryRushRules.h"
+IDS = ROOT / "src" / "game" / "Forever" / "ForeverSpellIds.h"
 
 
 @pytest.fixture(scope="module")
@@ -48,8 +49,9 @@ def test_victory_rush_needs_the_victorious_aura_state_in_the_client_and_the_serv
 def test_the_core_sets_the_same_aura_state_for_the_same_spells():
     text = RULES.read_text(encoding="utf-8")
     assert re.search(r"\bVictoriousAuraState = %d;" % VICTORIOUS_STATE, text)
-    assert re.search(r"\bVictoryRushSpell = %d;" % VICTORY_RUSH, text)
-    assert re.search(r"\bVictoriousSpell = %d;" % VICTORIOUS, text)
+    ids = IDS.read_text(encoding="utf-8")
+    assert re.search(r"\bVictoryRushSpell = %d;" % VICTORY_RUSH, ids)
+    assert re.search(r"\bVictoriousSpell = %d;" % VICTORIOUS, ids)
 
 
 def test_victory_rush_has_the_client_numbers(out):

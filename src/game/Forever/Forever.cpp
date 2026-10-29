@@ -6,10 +6,13 @@
 */
 
 #include "Forever.h"
+#include "ForeverSpellIds.h"
 #include "Config/Config.h"
 #include "Database/DatabaseEnv.h"
 #include "Log.h"
 #include "Progression.h"
+#include "SharedDefines.h"
+#include "Unit.h"
 
 #include <cstdlib>
 #include <memory>
@@ -52,6 +55,19 @@ void Forever::LoadConfig(bool reload)
 bool Forever::RulesOn()
 {
     return rulesOn;
+}
+
+bool Forever::IsForeverWarrior(Unit const* unit)
+{
+    return rulesOn && unit && unit->IsPlayer() && unit->GetClass() == CLASS_WARRIOR;
+}
+
+bool Forever::KeepsRowsOfUnknownSpell(uint32 spellId)
+{
+    bool const keep = SpellIds::KeepsRowsOfUnknownSpell(spellId, rulesOn);
+    if (keep)
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Spell %u exists only under the Forever rules: its character_spell rows stay.", spellId);
+    return keep;
 }
 
 std::string Forever::DbcPath(std::string const& stockPath)

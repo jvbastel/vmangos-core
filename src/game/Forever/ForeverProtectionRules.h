@@ -13,6 +13,8 @@
 // header, so wowai/tests/forever-rules.test.sh tests it on the host. ForeverProtection.cpp
 // calls it from the core hooks. The spell IDs and values are the rows of forever/warrior.tsv.
 
+#include "ForeverSpellIds.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -20,27 +22,21 @@ namespace Forever
 {
 namespace ProtectionRules
 {
+    using namespace SpellIds;
+
     // Defiance (3 ranks) and Bastion (5 ranks): passive auras that work only while a shield is equipped.
-    constexpr uint32_t ShieldTalentSpells[] = { 12303, 12788, 12789, 16538, 16539, 16540, 16541, 16542 };
-    // Master of Defense: passive dummy auras, effect 1 = the chance (50/100) to gain Rage on a dodge or parry.
-    constexpr uint32_t MasterOfDefenseSpells[] = { 60117, 60118 };
+    constexpr uint32_t ShieldTalentSpells[] = { DefianceRanks[0], DefianceRanks[1], DefianceRanks[2],
+        BastionRanks[0], BastionRanks[1], BastionRanks[2], BastionRanks[3], BastionRanks[4] };
+    static_assert(sizeof(ShieldTalentSpells) == sizeof(DefianceRanks) + sizeof(BastionRanks),
+        "every Defiance and Bastion rank is a shield talent spell");
     // The Rage of Shield Specialization and Master of Defense: 5 Rage (the base row Shield Specialization).
-    constexpr uint32_t MasterOfDefenseRageSpell = 23602;
-    // Iron Will: passive dummy auras, effect 1 = the percent (3-15) off the duration of Stun and Fear.
-    constexpr uint32_t IronWillSpells[] = { 12300, 12959, 12960, 12961, 12962 };
+    constexpr uint32_t MasterOfDefenseRageSpell = ShieldSpecializationRage;
 
-    template <std::size_t N>
-    inline bool Contains(uint32_t const (&ids)[N], uint32_t id)
-    {
-        for (uint32_t known : ids)
-            if (known == id)
-                return true;
-        return false;
-    }
-
+    // Master of Defense: passive dummy auras, effect 1 = the chance (50/100) to gain Rage on a dodge or
+    // parry. Iron Will: passive dummy auras, effect 1 = the percent (3-15) off the duration of Stun and Fear.
     inline bool IsShieldTalentSpell(uint32_t spellId) { return Contains(ShieldTalentSpells, spellId); }
-    inline bool IsMasterOfDefenseSpell(uint32_t spellId) { return Contains(MasterOfDefenseSpells, spellId); }
-    inline bool IsIronWillSpell(uint32_t spellId) { return Contains(IronWillSpells, spellId); }
+    inline bool IsMasterOfDefenseSpell(uint32_t spellId) { return Contains(MasterOfDefenseRanks, spellId); }
+    inline bool IsIronWillSpell(uint32_t spellId) { return Contains(IronWillRanks, spellId); }
 
     // A shield talent aura is on while a usable shield is equipped and the Warrior is in the stance that
     // the spell asks for (Defiance: Defensive Stance; Bastion: any).

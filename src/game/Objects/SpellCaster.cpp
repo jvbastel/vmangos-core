@@ -27,8 +27,7 @@
 #include "WorldPacket.h"
 #include "Opcodes.h"
 #include "Utilities/Random.h"
-#include "ForeverArms.h"
-#include "ForeverFury.h"
+#include "Forever.h"
 
 Unit* SpellCaster::SelectMagnetTarget(Unit* victim, Spell* spell, SpellEffectIndex eff)
 {
@@ -391,7 +390,7 @@ float SpellCaster::GetMeleeMissChance(Unit const* pVictim, WeaponAttackType attT
         // Bonuses from attacker aura and ratings
         hitChance += pUnit->GetWeaponBasedAuraModifier(attType, SPELL_AURA_MOD_HIT_CHANCE);
 
-        // Forever rules: Furious Precision, hit chance for off-hand attacks (jvbastel/WOWAI#218).
+        // WOWAI Forever rules (#218): Furious Precision, hit chance for off-hand attacks.
         hitChance += Forever::OffHandHitBonus(pUnit, attType);
     }
 
@@ -1133,7 +1132,7 @@ float SpellCaster::CalcArmorReducedDamage(Unit const* pVictim, uint32 const dama
     if (pUnit)
         armor += pUnit->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_TARGET_RESISTANCE, SPELL_SCHOOL_MASK_NORMAL);
 
-    // Forever rules: Weaponmaster with a mace or staff ignores a part of the armor (jvbastel/WOWAI#217).
+    // WOWAI Forever rules (#217): Weaponmaster with a mace or staff ignores a part of the armor.
     Forever::WeaponmasterArmor(pUnit, armor);
 
     if (armor < 0.0f)

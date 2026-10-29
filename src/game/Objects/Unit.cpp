@@ -59,11 +59,7 @@
 #include "MovementPacketSender.h"
 #include "Errors.h"
 #include "Utilities/Random.h"
-#include "ForeverWarrior.h"
-#include "VictoryRush.h"
-#include "ForeverArms.h"
-#include "ForeverProtection.h"
-#include "ForeverFury.h"
+#include "Forever.h"
 
 #include <limits>
 
@@ -284,7 +280,7 @@ void Unit::Update(uint32 update_diff, uint32 p_time)
 #endif
 
                         ClearInCombat();
-                        // Forever rules: Lingering Rage holds the rage after combat (jvbastel/WOWAI#218).
+                        // WOWAI Forever rules (#218): Lingering Rage holds the rage after combat.
                         Forever::StartLingeringRage(this);
                     }
                 }
@@ -423,7 +419,7 @@ bool Unit::UpdateMeleeAttackingState()
 {
     Unit* pVictim = GetVictim();
 
-    // Forever rules: Improved Slam swings through the cast of Slam (jvbastel/WOWAI#217).
+    // WOWAI Forever rules (#217): Improved Slam swings through the cast of Slam.
     if (!pVictim || (IsNonMeleeSpellCasted(false) && !Forever::SwingsThroughCast(this)))
         return false;
 
@@ -733,7 +729,7 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
             // Rage on outgoing parry/dodge
             if (cleanDamage->hitOutCome == MELEE_HIT_PARRY || cleanDamage->hitOutCome == MELEE_HIT_DODGE)
             {
-                // Forever rules: a Warrior gets no rage from a dodge or parry (jvbastel/WOWAI#214).
+                // WOWAI Forever rules (#214): a Warrior gets no rage from a dodge or parry.
                 if (cleanDamage->damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE) && !Forever::NoRageForAvoidedSwing(this))
                     ((Player*)this)->RewardRage(cleanDamage->damage*0.75, true);
             }
@@ -805,11 +801,11 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
     }
 
     // Rage from Damage made (only from direct weapon damage)
-    // Forever rules: a Warrior's rage comes from the weapon speed (jvbastel/WOWAI#214).
+    // WOWAI Forever rules (#214): a Warrior's rage comes from the weapon speed.
     if (damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE) && !Forever::RewardSwingRage(this, cleanDamage))
         ((Player*)this)->RewardRage(damage, true);
 
-    // Forever rules: the Gore Drinker heal of a melee attack (jvbastel/WOWAI#218).
+    // WOWAI Forever rules (#218): the Gore Drinker heal of a melee attack.
     if (damage)
         Forever::OnMeleeDamageDealt(this, pVictim, damagetype, cleanDamage, spellProto);
 
@@ -890,7 +886,7 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
                 ((Player*)pVictim)->RewardRage(damage, false);
             }
 
-            // Forever rules: Blood Craze after a hit of more than 20% of maximum health (jvbastel/WOWAI#218).
+            // WOWAI Forever rules (#218): Blood Craze after a hit of more than 20% of maximum health.
             Forever::OnDamageTaken(this, pVictim, damage, damagetype);
 
             // random durability for items (HIT TAKEN)
@@ -1120,7 +1116,7 @@ void Unit::Kill(Unit* pVictim, SpellEntry const* spellProto, bool durabilityLoss
     if (pVictim != this) // The one who has the fatal blow
         ProcDamageAndSpell(ProcSystemArguments(pVictim, PROC_FLAG_KILL, PROC_FLAG_HEARTBEAT, PROC_EX_NONE, 0, 0));
 
-    // Forever rules: the Warrior with the killing blow gets Victorious (jvbastel/WOWAI#213).
+    // WOWAI Forever rules (#213): the Warrior with the killing blow gets Victorious.
     Forever::OnKillForVictoryRush(this, pVictim);
 
     DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamageAttackStop");
@@ -2589,7 +2585,7 @@ float Unit::GetUnitCriticalChance(WeaponAttackType attackType, Unit const* pVict
                 crit = 0.0f;
                 break;
         }
-        // Forever rules: Weaponmaster with an axe or polearm (jvbastel/WOWAI#217).
+        // WOWAI Forever rules (#217): Weaponmaster with an axe or polearm.
         crit += Forever::WeaponmasterCritBonus(this, attackType);
     }
     else
@@ -8936,7 +8932,7 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* pTarget, uint32 procFlag,
             }
         }
 
-        // Forever rules: Bloodthrill opens Overpower on a target with the Warrior's Rend (jvbastel/WOWAI#217).
+        // WOWAI Forever rules (#217): Bloodthrill opens Overpower on a target with the Warrior's Rend.
         if (!isVictim)
         {
             if (uint32 const window = Forever::BloodthrillOverpower(this, pTarget, procFlag, procExtra, attType, procSpell))
@@ -9024,7 +9020,7 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* pTarget, ProcSystemArgumen
 #else
         auto result = IsTriggeredAtSpellProcEvent(pTarget, itr.second, data.procSpell, procFlag, data.procExtra, data.attType, isVictim, spellProcEvent, data.isSpellTriggeredByAuraOrItem);
 #endif
-        // Forever rules: no Weaponmaster sword proc from Shield Bash or Shield Slam (jvbastel/WOWAI#217).
+        // WOWAI Forever rules (#217): no Weaponmaster sword proc from Shield Bash or Shield Slam.
         if (result == SPELL_PROC_TRIGGER_OK && Forever::WeaponmasterBlocksProc(this, itr.second->GetSpellProto(), data.procSpell))
             continue;
         if (result != SPELL_PROC_TRIGGER_OK)

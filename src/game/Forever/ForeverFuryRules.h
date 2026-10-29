@@ -8,10 +8,11 @@
 #ifndef WOWAI_GAME_FOREVER_FURY_RULES_H
 #define WOWAI_GAME_FOREVER_FURY_RULES_H
 
-// The pure rules of the Forever Fury talents (jvbastel/WOWAI#218): the spell IDs of the talent ranks and
-// the small decisions of Lingering Rage, Furious Precision, Blood Craze, Improved Berserker Rage and Gore
+// The pure rules of the Forever Fury talents (jvbastel/WOWAI#218): the small decisions of Lingering Rage, Furious Precision, Blood Craze, Improved Berserker Rage and Gore
 // Drinker. No game header, so wowai/tests/forever-rules.test.sh tests it on the host. ForeverFury.cpp
 // calls it from the core hooks. The talent values come from the rank spells (forever/warrior.tsv).
+
+#include "ForeverSpellIds.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -20,28 +21,8 @@ namespace Forever
 {
 namespace FuryRules
 {
-    // The rank spells of each talent, rank 1 first (forever/warrior.tsv).
-    constexpr uint32_t LingeringRageRanks[] = { 60106, 60107, 60108, 60109, 60110 };
-    constexpr uint32_t FuriousPrecisionRanks[] = { 60111, 60112, 60113 };
-    constexpr uint32_t BloodCrazeRanks[] = { 16487, 16489, 16492 };
-    constexpr uint32_t ImprovedBerserkerRageRanks[] = { 20500, 20501 };
-    constexpr uint32_t GoreDrinkerRanks[] = { 60115, 60116 };
-
-    // The buffs that the core gives (ability rows of forever/warrior.tsv).
-    constexpr uint32_t LingeringRageBuff = 60131;   // no rage decay while it lasts
-    constexpr uint32_t GoreDrinkerBuff = 60132;     // 3 charges, 8 sec
-
-    constexpr uint32_t BerserkerRage = 18499;
-
-    // The rank (1 = first) of the highest rank spell of `ranks` that `knows` is true for, or 0.
-    template <std::size_t N, typename Knows>
-    uint32_t KnownRank(uint32_t const (&ranks)[N], Knows knows)
-    {
-        for (std::size_t i = N; i > 0; --i)
-            if (knows(ranks[i - 1]))
-                return uint32_t(i);
-        return 0;
-    }
+    // The talent rank spells and buffs are in ForeverSpellIds.h (Forever::SpellIds), with KnownRank.
+    using namespace SpellIds;
 
     // Lingering Rage: out of combat the rage decays, unless the delay of the talent still runs.
     inline bool RageDecays(bool inCombat, bool lingeringRageRunning)
@@ -79,7 +60,7 @@ namespace FuryRules
         switch (spellId)
         {
             case 12880: case 14201: case 14202: case 14203: case 14204:    // Enrage
-            case BerserkerRage:
+            case BerserkerRageSpell:
             case 2687:                                                      // Bloodrage
             case 12328:                                                     // Death Wish
             case 23881: case 23892: case 23893: case 23894:                 // Bloodthirst

@@ -48,7 +48,7 @@ void Forever::LoadBaselineSpells()
 
 uint32 Forever::LearnBaselineSpells(Player* player)
 {
-    if (!RulesOn() || player->GetClass() != CLASS_WARRIOR)
+    if (!IsForeverWarrior(player))
         return 0;
 
     uint32 learned = 0;

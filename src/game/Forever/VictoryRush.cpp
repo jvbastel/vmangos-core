@@ -18,15 +18,13 @@ using namespace Forever::VictoryRushRules;
 
 void Forever::OnKillForVictoryRush(Unit* killer, Unit* victim)
 {
-    if (!RulesOn() || !killer || !victim)
+    if (!victim || !IsForeverWarrior(killer))
         return;
     Player* player = killer->ToPlayer();
-    if (!player)
-        return;
 
     Kill kill;
     kill.rulesOn = true;
-    kill.killerIsWarriorPlayer = player->GetClass() == CLASS_WARRIOR;
+    kill.killerIsWarriorPlayer = true;
     kill.killerKnowsVictoryRush = player->HasSpell(VictoryRushSpell);
     kill.killedSelf = killer == victim;
     kill.honorOrXpTarget = player->IsHonorOrXPTarget(victim);

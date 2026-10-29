@@ -6,8 +6,9 @@
 */
 
 #include "ForeverProtection.h"
+#include "Forever.h"
 #include "ForeverProtectionRules.h"
-#include "ForeverWarrior.h"
+#include "ForeverTalents.h"
 #include "Item.h"
 #include "Log.h"
 #include "Player.h"
@@ -20,6 +21,7 @@
 namespace
 {
     using namespace Forever::ProtectionRules;
+    using Forever::Talents::SumDummy;
 
     bool IsUsableShield(Item const* item)
     {
@@ -30,17 +32,6 @@ namespace
     bool HasUsableShield(Player const* player)
     {
         return IsUsableShield(player->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_OFFHAND));
-    }
-
-    // The sum of effect 1 of the unit's dummy auras whose spell passes `isTalentSpell` (the talent value of
-    // the rank that the unit has: Master of Defense chance, Iron Will percent).
-    int32 TalentValue(Unit const* unit, bool (*isTalentSpell)(uint32_t))
-    {
-        int32 total = 0;
-        for (Aura const* aura : unit->GetAurasByType(SPELL_AURA_DUMMY))
-            if (isTalentSpell(aura->GetId()))
-                total += int32(aura->GetModifier()->m_amount);
-        return total;
     }
 
     // Casts or removes each Defiance and Bastion rank that the Warrior knows, so that its aura is on only
@@ -102,7 +93,7 @@ void Forever::OnDodgeOrParry(Unit* victim, uint32 procExtra)
         return;
 
     Player* warrior = victim->ToPlayer();
-    int32 const chance = TalentValue(warrior, IsMasterOfDefenseSpell);
+    int32 const chance = SumDummy(warrior, MasterOfDefenseRanks);
     if (!MasterOfDefenseCanProc(avoided, HasUsableShield(warrior), chance) || !roll_chance_i(chance))
         return;
 
@@ -120,7 +111,7 @@ void Forever::ApplyIronWill(Unit const* target, SpellAuraHolder const* holder, i
     SpellEntry const* spellInfo = holder->GetSpellProto();
     if (!spellInfo->HasAura(SPELL_AURA_MOD_STUN) && !spellInfo->HasAura(SPELL_AURA_MOD_FEAR))
         return;
-    int32 const pct = TalentValue(target, IsIronWillSpell);
+    int32 const pct = SumDummy(target, IronWillRanks);
     if (pct <= 0)
         return;
 
