@@ -81,6 +81,11 @@ namespace Bots
     bool ParseRoleName(std::string const& word, BotRole& role);
     // True when the class can play the role in a group.
     bool ClassCanPlayRole(BotClass botClass, BotRole role);
+
+    // jvbastel/WOWAI#209: whether the bot manager may make or log in a bot of the class. With the
+    // Forever rules on (`foreverRules`), the player plays the Warrior, so a Warrior bot is refused.
+    // Empty when allowed, else a short line for the GM and the log.
+    std::string BotClassRefusal(BotClass botClass, bool foreverRules);
 }
 
 #endif
