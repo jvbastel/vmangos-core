@@ -55,3 +55,11 @@ int32 Forever::Talents::RankEffectValue(SpellEntry const* rank, SpellEffectIndex
 {
     return rank ? rank->CalculateSimpleValue(eff) : 0;
 }
+
+float Forever::Talents::AttackPowerAgainst(Unit const* caster, Unit const* target)
+{
+    float attackPower = caster->GetTotalAttackPowerValue(BASE_ATTACK);
+    if (target)
+        attackPower += caster->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_MELEE_ATTACK_POWER_VERSUS, target->GetCreatureTypeMask());
+    return attackPower;
+}

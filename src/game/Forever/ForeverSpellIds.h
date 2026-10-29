@@ -35,6 +35,10 @@ namespace SpellIds
     constexpr uint32_t WeaponmasterRanks[] = { 12281, 12812, 12813, 12814, 12815 };             // spec: talent Weaponmaster
     constexpr uint32_t ImprovedSlamRanks[] = { 12862, 12330 };                                  // spec: talent Improved Slam
 
+    // Warrior mechanics (#214, client 70685): Anger Management (Arms) and Dual Wield Specialization (Fury).
+    constexpr uint32_t AngerManagementRanks[] = { 12296 };                                      // spec: talent Anger Management
+    constexpr uint32_t DualWieldSpecializationRanks[] = { 23584, 23585, 23586, 23587, 23588 };  // spec: talent Dual Wield Specialization
+
     // Fury (#218).
     constexpr uint32_t LingeringRageRanks[] = { 60106, 60107, 60108, 60109, 60110 };            // spec: talent Lingering Rage
     constexpr uint32_t FuriousPrecisionRanks[] = { 60111, 60112, 60113 };                       // spec: talent Furious Precision

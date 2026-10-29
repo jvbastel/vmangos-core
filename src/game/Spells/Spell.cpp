@@ -1782,7 +1782,7 @@ void Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask)
             if (duration > 0)
             {
                 unit->ApplyDiminishingToDuration(m_diminishGroup, duration, m_caster, m_diminishLevel, isReflected);
-                // WOWAI Forever rules (#219): Iron Will shortens Stun and Fear on a Warrior.
+                // WOWAI Forever rules (#219): Iron Will shortens Charm and Stun on a Warrior.
                 Forever::ApplyIronWill(unit, m_spellAuraHolder, duration);
 
                 // Fully diminished

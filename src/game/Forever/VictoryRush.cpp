@@ -8,6 +8,7 @@
 #include "VictoryRush.h"
 #include "Forever.h"
 #include "VictoryRushRules.h"
+#include "ForeverTalents.h"
 #include "Log.h"
 #include "Player.h"
 #include "Spell.h"
@@ -49,9 +50,7 @@ void Forever::VictoryRushDamage(Spell* spell, SpellEffectIndex effIdx)
         return;
     Unit* caster = spell->m_casterUnit;
     Unit* target = spell->GetUnitTarget();
-    float attackPower = caster->GetTotalAttackPowerValue(BASE_ATTACK);
-    if (target)
-        attackPower += caster->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_MELEE_ATTACK_POWER_VERSUS, target->GetCreatureTypeMask());
+    float const attackPower = Talents::AttackPowerAgainst(caster, target);
     int32 const percent = int32(spell->CalculateDamage(EFFECT_INDEX_2, target));
     spell->damage = float(Damage(int32(spell->damage), attackPower, percent));
 }

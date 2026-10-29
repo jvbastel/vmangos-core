@@ -21,10 +21,11 @@ forever: Shield Specialization 5/5, Iron Will 5/5, Master of Defense 2/2, Defian
          Master of Defense 2/2 (100%): a level 60 boar attacks the Warrior (GM Evasion for more dodges). With
          the shield each dodge and parry logs a Master of Defense line and gives 5 Rage (spell 23602).
          Without the shield the dodges and parries give no Rage from 23602 and no line.
-         Iron Will 5/5: the boar casts Hammer of Justice rank 1 (853, 3 sec stun) and Fear rank 1 (5782, 10 sec)
-         on the Warrior: they last 15% less (2.55 and 8.5 sec), with an Iron Will log line each.
+         Iron Will 5/5 (client 70685: Charm and Stun): the boar casts Hammer of Justice rank 1 (853, 3 sec
+         stun) and Seduction (6358, 15 sec, mechanic Charm) on the Warrior: they last 15% less (2.55 and 12.75
+         sec), with an Iron Will log line each. Fear rank 1 (5782, 10 sec) keeps its 10 sec and logs no line.
 vanilla: talent 60006 (Master of Defense) is refused. Stock Defiance 3/5 is on in Defensive Stance without a
-         shield (no gate). Iron Will 5/5 (stock: resist chance) leaves the durations at 3 and 10 sec. No
+         shield (no gate). Iron Will 5/5 (stock: resist chance) leaves the durations at 3, 15 and 10 sec. No
          "[Forever]" line.
 """
 import re
@@ -51,7 +52,7 @@ HAND_AXE = 2134
 BACKPACK, OFF_HAND_SLOT = 255, 16
 BATTLE_STANCE, DEFENSIVE_STANCE = 2457, 71
 EVASION = 5277              # +50% dodge, 15 sec (GM aura, for more dodges)
-HAMMER_OF_JUSTICE_1, FEAR_1 = 853, 5782     # 3 sec stun, 10 sec fear
+HAMMER_OF_JUSTICE_1, SEDUCTION, FEAR_1 = 853, 6358, 5782     # 3 sec stun, 15 sec charm, 10 sec fear
 RAGE_SPELL = 23602
 
 SHIELD_SPEC, IRON_WILL, MASTER_OF_DEFENSE, DEFIANCE, BASTION = 1601, 141, 60006, 144, 702
@@ -294,8 +295,8 @@ def duration_of(spell):
 
 
 realm.mark("iron will")
-for spell, stock in ((HAMMER_OF_JUSTICE_1, 3000), (FEAR_1, 10000)):
-    expected = stock * 85 // 100 if forever else stock
+for spell, stock, shortened in ((HAMMER_OF_JUSTICE_1, 3000, True), (SEDUCTION, 15000, True), (FEAR_1, 10000, False)):
+    expected = stock * 85 // 100 if forever and shortened else stock
     got = duration_of(spell)
     results.check("spell %d on the Warrior lasts %d ms (%s)" % (spell, expected, "Iron Will 5/5" if forever else "stock"),
                   any(abs(d - expected) <= 100 for d in got), "durations %r" % got)
@@ -303,8 +304,10 @@ for spell, stock in ((HAMMER_OF_JUSTICE_1, 3000), (FEAR_1, 10000)):
 iron_lines = re.findall(r"\[Forever\] Iron Will: %s spell (\d+) (\d+) -> (\d+) ms" % name, realm.log())
 if forever:
     results.check("each shortened effect logs an Iron Will line",
-                  {(s, a, b) for s, a, b in iron_lines} >= {("853", "3000", "2550"), ("5782", "10000", "8500")},
+                  {(s, a, b) for s, a, b in iron_lines} >= {("853", "3000", "2550"), ("6358", "15000", "12750")},
                   "%r" % iron_lines)
+    results.check("Iron Will leaves a Fear alone (no line for 5782)",
+                  not any(s == "5782" for s, _, _ in iron_lines), "%r" % iron_lines)
 else:
     results.check("vanilla: no Iron Will line", not iron_lines, "%r" % iron_lines)
 

@@ -109,7 +109,7 @@ void Forever::ApplyIronWill(Unit const* target, SpellAuraHolder const* holder, i
     if (durationMs <= 0 || !holder || !IsForeverWarrior(target))
         return;
     SpellEntry const* spellInfo = holder->GetSpellProto();
-    if (!spellInfo->HasAura(SPELL_AURA_MOD_STUN) && !spellInfo->HasAura(SPELL_AURA_MOD_FEAR))
+    if (!IronWillShortens(spellInfo->GetAllSpellMechanicMask()))
         return;
     int32 const pct = SumDummy(target, IronWillRanks);
     if (pct <= 0)

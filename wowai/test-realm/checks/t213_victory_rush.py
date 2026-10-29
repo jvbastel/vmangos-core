@@ -16,7 +16,8 @@ aura state of its Spell.dbc row (6, bit 0x20) is set there. The cast itself is a
 forever: Victory Rush (60123) is in the spellbook. A kill of a grey boar (level 1) gives no Victorious, no
          aura state bit, and the cast fails with "You can't do that yet" (SPELL_FAILED_CASTER_AURASTATE). A
          kill of a level 30 boar logs "[Forever] Victorious", sets the bit, and the cast goes: it hits the
-         dummy for 1 + 15% of attack power and heals the Warrior for 10% of its maximum health. 16 sec
+         dummy for 1 + 15% of attack power (no damage per level, client 70685) and heals the Warrior for 10%
+         of its maximum health. It starts the global cooldown: Rend cast right after it is not ready. 16 sec
          after the kill the bit is still set; 21 sec after it the bit is gone and the cast fails again (the
          cooldown is cleared first). A player Rogue that kills a level 30 boar gets no bit.
 vanilla: no Victory Rush in the spellbook, no "[Forever] Victorious" line, and no bit 0x20 after a kill of a
@@ -29,11 +30,13 @@ import time
 from kit import FREEZE, Realm, Results, pos, spawn, stat
 from wowclient import MSG_MOVE_HEARTBEAT, SpellClient
 SPELL_FAILED_CASTER_AURASTATE = 18   # SpellDefines.h, client build 5875
+SPELL_FAILED_NOT_READY = 60          # the same; also the global cooldown
 
 LEVEL = 30
 VICTORY_RUSH = 60123
 VICTORIOUS_BIT = 1 << (6 - 1)          # aura state 6
 # kit.BOAR, the Mottled Boar (Durotar), is level 1: grey for a level 30 player.
+REND = 772             # rank 1, on the global cooldown (category 133)
 WINDOW = 20
 VICTORIOUS_LINE = r"\[Forever\] Victorious: %s killed"
 
@@ -147,10 +150,21 @@ w.gm(".modify hp %d %d" % (max_health // 2, max_health), select=me)
 before_heal = stat(w, me)[0]
 before_dummy = stat(w, dummy)[0]
 ap = attack_power(w)
-reasons, went = w.cast(VICTORY_RUSH, dummy)
+w.gm(".learn %d" % REND, select=me)
+w.gm(".modify rage 1000", select=me)
+reasons, went = w.cast(VICTORY_RUSH, dummy, wait=0.3)
+# Client 70685: Victory Rush starts the global cooldown (1.5 sec), so Rend right after it is not ready.
+rend_reasons, rend_went = w.cast(REND, dummy, wait=0.3)
+w.pump(1.7)
 results.check("after the kill Victory Rush goes", went and not [r for r in reasons if r is not None], "reasons %r" % reasons)
+results.check("Victory Rush starts the global cooldown: Rend right after it is not ready",
+              not rend_went and SPELL_FAILED_NOT_READY in rend_reasons, "reasons %r, went %s" % (rend_reasons, rend_went))
 damage = before_dummy - stat(w, dummy)[0]
 expected = 1 + int(0.15 * ap)
+# Client 70685: no damage per level (the old source spell gave 0.9 per level above 20: +9 at level 30).
+results.check("Victory Rush has no damage per level",
+              not any(abs(damage - (e + 9 * m)) <= 1 for m, e in ((1, expected), (2, 2 * expected))),
+              "damage %d; with 0.9 per level it would be %d (or %d on a crit)" % (damage, expected + 9, 2 * expected + 18))
 # `.cheat criticals off` leaves the natural crit chance: a melee crit doubles the hit.
 results.check("Victory Rush deals 1 + 15%% of attack power (%.0f AP)" % ap,
               any(abs(damage - e) <= max(2, e * 0.05) for e in (expected, 2 * expected)),

@@ -71,3 +71,11 @@ def test_the_migration_makes_the_baseline_table_with_the_columns_of_the_generato
     it always exists, and the generator makes it again from BASELINE_COLUMNS: one shape for both."""
     migration = (ROOT / "sql" / "migrations" / "20261029120000_world.sql").read_text(encoding="utf-8")
     assert "CREATE TABLE IF NOT EXISTS `forever_baseline_spell` %s;" % build.BASELINE_COLUMNS in migration
+
+
+def test_the_migration_makes_every_forever_table_that_the_core_reads():
+    """Review S2: with the rules on, the core reads each forever_* table; the migration makes them, so that a
+    realm without the generated SQL stops at startup (empty forever_spell_template) instead of a failed query."""
+    migration = (ROOT / "sql" / "migrations" / "20261029120000_world.sql").read_text(encoding="utf-8")
+    for table in build.FOREVER_TABLES:
+        assert "CREATE TABLE IF NOT EXISTS `%s` LIKE `%s`;" % (table, table[len("forever_"):]) in migration, table

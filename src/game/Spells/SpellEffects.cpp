@@ -310,6 +310,8 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
     {
         // WOWAI Forever rules (#213): Victory Rush adds a percent of attack power.
         Forever::VictoryRushDamage(this, effect_idx);
+        // Forever rules: Revenge adds a percent of attack power (client hotfix, jvbastel/WOWAI#204).
+        Forever::RevengeDamage(m_casterUnit, m_spellInfo, unitTarget, damage);
         if (damage >= 0)
             m_damage += damage;
     }

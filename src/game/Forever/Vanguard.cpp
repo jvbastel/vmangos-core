@@ -62,8 +62,8 @@ namespace
     }
 
     // Learns a Vanguard Charge with no packet (the caller sends one) and no rank logic: it has no spell
-    // chain, no skill line and no effect that teaches something, so this is all that Player::AddSpell
-    // does for it.
+    // chain and no effect that teaches something, and its skill line (Arms) is the Warrior's own, so
+    // this is all that Player::AddSpell does for it.
     void LearnQuietly(Player* player, uint32 spellId)
     {
         auto const itr = player->GetSpellMap().find(spellId);

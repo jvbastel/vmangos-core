@@ -50,7 +50,7 @@ src/game/Objects/TemporarySummon.h
 # generator, the fork's own Forever folder, the migration of the forever_* world tables, and one
 # call into Forever.h in each loader that reads Forever data: the config (World.cpp, above), the
 # talent tables (DBCStores.cpp), and the spell rows (SpellMgr.cpp: spell_template, spell_chain,
-# spell_proc_event; ObjectMgr.cpp: skill_line_ability).
+# spell_proc_event, spell_threat; ObjectMgr.cpp: skill_line_ability).
 forever/**
 src/game/Forever/**
 sql/migrations/20261029120000_world.sql
@@ -96,3 +96,6 @@ src/game/Spells/Spell.cpp
 # CharacterDatabaseCleaner::SpellCheck), so a Warrior who does not log in while the rules are off keeps
 # its Forever talents and spells.
 src/game/Database/CharacterDatabaseCleaner.cpp
+# Spec hook 21, #204 final fix pass (client 70685): the Anger Management rage tick (Aura::PeriodicTick,
+# SpellAuras.cpp), the out-of-combat rage loss (Player::Regenerate, Player.cpp) and the Revenge attack
+# power (Spell::EffectSchoolDMG, SpellEffects.cpp). All files are listed above.

@@ -33,7 +33,7 @@ namespace ProtectionRules
     constexpr uint32_t MasterOfDefenseRageSpell = ShieldSpecializationRage;
 
     // Master of Defense: passive dummy auras, effect 1 = the chance (50/100) to gain Rage on a dodge or
-    // parry. Iron Will: passive dummy auras, effect 1 = the percent (3-15) off the duration of Stun and Fear.
+    // parry. Iron Will: passive dummy auras, effect 1 = the percent (3-15) off the duration of Charm and Stun.
     inline bool IsShieldTalentSpell(uint32_t spellId) { return Contains(ShieldTalentSpells, spellId); }
     inline bool IsMasterOfDefenseSpell(uint32_t spellId) { return Contains(MasterOfDefenseRanks, spellId); }
     inline bool IsIronWillSpell(uint32_t spellId) { return Contains(IronWillRanks, spellId); }
@@ -51,7 +51,18 @@ namespace ProtectionRules
         return dodgeOrParry && shieldEquipped && chancePct > 0;
     }
 
-    // The duration (ms) of a Stun or Fear effect on a Warrior with Iron Will (`reductionPct` off, rounded
+    // The mechanics that Iron Will shortens (client 70685: MECHANIC_DURATION_MOD, misc 1 and 12), as bits of
+    // a spell mechanic mask (bit = 1 << (mechanic - 1), SpellEntry::GetAllSpellMechanicMask).
+    constexpr uint32_t MechanicCharm = 1;
+    constexpr uint32_t MechanicStun = 12;
+    constexpr uint32_t IronWillMechanicMask = (1u << (MechanicCharm - 1)) | (1u << (MechanicStun - 1));
+
+    inline bool IronWillShortens(uint32_t spellMechanicMask)
+    {
+        return (spellMechanicMask & IronWillMechanicMask) != 0;
+    }
+
+    // The duration (ms) of a Charm or Stun effect on a Warrior with Iron Will (`reductionPct` off, rounded
     // down). An endless effect (-1 or 0) stays as it is. The percent is held to 0-100.
     inline int32_t IronWillDuration(int32_t durationMs, int32_t reductionPct)
     {
