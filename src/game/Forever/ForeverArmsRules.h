@@ -10,7 +10,7 @@
 
 // The pure rules of the Forever Arms talents (jvbastel/WOWAI#217): Improved Tactical Mastery, Spearing
 // Strike, Bloodthrill, Weaponmaster and Improved Slam. No game header, so
-// wowai/tests/forever-arms-rules.test.sh tests it on the host. ForeverArms.cpp calls it from the core
+// wowai/tests/forever-rules.test.sh tests it on the host. ForeverArms.cpp calls it from the core
 // hooks. The values are in forever/warrior.tsv (client build 1.60.1.70685).
 
 #include <cstdint>

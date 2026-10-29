@@ -9,7 +9,7 @@
 #define WOWAI_GAME_FOREVER_VICTORY_RUSH_RULES_H
 
 // The pure rules of Victory Rush under the Forever rules (jvbastel/WOWAI#213). No game header, so
-// wowai/tests/forever-victory-rush.test.sh tests it on the host. VictoryRush.cpp calls it from the core
+// wowai/tests/forever-rules.test.sh tests it on the host. VictoryRush.cpp calls it from the core
 // hooks. The spell rows are in forever/warrior.tsv (Victory Rush, Victorious).
 
 #include <cstdint>

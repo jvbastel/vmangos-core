@@ -1,32 +1,18 @@
 // Tests of the pure math of the Forever Warrior mechanics (ForeverWarriorRules.h, jvbastel/WOWAI#214).
-// No GoogleTest and no core: wowai/tests/forever-warrior-rules.test.sh builds this file with the host
+// No GoogleTest and no core: wowai/tests/forever-rules.test.sh builds this file with the host
 // compiler and runs it. The glob of src/game/Forever does not take this subfolder into the core.
 
 #include "../ForeverWarriorRules.h"
+#include "TestCheck.h"
 
 #include <cmath>
 #include <cstdio>
 
-namespace
-{
-    int failures = 0;
-    int checks = 0;
-
-    void Near(char const* name, float actual, float expected)
-    {
-        ++checks;
-        if (std::fabs(actual - expected) > 0.001f)
-        {
-            ++failures;
-            std::printf("FAIL: %s: %.4f, expected %.4f\n", name, actual, expected);
-        }
-        else
-            std::printf("PASS: %s\n", name);
-    }
-}
 
 int main()
 {
+    using namespace ForeverTest;
+
     using namespace Forever::WarriorRules;
 
     // Rage from weapon speed.
@@ -52,6 +38,5 @@ int main()
     Near("at most the full duration of the old bleed rolls", DeepWoundsRolledTick(12.0f, 2.0f, 9), 5.0f);
     Near("a negative old tick adds nothing", DeepWoundsRolledTick(12.0f, -3.0f, 2), 3.0f);
 
-    std::printf("%d of %d checks passed.\n", checks - failures, checks);
-    return failures == 0 ? 0 : 1;
+    return ForeverTest::Summary();
 }

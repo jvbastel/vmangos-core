@@ -1,40 +1,18 @@
 // Tests of the pure rules of the Forever Fury talents (ForeverFuryRules.h, jvbastel/WOWAI#218).
-// No GoogleTest and no core: wowai/tests/forever-fury-rules.test.sh builds this file with the host
+// No GoogleTest and no core: wowai/tests/forever-rules.test.sh builds this file with the host
 // compiler and runs it. The glob of src/game/Forever does not take this subfolder into the core.
 // Expected values come from the spec rows of forever/warrior.tsv and the tooltips of build 1.60.1.70685.
 
 #include "../ForeverFuryRules.h"
+#include "TestCheck.h"
 
 #include <cstdio>
 
-namespace
-{
-    int failures = 0;
-    int checks = 0;
-
-    void Check(char const* name, bool ok)
-    {
-        ++checks;
-        if (!ok)
-            ++failures;
-        std::printf("%s: %s\n", ok ? "PASS" : "FAIL", name);
-    }
-
-    void Equal(char const* name, long long actual, long long expected)
-    {
-        ++checks;
-        if (actual != expected)
-        {
-            ++failures;
-            std::printf("FAIL: %s: %lld, expected %lld\n", name, actual, expected);
-        }
-        else
-            std::printf("PASS: %s\n", name);
-    }
-}
 
 int main()
 {
+    using namespace ForeverTest;
+
     using namespace Forever::FuryRules;
 
     // Furious Precision: off-hand attacks only.
@@ -84,6 +62,5 @@ int main()
     Equal("no rank known gives 0", int(KnownRank(GoreDrinkerRanks, [](uint32_t) { return false; })), 0);
     Equal("all ranks known gives the highest", int(KnownRank(FuriousPrecisionRanks, [](uint32_t) { return true; })), 3);
 
-    std::printf("%d of %d checks passed.\n", checks - failures, checks);
-    return failures == 0 ? 0 : 1;
+    return ForeverTest::Summary();
 }

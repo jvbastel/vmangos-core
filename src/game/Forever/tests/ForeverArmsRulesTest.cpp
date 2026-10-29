@@ -1,36 +1,18 @@
 // Tests of the pure rules of the Forever Arms talents (ForeverArmsRules.h, jvbastel/WOWAI#217).
-// No GoogleTest and no core: wowai/tests/forever-arms-rules.test.sh builds this file with the host
+// No GoogleTest and no core: wowai/tests/forever-rules.test.sh builds this file with the host
 // compiler and runs it. The glob of src/game/Forever does not take this subfolder into the core.
 
 #include "../ForeverArmsRules.h"
+#include "TestCheck.h"
 
 #include <cmath>
 #include <cstdio>
 
-namespace
-{
-    int failures = 0;
-    int checks = 0;
-
-    void Check(char const* name, bool ok)
-    {
-        ++checks;
-        if (!ok)
-            ++failures;
-        std::printf("%s: %s\n", ok ? "PASS" : "FAIL", name);
-    }
-
-    void Near(char const* name, float actual, float expected)
-    {
-        bool const ok = std::fabs(actual - expected) <= 0.001f;
-        Check(name, ok);
-        if (!ok)
-            std::printf("      %.4f, expected %.4f\n", actual, expected);
-    }
-}
 
 int main()
 {
+    using namespace ForeverTest;
+
     using namespace Forever::ArmsRules;
 
     // Improved Tactical Mastery: the stance change keeps the baseline 10 Rage plus 3/6/9/12/15.
@@ -75,6 +57,5 @@ int main()
     Check("Slam without the talent stops the swing (stock)", !SlamKeepsSwing(true, false));
     Check("another cast with the talent stops the swing (stock)", !SlamKeepsSwing(false, true));
 
-    std::printf("%d of %d checks passed.\n", checks - failures, checks);
-    return failures == 0 ? 0 : 1;
+    return ForeverTest::Summary();
 }

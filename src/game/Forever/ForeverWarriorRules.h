@@ -9,7 +9,7 @@
 #define WOWAI_GAME_FOREVER_WARRIOR_RULES_H
 
 // The pure math of the Forever Warrior mechanics (jvbastel/WOWAI#214): rage from weapon speed and the
-// Deep Wounds bleed. No game header, so wowai/tests/forever-warrior-rules.test.sh tests it on the host.
+// Deep Wounds bleed. No game header, so wowai/tests/forever-rules.test.sh tests it on the host.
 // ForeverWarrior.cpp calls it from the core hooks. The chosen formulas and their sources are in the
 // header of forever/warrior.tsv ("Warrior mechanics").
 
