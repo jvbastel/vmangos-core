@@ -32,6 +32,7 @@ BOAR = 3098            # Mottled Boar (Durotar), a neutral beast that can be att
 FREEZE = 9454          # GM stun without an end
 BATTLE_SHOUT_1, SUNDER_ARMOR_1, DEMORALIZING_SHOUT_1, REVENGE_1 = 6673, 7386, 1160, 6572
 DEFENSIVE_STANCE = 71
+BATTLE_STANCE = 2457
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
 if mode not in ("forever", "vanilla"):
@@ -49,6 +50,7 @@ if level < LEVEL:
     w.gm(".levelup %d" % (LEVEL - level), select=me)
 w.gm(".cheat god on", select=me)
 w.gm(".cheat criticals off", select=me)
+w.gm(".cast %d triggered" % BATTLE_STANCE, select=me)   # a run before ends in Defensive Stance
 w.set_active_mover()
 here = pos(w, me)
 
