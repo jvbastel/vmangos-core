@@ -61,3 +61,6 @@ src/game/ObjectMgr.cpp
 # forever_character (the rules each character last logged in under); one call in
 # WorldSession::HandlePlayerLogin (CharacterHandler.cpp, above) and one in LoadDBCStores (above).
 sql/migrations/20261029140000_characters.sql
+# Spec hook 13: the Forever baseline spells and base abilities (WOWAI#212): one call in Player::GiveLevel
+# (Player.cpp, above), and the Forever Bloodthirst damage in the stock Bloodthirst script.
+src/scripts/spells/spell_warrior.cpp

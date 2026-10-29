@@ -83,6 +83,7 @@
 #include "world/scourge_invasion.h"
 #include "world/world_event_wareffort.h"
 #include "BotHooks.h"
+#include "Forever.h"
 
 #include <climits>
 
@@ -3215,6 +3216,7 @@ void Player::GiveLevel(uint32 level)
         pet->SynchronizeLevelWithOwner();
 
     BotHooks::OnLevelUp(this);
+    Forever::LearnBaselineSpells(this);
 }
 
 void Player::UpdateFreeTalentPoints(bool resetIfNeed)
