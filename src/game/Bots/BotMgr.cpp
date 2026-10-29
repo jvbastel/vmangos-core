@@ -18,6 +18,7 @@
 #include "Config/Config.h"
 #include "Crypto/Authentication/SRP6.h"
 #include "Database/DatabaseEnv.h"
+#include "Forever.h"
 #include "Log.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -220,7 +221,7 @@ void BotMgr::Load()
     m_levelRoutine.Load(m_settings.dataDir);
     m_bots.clear();
     std::unique_ptr<QueryResult> result = CharacterDatabase.Query(
-        "SELECT `b`.`guid`, `b`.`account`, `b`.`role`, `b`.`world_bot`, `c`.`name`"
+        "SELECT `b`.`guid`, `b`.`account`, `b`.`role`, `b`.`world_bot`, `c`.`name`, `c`.`class`"
         " FROM `bot_character` `b` JOIN `characters` `c` ON `c`.`guid` = `b`.`guid`");
     if (result)
     {
@@ -231,6 +232,7 @@ void BotMgr::Load()
             record.entry = NewEntry(fields[0].GetUInt32(), fields[1].GetUInt32(), fields[4].GetCppString(), fields[2].GetCppString(), m_settings);
             record.role = fields[2].GetCppString();
             record.worldBot = fields[3].GetUInt8() != 0;
+            record.gameClass = fields[5].GetUInt8();
             m_bots[fields[0].GetUInt32()] = record;
         } while (result->NextRow());
     }
@@ -593,6 +595,14 @@ bool BotMgr::CreateBot(Bots::BotRecipe const& recipe, std::string& error)
         return false;
     }
 
+    std::string const refusal = Bots::BotClassRefusal(recipe.botClass, Forever::RulesOn());
+    if (!refusal.empty())
+    {
+        error = refusal;
+        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] Refused the bot %s: %s", recipe.name.c_str(), refusal.c_str());
+        return false;
+    }
+
     std::string name = recipe.name;
     if (!normalizePlayerName(name) || ObjectMgr::CheckPlayerName(name, true) != CHAR_NAME_SUCCESS)
     {
@@ -656,6 +666,7 @@ bool BotMgr::CreateBot(Bots::BotRecipe const& recipe, std::string& error)
     BotRecord& record = m_bots[guid];
     record.entry = NewEntry(guid, accountId, name, role, m_settings);
     record.role = role;
+    record.gameClass = botClass;
     record.worldBot = false;
     if (m_gear.Find(gearName))
         record.pendingGear = gearName;
@@ -675,6 +686,18 @@ bool BotMgr::LoginBot(std::string const& name, std::string& error)
     {
         error = "No bot is named " + name + ".";
         return false;
+    }
+    // jvbastel/WOWAI#209: a bot of a class that the Forever rules leave to the player stays offline.
+    Bots::BotClass botClass;
+    if (BotClassOf(record->gameClass, botClass))
+    {
+        std::string const refusal = Bots::BotClassRefusal(botClass, Forever::RulesOn());
+        if (!refusal.empty())
+        {
+            error = record->entry->name + ": " + refusal;
+            sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] %s does not log in: %s", record->entry->name.c_str(), refusal.c_str());
+            return false;
+        }
     }
     if (record->entry->state != PB_STATE_OFFLINE)
     {

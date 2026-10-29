@@ -157,3 +157,22 @@ TEST(BotRecipe, RefusesAClassThatTheFactionDoesNotHave)
 {
     EXPECT_EQ(ParseBotRecipe({"Thrall", "shaman", "healer", "alliance"}).error, "The alliance has no shaman.");
 }
+
+// jvbastel/WOWAI#209: with the Forever rules on, the player plays the Warrior, so no bot is a Warrior.
+TEST(BotRecipe, TheForeverRulesRefuseAWarriorBot)
+{
+    EXPECT_EQ(Bots::BotClassRefusal(BotClass::Warrior, true),
+        "No Warrior bot: the Forever rules are on, and the player plays the Warrior.");
+}
+
+TEST(BotRecipe, TheForeverRulesAllowEachOtherClass)
+{
+    for (BotClass botClass : {BotClass::Priest, BotClass::Rogue, BotClass::Warlock, BotClass::Mage,
+             BotClass::Hunter, BotClass::Shaman, BotClass::Druid})
+        EXPECT_EQ(Bots::BotClassRefusal(botClass, true), "") << Bots::ClassName(botClass);
+}
+
+TEST(BotRecipe, WithoutTheForeverRulesAWarriorBotIsAllowed)
+{
+    EXPECT_EQ(Bots::BotClassRefusal(BotClass::Warrior, false), "");
+}
