@@ -41,7 +41,7 @@ forever = mode == "forever"
 realm = Realm()
 results = Results()
 realm.mark("t204 70685 " + mode)
-name = "Foreverdata" if forever else "Vanilladata"
+name = "Forevernums" if forever else "Vanillanums"   # t211 owns Foreverdata and Vanilladata
 w = realm.login("PLAYER204D", name, race=2, cls=1, client_class=WorldClient)
 me = w.guid
 level = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % me) or 1)
