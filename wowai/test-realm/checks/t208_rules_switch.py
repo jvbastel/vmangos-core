@@ -230,7 +230,9 @@ else:
     spells = s.initial_spells or set()
     results.check("the sleeper still has Lingering Rage after rules 1 -> 0 -> 1",
                   FOREVER_LINGERING_RAGE_1 in spells, "no SMSG_INITIAL_SPELLS" if s.initial_spells is None else "")
-    results.check("the sleeper still has Cruelty 5/5", set(CRUELTY_SPELLS) <= spells)
+    # A talent rank replaces the rank below it, so the login sends only rank 5 (as LearnTalent counts points).
+    results.check("the sleeper still has Cruelty 5/5", CRUELTY_SPELLS[-1] in spells,
+                  "%r" % sorted(spells & set(CRUELTY_SPELLS)))
     results.check("the sleeper has Berserker Rage at level %d" % LEVEL, BERSERKER_RAGE in spells)
 
 results.finish()
