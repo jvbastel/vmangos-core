@@ -59,6 +59,7 @@
 #include "MovementPacketSender.h"
 #include "Errors.h"
 #include "Utilities/Random.h"
+#include "ForeverWarrior.h"
 
 #include <limits>
 
@@ -725,7 +726,8 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
             // Rage on outgoing parry/dodge
             if (cleanDamage->hitOutCome == MELEE_HIT_PARRY || cleanDamage->hitOutCome == MELEE_HIT_DODGE)
             {
-                if (cleanDamage->damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE))
+                // Forever rules: a Warrior gets no rage from a dodge or parry (jvbastel/WOWAI#214).
+                if (cleanDamage->damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE) && !Forever::NoRageForAvoidedSwing(this))
                     ((Player*)this)->RewardRage(cleanDamage->damage*0.75, true);
             }
 
@@ -796,7 +798,8 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
     }
 
     // Rage from Damage made (only from direct weapon damage)
-    if (damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE))
+    // Forever rules: a Warrior's rage comes from the weapon speed (jvbastel/WOWAI#214).
+    if (damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE) && !Forever::RewardSwingRage(this, cleanDamage))
         ((Player*)this)->RewardRage(damage, true);
 
     if (Creature* creaVictim = pVictim->ToCreature())

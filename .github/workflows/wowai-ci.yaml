@@ -96,6 +96,11 @@ jobs:
         shell: bash
         run: ctest --test-dir build --output-on-failure
 
+      # The pure math of the Forever Warrior mechanics (#214), with the host compiler.
+      - name: Run the Forever Warrior rules test
+        shell: bash
+        run: wowai/tests/forever-warrior-rules.test.sh
+
       - name: Build src/bots alone (no game headers) and run its tests
         shell: bash
         run: wowai/bots-test.sh "$PWD/src/bots" "$RUNNER_TEMP/bots"
