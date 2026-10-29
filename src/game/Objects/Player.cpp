@@ -83,6 +83,7 @@
 #include "world/scourge_invasion.h"
 #include "world/world_event_wareffort.h"
 #include "BotHooks.h"
+#include "Forever.h"
 
 #include <climits>
 
@@ -3795,6 +3796,9 @@ void Player::LearnSpell(uint32 spellId, bool dependent, bool talent)
                 LearnSpell(i->second, false);
         }
     }
+
+    if (!dependent)
+        Forever::OnSpellLearned(this, spellId);
 }
 
 void Player::RemoveSpell(uint32 spellId, bool disabled, bool learnLowRank)
@@ -3927,6 +3931,8 @@ void Player::RemoveSpell(uint32 spellId, bool disabled, bool learnLowRank)
     // remove from spell book if not replaced by lesser rank
     if (!previousActivated)
         SendSpellRemoved(spellId);
+
+    Forever::OnSpellRemoved(this, spellId);
 }
 
 void Player::_LoadSpellCooldowns(std::unique_ptr<QueryResult> result)
