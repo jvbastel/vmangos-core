@@ -47,6 +47,23 @@ void Forever::LoadConfig(bool reload)
         exit(1);
     }
     if (rulesOn)
+    {
+        // Without one of the forever_* tables, the union of Table() fails and the stock table loads 0 rows
+        // (spell IDs, chains, proc events, skill lines, threat). Stop before any of them loads.
+        static char const* const foreverTables[] = { "forever_spell_template", "forever_spell_chain",
+            "forever_spell_proc_event", "forever_skill_line_ability", "forever_spell_threat", "forever_baseline_spell" };
+        for (char const* table : foreverTables)
+        {
+            std::unique_ptr<QueryResult> found(WorldDatabase.PQuery("SELECT 1 FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = '%s'", table));
+            if (!found)
+            {
+                sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Forever] The Forever rules are on, but the world table %s is missing. Apply the world migrations and load forever/generator's forever_world.sql.", table);
+                Log::WaitBeforeContinueIfNeed();
+                exit(1);
+            }
+        }
+    }
+    if (rulesOn)
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] The Forever rules are on. DataDir %s", dataDir.c_str());
     else
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] The Forever rules are off.");

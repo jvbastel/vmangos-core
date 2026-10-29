@@ -21,6 +21,7 @@
 #include "SharedDefines.h"
 #include "SpellMgr.h"
 
+#include <cstdlib>
 #include <memory>
 #include <unordered_set>
 #include <vector>
@@ -164,8 +165,9 @@ void Forever::LoadStockTalents(std::string const& stockDbcPath)
     DBCStorage<TalentEntry> talents(TalentEntryfmt);
     if (!tabs.Load((stockDbcPath + "TalentTab.dbc").c_str()) || !talents.Load((stockDbcPath + "Talent.dbc").c_str()))
     {
-        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Forever] Cannot read the stock Talent.dbc and TalentTab.dbc in %s: the rules switch keeps the vanilla talents.", stockDbcPath.c_str());
-        return;
+        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Forever] Cannot read the stock Talent.dbc and TalentTab.dbc in %s. The rules switch needs them.", stockDbcPath.c_str());
+        Log::WaitBeforeContinueIfNeed();
+        exit(1);
     }
 
     for (uint32 i = 0; i < talents.GetNumRows(); ++i)

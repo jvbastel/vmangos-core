@@ -61,7 +61,7 @@ src/game/ObjectMgr.cpp
 # forever_character (the rules each character last logged in under); one call in
 # WorldSession::HandlePlayerLogin (CharacterHandler.cpp, above) and one in LoadDBCStores (above).
 sql/migrations/20261029140000_characters.sql
-# The Forever hooks 13-20 below call into src/game/Forever through its one facade, Forever.h. Each
+# The Forever hooks 13-21 below call into src/game/Forever through its one facade, Forever.h. Each
 # stock file is listed once, at its first hook; a later hook names the files it shares. Each marker
 # comment in a stock file reads "WOWAI Forever rules (#<ticket>)", so `git grep "WOWAI Forever rules"`
 # finds every hook at an upstream merge.
