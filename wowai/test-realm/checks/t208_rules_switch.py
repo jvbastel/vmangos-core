@@ -169,7 +169,8 @@ if mode == "setup":
                   rend == [STOCK_REND_1] and heroic == [STOCK_HEROIC_STRIKE_1] and cruelty == list(CRUELTY_SPELLS)
                   and demoralizing == [STOCK_IMPROVED_DEMORALIZING_SHOUT_1],
                   "learned %r %r %r %r" % (rend, heroic, cruelty, demoralizing))
-    results.check("Heroic Strike is known", HEROIC_STRIKE in saved_spells())
+    # A default spell is "dependent": the login packet has it, character_spell never does.
+    results.check("Heroic Strike is known", c.initial_spells is not None and HEROIC_STRIKE in c.initial_spells)
     results.check("the realm stores that the character logged in under the vanilla rules",
                   stored_rules() == RULES["vanilla"], "rules %r" % stored_rules())
     check_same_rules_relog(STOCK_REND_1)
