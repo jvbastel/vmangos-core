@@ -17,7 +17,10 @@ import sys
 # python3 -I leaves the script folder off the path.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from forever_gen import build, spec  # noqa: E402
+from forever_gen import build, markers, spec  # noqa: E402
+
+# The src folder of the core fork, whose code decides which spell icons are markers.
+CORE_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src")
 
 
 def main():
@@ -25,11 +28,15 @@ def main():
     parser.add_argument("--spec", required=True, help="the spec file, forever/warrior.tsv")
     parser.add_argument("--stock", required=True, help="the stock DBC folder, <extracted-data>/5875/dbc")
     parser.add_argument("--out", required=True, help="the output folder")
+    parser.add_argument("--core-src", default=CORE_SRC,
+                        help="the src folder of the core, for the spell marker icons (default: this fork's)")
     args = parser.parse_args()
     try:
-        build.generate(spec.read(args.spec), args.stock, args.out)
+        build.generate(spec.read(args.spec), args.stock, args.out, markers.scan(args.core_src))
     except spec.SpecError as error:
         sys.exit("generate.py: %s" % error)
+    except (OSError, ValueError) as error:
+        sys.exit("generate.py: cannot read the input: %s" % error)
 
 
 main()

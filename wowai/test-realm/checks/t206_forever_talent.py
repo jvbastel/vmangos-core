@@ -9,15 +9,16 @@
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t206_forever_talent.py vanilla
 
 A player Warrior at level 20 learns talents with CMSG_LEARN_TALENT, as the talent window does. The talent
-IDs and spells come from forever/warrior.tsv (one row: Improved Rend, talent 127, Forever rank spells
-60000-60002) and from the stock Talent.dbc (Improved Rend ranks 12286, ...; Improved Heroic Strike,
-talent 124, rank 1 12282).
+IDs and spells come from forever/warrior.tsv (the full spec of #210) and from the stock Talent.dbc. Fury
+tier 2 column 2 is a new Forever talent, Lingering Rage (talent 60002, rank 1 spell 60106), in the place
+of the stock Improved Demoralizing Shout (talent 161, rank 1 spell 12324). Cruelty (talent 157, ranks
+12320-12856 in both rule sets) gives the 5 Fury points that tier 2 needs.
 
-forever: talent 127 teaches the Forever rank 1 (60000), not the stock one. Talent 124 is not in the
-         Forever Warrior trees, so the server refuses it. After a logout and a new login, the
-         character still has 60000: in character_spell and in the SMSG_INITIAL_SPELLS of the login.
-vanilla: the vanilla Warrior trees: talent 127 teaches 12286, talent 124 teaches 12282, and no
-         Forever spell is learned.
+forever: Lingering Rage teaches 60106, and the server refuses Improved Demoralizing Shout, which is not in
+         the Forever trees. After a logout and a new login, the character still has 60106: in
+         character_spell and in the SMSG_INITIAL_SPELLS of the login.
+vanilla: the vanilla Warrior trees: the server refuses talent 60002, Improved Demoralizing Shout teaches
+         12324, and no Forever spell is learned.
 """
 import struct
 import sys
@@ -33,12 +34,13 @@ SMSG_LOGOUT_COMPLETE = 77
 CMSG_PLAYER_LOGIN = 61
 SMSG_LOGIN_VERIFY_WORLD = 566
 
-IMPROVED_REND = 127
-IMPROVED_HEROIC_STRIKE = 124
-FOREVER_REND_1 = 60000
-FOREVER_SPELLS = (60000, 60001, 60002)
-STOCK_REND_1 = 12286
-STOCK_HEROIC_STRIKE_1 = 12282
+CRUELTY = 157
+CRUELTY_SPELLS = (12320, 12852, 12853, 12855, 12856)
+LINGERING_RAGE = 60002
+FOREVER_LINGERING_RAGE_1 = 60106
+IMPROVED_DEMORALIZING_SHOUT = 161
+STOCK_IMPROVED_DEMORALIZING_SHOUT_1 = 12324
+FOREVER_SPELLS = (60106, 60107, 60108, 60109, 60110)
 LEVEL = 20
 
 
@@ -98,26 +100,31 @@ def saved_spells():
     return {int(row) for row in rows.splitlines() if row}
 
 
-rend = c.learn_talent(IMPROVED_REND)
-heroic = c.learn_talent(IMPROVED_HEROIC_STRIKE)
+cruelty = [spell for rank in range(5) for spell in c.learn_talent(CRUELTY, rank)]
+results.check("Cruelty 5/5 is learned (the 5 Fury points of tier 2)", cruelty == list(CRUELTY_SPELLS),
+              "learned %r" % cruelty)
+lingering = c.learn_talent(LINGERING_RAGE)
+demoralizing = c.learn_talent(IMPROVED_DEMORALIZING_SHOUT)
 
 if mode == "forever":
-    results.check("Improved Rend teaches the Forever rank 1", rend == [FOREVER_REND_1], "learned %r" % rend)
-    results.check("Improved Heroic Strike is not in the Forever Warrior trees", heroic == [], "learned %r" % heroic)
-    results.check("the Forever rank is saved", FOREVER_REND_1 in saved_spells())
+    results.check("Lingering Rage teaches its Forever rank 1", lingering == [FOREVER_LINGERING_RAGE_1],
+                  "learned %r" % lingering)
+    results.check("Improved Demoralizing Shout is not in the Forever Warrior trees", demoralizing == [],
+                  "learned %r" % demoralizing)
+    results.check("the Forever rank is saved", FOREVER_LINGERING_RAGE_1 in saved_spells())
     c.relog()
     results.check("after a relog the login sends the Forever rank",
-                  c.initial_spells is not None and FOREVER_REND_1 in c.initial_spells,
+                  c.initial_spells is not None and FOREVER_LINGERING_RAGE_1 in c.initial_spells,
                   "no SMSG_INITIAL_SPELLS" if c.initial_spells is None else "")
     saved = saved_spells()
-    results.check("after a relog the character still has the Forever rank", FOREVER_REND_1 in saved)
-    results.check("the character has no stock Improved Rend", STOCK_REND_1 not in saved)
+    results.check("after a relog the character still has the Forever rank", FOREVER_LINGERING_RAGE_1 in saved)
+    results.check("the character has no stock Improved Demoralizing Shout", STOCK_IMPROVED_DEMORALIZING_SHOUT_1 not in saved)
 else:
-    results.check("Improved Rend teaches the stock rank 1", rend == [STOCK_REND_1], "learned %r" % rend)
-    results.check("Improved Heroic Strike is in the vanilla Arms tree", heroic == [STOCK_HEROIC_STRIKE_1],
-                  "learned %r" % heroic)
+    results.check("the vanilla trees have no talent 60002", lingering == [], "learned %r" % lingering)
+    results.check("Improved Demoralizing Shout is in the vanilla Fury tree",
+                  demoralizing == [STOCK_IMPROVED_DEMORALIZING_SHOUT_1], "learned %r" % demoralizing)
     saved = saved_spells()
-    results.check("both stock ranks are saved", {STOCK_REND_1, STOCK_HEROIC_STRIKE_1} <= saved)
+    results.check("the stock rank is saved", STOCK_IMPROVED_DEMORALIZING_SHOUT_1 in saved)
     results.check("no Forever spell is learned", not saved & set(FOREVER_SPELLS), "%r" % (saved & set(FOREVER_SPELLS)))
 
 results.finish()

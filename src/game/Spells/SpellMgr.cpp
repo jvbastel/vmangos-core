@@ -3115,7 +3115,8 @@ void SpellMgr::LoadExistingSpellIds()
     mExistingSpellsSet.clear();
 
     Field* fields;
-    std::unique_ptr<QueryResult> result(WorldDatabase.Query("SELECT DISTINCT `entry` FROM `spell_template`"));
+    // WOWAI Forever rules: with Forever.Rules = 1, the Forever spell IDs exist too.
+    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT DISTINCT `entry` FROM %s", Forever::Table("spell_template", "entry").c_str()));
 
     if (result)
     {

@@ -8,19 +8,19 @@ Three outputs, all from the same rows, so that the client and the server never d
 """
 import os
 
-from . import client_patch
+from . import client_patch, rules
 from .dbc import Dbc
-from .spec import SpecError
+from .spec import FIELDS, NAME_SUBTEXT, talents
 
 # TalentTab.dbc IDs of the Warrior trees.
-WARRIOR_TABS = {"arms": 161, "fury": 164, "protection": 163}
+WARRIOR_TABS = rules.WARRIOR_TABS
 
 # Talent.dbc 1.12.1: 0 ID, 1 TabID, 2 Tier, 3 Column (from 0), 4-12 RankID[9], 13-15 DependsOn[3],
 # 16-18 DependsOnRank[3] (0 = rank 1), 19 Flags, 20 DependsOnSpell.
 TALENT_FIELDS = 21
-# Spell.dbc 1.12.1 (see notes in forever/REFRESH.md): 76 EffectBasePoints[0], 117 SpellIconID,
+# Spell.dbc 1.12.1 (the other fields: spec.FIELDS): 6 Attributes, 117 SpellIconID,
 # 120-127 Name[8], 129-136 Rank[8], 138-145 Description[8] (index 0 = enUS).
-SPELL_ATTRIBUTES, SPELL_BASE_POINTS1, SPELL_ICON = 6, 76, 117
+SPELL_ATTRIBUTES, SPELL_ICON = 6, 117
 SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION = 120, 129, 138
 SPELL_ATTR_PASSIVE = 0x40
 
@@ -37,27 +37,41 @@ class Stock:
         self.talent = Dbc.read(os.path.join(folder, "Talent.dbc"))
         self.talent_tab = Dbc.read(os.path.join(folder, "TalentTab.dbc"))
         self.spell = Dbc.read(os.path.join(folder, "Spell.dbc"))
+        self.spell_icon = Dbc.read(os.path.join(folder, "SpellIcon.dbc"))
 
 
-def new_spells(spec, stock):
-    """(spell ID, source spell ID, talent, rank from 0) of each spec spell that is not a stock spell.
-    A rank whose spell is its source spell keeps the stock row."""
-    stock_spells = stock.spell.by_id()
-    low, high = spec.id_range
-    spells = []
-    for talent in spec.talents:
-        for rank, (spell, source) in enumerate(zip(talent.spells, talent.source_spells)):
-            if source not in stock_spells:
-                raise SpecError("talent %d rank %d: source spell %d is no stock spell" % (talent.talent_id, rank + 1, source))
-            if spell == source:
-                continue
-            if spell in stock_spells:
-                raise SpecError("talent %d rank %d: spell %d clashes with a stock spell" % (talent.talent_id, rank + 1, spell))
-            if not low <= spell <= high:
-                raise SpecError("talent %d rank %d: spell %d is outside the free ID range %d-%d"
-                                % (talent.talent_id, rank + 1, spell, low, high))
-            spells.append((spell, source, talent, rank))
-    return sorted(spells, key=lambda s: s[0])
+def spell_ranks(spec):
+    """(spell ID, source spell ID, row, rank from 0) of each spell of the spec, by spell ID."""
+    ranks = [(spell, source, row, rank) for row in spec.rows
+             for rank, (spell, source) in enumerate(zip(row.spells, row.source_spells))]
+    return sorted(ranks, key=lambda r: r[0])
+
+
+def _rank_text(row, rank, stock_text):
+    """The rank text of the spellbook: the `set` value, else "Rank N" for more than one rank, else the
+    stock text of a kept stock spell (stock_text), else none."""
+    if NAME_SUBTEXT in row.fields:
+        return row.fields[NAME_SUBTEXT][rank]
+    if row.ranks > 1:
+        return "Rank %d" % (rank + 1)
+    return stock_text
+
+
+def spell_changes(row, rank):
+    """The numeric spell_template columns that the spec sets on one rank: the spell icon, each effect value
+    (as base points with die sides 1 and base dice 1) and the `set` columns, in this order."""
+    changes = [("spellIconId", row.icon)]
+    for k, values in enumerate(row.effects, start=1):
+        if values is not None:
+            changes += [("effectBasePoints%d" % k, values[rank] - 1), ("effectDieSides%d" % k, 1),
+                        ("effectBaseDice%d" % k, 1)]
+    changes += [(name, values[rank]) for name, values in row.fields.items() if name != NAME_SUBTEXT]
+    return changes
+
+
+def spell_texts(row, rank, stock_rank_text):
+    """(name, rank text, description or None to keep the stock one) of one rank."""
+    return row.name, _rank_text(row, rank, stock_rank_text), row.tooltip
 
 
 def talent_table(spec, stock):
@@ -66,15 +80,9 @@ def talent_table(spec, stock):
     generate puts the rows in client order afterwards (in_client_order)."""
     stock_talents = stock.talent.by_id()
     stock_spells = stock.spell.by_id()
-    low, high = spec.id_range
     rows = [list(row) for row in stock.talent.rows if row[1] not in WARRIOR_TABS.values()]
-    for talent in sorted(spec.talents, key=lambda t: t.talent_id):
+    for talent in sorted(talents(spec), key=lambda t: t.talent_id):
         old = stock_talents.get(talent.talent_id)
-        if old is None and not low <= talent.talent_id <= high:
-            raise SpecError("talent %d is no 1.12 talent and is outside the free ID range %d-%d"
-                            % (talent.talent_id, low, high))
-        if old is not None and old[1] not in WARRIOR_TABS.values():
-            raise SpecError("talent %d clashes with a stock talent of another class" % talent.talent_id)
         # Flags 1 marks a talent that teaches an active ability. A kept talent keeps its stock value.
         flags = old[19] if old else int(not stock_spells[talent.source_spells[0]][SPELL_ATTRIBUTES] & SPELL_ATTR_PASSIVE)
         row = [0] * TALENT_FIELDS
@@ -83,8 +91,9 @@ def talent_table(spec, stock):
         row[2] = talent.tier - 1
         row[3] = talent.column - 1
         row[4:4 + talent.ranks] = talent.spells
-        row[13] = talent.required_talent
-        row[16] = talent.required_rank - 1 if talent.required_talent else 0
+        if talent.required_talents:
+            row[13] = talent.required_talents[0]
+            row[16] = talent.required_rank - 1
         row[19] = flags
         rows.append(row)
     return Dbc(stock.talent.fields, rows, bytes(stock.talent.strings))
@@ -98,19 +107,24 @@ def in_client_order(talents):
 
 
 def client_spell_table(spells, stock):
-    """Spell.dbc: every stock row as it is, plus the new spell rows, sorted by ID."""
+    """Spell.dbc: every stock row, the spec changes on the stock spells that the spec names, and the new
+    spell rows, sorted by ID. A stock row whose values the spec does not change stays byte for byte."""
     table = stock.spell.copy()
-    by_id = stock.spell.by_id()
-    for spell, source, talent, rank in spells:
-        row = list(by_id[source])
-        row[0] = spell
-        row[SPELL_BASE_POINTS1] = talent.effect1[rank] - 1
-        row[SPELL_ICON] = talent.icon
-        for first, value in ((SPELL_NAME, talent.name), (SPELL_RANK, "Rank %d" % (rank + 1)),
-                             (SPELL_DESCRIPTION, talent.tooltip)):
+    by_id = table.by_id()
+    stock_by_id = stock.spell.by_id()
+    for spell, source, row, rank in spells:
+        new = spell not in stock_by_id
+        target = list(stock_by_id[source]) if new else by_id[spell]
+        target[0] = spell
+        for name, value in spell_changes(row, rank):
+            target[FIELDS[name] if name != "spellIconId" else SPELL_ICON] = value & 0xFFFFFFFF
+        stock_rank_text = "" if new else table.text(target[SPELL_RANK])
+        for first, value in zip((SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION), spell_texts(row, rank, stock_rank_text)):
             # enUS only: the other locale strings of the stock row would be stale.
-            row[first:first + 8] = [table.add_text(value)] + [0] * 7
-        table.rows.append(row)
+            if value is not None and (new or table.text(target[first]) != value):
+                target[first:first + 8] = [table.add_text(value)] + [0] * 7
+        if new:
+            table.rows.append(target)
     table.rows.sort(key=lambda r: r[0])
     return table
 
@@ -119,19 +133,28 @@ def _sql_text(value):
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
-def server_sql(spells):
-    """The Forever server tables. Each new spell is a copy of the stock server row of its source spell
-    (with the core's own fixes), with the spec values set on top."""
+def server_sql(spells, stock):
+    """The Forever server tables. Each spec spell is a copy of the stock server row of its source spell
+    (with the core's own fixes), with the spec values set on top. The tables are made again in the shape
+    of the stock tables first, so that a new column of a stock table cannot break the copies."""
     lines = ["-- The Forever server tables of the world database. Generated by forever/generator from",
              "-- forever/warrior.tsv: never edit by hand. The core reads them only with Forever.Rules = 1.", ""]
-    lines += ["DELETE FROM `%s`;" % table for table in FOREVER_TABLES]
-    for spell, source, talent, rank in spells:
-        values = [("entry", str(spell)), ("build", str(CLIENT_BUILD)), ("name", _sql_text(talent.name)),
-                  ("nameSubtext", _sql_text("Rank %d" % (rank + 1))), ("description", _sql_text(talent.tooltip)),
-                  ("spellIconId", str(talent.icon)), ("effectBasePoints1", str(talent.effect1[rank] - 1))]
+    for table in FOREVER_TABLES:
+        lines += ["DROP TABLE IF EXISTS `%s`;" % table,
+                  "CREATE TABLE `%s` LIKE `%s`;" % (table, table[len("forever_"):])]
+    stock_by_id = stock.spell.by_id()
+    for spell, source, row, rank in spells:
+        stock_rank_text = stock.spell.text(stock_by_id[spell][SPELL_RANK]) if spell in stock_by_id else ""
+        name, rank_text, description = spell_texts(row, rank, stock_rank_text)
+        values = [("entry", str(spell)), ("build", str(CLIENT_BUILD)), ("name", _sql_text(name)),
+                  ("nameSubtext", _sql_text(rank_text))]
+        if description is not None:
+            values.append(("description", _sql_text(description)))
+        values += [(column, str(value)) for column, value in spell_changes(row, rank)]
         lines += [
             "",
-            "-- %s rank %d (talent %d), from spell %d." % (talent.name, rank + 1, talent.talent_id, source),
+            "-- %s rank %d, %s." % (row.name, rank + 1,
+                                    "from spell %d" % source if spell != source else "changes the stock spell"),
             "CREATE TEMPORARY TABLE `forever_spell_new` SELECT * FROM `spell_template` WHERE `entry`=%d "
             "AND `build`<=%d ORDER BY `build` DESC LIMIT 1;" % (source, CLIENT_BUILD),
             "UPDATE `forever_spell_new` SET %s;" % ", ".join("`%s`=%s" % kv for kv in values),
@@ -141,13 +164,15 @@ def server_sql(spells):
     return "\n".join(lines) + "\n"
 
 
-def generate(spec, stock_folder, out):
-    """Checks the spec against the stock data, then writes the three outputs into `out`."""
+def generate(spec, stock_folder, out, marker_icons):
+    """Checks the spec against the stock data and the core's marker icons, then writes the three outputs
+    into `out`. A spec that breaks a rule raises a SpecError before anything is written."""
     stock = Stock(stock_folder)
-    spells = new_spells(spec, stock)
+    rules.check(spec, stock, marker_icons)
+    spells = spell_ranks(spec)
     talents = in_client_order(talent_table(spec, stock))
     spell_table = client_spell_table(spells, stock)
-    sql = server_sql(spells)
+    sql = server_sql(spells, stock)
 
     server_dbc = os.path.join(out, "dbc")
     client_dbc = os.path.join(out, "client", "DBFilesClient")

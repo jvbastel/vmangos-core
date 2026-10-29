@@ -30,10 +30,29 @@ pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no 
 SPELL_ID, SPELL_ICON, SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION = 0, 117, 120, 129, 138
 
 
-def spec_rows():
+def spec_rows(kind=None):
     lines = [line for line in SPEC.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")]
     header = lines[0].split("\t")
-    return [dict(zip(header, line.split("\t"))) for line in lines[1:]]
+    rows = [dict(zip(header, line.split("\t"))) for line in lines[1:]]
+    return [row for row in rows if kind is None or row["kind"] == kind]
+
+
+def spells_of(row):
+    return [int(s) for s in row["spells"].split(",")]
+
+
+def set_values(row, name):
+    """The values per rank of a `set` column entry of a spec row, or None."""
+    for item in row["set"].split(";"):
+        key, _, value = item.partition("=")
+        if key == name:
+            values = value.split("/")
+            return values * int(row["ranks"]) if len(values) == 1 else values
+    return None
+
+
+def int32(value):
+    return value - (1 << 32) if value >= 1 << 31 else value
 
 
 def free_range():
@@ -61,7 +80,7 @@ def generate(out):
 
 def export(dbc_folder, tmp_path):
     names = tmp_path / "names.tsv"
-    names.write_text("".join("%s\t%s\n" % (row["spells"].split(",")[0], row["name"]) for row in spec_rows()))
+    names.write_text("".join("%s\t%s\n" % (row["spells"].split(",")[0], row["name"]) for row in spec_rows("talent")))
     done = subprocess.run([sys.executable, "-I", str(EXPORTER), str(dbc_folder), str(names)],
                           check=True, capture_output=True, text=True)
     return [line.split("\t") for line in done.stdout.splitlines() if not line.startswith("#")]
@@ -85,7 +104,7 @@ def server_spells(out):
 def test_the_exported_warrior_trees_are_the_spec_tree(out, tmp_path):
     warrior = sorted(row for row in export(out / "dbc", tmp_path) if row[1] == "warrior")
     expected = sorted([r["talentId"], "warrior", r["tree"], r["tier"], r["column"], r["ranks"],
-                       r["requiredTalent"], r["requiredRank"], r["name"]] for r in spec_rows())
+                       r["requiredTalent"], r["requiredRank"], r["name"]] for r in spec_rows("talent"))
     assert warrior == expected
 
 
@@ -101,47 +120,114 @@ def test_the_client_gets_the_same_talent_tables_as_the_server(out):
         assert (out / "client" / "DBFilesClient" / name).read_bytes() == (out / "dbc" / name).read_bytes()
 
 
+def expected_rank_text(row, rank, stock_rank_text):
+    """The rank text of the spellbook: the `set` value, else "Rank N" for a talent or spell with more than
+    one rank, else the stock text of a kept stock spell, else none."""
+    named = set_values(row, "nameSubtext")
+    if named:
+        return named[rank]
+    if int(row["ranks"]) > 1:
+        return "Rank %d" % (rank + 1)
+    return stock_rank_text
+
+
 def test_each_spec_spell_is_in_the_client_and_the_server_with_its_rank_and_icon(out):
     client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    stock, stock_text = read_dbc(STOCK / "Spell.dbc")
     server = server_spells(out)
     for row in spec_rows():
-        for rank, spell in enumerate(int(s) for s in row["spells"].split(",")):
+        for rank, spell in enumerate(spells_of(row)):
+            rank_text = expected_rank_text(row, rank, stock_text(stock[spell][SPELL_RANK]) if spell in stock else "")
             assert spell in client, spell
-            assert text(client[spell][SPELL_NAME]) == row["name"]
-            assert text(client[spell][SPELL_RANK]) == "Rank %d" % (rank + 1)
-            assert client[spell][SPELL_ICON] == int(row["icon"])
+            assert text(client[spell][SPELL_NAME]) == row["name"], spell
+            assert text(client[spell][SPELL_RANK]) == rank_text, spell
+            assert client[spell][SPELL_ICON] == int(row["icon"]), spell
             assert spell in server, spell
-            assert server[spell]["name"] == row["name"]
-            assert server[spell]["nameSubtext"] == "Rank %d" % (rank + 1)
-            assert int(server[spell]["spellIconId"]) == int(row["icon"])
+            assert server[spell]["name"] == row["name"], spell
+            assert server[spell]["nameSubtext"] == rank_text, spell
+            assert int(server[spell]["spellIconId"]) == int(row["icon"]), spell
 
 
 def test_a_rank_has_the_spec_value_and_tooltip(out):
-    # Improved Rend rank 2 of build 70450: 23%. A DBC holds a value as base points + 1.
+    # Improved Rend rank 2 of build 70450: 23% (stock 25%). It keeps its stock spell 12658. A DBC holds a
+    # value as base points + 1 (die sides 1).
     client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
-    assert client[60001][76] + 1 == 23
-    assert text(client[60001][SPELL_DESCRIPTION]) == "Increases the Bleed damage done by your Rend ability by $s1%."
-    assert int(server_spells(out)[60001]["effectBasePoints1"]) + 1 == 23
+    server = server_spells(out)
+    assert int32(client[12658][76]) + 1 == 23
+    assert text(client[12658][SPELL_DESCRIPTION]) == "Increases the Bleed damage done by your Rend ability by $s1%."
+    assert int(server[12658]["effectBasePoints1"]) + 1 == 23
+    # Improved Execute rank 1: -3 Rage, in tenths.
+    assert int32(client[20502][76]) + 1 == -30
+    assert int(server[20502]["effectBasePoints1"]) + 1 == -30
 
 
-def test_the_stock_spell_rows_stay_in_the_client_table(out):
+def test_a_changed_base_ability_has_its_forever_values(out):
+    client, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    server = server_spells(out)
+    # Battle Shout rank 7: 139 attack power (stock 232), 3 min (SpellDuration.dbc 25, stock 2 min).
+    assert int32(client[25289][76]) + 1 == 139 and client[25289][30] == 25
+    assert int(server[25289]["effectBasePoints1"]) + 1 == 139 and int(server[25289]["durationIndex"]) == 25
+    # Shield Wall: 15 min of its own (no shared category).
+    assert (client[871][2], client[871][19], client[871][20]) == (0, 900000, 0)
+    assert (server[871]["category"], server[871]["recoveryTime"], server[871]["categoryRecoveryTime"]) == ("0", "900000", "0")
+    # Revenge rank 1: 20-24 damage, base points 19 plus 1 to 5.
+    assert (client[6572][76], client[6572][67], client[6572][64]) == (19, 1, 5)
+    assert (server[6572]["effectBasePoints1"], server[6572]["effectBaseDice1"], server[6572]["effectDieSides1"]) == ("19", "1", "5")
+
+
+def test_a_new_spell_is_a_copy_of_its_source_with_the_spec_values(out):
+    client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    stock, _ = read_dbc(STOCK / "Spell.dbc")
+    # Spearing Strike (60100), a copy of Mortal Strike 12294: 40% weapon damage, 15 Rage, 20 sec, Battle Stance.
+    spear, mortal = client[60100], stock[12294]
+    assert (spear[61], spear[62], spear[91]) == (121, 31, 0)
+    assert int32(spear[77]) + 1 == 40
+    assert (spear[32], spear[19], spear[2], spear[20], spear[11]) == (150, 20000, 0, 0, 0x10000)
+    assert spear[160:163] == mortal[160:163]  # spell family and family flags of the source
+    assert int(server_spells(out)[60100]["effect2"]) == 31
+
+
+def test_the_stock_spell_rows_that_the_spec_does_not_name_stay_in_the_client_table(out):
     client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
     stock, stock_text = read_dbc(STOCK / "Spell.dbc")
+    named = {spell for row in spec_rows() for spell in spells_of(row)}
     assert set(stock) <= set(client)
-    assert text(client[12286][SPELL_NAME]) == stock_text(stock[12286][SPELL_NAME]) == "Improved Rend"
-    assert client[12286][:SPELL_NAME] == stock[12286][:SPELL_NAME]
+    for spell, row in stock.items():
+        if spell not in named:
+            assert client[spell][:SPELL_NAME] == row[:SPELL_NAME], spell
+            assert text(client[spell][SPELL_NAME]) == stock_text(row[SPELL_NAME]), spell
 
 
 def test_new_ids_are_in_the_free_range(out):
     low, high = free_range()
     stock_spells, _ = read_dbc(STOCK / "Spell.dbc")
     stock_talents, _ = read_dbc(STOCK / "Talent.dbc")
+    new = 0
     for row in spec_rows():
-        if int(row["talentId"]) not in stock_talents:
+        if row["kind"] == "talent" and int(row["talentId"]) not in stock_talents:
             assert low <= int(row["talentId"]) <= high
-        for spell in (int(s) for s in row["spells"].split(",")):
-            assert spell not in stock_spells
-            assert low <= spell <= high
+        for spell in spells_of(row):
+            if spell not in stock_spells:
+                assert low <= spell <= high
+                new += 1
+    assert new > 20
+
+
+def test_the_spec_has_the_talent_count_of_its_build_and_a_port_type_on_each_row():
+    m = re.search(r"^# Talent count of build 1\.60\.1\.70450: (\d+) \(Arms (\d+), Fury (\d+), Protection (\d+)\)",
+                  SPEC.read_text(encoding="utf-8"), re.M)
+    assert m and [int(v) for v in m.groups()] == [52, 17, 17, 18]
+    talents = spec_rows("talent")
+    assert len(talents) == 52
+    assert [sum(r["tree"] == tree for r in talents) for tree in ("arms", "fury", "protection")] == [17, 17, 18]
+    assert all(r["port"] in ("data", "C++", "substitute") for r in spec_rows())
+    assert spec_rows("ability") and spec_rows("base")
+
+
+def test_the_out_of_scope_forever_changes_are_not_in_the_spec():
+    names = " ".join(r["name"] for r in spec_rows()).lower()
+    for word in ("expertise", "legacy", "talented", "dual specialization", "racial"):
+        assert word not in names
 
 
 def test_two_runs_give_the_same_bytes(out, tmp_path):
