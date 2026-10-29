@@ -110,6 +110,13 @@ w.gm(".cheat criticals off", select=me)
 w.set_active_mover()
 
 
+def rage():
+    for line in w.gm(".unit statinfo", select=me, wait=1.0):
+        m = re.match(r"Rage: (\d+)", line)
+        if m:
+            return int(m.group(1))
+    return -1
+
 
 def rage_decay(seconds):
     """Out of combat: rage samples (tenths) once a second, from 50 Rage."""
@@ -153,14 +160,6 @@ def equip(entry):
     w.gm(".save", select=me)
     return realm.sql("characters", "SELECT item_id FROM character_inventory WHERE guid = %d AND bag = 0 AND slot = %d"
                      % (me, MAIN_HAND_SLOT)) == str(entry)
-
-
-def rage():
-    for line in w.gm(".unit statinfo", select=me, wait=1.0):
-        m = re.match(r"Rage: (\d+)", line)
-        if m:
-            return int(m.group(1))
-    return -1
 
 
 def swing(seconds):

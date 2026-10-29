@@ -114,7 +114,7 @@ else:
     c.gm(".save", select=me)
     c.pump(1)
     slot = realm.sql("characters", "SELECT slot FROM character_inventory WHERE guid = %d AND bag = 0 AND "
-                                   "item_template = %d LIMIT 1" % (me, LARGE_ROUND_SHIELD))
+                                   "item_id = %d LIMIT 1" % (me, LARGE_ROUND_SHIELD))
     if slot:
         c.send(CMSG_AUTOEQUIP_ITEM, struct.pack("<BB", 255, int(slot)))
         c.pump(2)
