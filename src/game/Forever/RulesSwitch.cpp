@@ -188,7 +188,12 @@ void Forever::OnLogin(Player* player, MasterPlayer* master)
         player->SaveToDB();
     CharacterDatabase.BeginTransaction(guid);
     if (switched)
+    {
         master->SaveActions();
+        // SaveToDB wrote `online` = 0 (the player is not in the world yet). HandlePlayerLogin sets it to
+        // 1 later, but in another queue, so it can run first. Set it here too, last in this queue.
+        CharacterDatabase.PExecute("UPDATE `characters` SET `online` = 1 WHERE `guid` = %u", guid);
+    }
     CharacterDatabase.PExecute("REPLACE INTO `forever_character` (`guid`, `rules`) VALUES (%u, %u)", guid, uint32(to));
     CharacterDatabase.CommitTransaction();
 }

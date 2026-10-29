@@ -10,10 +10,13 @@ the slot with the other rules and keeps the database (same lease):
     wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t208_rules_switch.py vanilla
 
-setup   (rules off) A player Warrior at level 20 learns two vanilla talents: Improved Rend (talent 127,
-        rank 1 12286) and Improved Heroic Strike (talent 124, rank 1 12282). The realm stores that it
-        logged in under the vanilla rules. After the logout the action bars get the two talent spells
-        and Heroic Strike (78, a trainer spell that both rule sets have).
+setup   (rules off) A player Warrior at level 20 learns vanilla talents: Improved Rend (talent 127,
+        rank 1 12286), Improved Heroic Strike (talent 124, rank 1 12282), Cruelty 5/5 (talent 157) and
+        Improved Demoralizing Shout (talent 161, rank 1 12324). The last one is not in the Forever trees:
+        only the stock-talent step of the switch (LoadStockTalents) takes it away. The realm stores that
+        it logged in under the vanilla rules. After the logout the action bars get Improved Rend,
+        Improved Heroic Strike, Improved Demoralizing Shout and Heroic Strike (78, a trainer spell that
+        both rule sets have).
 forever (rules on) The first login switches: no vanilla talent in the spellbook (login packet and
         character_spell), their buttons are gone, Heroic Strike and its button stay, the stored rules are
         Forever. Both talents are also in the Forever trees with their stock IDs (#210), so this shows
@@ -51,7 +54,9 @@ LINGERING_RAGE = 60002
 FOREVER_LINGERING_RAGE_1 = 60106
 HEROIC_STRIKE = 78
 # Action bar buttons that the check owns (0-119; the high ones are free on a new character).
-BUTTON_REND, BUTTON_IMPROVED_HS, BUTTON_HEROIC_STRIKE, BUTTON_FOREVER = 110, 111, 112, 113
+BUTTON_REND, BUTTON_IMPROVED_HS, BUTTON_HEROIC_STRIKE, BUTTON_FOREVER, BUTTON_IMPROVED_DS = 110, 111, 112, 113, 114
+IMPROVED_DEMORALIZING_SHOUT = 161
+STOCK_IMPROVED_DEMORALIZING_SHOUT_1 = 12324
 RULES = {"vanilla": 0, "forever": 1}
 SWITCH = r"\[Forever\] %s switches from the %s rules to the %s rules"
 
@@ -108,7 +113,7 @@ c.pump(2)
 def saved_spells():
     c.gm(".save", select=me)
     c.pump(1)
-    rows = realm.sql("characters", "SELECT spell FROM character_spell WHERE guid = %d" % me)
+    rows = realm.sql("characters", "SELECT spell FROM character_spell WHERE guid = %d AND disabled = 0" % me)
     return {int(row) for row in rows.splitlines() if row}
 
 
@@ -131,11 +136,19 @@ def put_buttons(pairs):
     realm.sql("characters", "REPLACE INTO character_action (guid, button, action, type) VALUES " + values)
 
 
+def saved_rows():
+    """The character_spell and character_action rows as they are, without a .save first."""
+    return (realm.sql("characters", "SELECT spell, disabled FROM character_spell WHERE guid = %d ORDER BY spell" % me),
+            realm.sql("characters", "SELECT button, action, type FROM character_action WHERE guid = %d ORDER BY button" % me))
+
+
 def check_same_rules_relog(expected_spell):
-    """A second login under the same rules: no switch, the spells stay."""
+    """A second login under the same rules: no switch, the spells stay, the login writes no spell or button."""
     c.logout()
+    before = saved_rows()
     realm.mark("t208 relog")
     c.login_again()
+    results.check("a login under the same rules writes no spell or button row", saved_rows() == before)
     results.check("a login under the same rules does not switch", not realm.wait_log(SWITCH % (NAME, ".*", ".*"), 3, c))
     results.check("a login under the same rules keeps %d" % expected_spell,
                   c.initial_spells is not None and expected_spell in c.initial_spells,
@@ -150,27 +163,33 @@ if mode == "setup":
     c.pump(1)
     rend = c.learn_talent(IMPROVED_REND)
     heroic = c.learn_talent(IMPROVED_HEROIC_STRIKE)
-    results.check("the vanilla talents are learned", rend == [STOCK_REND_1] and heroic == [STOCK_HEROIC_STRIKE_1],
-                  "learned %r %r" % (rend, heroic))
+    cruelty = [spell for rank in range(5) for spell in c.learn_talent(CRUELTY, rank)]
+    demoralizing = c.learn_talent(IMPROVED_DEMORALIZING_SHOUT)
+    results.check("the vanilla talents are learned",
+                  rend == [STOCK_REND_1] and heroic == [STOCK_HEROIC_STRIKE_1] and cruelty == list(CRUELTY_SPELLS)
+                  and demoralizing == [STOCK_IMPROVED_DEMORALIZING_SHOUT_1],
+                  "learned %r %r %r %r" % (rend, heroic, cruelty, demoralizing))
     results.check("Heroic Strike is known", HEROIC_STRIKE in saved_spells())
     results.check("the realm stores that the character logged in under the vanilla rules",
                   stored_rules() == RULES["vanilla"], "rules %r" % stored_rules())
     check_same_rules_relog(STOCK_REND_1)
     c.logout()
     put_buttons([(BUTTON_REND, STOCK_REND_1), (BUTTON_IMPROVED_HS, STOCK_HEROIC_STRIKE_1),
-                 (BUTTON_HEROIC_STRIKE, HEROIC_STRIKE)])
+                 (BUTTON_HEROIC_STRIKE, HEROIC_STRIKE), (BUTTON_IMPROVED_DS, STOCK_IMPROVED_DEMORALIZING_SHOUT_1)])
 elif mode == "forever":
+    VANILLA_TALENTS = {STOCK_REND_1, STOCK_HEROIC_STRIKE_1, STOCK_IMPROVED_DEMORALIZING_SHOUT_1} | set(CRUELTY_SPELLS)
     results.check("the first login under the Forever rules switches",
                   realm.wait_log(SWITCH % (NAME, "vanilla", "Forever"), 5, c))
     spells = c.initial_spells or set()
     results.check("the login sends no vanilla talent", c.initial_spells is not None and
-                  not spells & {STOCK_REND_1, STOCK_HEROIC_STRIKE_1}, "%r" % (spells & {STOCK_REND_1, STOCK_HEROIC_STRIKE_1}))
+                  not spells & VANILLA_TALENTS, "%r" % (spells & VANILLA_TALENTS))
     results.check("the login keeps Heroic Strike", HEROIC_STRIKE in spells)
     saved = saved_spells()
-    results.check("character_spell has no vanilla talent", not saved & {STOCK_REND_1, STOCK_HEROIC_STRIKE_1})
+    results.check("character_spell has no vanilla talent", not saved & VANILLA_TALENTS)
     bars = buttons()
     results.check("the buttons of the vanilla talents are gone",
-                  BUTTON_REND not in bars and BUTTON_IMPROVED_HS not in bars, "%r" % bars)
+                  BUTTON_REND not in bars and BUTTON_IMPROVED_HS not in bars and BUTTON_IMPROVED_DS not in bars,
+                  "%r" % bars)
     results.check("the Heroic Strike button stays", bars.get(BUTTON_HEROIC_STRIKE) == HEROIC_STRIKE, "%r" % bars)
     results.check("the realm stores the Forever rules", stored_rules() == RULES["forever"], "rules %r" % stored_rules())
     cruelty = [spell for rank in range(5) for spell in c.learn_talent(CRUELTY, rank)]
