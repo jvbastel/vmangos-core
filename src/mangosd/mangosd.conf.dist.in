@@ -3341,6 +3341,29 @@ BotChat.QueueSize = 64
 BotChat.TimeoutMs = 5000
 
 ###################################################################################################################
+# WOWAI FOREVER RULES
+#
+#    The Forever rules of the Warrior (spec jvbastel/WOWAI#204): the Forever talent trees and spell data that
+#    forever/generator makes from forever/warrior.tsv. The players need the client data patch of the same
+#    spec. The stock tables and the stock DBC files never change: set Forever.Rules = 0 and restart to get
+#    vanilla back. The core reads these settings at startup only.
+#
+#    Forever.Rules
+#        Turns all Forever rules on: the talent tables of Forever.DataDir and the rows of the forever_*
+#        tables of the world database, on top of the stock rows by ID.
+#        Default: 0 - off
+#                 1 - on
+#
+#    Forever.DataDir
+#        The Forever DBC folder: the dbc/ folder of the generator output. Needed when Forever.Rules = 1.
+#        Default: ""
+#
+###################################################################################################################
+
+Forever.Rules = 0
+Forever.DataDir = ""
+
+###################################################################################################################
 # MAIL FLOODING MITIGATION
 #
 #    MailSpam.ExpireSecs
