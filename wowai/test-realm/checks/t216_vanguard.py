@@ -19,25 +19,10 @@ forever (rules on) A level 50 player Warrior with Charge ranks 1 and 2 (100, 617
 vanilla (rules off) The switch to vanilla gives back stock Charge rank 3: in the spellbook (login packet,
         active in character_spell) and on the same button. No Vanguard Charge is left.
 """
-import struct
 import sys
 
-from kit import Realm, Results, kill, pos
-from wowclient import WorldClient, unpack_guid
-
-SMSG_SUPERCEDED_SPELL = 300
-CMSG_SET_ACTION_BUTTON = 296
-SMSG_INITIAL_SPELLS = 298
-SMSG_LEARNED_SPELL = 299
-CMSG_CAST_SPELL = 302
-SMSG_CAST_RESULT = 304
-SMSG_SPELL_GO = 306
-CMSG_LEARN_TALENT = 593
-CMSG_LOGOUT_REQUEST = 75
-SMSG_LOGOUT_COMPLETE = 77
-CMSG_PLAYER_LOGIN = 61
-SMSG_LOGIN_VERIFY_WORLD = 566
-TARGET_FLAG_UNIT = 0x2
+from kit import Realm, Results, kill, pos, spawn
+from wowclient import SpellClient
 SPELL_FAILED_ONLY_SHAPESHIFT = 86  # "Must be in %s" (1.12 SpellCastResult)
 
 ACCOUNT = "PLAYER216"
@@ -52,78 +37,7 @@ VANGUARD_SPELL = 60119
 # Improved Bloodrage 2. Vanguard is on tier 4.
 PROTECTION_15 = ((1601, 5), (138, 5), (147, 3), (142, 2))
 BUTTON_CHARGE = 115  # a high button, free on a new character
-BOAR = 3098
 SWITCH = r"\[Forever\] %s switches from the Forever rules to the vanilla rules"
-
-
-class VanguardClient(WorldClient):
-    """Keeps the spell packets that the check reads."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.learned = []
-        self.superseded = []
-        self.cast_results = []
-        self.spell_go = []
-        self.initial_spells = None
-
-    def _observe(self, opcode, body):
-        super()._observe(opcode, body)
-        if opcode == SMSG_LEARNED_SPELL:
-            self.learned.append(struct.unpack_from("<H", body, 0)[0])
-        elif opcode == SMSG_SUPERCEDED_SPELL:
-            self.superseded.append(struct.unpack_from("<HH", body, 0))
-        elif opcode == SMSG_CAST_RESULT:
-            spell, status = struct.unpack_from("<IB", body, 0)
-            reason = body[5] if status == 2 and len(body) > 5 else None
-            self.cast_results.append((spell, reason))
-        elif opcode == SMSG_SPELL_GO:
-            caster, at = unpack_guid(body, 0)
-            _, at = unpack_guid(body, at)
-            if caster == self.guid:
-                self.spell_go.append(struct.unpack_from("<I", body, at)[0])
-        elif opcode == SMSG_INITIAL_SPELLS:
-            count = struct.unpack_from("<H", body, 1)[0]
-            self.initial_spells = {struct.unpack_from("<H", body, 3 + 4 * i)[0] for i in range(count)}
-
-    def learn_talent(self, talent, rank=0):
-        start = len(self.learned)
-        self.send(CMSG_LEARN_TALENT, struct.pack("<II", talent, rank))
-        self.pump(1.5)
-        return self.learned[start:]
-
-    def set_button(self, button, spell):
-        self.send(CMSG_SET_ACTION_BUTTON, struct.pack("<BI", button, spell))
-        self.pump(1)
-
-    def cast(self, spell, target=None):
-        """Casts a spell; (its cast results, whether a SPELL_GO of it came)."""
-        start_results, start_go = len(self.cast_results), len(self.spell_go)
-        if target is None:
-            targets = struct.pack("<H", 0)
-        else:
-            mask, packed = 0, b""
-            for i in range(8):
-                byte = (target >> (8 * i)) & 0xFF
-                if byte:
-                    mask |= 1 << i
-                    packed += bytes([byte])
-            targets = struct.pack("<H", TARGET_FLAG_UNIT) + bytes([mask]) + packed
-        self.send(CMSG_CAST_SPELL, struct.pack("<I", spell) + targets)
-        self.pump(2)
-        results = [r for r in self.cast_results[start_results:] if r[0] == spell]
-        return results, spell in self.spell_go[start_go:]
-
-    def logout(self):
-        self.send(CMSG_LOGOUT_REQUEST)
-        self.wait_for(SMSG_LOGOUT_COMPLETE, 30)
-        self.pump(2)
-
-    def login_again(self):
-        self.initial_spells = None
-        self.send(CMSG_PLAYER_LOGIN, struct.pack("<Q", self.guid))
-        self.wait_for(SMSG_LOGIN_VERIFY_WORLD, 30)
-        self.pump(3)
 
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -133,7 +47,7 @@ if mode not in ("forever", "vanilla"):
 realm = Realm()
 results = Results()
 realm.mark("t216 " + mode)
-c = realm.login(ACCOUNT, NAME, race=2, cls=1, client_class=VanguardClient)
+c = realm.login(ACCOUNT, NAME, race=2, cls=1, client_class=SpellClient)
 me = c.guid
 c.pump(2)
 
@@ -164,11 +78,10 @@ def learn_vanguard():
 
 def spawn_boar_ahead():
     """A boar 15 yards from the player (Charge range 8-25), out of combat. Its guid."""
-    c.gm(".npc spawn add %d" % BOAR, wait=2.0)
-    low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % BOAR).split()[-1])
+    boar = spawn(realm, c, wait=2.0)
     x, y, z = pos(c, me)
     c.gm(".go xyz %f %f %f" % (x + 15.0, y, z + 1.0), wait=2.0)
-    return (0xF130 << 48) | (BOAR << 24) | low
+    return boar
 
 
 if mode == "forever":
@@ -189,7 +102,7 @@ if mode == "forever":
     boar = spawn_boar_ahead()
     stock, _ = c.cast(CHARGE[1], boar)
     results.check("stock Charge fails in Defensive Stance (control)",
-                  (CHARGE[1], SPELL_FAILED_ONLY_SHAPESHIFT) in stock, "results %r" % stock)
+                  SPELL_FAILED_ONLY_SHAPESHIFT in stock, "reasons %r" % stock)
 
     learned, superseded = learn_vanguard()
     results.check("Vanguard is learned", VANGUARD_SPELL in learned, "learned %r" % learned)
@@ -203,8 +116,8 @@ if mode == "forever":
 
     vanguard, go = c.cast(VANGUARD_CHARGE[1], boar)
     results.check("Vanguard Charge is not refused for the stance",
-                  not any(reason == SPELL_FAILED_ONLY_SHAPESHIFT for _, reason in vanguard), "results %r" % vanguard)
-    results.check("Vanguard Charge charges in Defensive Stance", go, "results %r" % vanguard)
+                  SPELL_FAILED_ONLY_SHAPESHIFT not in vanguard, "reasons %r" % vanguard)
+    results.check("Vanguard Charge charges in Defensive Stance", go, "reasons %r" % vanguard)
     kill(c, boar)
     c.pump(2)
 

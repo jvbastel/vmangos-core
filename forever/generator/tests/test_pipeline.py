@@ -298,13 +298,9 @@ def test_vanguard_charge_is_stock_charge_that_the_client_allows_in_defensive_sta
 
 def test_the_vanguard_talent_is_a_passive_spell_that_the_rules_switch_knows(out):
     # The core swaps Charge when a Warrior learns the Vanguard talent spell, and back when it loses it
-    # (src/game/Forever/Vanguard.cpp). Its IDs must be the spec IDs.
+    # (src/game/Forever/Vanguard.cpp). test_spell_ids.py checks its IDs in ForeverSpellIds.h.
     client, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
     assert client[60119][6] & 0x40  # passive: a talent, no button
-    vanguard = (ROOT / "src" / "game" / "Forever" / "Vanguard.cpp").read_text(encoding="utf-8")
-    assert re.search(r"\bVanguardTalentSpell = 60119;", vanguard)
-    pairs = re.findall(r"\{ (\d+), (\d+) \}", vanguard)
-    assert [tuple(map(int, p)) for p in pairs] == [(100, 60127), (6178, 60128), (11578, 60129)]
     rows = {row["name"]: row for row in spec_rows()}
     assert spells_of(rows["Vanguard"]) == [60119]
     charge = [row for row in spec_rows("ability") if row["name"] == "Charge"][0]
@@ -312,22 +308,7 @@ def test_the_vanguard_talent_is_a_passive_spell_that_the_rules_switch_knows(out)
         [(60127, 100), (60128, 6178), (60129, 11578)]
 
 
-# --- #218: the Fury talents of the core (src/game/Forever/ForeverFuryRules.h) ---
-
-def test_the_fury_rules_know_the_spec_ids_of_their_talents_and_buffs():
-    # The core finds a talent rank and its value by the spell IDs in ForeverFuryRules.h: they must be
-    # the spec IDs, rank 1 first.
-    rules = (ROOT / "src" / "game" / "Forever" / "ForeverFuryRules.h").read_text(encoding="utf-8")
-    talents = {row["name"]: spells_of(row) for row in spec_rows("talent")}
-    for array, talent in (("LingeringRageRanks", "Lingering Rage"), ("FuriousPrecisionRanks", "Furious Precision"),
-                          ("BloodCrazeRanks", "Blood Craze"), ("ImprovedBerserkerRageRanks", "Improved Berserker Rage"),
-                          ("GoreDrinkerRanks", "Gore Drinker")):
-        m = re.search(r"\b%s\[\] = \{ ([\d, ]+) \};" % array, rules)
-        assert m, array
-        assert [int(v) for v in m.group(1).split(",")] == talents[talent], array
-    buffs = {row["name"]: spells_of(row) for row in spec_rows("ability")}
-    assert re.search(r"\bLingeringRageBuff = %d;" % buffs["Lingering Rage"][0], rules)
-    assert re.search(r"\bGoreDrinkerBuff = %d;" % buffs["Gore Drinker"][0], rules)
+# --- #218: the Fury talents of the core: test_spell_ids.py checks their IDs (ForeverSpellIds.h) ---
 
 
 def test_the_fury_buffs_are_visible_dummy_auras_with_their_duration_and_charges(out):

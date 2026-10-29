@@ -56,10 +56,10 @@ def client(test, **kwargs):
 class Client:
     """A WorldClient on one end of a socket pair. `server` is the other end."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, client_class=wowclient.WorldClient, **kwargs):
         self.server, sock = socket.socketpair()
         self.echo = io.StringIO()
-        self.client = wowclient.WorldClient(None, None, "player1", b"k" * 40, sock=sock, echo=self.echo, **kwargs)
+        self.client = client_class(None, None, "player1", b"k" * 40, sock=sock, echo=self.echo, **kwargs)
 
     def close(self):
         self.server.close()
@@ -169,6 +169,79 @@ class EchoTest(unittest.TestCase):
         c.client.echo = None
         c.client._observe(wowclient.SMSG_MESSAGECHAT, chat_packet(wowclient.CHAT_MSG_PARTY, "Hi.", sender=GRUKK))
         self.assertEqual(c.echo.getvalue(), "")
+
+
+ME = 0x0000000000000042
+BOAR = 0xF130000C1A000123
+
+
+def packed_guid(guid):
+    mask, data = 0, b""
+    for i in range(8):
+        byte = (guid >> (8 * i)) & 0xFF
+        if byte:
+            mask |= 1 << i
+            data += bytes([byte])
+    return bytes([mask]) + data
+
+
+class SpellClientTest(unittest.TestCase):
+    """The spell packets that the Forever checks read (review T5 of WOWAI#204: one copy, not six)."""
+
+    def spell_client(self):
+        c = client(self, client_class=wowclient.SpellClient)
+        c.client.guid = ME
+        return c
+
+    def test_learned_spells_and_the_login_spellbook(self):
+        c = self.spell_client()
+        # SMSG_LEARNED_SPELL: uint16 spell, uint16 action bar slot.
+        c.client._observe(wowclient.SMSG_LEARNED_SPELL, struct.pack("<HH", 60106, 0))
+        # SMSG_INITIAL_SPELLS: uint8 0, uint16 count, count x (uint16 spell, int16 0), uint16 cooldown count.
+        c.client._observe(wowclient.SMSG_INITIAL_SPELLS, struct.pack("<BH", 0, 2) + struct.pack("<HhHh", 78, 0, 100, 0) + struct.pack("<H", 0))
+        self.assertEqual(c.client.learned, [60106])
+        self.assertEqual(c.client.initial_spells, {78, 100})
+        self.assertTrue(c.client.knows(60106) and c.client.knows(78))
+        self.assertFalse(c.client.knows(60119))
+
+    def test_superseded_spells(self):
+        c = self.spell_client()
+        c.client._observe(wowclient.SMSG_SUPERCEDED_SPELL, struct.pack("<HH", 100, 60127))
+        self.assertEqual(c.client.superseded, [(100, 60127)])
+
+    def test_own_spell_go_and_cast_results(self):
+        c = self.spell_client()
+        # SMSG_SPELL_GO: packed item or caster guid, packed caster guid, uint32 spell, ...
+        c.client._observe(wowclient.SMSG_SPELL_GO, packed_guid(ME) + packed_guid(ME) + struct.pack("<IH", 60123, 0))
+        c.client._observe(wowclient.SMSG_SPELL_GO, packed_guid(BOAR) + packed_guid(BOAR) + struct.pack("<IH", 3, 0))
+        # SMSG_CAST_RESULT: uint32 spell, uint8 status (2 = failed), uint8 reason.
+        c.client._observe(wowclient.SMSG_CAST_RESULT, struct.pack("<IBB", 60123, 2, 18))
+        c.client._observe(wowclient.SMSG_CAST_RESULT, struct.pack("<IB", 78, 0))
+        self.assertEqual(c.client.spell_go, [60123])
+        self.assertEqual(c.client.cast_results, [(60123, 18), (78, None)])
+
+    def test_a_short_packet_is_ignored(self):
+        c = self.spell_client()
+        c.client._observe(wowclient.SMSG_CAST_RESULT, b"\x01")
+        self.assertEqual(c.client.cast_results, [])
+
+    def test_learn_talent_sends_the_talent_and_the_rank(self):
+        c = self.spell_client()
+        c.client.learn_talent(60002, 2, wait=0)
+        self.assertEqual(c.sent(), [(wowclient.CMSG_LEARN_TALENT, struct.pack("<II", 60002, 2))])
+
+    def test_cast_on_self_and_at_a_unit(self):
+        c = self.spell_client()
+        c.client.cast_at(2687)
+        c.client.cast_at(60123, BOAR)
+        sent = c.sent()
+        self.assertEqual(sent[0], (wowclient.CMSG_CAST_SPELL, struct.pack("<IH", 2687, 0)))
+        self.assertEqual(sent[1], (wowclient.CMSG_CAST_SPELL, struct.pack("<IH", 60123, wowclient.TARGET_FLAG_UNIT) + packed_guid(BOAR)))
+
+    def test_set_button(self):
+        c = self.spell_client()
+        c.client.set_button(115, 60127, wait=0)
+        self.assertEqual(c.sent(), [(wowclient.CMSG_SET_ACTION_BUTTON, struct.pack("<BI", 115, 60127))])
 
 
 if __name__ == "__main__":

@@ -9,8 +9,10 @@ the slot with the other rules and keeps the database (same lease):
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t208_rules_switch.py forever
     wowai/test-realm/realm.sh --ticket N acquire
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t208_rules_switch.py vanilla
+    wowai/test-realm/realm.sh --ticket N acquire --forever
+    wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t208_rules_switch.py forever-again
 
-setup   (rules off) A player Warrior at level 20 learns vanilla talents: Improved Rend (talent 127,
+setup   (rules off) A player Warrior at level 30 learns vanilla talents: Improved Rend (talent 127,
         rank 1 12286), Improved Heroic Strike (talent 124, rank 1 12282), Cruelty 5/5 (talent 157) and
         Improved Demoralizing Shout (talent 161, rank 1 12324). The last one is not in the Forever trees:
         only the stock-talent step of the switch (LoadStockTalents) takes it away. The realm stores that
@@ -23,27 +25,29 @@ forever (rules on) The first login switches: no vanilla talent in the spellbook 
         that the reset covers them. The free talent points teach Cruelty 5/5 (talent 157, 12320-12856,
         in both rule sets) and the Forever-only Lingering Rage (talent 60002, rank 1 60106). A second
         login under the same rules changes nothing. After the logout the bars get Lingering Rage.
+        The switch also teaches Berserker Rage (18499), a Forever baseline spell at level 30 (stock 32).
+        Then a second Warrior, the sleeper, logs in under the Forever rules, reaches level 30, learns
+        Cruelty 5/5 and Lingering Rage, and logs out. It does not log in again until forever-again.
 vanilla (rules off) The first login switches back: no Forever spell and no button of it, a talent
-        reset (no Cruelty; talent 127 teaches 12286 again), the stored rules are vanilla. A second login
-        changes nothing.
+        reset (no Cruelty; talent 127 teaches 12286 again), no Berserker Rage below its stock level 32
+        (#208, user story 21), the stored rules are vanilla. A second login changes nothing. The login
+        of the first Warrior does not take the Forever spells of the sleeper away (review S1: the stock
+        load deleted the rows of an unknown spell for all characters): its character_spell rows stay.
+forever-again (rules on) The sleeper logs in under the rules it last played under: no switch, and it
+        still has Lingering Rage and Cruelty 5/5 (review S1: rules 1 -> 0 -> 1). The first Warrior
+        switches to the Forever rules again.
 """
-import struct
 import sys
 
-from kit import Realm, Results
-from wowclient import WorldClient
-
-SMSG_INITIAL_SPELLS = 298
-SMSG_LEARNED_SPELL = 299
-CMSG_LEARN_TALENT = 593
-CMSG_LOGOUT_REQUEST = 75
-SMSG_LOGOUT_COMPLETE = 77
-CMSG_PLAYER_LOGIN = 61
-SMSG_LOGIN_VERIFY_WORLD = 566
+from kit import Realm, Results, saved_spells
+from wowclient import SpellClient
 
 ACCOUNT = "PLAYER208"
 NAME = "Switchwar"
-LEVEL = 20
+SLEEPER_ACCOUNT = "PLAYER208B"
+SLEEPER = "Sleepwar"
+LEVEL = 30
+BERSERKER_RAGE = 18499
 IMPROVED_REND = 127
 IMPROVED_HEROIC_STRIKE = 124
 STOCK_REND_1 = 12286
@@ -61,46 +65,9 @@ RULES = {"vanilla": 0, "forever": 1}
 SWITCH = r"\[Forever\] %s switches from the %s rules to the %s rules"
 
 
-class SpellClient(WorldClient):
-    """Keeps the spells of each SMSG_LEARNED_SPELL and of the last SMSG_INITIAL_SPELLS."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.learned = []
-        self.initial_spells = None
-
-    def _observe(self, opcode, body):
-        super()._observe(opcode, body)
-        if opcode == SMSG_LEARNED_SPELL:
-            self.learned.append(struct.unpack_from("<I", body, 0)[0])
-        elif opcode == SMSG_INITIAL_SPELLS:
-            # uint8 0, uint16 count, then count x (uint16 spell, int16 0), then the cooldowns.
-            count = struct.unpack_from("<H", body, 1)[0]
-            self.initial_spells = {struct.unpack_from("<H", body, 3 + 4 * i)[0] for i in range(count)}
-
-    def learn_talent(self, talent, rank=0):
-        """The spells that the server teaches for one CMSG_LEARN_TALENT."""
-        start = len(self.learned)
-        self.send(CMSG_LEARN_TALENT, struct.pack("<II", talent, rank))
-        self.pump(2)
-        return self.learned[start:]
-
-    def logout(self):
-        """Logout to the character screen (the server saves the character)."""
-        self.send(CMSG_LOGOUT_REQUEST)
-        self.wait_for(SMSG_LOGOUT_COMPLETE, 30)
-        self.pump(2)
-
-    def login_again(self):
-        self.initial_spells = None
-        self.send(CMSG_PLAYER_LOGIN, struct.pack("<Q", self.guid))
-        self.wait_for(SMSG_LOGIN_VERIFY_WORLD, 30)
-        self.pump(3)
-
-
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
-if mode not in ("setup", "forever", "vanilla"):
-    sys.exit("usage: t208_rules_switch.py setup|forever|vanilla")
+if mode not in ("setup", "forever", "vanilla", "forever-again"):
+    sys.exit("usage: t208_rules_switch.py setup|forever|vanilla|forever-again")
 
 realm = Realm()
 results = Results()
@@ -108,13 +75,6 @@ realm.mark("t208 " + mode)
 c = realm.login(ACCOUNT, NAME, race=2, cls=1, client_class=SpellClient)
 me = c.guid
 c.pump(2)
-
-
-def saved_spells():
-    c.gm(".save", select=me)
-    c.pump(1)
-    rows = realm.sql("characters", "SELECT spell FROM character_spell WHERE guid = %d AND disabled = 0" % me)
-    return {int(row) for row in rows.splitlines() if row}
 
 
 def buttons():
@@ -125,9 +85,21 @@ def buttons():
     return {int(b): int(a) for b, a in (row.split("\t") for row in rows.splitlines() if row)}
 
 
-def stored_rules():
-    row = realm.sql("characters", "SELECT rules FROM forever_character WHERE guid = %d" % me)
+def stored_rules(guid=None):
+    row = realm.sql("characters", "SELECT rules FROM forever_character WHERE guid = %d" % (guid or me))
     return int(row) if row else None
+
+
+def rows_of(guid):
+    """The enabled character_spell rows of a character that is not logged in (no .save)."""
+    rows = realm.sql("characters", "SELECT spell FROM character_spell WHERE guid = %d AND disabled = 0" % guid)
+    return {int(row) for row in rows.splitlines() if row}
+
+
+def level_to(client, level):
+    have = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % client.guid) or 1)
+    if have < level:
+        client.gm(".levelup %d" % (level - have), select=client.guid)
 
 
 def put_buttons(pairs):
@@ -156,9 +128,7 @@ def check_same_rules_relog(expected_spell):
 
 
 if mode == "setup":
-    level = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % me) or 1)
-    if level < LEVEL:
-        c.gm(".levelup %d" % (LEVEL - level), select=me)
+    level_to(c, LEVEL)
     c.gm(".reset talents", select=me)
     c.pump(1)
     rend = c.learn_talent(IMPROVED_REND)
@@ -185,7 +155,8 @@ elif mode == "forever":
     results.check("the login sends no vanilla talent", c.initial_spells is not None and
                   not spells & VANILLA_TALENTS, "%r" % (spells & VANILLA_TALENTS))
     results.check("the login keeps Heroic Strike", HEROIC_STRIKE in spells)
-    saved = saved_spells()
+    results.check("the switch teaches the baseline Berserker Rage at level %d" % LEVEL, BERSERKER_RAGE in spells)
+    saved = saved_spells(realm, c)
     results.check("character_spell has no vanilla talent", not saved & VANILLA_TALENTS)
     bars = buttons()
     results.check("the buttons of the vanilla talents are gone",
@@ -201,7 +172,24 @@ elif mode == "forever":
     check_same_rules_relog(FOREVER_LINGERING_RAGE_1)
     c.logout()
     put_buttons([(BUTTON_FOREVER, FOREVER_LINGERING_RAGE_1)])
-else:
+
+    # The sleeper: a Forever Warrior that stays logged out while the rules are off (review S1).
+    realm.mark("t208 sleeper")
+    s = realm.login(SLEEPER_ACCOUNT, SLEEPER, race=2, cls=1, client_class=SpellClient)
+    s.pump(2)
+    level_to(s, LEVEL)
+    s.gm(".reset talents", select=s.guid)
+    s.pump(1)
+    cruelty = s.learn_ranks(CRUELTY, 5)
+    lingering = s.learn_talent(LINGERING_RAGE)
+    results.check("the sleeper learns Cruelty 5/5 and Lingering Rage under the Forever rules",
+                  cruelty == list(CRUELTY_SPELLS) and lingering == [FOREVER_LINGERING_RAGE_1],
+                  "learned %r %r" % (cruelty, lingering))
+    s.logout()
+    results.check("the sleeper is saved with its Forever talent", FOREVER_LINGERING_RAGE_1 in rows_of(s.guid))
+    results.check("the realm stores the Forever rules for the sleeper", stored_rules(s.guid) == RULES["forever"],
+                  "rules %r" % stored_rules(s.guid))
+elif mode == "vanilla":
     results.check("the first login under the vanilla rules switches",
                   realm.wait_log(SWITCH % (NAME, "Forever", "vanilla"), 5, c))
     spells = c.initial_spells or set()
@@ -209,8 +197,10 @@ else:
     results.check("the login sends no Cruelty (talent reset)", not spells & set(CRUELTY_SPELLS),
                   "%r" % (spells & set(CRUELTY_SPELLS)))
     results.check("the login keeps Heroic Strike", HEROIC_STRIKE in spells)
-    saved = saved_spells()
+    results.check("no Berserker Rage below its stock level 32", BERSERKER_RAGE not in spells)
+    saved = saved_spells(realm, c)
     results.check("character_spell has no Forever spell", FOREVER_LINGERING_RAGE_1 not in saved)
+    results.check("character_spell has no Berserker Rage", BERSERKER_RAGE not in saved)
     results.check("character_spell has no Cruelty", not saved & set(CRUELTY_SPELLS))
     bars = buttons()
     results.check("the button of the Forever spell is gone", BUTTON_FOREVER not in bars, "%r" % bars)
@@ -220,5 +210,26 @@ else:
     results.check("the talents are reset: Improved Rend teaches the stock rank 1", rend == [STOCK_REND_1],
                   "learned %r" % rend)
     check_same_rules_relog(STOCK_REND_1)
+    sleeper = realm.guid_of(SLEEPER)
+    kept = rows_of(sleeper)
+    results.check("a vanilla login keeps the Forever spells of a Warrior that is not logged in",
+                  FOREVER_LINGERING_RAGE_1 in kept and set(CRUELTY_SPELLS) <= kept, "rows %r" % sorted(kept))
+    results.check("the sleeper still has the Forever rules stored", stored_rules(sleeper) == RULES["forever"],
+                  "rules %r" % stored_rules(sleeper))
+else:
+    # forever-again: the first Warrior switches again; then the sleeper logs in.
+    results.check("the first Warrior switches to the Forever rules again",
+                  realm.wait_log(SWITCH % (NAME, "vanilla", "Forever"), 5, c))
+    c.logout()
+    realm.mark("t208 sleeper again")
+    s = realm.login(SLEEPER_ACCOUNT, SLEEPER, race=2, cls=1, client_class=SpellClient)
+    s.pump(2)
+    results.check("the sleeper does not switch: it last played under the Forever rules",
+                  not realm.wait_log(SWITCH % (SLEEPER, ".*", ".*"), 3, s))
+    spells = s.initial_spells or set()
+    results.check("the sleeper still has Lingering Rage after rules 1 -> 0 -> 1",
+                  FOREVER_LINGERING_RAGE_1 in spells, "no SMSG_INITIAL_SPELLS" if s.initial_spells is None else "")
+    results.check("the sleeper still has Cruelty 5/5", set(CRUELTY_SPELLS) <= spells)
+    results.check("the sleeper has Berserker Rage at level %d" % LEVEL, BERSERKER_RAGE in spells)
 
 results.finish()

@@ -24,79 +24,21 @@ vanilla: no Victory Rush in the spellbook, no "[Forever] Victorious" line, and n
          level 30 boar, for the Warrior and for the Rogue.
 """
 import re
-import struct
 import sys
 import time
 
-from kit import Realm, Results, pos, stat
-from wowclient import MSG_MOVE_HEARTBEAT, WorldClient, unpack_guid
-
-CMSG_CAST_SPELL = 302
-SMSG_CAST_RESULT = 304
-SMSG_SPELL_GO = 306
-SMSG_INITIAL_SPELLS = 298
-SMSG_LEARNED_SPELL = 299
-TARGET_FLAG_UNIT = 0x2
+from kit import FREEZE, Realm, Results, pos, spawn, stat
+from wowclient import MSG_MOVE_HEARTBEAT, SpellClient
 SPELL_FAILED_CASTER_AURASTATE = 18   # SpellDefines.h, client build 5875
 SPELL_FAILED_NOT_READY = 60          # the same; also the global cooldown
 
 LEVEL = 30
 VICTORY_RUSH = 60123
 VICTORIOUS_BIT = 1 << (6 - 1)          # aura state 6
-BOAR = 3098            # Mottled Boar (Durotar), level 1: grey for a level 30 player
-FREEZE = 9454          # GM stun without an end
+# kit.BOAR, the Mottled Boar (Durotar), is level 1: grey for a level 30 player.
 REND = 772             # rank 1, on the global cooldown (category 133)
 WINDOW = 20
 VICTORIOUS_LINE = r"\[Forever\] Victorious: %s killed"
-
-
-class RushClient(WorldClient):
-    """Keeps the spell packets that the check reads."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.cast_results = []
-        self.spell_go = []
-        self.initial_spells = None
-        self.learned = []
-
-    def knows(self, spell):
-        """The spell is in the spellbook: at login, or learned since (a level-up teaches baseline spells)."""
-        return spell in (self.initial_spells or set()) or spell in self.learned
-
-    def _observe(self, opcode, body):
-        super()._observe(opcode, body)
-        try:
-            if opcode == SMSG_CAST_RESULT:
-                spell, status = struct.unpack_from("<IB", body, 0)
-                reason = body[5] if status == 2 and len(body) > 5 else None
-                self.cast_results.append((spell, reason))
-            elif opcode == SMSG_SPELL_GO:
-                caster, at = unpack_guid(body, 0)
-                _, at = unpack_guid(body, at)
-                if caster == self.guid:
-                    self.spell_go.append(struct.unpack_from("<I", body, at)[0])
-            elif opcode == SMSG_LEARNED_SPELL:
-                self.learned.append(struct.unpack_from("<H", body, 0)[0])
-            elif opcode == SMSG_INITIAL_SPELLS:
-                count = struct.unpack_from("<H", body, 1)[0]
-                self.initial_spells = {struct.unpack_from("<H", body, 3 + 4 * i)[0] for i in range(count)}
-        except (IndexError, struct.error):
-            pass
-
-    def cast_at(self, spell, target, wait=2.0):
-        """Casts a spell at a unit; (the fail reasons of its cast results, whether a SPELL_GO of it came)."""
-        start_results, start_go = len(self.cast_results), len(self.spell_go)
-        mask, packed = 0, b""
-        for i in range(8):
-            byte = (target >> (8 * i)) & 0xFF
-            if byte:
-                mask |= 1 << i
-                packed += bytes([byte])
-        self.send(CMSG_CAST_SPELL, struct.pack("<IH", spell, TARGET_FLAG_UNIT) + bytes([mask]) + packed)
-        self.pump(wait)
-        reasons = [r for s, r in self.cast_results[start_results:] if s == spell]
-        return reasons, spell in self.spell_go[start_go:]
 
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -132,9 +74,7 @@ def attack_power(client):
 
 def spawn_boar(client, level=None):
     """A boar at the client's place; its guid."""
-    client.gm(".npc spawn add %d" % BOAR, wait=1.5)
-    low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % BOAR).split()[-1])
-    guid = (0xF130 << 48) | (BOAR << 24) | low
+    guid = spawn(realm, client)
     if level is not None:
         client.gm(".npc level %d" % level, select=guid)
     return guid
@@ -148,7 +88,7 @@ def kill_boar(client, level):
 
 
 def login(account, name, cls):
-    client = realm.login(account, name, race=2, cls=cls, client_class=RushClient)
+    client = realm.login(account, name, race=2, cls=cls, client_class=SpellClient)
     level = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % client.guid) or 1)
     if level < LEVEL:
         client.gm(".levelup %d" % (LEVEL - level), select=client.guid)
@@ -194,7 +134,7 @@ w.gm(".cooldown clear", select=me)
 # A grey kill.
 state = kill_boar(w, None)
 results.check("a kill of a grey boar sets no bit 0x20", state >= 0 and not state & VICTORIOUS_BIT, "aura state %d" % state)
-reasons, went = w.cast_at(VICTORY_RUSH, dummy)
+reasons, went = w.cast(VICTORY_RUSH, dummy)
 results.check("after a grey kill Victory Rush fails with the caster aura state",
               not went and SPELL_FAILED_CASTER_AURASTATE in reasons, "reasons %r, went %s" % (reasons, went))
 
@@ -212,9 +152,9 @@ before_dummy = stat(w, dummy)[0]
 ap = attack_power(w)
 w.gm(".learn %d" % REND, select=me)
 w.gm(".modify rage 1000", select=me)
-reasons, went = w.cast_at(VICTORY_RUSH, dummy, wait=0.3)
+reasons, went = w.cast(VICTORY_RUSH, dummy, wait=0.3)
 # Client 70685: Victory Rush starts the global cooldown (1.5 sec), so Rend right after it is not ready.
-rend_reasons, rend_went = w.cast_at(REND, dummy, wait=0.3)
+rend_reasons, rend_went = w.cast(REND, dummy, wait=0.3)
 w.pump(1.7)
 results.check("after the kill Victory Rush goes", went and not [r for r in reasons if r is not None], "reasons %r" % reasons)
 results.check("Victory Rush starts the global cooldown: Rend right after it is not ready",
@@ -242,7 +182,7 @@ state = aura_state(w)
 results.check("%d sec after the kill bit 0x20 is gone" % (WINDOW + 1), state >= 0 and not state & VICTORIOUS_BIT,
               "aura state %d" % state)
 w.gm(".cooldown clear", select=me)
-reasons, went = w.cast_at(VICTORY_RUSH, dummy)
+reasons, went = w.cast(VICTORY_RUSH, dummy)
 results.check("after the window Victory Rush fails with the caster aura state",
               not went and SPELL_FAILED_CASTER_AURASTATE in reasons, "reasons %r, went %s" % (reasons, went))
 

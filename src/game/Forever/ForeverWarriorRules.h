@@ -10,9 +10,11 @@
 
 // The pure math of the Forever Warrior mechanics (jvbastel/WOWAI#214): rage from weapon speed, the rage
 // of Anger Management and Dual Wield Specialization, the Deep Wounds bleed and the attack power part of
-// Revenge. No game header, so wowai/tests/forever-warrior-rules.test.sh tests it on the host.
+// Revenge. No game header, so wowai/tests/forever-rules.test.sh tests it on the host.
 // ForeverWarrior.cpp calls it from the core hooks. The chosen formulas and their sources are in the
 // header of forever/warrior.tsv ("Warrior mechanics").
+
+#include "ForeverSpellIds.h"
 
 #include <cstdint>
 
@@ -27,8 +29,9 @@ namespace WarriorRules
     constexpr float OffHandFactor = 0.5f;
     // Blizzard, 2 Oct: a critical basic attack gives 100% more rage.
     constexpr float CritFactor = 2.0f;
-    // The rank spells of Dual Wield Specialization, rank 1 first (forever/warrior.tsv).
-    constexpr uint32_t DualWieldSpecializationRanks[] = { 23584, 23585, 23586, 23587, 23588 };
+    // The rank spells of Dual Wield Specialization and Anger Management: ForeverSpellIds.h.
+    using SpellIds::DualWieldSpecializationRanks;
+    using SpellIds::AngerManagementRanks;
     // A Warrior without a usable weapon swings with the unarmed speed of the core (BASE_ATTACK_TIME).
     constexpr uint32_t UnarmedSpeedMs = 2000;
     // Revenge: a percent of attack power on top of the base damage. Only the client hotfix of Revenge has
@@ -55,7 +58,7 @@ namespace WarriorRules
 
     // Anger Management (12296, client 70685): its rage regeneration ticks only in combat, and out of combat
     // the rage loss is `reductionPct` (effect 2 of the talent, 30) smaller.
-    constexpr uint32_t AngerManagementSpell = 12296;
+    constexpr uint32_t AngerManagementSpell = AngerManagementRanks[0];
 
     inline bool AngerManagementTicks(bool inCombat)
     {

@@ -8,7 +8,7 @@
 #include "ForeverArms.h"
 #include "Forever.h"
 #include "ForeverArmsRules.h"
-#include "ForeverWarrior.h"
+#include "ForeverTalents.h"
 #include "Item.h"
 #include "Log.h"
 #include "Player.h"
@@ -19,47 +19,16 @@
 #include "Unit.h"
 #include "Utilities/Random.h"
 
-#include <algorithm>
-#include <iterator>
-
 namespace
 {
-    // The talent spells of forever/warrior.tsv. They keep their stock IDs (lead decision of 2026-10-29),
-    // so the IDs only mean the Forever talent when the rules are on.
-    uint32 const ImprovedTacticalMasteryRanks[] = { 12295, 12676, 12677, 12678, 12679 };
-    uint32 const BloodthrillRanks[] = { 60101, 60102, 60103, 60104, 60105 };
-    // Highest rank first.
-    uint32 const WeaponmasterRanks[] = { 12815, 12814, 12813, 12812, 12281 };
-    uint32 const ImprovedSlamRanks[] = { 12862, 12330 };
-    uint32 const SpearingStrikeSpell = 60100;
+    using namespace Forever::SpellIds;
+    using Forever::Talents::RankBySpell;
+    using Forever::Talents::SumDummy;
 
-    template <size_t N>
-    bool IsOneOf(uint32 const (&ids)[N], uint32 id)
-    {
-        return std::find(std::begin(ids), std::end(ids), id) != std::end(ids);
-    }
-
-    // The sum of the DUMMY aura values of the talent ranks `ids` on `unit` (the talent value of the rank
-    // it has learned).
-    template <size_t N>
-    int32 DummyTalentValue(Unit const* unit, uint32 const (&ids)[N])
-    {
-        int32 value = 0;
-        for (Aura const* aura : unit->GetAurasByType(SPELL_AURA_DUMMY))
-            if (IsOneOf(ids, aura->GetId()))
-                value += aura->GetModifier()->m_amount;
-        return value;
-    }
-
-    // The Weaponmaster rank spell that the Warrior has learned, or nullptr. Not its aura: the rank spells
-    // keep the sword requirement of stock Sword Specialization, so the aura is missing with another weapon.
-    SpellEntry const* WeaponmasterRank(Player const* warrior)
-    {
-        for (uint32 id : WeaponmasterRanks)
-            if (warrior->HasSpell(id))
-                return sSpellMgr.GetSpellEntry(id);
-        return nullptr;
-    }
+    // The talent spells keep their stock IDs (lead decision of 2026-10-29), so the IDs only mean the
+    // Forever talent when the rules are on. The Weaponmaster rank is the spell that the Warrior has
+    // learned, not its aura: the rank spells keep the sword requirement of stock Sword Specialization, so
+    // the aura is missing with another weapon.
 
     Forever::ArmsRules::WeaponmasterBenefit BenefitOfHand(Player const* warrior, WeaponAttackType attType)
     {
@@ -76,10 +45,7 @@ namespace
 
     bool HasImprovedSlam(Player const* warrior)
     {
-        for (uint32 id : ImprovedSlamRanks)
-            if (warrior->HasSpell(id))
-                return true;
-        return false;
+        return KnownRank(ImprovedSlamRanks, [warrior](uint32 id) { return warrior->HasSpell(id); }) != 0;
     }
 
     bool HasOwnRend(Unit const* target, Unit const* caster)
@@ -97,7 +63,7 @@ bool Forever::ApplyStanceRage(Unit* warrior, uint32 keptTenths)
     if (!IsForeverWarrior(warrior))
         return false;
 
-    int32 const improved = DummyTalentValue(warrior, ImprovedTacticalMasteryRanks);
+    int32 const improved = SumDummy(warrior, ImprovedTacticalMasteryRanks);
     uint32 const before = warrior->GetPower(POWER_RAGE);
     uint32 const after = ArmsRules::RageAfterStanceChange(before, keptTenths, improved);
     if (after != before)
@@ -151,7 +117,7 @@ uint32 Forever::BloodthrillOverpower(Unit* attacker, Unit* target, uint32 procFl
     if (!ArmsRules::BloodthrillCounts(attType == BASE_ATTACK, landed, HasOwnRend(target, attacker)))
         return 0;
 
-    int32 const chance = DummyTalentValue(attacker, BloodthrillRanks);
+    int32 const chance = SumDummy(attacker, BloodthrillRanks);
     Player* warrior = attacker->ToPlayer();
     // `.cheat procs on` makes it proc each time, as for the procs of the core.
     if (chance <= 0 || !(warrior->HasCheatOption(PLAYER_CHEAT_ALWAYS_PROC) || roll_chance_i(chance)))
@@ -169,7 +135,7 @@ float Forever::WeaponmasterCritBonus(Unit const* attacker, WeaponAttackType attT
         return 0.0f;
 
     Player const* warrior = attacker->ToPlayer();
-    SpellEntry const* rank = WeaponmasterRank(warrior);
+    SpellEntry const* rank = RankBySpell(warrior, WeaponmasterRanks);
     if (!rank || BenefitOfHand(warrior, attType) != ArmsRules::WeaponmasterBenefit::Crit)
         return 0.0f;
 
@@ -186,7 +152,7 @@ void Forever::WeaponmasterArmor(Unit const* attacker, float& armor)
 
     // CalcArmorReducedDamage does not know the hand: the main hand weapon decides (our choice).
     Player const* warrior = attacker->ToPlayer();
-    SpellEntry const* rank = WeaponmasterRank(warrior);
+    SpellEntry const* rank = RankBySpell(warrior, WeaponmasterRanks);
     if (!rank || BenefitOfHand(warrior, BASE_ATTACK) != ArmsRules::WeaponmasterBenefit::ArmorIgnore)
         return;
     float const before = armor;
@@ -198,7 +164,7 @@ void Forever::WeaponmasterArmor(Unit const* attacker, float& armor)
 
 bool Forever::WeaponmasterBlocksProc(Unit const* owner, SpellEntry const* auraSpell, SpellEntry const* procSpell)
 {
-    if (!auraSpell || !procSpell || !IsOneOf(WeaponmasterRanks, auraSpell->Id) ||
+    if (!auraSpell || !procSpell || !Contains(WeaponmasterRanks, auraSpell->Id) ||
         !procSpell->IsFitToFamily<SPELLFAMILY_WARRIOR, CF_WARRIOR_SHIELD_BASH, CF_WARRIOR_SHIELD_SLAM>() ||
         !IsForeverWarrior(owner))
         return false;

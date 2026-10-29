@@ -49,9 +49,7 @@
 #include "MoveSpline.h"
 #include "MovementPacketSender.h"
 #include "ZoneScript.h"
-#include "ForeverWarrior.h"
-#include "VictoryRush.h"
-#include "ForeverArms.h"
+#include "Forever.h"
 #include "LoveIsInTheAir.h"
 #include "Utilities/Random.h"
 
@@ -1639,7 +1637,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
 
     Unit* target = GetTarget();
 
-    // Forever rules: Victorious sets the aura state of Victory Rush (jvbastel/WOWAI#213).
+    // WOWAI Forever rules (#213): Victorious sets the aura state of Victory Rush.
     Forever::OnVictoriousAura(target, GetId(), apply);
 
     // AT APPLY
@@ -2599,7 +2597,7 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                                 break;
                         }
                     }
-                    // Forever rules: Improved Tactical Mastery keeps more Rage (jvbastel/WOWAI#217).
+                    // WOWAI Forever rules (#217): Improved Tactical Mastery keeps more Rage.
                     if (!Forever::ApplyStanceRage(target, Rage_val) && target->GetPower(POWER_RAGE) > Rage_val)
                         target->SetPower(POWER_RAGE, Rage_val);
                     break;
@@ -4444,7 +4442,7 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
 
         m_modifier.m_amount = CalculateDotDamage();
 
-        // Forever rules: a Warrior's Rend taps the target at once (jvbastel/WOWAI#214).
+        // WOWAI Forever rules (#214): a Warrior's Rend taps the target at once.
         Forever::TapOnRendApply(GetCaster(), target, GetSpellProto());
     }
 #endif
@@ -5899,7 +5897,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                 fdamage = target->MeleeDamageBonusTaken(pCaster, fdamage, attackType, spellProto, GetEffIndex(), DOT, GetStackAmount());
             }
 
-            // Forever rules: the ticks of a Warrior's Rend and Deep Wound can crit (jvbastel/WOWAI#214).
+            // WOWAI Forever rules (#214): the ticks of a Warrior's Rend and Deep Wound can crit.
             bool const foreverCrit = Forever::RollDotCrit(pCaster, target, spellProto, fdamage);
 
             uint32 pdamage = rand_ditheru(fdamage);
@@ -6382,7 +6380,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             // Anger Management
             // amount = 1+ 16 = 17 = 3,4*5 = 10,2*5/3
             // so 17 is rounded amount for 5 sec tick grow ~ 1 range grow in 3 sec
-            // Forever rules: Anger Management regenerates only in combat (client 70685, jvbastel/WOWAI#204).
+            // WOWAI Forever rules (#204): Anger Management regenerates only in combat (client 70685).
             if (pt == POWER_RAGE && Forever::AngerManagementTicks(target, GetId()))
                 target->ModifyPower(pt, m_modifier.m_amount * 3 / 5);
             break;

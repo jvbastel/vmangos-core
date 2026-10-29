@@ -34,9 +34,11 @@ SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 CLIENT_BUILD = 5875
 FOREVER_TABLES = ("forever_spell_template", "forever_spell_chain", "forever_spell_proc_event",
                   "forever_skill_line_ability", "forever_spell_threat")
-# The spells that the core teaches a Warrior at their spellLevel, with no trainer (#212). Only the generated
-# SQL makes this table: the core reads it only with Forever.Rules = 1.
+# The spells that the core teaches a Warrior at their spellLevel, with no trainer (#212). The core reads it only
+# with Forever.Rules = 1. The migration sql/migrations/20261029120000_world.sql makes it too, with the same
+# columns (tests/test_spell_ids.py checks it), so that a realm without the generated SQL fails at startup, not quietly.
 BASELINE_TABLE = "forever_baseline_spell"
+BASELINE_COLUMNS = "(`spell_id` SMALLINT UNSIGNED NOT NULL, PRIMARY KEY (`spell_id`))"
 # SkillLineAbility.dbc 1.12.1: 0 ID, 1 SkillLine, 2 Spell, 3 RaceMask, 4 ClassMask, 5-6 exclude masks,
 # 7 MinSkillRank, 8 SupersededBy, 9 AcquireMethod (0: a trainer or the core teaches it), 10-14 0.
 WARRIOR_CLASS_MASK = 1
@@ -261,7 +263,7 @@ def _server_skill_line_abilities(abilities):
 def _server_baseline(spells):
     lines = ["", "-- The baseline spells: the core teaches each at its spellLevel with no trainer.",
              "DROP TABLE IF EXISTS `%s`;" % BASELINE_TABLE,
-             "CREATE TABLE `%s` (`spell_id` SMALLINT UNSIGNED NOT NULL, PRIMARY KEY (`spell_id`));" % BASELINE_TABLE]
+             "CREATE TABLE `%s` %s;" % (BASELINE_TABLE, BASELINE_COLUMNS)]
     if spells:
         lines.append("INSERT INTO `%s` (`spell_id`) VALUES %s;" % (BASELINE_TABLE,
                                                                   ", ".join("(%d)" % s for s in spells)))

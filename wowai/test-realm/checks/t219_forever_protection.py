@@ -32,29 +32,21 @@ import re
 import struct
 import sys
 
-from kit import Realm, Results, kill, pos
-from wowclient import MSG_MOVE_HEARTBEAT, WorldClient, unpack_guid
+from kit import Realm, Results, kill, pos, spawn, sturdy
+from wowclient import MSG_MOVE_HEARTBEAT, SpellClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
 CMSG_AUTOSTORE_BAG_ITEM = 267
-CMSG_CAST_SPELL = 302
 CMSG_ATTACKSWING = 321
 CMSG_ATTACKSTOP = 322
 SMSG_UPDATE_AURA_DURATION = 311
 SMSG_ATTACKERSTATEUPDATE = 330
 SMSG_SPELLENERGIZELOG = 337
-SMSG_LEARNED_SPELL = 299
-CMSG_LEARN_TALENT = 593
-CMSG_LOGOUT_REQUEST = 75
-SMSG_LOGOUT_COMPLETE = 77
-CMSG_PLAYER_LOGIN = 61
-SMSG_LOGIN_VERIFY_WORLD = 566
 VICTIMSTATE_DODGE, VICTIMSTATE_PARRY = 2, 3
 POWER_RAGE = 1
 
 LEVEL = 60
 ACCOUNT = "PLAYER219"
-BOAR = 3098                 # Mottled Boar (Durotar), neutral
 ONE_HAND_AXES, SHIELD_SKILL = 196, 9116
 HAND_AXE = 2134
 BACKPACK, OFF_HAND_SLOT = 255, 16
@@ -75,13 +67,12 @@ DEFIANCE_3, BASTION_5 = 12789, 16542
 SWING_SECONDS = 15
 
 
-class ProtectionClient(WorldClient):
+class ProtectionClient(SpellClient):
     """Keeps the learned spells, the boar's melee results on the character, its Rage gains and the durations
     of its new auras."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.learned = []
         self.avoided = []      # victim states of melee swings at the character (dodge, parry, ...)
         self.energize = []     # (spell, amount) of Rage
         self.durations = []    # aura durations in ms
@@ -90,9 +81,7 @@ class ProtectionClient(WorldClient):
     def _observe(self, opcode, body):
         super()._observe(opcode, body)
         try:
-            if opcode == SMSG_LEARNED_SPELL:
-                self.learned.append(struct.unpack_from("<I", body, 0)[0])
-            elif opcode == SMSG_ATTACKERSTATEUPDATE:
+            if opcode == SMSG_ATTACKERSTATEUPDATE:
                 # uint32 hitInfo, packed attacker, packed victim, int32 total, uint8 count, count x 20 bytes,
                 # uint32 victim state, ...
                 attacker, p = unpack_guid(body, 4)
@@ -111,26 +100,6 @@ class ProtectionClient(WorldClient):
                 self.durations.append(struct.unpack_from("<BI", body, 0)[1])
         except (IndexError, struct.error):
             pass
-
-    def learn_talent(self, talent, rank=0):
-        start = len(self.learned)
-        self.send(CMSG_LEARN_TALENT, struct.pack("<II", talent, rank))
-        self.pump(1.5)
-        return self.learned[start:]
-
-    def cast_on_self(self, spell):
-        self.send(CMSG_CAST_SPELL, struct.pack("<IH", spell, 0))
-        self.pump(1.5)
-
-    def logout(self):
-        self.send(CMSG_LOGOUT_REQUEST)
-        self.wait_for(SMSG_LOGOUT_COMPLETE, 30)
-        self.pump(2)
-
-    def login_again(self):
-        self.send(CMSG_PLAYER_LOGIN, struct.pack("<Q", self.guid))
-        self.wait_for(SMSG_LOGIN_VERIFY_WORLD, 30)
-        self.pump(3)
 
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -199,12 +168,13 @@ def unequip_off_hand():
 
 
 def stance(spell):
-    c.cast_on_self(spell)
+    c.cast_at(spell)
+    c.pump(1.5)
     return spell in auras()
 
 
 def learn(path):
-    return {talent: [s for rank in range(ranks) for s in c.learn_talent(talent, rank)] for talent, ranks in path}
+    return {talent: c.learn_ranks(talent, ranks) for talent, ranks in path}
 
 
 shield = int(realm.sql("mangos", "SELECT DISTINCT entry FROM item_template WHERE class = 4 AND subclass = 6 "
@@ -268,12 +238,10 @@ else:
 
 # Master of Defense: a level 60 boar attacks the Warrior.
 here = pos(c, me)
-c.gm(".npc spawn add %d" % BOAR, wait=1.5)
-low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % BOAR).split()[-1])
-boar = (0xF130 << 48) | (BOAR << 24) | low
+boar = spawn(realm, c)
 c.attacker = boar
 c.gm(".npc set level %d" % LEVEL, select=boar)
-c.gm(".modify hp 1000000 1000000", select=boar)
+sturdy(c, boar, freeze=False)
 c.move(MSG_MOVE_HEARTBEAT, here[0] - 2.0, here[1], here[2], 0.0)
 c.pump(1)
 

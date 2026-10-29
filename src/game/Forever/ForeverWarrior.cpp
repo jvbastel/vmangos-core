@@ -8,6 +8,7 @@
 #include "ForeverWarrior.h"
 #include "Forever.h"
 #include "ForeverWarriorRules.h"
+#include "ForeverTalents.h"
 #include "Creature.h"
 #include "DamageStructs.h"
 #include "Item.h"
@@ -34,30 +35,14 @@ namespace
     // Defensive Stance: Revenge takes a lower attack power percent in it.
     uint32 const DefensiveStanceSpell = 71;
 
-    // Effect `eff` of the highest rank in `ranks` that the Warrior has as an aura, or 0.
-    template <std::size_t N>
-    int32 TalentValue(Unit const* warrior, uint32 const (&ranks)[N], SpellEffectIndex eff)
-    {
-        for (std::size_t i = N; i > 0; --i)
-        {
-            if (!warrior->HasAura(ranks[i - 1]))
-                continue;
-            SpellEntry const* spellInfo = sSpellMgr.GetSpellEntry(ranks[i - 1]);
-            return spellInfo ? spellInfo->CalculateSimpleValue(eff) : 0;
-        }
-        return 0;
-    }
+    using Forever::Talents::RankByAura;
+    using Forever::Talents::RankEffectValue;
 
     // The weapon of a hand that the Warrior can swing (not broken, usable), or nullptr (unarmed).
     Item* SwingWeapon(Player const* warrior, WeaponAttackType attackType)
     {
         return warrior->GetWeaponForAttack(attackType, true, true);
     }
-}
-
-bool Forever::IsForeverWarrior(Unit const* unit)
-{
-    return RulesOn() && unit && unit->IsPlayer() && unit->GetClass() == CLASS_WARRIOR;
 }
 
 bool Forever::RewardSwingRage(Unit* attacker, CleanDamage const* cleanDamage)
@@ -84,7 +69,7 @@ bool Forever::RewardSwingRage(Unit* attacker, CleanDamage const* cleanDamage)
 
     // Dual Wield Specialization: effect 2 of the rank is the off-hand rage percent (10-50).
     int32 const offHandRagePct = offHand ?
-        TalentValue(warrior, WarriorRules::DualWieldSpecializationRanks, EFFECT_INDEX_1) : 0;
+        RankEffectValue(RankByAura(warrior, WarriorRules::DualWieldSpecializationRanks), EFFECT_INDEX_1) : 0;
     float const rage = WarriorRules::SwingRage(speedMs, twoHand, offHand, crit, offHandRagePct) *
         sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_RAGE_INCOME);
     uint32 const tenths = uint32(rage * 10);
@@ -186,9 +171,7 @@ void Forever::RevengeDamage(Unit* caster, SpellEntry const* spellProto, Unit* ta
 {
     if (!spellProto || !spellProto->IsFitToFamily<SPELLFAMILY_WARRIOR, CF_WARRIOR_REVENGE>() || !IsForeverWarrior(caster))
         return;
-    float attackPower = caster->GetTotalAttackPowerValue(BASE_ATTACK);
-    if (target)
-        attackPower += caster->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_MELEE_ATTACK_POWER_VERSUS, target->GetCreatureTypeMask());
+    float const attackPower = Talents::AttackPowerAgainst(caster, target);
     bool const defensive = caster->HasAura(DefensiveStanceSpell);
     float const bonus = WarriorRules::RevengeAttackPowerBonus(attackPower, defensive);
     sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Revenge: %s spell %u %.0f + %.0f (attack power %.0f%s)",
@@ -206,7 +189,6 @@ void Forever::RageDecay(Player const* player, float& loss)
 {
     if (!IsForeverWarrior(player))
         return;
-    uint32 const angerManagement[] = { WarriorRules::AngerManagementSpell };
     // Effect 2 of Anger Management: the percent less rage loss out of combat (30).
-    loss = WarriorRules::RageDecay(loss, TalentValue(player, angerManagement, EFFECT_INDEX_1));
+    loss = WarriorRules::RageDecay(loss, RankEffectValue(RankByAura(player, WarriorRules::AngerManagementRanks), EFFECT_INDEX_1));
 }

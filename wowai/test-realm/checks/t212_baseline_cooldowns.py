@@ -22,12 +22,8 @@ import struct
 import sys
 
 from kit import Realm, Results
-from wowclient import WorldClient, unpack_guid
+from wowclient import SpellClient
 
-SMSG_INITIAL_SPELLS = 298
-SMSG_LEARNED_SPELL = 299
-CMSG_CAST_SPELL = 302
-SMSG_SPELL_GO = 306
 CMSG_AUTOEQUIP_ITEM = 266
 
 ACCOUNT, NAME = "PLAYER212", "Basewar"
@@ -41,36 +37,6 @@ BASELINE = {60125: 14, 60123: 20, 60126: 20, 18499: 30}
 MINUTE = 60
 SWITCH = r"\[Forever\] %s switches from the vanilla rules to the Forever rules"
 LEARNS = r"\[Forever\] %s learns %d baseline spells of level %d\."
-
-
-class SpellClient(WorldClient):
-    """Keeps the learned spells, the spells of the last SMSG_INITIAL_SPELLS and the own SMSG_SPELL_GO."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.learned = []
-        self.initial_spells = None
-        self.casts = []
-
-    def _observe(self, opcode, body):
-        super()._observe(opcode, body)
-        if opcode == SMSG_LEARNED_SPELL:
-            self.learned.append(struct.unpack_from("<I", body, 0)[0])
-        elif opcode == SMSG_INITIAL_SPELLS:
-            count = struct.unpack_from("<H", body, 1)[0]
-            self.initial_spells = {struct.unpack_from("<H", body, 3 + 4 * i)[0] for i in range(count)}
-        elif opcode == SMSG_SPELL_GO:
-            _, pos = unpack_guid(body, 0)
-            caster, pos = unpack_guid(body, pos)
-            if caster == self.guid:
-                self.casts.append(struct.unpack_from("<I", body, pos)[0])
-
-    def cast(self, spell, wait=2):
-        """Casts a spell on itself. True when the server cast it (SMSG_SPELL_GO)."""
-        start = len(self.casts)
-        self.send(CMSG_CAST_SPELL, struct.pack("<IH", spell, 0))
-        self.pump(wait)
-        return spell in self.casts[start:]
 
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -118,12 +84,12 @@ if mode == "vanilla":
     prepare()
     results.check("no Forever baseline spell under the vanilla rules",
                   not {60123, 60125, 60126} & set(c.learned), "%r" % c.learned)
-    c.cast(BATTLE_STANCE)
-    results.check("Retaliation is cast", c.cast(RETALIATION))
+    c.cast_went(BATTLE_STANCE)
+    results.check("Retaliation is cast", c.cast_went(RETALIATION))
     left = cooldown_left(RETALIATION)
     results.check("Retaliation has the stock 30 min cooldown", near(left, 30), "%r s" % left)
-    c.cast(BERSERKER_STANCE)
-    results.check("Recklessness shares the cooldown of Retaliation (stock category)", not c.cast(RECKLESSNESS))
+    c.cast_went(BERSERKER_STANCE)
+    results.check("Recklessness shares the cooldown of Retaliation (stock category)", not c.cast_went(RECKLESSNESS))
     c.gm(".cooldown clear", select=me)
     c.gm(".save", select=me)
     c.pump(1)
@@ -135,12 +101,12 @@ else:
     results.check("the login sends every baseline spell", set(BASELINE) <= spells,
                   "missing %r" % sorted(set(BASELINE) - spells))
     prepare()
-    c.cast(BATTLE_STANCE)
-    results.check("Retaliation is cast", c.cast(RETALIATION))
+    c.cast_went(BATTLE_STANCE)
+    results.check("Retaliation is cast", c.cast_went(RETALIATION))
     left = cooldown_left(RETALIATION)
     results.check("Retaliation has the Forever 15 min cooldown", near(left, 15), "%r s" % left)
-    c.cast(BERSERKER_STANCE)
-    results.check("Recklessness can be cast right after Retaliation (no shared category)", c.cast(RECKLESSNESS))
+    c.cast_went(BERSERKER_STANCE)
+    results.check("Recklessness can be cast right after Retaliation (no shared category)", c.cast_went(RECKLESSNESS))
     left = cooldown_left(RECKLESSNESS)
     results.check("Recklessness keeps its 30 min cooldown (build data)", near(left, 30), "%r s" % left)
 
@@ -152,8 +118,8 @@ else:
     if slot:
         c.send(CMSG_AUTOEQUIP_ITEM, struct.pack("<BB", 255, int(slot)))
         c.pump(2)
-    c.cast(DEFENSIVE_STANCE)
-    results.check("Shield Wall can be cast after Retaliation and Recklessness", c.cast(SHIELD_WALL),
+    c.cast_went(DEFENSIVE_STANCE)
+    results.check("Shield Wall can be cast after Retaliation and Recklessness", c.cast_went(SHIELD_WALL),
                   "shield slot %r" % slot)
     left = cooldown_left(SHIELD_WALL)
     results.check("Shield Wall has the Forever 15 min cooldown", near(left, 15), "%r s" % left)

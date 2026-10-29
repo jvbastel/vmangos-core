@@ -33,9 +33,8 @@ vanilla: no "[Forever]" line. A hit gives the stock rage, from the damage: at le
 import re
 import struct
 import sys
-import time
 
-from kit import Realm, Results, pos
+from kit import Realm, Results, pos, spawn, sturdy
 from wowclient import MSG_MOVE_HEARTBEAT, WorldClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
@@ -46,8 +45,6 @@ SMSG_PERIODICAURALOG = 590
 SPELL_AURA_PERIODIC_DAMAGE = 3
 
 LEVEL = 60
-BOAR = 3098            # Mottled Boar (Durotar), a neutral beast that can be attacked
-FREEZE = 9454          # GM stun without an end
 ONE_HAND_AXES, TWO_HAND_AXES = 196, 197
 LARGE_AXE = (2491, 2800, True)   # entry, speed ms, two-hand
 HAND_AXE = (2134, 2000, False)
@@ -139,11 +136,8 @@ if forever:
 
 # The boar at the Warrior's place; the Warrior steps 2 yards west of it and faces east, towards it.
 here = pos(w, me)
-w.gm(".npc spawn add %d" % BOAR, wait=1.5)
-low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % BOAR).split()[-1])
-boar = (0xF130 << 48) | (BOAR << 24) | low
-w.gm(".modify hp 1000000 1000000", select=boar)
-w.gm(".aura %d" % FREEZE, select=boar)
+boar = spawn(realm, w)
+sturdy(w, boar)
 w.move(MSG_MOVE_HEARTBEAT, here[0] - 2.0, here[1], here[2], 0.0)
 w.pump(1)
 

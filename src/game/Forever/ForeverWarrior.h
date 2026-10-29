@@ -21,9 +21,6 @@ class SpellEntry;
 // the rules off keep the stock code. The math is in ForeverWarriorRules.h.
 namespace Forever
 {
-    // The Forever rules are on and `unit` is a Warrior player.
-    bool IsForeverWarrior(Unit const* unit);
-
     // Unit::DealDamage, for the rage of direct damage: with IsForeverWarrior(attacker), gives the rage of
     // the weapon speed for a melee swing (cleanDamage: the hand and the crit), none for other damage, and
     // returns true. Else returns false, and the caller gives the stock rage.
