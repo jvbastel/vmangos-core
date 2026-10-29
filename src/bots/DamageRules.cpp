@@ -140,9 +140,13 @@ namespace Bots
     namespace
     {
         // PickDamageTarget, with the takeover ratio of the bot's reach for
-        // the threat throttle (HoldsBackOnThreat, jvbastel/WOWAI#194).
-        Guid PickDamageTargetAt(BotContext const& context, float takeover)
+        // the threat throttle (HoldsBackOnThreat, jvbastel/WOWAI#194). With
+        // no target, `why` is the reason (NoDamageTargetReason). The focus
+        // checks keep one order: TankHoldsThreat and HoldsBackOnThreat note
+        // changes.
+        Guid PickDamageTargetAt(BotContext const& context, float takeover, char const*& why)
         {
+            why = nullptr;
             if (IsAlive(context.view, context.attackTarget))
                 return context.attackTarget;
             Guid const healer = PickEnemyHealer(context);
@@ -163,25 +167,62 @@ namespace Bots
                 if (loose != NoGuid)
                     return loose;
             }
-            if (IsAlive(context.view, focus) && TankHoldsThreat(context) && !waitForTaunt
-                && IsInChaseLimit(context, focus) && !HoldsFireOn(context, focus)
-                && !HoldsBackOnThreat(context, focus, takeover))
+            if (!IsAlive(context.view, focus))
+                why = "no living focus";
+            else if (!TankHoldsThreat(context))
+                why = "the tank does not hold threat on the focus yet";
+            else if (waitForTaunt)
+                why = "the focus hits another member: wait for the taunt";
+            else if (!IsInChaseLimit(context, focus))
+                why = "the focus is out of the chase limit";
+            else if (HoldsFireOn(context, focus))
+                why = "the focus is frozen";
+            else if (HoldsBackOnThreat(context, focus, takeover))
+                why = "holds back on its threat on the focus";
+            else
                 return focus;
             return NoGuid;
+        }
+
+        Guid PickMeleeDamageTargetAt(BotContext const& context, char const*& why)
+        {
+            Guid target = PickDamageTargetAt(context, MeleeTakeoverRatio, why);
+            if (target == NoGuid)
+            {
+                target = OwnAttackerAtTank(context);
+                if (target != NoGuid)
+                    why = nullptr;
+            }
+            if (target != NoGuid && InOtherPacksReach(context, context.view.GetPosition(target))
+                && !TankHoldsItInOtherPacksReach(context, target))
+            {
+                why = "the target stands in the reach of another pack";
+                return NoGuid;
+            }
+            return target;
         }
     }
 
     Guid PickDamageTarget(BotContext const& context)
     {
-        return PickDamageTargetAt(context, RangedTakeoverRatio);
+        char const* why;
+        return PickDamageTargetAt(context, RangedTakeoverRatio, why);
     }
 
     Guid PickMeleeDamageTarget(BotContext const& context)
     {
-        Guid target = PickDamageTargetAt(context, MeleeTakeoverRatio);
-        if (target == NoGuid)
-            target = OwnAttackerAtTank(context);
-        return target != NoGuid && InOtherPacksReach(context, context.view.GetPosition(target)) ? NoGuid : target;
+        char const* why;
+        return PickMeleeDamageTargetAt(context, why);
+    }
+
+    char const* NoDamageTargetReason(BotContext const& context, bool melee)
+    {
+        char const* why;
+        if (melee)
+            PickMeleeDamageTargetAt(context, why);
+        else
+            PickDamageTargetAt(context, RangedTakeoverRatio, why);
+        return why;
     }
 
     bool TankHoldsThreat(BotContext const& context)

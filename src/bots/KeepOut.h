@@ -46,6 +46,14 @@ namespace Bots
     // tank that hits it stand there.
     bool TankGoesInForTheHealer(BotContext const& context, Guid enemy);
 
+    // Enemy `enemy` hits the living tank in melee contact, and the tank
+    // stands in the reach of a pack outside the fight itself. A melee member
+    // may hit the enemy there (PickMeleeDamageTarget, DamageRules.h): it
+    // stands where the tank stands already, and the tank, not the member,
+    // decides to fight in that place. The keep-out rule lets a member in
+    // melee contact with such an enemy stay.
+    bool TankHoldsItInOtherPacksReach(BotContext const& context, Guid enemy);
+
     // The strategy "keep out": its rule KeepOutRule, for each bot, the tank
     // too, at Priority::Group + 82. While a pull holds, or the bot is in combat, a bot
     // that stands within the aggro distance and AggroMarginYards of an
@@ -53,7 +61,8 @@ namespace Bots
     // (FirstSafePlace, SafePlace.h). With no safe place the rule does not
     // fire: the bot keeps its fight rather than freeze. The exceptions: the
     // puller that goes in to a caster (PullState::goesIn, WarriorModule.h),
-    // the tank that hits an add of TankGoesInForTheHealer, and the puller
+    // the tank that hits an add of TankGoesInForTheHealer, a member in
+    // melee contact with an enemy of TankHoldsItInOtherPacksReach, and the puller
     // while it has its fight spot (it pulls, or walks back there): the
     // fight spot search chose that way.
     std::shared_ptr<Strategy const> MakeKeepOutStrategy();

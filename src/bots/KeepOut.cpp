@@ -1,5 +1,6 @@
 #include "KeepOut.h"
 #include "BotGeometry.h"
+#include "CommonRules.h"
 #include "FightSpot.h"
 #include "GroupCoordinator.h"
 #include "SafePlace.h"
@@ -72,6 +73,12 @@ namespace Bots
             // The exceptions: the puller that goes in to a caster after its
             // warn, and the tank that goes in for the healer after its warn.
             if ((pull.goesIn && pull.puller == member) || TankHitsAnAddOfTheHealer(context, member))
+                return {};
+            // A melee member on an enemy that the tank holds in this reach.
+            Guid const victim = context.view.GetVictim(member);
+            if (member != context.group.GetTank() && victim != NoGuid
+                && context.view.GetDistanceBetween(member, victim) <= MeleeContactYards
+                && TankHoldsItInOtherPacksReach(context, victim))
                 return {};
             // One reach rule with the fight spot search (FightSpot.h): it
             // chose the puller's fight spot and its shot, and warned when
@@ -146,6 +153,14 @@ namespace Bots
         Guid const healer = context.group.GetHealer();
         return healer != NoGuid && context.view.GetVictim(enemy) == healer
             && InOtherPacksReach(context, context.view.GetPosition(enemy)) && StuckInOtherPacksReach(context, healer);
+    }
+
+    bool TankHoldsItInOtherPacksReach(BotContext const& context, Guid enemy)
+    {
+        Guid const tank = context.group.GetTank();
+        return IsAlive(context.view, tank) && context.view.GetVictim(enemy) == tank
+            && context.view.GetDistanceBetween(enemy, tank) <= MeleeContactYards
+            && InOtherPacksReach(context, context.view.GetPosition(tank));
     }
 
     std::shared_ptr<Strategy const> MakeKeepOutStrategy()

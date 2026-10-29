@@ -100,12 +100,25 @@ TEST(DamageTarget, WaitsWhileTheFocusOutsideAPullHitsAnotherMember)
     bot.group.SetTank(Tank);
     bot.group.SetFocusTarget(Wolf);
     bot.fake.SetVictim(Wolf, Healer);
+    BotContext const context{bot.fake, bot.fake, bot.group, Bots::CommandState::Follow, 0x1};
 
     EXPECT_EQ(bot.Target(), NoGuid);
+    // The log says why (NoDamageTargetReason), for ranged and melee bots.
+    EXPECT_STREQ(Bots::NoDamageTargetReason(context, false), "the focus hits another member: wait for the taunt");
+    EXPECT_STREQ(Bots::NoDamageTargetReason(context, true), "the focus hits another member: wait for the taunt");
 
     bot.fake.SetVictim(Wolf, Tank);
 
     EXPECT_EQ(bot.Target(), Wolf);
+    EXPECT_EQ(Bots::NoDamageTargetReason(context, false), nullptr);
+}
+
+TEST(DamageTarget, WithNoFocusTheReasonIsTheMissingFocus)
+{
+    DamageBot bot;
+    BotContext const context{bot.fake, bot.fake, bot.group, Bots::CommandState::Follow, 0x1};
+
+    EXPECT_STREQ(Bots::NoDamageTargetReason(context, false), "no living focus");
 }
 
 // The taunt does not come (the tank cannot cast it): the damage bots attack

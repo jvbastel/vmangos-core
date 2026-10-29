@@ -1,5 +1,6 @@
 #include "BotGeometry.h"
 #include "ClassModules.h"
+#include "DamageRules.h"
 #include "FightSpot.h"
 #include "FakeBot.h"
 #include "GroupCoordinator.h"
@@ -469,6 +470,94 @@ TEST(CasterPack, AMeleeDamageBotDoesNotChaseATargetInThePlaceOfAPackOutsideTheFi
 
     for (std::string const& deed : fake.Deeds())
         EXPECT_EQ(deed.find("chase"), std::string::npos) << deed;
+}
+
+// Test 1 at 09:44 on 2026-10-29: the player tank fought the focus in the
+// reach of the next pack, and the rogue stood idle the whole fight. The tank
+// holds the focus there in melee contact and stands in that reach itself:
+// the melee bot hits the focus, and the keep-out rule does not step it out.
+namespace
+{
+    struct TankInOtherPackReach
+    {
+        Bots::Guid const Rogue = 0x13;
+        FakeBot fake{Rogue};
+        Bots::GroupCoordinator group;
+
+        // `tankAt`: where the tank stands, in melee contact with the shaman.
+        explicit TankInOtherPackReach(Position tankAt)
+        {
+            fake.SetHealth(Rogue, 500, 500);
+            fake.SetHealth(Tank, 600, 600);
+            fake.SetGroupMembers({Tank});
+            fake.SetInCombat(Rogue);
+            fake.SetPosition(Trogg11, Pack11);
+            fake.AddEnemy(Trogg11, Pack11, AggroYards);
+            fake.SetPosition(Shaman, Pack9);
+            fake.SetHealth(Shaman, 300, 300);
+            fake.SetPosition(Tank, tankAt);
+            fake.SetVictim(Shaman, Tank);
+            fake.SetDistanceBetween(Shaman, Tank, 1.0f);
+            // At pack11's reach, as in the step-out test above: the
+            // contact with the shaman is the fake's.
+            fake.SetPosition(Rogue, NearPack11);
+            group.SetTank(Tank);
+            group.StartPull(Tank, Shaman);
+            group.HoldPull(Tank, 0);
+            group.SetFocusTarget(Shaman);
+        }
+
+        // The tank holds threat: contact at 0 ms, held at HoldContactMs.
+        Bots::BotContext Context()
+        {
+            Bots::BotContext context{fake, fake, group, Bots::CommandState::None, Bots::NoGuid};
+            Bots::PickMeleeDamageTarget(context);
+            context.nowMs = Bots::HoldContactMs;
+            return context;
+        }
+    };
+
+    Position const AtTheShaman = {Pack9.x + 1.0f, Pack9.y, Pack9.z};
+}
+
+TEST(CasterPack, AMeleeBotHitsTheFocusThatTheTankHoldsInTheReachOfAnotherPack)
+{
+    TankInOtherPackReach fight(AtTheShaman);
+    Bots::BotContext const context = fight.Context();
+    ASSERT_TRUE(Bots::InOtherPacksReach(context, Pack9));
+    ASSERT_TRUE(Bots::InOtherPacksReach(context, AtTheShaman));
+
+    EXPECT_EQ(Bots::PickMeleeDamageTarget(context), Shaman);
+    EXPECT_EQ(Bots::NoDamageTargetReason(context, true), nullptr);
+}
+
+TEST(CasterPack, TheKeepOutRuleLetsAMeleeBotStayOnTheFocusThatTheTankHoldsThere)
+{
+    TankInOtherPackReach fight(AtTheShaman);
+    fight.fake.SetVictim(fight.Rogue, Shaman);
+    fight.fake.SetDistanceBetween(fight.Rogue, Shaman, 1.0f);
+    Bots::BotContext const context = fight.Context();
+    Bots::StrategyStack const stack = Bots::MakeStrategyStack(Bots::BotClass::Rogue, Bots::BotRole::Melee);
+
+    // The rogue stands in the reach of pack11, with a place to step out to.
+    ASSERT_TRUE(Bots::InOtherPacksReach(context, NearPack11));
+    ASSERT_FALSE(Bots::StuckInOtherPacksReach(context, fight.Rogue));
+
+    EXPECT_NE(stack.Think(context), Bots::KeepOutRule);
+}
+
+// The tank stands out of the reach (the fake contact stays): the melee bot
+// leaves the focus, and says why.
+TEST(CasterPack, AMeleeBotLeavesTheFocusInTheReachOfAnotherPackWhenTheTankStandsOutOfIt)
+{
+    TankInOtherPackReach fight(PullPack9);
+    Bots::BotContext const context = fight.Context();
+    ASSERT_FALSE(Bots::InOtherPacksReach(context, PullPack9));
+
+    EXPECT_EQ(Bots::PickMeleeDamageTarget(context), Bots::NoGuid);
+    EXPECT_STREQ(Bots::NoDamageTargetReason(context, true), "the target stands in the reach of another pack");
+    // A ranged bot has no reach rule on its target.
+    EXPECT_EQ(Bots::PickDamageTarget(context), Shaman);
 }
 
 // Full runs on b1e729403 (t93-final2): the tank switched 239 times between

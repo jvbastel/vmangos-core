@@ -139,6 +139,10 @@ class BotAI : public PlayerBotAI
         Bots::BossReactionSlot m_bossReaction;
         // The rule of the last think that did something, for the debug log.
         std::string m_lastRule;
+        // Why the damage bot had no damage target in a fight at the last
+        // think (NoDamageTargetReason, DamageRules.h), for the log of each
+        // change. A string literal, or nullptr.
+        char const* m_lastNoTargetReason = nullptr;
         // The coordinator of a bot without a group.
         Bots::GroupCoordinator m_soloCoordinator;
         // The bot is in a group but on another map than the leader: it uses

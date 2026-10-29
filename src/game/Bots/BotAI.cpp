@@ -10,6 +10,7 @@
 #include "BotAdapter.h"
 #include "ClassModules.h"
 #include "CoordinatorChoice.h"
+#include "DamageRules.h"
 #include "DeathAndRest.h"
 #include "GroupTank.h"
 #include "HealerSight.h"
@@ -725,6 +726,16 @@ void BotAI::Think()
         m_soloCoordinator.TakeEvents();
     if (!rule.empty() && rule != m_lastRule)
         sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s: %s", me->GetName(), rule.c_str());
+    // Why a damage bot in a fight does not attack, at each change: the rule
+    // log shows only what the bot does.
+    if (IsDamageBot())
+    {
+        char const* const why = me->IsInCombat()
+            ? Bots::NoDamageTargetReason(context, m_role == Bots::BotRole::Melee) : nullptr;
+        if (why && why != m_lastNoTargetReason)
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s has no damage target: %s", me->GetName(), why);
+        m_lastNoTargetReason = why;
+    }
     // The member spots of a pull (MemberSpot.h), for the log: the spot of
     // a bot that sets out to it, and the bots that the tank did not wait for
     // any more when its wait ended.

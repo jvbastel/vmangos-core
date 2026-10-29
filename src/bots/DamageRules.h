@@ -65,7 +65,15 @@ namespace Bots
     // The keep-out rule would step the bot out again, and its chase take it
     // back in: a loop. The member that the enemy hits steps out itself and
     // brings it along, as for the loose enemies that the tank takes.
+    // The exception: the tank holds the target in that reach
+    // (TankHoldsItInOtherPacksReach), and the keep-out rule lets the bot
+    // hit it there.
     Guid PickMeleeDamageTarget(BotContext const& context);
+
+    // Why PickDamageTarget (with `melee`, PickMeleeDamageTarget) has no
+    // target now, for the log: for example the focus that waits for its
+    // taunt. nullptr when it has a target.
+    char const* NoDamageTargetReason(BotContext const& context, bool melee);
 
     // True when the bot has a damage target now.
     bool HasDamageTarget(BotContext const& context);
