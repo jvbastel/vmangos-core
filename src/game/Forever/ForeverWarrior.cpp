@@ -196,9 +196,10 @@ void Forever::RevengeDamage(Unit* caster, SpellEntry const* spellProto, Unit* ta
     damage += bonus;
 }
 
-bool Forever::AngerManagementTicks(Unit const* target)
+bool Forever::AngerManagementTicks(Unit const* target, uint32 spellId)
 {
-    return !IsForeverWarrior(target) || WarriorRules::AngerManagementTicks(target->IsInCombat());
+    return spellId != WarriorRules::AngerManagementSpell || !IsForeverWarrior(target) ||
+        WarriorRules::AngerManagementTicks(target->IsInCombat());
 }
 
 void Forever::RageDecay(Player const* player, float& loss)

@@ -48,8 +48,8 @@ namespace Forever
     void DeepWoundsRoll(Unit* caster, Unit* target, int32& tickDamage);
 
     // Aura::PeriodicTick, the rage regeneration of Anger Management: false when the Forever rules stop the
-    // tick (a Forever Warrior out of combat).
-    bool AngerManagementTicks(Unit const* target);
+    // tick of Anger Management (`spellId`) on a Forever Warrior out of combat. Other rage auras tick as stock.
+    bool AngerManagementTicks(Unit const* target, uint32 spellId);
 
     // Player::Regenerate, the out-of-combat rage loss of one tick (`loss`, in tenths): Anger Management
     // makes it smaller for a Forever Warrior.

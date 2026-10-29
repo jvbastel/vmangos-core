@@ -91,3 +91,7 @@ src/game/Objects/SpellCaster.cpp
 # Gore Drinker and Improved Berserker Rage (Spell::cast).
 # SpellCaster.cpp is listed above (#217), Spell.cpp below.
 src/game/Spells/Spell.cpp
+# Spec hook 13, #204 final fix pass (client 70685): one call each into ForeverWarrior.h for the Anger
+# Management rage tick (Aura::PeriodicTick, SpellAuras.cpp), the out-of-combat rage loss
+# (Player::Regenerate, Player.cpp) and the Revenge attack power (Spell::EffectSchoolDMG, SpellEffects.cpp).
+# The three files are listed above.
