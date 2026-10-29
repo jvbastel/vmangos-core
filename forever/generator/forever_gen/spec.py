@@ -22,8 +22,8 @@ NO_TREE = "-"
 
 # The spell_template columns that the `set` column may change, with their field index in Spell.dbc 1.12.1.
 # The two tables have the same order (Spell.dbc has no `build` column and holds 8 locales per string).
-FIELDS = {"category": 2, "attributes": 6, "stances": 11, "casterAuraState": 16, "castingTimeIndex": 18,
-          "recoveryTime": 19, "categoryRecoveryTime": 20, "procFlags": 24, "procChance": 25, "procCharges": 26,
+FIELDS = {"category": 2, "attributes": 6, "attributesEx3": 9, "stances": 11, "casterAuraState": 16, "castingTimeIndex": 18,
+          "recoveryTime": 19, "categoryRecoveryTime": 20, "interruptFlags": 21, "procFlags": 24, "procChance": 25, "procCharges": 26,
           "baseLevel": 28, "spellLevel": 29, "durationIndex": 30, "manaCost": 32, "rangeIndex": 36,
           "equippedItemClass": 58, "equippedItemSubClassMask": 59}
 for _k in range(3):
@@ -33,6 +33,17 @@ for _k in range(3):
         FIELDS["%s%d" % (_name, _k + 1)] = _first + _k
 # A text field: the rank text of the spellbook ("Rank 2").
 NAME_SUBTEXT = "nameSubtext"
+# A text field of the server row only: the script of the spell (spell_template.script_name). The core
+# binds only script names that a stock table has, so a Forever row can keep its stock script or drop it.
+SCRIPT_NAME = "scriptName"
+# The learning keys (#212), not spell columns:
+#   skillLine     a new spell gets a skill line ability (ID = the spell ID) in this skill line, for the
+#                 Warrior: the spellbook tab, and the spell chain of its ability (SpellMgr::LoadSpellChains)
+#   supersededBy  the next rank of the skill line ability; default: the next spell of the row, else none
+#   baseline      1: the core teaches the spell at its spellLevel with no trainer (forever_baseline_spell)
+SKILL_LINE, SUPERSEDED_BY, BASELINE = "skillLine", "supersededBy", "baseline"
+TEXT_KEYS = (NAME_SUBTEXT, SCRIPT_NAME)
+GENERATOR_KEYS = TEXT_KEYS + (SKILL_LINE, SUPERSEDED_BY, BASELINE)
 
 COLUMNS = ("kind", "talentId", "tree", "tier", "column", "ranks", "requiredTalent", "requiredRank", "name",
            "icon", "port", "spells", "sourceSpells", "effect1", "effect2", "effect3", "set", "tooltip", "notes")
@@ -65,9 +76,9 @@ def _fields(where, text, ranks):
     fields = {}
     for item in text.split(";"):
         name, _, value = item.partition("=")
-        if name not in FIELDS and name != NAME_SUBTEXT:
+        if name not in FIELDS and name not in GENERATOR_KEYS:
             raise SpecError("%s: unknown set field '%s'" % (where, name))
-        fields[name] = _per_rank("%s %s" % (where, name), value, ranks, str if name == NAME_SUBTEXT else _int)
+        fields[name] = _per_rank("%s %s" % (where, name), value, ranks, str if name in TEXT_KEYS else _int)
     return fields
 
 
