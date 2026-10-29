@@ -18,8 +18,8 @@ forever: Battle Shout rank 1 (6673, level 1 to 11) gives 9 + 0.3 x 10 = 12 attac
          Revenge rank 1 (6572) logs "[Forever] Revenge" with a bonus of 25% of attack power, and 22.5% in
          Defensive Stance (client hotfix).
 vanilla: 15 + 0.5 x 10 = 20 attack power, 45 and 11 threat, and no "[Forever] Revenge" line.
-The threat values assume no threat modifier in Battle Stance (1.12.1 data); the Sunder/Demoralizing ratio
-(34/19 against 45/11) holds whatever the stance modifier is.
+The threat values are before the Battle Stance threat modifier (21156: -20%), which the check applies; the
+Sunder/Demoralizing ratio (34/19 against 45/11) holds whatever the stance modifier is.
 """
 import re
 import sys
@@ -112,10 +112,14 @@ for spell in (SUNDER_ARMOR_1, DEMORALIZING_SHOUT_1):
     threat[spell] = threat_of_me(boar)
     delete(boar)
 sunder, demo = (34, 19) if forever else (45, 11)
-results.check("Sunder Armor rank 1 gives %d threat" % sunder,
-              threat[SUNDER_ARMOR_1] is not None and abs(threat[SUNDER_ARMOR_1] - sunder) <= 1, "threat %r" % threat)
-results.check("Demoralizing Shout rank 1 at level 60 gives %d threat" % demo,
-              threat[DEMORALIZING_SHOUT_1] is not None and abs(threat[DEMORALIZING_SHOUT_1] - demo) <= 1, "threat %r" % threat)
+# The Battle Stance passive (21156, SPELL_AURA_MOD_THREAT -20%) scales all threat by 0.8.
+STANCE = 0.8
+results.check("Sunder Armor rank 1 gives %d threat (x %.1f Battle Stance)" % (sunder, STANCE),
+              threat[SUNDER_ARMOR_1] is not None and abs(threat[SUNDER_ARMOR_1] - sunder * STANCE) <= 1,
+              "threat %r" % threat)
+results.check("Demoralizing Shout rank 1 at level 60 gives %d threat (x %.1f Battle Stance)" % (demo, STANCE),
+              threat[DEMORALIZING_SHOUT_1] is not None and abs(threat[DEMORALIZING_SHOUT_1] - demo * STANCE) <= 1,
+              "threat %r" % threat)
 results.check("the Sunder/Demoralizing threat ratio is %d/%d" % (sunder, demo),
               all(threat.values()) and abs(threat[SUNDER_ARMOR_1] / threat[DEMORALIZING_SHOUT_1] - sunder / demo) < 0.15,
               "threat %r" % threat)
