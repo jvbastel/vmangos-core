@@ -36,7 +36,7 @@ namespace Forever
 
     // Spell::cast, after the effects: Gore Drinker (Enrage, Berserker Rage, Bloodrage, Death Wish or
     // Bloodthirst gives the Gore Drinker buff) and Improved Berserker Rage (Berserker Rage may remove the
-    // snares and roots).
+    // snares and roots: the harmful slow and root auras).
     void OnSpellCast(Unit* caster, SpellEntry const* spellInfo);
 
     // Unit::DealDamage, after the rage of the attacker: a melee attack (a swing or a melee ability) that

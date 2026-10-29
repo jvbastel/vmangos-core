@@ -17,6 +17,8 @@
 #include "Unit.h"
 #include "Utilities/Random.h"
 
+#include <vector>
+
 using namespace Forever::FuryRules;
 
 namespace
@@ -45,6 +47,24 @@ namespace
         }
         unit->CastSpell(unit, buffId, true);
         return true;
+    }
+
+    // The harmful auras that slow or root: a root or snare mechanic (as Improved Sprint removes them), or
+    // a slow or root aura with no mechanic (Hamstring and Frost Nova have none in the 1.12 data).
+    void RemoveMovementImpairing(Unit* unit)
+    {
+        std::vector<uint32> spells;
+        for (auto const& itr : unit->GetSpellAuraHolderMap())
+        {
+            SpellAuraHolder const* holder = itr.second;
+            if (holder->IsPositive() || holder->IsPassive() || holder->GetSpellProto()->HasAttribute(SPELL_ATTR_NO_IMMUNITIES))
+                continue;
+            if (holder->HasMechanicMask(IMMUNE_TO_ROOT_AND_SNARE_MASK) || holder->HasAuraType(SPELL_AURA_MOD_DECREASE_SPEED) ||
+                holder->HasAuraType(SPELL_AURA_MOD_ROOT))
+                spells.push_back(holder->GetId());
+        }
+        for (uint32 spellId : spells)
+            unit->RemoveAurasDueToSpell(spellId);
     }
 
     bool IsMeleeAttack(DamageEffectType damagetype, CleanDamage const* cleanDamage, SpellEntry const* spellProto)
@@ -102,8 +122,7 @@ void Forever::OnSpellCast(Unit* caster, SpellEntry const* spellInfo)
         int32 const chance = TalentValue(TalentRank(caster, ImprovedBerserkerRageRanks), EFFECT_INDEX_1);
         if (RemovesSnares(chance, rand_chance_f()))
         {
-            // The same removal as Improved Sprint: the harmful auras with a root or snare mechanic.
-            caster->RemoveAurasAtMechanicImmunity(IMMUNE_TO_ROOT_AND_SNARE_MASK, BerserkerRage, true);
+            RemoveMovementImpairing(caster);
             sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Improved Berserker Rage: %s removes its snares (%d%%).", caster->GetName(), chance);
         }
     }
