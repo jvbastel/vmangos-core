@@ -21,7 +21,7 @@ forever (rules on) Basewar's first login switches and learns the baseline spells
 import struct
 import sys
 
-from kit import Realm, Results
+from kit import Realm, Results, clear_backpack
 from wowclient import SpellClient
 
 CMSG_AUTOEQUIP_ITEM = 266
@@ -32,6 +32,8 @@ LEVEL = 30
 BATTLE_STANCE, DEFENSIVE_STANCE, BERSERKER_STANCE = 2457, 71, 2458
 RETALIATION, RECKLESSNESS, SHIELD_WALL = 20230, 1719, 871
 LARGE_ROUND_SHIELD = 2129
+WORN_SHORTSWORD = 25
+MAIN_HAND_SLOT, OFF_HAND_SLOT = 15, 16
 # The baseline spells and their levels (forever/warrior.tsv).
 BASELINE = {60125: 14, 60123: 20, 60126: 20, 18499: 30}
 MINUTE = 60
@@ -63,6 +65,23 @@ def cooldown_left(spell):
     spell_end, category_end, now = (int(v) for v in row.split("\t"))
     left = [end - now for end in (spell_end, category_end) if 0 < end - now < 4 * 3600]
     return max(left) if left else None
+
+
+def equip(entry):
+    """Adds the item and equips it from the backpack, as the client does on a right click; True when worn."""
+    c.gm(".additem %d" % entry, select=me)
+    c.gm(".save", select=me)
+    c.pump(1)
+    slot = realm.sql("characters", "SELECT slot FROM character_inventory WHERE guid = %d AND bag = 0 AND slot >= 23 "
+                                   "AND item_id = %d LIMIT 1" % (me, entry))
+    if slot:
+        c.send(CMSG_AUTOEQUIP_ITEM, struct.pack("<BB", 255, int(slot.split()[0])))
+        c.pump(2)
+    c.gm(".save", select=me)
+    c.pump(1)
+    worn = realm.sql("characters", "SELECT item_id FROM character_inventory WHERE guid = %d AND bag = 0 AND slot IN (%d, %d)"
+                     % (me, MAIN_HAND_SLOT, OFF_HAND_SLOT)).split()
+    return str(entry) in worn
 
 
 def near(seconds, minutes):
@@ -110,17 +129,12 @@ else:
     left = cooldown_left(RECKLESSNESS)
     results.check("Recklessness keeps its 30 min cooldown (build data)", near(left, 30), "%r s" % left)
 
-    c.gm(".additem %d" % LARGE_ROUND_SHIELD, select=me)
-    c.gm(".save", select=me)
-    c.pump(1)
-    slot = realm.sql("characters", "SELECT slot FROM character_inventory WHERE guid = %d AND bag = 0 AND "
-                                   "item_id = %d LIMIT 1" % (me, LARGE_ROUND_SHIELD))
-    if slot:
-        c.send(CMSG_AUTOEQUIP_ITEM, struct.pack("<BB", 255, int(slot)))
-        c.pump(2)
+    # The starting two-hand axe blocks the shield: a one-hand sword first, then the shield.
+    clear_backpack(realm, c)
+    worn = [equip(item) for item in (WORN_SHORTSWORD, LARGE_ROUND_SHIELD)]
     c.cast_went(DEFENSIVE_STANCE)
     results.check("Shield Wall can be cast after Retaliation and Recklessness", c.cast_went(SHIELD_WALL),
-                  "shield slot %r" % slot)
+                  "sword and shield worn %r" % worn)
     left = cooldown_left(SHIELD_WALL)
     results.check("Shield Wall has the Forever 15 min cooldown", near(left, 15), "%r s" % left)
     c.gm(".cooldown clear", select=me)
