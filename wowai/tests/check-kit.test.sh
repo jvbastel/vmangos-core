@@ -71,7 +71,8 @@ check "--shared names the shared realm" bash -c "[ $code -eq 0 ] && grep -qxF 'W
 # A home folder of the test holds a shared realm with only that .env, so the
 # check needs no realm on the machine (CI has none). Git keeps the global
 # config of the real home: in CI it marks the checkout as a safe directory.
-env_in_home() { code=0; out="$(HOME="$1" GIT_CONFIG_GLOBAL="${GIT_CONFIG_GLOBAL:-$HOME/.gitconfig}" "$kit" --shared env 2>&1)" || code=$?; }
+git_config="${GIT_CONFIG_GLOBAL:-$HOME/.gitconfig}"
+env_in_home() { code=0; out="$(HOME="$1" GIT_CONFIG_GLOBAL="$git_config" "$kit" --shared env 2>&1)" || code=$?; }
 mkdir -p "$tmp/home/wowai/test-realm"
 printf 'WOWAI_REALM_GM_ACCOUNT=GM\nWOWAI_REALM_GM_PASSWORD=secret\n' > "$tmp/home/wowai/test-realm/.env"
 env_in_home "$tmp/home"
