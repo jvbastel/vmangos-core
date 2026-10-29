@@ -62,6 +62,7 @@
 #include "ForeverWarrior.h"
 #include "VictoryRush.h"
 #include "ForeverArms.h"
+#include "ForeverProtection.h"
 
 #include <limits>
 
@@ -8911,6 +8912,8 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* pTarget, uint32 procFlag,
                     ModifyAuraState(AURA_STATE_DEFENSE, true);
                     StartReactiveTimer(REACTIVE_DEFENSE, pTarget->GetObjectGuid());
                 }
+                // WOWAI Forever rules (#219): Master of Defense gives Rage on a dodge or parry with a shield.
+                Forever::OnDodgeOrParry(this, procExtra);
             }
             else //For attacker
             {

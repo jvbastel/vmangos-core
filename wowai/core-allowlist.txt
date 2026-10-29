@@ -81,4 +81,8 @@ src/scripts/spells/spell_warrior.cpp
 # Weaponmaster crit and sword proc, and the Improved Slam swing (Unit.cpp, above), the Weaponmaster
 # armor ignore (SpellCaster.cpp) and the Improved Slam swing timer (Spell.cpp).
 src/game/Objects/SpellCaster.cpp
+# Spec hook 13, #219 (Forever Protection talents): one call each into ForeverProtection.h for the shield
+# gate of Defiance and Bastion (Spell::CheckCast, Player::_ApplyItemMods, HandlePlayerLogin), Iron Will
+# (Spell::DoSpellHitOnUnit) and Master of Defense (Unit::ProcSkillsAndReactives). Player.cpp,
+# CharacterHandler.cpp and Unit.cpp are listed above.
 src/game/Spells/Spell.cpp

@@ -49,6 +49,7 @@
 #include "Anticheat.h"
 #include "Utilities/Random.h"
 #include "ForeverArms.h"
+#include "ForeverProtection.h"
 
 using namespace Spells;
 
@@ -1782,6 +1783,8 @@ void Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask)
             if (duration > 0)
             {
                 unit->ApplyDiminishingToDuration(m_diminishGroup, duration, m_caster, m_diminishLevel, isReflected);
+                // WOWAI Forever rules (#219): Iron Will shortens Stun and Fear on a Warrior.
+                Forever::ApplyIronWill(unit, m_spellAuraHolder, duration);
 
                 // Fully diminished
                 if (duration == 0)
@@ -5702,6 +5705,9 @@ SpellCastResult Spell::CheckCast(bool strict)
         if (castResult != SPELL_CAST_OK)
             return castResult;
     }
+    // WOWAI Forever rules (#219): Defiance and Bastion of a Warrior need a shield.
+    if (m_spellInfo->IsPassiveSpell() && Forever::ShieldTalentBlocked(m_casterUnit, m_spellInfo))
+        return SPELL_FAILED_DONT_REPORT;
 
     if (!m_IsTriggeredSpell)
     {
