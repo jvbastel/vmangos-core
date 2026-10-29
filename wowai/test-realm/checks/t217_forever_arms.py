@@ -278,11 +278,14 @@ else:
     results.check("no Forever Weaponmaster armor line with the rules off", not armor_lines, "%r" % armor_lines[:3])
 
 # Weaponmaster: no sword proc from Shield Bash ----------------------------------------------------------
+# Items with a row per patch can change type (18957 is a two-hand sword in an older patch row): skip them.
+# 'Monster - ...' items are for creatures only; an item that needs a profession skill (Phytoblade) cannot be worn.
+PATCHED = "SELECT entry FROM item_template GROUP BY entry HAVING COUNT(*) > 1"
 sword = first_entry("SELECT entry FROM item_template WHERE class = 2 AND subclass = 7 AND inventory_type IN (13, 21) "
-                    "AND required_level <= 1 AND name NOT LIKE 'Monster%' ORDER BY delay DESC, entry LIMIT 1")
+                    "AND required_level <= 1 AND required_skill = 0 AND name NOT LIKE 'Monster%%' AND entry NOT IN (%s) "
+                    "ORDER BY delay DESC, entry LIMIT 1" % PATCHED)
 shield = first_entry("SELECT entry FROM item_template WHERE class = 4 AND subclass = 6 AND required_level <= 1 "
-                     "AND name NOT LIKE 'Monster%' "
-                     "ORDER BY entry LIMIT 1")
+                     "AND required_skill = 0 AND name NOT LIKE 'Monster%%' AND entry NOT IN (%s) ORDER BY entry LIMIT 1" % PATCHED)
 results.check("a one-hand sword and a shield are worn", sword and shield and equip(sword) and equip(shield),
               "sword %d, shield %d" % (sword, shield))
 w.gm(".cheat procs on", select=me)
