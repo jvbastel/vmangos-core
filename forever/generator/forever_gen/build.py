@@ -88,6 +88,13 @@ def talent_table(spec, stock):
     return Dbc(stock.talent.fields, rows, bytes(stock.talent.strings))
 
 
+def in_client_order(talents):
+    """The talent table in the row order of the stock table: by tree (TabID), tier, column. The 1.12
+    talent window takes a tree's talents in row order and draws the prerequisite arrows as it goes."""
+    talents.rows.sort(key=lambda row: (row[1], row[2], row[3]))
+    return talents
+
+
 def client_spell_table(spells, stock):
     """Spell.dbc: every stock row as it is, plus the new spell rows, sorted by ID."""
     table = stock.spell.copy()
@@ -136,7 +143,7 @@ def generate(spec, stock_folder, out):
     """Checks the spec against the stock data, then writes the three outputs into `out`."""
     stock = Stock(stock_folder)
     spells = new_spells(spec, stock)
-    talents = talent_table(spec, stock)
+    talents = in_client_order(talent_table(spec, stock))
     spell_table = client_spell_table(spells, stock)
     sql = server_sql(spells)
 

@@ -158,3 +158,14 @@ def test_the_client_data_patch_holds_the_client_tables(out):
     assert names == ["DBFilesClient\\Spell.dbc", "DBFilesClient\\Talent.dbc", "DBFilesClient\\TalentTab.dbc"]
     for name in names:
         assert archive.read_file(name) == (out / "client" / name.replace("\\", "/")).read_bytes(), name
+
+
+def test_the_talent_rows_are_in_tree_tier_column_order_as_in_the_stock_table(out):
+    # The talent window of the 1.12 client takes a tree's talents in row order (GetTalentInfo(tab, i))
+    # and draws prerequisite arrows as it goes. The stock Talent.dbc is in this order.
+    def order(path):
+        data = path.read_bytes()
+        records, fields = struct.unpack_from("<4s4I", data, 0)[1:3]
+        return [struct.unpack_from("<4I", data, 20 + i * fields * 4)[1:4] for i in range(records)]
+    assert order(STOCK / "Talent.dbc") == sorted(order(STOCK / "Talent.dbc"))
+    assert order(out / "client" / "DBFilesClient" / "Talent.dbc") == sorted(order(out / "client" / "DBFilesClient" / "Talent.dbc"))
