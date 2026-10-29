@@ -48,6 +48,7 @@ LEVEL = 60
 ONE_HAND_AXES, TWO_HAND_AXES = 196, 197
 LARGE_AXE = (2491, 2800, True)   # entry, speed ms, two-hand
 HAND_AXE = (2134, 2000, False)
+WHIRLWIND_AXE = 6975  # two-hand axe 102-154, no level requirement
 REND_1 = 772
 SHADOW_WORD_PAIN_1 = 589
 DEEP_WOUNDS_3 = 12867
@@ -269,6 +270,9 @@ else:
 
 # Deep Wounds: each melee crit applies Deep Wound; its ticks crit under the Forever rules.
 w.gm(".learn %d" % DEEP_WOUNDS_3, select=me)
+# The Forever bleed is 60% of the weapon's own average damage over 4 ticks, with no attack power: a Hand Axe
+# (2-4) gives 0 per tick, and a tick of 0 cannot crit. The Whirlwind Axe (102-154) gives 19.
+results.check("the Whirlwind Axe is in the main hand", equip(WHIRLWIND_AXE))
 realm.mark("deep wounds")
 start = len(w.ticks)
 w.select(boar)
