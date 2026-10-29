@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from forever_gen import spec
+from forever_gen import build, spec
 from test_pipeline import ROOT
 
 HEADER = ROOT / "src" / "game" / "Forever" / "ForeverSpellIds.h"
@@ -64,3 +64,10 @@ def test_no_other_forever_file_writes_a_forever_spell_id(the_spec):
                 if low <= int(value) <= high:
                     offenders.append("%s:%d: %s" % (path.name, number, value))
     assert not offenders, "use ForeverSpellIds.h for these IDs: %s" % offenders
+
+
+def test_the_migration_makes_the_baseline_table_with_the_columns_of_the_generator():
+    """Review S2/T7: the core reads forever_baseline_spell with the rules on. The migration makes it, so that
+    it always exists, and the generator makes it again from BASELINE_COLUMNS: one shape for both."""
+    migration = (ROOT / "sql" / "migrations" / "20261029120000_world.sql").read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS `forever_baseline_spell` %s;" % build.BASELINE_COLUMNS in migration

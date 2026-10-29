@@ -95,8 +95,10 @@ void Forever::LoadSpellTemplate(std::function<void(uint32)> const& resize, std::
     uint32 const maxId = result ? result->Fetch()[0].GetUInt32() : 0;
     if (!maxId)
     {
+        // Review S2 of #204: without the Forever data the realm would run vanilla spells under Forever trees.
         sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Forever] The Forever rules are on, but forever_spell_template is empty. Load forever/generator's forever_world.sql.");
-        return;
+        Log::WaitBeforeContinueIfNeed();
+        exit(1);
     }
     resize(maxId + 1);
 

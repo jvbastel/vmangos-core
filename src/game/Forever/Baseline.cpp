@@ -15,6 +15,7 @@
 #include "SharedDefines.h"
 #include "SpellMgr.h"
 
+#include <cstdlib>
 #include <memory>
 #include <vector>
 
@@ -30,19 +31,23 @@ void Forever::LoadBaselineSpells()
     if (!RulesOn())
         return;
 
-    // forever_world.sql of forever/generator makes the table. Without it the query fails and logs it.
+    // The migration makes the table, and forever_world.sql of forever/generator fills it. The Forever data
+    // has baseline spells, so an empty table means that the generated SQL is missing (review S2).
     std::unique_ptr<QueryResult> result(WorldDatabase.Query("SELECT `spell_id` FROM `forever_baseline_spell`"));
-    if (result)
+    if (!result)
     {
-        do
-        {
-            uint32 const spellId = result->Fetch()[0].GetUInt32();
-            if (sSpellMgr.GetSpellEntry(spellId))
-                baselineSpells.push_back(spellId);
-            else
-                sLog.Out(LOG_DBERROR, LOG_LVL_MINIMAL, "[Forever] Baseline spell %u in forever_baseline_spell does not exist.", spellId);
-        } while (result->NextRow());
+        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Forever] The Forever rules are on, but forever_baseline_spell is missing or empty. Load forever/generator's forever_world.sql.");
+        Log::WaitBeforeContinueIfNeed();
+        exit(1);
     }
+    do
+    {
+        uint32 const spellId = result->Fetch()[0].GetUInt32();
+        if (sSpellMgr.GetSpellEntry(spellId))
+            baselineSpells.push_back(spellId);
+        else
+            sLog.Out(LOG_DBERROR, LOG_LVL_MINIMAL, "[Forever] Baseline spell %u in forever_baseline_spell does not exist.", spellId);
+    } while (result->NextRow());
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] Loaded %u baseline spells.", uint32(baselineSpells.size()));
 }
 
