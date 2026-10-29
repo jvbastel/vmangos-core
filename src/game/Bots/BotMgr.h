@@ -61,6 +61,8 @@ struct BotRecord
     // list of PlayerBotMgr.
     std::shared_ptr<PlayerBotEntry> entry;
     std::string role;
+    // The class of the character (CLASS_*), for the Forever gate of the login (jvbastel/WOWAI#209).
+    uint8 gameClass = 0;
     bool worldBot = false;
     // The gear template that the bot puts on when it is in the world, after
     // its creation.
