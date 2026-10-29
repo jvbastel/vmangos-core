@@ -67,8 +67,17 @@ done
 
 run_kit --shared env
 check "--shared names the shared realm" bash -c "[ $code -eq 0 ] && grep -qxF 'WOWAI_REALM_PROJECT=$shared_project' <<<'$out'"
+# The login comes from the .env of the realm, which `up` or `acquire` writes.
+# A home folder of the test holds a shared realm with only that .env, so the
+# check needs no realm on the machine (CI has none).
+mkdir -p "$tmp/home/wowai/test-realm"
+printf 'WOWAI_REALM_GM_ACCOUNT=GM\nWOWAI_REALM_GM_PASSWORD=secret\n' > "$tmp/home/wowai/test-realm/.env"
+code=0; out="$(HOME="$tmp/home" "$kit" --shared env 2>&1)" || code=$?
 check "env prints the GM account and its password (to log in to the realm)" \
-  bash -c "grep -qE '^WOWAI_REALM_GM_ACCOUNT=.+' <<<'$out' && grep -qE '^WOWAI_REALM_GM_PASSWORD=.+' <<<'$out'"
+  bash -c "[ $code -eq 0 ] && grep -qx 'WOWAI_REALM_GM_ACCOUNT=GM' <<<'$out' && grep -qx 'WOWAI_REALM_GM_PASSWORD=secret' <<<'$out'"
+mkdir -p "$tmp/empty-home"
+code=0; out="$(HOME="$tmp/empty-home" "$kit" --shared env 2>&1)" || code=$?
+check "with no realm .env, env prints no GM login" bash -c "[ $code -eq 0 ] && ! grep -q '^WOWAI_REALM_GM_' <<<'$out'"
 run_kit --ticket 998 env
 check "a ticket with no slot gets an error" test "$code" -ne 0
 run_kit --shared down
