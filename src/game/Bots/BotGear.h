@@ -46,8 +46,10 @@ class BotGear
 // Equips a character that is in the world from a gear template: it destroys
 // every equipped item, then equips the draw of the template for the
 // character's GUID, level, and the realm's content patch. It does not check
-// skills or the required level: a GM asked for this gear. Saves the
-// character when saving is on for it.
+// skills or the required level: a GM asked for this gear. It does not save
+// the character: the caller saves it once the weapon skills are taught
+// (BotMgr, ApplyLevelRoutine). A saved weapon without its skill leaves its
+// slot at the next login: the core mails it to the character.
 // The player must be alive: the core does not apply the stats of an item
 // that a dead player equips, but removes them when the item goes.
 Bots::GearDraw EquipFromGearTemplate(Player* player, Bots::GearTemplate const& gearTemplate);

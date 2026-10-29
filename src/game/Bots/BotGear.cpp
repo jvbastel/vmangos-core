@@ -183,7 +183,6 @@ Bots::GearDraw EquipFromGearTemplate(Player* player, Bots::GearTemplate const& g
         if (!player->EquipNewItem(position, pick.entry, true))
             sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] %s cannot equip the item %u", player->GetName(), pick.entry);
     }
-    player->SaveToDB();
 
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s (GUID %u, level %u, patch %u) wears the gear template %s%s%s: %s",
         player->GetName(), player->GetGUIDLow(), uint32(player->GetLevel()), uint32(sWorld.GetWowPatch()),

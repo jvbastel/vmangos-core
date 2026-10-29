@@ -977,8 +977,11 @@ void BotMgr::PutOnPendingGear(BotRecord& record)
     if (Bots::GearTemplate const* gear = m_gear.Find(record.pendingGear))
         EquipFromGearTemplate(player, *gear);
     record.pendingGear.clear();
-    // Then the level routine, for the weapon skills of the new gear.
+    // Then the level routine, for the weapon skills of the new gear, and
+    // one save of both. A save of the gear without its skills loses the
+    // weapons at the next login: the core mails a weapon without its skill.
     ApplyLevelRoutine(player);
+    player->SaveToDB();
 }
 
 bool BotMgr::EquipCharacter(std::string const& name, std::string const& templateName, std::string& report, std::string& error,
@@ -1021,9 +1024,11 @@ bool BotMgr::EquipCharacter(std::string const& name, std::string const& template
     }
 
     Bots::GearDraw const draw = EquipFromGearTemplate(player, *gear);
-    // A worn weapon without its skill leaves its slot at the next login.
+    // A worn weapon without its skill leaves its slot at the next login
+    // (the core mails it): the skills first, then one save of both.
     if (IsOurBot(player))
         ApplyLevelRoutine(player);
+    player->SaveToDB();
     if (equipped)
         *equipped = {gear->name, draw};
     report = wanted + " wears " + gear->name + (draw.shape.empty() ? "" : " (shape " + draw.shape + ")") + ": " +

@@ -256,9 +256,9 @@ void BotLevelRoutine::TeachTrainerSpells(Player* bot) const
 
 void BotLevelRoutine::TeachWeaponSkills(Player* bot) const
 {
-    // The weapons that the bot wears or carries in its bags. The core moves a
-    // worn weapon without its skill out of the slot at login, so a weapon of
-    // the gear template or of the loot can wait in a bag.
+    // The weapons that the bot wears or carries in its bags. At login, the
+    // core mails a worn weapon without its skill to the bot (Player::
+    // _LoadInventory), so the gear is saved only after this routine (BotMgr).
     std::vector<Item const*> items;
     for (uint8 slot : WeaponSlots)
         items.push_back(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot));
