@@ -83,3 +83,47 @@ def test_focused_rage_reduces_the_rage_cost_of_the_offensive_abilities(client):
 def test_pummel_has_its_family_flag_on_both_ranks(client):
     # Client 70685: Pummel 6552 and 6554 have family flag 0x8; the stock data has none.
     assert [client[s][FAMILY_FLAGS] for s in PUMMEL_RANKS] == [0x8, 0x8]
+
+
+def test_improved_bloodrage_raises_the_instant_rage_and_the_rage_over_time(client):
+    assert [modifier(client, s) for s in (12301, 12818)] == [
+        (ADD_PCT_MODIFIER, SPELLMOD_ALL_EFFECTS, 25), (ADD_PCT_MODIFIER, SPELLMOD_ALL_EFFECTS, 50)]
+    assert reached(client, 12301) == {"Bloodrage", "Bloodrage (Rage over time)"}
+
+
+def test_raging_blows_reduces_the_rage_cost_of_cleave_and_whirlwind(client):
+    assert modifier(client, 60114) == (ADD_FLAT_MODIFIER, SPELLMOD_COST, -30)
+    assert reached(client, 60114) - {"Retaliation"} == {"Cleave", "Whirlwind"}
+
+
+def test_booming_voice_widens_and_cheapens_every_shout(client):
+    shouts = {"Battle Shout", "Demoralizing Shout", "Intimidating Shout", "Challenging Shout"}
+    assert modifier(client, 12838, 0)[2] == 50 and modifier(client, 12838, 1)[2] == -25
+    assert reached(client, 12838, 0) == shouts and reached(client, 12838, 1) == shouts
+
+
+def test_a_slam_modifier_no_longer_reaches_concussion_blow(client):
+    # Improved Slam's mask is Slam's flag 0x200000; stock Concussion Blow had that flag too.
+    assert reached(client, 12862) == {"Slam"}
+
+
+def proc_events(out):
+    """entry -> the columns that the generated SQL sets on the Forever proc event row of a spell."""
+    sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
+    rows = {}
+    for m in re.finditer(r"^UPDATE `forever_proc_new` SET (.*);$", sql, re.M):
+        values = dict(re.findall(r"`(\w+)`=(-?\d+)", m.group(1)))
+        rows[int(values["entry"])] = {k: int(v) for k, v in values.items()}
+    return rows
+
+
+def test_enrage_triggers_on_any_damaging_attack_taken(out, client):
+    # Stock: the proc event row of 12317 asks for a critical hit (procEx 2). Forever: any damaging attack,
+    # 30% chance. The ranks above take the first rank's row (SpellMgr::LoadSpellProcEvents).
+    events = proc_events(out)
+    assert events[12317]["procEx"] == 0
+    assert set(events) & {13045, 13046, 13047, 13048} == set()
+    assert [client[s][PROC_CHANCE] for s in (12317, 13045, 13046, 13047, 13048)] == [30] * 5
+    # The damage auras: +2..10% Physical damage for 12 sec, no swing charges.
+    assert [modifier(client, s)[2] for s in (12880, 14201, 14202, 14203, 14204)] == [2, 4, 6, 8, 10]
+    assert [(client[s][PROC_FLAGS], client[s][PROC_CHARGES]) for s in (12880, 14204)] == [(0, 0), (0, 0)]
