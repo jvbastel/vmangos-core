@@ -51,6 +51,7 @@
 #include "Utilities/Random.h"
 #include "ScriptMgr.h"
 #include "SocialMgr.h"
+#include "ForeverWarrior.h"
 
 using namespace Spells;
 using ExecuteLogInfo = WorldPackets::Spell::SpellLogExecute::ExecuteLogInfo;
@@ -754,6 +755,9 @@ void Spell::EffectDummy(SpellEffectIndex effIdx)
                     else
                         damage = (m_casterUnit->GetFloatValue(UNIT_FIELD_MINDAMAGE) + m_casterUnit->GetFloatValue(UNIT_FIELD_MAXDAMAGE)) / 2;
 
+                    // Forever rules: the weapon's own damage, no attack power (jvbastel/WOWAI#214).
+                    Forever::DeepWoundsWeaponDamage(m_casterUnit, damage);
+
                     switch (m_spellInfo->Id)
                     {
                         case 12162:
@@ -771,6 +775,8 @@ void Spell::EffectDummy(SpellEffectIndex effIdx)
                     };
 
                     int32 deepWoundsDotBasePoints0 = int32(damage / 4);
+                    // Forever rules: the bleed rolls the damage of the old one (jvbastel/WOWAI#214).
+                    Forever::DeepWoundsRoll(m_casterUnit, unitTarget, deepWoundsDotBasePoints0);
                     m_casterUnit->CastCustomSpell(unitTarget, 12721, deepWoundsDotBasePoints0, {}, {}, true, nullptr);
                     return;
                 }
