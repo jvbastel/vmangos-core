@@ -9,10 +9,11 @@ Three outputs, all from the same rows, so that the client and the server never d
 The client data patch holds the talent tables, the spell table and the skill line abilities.
 """
 import os
+import struct
 
 from . import client_patch, rules
 from .dbc import Dbc
-from .spec import (BASELINE, FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
+from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, proc_event, talents)
 
 # TalentTab.dbc IDs of the Warrior trees.
@@ -161,7 +162,7 @@ def client_spell_table(spells, stock):
         target = list(stock_by_id[source]) if new else by_id[spell]
         target[0] = spell
         for name, value in spell_changes(row, rank):
-            target[FIELDS[name] if name != "spellIconId" else SPELL_ICON] = value & 0xFFFFFFFF
+            target[FIELDS[name] if name != "spellIconId" else SPELL_ICON] = _dbc_value(name, value)
             if name == SPELL_FAMILY_FLAGS:
                 target[FIELDS[name] + 1] = (value >> 32) & 0xFFFFFFFF
         stock_rank_text = "" if new else table.text(target[SPELL_RANK])
@@ -173,6 +174,13 @@ def client_spell_table(spells, stock):
             table.rows.append(target)
     table.rows.sort(key=lambda r: r[0])
     return table
+
+
+def _dbc_value(name, value):
+    """The raw 32-bit Spell.dbc field of a spec value: a float field as its float bits."""
+    if name in FLOAT_FIELDS:
+        return struct.unpack("<I", struct.pack("<f", value))[0]
+    return value & 0xFFFFFFFF
 
 
 def _sql_text(value):

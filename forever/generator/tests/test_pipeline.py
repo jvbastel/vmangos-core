@@ -96,7 +96,7 @@ def server_spells(out):
     sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
     spells = {}
     for m in re.finditer(r"^UPDATE `forever_spell_new` SET (.*);$", sql, re.M):
-        values = dict(re.findall(r"`(\w+)`=('(?:[^'\\]|\\.)*'|-?\d+)", m.group(1)))
+        values = dict(re.findall(r"`(\w+)`=('(?:[^'\\]|\\.)*'|-?\d+(?:\.\d+)?)", m.group(1)))
         spells[int(values["entry"])] = {k: v.strip("'") for k, v in values.items()}
     return spells
 
