@@ -8,8 +8,9 @@
 #ifndef WOWAI_GAME_FOREVER_WARRIOR_RULES_H
 #define WOWAI_GAME_FOREVER_WARRIOR_RULES_H
 
-// The pure math of the Forever Warrior mechanics (jvbastel/WOWAI#214): rage from weapon speed, the
-// Deep Wounds bleed and the attack power part of Revenge. No game header, so wowai/tests/forever-warrior-rules.test.sh tests it on the host.
+// The pure math of the Forever Warrior mechanics (jvbastel/WOWAI#214): rage from weapon speed, the rage
+// of Anger Management and Dual Wield Specialization, the Deep Wounds bleed and the attack power part of
+// Revenge. No game header, so wowai/tests/forever-warrior-rules.test.sh tests it on the host.
 // ForeverWarrior.cpp calls it from the core hooks. The chosen formulas and their sources are in the
 // header of forever/warrior.tsv ("Warrior mechanics").
 
