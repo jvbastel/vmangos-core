@@ -247,7 +247,14 @@ check "acquire with --forever succeeds" test "$code" -eq 0
 s24="$(slot_of 24)"
 conf="$WOWAI_POOL_DIR/$s24/config/mangosd.conf"
 run_kit --ticket 24 config
-check "config of a Forever lease succeeds" test "$code" -eq 0
+# With no stock DBC the generator cannot run, and config stops (a Forever
+# realm never starts without its data). It writes mangosd.conf first.
+if [ -L "$tmp/data/5875/dbc" ]; then
+  check "config of a Forever lease succeeds" test "$code" -eq 0
+else
+  check "config of a Forever lease with no stock DBC stops at the generator" \
+    bash -c "[ $code -ne 0 ] && grep -q 'the Forever data generator failed' <<<\"\$1\"" _ "$out"
+fi
 check "a Forever lease turns the Forever rules on" grep -qx 'Forever.Rules = 1' "$conf"
 check "a Forever lease names the mounted Forever DBC folder" \
   grep -qx 'Forever.DataDir = "/opt/vmangos/storage/forever/dbc"' "$conf"
