@@ -39,7 +39,7 @@ namespace
         int32 total = 0;
         for (Aura const* aura : unit->GetAurasByType(SPELL_AURA_DUMMY))
             if (isTalentSpell(aura->GetId()))
-                total += aura->GetModifier()->m_amount;
+                total += int32(aura->GetModifier()->m_amount);
         return total;
     }
 

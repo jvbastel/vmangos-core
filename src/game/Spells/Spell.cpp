@@ -5703,7 +5703,7 @@ SpellCastResult Spell::CheckCast(bool strict)
             return castResult;
     }
     // WOWAI Forever rules (#219): Defiance and Bastion of a Warrior need a shield.
-    else if (Forever::ShieldTalentBlocked(m_casterUnit, m_spellInfo))
+    if (m_spellInfo->IsPassiveSpell() && Forever::ShieldTalentBlocked(m_casterUnit, m_spellInfo))
         return SPELL_FAILED_DONT_REPORT;
 
     if (!m_IsTriggeredSpell)
