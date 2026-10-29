@@ -7,6 +7,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "mpyq>=0.2.5",
     "pytest>=8",
 ]
 

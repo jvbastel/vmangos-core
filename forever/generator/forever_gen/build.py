@@ -2,11 +2,13 @@
 
 Three outputs, all from the same rows, so that the client and the server never drift apart:
   dbc/                  the Forever DBC folder of the server core (Forever.DataDir): the talent tables
-  client/DBFilesClient/ the DBCs of the client data patch (#207 packs them into an MPQ)
+  client/DBFilesClient/ the DBCs of the client data patch
+  client/client-data-patch.MPQ  the client data patch: those DBCs in one MPQ
   sql/forever_world.sql the Forever server tables (forever_spell_template, ...) of the world database
 """
 import os
 
+from . import client_patch
 from .dbc import Dbc
 from .spec import SpecError
 
@@ -59,7 +61,9 @@ def new_spells(spec, stock):
 
 
 def talent_table(spec, stock):
-    """Talent.dbc: the stock rows of the other classes in their order, then the spec rows by ID."""
+    """Talent.dbc: the stock rows of the other classes, then the spec rows by ID.
+
+    generate puts the rows in client order afterwards (in_client_order)."""
     stock_talents = stock.talent.by_id()
     stock_spells = stock.spell.by_id()
     low, high = spec.id_range
@@ -84,6 +88,13 @@ def talent_table(spec, stock):
         row[19] = flags
         rows.append(row)
     return Dbc(stock.talent.fields, rows, bytes(stock.talent.strings))
+
+
+def in_client_order(talents):
+    """The talent table in the row order of the stock table: by tree (TabID), tier, column. The 1.12
+    talent window takes a tree's talents in row order and draws the prerequisite arrows as it goes."""
+    talents.rows.sort(key=lambda row: (row[1], row[2], row[3]))
+    return talents
 
 
 def client_spell_table(spells, stock):
@@ -134,7 +145,7 @@ def generate(spec, stock_folder, out):
     """Checks the spec against the stock data, then writes the three outputs into `out`."""
     stock = Stock(stock_folder)
     spells = new_spells(spec, stock)
-    talents = talent_table(spec, stock)
+    talents = in_client_order(talent_table(spec, stock))
     spell_table = client_spell_table(spells, stock)
     sql = server_sql(spells)
 
@@ -149,3 +160,4 @@ def generate(spec, stock_folder, out):
     spell_table.write(os.path.join(client_dbc, "Spell.dbc"))
     with open(os.path.join(sql_dir, "forever_world.sql"), "w", encoding="utf-8", newline="\n") as file:
         file.write(sql)
+    client_patch.write(os.path.join(out, "client"))
