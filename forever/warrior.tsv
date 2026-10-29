@@ -55,7 +55,8 @@
 #                   (value - 1) with die sides 1. An effect with no effect type holds a value for the text or
 #                   for server code only
 #   set             spell_template columns to change: name=value;name=value, a value per rank separated by /
-#                   (see FIELDS in generator/forever_gen/spec.py; nameSubtext is the rank text)
+#                   (see FIELDS in generator/forever_gen/spec.py; nameSubtext is the rank text;
+#                   procEvent.<column> sets the forever_spell_proc_event row of rank 1, one value for all ranks)
 #   tooltip         the description of the rank spells; $s1 is the value of effect 1 ($h the proc chance)
 #   notes           the Forever change and what is left for which ticket
 kind	talentId	tree	tier	column	ranks	requiredTalent	requiredRank	name	icon	port	spells	sourceSpells	effect1	effect2	effect3	set	tooltip	notes
