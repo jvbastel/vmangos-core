@@ -21,8 +21,8 @@ vanilla (rules off) The switch to vanilla gives back stock Charge rank 3: in the
 """
 import sys
 
-from kit import Realm, Results, kill, pos, spawn
-from wowclient import SpellClient
+from kit import Realm, Results, kill, pos, spawn, sturdy
+from wowclient import MSG_MOVE_HEARTBEAT, SpellClient
 SPELL_FAILED_ONLY_SHAPESHIFT = 86  # "Must be in %s" (1.12 SpellCastResult)
 
 ACCOUNT = "PLAYER216"
@@ -53,7 +53,8 @@ c.pump(2)
 
 
 def charge_rows():
-    """spell -> active of the saved Charge and Vanguard Charge rows."""
+    """spell -> active of the saved Charge and Vanguard Charge rows. A lower Charge rank that a higher rank
+    taught (Player::AddSpell learns it as dependent) has no row: Player::_SaveSpells saves no dependent spell."""
     c.gm(".save", select=me)
     c.pump(1)
     rows = realm.sql("characters", "SELECT spell, active FROM character_spell WHERE guid = %d AND disabled = 0 "
@@ -62,6 +63,10 @@ def charge_rows():
 
 
 def charge_button():
+    """The spell on BUTTON_CHARGE. The core saves the action bars only at logout (MasterPlayer::SaveToDB,
+    not `.save`), so this logs out and in again first."""
+    c.gm(".combatstop", select=me)
+    c.relog()
     rows = realm.sql("characters", "SELECT action FROM character_action WHERE guid = %d AND type = 0 AND button = %d"
                      % (me, BUTTON_CHARGE))
     return int(rows) if rows else None
@@ -77,10 +82,15 @@ def learn_vanguard():
 
 
 def spawn_boar_ahead():
-    """A boar 15 yards from the player (Charge range 8-25), out of combat. Its guid."""
+    """A frozen boar 15 yards east of the player (Charge range 8-25), out of combat, and the player facing
+    it (Charge needs the target in front: SPELL_FAILED_UNIT_NOT_INFRONT, 124). Its guid."""
     boar = spawn(realm, c, wait=2.0)
+    sturdy(c, boar)
+    x, y, z = pos(c, boar)
+    c.gm(".go xyz %f %f %f" % (x - 15.0, y, z + 1.0), wait=2.0)
     x, y, z = pos(c, me)
-    c.gm(".go xyz %f %f %f" % (x + 15.0, y, z + 1.0), wait=2.0)
+    c.move(MSG_MOVE_HEARTBEAT, x, y, z, 0.0)  # face east, at the boar
+    c.pump(1)
     return boar
 
 
@@ -95,7 +105,8 @@ if mode == "forever":
         c.gm(".learn %d" % spell, select=me)
     c.set_button(BUTTON_CHARGE, CHARGE[1])
     rows = charge_rows()
-    results.check("Charge rank 2 is on the button", charge_button() == CHARGE[1], "button %r" % charge_button())
+    button = charge_button()
+    results.check("Charge rank 2 is on the button", button == CHARGE[1], "button %r" % button)
     results.check("stock Charge rank 2 is active", rows.get(CHARGE[1]) == 1, "%r" % rows)
 
     c.cast(DEFENSIVE_STANCE)
@@ -110,9 +121,7 @@ if mode == "forever":
                   (CHARGE[1], VANGUARD_CHARGE[1]) in superseded, "superseded %r" % superseded)
     rows = charge_rows()
     results.check("Vanguard Charge rank 2 is active, the stock ranks inactive",
-                  rows == {CHARGE[0]: 0, CHARGE[1]: 0, VANGUARD_CHARGE[1]: 1}, "%r" % rows)
-    results.check("the button casts Vanguard Charge rank 2", charge_button() == VANGUARD_CHARGE[1],
-                  "button %r" % charge_button())
+                  rows == {CHARGE[1]: 0, VANGUARD_CHARGE[1]: 1}, "%r" % rows)
 
     vanguard, go = c.cast(VANGUARD_CHARGE[1], boar)
     results.check("Vanguard Charge is not refused for the stance",
@@ -120,6 +129,9 @@ if mode == "forever":
     results.check("Vanguard Charge charges in Defensive Stance", go, "reasons %r" % vanguard)
     kill(c, boar)
     c.pump(2)
+    button = charge_button()
+    results.check("the button casts Vanguard Charge rank 2", button == VANGUARD_CHARGE[1],
+                  "button %r" % button)
 
     start = len(c.superseded)
     c.gm(".learn %d" % CHARGE[2], select=me)
@@ -127,9 +139,10 @@ if mode == "forever":
                   (VANGUARD_CHARGE[1], VANGUARD_CHARGE[2]) in c.superseded[start:], "superseded %r" % c.superseded[start:])
     rows = charge_rows()
     results.check("Vanguard Charge rank 3 is the only active Charge",
-                  rows == {CHARGE[0]: 0, CHARGE[1]: 0, CHARGE[2]: 0, VANGUARD_CHARGE[2]: 1}, "%r" % rows)
-    results.check("the button casts Vanguard Charge rank 3", charge_button() == VANGUARD_CHARGE[2],
-                  "button %r" % charge_button())
+                  rows == {CHARGE[2]: 0, VANGUARD_CHARGE[2]: 1}, "%r" % rows)
+    button = charge_button()
+    results.check("the button casts Vanguard Charge rank 3", button == VANGUARD_CHARGE[2],
+                  "button %r" % button)
 
     c.logout()
     c.login_again()
@@ -144,16 +157,18 @@ if mode == "forever":
                   (VANGUARD_CHARGE[2], CHARGE[2]) in c.superseded[start:], "superseded %r" % c.superseded[start:])
     rows = charge_rows()
     results.check("after the reset stock Charge rank 3 is active and no Vanguard Charge is known",
-                  rows == {CHARGE[0]: 0, CHARGE[1]: 0, CHARGE[2]: 1}, "%r" % rows)
-    results.check("after the reset the button casts Charge rank 3", charge_button() == CHARGE[2],
-                  "button %r" % charge_button())
+                  rows == {CHARGE[2]: 1}, "%r" % rows)
+    button = charge_button()
+    results.check("after the reset the button casts Charge rank 3", button == CHARGE[2],
+                  "button %r" % button)
 
     learned, superseded = learn_vanguard()
     results.check("Vanguard again gives Vanguard Charge rank 3", (CHARGE[2], VANGUARD_CHARGE[2]) in superseded,
                   "superseded %r" % superseded)
+    button = charge_button()
+    results.check("before the switch the button casts Vanguard Charge rank 3", button == VANGUARD_CHARGE[2],
+                  "button %r" % button)
     c.logout()
-    results.check("before the switch the button casts Vanguard Charge rank 3", charge_button() == VANGUARD_CHARGE[2],
-                  "button %r" % charge_button())
 else:
     results.check("the first login under the vanilla rules switches", realm.wait_log(SWITCH % NAME, 5, c))
     spells = c.initial_spells or set()
@@ -163,8 +178,9 @@ else:
     rows = charge_rows()
     results.check("stock Charge rank 3 is active, no Vanguard Charge is known",
                   rows.get(CHARGE[2]) == 1 and not set(rows) & set(VANGUARD_CHARGE), "%r" % rows)
-    results.check("the button casts stock Charge rank 3 again", charge_button() == CHARGE[2],
-                  "button %r" % charge_button())
+    button = charge_button()
+    results.check("the button casts stock Charge rank 3 again", button == CHARGE[2],
+                  "button %r" % button)
     c.logout()
     c.login_again()
     results.check("a second login keeps stock Charge rank 3", CHARGE[2] in (c.initial_spells or set()))
