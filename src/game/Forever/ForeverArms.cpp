@@ -145,10 +145,12 @@ uint32 Forever::BloodthrillOverpower(Unit* attacker, Unit* target, uint32 procFl
         return 0;
 
     int32 const chance = DummyTalentValue(attacker, BloodthrillRanks);
-    if (chance <= 0 || !roll_chance_i(chance))
+    Player* warrior = attacker->ToPlayer();
+    // `.cheat procs on` makes it proc each time, as for the procs of the core.
+    if (chance <= 0 || !(warrior->HasCheatOption(PLAYER_CHEAT_ALWAYS_PROC) || roll_chance_i(chance)))
         return 0;
 
-    attacker->ToPlayer()->AddComboPoints(target, 1);
+    warrior->AddComboPoints(target, 1);
     sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Bloodthrill: %s may Overpower %s for %u ms (chance %d%%)",
         attacker->GetName(), target->GetGuidStr().c_str(), ArmsRules::BloodthrillWindowMs, chance);
     return ArmsRules::BloodthrillWindowMs;
@@ -163,7 +165,11 @@ float Forever::WeaponmasterCritBonus(Unit const* attacker, WeaponAttackType attT
     SpellEntry const* rank = WeaponmasterRank(warrior);
     if (!rank || BenefitOfHand(warrior, attType) != ArmsRules::WeaponmasterBenefit::Crit)
         return 0.0f;
-    return float(rank->CalculateSimpleValue(EFFECT_INDEX_2));
+
+    float const bonus = float(rank->CalculateSimpleValue(EFFECT_INDEX_2));
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Weaponmaster crit: %s +%.0f%% (%s hand)",
+        warrior->GetName(), bonus, attType == OFF_ATTACK ? "off" : "main");
+    return bonus;
 }
 
 void Forever::WeaponmasterArmor(Unit const* attacker, float& armor)
@@ -176,14 +182,23 @@ void Forever::WeaponmasterArmor(Unit const* attacker, float& armor)
     SpellEntry const* rank = WeaponmasterRank(warrior);
     if (!rank || BenefitOfHand(warrior, BASE_ATTACK) != ArmsRules::WeaponmasterBenefit::ArmorIgnore)
         return;
-    armor = ArmsRules::ArmorAfterIgnore(armor, float(rank->CalculateSimpleValue(EFFECT_INDEX_1)));
+    float const before = armor;
+    float const ignorePct = float(rank->CalculateSimpleValue(EFFECT_INDEX_1));
+    armor = ArmsRules::ArmorAfterIgnore(armor, ignorePct);
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Weaponmaster armor: %s ignores %.0f%%, %.0f -> %.0f",
+        warrior->GetName(), ignorePct, before, armor);
 }
 
 bool Forever::WeaponmasterBlocksProc(Unit const* owner, SpellEntry const* auraSpell, SpellEntry const* procSpell)
 {
-    return auraSpell && procSpell && IsOneOf(WeaponmasterRanks, auraSpell->Id) &&
-        procSpell->IsFitToFamily<SPELLFAMILY_WARRIOR, CF_WARRIOR_SHIELD_BASH, CF_WARRIOR_SHIELD_SLAM>() &&
-        IsForeverWarrior(owner);
+    if (!auraSpell || !procSpell || !IsOneOf(WeaponmasterRanks, auraSpell->Id) ||
+        !procSpell->IsFitToFamily<SPELLFAMILY_WARRIOR, CF_WARRIOR_SHIELD_BASH, CF_WARRIOR_SHIELD_SLAM>() ||
+        !IsForeverWarrior(owner))
+        return false;
+
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Weaponmaster: no sword proc from spell %u of %s",
+        procSpell->Id, owner->GetName());
+    return true;
 }
 
 bool Forever::SwingsThroughCast(Unit const* unit)
