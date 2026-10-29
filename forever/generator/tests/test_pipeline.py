@@ -175,6 +175,19 @@ def test_a_changed_base_ability_has_its_forever_values(out):
     assert (server[6572]["effectBasePoints1"], server[6572]["effectBaseDice1"], server[6572]["effectDieSides1"]) == ("19", "1", "5")
 
 
+def test_battle_shout_reaches_the_raid(out):
+    # jvbastel/WOWAI#215: each rank of Battle Shout targets the raid within the caster's range (56) and the
+    # caster (1), in place of the stock party within the caster's range (20). The raid target of the core
+    # leaves the caster out, so the caster comes from target B.
+    client, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    stock, _ = read_dbc(STOCK / "Spell.dbc")
+    server = server_spells(out)
+    for spell in (6673, 5242, 6192, 11549, 11550, 11551, 25289):
+        assert (stock[spell][82], stock[spell][85]) == (20, 0), spell
+        assert (client[spell][82], client[spell][85]) == (56, 1), spell
+        assert (server[spell]["effectImplicitTargetA1"], server[spell]["effectImplicitTargetB1"]) == ("56", "1"), spell
+
+
 def test_a_new_spell_is_a_copy_of_its_source_with_the_spec_values(out):
     client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
     stock, _ = read_dbc(STOCK / "Spell.dbc")

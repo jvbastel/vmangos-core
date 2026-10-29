@@ -28,7 +28,8 @@ FIELDS = {"category": 2, "attributes": 6, "attributesEx3": 9, "stances": 11, "ca
           "equippedItemClass": 58, "equippedItemSubClassMask": 59}
 for _k in range(3):
     for _name, _first in (("effect", 61), ("effectDieSides", 64), ("effectBaseDice", 67), ("effectBasePoints", 76),
-                          ("effectImplicitTargetA", 82), ("effectRadiusIndex", 88), ("effectApplyAuraName", 91),
+                          ("effectImplicitTargetA", 82), ("effectImplicitTargetB", 85),
+                          ("effectRadiusIndex", 88), ("effectApplyAuraName", 91),
                           ("effectItemType", 103), ("effectMiscValue", 106), ("effectTriggerSpell", 109)):
         FIELDS["%s%d" % (_name, _k + 1)] = _first + _k
 # A text field: the rank text of the spellbook ("Rank 2").
