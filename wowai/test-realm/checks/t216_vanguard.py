@@ -47,6 +47,9 @@ if mode not in ("forever", "vanilla"):
 realm = Realm()
 results = Results()
 realm.mark("t216 " + mode)
+if mode == "forever" and realm.sql("characters", "SELECT guid FROM characters WHERE name = '%s'" % NAME):
+    # A run again starts from a new character: the Charge ranks of an old run do not unlearn cleanly.
+    realm.soap(".character erase %s" % NAME)
 c = realm.login(ACCOUNT, NAME, race=2, cls=1, client_class=SpellClient)
 me = c.guid
 c.pump(2)
@@ -99,8 +102,6 @@ if mode == "forever":
     if level < LEVEL:
         c.gm(".levelup %d" % (LEVEL - level), select=me)
     c.gm(".reset talents", select=me)
-    for spell in CHARGE + VANGUARD_CHARGE:  # a second run starts clean
-        c.gm(".unlearn %d" % spell, select=me, wait=0.5)
     for spell in (DEFENSIVE_STANCE, CHARGE[0], CHARGE[1]):
         c.gm(".learn %d" % spell, select=me)
     c.set_button(BUTTON_CHARGE, CHARGE[1])
