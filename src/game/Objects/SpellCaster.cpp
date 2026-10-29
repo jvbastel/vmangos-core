@@ -27,6 +27,7 @@
 #include "WorldPacket.h"
 #include "Opcodes.h"
 #include "Utilities/Random.h"
+#include "ForeverFury.h"
 
 Unit* SpellCaster::SelectMagnetTarget(Unit* victim, Spell* spell, SpellEffectIndex eff)
 {
@@ -388,6 +389,9 @@ float SpellCaster::GetMeleeMissChance(Unit const* pVictim, WeaponAttackType attT
 
         // Bonuses from attacker aura and ratings
         hitChance += pUnit->GetWeaponBasedAuraModifier(attType, SPELL_AURA_MOD_HIT_CHANCE);
+
+        // Forever rules: Furious Precision, hit chance for off-hand attacks (jvbastel/WOWAI#218).
+        hitChance += Forever::OffHandHitBonus(pUnit, attType);
     }
 
     // There is some code in 1.12 that explicitly adds a modifier that causes the first 1% of +hit gained from

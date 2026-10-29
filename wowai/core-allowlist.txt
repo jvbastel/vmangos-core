@@ -73,3 +73,9 @@ src/game/Spells/SpellEffects.cpp
 # Spec hook 13: the Forever baseline spells and base abilities (WOWAI#212): one call in Player::GiveLevel
 # (Player.cpp, above), and the Forever Bloodthirst damage in the stock Bloodthirst script.
 src/scripts/spells/spell_warrior.cpp
+# Spec hook 13, #218 (Forever Fury talents): calls into src/game/Forever/ForeverFury.h for Lingering Rage
+# (Unit::Update at combat end, Player::RegenerateAll, above), Gore Drinker and Blood Craze
+# (Unit::DealDamage, above), Furious Precision (SpellCaster::GetMeleeMissChance) and the casts of
+# Gore Drinker and Improved Berserker Rage (Spell::cast).
+src/game/Objects/SpellCaster.cpp
+src/game/Spells/Spell.cpp

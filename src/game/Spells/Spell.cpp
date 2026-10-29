@@ -48,6 +48,7 @@
 #include "Geometry.h"
 #include "Anticheat.h"
 #include "Utilities/Random.h"
+#include "ForeverFury.h"
 
 using namespace Spells;
 
@@ -3801,6 +3802,9 @@ void Spell::cast(bool skipCheck)
             return;
         }
     }
+
+    // Forever rules: Gore Drinker and Improved Berserker Rage react to the cast (jvbastel/WOWAI#218).
+    Forever::OnSpellCast(m_casterUnit, m_spellInfo);
 
     if (m_casterUnit && IsMeleeAttackResetSpell() && !(m_spellInfo->AttributesEx2 & SPELL_ATTR_EX2_DO_NOT_RESET_COMBAT_TIMERS))
     {
