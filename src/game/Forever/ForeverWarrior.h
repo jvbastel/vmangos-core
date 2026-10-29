@@ -10,6 +10,7 @@
 
 #include "Common.h"
 
+class Player;
 class Unit;
 struct CleanDamage;
 class SpellEntry;
@@ -45,6 +46,14 @@ namespace Forever
     // Spell::EffectDummy, Deep Wounds: the tick damage of the new bleed (`tickDamage`) also gets the
     // damage that the caster's old bleed on `target` had not dealt yet (a rolling bleed).
     void DeepWoundsRoll(Unit* caster, Unit* target, int32& tickDamage);
+
+    // Aura::PeriodicTick, the rage regeneration of Anger Management: false when the Forever rules stop the
+    // tick (a Forever Warrior out of combat).
+    bool AngerManagementTicks(Unit const* target);
+
+    // Player::Regenerate, the out-of-combat rage loss of one tick (`loss`, in tenths): Anger Management
+    // makes it smaller for a Forever Warrior.
+    void RageDecay(Player const* player, float& loss);
 
     // Spell::EffectSchoolDMG: a Forever Warrior's Revenge adds a percent of its attack power to `damage`
     // (ForeverWarriorRules.h). The damage modifiers (Improved Revenge) apply to the sum later.

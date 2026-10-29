@@ -52,6 +52,22 @@ namespace WarriorRules
         return rage;
     }
 
+    // Anger Management (12296, client 70685): its rage regeneration ticks only in combat, and out of combat
+    // the rage loss is `reductionPct` (effect 2 of the talent, 30) smaller.
+    constexpr uint32_t AngerManagementSpell = 12296;
+
+    inline bool AngerManagementTicks(bool inCombat)
+    {
+        return inCombat;
+    }
+
+    // The rage that one out-of-combat decay tick takes (`stockLoss`, in tenths) with `reductionPct` off.
+    inline float RageDecay(float stockLoss, int32_t reductionPct)
+    {
+        int32_t const pct = reductionPct < 0 ? 0 : (reductionPct > 100 ? 100 : reductionPct);
+        return stockLoss * float(100 - pct) / 100.0f;
+    }
+
     // The attack power part of the Revenge damage.
     inline float RevengeAttackPowerBonus(float attackPower, bool defensiveStance)
     {

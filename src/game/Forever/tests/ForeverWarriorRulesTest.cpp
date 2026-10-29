@@ -55,6 +55,13 @@ int main()
     Near("at most the full duration of the old bleed rolls", DeepWoundsRolledTick(12.0f, 2.0f, 9), 5.0f);
     Near("a negative old tick adds nothing", DeepWoundsRolledTick(12.0f, -3.0f, 2), 3.0f);
 
+    // Anger Management: the out-of-combat rage loss (client 70685: 30% less).
+    Near("Anger Management loses 30% less rage out of combat", RageDecay(20.0f, 30), 14.0f);
+    Near("no Anger Management: the stock loss", RageDecay(20.0f, 0), 20.0f);
+    Near("a value above 100% never gives rage", RageDecay(20.0f, 150), 0.0f);
+    Near("the regeneration of Anger Management ticks in combat", AngerManagementTicks(true) ? 1.0f : 0.0f, 1.0f);
+    Near("the regeneration of Anger Management stops out of combat", AngerManagementTicks(false) ? 1.0f : 0.0f, 0.0f);
+
     // Revenge: attack power (client hotfix of Revenge, variable set 1024).
     Near("Revenge adds 25% of attack power", RevengeAttackPowerBonus(1000.0f, false), 250.0f);
     Near("Revenge adds 22.5% of attack power in Defensive Stance", RevengeAttackPowerBonus(1000.0f, true), 225.0f);

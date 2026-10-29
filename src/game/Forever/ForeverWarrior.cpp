@@ -34,17 +34,16 @@ namespace
     // Defensive Stance: Revenge takes a lower attack power percent in it.
     uint32 const DefensiveStanceSpell = 71;
 
-    // The off-hand rage percent of Dual Wield Specialization: effect 2 of the highest rank the Warrior has
-    // (10-50), or 0.
-    int32 OffHandRagePct(Player const* warrior)
+    // Effect `eff` of the highest rank in `ranks` that the Warrior has as an aura, or 0.
+    template <std::size_t N>
+    int32 TalentValue(Unit const* warrior, uint32 const (&ranks)[N], SpellEffectIndex eff)
     {
-        auto const& ranks = WarriorRules::DualWieldSpecializationRanks;
-        for (std::size_t i = sizeof(ranks) / sizeof(ranks[0]); i > 0; --i)
+        for (std::size_t i = N; i > 0; --i)
         {
             if (!warrior->HasAura(ranks[i - 1]))
                 continue;
             SpellEntry const* spellInfo = sSpellMgr.GetSpellEntry(ranks[i - 1]);
-            return spellInfo ? spellInfo->CalculateSimpleValue(EFFECT_INDEX_1) : 0;
+            return spellInfo ? spellInfo->CalculateSimpleValue(eff) : 0;
         }
         return 0;
     }
@@ -83,7 +82,9 @@ bool Forever::RewardSwingRage(Unit* attacker, CleanDamage const* cleanDamage)
         twoHand = weapon->GetProto()->InventoryType == INVTYPE_2HWEAPON;
     }
 
-    int32 const offHandRagePct = offHand ? OffHandRagePct(warrior) : 0;
+    // Dual Wield Specialization: effect 2 of the rank is the off-hand rage percent (10-50).
+    int32 const offHandRagePct = offHand ?
+        TalentValue(warrior, WarriorRules::DualWieldSpecializationRanks, EFFECT_INDEX_1) : 0;
     float const rage = WarriorRules::SwingRage(speedMs, twoHand, offHand, crit, offHandRagePct) *
         sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_RAGE_INCOME);
     uint32 const tenths = uint32(rage * 10);
@@ -193,4 +194,18 @@ void Forever::RevengeDamage(Unit* caster, SpellEntry const* spellProto, Unit* ta
     sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Revenge: %s spell %u %.0f + %.0f (attack power %.0f%s)",
         caster->GetName(), spellProto->Id, damage, bonus, attackPower, defensive ? ", Defensive Stance" : "");
     damage += bonus;
+}
+
+bool Forever::AngerManagementTicks(Unit const* target)
+{
+    return !IsForeverWarrior(target) || WarriorRules::AngerManagementTicks(target->IsInCombat());
+}
+
+void Forever::RageDecay(Player const* player, float& loss)
+{
+    if (!IsForeverWarrior(player))
+        return;
+    uint32 const angerManagement[] = { WarriorRules::AngerManagementSpell };
+    // Effect 2 of Anger Management: the percent less rage loss out of combat (30).
+    loss = WarriorRules::RageDecay(loss, TalentValue(player, angerManagement, EFFECT_INDEX_1));
 }

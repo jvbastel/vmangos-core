@@ -86,6 +86,7 @@
 #include "Forever.h"
 #include "ForeverProtection.h"
 #include "ForeverFury.h"
+#include "ForeverWarrior.h"
 
 #include <climits>
 
@@ -2317,6 +2318,8 @@ void Player::Regenerate(Powers power)
         {
             float RageDecreaseRate = sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_RAGE_LOSS);
             addValue = 20 * RageDecreaseRate;               // 2 rage by tick (= 2 seconds => 1 rage/sec)
+            // Forever rules: Anger Management makes the loss smaller (client 70685, jvbastel/WOWAI#204).
+            Forever::RageDecay(this, addValue);
         }
         break;
         case POWER_ENERGY:                                  // Regenerate energy (rogue)

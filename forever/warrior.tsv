@@ -48,6 +48,8 @@
 #     (our choice, as the normalized rage of TBC), times 1.1-1.5 with Dual Wield Specialization 1-5 (client
 #     70685). A dodge or parry gives no rage (stock: 75% of the damage). A fully absorbed swing gives none, as
 #     in stock; other direct damage gives none. Rate.Rage.Income counts.
+#   Rage loss out of combat stays stock (1 Rage per sec, Rate.Rage.Loss), 30% less with Anger Management, whose
+#     1 Rage every 3 sec now ticks only in combat (client 70685). Lingering Rage delays the loss (#218).
 #     Rage from damage taken stays stock (the fixed armor reduction of the 8 Oct notes has no published table).
 #   Warrior DoT crits: a tick of the Warrior's own Rend or Deep Wound rolls the main hand melee crit chance
 #     (plus crit chance talents of the spell) and deals x2, plus crit damage talents such as Impale. Ticks of
@@ -98,7 +100,7 @@ talent	127	arms	1	3	3	0	0	Improved Rend	245	data	12286,12658,12659	12286,12658,1
 talent	126	arms	2	1	2	0	0	Improved Charge	457	data	12285,12697	12285,12697	-	-	-	-	-	Stock talent.
 talent	641	arms	2	2	5	0	0	Improved Tactical Mastery	139	C++	12295,12676,12677,12678,12679	12295,12676,12677,12678,12679	3/6/9/12/15	-	-	effectApplyAuraName1=4;effectMiscValue1=0	Tactical Mastery lets you retain up to an additional $s1 Rage when you change stances.	Was Tactical Mastery (5-25 Rage through the class script 831-835). The stance change keeps the 10 Rage of baseline Tactical Mastery plus $s1 (C++ #217: Forever::KeepStanceRage in src/game/Forever/ForeverArms.cpp).
 talent	131	arms	2	4	2	0	0	Improved Overpower	1464	data	12290,12963	12290,12963	-	-	-	-	-	Stock values. Moved from tier 3 column 1.
-talent	137	arms	3	2	1	641	5	Anger Management	238	data	12296	12296	-	-	-	-	-	Stock spell (Blizzard: no change of function). Prerequisite Improved Tactical Mastery 5/5.
+talent	137	arms	3	2	1	641	5	Anger Management	238	C++	12296	12296	-	30	-	-	Generates 1 Rage every 3 sec while in combat, and reduces Rage loss while out of combat by $s2%.	Stock rage regeneration (1 Rage every 3 sec), now in combat only, and 30% less Rage loss out of combat (client 70685: effect 4 DUMMY 30; Blizzard said no change of function). Effect 2 holds the 30 only. Server code: Forever::AngerManagementTicks (Aura::PeriodicTick) and Forever::RageDecay (Player::Regenerate) in src/game/Forever/ForeverWarrior.cpp. Prerequisite Improved Tactical Mastery 5/5.
 talent	121	arms	3	3	3	127	3	Deep Wounds	243	data	12834,12849,12867	12834,12849,12867	-	-	-	-	-	Stock 20/40/60%. Forever rolls the bleed (no AP scaling) and lets its ticks crit: #214 (see Warrior mechanics in the header).
 talent	60000	arms	4	1	1	0	0	Spearing Strike	1721	C++	60100	12294	0	40	2	effect1=121;effectApplyAuraName1=0;effect2=31;effectImplicitTargetA2=6;effect3=3;effectImplicitTargetA3=6;effectMiscValue1=0;category=0;categoryRecoveryTime=0;recoveryTime=20000;manaCost=150;stances=0x10000;baseLevel=1;spellLevel=1	A brutal attack that deals $s2% weapon damage. Deals an additional 80% weapon damage against Giants, Dragonkin and mounted targets. Mounted targets are dismounted.	New 16-point talent. 15 Rage, 20 sec cooldown, Battle Stance, any melee weapon. Bonus x(1 + $s3) of the 40% against Giants, Dragonkin and mounted targets, and the dismount (C++ #217: Forever::SpearingStrike on the dummy effect 3). It keeps the Mortal Strike family flag of its source, so Focused Rage reaches it.
 talent	136	arms	4	2	3	0	0	Two-Handed Weapon Specialization	366	data	12163,12711,12712	12163,12711,12712	-	-	-	-	-	Stock ranks 1-3 (was 5 ranks).
