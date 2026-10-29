@@ -168,6 +168,7 @@ namespace Bots
 
                 // The damage on the focus target.
                 CloseInRule(P + 70),
+                TargetSightRule(P + 70),
                 CastRule("fire blast", P + 65,
                     [](BotContext const& context) {
                         Health const health = context.view.GetHealth(PickDamageTarget(context));

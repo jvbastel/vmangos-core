@@ -3,6 +3,7 @@
 #include "GroupRules.h"
 #include "KeepOut.h"
 #include "MageModule.h"
+#include "SafePlace.h"
 
 #include <algorithm>
 #include <vector>
@@ -210,6 +211,44 @@ namespace Bots
         rule.action.canDo = [](BotContext const&) { return true; };
         rule.action.run = [](BotContext const& context) {
             context.actions.ChaseToRange(PickDamageTarget(context), RangedStandYards);
+        };
+        return rule;
+    }
+
+    namespace
+    {
+        // jvbastel/WOWAI#160: the damage target of a ranged bot that casts
+        // nothing, in casting range and out of its sight, else NoGuid.
+        Guid TargetOutOfSight(BotContext const& context)
+        {
+            BotView const& view = context.view;
+            Guid const self = view.GetSelf();
+            Guid const target = PickDamageTarget(context);
+            if (target == NoGuid || view.GetCurrentCast(self) != NoSpell
+                || view.GetSpellDistance(target) > CastingRangeYards
+                || view.CanSeeFrom(view.GetPosition(self), target))
+                return NoGuid;
+            return target;
+        }
+    }
+
+    Rule TargetSightRule(int priority)
+    {
+        Rule rule;
+        rule.name = TargetSightRuleName;
+        rule.priority = priority;
+        rule.trigger = [](BotContext const& context) { return TargetOutOfSight(context) != NoGuid; };
+        rule.action.canDo = [](BotContext const&) { return true; };
+        rule.action.run = [](BotContext const& context) {
+            BotView const& view = context.view;
+            Guid const target = TargetOutOfSight(context);
+            std::vector<NearEnemy> const keepOutOf =
+                EnemiesOutsideTheFight(view, view.GetPosition(target), FightTarget(context));
+            Position spot;
+            if (FindSafeCastPlace(view, target, RangedStandYards, spot, nullptr, nullptr, &keepOutOf))
+                context.actions.KeepMovingTo(spot);
+            else
+                context.actions.ChaseToRange(target, RangedStandYards);
         };
         return rule;
     }
