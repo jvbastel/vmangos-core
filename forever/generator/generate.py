@@ -5,7 +5,8 @@
         --stock <extracted-data>/5875/dbc --out <folder>
 
 Writes <folder>/dbc (the Forever DBC folder, Forever.DataDir), <folder>/client/DBFilesClient (the DBCs of
-the client data patch) and <folder>/sql/forever_world.sql (the Forever server tables). The same spec and
+the client data patch), <folder>/client/client-data-patch.MPQ (the client data patch) and
+<folder>/sql/forever_world.sql (the Forever server tables). The same spec and
 stock files give the same bytes. A spec that breaks a rule stops it with an error and no output.
 Standard library only, so that the test realm kit runs it with the system Python.
 """

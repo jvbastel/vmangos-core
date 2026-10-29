@@ -149,3 +149,12 @@ def test_two_runs_give_the_same_bytes(out, tmp_path):
     assert first == second
     for path in first:
         assert (out / path).read_bytes() == (again / path).read_bytes(), path
+
+
+def test_the_client_data_patch_holds_the_client_tables(out):
+    import mpyq
+    archive = mpyq.MPQArchive(str(out / "client" / "client-data-patch.MPQ"), listfile=True)
+    names = sorted(name.decode() for name in archive.files)
+    assert names == ["DBFilesClient\\Spell.dbc", "DBFilesClient\\Talent.dbc", "DBFilesClient\\TalentTab.dbc"]
+    for name in names:
+        assert archive.read_file(name) == (out / "client" / name.replace("\\", "/")).read_bytes(), name
