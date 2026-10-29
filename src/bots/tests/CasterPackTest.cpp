@@ -505,6 +505,8 @@ namespace
             group.StartPull(Tank, Shaman);
             group.HoldPull(Tank, 0);
             group.SetFocusTarget(Shaman);
+            // As the bot AI sets it on each think.
+            group.SetMemberRole(Rogue, Bots::BotRole::Melee);
         }
 
         // The tank holds threat: contact at 0 ms, held at HoldContactMs.
@@ -528,7 +530,7 @@ TEST(CasterPack, AMeleeBotHitsTheFocusThatTheTankHoldsInTheReachOfAnotherPack)
     ASSERT_TRUE(Bots::InOtherPacksReach(context, AtTheShaman));
 
     EXPECT_EQ(Bots::PickMeleeDamageTarget(context), Shaman);
-    EXPECT_EQ(Bots::NoDamageTargetReason(context, true), nullptr);
+    EXPECT_EQ(Bots::WhyNoDamageTarget(context, true), Bots::NoDamageTarget::None);
 }
 
 TEST(CasterPack, TheKeepOutRuleLetsAMeleeBotStayOnTheFocusThatTheTankHoldsThere)
@@ -546,6 +548,47 @@ TEST(CasterPack, TheKeepOutRuleLetsAMeleeBotStayOnTheFocusThatTheTankHoldsThere)
     EXPECT_NE(stack.Think(context), Bots::KeepOutRule);
 }
 
+// Code review of the fix: the reach is the aggro distance and a margin, so
+// the rogue that walks in to the focus enters it before melee contact. The
+// keep-out rule lets it walk on: else it steps out, and the chase takes it
+// back in.
+TEST(CasterPack, TheKeepOutRuleLetsAMeleeBotWalkInToTheFocusThatTheTankHoldsThere)
+{
+    TankInOtherPackReach fight(AtTheShaman);
+    fight.fake.SetVictim(fight.Rogue, Shaman);
+    fight.fake.SetDistanceBetween(fight.Rogue, Shaman, 10.0f);
+    Bots::BotContext const context = fight.Context();
+    Bots::StrategyStack const stack = Bots::MakeStrategyStack(Bots::BotClass::Rogue, Bots::BotRole::Melee);
+
+    EXPECT_NE(stack.Think(context), Bots::KeepOutRule);
+}
+
+// The exception is for melee members only: a ranged member next to the
+// focus steps out, as it can cast from out of the reach.
+TEST(CasterPack, TheKeepOutRuleStepsARangedMemberOutNextToTheFocusThatTheTankHoldsThere)
+{
+    TankInOtherPackReach fight(AtTheShaman);
+    fight.group.SetMemberRole(fight.Rogue, Bots::BotRole::Ranged);
+    fight.fake.SetVictim(fight.Rogue, Shaman);
+    fight.fake.SetDistanceBetween(fight.Rogue, Shaman, 1.0f);
+    Bots::BotContext const context = fight.Context();
+    Bots::StrategyStack const stack = Bots::MakeStrategyStack(Bots::BotClass::Rogue, Bots::BotRole::Melee);
+
+    EXPECT_EQ(stack.Think(context), Bots::KeepOutRule);
+}
+
+// The tank stands out of the reach: the melee bot on the focus steps out.
+TEST(CasterPack, TheKeepOutRuleStepsAMeleeBotOutWhenTheTankStandsOutOfTheReach)
+{
+    TankInOtherPackReach fight(PullPack9);
+    fight.fake.SetVictim(fight.Rogue, Shaman);
+    fight.fake.SetDistanceBetween(fight.Rogue, Shaman, 1.0f);
+    Bots::BotContext const context = fight.Context();
+    Bots::StrategyStack const stack = Bots::MakeStrategyStack(Bots::BotClass::Rogue, Bots::BotRole::Melee);
+
+    EXPECT_EQ(stack.Think(context), Bots::KeepOutRule);
+}
+
 // The tank stands out of the reach (the fake contact stays): the melee bot
 // leaves the focus, and says why.
 TEST(CasterPack, AMeleeBotLeavesTheFocusInTheReachOfAnotherPackWhenTheTankStandsOutOfIt)
@@ -555,7 +598,7 @@ TEST(CasterPack, AMeleeBotLeavesTheFocusInTheReachOfAnotherPackWhenTheTankStands
     ASSERT_FALSE(Bots::InOtherPacksReach(context, PullPack9));
 
     EXPECT_EQ(Bots::PickMeleeDamageTarget(context), Bots::NoGuid);
-    EXPECT_STREQ(Bots::NoDamageTargetReason(context, true), "the target stands in the reach of another pack");
+    EXPECT_EQ(Bots::WhyNoDamageTarget(context, true), Bots::NoDamageTarget::InOtherPacksReach);
     // A ranged bot has no reach rule on its target.
     EXPECT_EQ(Bots::PickDamageTarget(context), Shaman);
 }

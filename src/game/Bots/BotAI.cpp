@@ -730,11 +730,12 @@ void BotAI::Think()
     // log shows only what the bot does.
     if (IsDamageBot())
     {
-        char const* const why = me->IsInCombat()
-            ? Bots::NoDamageTargetReason(context, m_role == Bots::BotRole::Melee) : nullptr;
-        if (why && why != m_lastNoTargetReason)
-            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s has no damage target: %s", me->GetName(), why);
-        m_lastNoTargetReason = why;
+        Bots::NoDamageTarget const why = me->IsInCombat()
+            ? Bots::WhyNoDamageTarget(context, m_role == Bots::BotRole::Melee) : Bots::NoDamageTarget::None;
+        if (why != Bots::NoDamageTarget::None && why != m_lastNoTarget)
+            sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Bots] %s has no damage target: %s", me->GetName(),
+                Bots::NoDamageTargetText(why));
+        m_lastNoTarget = why;
     }
     // The member spots of a pull (MemberSpot.h), for the log: the spot of
     // a bot that sets out to it, and the bots that the tank did not wait for

@@ -66,14 +66,30 @@ namespace Bots
     // back in: a loop. The member that the enemy hits steps out itself and
     // brings it along, as for the loose enemies that the tank takes.
     // The exception: the tank holds the target in that reach
-    // (TankHoldsItInOtherPacksReach), and the keep-out rule lets the bot
+    // (TankHoldsEnemyInOtherPacksReach), and the keep-out rule lets the bot
     // hit it there.
     Guid PickMeleeDamageTarget(BotContext const& context);
 
+    // Why a damage bot has no damage target, for the log.
+    enum class NoDamageTarget
+    {
+        None, // It has one.
+        NoFocus,
+        TankHoldsNoThreat,
+        TankDeadNoLooseEnemy,
+        WaitForTaunt,
+        BeyondChaseLimit,
+        FocusFrozen,
+        HoldsBackOnThreat,
+        InOtherPacksReach, // Melee only.
+    };
+
     // Why PickDamageTarget (with `melee`, PickMeleeDamageTarget) has no
-    // target now, for the log: for example the focus that waits for its
-    // taunt. nullptr when it has a target.
-    char const* NoDamageTargetReason(BotContext const& context, bool melee);
+    // target now: the same checks in the same order.
+    NoDamageTarget WhyNoDamageTarget(BotContext const& context, bool melee);
+
+    // The reason in words, for the log line.
+    char const* NoDamageTargetText(NoDamageTarget why);
 
     // True when the bot has a damage target now.
     bool HasDamageTarget(BotContext const& context);

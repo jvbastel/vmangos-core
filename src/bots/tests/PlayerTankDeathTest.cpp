@@ -5,6 +5,7 @@
 #include "FakeBot.h"
 #include "GroupCoordinator.h"
 #include "HealerSight.h"
+#include "MageModule.h"
 #include "PlayerTank.h"
 #include "PriestModule.h"
 
@@ -440,4 +441,21 @@ TEST(PlayerTankDeath, ADamageBotOverTheThrottleAttacksTheFocusOnceTheTankIsDead)
         bot.Watch();
         EXPECT_NE(target(), Kobold) << "bot " << self;
     }
+}
+
+// Code review of the no-target log: with the tank dead, the reason is not
+// that the tank does not hold threat. The frozen focus stays held (HoldsFireOn).
+TEST(PlayerTankDeath, WithTheTankDeadTheReasonForNoTargetIsTheFrozenFocus)
+{
+    PlayerTankBot bot(Mage, Bots::BotClass::Mage, Bots::BotRole::Ranged);
+    bot.InFight();
+    bot.Die(Human);
+    bot.fake.SetVictim(Kobold, Healer);
+    bot.fake.SetAura(Kobold, Bots::Mage::FrostNova);
+    bot.Watch();
+    BotContext context{bot.fake, bot.fake, bot.group, Bots::CommandState::Follow, Human};
+    context.nowMs = bot.nowMs;
+
+    EXPECT_EQ(Bots::PickDamageTarget(context), NoGuid);
+    EXPECT_EQ(Bots::WhyNoDamageTarget(context, false), Bots::NoDamageTarget::FocusFrozen);
 }

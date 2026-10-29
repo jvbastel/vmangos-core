@@ -18,6 +18,7 @@
 #include "BotRecipe.h"
 #include "CommandState.h"
 #include "CoordinatorChoice.h"
+#include "DamageRules.h"
 #include "GroupCoordinator.h"
 #include "GroupTank.h"
 #include "Inbox.h"
@@ -140,9 +141,9 @@ class BotAI : public PlayerBotAI
         // The rule of the last think that did something, for the debug log.
         std::string m_lastRule;
         // Why the damage bot had no damage target in a fight at the last
-        // think (NoDamageTargetReason, DamageRules.h), for the log of each
-        // change. A string literal, or nullptr.
-        char const* m_lastNoTargetReason = nullptr;
+        // think (WhyNoDamageTarget, DamageRules.h), for the log of each
+        // change.
+        Bots::NoDamageTarget m_lastNoTarget = Bots::NoDamageTarget::None;
         // The coordinator of a bot without a group.
         Bots::GroupCoordinator m_soloCoordinator;
         // The bot is in a group but on another map than the leader: it uses

@@ -74,11 +74,10 @@ namespace Bots
             // warn, and the tank that goes in for the healer after its warn.
             if ((pull.goesIn && pull.puller == member) || TankHitsAnAddOfTheHealer(context, member))
                 return {};
-            // A melee member on an enemy that the tank holds in this reach.
-            Guid const victim = context.view.GetVictim(member);
-            if (member != context.group.GetTank() && victim != NoGuid
-                && context.view.GetDistanceBetween(member, victim) <= MeleeContactYards
-                && TankHoldsItInOtherPacksReach(context, victim))
+            // A melee member on an enemy that the tank holds in this reach,
+            // also on its way in: the reach begins before melee contact.
+            if (member != context.group.GetTank() && context.group.HasRole(member, BotRole::Melee)
+                && TankHoldsEnemyInOtherPacksReach(context, context.view.GetVictim(member)))
                 return {};
             // One reach rule with the fight spot search (FightSpot.h): it
             // chose the puller's fight spot and its shot, and warned when
@@ -155,7 +154,7 @@ namespace Bots
             && InOtherPacksReach(context, context.view.GetPosition(enemy)) && StuckInOtherPacksReach(context, healer);
     }
 
-    bool TankHoldsItInOtherPacksReach(BotContext const& context, Guid enemy)
+    bool TankHoldsEnemyInOtherPacksReach(BotContext const& context, Guid enemy)
     {
         Guid const tank = context.group.GetTank();
         return IsAlive(context.view, tank) && context.view.GetVictim(enemy) == tank

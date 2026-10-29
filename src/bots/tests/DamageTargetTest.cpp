@@ -103,14 +103,14 @@ TEST(DamageTarget, WaitsWhileTheFocusOutsideAPullHitsAnotherMember)
     BotContext const context{bot.fake, bot.fake, bot.group, Bots::CommandState::Follow, 0x1};
 
     EXPECT_EQ(bot.Target(), NoGuid);
-    // The log says why (NoDamageTargetReason), for ranged and melee bots.
-    EXPECT_STREQ(Bots::NoDamageTargetReason(context, false), "the focus hits another member: wait for the taunt");
-    EXPECT_STREQ(Bots::NoDamageTargetReason(context, true), "the focus hits another member: wait for the taunt");
+    // The log says why (WhyNoDamageTarget), for ranged and melee bots.
+    EXPECT_EQ(Bots::WhyNoDamageTarget(context, false), Bots::NoDamageTarget::WaitForTaunt);
+    EXPECT_EQ(Bots::WhyNoDamageTarget(context, true), Bots::NoDamageTarget::WaitForTaunt);
 
     bot.fake.SetVictim(Wolf, Tank);
 
     EXPECT_EQ(bot.Target(), Wolf);
-    EXPECT_EQ(Bots::NoDamageTargetReason(context, false), nullptr);
+    EXPECT_EQ(Bots::WhyNoDamageTarget(context, false), Bots::NoDamageTarget::None);
 }
 
 TEST(DamageTarget, WithNoFocusTheReasonIsTheMissingFocus)
@@ -118,7 +118,7 @@ TEST(DamageTarget, WithNoFocusTheReasonIsTheMissingFocus)
     DamageBot bot;
     BotContext const context{bot.fake, bot.fake, bot.group, Bots::CommandState::Follow, 0x1};
 
-    EXPECT_STREQ(Bots::NoDamageTargetReason(context, false), "no living focus");
+    EXPECT_EQ(Bots::WhyNoDamageTarget(context, false), Bots::NoDamageTarget::NoFocus);
 }
 
 // The taunt does not come (the tank cannot cast it): the damage bots attack
@@ -232,6 +232,32 @@ TEST(DamageTarget, LeavesAnEnemyOnAGroupMemberToTheLivingTank)
 
 // The tank died in its fight: its focus is gone, and its pack beats the
 // healer (WOWAI#93, Ragefire Chasm pack 9).
+// Each reason has words for the log line; None (a target) has none.
+TEST(DamageTarget, EachNoTargetReasonHasWordsForTheLog)
+{
+    using Bots::NoDamageTarget;
+    EXPECT_STREQ(Bots::NoDamageTargetText(NoDamageTarget::None), "");
+    for (NoDamageTarget why : {NoDamageTarget::NoFocus, NoDamageTarget::TankHoldsNoThreat,
+             NoDamageTarget::TankDeadNoLooseEnemy, NoDamageTarget::WaitForTaunt, NoDamageTarget::BeyondChaseLimit,
+             NoDamageTarget::FocusFrozen, NoDamageTarget::HoldsBackOnThreat, NoDamageTarget::InOtherPacksReach})
+        EXPECT_STRNE(Bots::NoDamageTargetText(why), "") << int(why);
+}
+
+// Code review of the no-target log: the dead tank holds no threat, and no
+// enemy is loose. The reason says so, not that the tank holds no threat yet.
+TEST(DamageTarget, WithTheTankDeadAndNoLooseEnemyTheReasonSaysSo)
+{
+    DamageBot bot;
+    bot.fake.SetHealth(Tank, 0, 600);
+    bot.group.SetTank(Tank);
+    bot.group.StartPull(Tank, Wolf);
+    bot.group.SetFocusTarget(Wolf);
+    BotContext const context{bot.fake, bot.fake, bot.group, Bots::CommandState::Follow, 0x1};
+
+    EXPECT_EQ(Bots::PickDamageTarget(context), NoGuid);
+    EXPECT_EQ(Bots::WhyNoDamageTarget(context, false), Bots::NoDamageTarget::TankDeadNoLooseEnemy);
+}
+
 TEST(DamageTarget, AttacksAnEnemyOnAGroupMemberWhenTheTankIsDead)
 {
     DamageBot bot;
