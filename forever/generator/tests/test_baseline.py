@@ -19,6 +19,9 @@ ARMS, FURY = 26, 256
 # SkillLineAbility.dbc 1.12.1: 0 ID, 1 SkillLine, 2 Spell, 3 RaceMask, 4 ClassMask, 8 SupersededBy.
 SLA_SKILL, SLA_SPELL, SLA_CLASS, SLA_SUPERSEDED = 1, 2, 4, 8
 WARRIOR_MASK = 1
+# Spell.dbc column 6 (Attributes); 0x80 SPELL_ATTR_DO_NOT_DISPLAY. New spells start at the free ID range.
+SPELL_ATTRIBUTES, DO_NOT_DISPLAY = 6, 0x80
+PARRY, FIRST_NEW_SPELL = 3127, 60000
 
 
 @pytest.fixture(scope="module")
@@ -91,22 +94,23 @@ def test_tactical_mastery_keeps_10_rage_through_the_stance_class_script(out):
     assert (server["effectApplyAuraName1"], server["effectMiscValue1"]) == ("112", "832")
 
 
-def test_every_spellbook_ability_is_shown_in_the_spellbook(out):
+def test_every_new_spellbook_ability_is_shown_in_the_spellbook(out):
     # SPELL_ATTR_DO_NOT_DISPLAY (0x80) hides a spell from the client spellbook. Tactical Mastery is a copy
     # of a hidden passive aura (16462), so it was learned but not shown. A server row without its own
     # attributes keeps those of its source spell, as the client row does.
     client, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
     server = server_spells(out)
     for spell in client_abilities(out):
-        if spell >= 60000:
-            server_attributes = int(server[spell].get("attributes", client[spell][6]))
-            assert not client[spell][6] & 0x80 and not server_attributes & 0x80, spell
+        if spell >= FIRST_NEW_SPELL:
+            server_attributes = int(server[spell].get("attributes", client[spell][SPELL_ATTRIBUTES]))
+            assert not client[spell][SPELL_ATTRIBUTES] & DO_NOT_DISPLAY, spell
+            assert not server_attributes & DO_NOT_DISPLAY, spell
 
 
 def test_tactical_mastery_is_a_passive_like_parry(out):
     # Parry (3127) and Dual Wield (674): ability 0x10 and passive 0x40, shown in the spellbook as Passive.
     client, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
-    assert client[TACTICAL_MASTERY][6] == client[3127][6] == 0x50
+    assert client[TACTICAL_MASTERY][SPELL_ATTRIBUTES] == client[PARRY][SPELL_ATTRIBUTES] == 0x50
 
 
 def test_slam_is_not_pushed_back(out):
