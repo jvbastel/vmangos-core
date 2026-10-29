@@ -22,8 +22,8 @@ NO_TREE = "-"
 
 # The spell_template columns that the `set` column may change, with their field index in Spell.dbc 1.12.1.
 # The two tables have the same order (Spell.dbc has no `build` column and holds 8 locales per string).
-FIELDS = {"category": 2, "attributes": 6, "stances": 11, "casterAuraState": 16, "castingTimeIndex": 18,
-          "recoveryTime": 19, "categoryRecoveryTime": 20, "procFlags": 24, "procChance": 25, "procCharges": 26,
+FIELDS = {"category": 2, "attributes": 6, "attributesEx3": 9, "stances": 11, "casterAuraState": 16, "castingTimeIndex": 18,
+          "recoveryTime": 19, "categoryRecoveryTime": 20, "interruptFlags": 21, "procFlags": 24, "procChance": 25, "procCharges": 26,
           "baseLevel": 28, "spellLevel": 29, "durationIndex": 30, "manaCost": 32, "rangeIndex": 36,
           "equippedItemClass": 58, "equippedItemSubClassMask": 59,
           # 64 bits: Spell.dbc holds the low word here and the high word in the next field.
@@ -42,6 +42,17 @@ NAME_SUBTEXT = "nameSubtext"
 PROC_EVENT = "procEvent."
 PROC_EVENT_COLUMNS = ("SchoolMask", "SpellFamilyName", "SpellFamilyMask0", "SpellFamilyMask1", "SpellFamilyMask2",
                       "procFlags", "procEx", "Cooldown")
+# A text field of the server row only: the script of the spell (spell_template.script_name). The core
+# binds only script names that a stock table has, so a Forever row can keep its stock script or drop it.
+SCRIPT_NAME = "scriptName"
+# The learning keys (#212), not spell columns:
+#   skillLine     a new spell gets a skill line ability (ID = the spell ID) in this skill line, for the
+#                 Warrior: the spellbook tab, and the spell chain of its ability (SpellMgr::LoadSpellChains)
+#   supersededBy  the next rank of the skill line ability; default: the next spell of the row, else none
+#   baseline      1: the core teaches the spell at its spellLevel with no trainer (forever_baseline_spell)
+SKILL_LINE, SUPERSEDED_BY, BASELINE = "skillLine", "supersededBy", "baseline"
+TEXT_KEYS = (NAME_SUBTEXT, SCRIPT_NAME)
+GENERATOR_KEYS = TEXT_KEYS + (SKILL_LINE, SUPERSEDED_BY, BASELINE)
 
 COLUMNS = ("kind", "talentId", "tree", "tier", "column", "ranks", "requiredTalent", "requiredRank", "name",
            "icon", "port", "spells", "sourceSpells", "effect1", "effect2", "effect3", "set", "tooltip", "notes")
@@ -77,11 +88,11 @@ def _fields(where, text, ranks):
         proc_event = name.startswith(PROC_EVENT)
         if proc_event and name[len(PROC_EVENT):] not in PROC_EVENT_COLUMNS:
             raise SpecError("%s: unknown proc event column '%s'" % (where, name))
-        if not proc_event and name not in FIELDS and name != NAME_SUBTEXT:
+        if not proc_event and name not in FIELDS and name not in GENERATOR_KEYS:
             raise SpecError("%s: unknown set field '%s'" % (where, name))
         if proc_event and "/" in value:
             raise SpecError("%s: %s takes one value for all ranks" % (where, name))
-        fields[name] = _per_rank("%s %s" % (where, name), value, ranks, str if name == NAME_SUBTEXT else _int)
+        fields[name] = _per_rank("%s %s" % (where, name), value, ranks, str if name in TEXT_KEYS else _int)
     return fields
 
 

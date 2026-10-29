@@ -43,7 +43,8 @@ namespace Forever
 
     // SpellMgr::LoadSpells, after the stock rows: with the rules on, loads each forever_spell_template
     // row through `load` (which replaces the stock spell of that ID or adds a new one), after
-    // `resize(maxId + 1)` makes room for the highest Forever spell ID.
+    // `resize(maxId + 1)` makes room for the highest Forever spell ID. Then reads the baseline spells
+    // (LoadBaselineSpells).
     void LoadSpellTemplate(std::function<void(uint32)> const& resize, std::function<void(Field*)> const& load);
 
     // LoadDBCStores, after the talent tables: with the rules on, keeps the talent spells of the stock
@@ -56,6 +57,7 @@ namespace Forever
     // stores the rules that each character last logged in under (characters table forever_character).
     // On a login under other rules, a Warrior gets a talent reset and loses the spells that are not in
     // the active rule set, and those spells leave its action bars. Then the character is saved.
+    // On a Forever login, a Warrior also learns the baseline spells of its level (LearnBaselineSpells).
     void OnLogin(Player* player, MasterPlayer* master);
 
     // Vanguard (Vanguard.cpp, WOWAI#216): the talent swaps Charge for Vanguard Charge, which the client
@@ -70,6 +72,16 @@ namespace Forever
     // The rules switch to vanilla (RulesSwitch.cpp), at login: the highest stock Charge rank comes back
     // in the spellbook and on the buttons of the Vanguard Charge that the vanilla core no longer knows.
     void GiveBackStockCharge(Player* player);
+
+    // The baseline spells of the Forever rules (Baseline.cpp, WOWAI#212): the spells that a Warrior learns
+    // at their spell level with no trainer visit, for example Victory Rush. The generator lists them in
+    // the world table forever_baseline_spell. With the rules on, reads them once at startup.
+    void LoadBaselineSpells();
+
+    // With the rules on, teaches a Warrior each baseline spell of its level that it does not know (a
+    // disabled one is enabled again). Player::GiveLevel and the login (OnLogin) call it. Returns the
+    // number of spells learned.
+    uint32 LearnBaselineSpells(Player* player);
 }
 
 #endif
