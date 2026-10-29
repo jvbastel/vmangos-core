@@ -323,3 +323,15 @@ def test_the_fury_buffs_are_visible_dummy_auras_with_their_duration_and_charges(
         assert (row[61], row[91], row[82]) == (6, 4, 1), spell     # apply aura DUMMY on the caster
         assert (row[30], row[24], row[26]) == (duration, 0, charges), spell
         assert int(server[spell]["durationIndex"]) == duration, spell
+
+
+def test_no_new_forever_spell_is_a_channel(out):
+    # A Forever buff copied from a channeled source (17189 has attributesEx 0x4 and interrupt flags) is a
+    # channel in the core: the next move or cast ends it (Victorious #213, Lingering Rage and Gore Drinker #218).
+    ATTRIBUTES_EX, CHANNELED = 7, 0x4
+    rows, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    channels = sorted(i for i, row in rows.items() if i >= 60100 and row[ATTRIBUTES_EX] & CHANNELED)
+    assert channels == []
+    server = server_spells(out)
+    channels = sorted(i for i, row in server.items() if i >= 60100 and int(row.get("attributesEx", 0)) & CHANNELED)
+    assert channels == []
