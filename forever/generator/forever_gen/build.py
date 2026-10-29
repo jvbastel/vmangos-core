@@ -14,7 +14,7 @@ import struct
 from . import client_patch, rules
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
-                   SUPERSEDED_BY, proc_event, talents)
+                   SUPERSEDED_BY, THREAT, proc_event, talents)
 
 # TalentTab.dbc IDs of the Warrior trees.
 WARRIOR_TABS = rules.WARRIOR_TABS
@@ -33,7 +33,7 @@ SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 # The world database build of the Forever rows (SUPPORTED_CLIENT_BUILD of the core).
 CLIENT_BUILD = 5875
 FOREVER_TABLES = ("forever_spell_template", "forever_spell_chain", "forever_spell_proc_event",
-                  "forever_skill_line_ability")
+                  "forever_skill_line_ability", "forever_spell_threat")
 # The spells that the core teaches a Warrior at their spellLevel, with no trainer (#212). Only the generated
 # SQL makes this table: the core reads it only with Forever.Rules = 1.
 BASELINE_TABLE = "forever_baseline_spell"
@@ -219,9 +219,23 @@ def server_sql(spec, spells, stock):
         ]
     for row in spec.rows:
         lines += proc_event_sql(row)
+    lines += _server_threat(spec)
     lines += _server_skill_line_abilities(skill_line_abilities(spec))
     lines += _server_baseline(baseline_spells(spec))
     return "\n".join(lines) + "\n"
+
+
+def _server_threat(spec):
+    """The forever_spell_threat rows: the flat threat of each rank of a row with the `threat` key. The core
+    reads them over the stock spell_threat rows by entry (multiplier and build range: the table defaults)."""
+    lines = []
+    for row in spec.rows:
+        if THREAT not in row.fields:
+            continue
+        lines += ["", "-- %s: the flat threat of each rank." % row.name,
+                  "INSERT INTO `forever_spell_threat` (`entry`, `threat`) VALUES %s;" % ", ".join(
+                      "(%d, %d)" % (spell, threat) for spell, threat in zip(row.spells, row.fields[THREAT]))]
+    return lines
 
 
 def _server_skill_line_abilities(abilities):

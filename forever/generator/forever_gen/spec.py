@@ -57,8 +57,11 @@ SCRIPT_NAME = "scriptName"
 #   supersededBy  the next rank of the skill line ability; default: the next spell of the row, else none
 #   baseline      1: the core teaches the spell at its spellLevel with no trainer (forever_baseline_spell)
 SKILL_LINE, SUPERSEDED_BY, BASELINE = "skillLine", "supersededBy", "baseline"
+# threat: the flat threat of each rank on every target hit (a forever_spell_threat row that replaces the
+# stock spell_threat row of the rank; multiplier 1). A server key, not a spell column.
+THREAT = "threat"
 TEXT_KEYS = (NAME_SUBTEXT, SCRIPT_NAME)
-GENERATOR_KEYS = TEXT_KEYS + (SKILL_LINE, SUPERSEDED_BY, BASELINE)
+GENERATOR_KEYS = TEXT_KEYS + (SKILL_LINE, SUPERSEDED_BY, BASELINE, THREAT)
 
 COLUMNS = ("kind", "talentId", "tree", "tier", "column", "ranks", "requiredTalent", "requiredRank", "name",
            "icon", "port", "spells", "sourceSpells", "effect1", "effect2", "effect3", "set", "tooltip", "notes")

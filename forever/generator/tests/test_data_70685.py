@@ -7,6 +7,7 @@ SpellEquippedItems rows), written here as literals.
 
 It needs the stock 1.12.1 DBC files (FOREVER_STOCK_DBC). Without them it skips.
 """
+import re
 import struct
 
 import pytest
@@ -84,3 +85,20 @@ def test_demoralizing_shout_threat_grows_per_level_on_every_target_hit(client):
         assert row[TARGET_A + 1] == row[TARGET_A]
         assert int32(row[BASE_POINTS + 1]) + 1 == 0
         assert per_level(row, 1) == 0.8
+
+
+SUNDER_ARMOR = (7386, 7405, 8380, 11596, 11597)
+
+
+def server_threat(out):
+    """entry -> flat threat of the generated forever_spell_threat rows."""
+    sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
+    assert "CREATE TABLE `forever_spell_threat` LIKE `spell_threat`;" in sql
+    rows = re.findall(r"^INSERT INTO `forever_spell_threat` \(`entry`, `threat`\) VALUES (.*);$", sql, re.M)
+    return {int(e): float(t) for line in rows for e, t in re.findall(r"\((\d+), (-?[\d.]+)\)", line)}
+
+
+def test_sunder_armor_has_the_client_threat(out):
+    # Client: effect 2 THREAT 34/75/117/158/206 (stock spell_threat 45/99/153/207/261), no attack power part.
+    threat = server_threat(out)
+    assert [threat[s] for s in SUNDER_ARMOR] == [34, 75, 117, 158, 206]

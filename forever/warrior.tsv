@@ -78,7 +78,11 @@
 #                   forever_spell_proc_event row of rank 1, one value for all ranks). Learning keys (#212):
 #                   skillLine=<skill line> gives a new spell a skill line ability with its own ID (spellbook
 #                   tab, spell chain); supersededBy=<spell> its next rank (default the next spell of the row);
-#                   baseline=1 makes the core teach it at its spellLevel with no trainer
+#                   baseline=1 makes the core teach it at its spellLevel with no trainer. threat=<per rank> sets
+#                   the flat threat of each rank on every target hit (forever_spell_threat, over the stock
+#                   spell_threat row). effectRealPointsPerLevel1-3 take a decimal (points per level above the
+#                   spellLevel, up to the maxLevel of the spell); startRecoveryCategory and startRecoveryTime are
+#                   the global cooldown (133 and 1500 for a Warrior ability)
 #   tooltip         the description of the rank spells; $s1 is the value of effect 1 ($h the proc chance)
 #   notes           the Forever change and what is left for which ticket
 kind	talentId	tree	tier	column	ranks	requiredTalent	requiredRank	name	icon	port	spells	sourceSpells	effect1	effect2	effect3	set	tooltip	notes
@@ -154,7 +158,7 @@ base	0	-	0	0	6	0	0	Revenge	562	data	6572,6574,7379,11600,11601,25288	6572,6574,7
 base	0	-	0	0	1	0	0	Berserker Rage	1465	data	18499	18499	-	-	-	baseLevel=30;spellLevel=30;baseline=1	-	Learned at level 30 (stock 32 at the trainer). Substitute for the trainer level: baseline at level 30 (#212), so no trainer table changes.
 base	0	-	0	0	1	0	0	Bloodrage	86	data	2687	2687	-	-	-	scriptName=	-	It no longer puts the Warrior in combat: the Forever row drops the stock script spell_warrior_bloodrage, which only did that (#212).
 base	0	-	0	0	7	0	0	Rend	245	C++	772,6546,6547,6548,11572,11573,11574	772,6546,6547,6548,11572,11573,11574	-	-	-	-	-	Ticks can crit (Forever flag 'periodic can crit') and Rend taps the target at once: #214 (see Warrior mechanics in the header). Large attack power scaling: no published value, not ported yet.
-base	0	-	0	0	5	0	0	Sunder Armor	565	C++	7386,7405,8380,11596,11597	7386,7405,8380,11596,11597	-	-	-	-	-	Threat scales with attack power, the instant tap, usable over a stronger Expose Armor: #212.
+base	0	-	0	0	5	0	0	Sunder Armor	565	C++	7386,7405,8380,11596,11597	7386,7405,8380,11596,11597	-	-	-	threat=34/75/117/158/206	-	Threat on the target: 34/75/117/158/206 (client 70685 effect 2 THREAT; stock spell_threat 45/99/153/207/261), a forever_spell_threat row per rank. The client has no attack power part, so "threat scales with attack power" has no number and is not ported. The instant tap and the use over a stronger Expose Armor: #212.
 base	0	-	0	0	1	0	0	Whirlwind	83	data	1680	1680	-	-	-	effect2=64;effectImplicitTargetA2=1;effectTriggerSpell2=60130	-	Hits with both weapons for every Warrior: effect 2 triggers the off-hand copy 60130 (ability row Whirlwind), which needs an off-hand weapon (#212).
 base	0	-	0	0	5	0	0	Cleave	277	data	845,7369,11608,11609,20569	845,7369,11608,11609,20569	-	-	-	-	A sweeping attack that does your weapon damage plus $s1 to the target and a second nearby enemy.	Text only.
 base	0	-	0	0	3	0	0	Bloodthirst	38	C++	23892,23893,23894	23892,23893,23894	37/43/48	45	10	effect2=3;effectImplicitTargetA2=6;effect3=6;effectApplyAuraName3=31;effectImplicitTargetA3=1;durationIndex=1	Instantly attack the target causing damage equal to $s2% of your attack power plus $s1 and increasing your movement speed by $s3% for $d.	Ranks 2-4 (levels 48/54/60). Movement speed, not attack speed (#204 says attack speed: the build wins). Damage $s2% of attack power + $s1 in the Bloodthirst script (effect 2 a DUMMY with the percent), no heal (#212).
