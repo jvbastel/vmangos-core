@@ -98,6 +98,17 @@ def test_slam_is_not_pushed_back(out):
         assert client[spell][21] == 0xD and server[spell]["interruptFlags"] == "13", spell
 
 
+def test_every_slam_rank_shares_one_18_sec_cooldown(out):
+    # Client 70685: Slam ranks 1-5 share category 2412 with an 18 sec category cooldown. A 1.12 player keeps
+    # the lower ranks in the spellbook, so a cooldown of each rank alone would let rank 1 follow rank 5.
+    client, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    stock, _ = read_dbc(STOCK / "Spell.dbc")
+    ranks = (SLAM_1, SLAM_2, 8820, 11604, 11605)
+    categories = {client[s][2] for s in ranks}
+    assert len(categories) == 1 and not categories & {row[2] for row in stock.values()}
+    assert [(client[s][19], client[s][20]) for s in ranks] == [(0, 18000)] * 5
+
+
 def test_bloodrage_has_no_combat_script(out):
     # The stock script spell_warrior_bloodrage only puts the Warrior in combat.
     assert server_spells(out)[2687]["script_name"] == ""
