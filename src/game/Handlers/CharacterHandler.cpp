@@ -43,6 +43,7 @@
 #include "PlayerBotMgr.h"
 #include "MapManager.h"
 #include "AccountMgr.h"
+#include "Forever.h"
 
 class LoginQueryHolder : public SqlQueryHolder
 {
@@ -509,6 +510,10 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder *holder)
         m_masterPlayer->LoadMailedItems(holder->TakeResult(PLAYER_LOGIN_QUERY_LOADMAILEDITEMS));
     }
     m_masterPlayer->UpdateNextMailTimeAndUnreads();
+
+    // WOWAI Forever rules (spec jvbastel/WOWAI#204): the rules switch, before the spells and the action bars go to the client.
+    if (!alreadyOnline)
+        Forever::OnLogin(pCurrChar, m_masterPlayer);
 
     sObjectAccessor.AddObject(m_masterPlayer);
 
