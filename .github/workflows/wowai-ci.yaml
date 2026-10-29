@@ -101,6 +101,11 @@ jobs:
         shell: bash
         run: wowai/tests/forever-warrior-rules.test.sh
 
+      # The pure rules of the Forever Fury talents (#218), with the host compiler.
+      - name: Run the Forever Fury rules test
+        shell: bash
+        run: wowai/tests/forever-fury-rules.test.sh
+
       - name: Build src/bots alone (no game headers) and run its tests
         shell: bash
         run: wowai/bots-test.sh "$PWD/src/bots" "$RUNNER_TEMP/bots"
