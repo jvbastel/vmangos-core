@@ -70,6 +70,7 @@
 #include "Transports/TransportMgr.h"
 #include "PlayerBotMgr.h"
 #include "BotMgr.h"
+#include "Forever.h"
 #include "ZoneScriptMgr.h"
 #include "CharacterDatabaseCache.h"
 #include "CreatureGroups.h"
@@ -989,6 +990,7 @@ void World::LoadConfigSettings(bool reload)
 
     sPlayerBotMgr.LoadConfig();
     sBotMgr.LoadConfig();
+    Forever::LoadConfig(reload);
     setConfig(CONFIG_BOOL_PLAYER_BOT_SHOW_IN_WHO_LIST, "PlayerBot.ShowInWhoList", false);
     setConfig(CONFIG_UINT32_PARTY_BOT_MAX_BOTS, "PartyBot.MaxBots", 0);
     setConfig(CONFIG_BOOL_PARTY_BOT_SKIP_CHECKS, "PartyBot.SkipChecks", false);

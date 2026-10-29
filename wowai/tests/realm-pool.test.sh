@@ -235,4 +235,40 @@ for bad in 'Rate.XP.Kill' '=1' 'Bad Name=1' $'Rate.XP.Kill=a\nb'; do
 done
 check "a refused request gets no lease" test -z "$(slot_of 23)"
 
+# --- The Forever rules of a lease (spec #204) ---
+
+# The stock DBC files, when this machine has them: then the kit really
+# generates the Forever data.
+stock="${FOREVER_STOCK_DBC:-/mnt/c/Games/vmangos-deploy/storage/mangosd/extracted-data/5875/dbc}"
+[ ! -f "$stock/Spell.dbc" ] || ln -s "$stock" "$tmp/data/5875/dbc"
+
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 24 acquire --forever --set Rate.XP.Kill=3
+check "acquire with --forever succeeds" test "$code" -eq 0
+s24="$(slot_of 24)"
+conf="$WOWAI_POOL_DIR/$s24/config/mangosd.conf"
+run_kit --ticket 24 config
+check "config of a Forever lease succeeds" test "$code" -eq 0
+check "a Forever lease turns the Forever rules on" grep -qx 'Forever.Rules = 1' "$conf"
+check "a Forever lease names the mounted Forever DBC folder" \
+  grep -qx 'Forever.DataDir = "/opt/vmangos/storage/forever/dbc"' "$conf"
+check "--forever keeps the other settings of the request" grep -qx 'Rate.XP.Kill = 3' "$conf"
+check "the .env names the Forever folder of the slot" \
+  grep -qx "WOWAI_FOREVER_DATA=$WOWAI_POOL_DIR/$s24/forever" "$WOWAI_POOL_DIR/$s24/.env"
+if [ -L "$tmp/data/5875/dbc" ]; then
+  check "a Forever lease generates the Forever talent tables" test -f "$WOWAI_POOL_DIR/$s24/forever/dbc/Talent.dbc"
+  check "a Forever lease generates the Forever server tables" \
+    grep -q 'INSERT INTO .forever_spell_template.' "$WOWAI_POOL_DIR/$s24/forever/sql/forever_world.sql"
+else
+  echo "SKIP: no stock DBC folder at $stock: the Forever data is not generated"
+fi
+
+run_kit --ticket 24 release
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 25 acquire
+run_kit --ticket 25 config
+check "the next lease gets the slot of the Forever lease" test "$(slot_of 25)" = "$s24"
+check "a lease after a Forever lease has the Forever rules off" bash -c "! grep -q '^Forever.Rules = 1' '$conf'"
+check "a lease after a Forever lease has no Forever DBC folder" bash -c "! grep -q '^Forever.DataDir' '$conf'"
+check "a lease after a Forever lease has no Forever data" \
+  test -z "$(find "$WOWAI_POOL_DIR/$s24/forever" -mindepth 1 -print -quit)"
+
 finish

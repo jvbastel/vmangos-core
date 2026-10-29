@@ -1,0 +1,39 @@
+# Forever rules for the Warrior: the spec file of jvbastel/WOWAI#204. forever/generator makes the
+# Forever DBC folder, the client spell rows and the Forever server tables from it. Never edit a generated
+# file by hand. To gather the data again, see forever/REFRESH.md.
+#
+# Sources, read 2026-10-29:
+#   Layout (tree, tier, column, ranks, prerequisite) and behaviour text: WoW Forever beta build 1.60.1.70450,
+#   recorded 2026-10-19, from
+#     https://classicwowforever.com/talents/warrior/ (in-game tooltips of build 1.60.1.70450)
+#     https://wow-forever.gg/talents/warrior/ (client data of build 1.60.1.70532; 0 spell and 0 talent changes since 70450)
+#   Numbers (per-rank values) and names: the local Forever client, build 1.60.1.70685 (its talent and spell
+#   tables). Only numbers and names come from the client, never icons or other client files.
+#   Differences between the two builds in the rows below: none (Improved Rend: Arms tier 1 column 3,
+#   3 ranks, 12/23/35% in both).
+#
+# Free ID range: 60000-65535. A new talent, spell or skill line ability takes its ID from here. The stock
+# 1.12.1 data ends at spell 33392, talent 1703 and skill line ability 15030, and spell IDs are SMALLINT
+# UNSIGNED in the world database. A talent that survives in Forever keeps its 1.12 talent ID.
+#
+# Known differences from the text of #204 (the build data wins):
+#   Recklessness keeps its 30 minute cooldown; only Retaliation and Shield Wall go to 15 minutes.
+#   Bloodthirst gives movement speed, not attack speed.
+#
+# Columns (tab-separated):
+#   kind            talent (later also ability and base)
+#   talentId        the 1.12 talent ID, or a new one from the free range
+#   tree            arms, fury or protection
+#   tier, column    from 1
+#   ranks           the rank count
+#   requiredTalent  the talent ID of the one prerequisite, or 0
+#   requiredRank    the rank of the prerequisite, from 1, or 0
+#   name            the name of the talent and of its rank spells
+#   icon            a stock 1.12 SpellIcon.dbc ID
+#   port            data, C++ or substitute
+#   spells          the spell ID of each rank, separated by commas
+#   sourceSpells    the stock spell that each rank is a copy of, separated by commas
+#   effect1         the value of effect 1 for each rank, separated by /
+#   tooltip         the tooltip text; $s1 is the value of effect 1
+kind	talentId	tree	tier	column	ranks	requiredTalent	requiredRank	name	icon	port	spells	sourceSpells	effect1	tooltip
+talent	127	arms	1	3	3	0	0	Improved Rend	245	data	60000,60001,60002	12286,12658,12659	12/23/35	Increases the Bleed damage done by your Rend ability by $s1%.
