@@ -57,7 +57,11 @@ sql/migrations/20261029120000_world.sql
 src/game/Database/DBCStores.cpp
 src/game/Spells/SpellMgr.cpp
 src/game/ObjectMgr.cpp
-# Spec hook 11, #214 (Forever Warrior mechanics): one call into ForeverWarrior.h for the rage of a
+# Spec hook 12: the Forever rules switch at login (WOWAI#208). The migration of the characters table
+# forever_character (the rules each character last logged in under); one call in
+# WorldSession::HandlePlayerLogin (CharacterHandler.cpp, above) and one in LoadDBCStores (above).
+sql/migrations/20261029140000_characters.sql
+# Spec hook 13, #214 (Forever Warrior mechanics): one call into ForeverWarrior.h for the rage of a
 # swing (Unit.cpp), the crit of a Warrior DoT tick and the Rend tap (SpellAuras.cpp), and the Deep
 # Wounds bleed (SpellEffects.cpp).
 src/game/Objects/Unit.cpp
