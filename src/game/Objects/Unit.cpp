@@ -8922,7 +8922,7 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* pTarget, uint32 procFlag,
         // Forever rules: Bloodthrill opens Overpower on a target with the Warrior's Rend (jvbastel/WOWAI#217).
         if (!isVictim)
         {
-            if (uint32 const window = Forever::BloodthrillOverpower(this, pTarget, procFlag, procExtra, attType))
+            if (uint32 const window = Forever::BloodthrillOverpower(this, pTarget, procFlag, procExtra, attType, procSpell))
             {
                 m_reactiveTimer[REACTIVE_OVERPOWER] = window;
                 m_reactiveTarget[REACTIVE_OVERPOWER] = pTarget->GetObjectGuid();

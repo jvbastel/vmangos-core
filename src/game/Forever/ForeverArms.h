@@ -25,7 +25,7 @@ namespace Forever
     // Mastery class scripts keep (the baseline Tactical Mastery: 100). With the rules, Improved Tactical
     // Mastery keeps 3/6/9/12/15 Rage more: sets the Rage and returns true. Else returns false, and the
     // caller cuts the Rage to `keptTenths` as in stock.
-    bool KeepStanceRage(Unit* warrior, uint32 keptTenths);
+    bool ApplyStanceRage(Unit* warrior, uint32 keptTenths);
 
     // Spell::EffectDummy, Warrior family: returns true for Spearing Strike (60100, effect 3). With the
     // rules on and a Warrior caster, against a Giant, a Dragonkin or a mounted target, `damage` (the
@@ -33,9 +33,11 @@ namespace Forever
     bool SpearingStrike(Unit* caster, Unit* target, SpellEntry const* spellInfo, float& damage);
 
     // Unit::ProcSkillsAndReactives, for the attacker: a main hand melee attack that lands on a target with
-    // the Warrior's own Rend rolls the Bloodthrill chance. On a proc it gives the Overpower combo point
-    // and returns the Overpower window in ms (the caller starts REACTIVE_OVERPOWER with it). Else 0.
-    uint32 BloodthrillOverpower(Unit* attacker, Unit* target, uint32 procFlag, uint32 procExtra, WeaponAttackType attType);
+    // the Warrior's own Rend rolls the Bloodthrill chance. Rend itself and Overpower do not roll. On a proc
+    // it gives the Overpower combo point and returns the Overpower window in ms (the caller starts
+    // REACTIVE_OVERPOWER with it). Else 0.
+    uint32 BloodthrillOverpower(Unit* attacker, Unit* target, uint32 procFlag, uint32 procExtra, WeaponAttackType attType,
+        SpellEntry const* procSpell);
 
     // Unit::GetUnitCriticalChance: the Weaponmaster crit chance (percent) of an axe or polearm in the hand
     // of the attack. 0 for other weapons, no talent, or the rules off.

@@ -2596,7 +2596,7 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                         }
                     }
                     // Forever rules: Improved Tactical Mastery keeps more Rage (jvbastel/WOWAI#217).
-                    if (!Forever::KeepStanceRage(target, Rage_val) && target->GetPower(POWER_RAGE) > Rage_val)
+                    if (!Forever::ApplyStanceRage(target, Rage_val) && target->GetPower(POWER_RAGE) > Rage_val)
                         target->SetPower(POWER_RAGE, Rage_val);
                     break;
                 }
