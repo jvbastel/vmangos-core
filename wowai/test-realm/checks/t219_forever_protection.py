@@ -313,12 +313,17 @@ c.gm(".unaura %d" % EVASION, select=me)
 
 
 def duration_of(spell):
-    """The boar casts `spell` at the Warrior until it lands (a miss or resist tries again). The new aura
-    durations that the client gets."""
+    """The boar casts `spell` at the Warrior until it lands (a miss or resist tries again). The max
+    duration of that spell's aura on the Warrior (`.list auras`), in a list; empty when it never lands.
+    (SMSG_UPDATE_AURA_DURATION names only a slot: another aura's update, such as a 5 sec one, looked
+    like the spell's.)"""
     for _ in range(5):
-        start = len(c.durations)
-        c.gm(".cast back %d triggered" % spell, select=boar, wait=1.5)
-        got = c.durations[start:]
+        c.gm(".cast back %d triggered" % spell, select=boar, wait=0.3)
+        got = []
+        for line in c.gm(".list auras", select=me, wait=0.7):
+            m = re.search(r"\bid: (\d+) eff: \d+ type: \d+ duration: -?\d+ maxduration: (-?\d+)", line)
+            if m and int(m.group(1)) == spell:
+                got.append(int(m.group(2)))
         if got:
             return got
         c.pump(4)
