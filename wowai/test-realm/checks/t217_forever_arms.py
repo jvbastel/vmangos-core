@@ -36,21 +36,15 @@ import struct
 import sys
 import time
 
-from kit import Realm, Results, clear_backpack, stand_before
-from wowclient import WorldClient, unpack_guid
+from kit import BOAR, Realm, Results, clear_backpack, spawn, stand_before, sturdy
+from wowclient import SMSG_SPELL_GO, SpellClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
-CMSG_CAST_SPELL = 302
-SMSG_CAST_RESULT = 304
-SMSG_SPELL_GO = 306
 CMSG_ATTACKSWING = 321
 CMSG_ATTACKSTOP = 322
 SMSG_ATTACKERSTATEUPDATE = 330
-TARGET_FLAG_UNIT = 0x2
 
 LEVEL = 60
-BOAR = 3098            # Mottled Boar (Durotar), a neutral Beast that can be attacked
-FREEZE = 9454          # GM stun without an end
 BACKPACK = 255
 MAIN_HAND_SLOT, OFF_HAND_SLOT = 15, 16
 # Weapon skills: one-hand and two-hand axes, one-hand maces, one-hand swords.
@@ -73,14 +67,13 @@ CREATURE_BEAST, CREATURE_DRAGONKIN, CREATURE_GIANT, CREATURE_HUMANOID = 1, 2, 5,
 ATTACKABLE_FACTIONS = "(7, 14, 16, 22, 24, 48, 54)"
 
 
-class ArmsClient(WorldClient):
-    """Keeps the times of its own melee hits, its SPELL_GO spells and its cast results."""
+class ArmsClient(SpellClient):
+    """Also keeps the times of its own melee hits and of its SPELL_GO spells."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.hits = []          # (time, damage)
-        self.spell_go = []      # (time, spell)
-        self.cast_results = []  # (spell, reason or None)
+        self.go_times = []      # (time, spell)
 
     def _observe(self, opcode, body):
         super()._observe(opcode, body)
@@ -94,29 +87,9 @@ class ArmsClient(WorldClient):
                 caster, p = unpack_guid(body, 0)
                 _, p = unpack_guid(body, p)
                 if caster == self.guid:
-                    self.spell_go.append((time.time(), struct.unpack_from("<I", body, p)[0]))
-            elif opcode == SMSG_CAST_RESULT:
-                spell, status = struct.unpack_from("<IB", body, 0)
-                self.cast_results.append((spell, body[5] if status == 2 and len(body) > 5 else None))
+                    self.go_times.append((time.time(), struct.unpack_from("<I", body, p)[0]))
         except (IndexError, struct.error):
             pass
-
-    def cast_at(self, spell, target):
-        """Sends CMSG_CAST_SPELL at a unit, as the action bar does. Does not wait."""
-        mask, packed = 0, b""
-        for i in range(8):
-            byte = (target >> (8 * i)) & 0xFF
-            if byte:
-                mask |= 1 << i
-                packed += bytes([byte])
-        self.send(CMSG_CAST_SPELL, struct.pack("<I", spell) + struct.pack("<H", TARGET_FLAG_UNIT) + bytes([mask]) + packed)
-
-    def cast_went(self, spell, target, seconds=1.5):
-        """Casts and waits; True when a SPELL_GO of the spell came."""
-        start = len(self.spell_go)
-        self.cast_at(spell, target)
-        self.pump(seconds)
-        return any(s == spell for _, s in self.spell_go[start:])
 
     def wait_hit(self, seconds=6.0):
         """Waits for the next own melee hit; its time, or None."""
@@ -154,13 +127,10 @@ for spell in talents:
 w.set_active_mover()
 
 
-def spawn(entry):
+def spawn_sturdy(entry):
     """Spawns a creature at the Warrior's place, gives it a lot of health and freezes it. Its guid."""
-    w.gm(".npc spawn add %d" % entry, wait=1.5)
-    low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % entry).split()[-1])
-    guid = (0xF130 << 48) | (entry << 24) | low
-    w.gm(".modify hp 1000000 1000000", select=guid)
-    w.gm(".aura %d" % FREEZE, select=guid)
+    guid = spawn(realm, w, entry)
+    sturdy(w, guid)
     return guid
 
 
@@ -206,7 +176,7 @@ def stop_swing():
     w.pump(1)
 
 
-boar = spawn(BOAR)
+boar = spawn_sturdy(BOAR)
 stand_before(w, boar)
 
 # Improved Tactical Mastery ---------------------------------------------------------------------------
@@ -241,17 +211,17 @@ start_swing(boar)
 w.pump(5)
 results.check("without Rend there is no Bloodthrill line", "Bloodthrill" not in realm.log())
 results.check("without Rend Overpower is refused (the frozen boar does not dodge)",
-              not w.cast_went(OVERPOWER_1, boar))
+              not w.cast_went(OVERPOWER_1, boar, wait=1.5))
 realm.mark("t217 rend")
 w.gm(".cast %d triggered" % REND_1, select=boar)
 proc = realm.wait_log(r"\[Forever\] Bloodthrill: ", 6, client=w) if forever else None
 if forever:
     results.check("a main hand hit on the Rend target logs Bloodthrill (procs on)", bool(proc))
-    results.check("after Bloodthrill Overpower casts", w.cast_went(OVERPOWER_1, boar))
+    results.check("after Bloodthrill Overpower casts", w.cast_went(OVERPOWER_1, boar, wait=1.5))
 else:
     w.pump(6)
     results.check("no Bloodthrill line with the rules off", "Bloodthrill" not in realm.log())
-    results.check("with Rend Overpower stays refused with the rules off", not w.cast_went(OVERPOWER_1, boar))
+    results.check("with Rend Overpower stays refused with the rules off", not w.cast_went(OVERPOWER_1, boar, wait=1.5))
 w.gm(".cheat procs off", select=me)
 
 # Weaponmaster: axe crit and mace armor ignore ----------------------------------------------------------
@@ -292,7 +262,7 @@ start_swing(boar)
 w.wait_hit()
 w.pump(0.8)          # the extra attack of this hit's sword proc comes and goes
 hits_before = len(w.hits)
-bash = w.cast_went(SHIELD_BASH_1, boar, seconds=0.8)
+bash = w.cast_went(SHIELD_BASH_1, boar, wait=0.8)
 extra = len(w.hits) - hits_before
 stop_swing()
 w.gm(".cheat procs off", select=me)
@@ -318,7 +288,7 @@ for label, query in (
         targets.append((label, entry, True))
 equip(LARGE_AXE)
 for label, entry, bonus in targets:
-    guid = boar if entry == BOAR else spawn(entry)
+    guid = boar if entry == BOAR else spawn_sturdy(entry)
     realm.mark("t217 spearing %d" % entry)
     w.gm(".cast %d triggered" % SPEARING_STRIKE, select=guid)
     w.pump(1)
@@ -341,11 +311,11 @@ w.wait_hit()
 for label, delay in (("Slam cast 0.3 sec after a swing", 0.3), ("Slam cast across the next swing", 2.0)):
     last = w.wait_hit()
     w.pump(delay)
-    went_at = len(w.spell_go)
+    went_at = len(w.go_times)
     w.cast_at(SLAM_1464, boar)
     following = w.wait_hit(8.0)
     w.pump(0.5)
-    slam = [t for t, s in w.spell_go[went_at:] if s == SLAM_1464]
+    slam = [t for t, s in w.go_times[went_at:] if s == SLAM_1464]
     gap = (following - last) if (following and last) else -1.0
     results.check("%s: Slam casts" % label, bool(slam))
     if forever:

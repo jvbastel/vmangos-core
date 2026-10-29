@@ -837,7 +837,7 @@ void SpellMgr::LoadSpellThreats()
     mSpellThreatMap.clear();                                // need for reload case
 
     //                                                                0        1         2             3
-    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `entry`, `threat`, `multiplier`, `inverse_effect_mask` FROM `spell_threat` WHERE %u BETWEEN `build_min` AND `build_max`", SUPPORTED_CLIENT_BUILD));
+    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `entry`, `threat`, `multiplier`, `inverse_effect_mask` FROM %s WHERE %u BETWEEN `build_min` AND `build_max`", Forever::Table("spell_threat", "entry").c_str(), SUPPORTED_CLIENT_BUILD));
     if (!result)
     {
         BarGoLink bar(1);

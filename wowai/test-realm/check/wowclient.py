@@ -47,6 +47,17 @@ SMSG_MONSTER_MOVE = 221
 SMSG_TRIGGER_CINEMATIC = 250
 CMSG_COMPLETE_CINEMATIC = 252
 MOVEFLAG_FORWARD = 0x1
+CMSG_LOGOUT_REQUEST = 75
+SMSG_LOGOUT_COMPLETE = 77
+CMSG_SET_ACTION_BUTTON = 296
+SMSG_INITIAL_SPELLS = 298
+SMSG_LEARNED_SPELL = 299
+SMSG_SUPERCEDED_SPELL = 300
+CMSG_CAST_SPELL = 302
+SMSG_CAST_RESULT = 304
+SMSG_SPELL_GO = 306
+CMSG_LEARN_TALENT = 593
+TARGET_FLAG_UNIT = 0x0002
 
 CHAT_MSG_SAY = 0x00
 CHAT_MSG_PARTY = 0x01
@@ -243,6 +254,22 @@ class WorldClient:
         self.wait_for(SMSG_LOGIN_VERIFY_WORLD, 30)
         self.pump(2)
 
+    def logout(self):
+        """Logout to the character screen (the server saves the character)."""
+        self.send(CMSG_LOGOUT_REQUEST)
+        self.wait_for(SMSG_LOGOUT_COMPLETE, 30)
+        self.pump(2)
+
+    def login_again(self):
+        """Logs the same character in again, after logout()."""
+        self.send(CMSG_PLAYER_LOGIN, struct.pack("<Q", self.guid))
+        self.wait_for(SMSG_LOGIN_VERIFY_WORLD, 30)
+        self.pump(3)
+
+    def relog(self):
+        self.logout()
+        self.login_again()
+
     def _find_char(self, name):
         """(guid, race) of the character of the account with the name, or (0, 0)."""
         self.send(CMSG_CHAR_ENUM)
@@ -293,6 +320,97 @@ class WorldClient:
         self.chat(CHAT_MSG_SAY, command)
         self.pump(wait)
         return [text for (t, _, text) in self.chat_log[start:] if t == CHAT_MSG_SYSTEM]
+
+
+def pack_guid(guid):
+    """A packed guid, as the client writes a unit target."""
+    mask, data = 0, b""
+    for i in range(8):
+        byte = (guid >> (8 * i)) & 0xFF
+        if byte:
+            mask |= 1 << i
+            data += bytes([byte])
+    return bytes([mask]) + data
+
+
+class SpellClient(WorldClient):
+    """A WorldClient that keeps the spell packets of its character, for the checks of spells and talents:
+    learned (SMSG_LEARNED_SPELL), initial_spells (the spellbook of the last login, a set), superseded
+    ((old, new) of SMSG_SUPERCEDED_SPELL), spell_go (its own SMSG_SPELL_GO spells) and cast_results
+    ((spell, fail reason or None) of SMSG_CAST_RESULT). A check that reads more packets subclasses it and
+    calls super()._observe."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.learned = []
+        self.initial_spells = None
+        self.superseded = []
+        self.spell_go = []
+        self.cast_results = []
+
+    def _observe(self, opcode, body):
+        super()._observe(opcode, body)
+        try:
+            if opcode == SMSG_LEARNED_SPELL:
+                self.learned.append(struct.unpack_from("<H", body, 0)[0])
+            elif opcode == SMSG_INITIAL_SPELLS:
+                # uint8 0, uint16 count, then count x (uint16 spell, int16 0), then the cooldowns.
+                count = struct.unpack_from("<H", body, 1)[0]
+                self.initial_spells = {struct.unpack_from("<H", body, 3 + 4 * i)[0] for i in range(count)}
+            elif opcode == SMSG_SUPERCEDED_SPELL:
+                self.superseded.append(struct.unpack_from("<HH", body, 0))
+            elif opcode == SMSG_SPELL_GO:
+                # packed item or caster guid, packed caster guid, uint32 spell, ...
+                _, pos = unpack_guid(body, 0)
+                caster, pos = unpack_guid(body, pos)
+                if caster == self.guid:
+                    self.spell_go.append(struct.unpack_from("<I", body, pos)[0])
+            elif opcode == SMSG_CAST_RESULT:
+                # uint32 spell, uint8 status (2 = failed), uint8 reason when it failed.
+                spell, status = struct.unpack_from("<IB", body, 0)
+                self.cast_results.append((spell, body[5] if status == 2 and len(body) > 5 else None))
+        except (IndexError, struct.error):
+            pass
+
+    def knows(self, spell):
+        """The spell is in the spellbook: at the last login, or learned since."""
+        return spell in (self.initial_spells or set()) or spell in self.learned
+
+    def login_again(self):
+        self.initial_spells = None
+        super().login_again()
+
+    def learn_talent(self, talent, rank=0, wait=1.5):
+        """The spells that the server teaches for one CMSG_LEARN_TALENT (rank from 0)."""
+        start = len(self.learned)
+        self.send(CMSG_LEARN_TALENT, struct.pack("<II", talent, rank))
+        self.pump(wait)
+        return self.learned[start:]
+
+    def learn_ranks(self, talent, ranks):
+        """Learns ranks 1 to `ranks` of a talent; the spells taught."""
+        return [spell for rank in range(ranks) for spell in self.learn_talent(talent, rank)]
+
+    def set_button(self, button, spell, wait=1):
+        self.send(CMSG_SET_ACTION_BUTTON, struct.pack("<BI", button, spell))
+        self.pump(wait)
+
+    def cast_at(self, spell, target=None):
+        """Sends CMSG_CAST_SPELL, as the action bar does: on itself, or at the unit `target`. Does not wait."""
+        targets = struct.pack("<H", 0) if target is None else struct.pack("<H", TARGET_FLAG_UNIT) + pack_guid(target)
+        self.send(CMSG_CAST_SPELL, struct.pack("<I", spell) + targets)
+
+    def cast(self, spell, target=None, wait=2):
+        """Casts and waits: (the fail reasons of its cast results, whether a SMSG_SPELL_GO of it came)."""
+        start_results, start_go = len(self.cast_results), len(self.spell_go)
+        self.cast_at(spell, target)
+        self.pump(wait)
+        reasons = [reason for s, reason in self.cast_results[start_results:] if s == spell]
+        return reasons, spell in self.spell_go[start_go:]
+
+    def cast_went(self, spell, target=None, wait=2):
+        """Casts and waits; True when a SMSG_SPELL_GO of the spell came."""
+        return self.cast(spell, target, wait)[1]
 
 
 def unpack_guid(data, pos):

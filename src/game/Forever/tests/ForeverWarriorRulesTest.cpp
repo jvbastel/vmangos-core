@@ -1,32 +1,18 @@
 // Tests of the pure math of the Forever Warrior mechanics (ForeverWarriorRules.h, jvbastel/WOWAI#214).
-// No GoogleTest and no core: wowai/tests/forever-warrior-rules.test.sh builds this file with the host
+// No GoogleTest and no core: wowai/tests/forever-rules.test.sh builds this file with the host
 // compiler and runs it. The glob of src/game/Forever does not take this subfolder into the core.
 
 #include "../ForeverWarriorRules.h"
+#include "TestCheck.h"
 
 #include <cmath>
 #include <cstdio>
 
-namespace
-{
-    int failures = 0;
-    int checks = 0;
-
-    void Near(char const* name, float actual, float expected)
-    {
-        ++checks;
-        if (std::fabs(actual - expected) > 0.001f)
-        {
-            ++failures;
-            std::printf("FAIL: %s: %.4f, expected %.4f\n", name, actual, expected);
-        }
-        else
-            std::printf("PASS: %s\n", name);
-    }
-}
 
 int main()
 {
+    using namespace ForeverTest;
+
     using namespace Forever::WarriorRules;
 
     // Rage from weapon speed.
@@ -39,6 +25,9 @@ int main()
     Near("an off-hand hit gives half", SwingRage(1900, false, true, false), 3.287f);
     Near("a crit gives 100% more", SwingRage(2900, true, false, true), 26.1f);
     Near("an off-hand crit: half, then double", SwingRage(1900, false, true, true), 6.574f);
+    Near("Dual Wield Specialization 5/5: an off-hand hit gives 50% more", SwingRage(1900, false, true, false, 50), 4.9305f);
+    Near("Dual Wield Specialization 1/5 on an off-hand crit", SwingRage(1900, false, true, true, 10), 7.2314f);
+    Near("Dual Wield Specialization leaves the main hand alone", SwingRage(1900, false, false, false, 50), 6.574f);
 
     // DoT crits.
     Near("a DoT tick crit deals double", DotCritDamage(5.0f, 0.0f), 10.0f);
@@ -52,6 +41,18 @@ int main()
     Near("at most the full duration of the old bleed rolls", DeepWoundsRolledTick(12.0f, 2.0f, 9), 5.0f);
     Near("a negative old tick adds nothing", DeepWoundsRolledTick(12.0f, -3.0f, 2), 3.0f);
 
-    std::printf("%d of %d checks passed.\n", checks - failures, checks);
-    return failures == 0 ? 0 : 1;
+    // Anger Management: the out-of-combat rage loss (client 70685: 30% less).
+    Near("Anger Management loses 30% less rage out of combat", RageDecay(20.0f, 30), 14.0f);
+    Near("no Anger Management: the stock loss", RageDecay(20.0f, 0), 20.0f);
+    Near("a value above 100% never gives rage", RageDecay(20.0f, 150), 0.0f);
+    Near("the regeneration of Anger Management ticks in combat", AngerManagementTicks(true) ? 1.0f : 0.0f, 1.0f);
+    Near("the regeneration of Anger Management stops out of combat", AngerManagementTicks(false) ? 1.0f : 0.0f, 0.0f);
+
+    // Revenge: attack power (client hotfix of Revenge, variable set 1024).
+    Near("Revenge adds 25% of attack power", RevengeAttackPowerBonus(1000.0f, false), 250.0f);
+    Near("Revenge adds 22.5% of attack power in Defensive Stance", RevengeAttackPowerBonus(1000.0f, true), 225.0f);
+    Near("no attack power adds nothing", RevengeAttackPowerBonus(0.0f, true), 0.0f);
+    Near("a negative attack power adds nothing", RevengeAttackPowerBonus(-50.0f, false), 0.0f);
+
+    return ForeverTest::Summary();
 }

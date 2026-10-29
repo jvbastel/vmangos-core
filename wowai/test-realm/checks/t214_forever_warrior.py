@@ -16,21 +16,25 @@ Then, with `.cheat criticals on` for both, a player Rogue and the Warrior each c
 the boar with `.cast 772 triggered`, and the Rogue casts Shadow Word: Pain rank 1 (589). Each client reads
 the tick damage of its own DoTs from SMSG_PERIODICAURALOG. Last, the Warrior learns Deep Wounds 3/3 (12867)
 and swings with always-crit, so each hit applies Deep Wound (12721).
+Forever only (client 70685), before the boar: out of combat the Warrior's rage decays for 10 sec without and
+then with Anger Management (12296). After the axe swings: the Warrior learns Dual Wield and Dual Wield
+Specialization 5/5 (23588), holds a second Hand Axe in the off hand and swings.
 
 forever: each hit gives the rage of the formula in forever/warrior.tsv (speed x 3.46 one-hand, x 4.5
          two-hand, x2 on a crit), whatever the damage, and the rage that the Warrior has is their sum.
          The slow axe gives more rage per hit than the fast one. Each Rend tick of the Warrior crits (a log
          line, and twice the Rogue's tick); the Rogue's Rend and Shadow Word: Pain ticks never crit. Deep
-         Wound ticks of the Warrior crit.
+         Wound ticks of the Warrior crit. Anger Management: the rage never rises out of combat (its 1 Rage
+         every 3 sec ticks only in combat), and it falls 30% slower than without the talent. Dual Wield
+         Specialization 5/5: each off-hand hit gives half the rage of the speed x 1.5 (2.0 sec: 51 tenths).
 vanilla: no "[Forever]" line. A hit gives the stock rage, from the damage: at level 60 a weak axe gives far
          less than the Forever value. The Warrior's Rend ticks are the same as the Rogue's.
 """
 import re
 import struct
 import sys
-import time
 
-from kit import Realm, Results, clear_backpack, stand_before
+from kit import Realm, Results, clear_backpack, spawn, stand_before, sturdy
 from wowclient import WorldClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
@@ -41,8 +45,6 @@ SMSG_PERIODICAURALOG = 590
 SPELL_AURA_PERIODIC_DAMAGE = 3
 
 LEVEL = 60
-BOAR = 3098            # Mottled Boar (Durotar), a neutral beast that can be attacked
-FREEZE = 9454          # GM stun without an end
 ONE_HAND_AXES, TWO_HAND_AXES = 196, 197
 LARGE_AXE = (2491, 2800, True)   # entry, speed ms, two-hand
 HAND_AXE = (2134, 2000, False)
@@ -50,6 +52,10 @@ REND_1 = 772
 SHADOW_WORD_PAIN_1 = 589
 DEEP_WOUNDS_3 = 12867
 DEEP_WOUND = 12721
+DUAL_WIELD = 674
+DUAL_WIELD_SPECIALIZATION_5 = 23588
+ANGER_MANAGEMENT = 12296
+OFF_HAND_SLOT = 16
 BACKPACK = 255
 MAIN_HAND_SLOT = 15
 SWING_SECONDS = 10
@@ -103,12 +109,35 @@ w.gm(".cheat god on", select=me)
 w.gm(".cheat criticals off", select=me)
 w.set_active_mover()
 
-# A boar at the Warrior's place; the Warrior stands 2 yards west of where it is once frozen, facing it.
-w.gm(".npc spawn add %d" % BOAR, wait=1.5)
-low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % BOAR).split()[-1])
-boar = (0xF130 << 48) | (BOAR << 24) | low
-w.gm(".modify hp 1000000 1000000", select=boar)
-w.gm(".aura %d" % FREEZE, select=boar)
+
+
+def rage_decay(seconds):
+    """Out of combat: rage samples (tenths) once a second, from 50 Rage."""
+    w.gm(".modify rage 50", select=me)
+    samples = [rage()]
+    for _ in range(int(seconds)):
+        w.pump(1)
+        samples.append(rage())
+    return samples
+
+
+if forever:
+    realm.mark("anger management")
+    plain = rage_decay(10)
+    w.gm(".learn %d" % ANGER_MANAGEMENT, select=me)
+    w.pump(1)
+    managed = rage_decay(10)
+    w.gm(".unlearn %d" % ANGER_MANAGEMENT, select=me)
+    results.check("Anger Management gives no rage out of combat (the rage never rises)",
+                  all(b <= a for a, b in zip(managed, managed[1:])), "samples %r" % managed)
+    lost_plain, lost_managed = plain[0] - plain[-1], managed[0] - managed[-1]
+    results.check("Anger Management: 30% less rage loss out of combat",
+                  lost_plain > 0 and abs(lost_managed - 0.7 * lost_plain) <= 0.1 * lost_plain,
+                  "lost %d tenths with, %d without (samples %r / %r)" % (lost_managed, lost_plain, managed, plain))
+
+# The boar at the Warrior's place; the Warrior steps 2 yards west of it and faces east, towards it.
+boar = spawn(realm, w)
+sturdy(w, boar)
 stand_before(w, boar)
 
 
@@ -178,6 +207,27 @@ for entry, speed, two_hand in (LARGE_AXE, HAND_AXE):
 if forever:
     results.check("a hit with the slow axe gives more rage than one with the fast axe", per_hit[True] > per_hit[False],
                   "%.1f vs %.1f tenths" % (per_hit[True], per_hit[False]))
+
+# Dual Wield Specialization 5/5: off-hand rage x 1.5 (client 70685).
+if forever:
+    w.gm(".learn %d" % DUAL_WIELD, select=me)
+    w.gm(".learn %d" % DUAL_WIELD_SPECIALIZATION_5, select=me)
+    w.gm(".additem %d" % HAND_AXE[0], select=me)
+    w.gm(".save", select=me)
+    slot = realm.sql("characters", "SELECT slot FROM character_inventory WHERE guid = %d AND bag = 0 AND slot >= 23 "
+                     "AND item_id = %d LIMIT 1" % (me, HAND_AXE[0]))
+    if slot:
+        w.send(CMSG_AUTOEQUIP_ITEM, struct.pack("<BB", BACKPACK, int(slot.split()[0])))
+        w.pump(1)
+    w.gm(".save", select=me)
+    results.check("a second Hand Axe is in the off hand", realm.sql(
+        "characters", "SELECT item_id FROM character_inventory WHERE guid = %d AND bag = 0 AND slot = %d"
+        % (me, OFF_HAND_SLOT)) == str(HAND_AXE[0]))
+    _, _, lines = swing(SWING_SECONDS)
+    off = [l for l in lines if l[3] == "off" and l[4] == "hit"]
+    expected = int(HAND_AXE[1] / 1000.0 * 3.46 * 0.5 * 1.5 * 10 + 1e-4)
+    results.check("each off-hand hit gives half the speed rage x 1.5 with Dual Wield Specialization 5/5 (%d tenths)"
+                  % expected, off and all(abs(int(l[0]) - expected) <= 1 for l in off), "off-hand lines %r" % off)
 
 # DoT crits: a Rogue's Rend and Shadow Word: Pain, then the Warrior's Rend, all with always-crit.
 r = realm.login("PLAYER214R", "Foreverrogue" if forever else "Vanillarogue", race=2, cls=4, client_class=CombatClient)

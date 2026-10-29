@@ -9,8 +9,10 @@
 #define WOWAI_GAME_FOREVER_VICTORY_RUSH_RULES_H
 
 // The pure rules of Victory Rush under the Forever rules (jvbastel/WOWAI#213). No game header, so
-// wowai/tests/forever-victory-rush.test.sh tests it on the host. VictoryRush.cpp calls it from the core
+// wowai/tests/forever-rules.test.sh tests it on the host. VictoryRush.cpp calls it from the core
 // hooks. The spell rows are in forever/warrior.tsv (Victory Rush, Victorious).
+
+#include "ForeverSpellIds.h"
 
 #include <cstdint>
 
@@ -18,9 +20,9 @@ namespace Forever
 {
 namespace VictoryRushRules
 {
-    // The spec IDs of forever/warrior.tsv (Forever client spells 402927 and 402975).
-    constexpr uint32_t VictoryRushSpell = 60123;
-    constexpr uint32_t VictoriousSpell = 60124;
+    // VictoryRushSpell and VictoriousSpell (Forever client spells 402927 and 402975): ForeverSpellIds.h.
+    using SpellIds::VictoryRushSpell;
+    using SpellIds::VictoriousSpell;
     // The caster aura state that Victory Rush needs, in its server row and in its client Spell.dbc row.
     // The core sets it while the Warrior has Victorious. 6 is free: the 1.12.1 core does not use it
     // (SpellDefines.h: AURA_STATE_UNKNOWN6, "not used"), no stock spell needs it, and the core sets

@@ -36,7 +36,7 @@ import struct
 import sys
 import time
 
-from kit import Realm, Results, clear_backpack, stand_before, stat
+from kit import Realm, Results, clear_backpack, spawn, stand_before, stat, sturdy
 from wowclient import WorldClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
@@ -47,8 +47,6 @@ SMSG_SPELLHEALLOG = 336
 HITINFO_LEFTSWING, HITINFO_MISS = 0x4, 0x10
 
 LEVEL = 60
-BOAR = 3098            # Mottled Boar (Durotar), a neutral beast that can be attacked
-FREEZE = 9454          # GM stun without an end
 WORN_DAGGER = 2092     # 1.6 sec
 DAGGERS, DUAL_WIELD = 1180, 674
 DAGGER_SKILL = 173
@@ -150,13 +148,10 @@ def equip(entry, slot):
 
 def spawn_boar(level=None):
     """A frozen boar 2 yards east of the Warrior, which faces it."""
-    w.gm(".npc spawn add %d" % BOAR, wait=1.5)
-    low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % BOAR).split()[-1])
-    boar = (0xF130 << 48) | (BOAR << 24) | low
+    boar = spawn(realm, w)
     if level:
         w.gm(".npc set level %d" % level, select=boar)
-    w.gm(".modify hp 1000000 1000000", select=boar)
-    w.gm(".aura %d" % FREEZE, select=boar)
+    sturdy(w, boar)
     stand_before(w, boar)
     return boar
 

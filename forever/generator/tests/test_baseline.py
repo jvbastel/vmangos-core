@@ -14,6 +14,7 @@ pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no 
 
 VICTORY_RUSH, TACTICAL_MASTERY, SLAM_1, BERSERKER_RAGE = 60123, 60125, 60126, 18499
 SLAM_2 = 1464
+VANGUARD_CHARGE = (60127, 60128, 60129)
 ARMS, FURY = 26, 256
 # SkillLineAbility.dbc 1.12.1: 0 ID, 1 SkillLine, 2 Spell, 3 RaceMask, 4 ClassMask, 8 SupersededBy.
 SLA_SKILL, SLA_SPELL, SLA_CLASS, SLA_SUPERSEDED = 1, 2, 4, 8
@@ -132,3 +133,14 @@ def test_bloodthirst_ranks_2_to_4_give_movement_speed(out):
         row = client[spell]
         assert int32(row[76]) + 1 == base and int32(row[77]) + 1 == 45, spell
         assert (row[63], row[93], int32(row[78]) + 1) == (6, 31, 10), spell
+
+
+def test_vanguard_charge_is_in_the_arms_spellbook_tab_with_no_chain(out):
+    # The stock Charge ranks are in skill line 26 (Arms). Vanguard Charge (#216) is one rank at a time
+    # (Vanguard.cpp swaps it), so its skill line abilities name no next rank.
+    server, client = server_abilities(out), client_abilities(out)
+    for spell in VANGUARD_CHARGE:
+        assert server[spell]["skill_id"] == ARMS and server[spell]["superseded_by_spell"] == 0, spell
+        assert client[spell][SLA_SKILL] == ARMS and client[spell][SLA_SUPERSEDED] == 0, spell
+        assert client[spell][SLA_CLASS] == WARRIOR_MASK, spell
+    assert not set(VANGUARD_CHARGE) & set(baseline_spells(out))

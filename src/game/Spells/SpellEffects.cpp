@@ -51,9 +51,7 @@
 #include "Utilities/Random.h"
 #include "ScriptMgr.h"
 #include "SocialMgr.h"
-#include "ForeverWarrior.h"
-#include "VictoryRush.h"
-#include "ForeverArms.h"
+#include "Forever.h"
 
 using namespace Spells;
 using ExecuteLogInfo = WorldPackets::Spell::SpellLogExecute::ExecuteLogInfo;
@@ -310,8 +308,10 @@ void Spell::EffectSchoolDMG(SpellEffectIndex effect_idx)
 {
     if (unitTarget && unitTarget->IsAlive())
     {
-        // Forever rules: Victory Rush adds a percent of attack power (jvbastel/WOWAI#213).
+        // WOWAI Forever rules (#213): Victory Rush adds a percent of attack power.
         Forever::VictoryRushDamage(this, effect_idx);
+        // WOWAI Forever rules (#204): Revenge adds a percent of attack power (client hotfix).
+        Forever::RevengeDamage(m_casterUnit, m_spellInfo, unitTarget, damage);
         if (damage >= 0)
             m_damage += damage;
     }
@@ -322,7 +322,7 @@ void Spell::EffectDummy(SpellEffectIndex effIdx)
     if (!unitTarget && !gameObjTarget && !itemTarget && !corpseTarget)
         return;
 
-    // Forever rules: the heal of Victory Rush (jvbastel/WOWAI#213).
+    // WOWAI Forever rules (#213): the heal of Victory Rush.
     if (Forever::VictoryRushDummy(this, effIdx))
         return;
 
@@ -763,7 +763,7 @@ void Spell::EffectDummy(SpellEffectIndex effIdx)
                     else
                         damage = (m_casterUnit->GetFloatValue(UNIT_FIELD_MINDAMAGE) + m_casterUnit->GetFloatValue(UNIT_FIELD_MAXDAMAGE)) / 2;
 
-                    // Forever rules: the weapon's own damage, no attack power (jvbastel/WOWAI#214).
+                    // WOWAI Forever rules (#214): the weapon's own damage, no attack power.
                     Forever::DeepWoundsWeaponDamage(m_casterUnit, damage);
 
                     switch (m_spellInfo->Id)
@@ -783,7 +783,7 @@ void Spell::EffectDummy(SpellEffectIndex effIdx)
                     };
 
                     int32 deepWoundsDotBasePoints0 = int32(damage / 4);
-                    // Forever rules: the bleed rolls the damage of the old one (jvbastel/WOWAI#214).
+                    // WOWAI Forever rules (#214): the bleed rolls the damage of the old one.
                     Forever::DeepWoundsRoll(m_casterUnit, unitTarget, deepWoundsDotBasePoints0);
                     m_casterUnit->CastCustomSpell(unitTarget, 12721, deepWoundsDotBasePoints0, {}, {}, true, nullptr);
                     return;
@@ -1480,7 +1480,7 @@ void Spell::EffectDummy(SpellEffectIndex effIdx)
         }
         case SPELLFAMILY_WARRIOR:
         {
-            // Forever rules: Spearing Strike, its bonus and the dismount (jvbastel/WOWAI#217).
+            // WOWAI Forever rules (#217): Spearing Strike, its bonus and the dismount.
             if (Forever::SpearingStrike(m_casterUnit, unitTarget, m_spellInfo, m_damage))
                 return;
             break;

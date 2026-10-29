@@ -45,7 +45,7 @@ struct WarriorBloodthirstScript : SpellScript
             float attackPower = spell->m_casterUnit->GetTotalAttackPowerValue(BASE_ATTACK);
             if (spell->GetUnitTarget())
                 attackPower += spell->m_casterUnit->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_MELEE_ATTACK_POWER_VERSUS, spell->GetUnitTarget()->GetCreatureTypeMask());
-            // WOWAI #212: a Forever Bloodthirst rank (Forever.Rules = 1) has the percent of attack power in a
+            // WOWAI Forever rules (#212): a Forever Bloodthirst rank (Forever.Rules = 1) has the percent of attack power in a
             // DUMMY effect 2 and flat damage in effect 1: damage = $s1 + $s2% of attack power.
             if (Forever::RulesOn() && spell->m_spellInfo->Effect[EFFECT_INDEX_1] == SPELL_EFFECT_DUMMY)
                 spell->damage += spell->CalculateDamage(EFFECT_INDEX_1, spell->GetUnitTarget()) * attackPower / 100;

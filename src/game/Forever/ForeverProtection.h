@@ -43,7 +43,7 @@ namespace Forever
     // shield, Master of Defense gives 5 Rage (spell 23602) at its chance.
     void OnDodgeOrParry(Unit* victim, uint32 procExtra);
 
-    // Spell::DoSpellHitOnUnit, after diminishing returns: Iron Will shortens a Stun or Fear effect on the
+    // Spell::DoSpellHitOnUnit, after diminishing returns: Iron Will shortens a Charm or Stun effect on the
     // Warrior by its percent. `durationMs` is the duration of the new aura holder.
     void ApplyIronWill(Unit const* target, SpellAuraHolder const* holder, int32& durationMs);
 }

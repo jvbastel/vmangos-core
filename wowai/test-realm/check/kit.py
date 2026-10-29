@@ -19,7 +19,9 @@ realm.roster() and realm.bot(role, faction) give the bots by role, so a
 check names no bot (the roster changes).
 pos(client, guid) and stat(client, guid) read a unit with GM commands.
 dist(a, b), kill(client, guid), and revive_all(realm, client, bots) are the
-small helpers that the checks share.
+small helpers that the checks share. spawn(realm, client), sturdy(client,
+guid) and saved_spells(realm, client) serve the spell and talent checks,
+with wowclient.SpellClient as the client class.
 Realm(62) works outside the check command too.
 """
 import collections
@@ -42,6 +44,10 @@ ROLES = ["tank", "healer", "melee", "ranged"]
 ALLIANCE_RACES = (1, 3, 4, 7)
 # A bot of the roster (Realm.roster). faction: "horde" or "alliance".
 Bot = collections.namedtuple("Bot", "name role race cls faction")
+# A target for the combat checks: Mottled Boar (Durotar), a neutral beast that can be attacked.
+BOAR = 3098
+# A GM stun without an end (`.aura FREEZE`): the target stays where it is and does not hit back.
+FREEZE = 9454
 
 
 class Realm:
@@ -203,6 +209,31 @@ def revive_all(realm, client, bots):
     for bot in bots:
         realm.soap(".revive %s" % bot)
     client.gm(".revive", select=client.guid)
+
+
+def spawn(realm, client, entry=BOAR, wait=1.5):
+    """Spawns the creature `entry` at the client's place (GM `.npc spawn add`); its guid."""
+    client.gm(".npc spawn add %d" % entry, wait=wait)
+    low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % entry).split()[-1])
+    return (0xF130 << 48) | (entry << 24) | low
+
+
+def sturdy(client, guid, freeze=True):
+    """Gives a spawned creature a million health and, with `freeze`, the endless GM stun."""
+    client.gm(".modify hp 1000000 1000000", select=guid)
+    if freeze:
+        client.gm(".aura %d" % FREEZE, select=guid)
+
+
+def saved_spells(realm, client, enabled_only=True):
+    """The spells in character_spell of the client's character after a `.save`. With `enabled_only`,
+    without the disabled rows (a spell that a switch or a lost talent took away)."""
+    client.gm(".save", select=client.guid)
+    client.pump(1)
+    query = "SELECT spell FROM character_spell WHERE guid = %d" % client.guid
+    if enabled_only:
+        query += " AND disabled = 0"
+    return {int(row) for row in realm.sql("characters", query).splitlines() if row}
 
 
 class Results:

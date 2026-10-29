@@ -44,7 +44,6 @@
 #include "MapManager.h"
 #include "AccountMgr.h"
 #include "Forever.h"
-#include "ForeverProtection.h"
 
 class LoginQueryHolder : public SqlQueryHolder
 {
@@ -512,12 +511,9 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder *holder)
     }
     m_masterPlayer->UpdateNextMailTimeAndUnreads();
 
-    // WOWAI Forever rules (spec jvbastel/WOWAI#204): the rules switch, before the spells and the action bars go to the client.
+    // WOWAI Forever rules (#208): the rules switch and the login fix-ups, before the spells and the action bars go to the client.
     if (!alreadyOnline)
         Forever::OnLogin(pCurrChar, m_masterPlayer);
-    // WOWAI Forever rules (#219): Defiance and Bastion, once the items are loaded (the spells load first).
-    if (!alreadyOnline)
-        Forever::UpdateShieldTalents(pCurrChar);
 
     sObjectAccessor.AddObject(m_masterPlayer);
 

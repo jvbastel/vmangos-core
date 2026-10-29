@@ -50,7 +50,7 @@ src/game/Objects/TemporarySummon.h
 # generator, the fork's own Forever folder, the migration of the forever_* world tables, and one
 # call into Forever.h in each loader that reads Forever data: the config (World.cpp, above), the
 # talent tables (DBCStores.cpp), and the spell rows (SpellMgr.cpp: spell_template, spell_chain,
-# spell_proc_event; ObjectMgr.cpp: skill_line_ability).
+# spell_proc_event, spell_threat; ObjectMgr.cpp: skill_line_ability).
 forever/**
 src/game/Forever/**
 sql/migrations/20261029120000_world.sql
@@ -61,33 +61,41 @@ src/game/ObjectMgr.cpp
 # forever_character (the rules each character last logged in under); one call in
 # WorldSession::HandlePlayerLogin (CharacterHandler.cpp, above) and one in LoadDBCStores (above).
 sql/migrations/20261029140000_characters.sql
-# Spec hook 13: Vanguard (WOWAI#216). One call each at the end of Player::LearnSpell and
-# Player::RemoveSpell (Player.cpp, above) into src/game/Forever/Vanguard.cpp, which swaps
-# Charge for Vanguard Charge and back.
-# Spec hook 13, #214 (Forever Warrior mechanics): one call into ForeverWarrior.h for the rage of a
-# swing (Unit.cpp), the crit of a Warrior DoT tick and the Rend tap (SpellAuras.cpp), and the Deep
-# Wounds bleed (SpellEffects.cpp).
+# The Forever hooks 13-21 below call into src/game/Forever through its one facade, Forever.h. Each
+# stock file is listed once, at its first hook; a later hook names the files it shares. Each marker
+# comment in a stock file reads "WOWAI Forever rules (#<ticket>)", so `git grep "WOWAI Forever rules"`
+# finds every hook at an upstream merge.
+# Spec hook 13, #216 (Vanguard): one call each at the end of Player::LearnSpell and Player::RemoveSpell
+# (Player.cpp, above) into Vanguard.cpp, which swaps Charge for Vanguard Charge and back.
+# Spec hook 14, #214 (Forever Warrior mechanics): the rage of a swing (Unit.cpp), the crit of a Warrior
+# DoT tick and the Rend tap (SpellAuras.cpp), and the Deep Wounds bleed (SpellEffects.cpp).
 src/game/Objects/Unit.cpp
 src/game/Spells/SpellAuras.cpp
 src/game/Spells/SpellEffects.cpp
-# Spec hook 13: the Forever baseline spells and base abilities (WOWAI#212): one call in Player::GiveLevel
-# (Player.cpp, above), and the Forever Bloodthirst damage in the stock Bloodthirst script.
+# Spec hook 15, #212 (baseline spells and base abilities): one call in Player::GiveLevel (Player.cpp,
+# above), and the Forever Bloodthirst damage in the stock Bloodthirst script.
 src/scripts/spells/spell_warrior.cpp
-# #213 (Victory Rush): one call into src/game/Forever/VictoryRush.h each in Unit::Kill (Unit.cpp),
-# Aura::HandleAuraDummy (SpellAuras.cpp), Spell::EffectSchoolDMG and Spell::EffectDummy (SpellEffects.cpp).
-# The three files are listed above (#214).
-# Spec hook 13, #217 (Forever Arms talents): one call each into src/game/Forever/ForeverArms.h for
-# Improved Tactical Mastery (SpellAuras.cpp), Spearing Strike (SpellEffects.cpp), Bloodthrill,
-# Weaponmaster crit and sword proc, and the Improved Slam swing (Unit.cpp, above), the Weaponmaster
-# armor ignore (SpellCaster.cpp) and the Improved Slam swing timer (Spell.cpp).
+# Spec hook 16, #213 (Victory Rush): Unit::Kill (Unit.cpp), Aura::HandleAuraDummy (SpellAuras.cpp),
+# Spell::EffectSchoolDMG and Spell::EffectDummy (SpellEffects.cpp), all listed above.
+# Spec hook 17, #217 (Forever Arms talents): Improved Tactical Mastery (SpellAuras.cpp), Spearing Strike
+# (SpellEffects.cpp), Bloodthrill, the Weaponmaster crit and sword proc, and the Improved Slam swing
+# (Unit.cpp), the Weaponmaster armor ignore (SpellCaster.cpp) and the Improved Slam swing timer
+# (Spell.cpp).
 src/game/Objects/SpellCaster.cpp
-# Spec hook 13, #219 (Forever Protection talents): one call each into ForeverProtection.h for the shield
-# gate of Defiance and Bastion (Spell::CheckCast, Player::_ApplyItemMods, HandlePlayerLogin), Iron Will
-# (Spell::DoSpellHitOnUnit) and Master of Defense (Unit::ProcSkillsAndReactives). Player.cpp,
-# CharacterHandler.cpp and Unit.cpp are listed above.
-# Spec hook 13, #218 (Forever Fury talents): calls into src/game/Forever/ForeverFury.h for Lingering Rage
-# (Unit::Update at combat end, Player::RegenerateAll, above), Gore Drinker and Blood Craze
-# (Unit::DealDamage, above), Furious Precision (SpellCaster::GetMeleeMissChance) and the casts of
-# Gore Drinker and Improved Berserker Rage (Spell::cast).
-# SpellCaster.cpp is listed above (#217), Spell.cpp below.
 src/game/Spells/Spell.cpp
+# Spec hook 18, #218 (Forever Fury talents): Lingering Rage (Unit::Update at combat end,
+# Player::RegenerateAll), Gore Drinker and Blood Craze (Unit::DealDamage), Furious Precision
+# (SpellCaster::GetMeleeMissChance) and the casts of Gore Drinker and Improved Berserker Rage
+# (Spell::cast). All files are listed above.
+# Spec hook 19, #219 (Forever Protection talents): the shield gate of Defiance and Bastion
+# (Spell::CheckCast, Player::_ApplyItemMods; at login through Forever::OnLogin), Iron Will
+# (Spell::DoSpellHitOnUnit) and Master of Defense (Unit::ProcSkillsAndReactives). All files are listed
+# above.
+# Spec hook 20, #204 review S1: with the rules off, the stock cleanup of the character_spell rows of an
+# unknown spell keeps the Forever-only spells (Player::AddSpell in Player.cpp, above, and
+# CharacterDatabaseCleaner::SpellCheck), so a Warrior who does not log in while the rules are off keeps
+# its Forever talents and spells.
+src/game/Database/CharacterDatabaseCleaner.cpp
+# Spec hook 21, #204 final fix pass (client 70685): the Anger Management rage tick (Aura::PeriodicTick,
+# SpellAuras.cpp), the out-of-combat rage loss (Player::Regenerate, Player.cpp) and the Revenge attack
+# power (Spell::EffectSchoolDMG, SpellEffects.cpp). All files are listed above.

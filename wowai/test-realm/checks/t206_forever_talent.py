@@ -20,19 +20,10 @@ forever: Lingering Rage teaches 60106, and the server refuses Improved Demoraliz
 vanilla: the vanilla Warrior trees: the server refuses talent 60002, Improved Demoralizing Shout teaches
          12324, and no Forever spell is learned.
 """
-import struct
 import sys
 
-from kit import Realm, Results
-from wowclient import WorldClient
-
-SMSG_INITIAL_SPELLS = 298
-SMSG_LEARNED_SPELL = 299
-CMSG_LEARN_TALENT = 593
-CMSG_LOGOUT_REQUEST = 75
-SMSG_LOGOUT_COMPLETE = 77
-CMSG_PLAYER_LOGIN = 61
-SMSG_LOGIN_VERIFY_WORLD = 566
+from kit import Realm, Results, saved_spells
+from wowclient import SpellClient
 
 CRUELTY = 157
 CRUELTY_SPELLS = (12320, 12852, 12853, 12855, 12856)
@@ -42,40 +33,6 @@ IMPROVED_DEMORALIZING_SHOUT = 161
 STOCK_IMPROVED_DEMORALIZING_SHOUT_1 = 12324
 FOREVER_SPELLS = (60106, 60107, 60108, 60109, 60110)
 LEVEL = 20
-
-
-class SpellClient(WorldClient):
-    """Keeps the spells of each SMSG_LEARNED_SPELL and of the last SMSG_INITIAL_SPELLS."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.learned = []
-        self.initial_spells = None
-
-    def _observe(self, opcode, body):
-        super()._observe(opcode, body)
-        if opcode == SMSG_LEARNED_SPELL:
-            self.learned.append(struct.unpack_from("<I", body, 0)[0])
-        elif opcode == SMSG_INITIAL_SPELLS:
-            # uint8 0, uint16 count, then count x (uint16 spell, int16 0), then the cooldowns.
-            count = struct.unpack_from("<H", body, 1)[0]
-            self.initial_spells = {struct.unpack_from("<H", body, 3 + 4 * i)[0] for i in range(count)}
-
-    def learn_talent(self, talent, rank=0):
-        """The spells that the server teaches for one CMSG_LEARN_TALENT."""
-        start = len(self.learned)
-        self.send(CMSG_LEARN_TALENT, struct.pack("<II", talent, rank))
-        self.pump(2)
-        return self.learned[start:]
-
-    def relog(self):
-        """Logout to the character screen, then log the same character in again."""
-        self.send(CMSG_LOGOUT_REQUEST)
-        self.wait_for(SMSG_LOGOUT_COMPLETE, 30)
-        self.initial_spells = None
-        self.send(CMSG_PLAYER_LOGIN, struct.pack("<Q", self.guid))
-        self.wait_for(SMSG_LOGIN_VERIFY_WORLD, 30)
-        self.pump(3)
 
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -94,13 +51,7 @@ c.gm(".reset talents", select=me)
 c.pump(1)
 
 
-def saved_spells():
-    c.gm(".save", select=me)
-    rows = realm.sql("characters", "SELECT spell FROM character_spell WHERE guid = %d" % me)
-    return {int(row) for row in rows.splitlines() if row}
-
-
-cruelty = [spell for rank in range(5) for spell in c.learn_talent(CRUELTY, rank)]
+cruelty = c.learn_ranks(CRUELTY, 5)
 results.check("Cruelty 5/5 is learned (the 5 Fury points of tier 2)", cruelty == list(CRUELTY_SPELLS),
               "learned %r" % cruelty)
 lingering = c.learn_talent(LINGERING_RAGE)
@@ -111,19 +62,19 @@ if mode == "forever":
                   "learned %r" % lingering)
     results.check("Improved Demoralizing Shout is not in the Forever Warrior trees", demoralizing == [],
                   "learned %r" % demoralizing)
-    results.check("the Forever rank is saved", FOREVER_LINGERING_RAGE_1 in saved_spells())
+    results.check("the Forever rank is saved", FOREVER_LINGERING_RAGE_1 in saved_spells(realm, c, enabled_only=False))
     c.relog()
     results.check("after a relog the login sends the Forever rank",
                   c.initial_spells is not None and FOREVER_LINGERING_RAGE_1 in c.initial_spells,
                   "no SMSG_INITIAL_SPELLS" if c.initial_spells is None else "")
-    saved = saved_spells()
+    saved = saved_spells(realm, c, enabled_only=False)
     results.check("after a relog the character still has the Forever rank", FOREVER_LINGERING_RAGE_1 in saved)
     results.check("the character has no stock Improved Demoralizing Shout", STOCK_IMPROVED_DEMORALIZING_SHOUT_1 not in saved)
 else:
     results.check("the vanilla trees have no talent 60002", lingering == [], "learned %r" % lingering)
     results.check("Improved Demoralizing Shout is in the vanilla Fury tree",
                   demoralizing == [STOCK_IMPROVED_DEMORALIZING_SHOUT_1], "learned %r" % demoralizing)
-    saved = saved_spells()
+    saved = saved_spells(realm, c, enabled_only=False)
     results.check("the stock rank is saved", STOCK_IMPROVED_DEMORALIZING_SHOUT_1 in saved)
     results.check("no Forever spell is learned", not saved & set(FOREVER_SPELLS), "%r" % (saved & set(FOREVER_SPELLS)))
 

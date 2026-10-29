@@ -26,6 +26,8 @@ FIELDS = {"category": 2, "attributes": 6, "attributesEx3": 9, "stances": 11, "ca
           "recoveryTime": 19, "categoryRecoveryTime": 20, "interruptFlags": 21, "procFlags": 24, "procChance": 25, "procCharges": 26,
           "baseLevel": 28, "spellLevel": 29, "durationIndex": 30, "manaCost": 32, "rangeIndex": 36,
           "equippedItemClass": 58, "equippedItemSubClassMask": 59,
+          # The global cooldown: its category (133 for the Warrior abilities) and its time in ms.
+          "startRecoveryCategory": 157, "startRecoveryTime": 158,
           # 64 bits: Spell.dbc holds the low word here and the high word in the next field.
           "spellFamilyFlags": 161}
 for _k in range(3):
@@ -34,6 +36,10 @@ for _k in range(3):
                           ("effectRadiusIndex", 88), ("effectApplyAuraName", 91),
                           ("effectItemType", 103), ("effectMiscValue", 106), ("effectTriggerSpell", 109)):
         FIELDS["%s%d" % (_name, _k + 1)] = _first + _k
+    # A float: the points that effect k gains per caster level above the spellLevel (up to maxLevel).
+    FIELDS["effectRealPointsPerLevel%d" % (_k + 1)] = 73 + _k
+# The `set` columns that hold a float (Spell.dbc stores the 32-bit float; the SQL a decimal).
+FLOAT_FIELDS = frozenset("effectRealPointsPerLevel%d" % (k + 1) for k in range(3))
 # A text field: the rank text of the spellbook ("Rank 2").
 NAME_SUBTEXT = "nameSubtext"
 # procEvent.<column>: a column of the spell_proc_event row of the row's first rank (the core gives the
@@ -51,8 +57,11 @@ SCRIPT_NAME = "scriptName"
 #   supersededBy  the next rank of the skill line ability; default: the next spell of the row, else none
 #   baseline      1: the core teaches the spell at its spellLevel with no trainer (forever_baseline_spell)
 SKILL_LINE, SUPERSEDED_BY, BASELINE = "skillLine", "supersededBy", "baseline"
+# threat: the flat threat of each rank on every target hit (a forever_spell_threat row that replaces the
+# stock spell_threat row of the rank; multiplier 1). A server key, not a spell column.
+THREAT = "threat"
 TEXT_KEYS = (NAME_SUBTEXT, SCRIPT_NAME)
-GENERATOR_KEYS = TEXT_KEYS + (SKILL_LINE, SUPERSEDED_BY, BASELINE)
+GENERATOR_KEYS = TEXT_KEYS + (SKILL_LINE, SUPERSEDED_BY, BASELINE, THREAT)
 
 COLUMNS = ("kind", "talentId", "tree", "tier", "column", "ranks", "requiredTalent", "requiredRank", "name",
            "icon", "port", "spells", "sourceSpells", "effect1", "effect2", "effect3", "set", "tooltip", "notes")
@@ -92,7 +101,8 @@ def _fields(where, text, ranks):
             raise SpecError("%s: unknown set field '%s'" % (where, name))
         if proc_event and "/" in value:
             raise SpecError("%s: %s takes one value for all ranks" % (where, name))
-        fields[name] = _per_rank("%s %s" % (where, name), value, ranks, str if name in TEXT_KEYS else _int)
+        parse = str if name in TEXT_KEYS else float if name in FLOAT_FIELDS else _int
+        fields[name] = _per_rank("%s %s" % (where, name), value, ranks, parse)
     return fields
 
 
