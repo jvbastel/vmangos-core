@@ -212,8 +212,9 @@ elif mode == "vanilla":
     check_same_rules_relog(STOCK_REND_1)
     sleeper = realm.guid_of(SLEEPER)
     kept = rows_of(sleeper)
+    # Only the top Cruelty rank has a row: a talent rank replaces the rank below it (stock Player::_SaveSpells).
     results.check("a vanilla login keeps the Forever spells of a Warrior that is not logged in",
-                  FOREVER_LINGERING_RAGE_1 in kept and set(CRUELTY_SPELLS) <= kept, "rows %r" % sorted(kept))
+                  FOREVER_LINGERING_RAGE_1 in kept and CRUELTY_SPELLS[-1] in kept, "rows %r" % sorted(kept))
     results.check("the sleeper still has the Forever rules stored", stored_rules(sleeper) == RULES["forever"],
                   "rules %r" % stored_rules(sleeper))
 else:
