@@ -95,12 +95,13 @@ bool Forever::RollDotCrit(Unit* caster, Unit* target, SpellEntry const* spellPro
     if (!roll_chance_f(chance))
         return false;
 
-    // Impale and other crit damage talents (a percent of the normal damage, as in
-    // SpellCaster::SpellCriticalDamageBonus), then the crit damage bonus versus a creature type.
-    float extraBonusPct = 0.0f;
-    warrior->ApplySpellMod(spellProto->Id, SPELLMOD_CRIT_DAMAGE_BONUS, extraBonusPct);
+    // Impale and other crit damage talents raise the crit bonus (100% of the normal damage for melee) by a
+    // percent, as in SpellCaster::SpellCriticalDamageBonus. ApplySpellMod skips percent mods on a base of 0,
+    // so start from the 100% bonus. Then the crit damage bonus versus a creature type.
+    float critBonusPct = 100.0f;
+    warrior->ApplySpellMod(spellProto->Id, SPELLMOD_CRIT_DAMAGE_BONUS, critBonusPct);
     float const normal = damage;
-    damage = WarriorRules::DotCritDamage(normal, extraBonusPct) *
+    damage = WarriorRules::DotCritDamage(normal, critBonusPct - 100.0f) *
         warrior->GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_CRIT_PERCENT_VERSUS, target->GetCreatureTypeMask());
 
     sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Warrior DoT crit: %s spell %u on %s, %.1f -> %.1f",
@@ -108,7 +109,7 @@ bool Forever::RollDotCrit(Unit* caster, Unit* target, SpellEntry const* spellPro
     return true;
 }
 
-void Forever::OnDotApplied(Unit* caster, Unit* target, SpellEntry const* spellProto)
+void Forever::TapOnRendApply(Unit* caster, Unit* target, SpellEntry const* spellProto)
 {
     if (!target || !spellProto || !spellProto->IsFitToFamily<SPELLFAMILY_WARRIOR, CF_WARRIOR_REND>() ||
         !IsForeverWarrior(caster))

@@ -10,10 +10,9 @@
 
 #include "Common.h"
 
-class Player;
 class Unit;
 struct CleanDamage;
-struct SpellEntry;
+class SpellEntry;
 
 // The Forever Warrior mechanics of jvbastel/WOWAI#214: rage from weapon speed, and crits on the ticks of
 // the Warrior's own DoTs (Rend, Deep Wounds). Each function is one hook in an upstream file. Each does
@@ -37,7 +36,7 @@ namespace Forever
     bool RollDotCrit(Unit* caster, Unit* target, SpellEntry const* spellProto, float& damage);
 
     // Aura::HandlePeriodicDamage at apply: a Warrior's Rend taps the creature at once.
-    void OnDotApplied(Unit* caster, Unit* target, SpellEntry const* spellProto);
+    void TapOnRendApply(Unit* caster, Unit* target, SpellEntry const* spellProto);
 
     // Spell::EffectDummy, Deep Wounds: the whole bleed damage before the talent percent. With the rules,
     // `damage` becomes the average damage of the weapon itself (no attack power).

@@ -4439,7 +4439,7 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
         m_modifier.m_amount = CalculateDotDamage();
 
         // Forever rules: a Warrior's Rend taps the target at once (jvbastel/WOWAI#214).
-        Forever::OnDotApplied(GetCaster(), target, GetSpellProto());
+        Forever::TapOnRendApply(GetCaster(), target, GetSpellProto());
     }
 #endif
 }
