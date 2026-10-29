@@ -76,3 +76,9 @@ src/scripts/spells/spell_warrior.cpp
 # #213 (Victory Rush): one call into src/game/Forever/VictoryRush.h each in Unit::Kill (Unit.cpp),
 # Aura::HandleAuraDummy (SpellAuras.cpp), Spell::EffectSchoolDMG and Spell::EffectDummy (SpellEffects.cpp).
 # The three files are listed above (#214).
+# Spec hook 13, #217 (Forever Arms talents): one call each into src/game/Forever/ForeverArms.h for
+# Improved Tactical Mastery (SpellAuras.cpp), Spearing Strike (SpellEffects.cpp), Bloodthrill,
+# Weaponmaster crit and sword proc, and the Improved Slam swing (Unit.cpp, above), the Weaponmaster
+# armor ignore (SpellCaster.cpp) and the Improved Slam swing timer (Spell.cpp).
+src/game/Objects/SpellCaster.cpp
+src/game/Spells/Spell.cpp

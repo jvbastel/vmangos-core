@@ -48,6 +48,7 @@
 #include "Geometry.h"
 #include "Anticheat.h"
 #include "Utilities/Random.h"
+#include "ForeverArms.h"
 
 using namespace Spells;
 
@@ -3802,7 +3803,9 @@ void Spell::cast(bool skipCheck)
         }
     }
 
-    if (m_casterUnit && IsMeleeAttackResetSpell() && !(m_spellInfo->AttributesEx2 & SPELL_ATTR_EX2_DO_NOT_RESET_COMBAT_TIMERS))
+    // Forever rules: Improved Slam keeps the swing timers (jvbastel/WOWAI#217).
+    if (m_casterUnit && IsMeleeAttackResetSpell() && !(m_spellInfo->AttributesEx2 & SPELL_ATTR_EX2_DO_NOT_RESET_COMBAT_TIMERS) &&
+        !Forever::KeepsSwingTimer(m_casterUnit, m_spellInfo))
     {
         m_casterUnit->ResetAttackTimer(BASE_ATTACK);
         if (m_casterUnit->HaveOffhandWeapon())

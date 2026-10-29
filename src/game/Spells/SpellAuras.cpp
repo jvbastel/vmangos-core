@@ -51,6 +51,7 @@
 #include "ZoneScript.h"
 #include "ForeverWarrior.h"
 #include "VictoryRush.h"
+#include "ForeverArms.h"
 #include "LoveIsInTheAir.h"
 #include "Utilities/Random.h"
 
@@ -2598,7 +2599,8 @@ void Aura::HandleAuraModShapeshift(bool apply, bool Real)
                                 break;
                         }
                     }
-                    if (target->GetPower(POWER_RAGE) > Rage_val)
+                    // Forever rules: Improved Tactical Mastery keeps more Rage (jvbastel/WOWAI#217).
+                    if (!Forever::ApplyStanceRage(target, Rage_val) && target->GetPower(POWER_RAGE) > Rage_val)
                         target->SetPower(POWER_RAGE, Rage_val);
                     break;
                 }
