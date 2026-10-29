@@ -5,6 +5,7 @@
 #include "BotGeometry.h"
 #include "BotView.h"
 #include "GroupCoordinator.h"
+#include "PlayerTank.h"
 
 #include <algorithm>
 #include <cmath>
@@ -462,6 +463,23 @@ namespace Bots
                 return found == m_level.end() ? 0 : found->second;
             }
             bool HasRoomFor(AmmoTopUp const&) const override { return !m_bagsFull; }
+            // jvbastel/WOWAI#189: the tank's target. Unset: NoGuid.
+            void SetTargetOf(Guid unit, Guid target) { m_targetOf[unit] = target; }
+            Guid GetTargetOf(Guid unit) const override
+            {
+                auto found = m_targetOf.find(unit);
+                return found == m_targetOf.end() ? NoGuid : found->second;
+            }
+            // jvbastel/WOWAI#191: the group's marks. Unset: no marks.
+            void SetGroupMarks(GroupMarks const& marks) { m_marks = marks; }
+            GroupMarks GetGroupMarks() const override { return m_marks; }
+            // jvbastel/WOWAI#197: a member's role choice. Unset: RoleChoice::None.
+            void SetRoleChoice(Guid member, RoleChoice choice) { m_roleChoice[member] = choice; }
+            RoleChoice GetRoleChoice(Guid member) const override
+            {
+                auto found = m_roleChoice.find(member);
+                return found == m_roleChoice.end() ? RoleChoice::None : found->second;
+            }
             bool IsMeleeAttacking() const override { return GetVictim(m_self) != NoGuid && !m_noMeleeSwing; }
             bool IsMoving(Guid unit) const override
             {
@@ -602,6 +620,9 @@ namespace Bots
             std::map<SpellId, float> m_spellRange;
             std::map<Guid, bool> m_inCombat;
             std::map<Guid, Guid> m_victim;
+            std::map<Guid, Guid> m_targetOf; // jvbastel/WOWAI#189.
+            GroupMarks m_marks; // jvbastel/WOWAI#191.
+            std::map<Guid, RoleChoice> m_roleChoice; // jvbastel/WOWAI#197.
             std::map<std::pair<Guid, Guid>, float> m_threatRatio;
             std::set<std::pair<Guid, SpellId>> m_auras;
             Guid m_followTarget = NoGuid;
@@ -674,6 +695,22 @@ namespace Bots
         {
             group.HoldPull(puller, nowMs - HoldContactMs);
             group.NoteFocusContact(nowMs - HoldContactMs);
+        }
+
+        // The player-tank twin of HoldThreat (spec #188): `tank` is the
+        // player tank of a player-tank group, enemy `enemy` hits it and is
+        // its target, and the tank is top of the enemy's threat list from 0
+        // to PlayerTankHoldMs (WatchPlayerTank). Returns the time from which
+        // the tank holds threat on it (GroupCoordinator::TankHoldsThreat).
+        inline std::int64_t PlayerTankHoldsThreat(FakeBot& fake, GroupCoordinator& group, Guid tank, Guid enemy)
+        {
+            group.SetTank(tank, true);
+            fake.SetVictim(enemy, tank);
+            fake.SetTargetOf(tank, enemy);
+            fake.SetThreatRatio(tank, enemy, 1.5f);
+            WatchPlayerTank(fake, group, 0);
+            WatchPlayerTank(fake, group, PlayerTankHoldMs);
+            return PlayerTankHoldMs;
         }
     }
 }

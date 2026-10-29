@@ -18,7 +18,7 @@ item head 4041 34-40 0 15.42  # Aurora Cowl, green, dungeon
 item head 2621 36-37 0 12.89  # Cowl of Necromancy, green, creature
 item head 3345 37-38 0 18.50  # Silk Wizard Hat, green, creature
 item head 14421 37-43 0 21.45  # Silksand Circlet, green, dungeon
-item head 5624 38-39 0 15.91  # Circlet of the Order, green, creature
+item head 5624 38-39 0 15.91 horde  # Circlet of the Order, green, creature
 item head 2620 39-40 0 28.32  # Augural Shroud, green, creature
 item head 2624 39-43 0 17.45  # Thinking Cap, green, world
 item head 6429 39-45 0 17.87  # Mistscape Wizard Hat, green, dungeon
@@ -27,7 +27,7 @@ item head 7720 40-45 0 31.62  # Whitemane's Chapeau, blue, dungeon
 item head 9429 40-45 0 30.02  # Miner's Hat of the Deep, blue, dungeon
 item head 9431 40-44 0 41.01  # Papal Fez, blue, dungeon
 item head 10574 40-41 0 24.87  # Corpseshroud, blue, dungeon
-item head 2623 41-42 0 15.84  # Holy Diadem, green, creature
+item head 2623 41-42 0 15.84 horde  # Holy Diadem, green, creature
 item head 10024 41-47 0 24.19  # Black Mageweave Headband, green, craft
 item head 14436 41-47 0 21.79  # Windchaser Coronet, green, dungeon
 item head 13102 42-48 0 42.95  # Cassandra's Grace, blue, dungeon
@@ -239,23 +239,27 @@ item back 20579 60-60 6 6.54  # Green Dragonskin Cloak, epic, world
 item back 21412 60-60 7 47.22  # Shroud of Infinite Wisdom, epic, quest
 item back 21710 60-60 7 8.16  # Cloak of the Fallen God, epic, quest
 item back 22658 60-60 9 9.61  # Glacial Cloak, epic, quest
-item chest 193 1-7 0 0.10  # Tattered Cloth Vest, white, vendor
+item chest 193 1-7 0 0.10 horde  # Tattered Cloth Vest, white, vendor
 item chest 2121 1-7 0 0.10  # Thin Cloth Armor, white, vendor
 item chest 2110 3-7 0 0.08  # Light Magesmith Robe, white, creature
 item chest 2568 3-9 0 0.15  # Brown Linen Vest, white, craft
 item chest 2612 3-9 0 0.15  # Plain Robe, white, vendor
 item chest 3260 3-7 0 0.08  # Scarlet Initiate Robes, white, creature
 item chest 3270 4-6 0 0.10  # Flax Vest, white, quest
-item chest 16606 4-6 0 1.00  # Juju Hex Robes, green, quest
-item chest 16607 4-6 0 1.00  # Acolyte's Sacrificial Robes, green, quest
+item chest 16604 4-6 0 1.00 alliance  # Moon Robes of Elune, green, quest
+item chest 16605 4-6 0 1.00 alliance  # Friar's Robes of the Light, green, quest
+item chest 16606 4-6 0 1.00 horde  # Juju Hex Robes, green, quest
+item chest 16607 4-6 0 1.00 horde  # Acolyte's Sacrificial Robes, green, quest
 item chest 795 5-11 0 0.18  # Knitted Tunic, white, vendor
-item chest 2364 5-11 0 0.18  # Woven Vest, white, vendor
+item chest 2364 5-11 0 0.18 horde  # Woven Vest, white, vendor
+item chest 4916 5-6 0 0.10 alliance  # Soft Wool Vest, white, quest
 item chest 6238 5-11 0 1.09  # Brown Linen Robe, green, craft
 item chest 6241 5-11 0 1.19  # White Linen Robe, green, craft
 item chest 2957 6-12 0 2.01  # Journeyman's Vest, green, world
 item chest 6511 6-12 0 2.21  # Journeyman's Robe, green, world
 item chest 2613 8-14 0 0.23  # Double-stitched Robes, white, vendor
 item chest 3292 8-14 0 2.75  # Ancestral Tunic, green, world
+item chest 5767 8-10 0 0.17 alliance  # Violet Robes, white, creature
 item chest 6527 8-14 0 2.75  # Ancestral Robe, green, world
 item chest 10553 8-12 0 0.21  # Foreman Vest, green, world
 item chest 2578 9-15 0 3.06  # Barbaric Linen Vest, green, craft
@@ -266,7 +270,7 @@ item chest 2969 12-18 0 5.30  # Spellbinder Vest, green, world
 item chest 6528 12-18 0 5.90  # Spellbinder Robe, green, world
 item chest 3310 13-19 0 4.32  # Barbaric Cloth Vest, green, world
 item chest 4782 13-19 0 6.32  # Solstice Robe, green, vendor
-item chest 5110 13-19 0 0.30  # Dalaran Wizard's Robe, white, creature
+item chest 5110 13-19 0 0.30 horde  # Dalaran Wizard's Robe, white, creature
 item chest 6531 13-19 0 4.32  # Barbaric Cloth Robe, green, world
 item chest 14150 13-19 0 5.82  # Robe of Evocation, green, dungeon
 item chest 4781 15-21 0 5.74  # Whispering Vest, green, vendor
@@ -357,12 +361,12 @@ item chest 20635 60-60 6 95.89  # Jade Inlaid Vestments, epic, world
 item chest 21351 60-60 7 109.23  # Vestments of the Oracle, epic, quest
 item chest 22512 60-60 9 112.58  # Robe of Faith, epic, quest
 item chest 22652 60-60 9 43.61  # Glacial Vest, epic, quest
-item wrists 3596 1-7 0 0.04  # Tattered Cloth Bracers, white, vendor
+item wrists 3596 1-7 0 0.04 horde  # Tattered Cloth Bracers, white, vendor
 item wrists 3600 1-7 0 0.04  # Thin Cloth Bracers, white, vendor
 item wrists 6060 2-6 0 0.04  # Flax Bracers, white, quest
 item wrists 11187 2-6 0 0.04  # Stemleaf Bracers, white, quest
 item wrists 3603 5-11 0 0.08  # Knitted Bracers, white, vendor
-item wrists 3607 5-11 0 0.08  # Woven Bracers, white, vendor
+item wrists 3607 5-11 0 0.08 horde  # Woven Bracers, white, vendor
 item wrists 3641 5-9 0 0.07  # Journeyman's Bracers, white, creature
 item wrists 7350 5-11 0 0.08  # Disciple's Bracers, white, creature
 item wrists 3224 7-11 0 0.08  # Silver-lined Bracers, white, world
@@ -407,13 +411,13 @@ item wrists 19595 60-60 4 49.54  # Dryad's Wrist Bindings, epic, vendor
 item wrists 20626 60-60 6 50.58  # Black Bark Wristbands, epic, world
 item wrists 22519 60-60 9 64.38  # Bindings of Faith, epic, quest
 item wrists 22655 60-60 9 27.33  # Glacial Wrists, epic, quest
-item hands 711 1-7 0 0.06  # Tattered Cloth Gloves, white, vendor
+item hands 711 1-7 0 0.06 horde  # Tattered Cloth Gloves, white, vendor
 item hands 719 1-6 0 0.06  # Rabbit Handler Gloves, white, quest
 item hands 2119 1-7 0 0.06  # Thin Cloth Gloves, white, vendor
 item hands 3275 2-6 0 0.06  # Flax Gloves, white, quest
 item hands 11190 3-6 0 0.06  # Viny Gloves, white, quest
 item hands 793 5-11 0 0.11  # Knitted Gloves, white, vendor
-item hands 2369 5-11 0 0.11  # Woven Gloves, white, vendor
+item hands 2369 5-11 0 0.11 horde  # Woven Gloves, white, vendor
 item hands 4307 5-11 0 0.11  # Heavy Linen Gloves, white, craft
 item hands 11192 5-6 0 0.06  # Outfitter Gloves, white, quest
 item hands 2960 6-10 0 0.10  # Journeyman's Gloves, white, creature
@@ -430,7 +434,7 @@ item hands 4310 12-18 0 3.99  # Heavy Woolen Gloves, green, craft
 item hands 4768 12-16 0 3.17  # Adept's Gloves, green, world
 item hands 2984 13-19 0 3.80  # Seer's Gloves, green, world
 item hands 14367 14-20 0 3.80  # Mystic's Gloves, green, world
-item hands 4767 15-16 0 0.17  # Coppercloth Gloves, green, creature
+item hands 4767 15-16 0 0.17 horde  # Coppercloth Gloves, green, creature
 item hands 203 17-23 0 0.21  # Thick Cloth Gloves, white, vendor
 item hands 5970 18-24 0 4.23  # Serpent Gloves, green, dungeon
 item hands 3066 19-25 0 7.84  # Bright Gloves, green, dungeon
@@ -452,7 +456,8 @@ item hands 6428 38-44 0 11.35  # Mistscape Gloves, green, dungeon
 item hands 10003 38-44 0 21.35  # Black Mageweave Gloves, green, craft
 item hands 14431 39-45 0 12.06  # Windchaser Handguards, green, dungeon
 item hands 1659 40-41 0 8.33  # Engineering Gloves, green, creature
-item hands 10019 40-42 0 35.91  # Dreamweave Gloves, blue, craft
+item hands 10019 40-44 0 35.91 alliance  # Dreamweave Gloves, blue, craft
+item hands 10019 40-42 0 35.91 horde  # Dreamweave Gloves, blue, craft
 item hands 10023 40-46 0 5.37  # Shadoweave Gloves, green, craft
 item hands 8110 42-48 0 10.38  # Hibernal Gloves, green, dungeon
 item hands 14442 44-50 0 17.20  # Venomshroud Mitts, green, dungeon
@@ -478,13 +483,13 @@ item hands 23128 57-60 9 21.55  # The Shadow's Grasp, blue, dungeon
 item hands 20618 60-60 6 68.99  # Gloves of Delusional Power, epic, world
 item hands 22517 60-60 9 83.63  # Gloves of Faith, epic, quest
 item hands 22654 60-60 9 32.76  # Glacial Gloves, epic, quest
-item waist 3595 1-7 0 0.06  # Tattered Cloth Belt, white, vendor
+item waist 3595 1-7 0 0.06 horde  # Tattered Cloth Belt, white, vendor
 item waist 3599 1-7 0 0.06  # Thin Cloth Belt, white, vendor
 item waist 4919 3-6 0 0.06  # Soft Wool Belt, white, quest
 item waist 11848 3-6 0 0.06  # Flax Belt, white, quest
 item waist 7026 4-10 0 0.09  # Linen Belt, white, craft
 item waist 3602 5-11 0 0.10  # Knitted Belt, white, vendor
-item waist 3606 5-11 0 0.10  # Woven Belt, white, vendor
+item waist 3606 5-11 0 0.10 horde  # Woven Belt, white, vendor
 item waist 4663 6-10 0 0.09  # Journeyman's Belt, white, creature
 item waist 6513 6-11 0 0.10  # Disciple's Sash, white, creature
 item waist 4672 7-11 0 0.10  # Ancestral Belt, white, creature
@@ -499,13 +504,13 @@ item waist 4699 13-19 0 4.18  # Seer's Belt, green, world
 item waist 2283 14-16 0 2.96  # Rat Cloth Belt, green, creature
 item waist 4786 15-21 0 5.19  # Wise Man's Belt, green, vendor
 item waist 3597 17-23 0 0.19  # Thick Cloth Belt, white, vendor
-item waist 4436 18-22 0 5.20  # Jewel-encrusted Sash, green, world
+item waist 4436 18-22 0 5.20 horde  # Jewel-encrusted Sash, green, world
 item waist 5967 18-19 0 4.18  # Girdle of Nobility, green, creature
 item waist 4708 19-25 0 6.21  # Bright Belt, green, dungeon
 item waist 3229 20-24 0 5.21  # Tarantula Silk Sash, green, world
 item waist 6908 20-26 0 6.22  # Ghamoo-ra's Bind, green, dungeon
 item waist 14373 20-26 0 6.72  # Sanguine Belt, green, dungeon
-item waist 4785 21-25 0 6.71  # Brimstone Belt, green, world
+item waist 4785 21-25 0 6.71 horde  # Brimstone Belt, green, world
 item waist 1299 22-23 0 4.90  # Lesser Belt of the Spire, green, creature
 item waist 3591 22-28 0 0.22  # Padded Belt, white, vendor
 item waist 4714 22-28 0 7.23  # Silver-thread Sash, green, dungeon
@@ -535,18 +540,19 @@ item waist 14465 55-60 0 29.44  # Elunarian Belt, green, world
 item waist 18475 55-60 1 29.34  # Oddly Magical Belt, green, dungeon
 item waist 20625 60-60 6 36.21  # Belt of the Dark Bog, epic, world
 item waist 22518 60-60 9 81.65  # Belt of Faith, epic, quest
-item legs 194 1-7 0 0.09  # Tattered Cloth Pants, white, vendor
+item legs 194 1-7 0 0.09 horde  # Tattered Cloth Pants, white, vendor
 item legs 2120 1-7 0 0.09  # Thin Cloth Pants, white, vendor
 item legs 10045 2-8 0 0.12  # Simple Linen Pants, white, craft
 item legs 79 3-6 0 0.09  # Dwarven Cloth Britches, white, quest
 item legs 3263 3-7 0 0.06  # Webbed Pants, white, creature
 item legs 10655 4-6 0 0.09  # Sedgeweed Britches, white, quest
 item legs 794 5-11 0 0.16  # Knitted Pants, white, vendor
-item legs 2366 5-11 0 0.16  # Woven Pants, white, vendor
+item legs 2366 5-11 0 0.16 horde  # Woven Pants, white, vendor
 item legs 2958 5-11 0 1.07  # Journeyman's Pants, green, world
 item legs 4261 5-9 0 0.13  # Solliden's Trousers, white, world
 item legs 4343 5-11 0 0.16  # Brown Linen Pants, white, craft
 item legs 6076 5-6 0 0.09  # Tapered Pants, white, quest
+item legs 6713 5-6 0 0.09 alliance  # Ripped Pants, white, quest
 item legs 3291 8-14 0 2.92  # Ancestral Woollies, green, world
 item legs 10554 8-12 0 0.68  # Foreman Pants, green, world
 item legs 4309 9-15 0 4.03  # Handstitched Linen Britches, green, craft
@@ -572,7 +578,7 @@ item legs 3073 25-27 0 0.35  # Smoldering Pants, green, creature
 item legs 4037 25-31 0 13.97  # Silver-thread Pants, green, dungeon
 item legs 6910 26-26 0 19.42  # Leech Pants, blue, dungeon
 item legs 14404 28-34 0 10.29  # Resilient Leggings, green, dungeon
-item legs 4723 29-30 0 10.17  # Humbert's Pants, green, creature
+item legs 4723 29-30 0 10.17 horde  # Humbert's Pants, green, creature
 item legs 6405 31-37 0 11.92  # Nightsky Trousers, green, dungeon
 item legs 2431 32-38 0 0.41  # Russet Pants, white, vendor
 item legs 14415 32-38 0 17.73  # Stonecloth Britches, green, dungeon
@@ -582,7 +588,7 @@ item legs 9999 36-42 0 21.07  # Black Mageweave Leggings, green, craft
 item legs 10002 37-43 0 3.48  # Shadoweave Pants, green, craft
 item legs 14424 37-43 0 16.68  # Silksand Legwraps, green, dungeon
 item legs 4046 40-46 0 17.32  # Mistscape Pants, green, dungeon
-item legs 12255 41-47 0 24.33  # Pale Leggings, green, vendor
+item legs 12255 41-47 0 24.33 horde  # Pale Leggings, green, vendor
 item legs 14433 41-47 0 21.53  # Windchaser Woolies, green, dungeon
 item legs 8112 44-50 0 21.46  # Hibernal Pants, green, dungeon
 item legs 12256 44-50 0 14.06  # Cindercloth Leggings, green, vendor
@@ -610,9 +616,9 @@ item legs 12965 58-60 0 64.28  # Spiritshroud Leggings, blue, dungeon
 item legs 18545 60-60 1 44.53  # Leggings of Arcane Supremacy, epic, world
 item legs 21352 60-60 7 104.87  # Trousers of the Oracle, epic, quest
 item legs 22513 60-60 9 111.06  # Leggings of Faith, epic, quest
-item legs 22747 60-60 9 80.58  # Outrider's Silk Leggings, epic, vendor
+item legs 22747 60-60 9 80.58 horde  # Outrider's Silk Leggings, epic, vendor
 item legs 22752 60-60 9 80.58  # Sentinel's Silk Leggings, epic, vendor
-item feet 195 1-7 0 0.07  # Tattered Cloth Boots, white, vendor
+item feet 195 1-7 0 0.07 horde  # Tattered Cloth Boots, white, vendor
 item feet 2117 1-7 0 0.07  # Thin Cloth Shoes, white, vendor
 item feet 7189 1-6 0 0.41  # Goblin Rocket Boots, green, craft
 item feet 80 2-6 0 0.07  # Soft Fur-lined Shoes, white, quest
@@ -621,7 +627,7 @@ item feet 6173 2-6 0 0.07  # Snow Boots, white, quest
 item feet 3274 3-6 0 0.07  # Flax Boots, white, quest
 item feet 10046 4-10 0 0.11  # Simple Linen Boots, white, craft
 item feet 792 5-11 0 0.13  # Knitted Sandals, white, vendor
-item feet 2367 5-11 0 0.13  # Woven Boots, white, vendor
+item feet 2367 5-11 0 0.13 horde  # Woven Boots, white, vendor
 item feet 2959 5-10 0 0.11  # Journeyman's Boots, white, creature
 item feet 7351 6-12 0 0.14  # Disciple's Boots, white, creature
 item feet 3289 7-12 0 0.14  # Ancestral Boots, white, creature
@@ -731,9 +737,9 @@ item ranged 5213 30-36 0 28.85  # Scorching Wand, green, dungeon
 item ranged 5347 30-36 0 27.00  # Pestilent Wand, white, vendor
 item ranged 7708 30-36 0 33.21  # Necrotic Wand, blue, dungeon
 item ranged 11290 30-36 0 29.00  # Greater Mystic Wand, green, craft
-item ranged 5245 34-35 0 28.06  # Summoner's Wand, green, creature
+item ranged 5245 34-35 0 28.06 horde  # Summoner's Wand, green, creature
 item ranged 9381 35-39 0 35.59  # Earthen Rod, blue, creature
-item ranged 23177 36-42 9 38.08  # Lady Falther'ess' Finger, blue, dungeon
+item ranged 23177 36-42 9 38.08 horde  # Lady Falther'ess' Finger, blue, dungeon
 item ranged 13064 37-43 0 48.08  # Jaina's Firestarter, blue, dungeon
 item ranged 5238 40-46 0 34.71  # Pitchwood Wand, white, vendor
 item ranged 5239 41-47 0 35.31  # Blackbone Wand, white, vendor
@@ -767,7 +773,7 @@ item mainhand 4439 19-23 0 1.00  # Bruiser Club, green, world
 item mainhand 6333 19-23 0 1.00  # Spikelash Dagger, green, world
 item mainhand 1457 22-23 0 1.50  # Shadowhide Mace, green, creature
 item mainhand 12247 27-33 0 2.50  # Broad Bladed Knife, green, vendor
-item mainhand 16769 47-53 0 8.40  # Furbolg Medicine Totem, green, vendor
+item mainhand 16769 47-53 0 8.40 horde  # Furbolg Medicine Totem, green, vendor
 item mainhand 2243 60-60 0 22.00  # Hand of Edward the Odd, epic, dungeon
 item mainhand 17070 60-60 1 78.00  # Fang of the Mystics, epic, world
 item mainhand 20580 60-60 6 6.90  # Hammer of Bestial Fury, epic, world
@@ -781,24 +787,24 @@ item twohand 1928 16-17 0 4.00  # Defias Mage Staff, green, creature
 item twohand 1405 17-18 0 4.50  # Foamspittle Staff, green, creature
 item twohand 1391 18-19 0 5.60  # Riverpaw Mystic Staff, green, creature
 item twohand 3902 18-19 0 4.60  # Staff of Nobles, green, creature
-item twohand 4437 18-21 0 6.00  # Channeler's Staff, green, world
+item twohand 4437 18-21 0 6.00 horde  # Channeler's Staff, green, world
 item twohand 1473 19-20 0 5.40  # Riverside Staff, green, creature
 item twohand 2280 23-28 0 8.00  # Kam's Walking Stick, green, dungeon
 item twohand 2013 26-27 0 9.60  # Cryptbone Staff, green, creature
 item twohand 12252 34-40 0 1.00  # Staff of Protection, green, vendor
 item twohand 1664 41-42 0 28.00  # Spellforce Rod, green, creature
-item twohand 1720 43-44 0 16.20  # Tanglewood Staff, blue, dungeon
-item twohand 9408 43-43 0 10.00  # Ironshod Bludgeon, blue, dungeon
-item twohand 9482 43-44 0 8.10  # Witch Doctor's Cane, blue, dungeon
-item twohand 18082 43-44 1 44.40  # Zum'rah's Vexing Cane, blue, dungeon
-item twohand 19568 43-44 4 25.00  # Advisor's Gnarled Staff, blue, vendor
-item twohand 19572 43-44 4 25.00  # Lorekeeper's Staff, blue, vendor
+item twohand 1720 43-44 0 16.20 horde  # Tanglewood Staff, blue, dungeon
+item twohand 9408 43-43 0 10.00 horde  # Ironshod Bludgeon, blue, dungeon
+item twohand 9482 43-44 0 8.10 horde  # Witch Doctor's Cane, blue, dungeon
+item twohand 18082 43-44 1 44.40 horde  # Zum'rah's Vexing Cane, blue, dungeon
+item twohand 19568 43-44 4 25.00 horde  # Advisor's Gnarled Staff, blue, vendor
+item twohand 19572 43-44 4 25.00 horde  # Lorekeeper's Staff, blue, vendor
 item twohand 1607 54-55 0 34.40  # Soulkeeper, blue, world
 item twohand 11750 54-54 0 34.70  # Kindling Stave, blue, dungeon
 item twohand 11932 54-60 0 51.60  # Guiding Stave of Wisdom, blue, dungeon
 item twohand 12532 54-57 0 27.00  # Spire of the Stoneshaper, blue, dungeon
 item twohand 18311 54-59 1 41.20  # Quel'dorai Channeling Rod, blue, dungeon
-item twohand 19567 54-54 4 30.50  # Advisor's Gnarled Staff, blue, vendor
+item twohand 19567 54-54 4 30.50 horde  # Advisor's Gnarled Staff, blue, vendor
 item twohand 19571 54-54 4 30.50  # Lorekeeper's Staff, blue, vendor
 item twohand 23124 55-60 9 66.90  # Staff of Balzaphon, blue, dungeon
 item twohand 13161 56-60 0 50.60  # Trindlehaven Staff, blue, dungeon
@@ -806,16 +812,16 @@ item twohand 18353 56-60 1 30.00  # Stoneflower Staff, green, dungeon
 item twohand 22406 56-60 8 57.00  # Redemption, blue, dungeon
 item twohand 13000 57-60 0 44.80  # Staff of Hale Magefire, blue, dungeon
 item twohand 22394 57-60 8 58.70  # Staff of Metanoia, blue, dungeon
-item twohand 19566 58-60 4 35.50  # Advisor's Gnarled Staff, blue, vendor
+item twohand 19566 58-60 4 35.50 horde  # Advisor's Gnarled Staff, blue, vendor
 item twohand 19570 58-60 4 35.50  # Lorekeeper's Staff, blue, vendor
 item twohand 22335 58-60 8 57.50  # Lord Valthalak's Staff of Command, blue, dungeon
 item twohand 17113 60-60 1 99.60  # Amberseal Keeper, epic, world
-item twohand 19101 60-60 3 49.50  # Whiteout Staff, blue, vendor
+item twohand 19101 60-60 3 49.50 horde  # Whiteout Staff, blue, vendor
 item twohand 19102 60-60 3 49.50  # Crackling Staff, blue, vendor
 item twohand 20581 60-60 6 97.30  # Staff of Rampant Growth, epic, world
 item twohand 21273 60-60 7 161.40  # Blessed Qiraji Acolyte Staff, epic, quest
 item twohand 21275 60-60 7 158.10  # Blessed Qiraji Augur Staff, epic, quest
-item holdable 16768 1-6 0 5.00  # Furbolg Medicine Pouch, green, vendor
+item holdable 16768 1-6 0 5.00 horde  # Furbolg Medicine Pouch, green, vendor
 item holdable 15925 5-11 0 0.50  # Journeyman's Stave, green, world
 item holdable 15944 7-13 0 1.00  # Ancestral Orb, green, world
 item holdable 15926 12-18 0 3.00  # Spellbinder Orb, green, world

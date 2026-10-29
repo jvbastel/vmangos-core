@@ -43,8 +43,42 @@ def quest(entry, rewards, level=10, min_level=8, patch=0, races=0, classes=0, ti
             "RequiredRaces": races, "RequiredClasses": classes, "Title": title, "items": rewards}
 
 
-def creature(entry, level, loot_id, name="A creature", patch=0):
-    return {"entry": entry, "patch": patch, "name": name, "level_min": level, "loot_id": loot_id}
+def creature(entry, level, loot_id, name="A creature", patch=0, faction=0):
+    return {"entry": entry, "patch": patch, "name": name, "level_min": level, "loot_id": loot_id,
+            "faction": faction}
+
+
+def faction_template(entry, faction_id=0, our_mask=0, friendly_mask=0, hostile_mask=0, enemies=(), friends=()):
+    row = {"id": entry, "faction_id": faction_id, "our_mask": our_mask, "friendly_mask": friendly_mask,
+           "hostile_mask": hostile_mask}
+    for i in range(1, 5):
+        row[f"enemy_faction{i}"] = enemies[i - 1] if i <= len(enemies) else 0
+        row[f"friend_faction{i}"] = friends[i - 1] if i <= len(friends) else 0
+    return row
+
+
+# The faction templates of the player races, as in the world database: the
+# masks are 1 player, 2 Alliance, 4 Horde. Then a template friendly to the
+# Horde and hostile to the Alliance (a Horde town), the other way round, and
+# one hostile to both (a monster).
+PLAYER_FACTIONS = [
+    faction_template(1, faction_id=1, our_mask=3, friendly_mask=2, hostile_mask=12),
+    faction_template(3, faction_id=3, our_mask=3, friendly_mask=2, hostile_mask=12),
+    faction_template(4, faction_id=4, our_mask=3, friendly_mask=2, hostile_mask=12),
+    faction_template(115, faction_id=115, our_mask=3, friendly_mask=2, hostile_mask=12),
+    faction_template(2, faction_id=2, our_mask=5, friendly_mask=4, hostile_mask=10),
+    faction_template(5, faction_id=5, our_mask=5, friendly_mask=4, hostile_mask=10),
+    faction_template(6, faction_id=6, our_mask=5, friendly_mask=4, hostile_mask=10),
+    faction_template(116, faction_id=116, our_mask=5, friendly_mask=4, hostile_mask=10),
+]
+HORDE_TOWN = 85
+ALLIANCE_TOWN = 11
+MONSTER = 14
+TOWN_FACTIONS = [
+    faction_template(HORDE_TOWN, faction_id=76, our_mask=4, friendly_mask=4, hostile_mask=2),
+    faction_template(ALLIANCE_TOWN, faction_id=72, our_mask=2, friendly_mask=2, hostile_mask=4),
+    faction_template(MONSTER, faction_id=16, our_mask=8, friendly_mask=0, hostile_mask=1),
+]
 
 
 def spawn(creature_entry, map_id=1, patch_min=0, patch_max=10):
@@ -58,7 +92,7 @@ def loot(entry, item_entry, ref=0, patch_min=0, patch_max=10):
 
 def tables(**given):
     names = ["items", "spells", "forbidden", "quests", "creatures", "spawns", "maps",
-             "creature_loot", "reference_loot", "vendors", "crafts", "entries"]
+             "creature_loot", "reference_loot", "vendors", "crafts", "entries", "factions"]
     result = {name: [] for name in names}
     result["maps"] = [{"entry": 0, "map_type": 0, "name": "Eastern Kingdoms"},
                       {"entry": 1, "map_type": 0, "name": "Kalimdor"}]

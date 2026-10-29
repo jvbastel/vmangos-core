@@ -14,6 +14,8 @@ namespace Bots
                     return "melee contact";
                 case ThreatHeld::TimeLimit:
                     return "time limit";
+                case ThreatHeld::TopOfThreat:
+                    return "top of threat";
                 case ThreatHeld::No:
                     break;
             }

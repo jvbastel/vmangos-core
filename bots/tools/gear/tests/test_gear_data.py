@@ -1,14 +1,17 @@
+from dataclasses import replace
+
 import pytest
 
 import gear_data
-from fixtures import creature, item, loot, quest, spawn, spell, tables
+from fixtures import (ALLIANCE_TOWN, HORDE_TOWN, MONSTER, PLAYER_FACTIONS, TOWN_FACTIONS, creature,
+                      faction_template, item, loot, quest, spawn, spell, tables)
 
 RULES = gear_data.SourceRules(creature_level_margin=0, world_drop_level_margin=3, include_raids=False)
 WARRIOR = 1
 
 
-def earliest(world, entry, patch=10, class_id=WARRIOR):
-    return gear_data.earliest_level(world.sources.get(entry, []), patch, class_id, RULES)
+def earliest(world, entry, patch=10, class_id=WARRIOR, faction="horde"):
+    return gear_data.earliest_level(world.sources.get(entry, []), patch, class_id, RULES, faction)
 
 
 def test_a_quest_reward_counts_from_the_quest_level_and_the_quest_patch():
@@ -26,6 +29,7 @@ def test_a_quest_for_alliance_races_or_another_class_is_no_source():
         quests=[quest(1, [100], races=1 | 4), quest(2, [101], classes=1 << 7)]))
 
     assert earliest(world, 100) is None
+    assert earliest(world, 100, faction="alliance") == 10
     assert earliest(world, 101) is None
     assert earliest(world, 101, class_id=8) == 10
 
@@ -150,3 +154,104 @@ def test_an_item_keeps_its_display_id_for_the_icons_of_the_builder_page():
     world = gear_data.build_world(tables(items=[item(100, display_id=7012)]))
 
     assert world.items[100].display_id == 7012
+
+
+# jvbastel/WOWAI#199: vendors and loot split by faction.
+
+def test_a_vendor_of_one_faction_sells_only_to_that_faction():
+    world = gear_data.build_world(tables(
+        items=[item(100), item(101), item(102)],
+        creatures=[creature(800, level=30, loot_id=0, faction=HORDE_TOWN),
+                   creature(801, level=30, loot_id=0, faction=ALLIANCE_TOWN),
+                   creature(802, level=30, loot_id=0, faction=35)],  # A template that is not in the table.
+        spawns=[spawn(800), spawn(801), spawn(802)],
+        vendors=[{"creature": 800, "item": 100}, {"creature": 801, "item": 101}, {"creature": 802, "item": 102}],
+        factions=PLAYER_FACTIONS + TOWN_FACTIONS))
+
+    assert earliest(world, 100) == 0
+    assert earliest(world, 100, faction="alliance") is None
+    assert earliest(world, 101) is None
+    assert earliest(world, 101, faction="alliance") == 0
+    assert earliest(world, 102) == 0
+    assert earliest(world, 102, faction="alliance") == 0
+
+
+def test_an_item_that_vendors_of_both_factions_sell_counts_for_both():
+    world = gear_data.build_world(tables(
+        items=[item(100)],
+        creatures=[creature(800, level=30, loot_id=0, faction=HORDE_TOWN),
+                   creature(801, level=30, loot_id=0, faction=ALLIANCE_TOWN)],
+        spawns=[spawn(800), spawn(801)],
+        vendors=[{"creature": 800, "item": 100}, {"creature": 801, "item": 100}],
+        factions=PLAYER_FACTIONS + TOWN_FACTIONS))
+
+    assert earliest(world, 100) == 0
+    assert earliest(world, 100, faction="alliance") == 0
+
+
+def test_a_vendor_with_the_faction_in_its_enemy_list_does_not_sell_to_it():
+    # No hostile mask: the enemy list alone makes the vendor hostile to the Horde races.
+    enemies = PLAYER_FACTIONS + [faction_template(900, faction_id=900, enemies=(2, 5, 6, 116))]
+    world = gear_data.build_world(tables(
+        items=[item(100)],
+        creatures=[creature(800, level=30, loot_id=0, faction=900)],
+        spawns=[spawn(800)],
+        vendors=[{"creature": 800, "item": 100}],
+        factions=enemies))
+
+    assert earliest(world, 100) is None
+    assert earliest(world, 100, faction="alliance") == 0
+
+
+def test_loot_of_a_creature_friendly_to_a_faction_is_no_source_for_it():
+    world = gear_data.build_world(tables(
+        items=[item(100), item(101), item(102)],
+        creatures=[creature(500, level=15, loot_id=500, faction=HORDE_TOWN),
+                   creature(501, level=15, loot_id=501, faction=ALLIANCE_TOWN),
+                   creature(502, level=15, loot_id=502, faction=MONSTER)],
+        spawns=[spawn(500), spawn(501), spawn(502)],
+        creature_loot=[loot(500, 100), loot(501, 101), loot(502, 102)],
+        factions=PLAYER_FACTIONS + TOWN_FACTIONS))
+
+    assert earliest(world, 100) is None
+    assert earliest(world, 100, faction="alliance") == 15
+    assert earliest(world, 101) == 15
+    assert earliest(world, 101, faction="alliance") is None
+    assert earliest(world, 102) == 15
+    assert earliest(world, 102, faction="alliance") == 15
+
+
+def test_loot_of_the_same_item_keeps_the_lowest_level_of_each_faction():
+    world = gear_data.build_world(tables(
+        items=[item(100)],
+        creatures=[creature(500, level=12, loot_id=500, faction=HORDE_TOWN),
+                   creature(501, level=18, loot_id=501, faction=MONSTER)],
+        spawns=[spawn(500), spawn(501)],
+        creature_loot=[loot(500, 100), loot(501, 100)],
+        factions=PLAYER_FACTIONS + TOWN_FACTIONS))
+
+    assert earliest(world, 100) == 18
+    assert earliest(world, 100, faction="alliance") == 12
+
+
+def test_a_faction_outside_the_split_keeps_every_vendor_and_loot_source_but_not_the_quests():
+    # The Horde bots keep the gear they drew before the split.
+    world = gear_data.build_world(tables(
+        items=[item(100), item(101), item(102)],
+        creatures=[creature(800, level=30, loot_id=0, faction=ALLIANCE_TOWN),
+                   creature(500, level=15, loot_id=500, faction=HORDE_TOWN)],
+        spawns=[spawn(800), spawn(500)],
+        vendors=[{"creature": 800, "item": 100}],
+        creature_loot=[loot(500, 101)],
+        quests=[quest(1, [102], races=1 | 4)],
+        factions=PLAYER_FACTIONS + TOWN_FACTIONS))
+    rules = replace(RULES, faction_split=("alliance",))
+
+    def level(entry, faction):
+        return gear_data.earliest_level(world.sources[entry], 10, WARRIOR, rules, faction)
+
+    assert level(100, "horde") == 0
+    assert level(101, "horde") == 15
+    assert level(102, "horde") is None
+    assert level(100, "alliance") == 0
+    assert level(101, "alliance") == 15

@@ -20,6 +20,11 @@ world_drop_level_margin = 3
 # A dungeon drop counts when the lowest creature level on the map is at most
 # L. Raid drops count only when this is true.
 include_raids = false
+# The factions for which vendors and creature loot count only when the
+# faction can trade with the vendor or kill the creature. The Horde is left
+# out on purpose: the Horde bots keep the gear they drew before the split
+# (jvbastel/WOWAI#199). Quests for some races always count only for them.
+faction_split = ["alliance"]
 
 [quality]
 # 0 grey, 1 white, 2 green, 3 blue, 4 epic.

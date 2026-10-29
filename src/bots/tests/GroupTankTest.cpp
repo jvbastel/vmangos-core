@@ -5,7 +5,7 @@
 using Bots::BotRole;
 using Bots::GroupMember;
 using Bots::NoGuid;
-using Bots::NextGroupTank;
+using Bots::GroupTankOf;
 using Bots::PickGroupTank;
 
 // Review of spec #131, story 10: the group's tank is the bot with the tank
@@ -19,9 +19,8 @@ namespace
     Bots::Guid const BotHealer = 0x0000000000000012;
     Bots::Guid const BotMage = 0x0000000000000013;
 
-    GroupMember Human(Bots::Guid guid) { return {guid, false, BotRole::Ranged, true}; }
-    GroupMember HumanMage(Bots::Guid guid) { return {guid, false, BotRole::Ranged, false}; }
-    GroupMember Bot(Bots::Guid guid, BotRole role) { return {guid, true, role, role == BotRole::Tank}; }
+    GroupMember Human(Bots::Guid guid) { return {guid, false, BotRole::Ranged}; }
+    GroupMember Bot(Bots::Guid guid, BotRole role) { return {guid, true, role}; }
 }
 
 TEST(GroupTank, TheBotWithTheTankRoleIsTheTank)
@@ -47,27 +46,119 @@ TEST(GroupTank, ALeaderOutOfTheMembersGivesNoTank)
     EXPECT_EQ(PickGroupTank({Bot(BotHealer, BotRole::Healer), Bot(BotMage, BotRole::Ranged)}, Player), NoGuid);
 }
 
-// Merge review of spec #131: only a human warrior leader tanks. A human
-// mage leader is no tank: the damage bots still take its enemies off it.
-TEST(GroupTank, AHumanLeaderOfAnotherClassIsNoTank)
+// Spec #188 fix-up (S5): the members are all of the group's members, a bot
+// on any map or offline too. A bot tank of the group is its tank wherever it
+// is: a human leader (or the test driver) does not take over while it is
+// away, so the group never is a player-tank group for a while.
+TEST(GroupTank, ABotTankAwayFromTheLeaderIsTheTankNotTheHumanLeader)
 {
-    EXPECT_EQ(PickGroupTank({HumanMage(Player), Bot(BotHealer, BotRole::Healer)}, Player), NoGuid);
+    // The bot tank is in a loading screen, on another map, or offline: it
+    // is still a member.
+    Bots::GroupTank const tank =
+        GroupTankOf({Human(Player), Bot(BotHealer, BotRole::Healer), Bot(BotTank, BotRole::Tank)}, Player);
+
+    EXPECT_EQ(tank.tank, BotTank);
+    EXPECT_FALSE(tank.playerTank);
 }
 
-// Merge review of spec #131: a human tank who leaves the map, or gives up
-// the lead, is no tank any more. A bot tank stays (it sets itself).
-TEST(GroupTank, AHumanTankWhoLeavesIsNoTankAnyMore)
+TEST(GroupTank, AHumanLeaderWithNoBotTankMakesAPlayerTankGroup)
 {
-    EXPECT_EQ(NextGroupTank({Bot(BotHealer, BotRole::Healer)}, Player, Player, false), NoGuid);
-    EXPECT_EQ(NextGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, BotHealer, Player, false), NoGuid);
+    Bots::GroupTank const tank = GroupTankOf({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player);
+
+    EXPECT_EQ(tank.tank, Player);
+    EXPECT_TRUE(tank.playerTank);
 }
 
-TEST(GroupTank, ABotTankOutOfTheMembersStaysTheTank)
+TEST(GroupTank, AHumanWhoGivesUpTheLeadIsNoTankAnyMore)
 {
-    EXPECT_EQ(NextGroupTank({Bot(BotHealer, BotRole::Healer)}, BotHealer, BotTank, true), BotTank);
+    Bots::GroupTank const tank = GroupTankOf({Human(Player), Bot(BotHealer, BotRole::Healer)}, BotHealer);
+
+    EXPECT_EQ(tank.tank, NoGuid);
+    EXPECT_FALSE(tank.playerTank);
 }
 
-TEST(GroupTank, APickReplacesTheCurrentTank)
+// jvbastel/WOWAI#189: with no bot tank, the human leader is the group's
+// tank whatever its class: the members carry no class any more. A bot tank
+// still wins.
+TEST(GroupTank, AHumanLeaderOfAnyClassWithNoBotTankIsTheTank)
 {
-    EXPECT_EQ(NextGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player, NoGuid, false), Player);
+    EXPECT_EQ(PickGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer)}, Player), Player);
+    EXPECT_EQ(PickGroupTank({Human(Player), Bot(BotHealer, BotRole::Healer), Bot(BotTank, BotRole::Tank)}, Player),
+        BotTank);
+}
+
+TEST(GroupTank, OnlyAPlayerTankMakesAPlayerTankGroup)
+{
+    std::vector<GroupMember> const members = {Human(Player), Bot(BotTank, BotRole::Tank)};
+    EXPECT_TRUE(Bots::IsPlayerTank(members, Player));
+    EXPECT_FALSE(Bots::IsPlayerTank(members, BotTank));
+    EXPECT_FALSE(Bots::IsPlayerTank(members, NoGuid));
+}
+
+// jvbastel/WOWAI#197: the role choice of the add-on. A human who picked tank
+// is the tank, also with a bot tank in the group. With no choice, the rule
+// of #189 above applies. Never two tanks: such a group sends its bot tank
+// away, and takes no new one.
+namespace
+{
+    GroupMember HumanWith(Bots::Guid guid, Bots::RoleChoice choice) { return {guid, false, BotRole::Ranged, choice}; }
+}
+
+TEST(GroupTank, AHumanWithTheTankRoleChoiceIsTheTankOverABotTank)
+{
+    EXPECT_EQ(PickGroupTank({Bot(BotTank, BotRole::Tank), HumanWith(Player, Bots::RoleChoice::Tank)}, Player), Player);
+}
+
+TEST(GroupTank, AHumanWithTheTankRoleChoiceIsTheTankWhenNotTheLeader)
+{
+    Bots::Guid const Other = 0x0000000000000002;
+    EXPECT_EQ(PickGroupTank({Human(Other), HumanWith(Player, Bots::RoleChoice::Tank), Bot(BotHealer, BotRole::Healer)},
+                  Other),
+        Player);
+}
+
+TEST(GroupTank, WithNoRoleChoiceTheTracerRuleApplies)
+{
+    EXPECT_EQ(PickGroupTank({HumanWith(Player, Bots::RoleChoice::None), Bot(BotTank, BotRole::Tank)}, Player), BotTank);
+    EXPECT_EQ(PickGroupTank({HumanWith(Player, Bots::RoleChoice::None), Bot(BotHealer, BotRole::Healer)}, Player),
+        Player);
+}
+
+TEST(GroupTank, ANonTankRoleChoiceChangesNothing)
+{
+    EXPECT_EQ(PickGroupTank({HumanWith(Player, Bots::RoleChoice::Healer), Bot(BotTank, BotRole::Tank)}, Player), BotTank);
+    EXPECT_EQ(PickGroupTank({HumanWith(Player, Bots::RoleChoice::Melee), Bot(BotHealer, BotRole::Healer)}, Player),
+        Player);
+}
+
+TEST(GroupTank, TheTankRoleChoiceTakesOverFromABotTank)
+{
+    Bots::GroupTank const tank =
+        GroupTankOf({HumanWith(Player, Bots::RoleChoice::Tank), Bot(BotTank, BotRole::Tank)}, Player);
+
+    EXPECT_EQ(tank.tank, Player);
+    EXPECT_TRUE(tank.playerTank);
+}
+
+TEST(GroupTank, AGroupWithATankRoleChoiceTakesNoBotTank)
+{
+    EXPECT_TRUE(Bots::RefusesBotTank({HumanWith(Player, Bots::RoleChoice::Tank), Bot(BotHealer, BotRole::Healer)}));
+    EXPECT_FALSE(Bots::RefusesBotTank({HumanWith(Player, Bots::RoleChoice::Healer), Bot(BotHealer, BotRole::Healer)}));
+    EXPECT_FALSE(Bots::RefusesBotTank({Human(Player), Bot(BotHealer, BotRole::Healer)}));
+}
+
+TEST(GroupTank, ABotTankLeavesAGroupWhoseHumanPickedTank)
+{
+    std::vector<GroupMember> const members = {HumanWith(Player, Bots::RoleChoice::Tank), Bot(BotTank, BotRole::Tank),
+        Bot(BotHealer, BotRole::Healer)};
+
+    EXPECT_TRUE(Bots::MustLeaveAsSecondTank(members, BotTank));
+    EXPECT_FALSE(Bots::MustLeaveAsSecondTank(members, BotHealer));
+}
+
+TEST(GroupTank, ABotTankStaysWithNoTankRoleChoice)
+{
+    EXPECT_FALSE(Bots::MustLeaveAsSecondTank({Human(Player), Bot(BotTank, BotRole::Tank)}, BotTank));
+    EXPECT_FALSE(
+        Bots::MustLeaveAsSecondTank({HumanWith(Player, Bots::RoleChoice::Ranged), Bot(BotTank, BotRole::Tank)}, BotTank));
 }

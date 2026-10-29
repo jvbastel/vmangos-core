@@ -87,7 +87,7 @@ TEST(GearTemplate, RefusesABadTemplateLine)
 TEST(GearTemplate, RefusesABadItemLine)
 {
     EXPECT_EQ(ErrorOf(TankHeader + "item head 1 1-10\n"),
-        "line 2: Use: item <slot> <entry> <minLevel>-<maxLevel> <minPatch> <score>");
+        "line 2: Use: item <slot> <entry> <minLevel>-<maxLevel> <minPatch> <score> [horde|alliance]");
     EXPECT_EQ(ErrorOf(TankHeader + "item hat 1 1-10 0 5\n"), "line 2: Unknown slot 'hat'.");
     EXPECT_EQ(ErrorOf(TankHeader + "item head x1 1-10 0 5\n"), "line 2: The entry 'x1' is not a number above 0.");
     EXPECT_EQ(ErrorOf(TankHeader + "item head 0 1-10 0 5\n"), "line 2: The entry '0' is not a number above 0.");
@@ -99,7 +99,7 @@ TEST(GearTemplate, RefusesABadItemLine)
     EXPECT_EQ(ErrorOf(TankHeader + "item head 1 1-10 0 zero\n"), "line 2: The score 'zero' is not a number above 0.");
     EXPECT_EQ(ErrorOf(TankHeader + "item head 1 1-10 0 0\n"), "line 2: The score '0' is not a number above 0.");
     EXPECT_EQ(ErrorOf(HandHeader + "item head 1 1-10 0 5\n"),
-        "line 2: Use: item <slot> <entry> <minLevel>-<maxLevel> <minPatch> (a hand-made item has no score)");
+        "line 2: Use: item <slot> <entry> <minLevel>-<maxLevel> <minPatch> [horde|alliance] (a hand-made item has no score)");
 }
 
 TEST(GearTemplate, RefusesBadWeaponShapes)
@@ -152,4 +152,63 @@ TEST(GearTemplate, TwoRingsThatNeverMeetLeaveRoomForAThird)
 {
     EXPECT_TRUE(ParseGearTemplate(HandHeader +
         "item finger 1 10-12 0\nitem finger 2 18-20 0\nitem finger 3 10-20 0\n").ok);
+}
+
+// Ticket #190: an item line may end with the faction that can use and get it.
+TEST(GearTemplate, AnItemLineCanBeMarkedForOneFaction)
+{
+    GearTemplateResult result = ParseGearTemplate(TankHeader +
+        "item head 1 10-20 0 5 horde   # Orc helm\n"
+        "item head 2 10-20 0 4 alliance\n"
+        "item head 3 10-20 0 3\n");
+
+    ASSERT_TRUE(result.ok) << result.error;
+    std::vector<Bots::GearItem> const& items = result.gearTemplate.items;
+    ASSERT_EQ(items.size(), 3u);
+    EXPECT_TRUE(items[0].oneFaction);
+    EXPECT_EQ(items[0].faction, Bots::Faction::Horde);
+    EXPECT_TRUE(items[1].oneFaction);
+    EXPECT_EQ(items[1].faction, Bots::Faction::Alliance);
+    EXPECT_FALSE(items[2].oneFaction);
+    EXPECT_TRUE(Bots::FitsFaction(items[0], Bots::Faction::Horde));
+    EXPECT_FALSE(Bots::FitsFaction(items[0], Bots::Faction::Alliance));
+    EXPECT_FALSE(Bots::FitsFaction(items[1], Bots::Faction::Horde));
+    EXPECT_TRUE(Bots::FitsFaction(items[1], Bots::Faction::Alliance));
+    EXPECT_TRUE(Bots::FitsFaction(items[2], Bots::Faction::Horde));
+    EXPECT_TRUE(Bots::FitsFaction(items[2], Bots::Faction::Alliance));
+}
+
+TEST(GearTemplate, AHandMadeItemCanBeMarkedForOneFaction)
+{
+    GearTemplateResult result = ParseGearTemplate(HandHeader + "item head 1 10-20 0 alliance\nitem chest 2 10-20 0\n");
+
+    ASSERT_TRUE(result.ok) << result.error;
+    EXPECT_TRUE(result.gearTemplate.items[0].oneFaction);
+    EXPECT_EQ(result.gearTemplate.items[0].faction, Bots::Faction::Alliance);
+    EXPECT_FALSE(result.gearTemplate.items[1].oneFaction);
+}
+
+TEST(GearTemplate, TheFactionWordIsHordeOrAlliance)
+{
+    EXPECT_EQ(ErrorOf(TankHeader + "item head 1 10-20 0 5 both\n"),
+        "line 2: The faction 'both' is not horde or alliance. A line for both factions has no faction word.");
+    EXPECT_EQ(ErrorOf(HandHeader + "item head 1 10-20 0 orcs\n"),
+        "line 2: The faction 'orcs' is not horde or alliance. A line for both factions has no faction word.");
+}
+
+TEST(GearTemplate, AHordeItemAndAnAllianceItemCanFillOnePosition)
+{
+    EXPECT_TRUE(ParseGearTemplate(HandHeader + "item head 1 10-20 0 horde\nitem head 2 10-20 0 alliance\n").ok);
+    EXPECT_EQ(ErrorOf(HandHeader + "item head 1 10-20 0 horde\nitem head 2 10-20 0\n"),
+        "line 3: Two items fill the position head at level 10 and content patch 0.");
+}
+
+// jvbastel/WOWAI#190 (merge review): the position count is per faction.
+TEST(GearTemplate, ALineForBothFactionsFillsThePositionOfEachFaction)
+{
+    std::string const rings = "item finger 1 10-20 0 horde\nitem finger 2 10-20 0 alliance\nitem finger 3 10-20 0\n";
+
+    EXPECT_TRUE(ParseGearTemplate(HandHeader + rings).ok);
+    EXPECT_EQ(ErrorOf(HandHeader + rings + "item finger 4 10-20 0 horde\n"),
+        "line 5: Three items fill the position finger at level 10 and content patch 0.");
 }

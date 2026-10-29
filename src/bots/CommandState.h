@@ -55,6 +55,13 @@ namespace Bots
     // damage bots: it keeps the command state, and the tank and the healer
     // ignore it without a line.
     CommandOutcome ApplyBotCommand(CommandState current, BotCommandKind kind, CommandFacts const& facts);
+
+    // jvbastel/WOWAI#189: the command state of a bot now. `commanded`: a
+    // bot command that the bot obeyed set `commandedState`, and it holds,
+    // also `stop` (None). With no such command yet: Follow in a player-tank
+    // group (GroupCoordinator::IsPlayerTankGroup), so the bots follow the
+    // player tank with no command; else None.
+    CommandState CommandStateNow(bool commanded, CommandState commandedState, bool playerTankGroup);
 }
 
 #endif

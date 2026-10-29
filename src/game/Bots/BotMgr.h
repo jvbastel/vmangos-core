@@ -14,11 +14,14 @@
 #include "BotChat.h"
 #include "BotGear.h"
 #include "BotLevelRoutine.h"
+#include "BotPanel.h"
 #include "BotRecipe.h"
 #include "BotRun.h"
 #include "CoordinatorRegistry.h"
 #include "GroupCoordinator.h"
 #include "GroupCommand.h"
+#include "GroupTank.h"
+#include "RoleChoice.h"
 #include "Route.h"
 #include "Inbox.h"
 #include "ObjectGuid.h"
@@ -68,6 +71,10 @@ struct BotRecord
     // The bot was in a group at its last update. A bot whose group goes away
     // (a removal by the player, or the end of the group) logs out.
     bool wasInGroup = false;
+    // jvbastel/WOWAI#196: the steady clock (ms) of the last teleport of the
+    // bot after the player tank, through an instance entry or exit.
+    int64 lastTankFollowMs = 0;
+    bool triedTankFollow = false;
 };
 
 // The gear that EquipCharacter put on, for the result file of a run.
@@ -90,8 +97,10 @@ struct GroupCommandMessage
 struct BotLine
 {
     ObjectGuid bot;
-    uint32 chatType;     // CHAT_MSG_PARTY: to the party of the bot. CHAT_MSG_WHISPER: to `receiver`.
-    ObjectGuid receiver; // Only for a whisper.
+    // CHAT_MSG_PARTY: to the party of the bot, or to `receiver` alone when
+    // the bot is in no group (jvbastel/WOWAI#197). CHAT_MSG_WHISPER: to `receiver`.
+    uint32 chatType;
+    ObjectGuid receiver; // For a whisper, and a party line of a bot in no group.
     std::string text;
     // A line of the chat service: the id of its event (ChatClient::Post),
     // for the result of a scripted run. 0 for a line of the bot itself.
@@ -220,6 +229,26 @@ class BotMgr
         // The next GetCoordinator of the group makes new coordinators.
         void DropCoordinator(uint32 groupId);
 
+        // jvbastel/WOWAI#197: the role choice of a player, from its last
+        // whisper to self of the role choice add-on (BotHooks::OnWhisperToSelf). Kept
+        // in memory: the add-on sends it again at login and on each group
+        // change. From any thread.
+        void SetRoleChoice(ObjectGuid player, Bots::RoleChoice choice);
+        Bots::RoleChoice RoleChoiceOf(ObjectGuid player) const;
+        // jvbastel/WOWAI#197 and the spec #188 fix-up (S5): the members of
+        // `group` for the group's tank (GroupTank.h): each bot of ours with
+        // its bot role, wherever it is (another map, a loading screen,
+        // offline), and each human in the world, on any map, with its role
+        // choice. `player`, when not null and not in the group, is added:
+        // the player who invites into no group yet. World thread, or a map
+        // thread (it reads only GUIDs, bot roles and role choices).
+        std::vector<Bots::GroupMember> GroupMembersOf(Group const* group, Player const* player) const;
+
+        // jvbastel/WOWAI#198: from any thread (the chat handlers): the
+        // player's bot panel asked for the list. The next update sends it
+        // (SendBotPanel).
+        void QueueBotPanelRequest(ObjectGuid player) { m_panelRequests.Push(player); }
+
     private:
         BotRecord* FindByName(std::string const& name);
         // The GUIDs of all our bot characters, for the roster of bot chat.
@@ -231,6 +260,11 @@ class BotMgr
         void RunGroupCommand(GroupCommandMessage const& message);
         bool RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player* player);
         void UpdateGroupOf(BotRecord& record);
+        // jvbastel/WOWAI#196: the bot follows the player tank into or out of
+        // an instance (bots/DungeonFollow.h).
+        void FollowTankThroughInstance(BotRecord& record);
+        // One member of GroupMembersOf.
+        void AddGroupMember(ObjectGuid guid, std::vector<Bots::GroupMember>& members) const;
         // The group has a member that is no WOWAI bot, online or not.
         bool HasPlayerMember(Group const& group) const;
         void PutOnPendingGear(BotRecord& record);
@@ -238,6 +272,9 @@ class BotMgr
         // <DataDir>/routes.
         void LoadBossList();
         void DropOldCoordinators();
+        // jvbastel/WOWAI#197: a bot tank in a group whose human picked tank
+        // says one party line and leaves (Bots::MustLeaveAsSecondTank).
+        bool LeaveAsSecondTank(Player* bot, Group* group);
         // The wipe and rest moments that the coordinators saw since the last
         // update: one call of OnGroupEvent each.
         void TakeGroupEvents();
@@ -260,6 +297,14 @@ class BotMgr
         BotRun m_run;
         std::atomic<uint64> m_testDriver{0};
         Bots::SeededRandom m_random{std::random_device()()};
+        // jvbastel/WOWAI#197: written on the packet threads, read on the maps.
+        void DropOfflineRoleChoices();
+        mutable std::mutex m_roleChoicesLock;
+        std::map<uint64 /*player GUID*/, Bots::RoleChoice> m_roleChoices;
+        // jvbastel/WOWAI#198: the group bots of the player's faction, as
+        // system messages to the player alone (Bots::BotPanelMessages).
+        void SendBotPanel(ObjectGuid playerGuid);
+        Bots::Inbox<ObjectGuid> m_panelRequests;
 };
 
 // The class of the library for a class of the game. False for an unknown class.

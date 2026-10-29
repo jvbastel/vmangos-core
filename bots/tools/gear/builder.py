@@ -160,6 +160,7 @@ class HandItem:
     min_level: int
     max_level: int
     min_patch: int
+    factions: str = "both"   # "both", "horde" or "alliance", as gear_data.FACTION_RACES
 
 
 @dataclass(frozen=True)
@@ -186,7 +187,8 @@ def render(template, world):
     out = ["# Hand-made gear template, from the template builder page (bots/tools/gear/builder_web.py).",
            f"template {template.name} {template.class_name} {template.role} hand"]
     for line in template.items:
-        out.append(f"item {line.slot} {line.entry} {line.min_level}-{line.max_level} {line.min_patch}"
+        faction = "" if line.factions == "both" else f" {line.factions}"
+        out.append(f"item {line.slot} {line.entry} {line.min_level}-{line.max_level} {line.min_patch}{faction}"
                    f"  # {_comment_name(world, line.entry)}")
     return "\n".join(out) + "\n"
 
@@ -203,12 +205,16 @@ def parse(text):
             if words[4] != "hand":
                 raise ValueError("The builder page opens only hand-made templates.")
             template = words[1:4]
-        elif words[0] == "item" and template is not None and len(words) == 5 and "-" in words[3]:
+        elif words[0] == "item" and template is not None and len(words) in (5, 6) and "-" in words[3]:
             low, _, high = words[3].partition("-")
+            factions = words[5] if len(words) == 6 else "both"
+            if factions not in ("horde", "alliance") and len(words) == 6:
+                raise ValueError(f"line {number}: the faction '{factions}' is not horde or alliance")
             try:
-                items.append(HandItem(words[1], int(words[2]), int(low), int(high), int(words[4])))
+                items.append(HandItem(words[1], int(words[2]), int(low), int(high), int(words[4]), factions))
             except ValueError:
-                raise ValueError(f"line {number}: use 'item <slot> <entry> <minLevel>-<maxLevel> <minPatch>'")
+                raise ValueError(f"line {number}: use 'item <slot> <entry> <minLevel>-<maxLevel> <minPatch> "
+                                 "[horde|alliance]'")
         else:
             raise ValueError(f"line {number}: not a line of a hand-made template")
     if template is None:
@@ -251,16 +257,21 @@ def _capacity(position):
 
 def _check_positions(items):
     # As CheckHandPositions in src/bots/GearTemplate.cpp: items of the same
-    # content patch, the error on the first item that overflows a position.
+    # content patch and faction, the error on the first item that overflows a
+    # position. A line for both factions counts for the Horde and the Alliance.
     for i, line in enumerate(items):
         for position in POSITIONS_OF_SLOT[line.slot]:
-            for level in range(line.min_level, line.max_level + 1):
-                count = sum(1 for other in items[:i + 1]
-                            if other.min_patch == line.min_patch and other.min_level <= level <= other.max_level
-                            and position in POSITIONS_OF_SLOT[other.slot])
-                if count > _capacity(position):
-                    return [f"{'Two' if count == 2 else 'Three'} items fill the position {position} "
-                            f"at level {level} and content patch {line.min_patch}."]
+            for faction in ("horde", "alliance"):
+                if line.factions not in ("both", faction):
+                    continue
+                for level in range(line.min_level, line.max_level + 1):
+                    count = sum(1 for other in items[:i + 1]
+                                if other.min_patch == line.min_patch and other.factions in ("both", faction)
+                                and other.min_level <= level <= other.max_level
+                                and position in POSITIONS_OF_SLOT[other.slot])
+                    if count > _capacity(position):
+                        return [f"{'Two' if count == 2 else 'Three'} items fill the position {position} "
+                                f"at level {level} and content patch {line.min_patch}."]
     return []
 
 

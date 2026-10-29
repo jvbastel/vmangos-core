@@ -7,6 +7,7 @@
 
 #include "BotMgr.h"
 #include "GhostWalk.h"
+#include "DungeonFollow.h"
 #include "BotAI.h"
 #include "BotAccounts.h"
 #include "Chat.h"
@@ -64,6 +65,14 @@ namespace
                 return RACE_UNDEAD;
             case Bots::BotRace::Tauren:
                 return RACE_TAUREN;
+            case Bots::BotRace::Human:
+                return RACE_HUMAN;
+            case Bots::BotRace::Dwarf:
+                return RACE_DWARF;
+            case Bots::BotRace::NightElf:
+                return RACE_NIGHTELF;
+            case Bots::BotRace::Gnome:
+                return RACE_GNOME;
             case Bots::BotRace::Troll:
                 break;
         }
@@ -151,12 +160,29 @@ namespace
         facts.botOnline = record->entry->state == PB_STATE_ONLINE && bot;
         facts.botInPlayerGroup = group && group->IsMember(botGuid);
         facts.botInOtherGroup = botGroup && botGroup != group;
+        facts.botOfOtherFaction = sObjectMgr.GetPlayerTeamByGUID(botGuid) != player->GetTeam();
+        // jvbastel/WOWAI#197: never two tanks.
+        facts.secondTank = RoleOf(record->role) == Bots::BotRole::Tank
+            && Bots::RefusesBotTank(sBotMgr.GroupMembersOf(group, player));
         return facts;
     }
 
     void TellPlayer(Player* player, char const* line)
     {
         ChatHandler(player->GetSession()).SendSysMessage(line);
+    }
+
+    // jvbastel/WOWAI#197: a chat line of a bot that is not in the group of
+    // `player`, for `player` only (the refusal of a second tank). A party
+    // line when the player is in a group, else a whisper (spec #188 fix-up
+    // S4: a solo invite). The bot can be offline: the client asks the name
+    // of the GUID.
+    void SayToPlayer(ObjectGuid bot, char const* name, Player* player, char const* line)
+    {
+        WorldPacket data;
+        ChatMsg const chatType = player->GetGroup() ? CHAT_MSG_PARTY : CHAT_MSG_WHISPER;
+        ChatHandler::BuildChatPacket(data, chatType, line, LANG_UNIVERSAL, 0, bot, name);
+        player->GetSession()->SendPacket(&data);
     }
 }
 
@@ -234,6 +260,7 @@ void BotMgr::Update(uint32 diff)
         m_lines.Push(std::move(line));
     SendLines();
     DropOldCoordinators();
+    DropOfflineRoleChoices();
     TakeGroupEvents();
     // The chat of a scripted run: the events sent (the player messages of
     // the update, and the group events above), and the answers.
@@ -243,6 +270,8 @@ void BotMgr::Update(uint32 diff)
         m_run.NoteChatOutcome(outcome);
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
+    for (ObjectGuid const& player : m_panelRequests.Drain())
+        SendBotPanel(player);
     m_run.Update();
     RouteTraces::Update(diff);
     for (auto& pair : m_bots)
@@ -250,6 +279,8 @@ void BotMgr::Update(uint32 diff)
         PlayerBotEntry& entry = *pair.second.entry;
         if (entry.state == PB_STATE_ONLINE)
             UpdateGroupOf(pair.second);
+        if (entry.state == PB_STATE_ONLINE)
+            FollowTankThroughInstance(pair.second);
         if (entry.state == PB_STATE_OFFLINE)
             pair.second.pendingInvite.Clear();
         if (entry.state == PB_STATE_ONLINE && !pair.second.pendingGear.empty())
@@ -715,7 +746,15 @@ bool BotMgr::RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player
     Bots::GroupCommandPlan const plan = Bots::PlanGroupCommand(kind, GroupFactsFor(record, player));
     if (!plan.ok)
     {
-        TellPlayer(player, plan.line);
+        if (plan.lineFromBot)
+        {
+            SayToPlayer(ObjectGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID)), record->entry->name.c_str(),
+                player, plan.line);
+            sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s refuses the invite of %s: a second tank",
+                record->entry->name.c_str(), player->GetName());
+        }
+        else
+            TellPlayer(player, plan.line);
         return false;
     }
     // The login is the caller's step: the rest waits for the bot to be in
@@ -778,6 +817,8 @@ void BotMgr::UpdateGroupOf(BotRecord& record)
     }
 
     Group* group = bot->GetGroup();
+    if (group && LeaveAsSecondTank(bot, group))
+        group = nullptr;
     if (group && !HasPlayerMember(*group))
     {
         // The player left: the bots do not keep a group of their own, so
@@ -792,6 +833,77 @@ void BotMgr::UpdateGroupOf(BotRecord& record)
         record.entry->state = PB_STATE_OFFLINE;
     }
     record.wasInGroup = group != nullptr;
+}
+
+namespace
+{
+    int64 SteadyNowMs()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
+
+    // What the dungeon follow knows of a member: a far teleport takes the
+    // player out of the world until it lands.
+    Bots::TravelFacts TravelFactsOf(Player const* player)
+    {
+        Bots::TravelFacts facts = {};
+        facts.inWorld = player->IsInWorld() && !player->IsBeingTeleported();
+        facts.alive = player->IsAlive() && !player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST);
+        facts.place = {player->GetMapId(), player->GetInstanceId()};
+        facts.inDungeon = facts.inWorld && player->GetMap()->IsDungeon();
+        return facts;
+    }
+}
+
+void BotMgr::FollowTankThroughInstance(BotRecord& record)
+{
+    // On the world thread, after the maps: the bot and the tank can sit on
+    // two map threads, and none runs now.
+    Player* bot = BotPlayer(record);
+    Group const* group = bot ? bot->GetGroup() : nullptr;
+    if (!group)
+        return;
+
+    // The members on any map: when the tank zones in, the bots are still
+    // outside, and the group coordinator sees nobody on the tank's map. The
+    // same rule as the group coordinator's tank (BotAI::GroupTankNow).
+    Bots::GroupTank const groupTank = Bots::GroupTankOf(GroupMembersOf(group, nullptr), group->GetLeaderGuid().GetRawValue());
+    if (!groupTank.playerTank)
+        return;
+    Bots::Guid const tankGuid = groupTank.tank;
+    Player* tank = tankGuid != Bots::NoGuid ? ObjectAccessor::FindPlayer(ObjectGuid(tankGuid)) : nullptr;
+    BotAI const* ai = BotAI::Of(bot);
+    if (!tank || !ai)
+        return;
+
+    int64 const now = SteadyNowMs();
+    Bots::DungeonFollowFacts facts = {};
+    facts.scriptedRun = IsScriptedRunGroup(group);
+    facts.playerTank = true;
+    facts.tank = TravelFactsOf(tank);
+    facts.bot = TravelFactsOf(bot);
+    facts.command = ai->CommandStateNow(true);
+    facts.msSinceLastTry = record.triedTankFollow ? now - record.lastTankFollowMs : Bots::DungeonFollowRetryMs;
+    if (!Bots::FollowsTankThroughInstance(facts))
+        return;
+
+    record.triedTankFollow = true;
+    record.lastTankFollowMs = now;
+    // Next to the tank: on its spot, the follow rule spreads the bots after
+    // the landing. A far teleport: the bot acks SMSG_NEW_WORLD itself
+    // (BotAI::OnPacketReceived), and the bot has no client to show it. An
+    // instance map binds the bot to the group's instance of the tank
+    // (Player::GetBoundInstanceSaveForSelfOrGroup). The new place reaches the
+    // database with the next save of the bot, as any move.
+    // Another instance of the same map: force the far teleport, else the
+    // game moves the bot inside its own instance.
+    uint32 const options = facts.tank.place.map == facts.bot.place.map ? TELE_TO_FORCE_MAP_CHANGE : 0;
+    bool const sent = bot->TeleportTo(tank->GetMapId(), tank->GetPositionX(), tank->GetPositionY(),
+        tank->GetPositionZ(), tank->GetOrientation(), options);
+    sLog.Out(LOG_BASIC, sent ? LOG_LVL_BASIC : LOG_LVL_ERROR, "[Bots] %s %s the player tank %s %s map %u",
+        bot->GetName(), sent ? "follows" : "cannot follow", tank->GetName(), facts.tank.inDungeon ? "into" : "out to",
+        tank->GetMapId());
 }
 
 bool BotMgr::HasPlayerMember(Group const& group) const
@@ -815,6 +927,14 @@ void BotMgr::SendLines()
         if (line.chatType == CHAT_MSG_PARTY)
         {
             Group* group = bot->GetGroup();
+            if (!group && !line.receiver.IsEmpty())
+            {
+                // jvbastel/WOWAI#197: a bot out of the group, to one player
+                // (the refusal of a second tank).
+                if (Player* receiver = ObjectAccessor::FindPlayer(line.receiver))
+                    SayToPlayer(bot->GetObjectGuid(), bot->GetName(), receiver, line.text.c_str());
+                continue;
+            }
             if (!group)
                 continue;
             ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, line.text.c_str(), LANG_UNIVERSAL, bot->GetChatTag(), bot->GetObjectGuid(), bot->GetName());
@@ -909,4 +1029,99 @@ bool BotMgr::EquipCharacter(std::string const& name, std::string const& template
     report = wanted + " wears " + gear->name + (draw.shape.empty() ? "" : " (shape " + draw.shape + ")") + ": " +
         (draw.picks.empty() ? std::string("nothing") : DescribeGearDraw(draw));
     return true;
+}
+
+// jvbastel/WOWAI#197: the role choice store, and never two tanks.
+void BotMgr::SetRoleChoice(ObjectGuid player, Bots::RoleChoice choice)
+{
+    std::lock_guard<std::mutex> lock(m_roleChoicesLock);
+    m_roleChoices[player.GetRawValue()] = choice;
+}
+
+// A player who logs out loses the role choice: with no add-on at the next
+// login, the tracer rule applies again. The add-on sends it at each login.
+void BotMgr::DropOfflineRoleChoices()
+{
+    std::lock_guard<std::mutex> lock(m_roleChoicesLock);
+    for (auto it = m_roleChoices.begin(); it != m_roleChoices.end();)
+    {
+        if (ObjectAccessor::FindPlayer(ObjectGuid(it->first)))
+            ++it;
+        else
+            it = m_roleChoices.erase(it);
+    }
+}
+
+Bots::RoleChoice BotMgr::RoleChoiceOf(ObjectGuid player) const
+{
+    std::lock_guard<std::mutex> lock(m_roleChoicesLock);
+    auto const found = m_roleChoices.find(player.GetRawValue());
+    return found == m_roleChoices.end() ? Bots::RoleChoice::None : found->second;
+}
+
+void BotMgr::AddGroupMember(ObjectGuid guid, std::vector<Bots::GroupMember>& members) const
+{
+    // A bot of ours wherever it is: on another map, in a loading screen, or
+    // offline (spec #188 fix-up S5). The test driver of a scripted run sits
+    // in the player's seat: it counts as a human.
+    auto const record = guid.IsPlayer() ? m_bots.find(guid.GetCounter()) : m_bots.end();
+    Bots::BotRole role = Bots::BotRole::Ranged;
+    if (record != m_bots.end() && !IsTestDriver(guid))
+    {
+        bool const isBot = Bots::ParseRoleName(record->second.role, role);
+        members.push_back({guid.GetRawValue(), isBot, role});
+        return;
+    }
+    // A human in the world, on any map, with its role choice
+    // (jvbastel/WOWAI#197).
+    if (!ObjectAccessor::FindPlayer(guid))
+        return;
+    members.push_back({guid.GetRawValue(), false, role, RoleChoiceOf(guid)});
+}
+
+std::vector<Bots::GroupMember> BotMgr::GroupMembersOf(Group const* group, Player const* player) const
+{
+    std::vector<Bots::GroupMember> members;
+    if (group)
+        for (Group::MemberSlot const& slot : group->GetMemberSlots())
+            AddGroupMember(slot.guid, members);
+    if (player && (!group || !group->IsMember(player->GetObjectGuid())))
+        AddGroupMember(player->GetObjectGuid(), members);
+    return members;
+}
+
+bool BotMgr::LeaveAsSecondTank(Player* bot, Group* group)
+{
+    if (!Bots::MustLeaveAsSecondTank(GroupMembersOf(group, nullptr), bot->GetObjectGuid().GetRawValue()))
+        return false;
+    // Said now, while the bot is still in the group, so that the group hears it.
+    WorldPacket data;
+    ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, Bots::SecondTankLeaveLine, LANG_UNIVERSAL, bot->GetChatTag(),
+        bot->GetObjectGuid(), bot->GetName());
+    group->BroadcastPacket(&data, false, group->GetMemberGroup(bot->GetObjectGuid()));
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s leaves the group: a human picked tank", bot->GetName());
+    Player::RemoveFromGroup(group, bot->GetObjectGuid());
+    return true;
+}
+
+// jvbastel/WOWAI#198: the bot panel of the role choice add-on.
+void BotMgr::SendBotPanel(ObjectGuid playerGuid)
+{
+    Player* player = ObjectAccessor::FindPlayer(playerGuid);
+    if (!player)
+        return;
+    std::vector<Bots::PanelBot> bots;
+    for (auto const& pair : m_bots)
+    {
+        BotRecord const& record = pair.second;
+        // The faction of an offline bot too, from the character cache.
+        Bots::Faction const faction = FactionOfTeam(sObjectMgr.GetPlayerTeamByGUID(ObjectGuid(HIGHGUID_PLAYER, pair.first)));
+        bots.push_back({record.entry->name, RoleOf(record.role), faction, record.worldBot});
+    }
+    std::vector<Bots::PanelBot> const listed = Bots::PanelBotsFor(bots, FactionOfTeam(player->GetTeam()));
+    // System messages: the client gives them to the add-on with no group too.
+    ChatHandler handler(player->GetSession());
+    for (std::string const& message : Bots::BotPanelMessages(listed))
+        handler.SendSysMessage(message.c_str());
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s gets the bot panel: %u bots", player->GetName(), uint32(listed.size()));
 }

@@ -1,4 +1,5 @@
 #include "GroupCoordinator.h"
+#include "BotGeometry.h"
 
 #include <algorithm>
 
@@ -21,7 +22,10 @@ namespace Bots
     {
         Lock lock(m_mutex);
         if (target != m_focusTarget)
+        {
             m_tauntGivenUp = NoGuid;
+            m_tankOnTop = false;
+        }
         m_focusTarget = target;
     }
 
@@ -113,6 +117,7 @@ namespace Bots
         ++m_memberSpotsVersion;
         m_focusTarget = NoGuid;
         m_tauntGivenUp = NoGuid;
+        m_tankOnTop = false;
     }
 
     void GroupCoordinator::StartGroupWait(Guid puller, std::int64_t nowMs)
@@ -211,9 +216,21 @@ namespace Bots
         return TankHoldsThreatBy(nowMs) != ThreatHeld::No;
     }
 
+    void GroupCoordinator::NoteTankOnTop(bool onTop, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        if (onTop && !m_tankOnTop)
+            m_tankOnTopMs = nowMs;
+        m_tankOnTop = onTop;
+    }
+
     ThreatHeld GroupCoordinator::TankHoldsThreatBy(std::int64_t nowMs) const
     {
         Lock lock(m_mutex);
+        if (m_playerTank)
+            return m_focusTarget != NoGuid && m_tankOnTop && nowMs - m_tankOnTopMs >= PlayerTankHoldMs
+                ? ThreatHeld::TopOfThreat
+                : ThreatHeld::No;
         if (m_pull.phase == PullPhase::None)
             return m_focusTarget != NoGuid ? ThreatHeld::OutsideAPull : ThreatHeld::No;
         if (m_pull.phase != PullPhase::Holding)
@@ -296,10 +313,17 @@ namespace Bots
         return m_tank;
     }
 
-    void GroupCoordinator::SetTank(Guid tank)
+    void GroupCoordinator::SetTank(Guid tank, bool playerTank)
     {
         Lock lock(m_mutex);
         m_tank = tank;
+        m_playerTank = playerTank && tank != NoGuid;
+    }
+
+    bool GroupCoordinator::IsPlayerTankGroup() const
+    {
+        Lock lock(m_mutex);
+        return m_playerTank;
     }
 
     Guid GroupCoordinator::GetHealer() const
@@ -341,8 +365,13 @@ namespace Bots
             return;
         }
         m_fightWay.clear();
-        if (m_pull.phase == PullPhase::None)
-            m_trail.Note(at);
+        if (m_pull.phase != PullPhase::None)
+            return;
+        // jvbastel/WOWAI#192: a player tank that walks back over its trail
+        // cuts it back (TrailFollow.h). A bot tank's trail is as before.
+        if (m_playerTank)
+            m_trail.CutBackTo(at);
+        m_trail.Note(at);
     }
 
     std::vector<Position> GroupCoordinator::GetFightWay() const
@@ -557,5 +586,100 @@ namespace Bots
             [health](HealthNote const& note) { return note.health > health; });
         notes.push_back(HealthNote{nowMs, health});
         return falls;
+    }
+
+    void GroupCoordinator::HoldBackOnThreat(Guid bot, Guid enemy)
+    {
+        Lock lock(m_mutex);
+        m_threatHolds[bot].insert(enemy);
+    }
+
+    void GroupCoordinator::EndThreatHold(Guid bot, Guid enemy)
+    {
+        Lock lock(m_mutex);
+        auto const found = m_threatHolds.find(bot);
+        if (found == m_threatHolds.end())
+            return;
+        found->second.erase(enemy);
+        if (found->second.empty())
+            m_threatHolds.erase(found);
+    }
+
+    bool GroupCoordinator::HoldsBackOnThreat(Guid bot, Guid enemy) const
+    {
+        Lock lock(m_mutex);
+        auto const found = m_threatHolds.find(bot);
+        return found != m_threatHolds.end() && found->second.count(enemy) != 0;
+    }
+
+    std::vector<Guid> GroupCoordinator::GetThreatHolds(Guid bot) const
+    {
+        Lock lock(m_mutex);
+        auto const found = m_threatHolds.find(bot);
+        return found == m_threatHolds.end() ? std::vector<Guid>{}
+                                            : std::vector<Guid>(found->second.begin(), found->second.end());
+    }
+
+    float GroupCoordinator::NoteDamageRate(Guid member, std::uint32_t health, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        std::vector<HealthNote>& notes = m_damageNotes[member];
+        // A note from the future (the clock went back) is dropped too.
+        notes.erase(std::remove_if(notes.begin(), notes.end(),
+                        [nowMs](HealthNote const& note) {
+                            return nowMs - note.atMs > DamageRateMs || note.atMs > nowMs;
+                        }),
+            notes.end());
+        float rate = 0.0f;
+        if (!notes.empty() && notes.front().atMs < nowMs && notes.front().health > health)
+            rate = float(notes.front().health - health) * 1000.0f / float(nowMs - notes.front().atMs);
+        if (notes.empty() || notes.back().atMs < nowMs)
+            notes.push_back(HealthNote{nowMs, health});
+        return rate;
+    }
+
+    // jvbastel/WOWAI#193
+    bool GroupCoordinator::NoteLowManaCall(Guid bot)
+    {
+        Lock lock(m_mutex);
+        return m_lowManaCalls.insert(bot).second;
+    }
+
+    void GroupCoordinator::ClearLowManaCall(Guid bot)
+    {
+        Lock lock(m_mutex);
+        m_lowManaCalls.erase(bot);
+    }
+
+    // Spec #188 fix-up (S1)
+    void GroupCoordinator::NoteTankPlace(Position at, std::int64_t nowMs)
+    {
+        Lock lock(m_mutex);
+        if (m_hasTankPlace && Distance2d(at, m_tankPlace) < TankStillYards)
+            return;
+        m_hasTankPlace = true;
+        m_tankPlace = at;
+        m_tankStillFromMs = nowMs;
+    }
+
+    std::int64_t GroupCoordinator::TankStillForMs(std::int64_t nowMs) const
+    {
+        Lock lock(m_mutex);
+        return m_hasTankPlace ? nowMs - m_tankStillFromMs : 0;
+    }
+
+    void GroupCoordinator::NoteTankLeftRest(Guid bot, bool left)
+    {
+        Lock lock(m_mutex);
+        if (left)
+            m_tankLeftRest.insert(bot);
+        else
+            m_tankLeftRest.erase(bot);
+    }
+
+    bool GroupCoordinator::TankLeftRestOf(Guid bot) const
+    {
+        Lock lock(m_mutex);
+        return m_tankLeftRest.count(bot) != 0;
     }
 }

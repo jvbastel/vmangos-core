@@ -161,3 +161,30 @@ def test_a_pasted_item_goes_to_its_slot_from_its_required_level_and_first_patch(
 
     assert builder.new_line(world.items[100]) == builder.HandItem("chest", 100, 24, 60, 3)
     assert builder.new_line(world.items[101]) == builder.HandItem("mainhand", 101, 1, 60, 0)
+
+
+# jvbastel/WOWAI#190: faction words on hand-made lines.
+def test_a_hand_made_line_keeps_its_faction_word():
+    world = world_of(item(100), item(101))
+    template = hand(("chest", 100, 16, 20, 0, "alliance"), ("chest", 101, 16, 20, 0, "horde"))
+
+    text = builder.render(template, world)
+
+    assert "item chest 100 16-20 0 alliance  # " in text
+    assert builder.parse(text) == template
+    assert builder.check(template, world) == []
+
+
+def test_a_line_for_both_factions_fills_the_position_of_each_faction():
+    world = world_of(*(item(e, inventory_type=FINGER) for e in (100, 101, 102, 103)))
+    lines = [("finger", 100, 10, 20, 0, "horde"), ("finger", 101, 10, 20, 0, "alliance"), ("finger", 102, 10, 20, 0)]
+    assert builder.check(hand(*lines), world) == []
+
+    too_many = hand(*lines, ("finger", 103, 10, 20, 0, "horde"))
+    assert builder.check(too_many, world) == [
+        "Three items fill the position finger at level 10 and content patch 0."]
+
+
+def test_an_unknown_faction_word_is_an_error():
+    with pytest.raises(ValueError, match="not horde or alliance"):
+        builder.parse("template t warrior tank hand\nitem chest 100 1-60 0 orcs\n")

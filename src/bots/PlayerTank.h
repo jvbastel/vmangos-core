@@ -1,0 +1,53 @@
+#ifndef WOWAI_BOTS_PLAYER_TANK_H
+#define WOWAI_BOTS_PLAYER_TANK_H
+
+#include "BotTypes.h"
+#include "BotView.h"
+#include "GroupCoordinator.h"
+
+#include <cstdint>
+
+// jvbastel/WOWAI#189 (spec #188): the player tank. A human leads a group of
+// bots with no bot tank (GroupCoordinator::IsPlayerTankGroup). No bot pulls:
+// the human starts each fight, and the bots take their focus from the
+// human's target (BotView::GetTargetOf).
+namespace Bots
+{
+    // True when enemy `unit` is in combat with the bot's group: it lives,
+    // is no group member, fights, and it hits a group member or a group
+    // member has threat on it. A friend has no threat list, so a friend is
+    // never in combat with the group.
+    bool IsInCombatWithTheGroup(BotView const& view, Guid unit);
+
+    // True when the tank `tank` is top of the threat list of enemy `enemy`:
+    // no other group member has more threat on it (BotView::GetThreatRatio).
+    bool IsTopOfThreat(BotView const& view, Guid tank, Guid enemy);
+
+    // jvbastel/WOWAI#191: the focus of a player-tank group with tank `tank`
+    // now. The skull-marked enemy (BotView::GetGroupMarks) when it is in
+    // combat with the group (IsInCombatWithTheGroup); else the cross-marked
+    // enemy in combat with the group; else the tank's target in combat with
+    // the group; else NoGuid. A mark on an enemy out of the fight, or on a
+    // dead one, does not count. While the skull lives, the cross is like
+    // any other enemy that is not the focus.
+    Guid PickPlayerTankFocus(BotView const& view, Guid tank);
+
+    // The player-tank watch of one bot, before each think. Nothing in a
+    // group that is no player-tank group. Else:
+    // - Spec #188 fix-up (S2): once the group is out of combat and the
+    //   focus is out of the fight (IsInCombatWithTheGroup), the focus goes,
+    //   and with it the tank-on-top clock.
+    // - jvbastel/WOWAI#195: with the tank seen dead (SeenDead), nothing:
+    //   the focus stays as it is.
+    // - The focus becomes PickPlayerTankFocus (jvbastel/WOWAI#191: skull,
+    //   cross, then the tank's target, each only in combat with the group).
+    //   When it is NoGuid (a friend, no target, or an enemy out of the
+    //   fight), the last focus stays.
+    // - The bot notes at `nowMs` whether the tank is top of the focus's
+    //   threat list (GroupCoordinator::NoteTankOnTop): the tank holds threat
+    //   PlayerTankHoldMs after it got on top (TankHoldsThreat). A bot that
+    //   does not see the tank or the focus alive notes nothing.
+    void WatchPlayerTank(BotView const& view, GroupCoordinator& group, std::int64_t nowMs);
+}
+
+#endif

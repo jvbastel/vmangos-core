@@ -9,9 +9,12 @@
 #include "BotAI.h"
 #include "BotCommand.h"
 #include "BotMgr.h"
+#include "BotPanel.h"
 #include "GroupCommand.h"
 #include "Group.h"
 #include "Player.h"
+#include "RoleChoice.h"
+#include "Log.h"
 #include "SharedDefines.h"
 
 #include <vector>
@@ -138,4 +141,25 @@ bool BotHooks::OnWhisperToOffline(Player* sender, std::string const& receiverNam
 {
     // The bot manager answers a name that is no bot.
     return sender && RouteGroupCommand(sender, receiverName, text);
+}
+
+// jvbastel/WOWAI#198 and the spec #188 fix-up (S4): the whispers of the
+// WowaiRole add-on to the player's own name (bots/AddonWhisper.h): the bot
+// panel asks for its list, or the player sends the role choice.
+bool BotHooks::OnWhisperToSelf(Player* sender, std::string const& receiverName, std::string const& text)
+{
+    if (!sender || sender->IsBot())
+        return false;
+    if (Bots::IsBotPanelRequest(sender->GetName(), receiverName, text))
+    {
+        sBotMgr.QueueBotPanelRequest(sender->GetObjectGuid());
+        return true;
+    }
+    Bots::RoleChoiceMessage const message = Bots::ParseRoleChoiceWhisper(sender->GetName(), receiverName, text);
+    if (!message.ours)
+        return false;
+    sBotMgr.SetRoleChoice(sender->GetObjectGuid(), message.choice);
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s sends the role choice \"%s\"", sender->GetName(),
+        text.substr(text.find(' ') + 1).c_str());
+    return true;
 }

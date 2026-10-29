@@ -3,6 +3,7 @@
 
 #include "BotTypes.h"
 #include "Ranged.h"
+#include "RoleChoice.h"
 
 #include <limits>
 #include <vector>
@@ -250,6 +251,27 @@ namespace Bots
         // True when BotActions::TopUpAmmo(topUp) has room: in the bags for
         // the missing arrows or bullets, or in the worn thrown stack.
         virtual bool HasRoomFor(AmmoTopUp const& topUp) const = 0;
+
+        // jvbastel/WOWAI#189: the tank's target. The unit that unit `unit`
+        // targets now: the selection of a player (the target frame of a
+        // player tank), the target of a creature. NoGuid for none, and for a
+        // unit that the bot cannot see. Friend or enemy: the caller decides.
+        virtual Guid GetTargetOf(Guid unit) const = 0;
+
+        // jvbastel/WOWAI#191: the group's marks. The enemy that each mark of
+        // the bot's group is on: the skull and the cross, NoGuid for a mark
+        // that is not set, and both NoGuid without a group. The player sets
+        // them; bots only read them (no bot action sets a mark).
+        struct GroupMarks
+        {
+            Guid skull = NoGuid;
+            Guid cross = NoGuid;
+        };
+        virtual GroupMarks GetGroupMarks() const = 0;
+        // jvbastel/WOWAI#197: the role choice of group member `member`, from
+        // the role choice add-on (RoleChoice.h). RoleChoice::None for a bot,
+        // and for a human with no add-on or no pick.
+        virtual RoleChoice GetRoleChoice(Guid member) const = 0;
     };
 }
 

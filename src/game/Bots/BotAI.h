@@ -19,6 +19,7 @@
 #include "CommandState.h"
 #include "CoordinatorChoice.h"
 #include "GroupCoordinator.h"
+#include "GroupTank.h"
 #include "Inbox.h"
 #include "StartDelay.h"
 #include "Strategy.h"
@@ -57,6 +58,13 @@ class BotAI : public PlayerBotAI
         void OnPacketReceived(WorldPacket const* packet) override;
         void UpdateAI(uint32 const diff) override;
 
+        // jvbastel/WOWAI#196: the command state of the bot now
+        // (Bots::CommandStateNow). On the world thread, after the maps.
+        Bots::CommandState CommandStateNow(bool playerTankGroup) const
+        {
+            return Bots::CommandStateNow(m_commanded, m_commandState, playerTankGroup);
+        }
+
     private:
         void HandlePacket(WorldPacket const& packet);
         // SMSG_PARTYKILLLOG: a boss kill of the group goes to the coordinator.
@@ -88,10 +96,11 @@ class BotAI : public PlayerBotAI
         Bots::LeaderPlace PlaceOfLeader() const;
         // False without a group, or on another map than the group leader.
         bool UsesGroupCoordinator() const;
-        // The group's tank (bots/GroupTank.h, NextGroupTank), when the
-        // coordinator's tank is `current`: the bot tank, else a human
-        // warrior leader on the bot's map. NoGuid for none.
-        Bots::Guid GroupTankNow(Bots::Guid current) const;
+        // The group's tank (bots/GroupTank.h, GroupTankOf) over all of the
+        // group's members (BotMgr::GroupMembersOf): a bot tank of the group
+        // wherever it is, else a human leader of any class
+        // (jvbastel/WOWAI#189). {NoGuid, false} with no group or no tank.
+        Bots::GroupTank GroupTankNow() const;
         // The coordinator of the bot's group, of the group's bots in the
         // bot's place away from the leader, or the bot's own one.
         std::shared_ptr<Bots::GroupCoordinator> Coordinator();
@@ -108,6 +117,10 @@ class BotAI : public PlayerBotAI
         Bots::Inbox<WorldPacket> m_inbox;
         Bots::Inbox<BotCommandMessage> m_commands;
         Bots::CommandState m_commandState = Bots::CommandState::None;
+        // jvbastel/WOWAI#189: a bot command set m_commandState. Until then
+        // the group decides it (Bots::CommandStateNow): Follow of the tank
+        // in a player-tank group.
+        bool m_commanded = false;
         ObjectGuid m_commandPlayer; // The player of the last command that the bot obeyed.
         // The target of the player at the last `attack`, for a damage bot.
         // It ends when it dies or the bot cannot see it, and at `stop`.

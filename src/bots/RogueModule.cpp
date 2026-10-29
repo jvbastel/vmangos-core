@@ -52,6 +52,22 @@ namespace Bots
                     context.actions.Chase(target);
             }
 
+            // jvbastel/WOWAI#194: the bot swings at an enemy (the focus, an
+            // enemy healer), and holds back on its threat now
+            // (HoldsBackOnThreat, DamageRules.h): the melee damage target is
+            // no longer that enemy.
+            bool AtTheThreatStop(BotContext const& context)
+            {
+                Guid const victim = context.view.GetVictim(Self(context));
+                return victim != NoGuid && PickMeleeDamageTarget(context) != victim
+                    && context.group.HoldsBackOnThreat(Self(context), victim);
+            }
+
+            Guid PickVictim(BotContext const& context)
+            {
+                return context.view.GetVictim(Self(context));
+            }
+
             Rule MoveRule(std::string name, int priority, Trigger trigger)
             {
                 Rule rule;
@@ -78,6 +94,18 @@ namespace Bots
                         Guid const victim = context.view.GetVictim(Self(context));
                         return victim != NoGuid && context.view.IsMeleeAttacking() && HoldsFireOn(context, victim)
                             && PickMeleeDamageTarget(context) != victim;
+                    },
+                    {[](BotContext const&) { return true; },
+                        [](BotContext const& context) { context.actions.StopAttack(); }}},
+
+                // jvbastel/WOWAI#194: at the threat stop, Feint when the
+                // bot can: its threat falls, and it may go on. Else it
+                // stops the swing until its threat falls under the start
+                // level.
+                CastRule("feint at the threat stop", P + 83, AtTheThreatStop, Feint, PickVictim),
+                Rule{"stop the swing at the threat stop", P + 82,
+                    [](BotContext const& context) {
+                        return context.view.IsMeleeAttacking() && AtTheThreatStop(context);
                     },
                     {[](BotContext const&) { return true; },
                         [](BotContext const& context) { context.actions.StopAttack(); }}},

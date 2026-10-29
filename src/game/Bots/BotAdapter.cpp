@@ -1199,3 +1199,32 @@ bool BotAdapter::IsMeleeAttacking() const
 {
     return me->GetVictim() && me->HasUnitState(UNIT_STATE_MELEE_ATTACKING);
 }
+
+// jvbastel/WOWAI#189: the tank's target.
+Bots::Guid BotAdapter::GetTargetOf(Bots::Guid unit) const
+{
+    Unit const* found = Find(unit);
+    if (!found)
+        return Bots::NoGuid;
+    if (Player const* player = found->ToPlayer())
+        return player->GetSelectionGuid().GetRawValue();
+    return found->GetTargetGuid().GetRawValue();
+}
+
+// jvbastel/WOWAI#191: the group's marks. Read only: a bot never sets a mark.
+Bots::BotView::GroupMarks BotAdapter::GetGroupMarks() const
+{
+    GroupMarks marks;
+    if (Group const* group = me->GetGroup())
+    {
+        marks.skull = group->GetTargetWithIcon(RAID_TARGET_ICON_SKULL).GetRawValue();
+        marks.cross = group->GetTargetWithIcon(RAID_TARGET_ICON_CROSS).GetRawValue();
+    }
+    return marks;
+}
+
+// jvbastel/WOWAI#197: a member's role choice.
+Bots::RoleChoice BotAdapter::GetRoleChoice(Bots::Guid member) const
+{
+    return sBotMgr.RoleChoiceOf(ObjectGuid(member));
+}

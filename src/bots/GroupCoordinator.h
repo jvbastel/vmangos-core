@@ -142,6 +142,14 @@ namespace Bots
     // this many milliseconds before is losing health (NoteHealthFalls).
     std::int64_t const HealthFallMs = 2000;
 
+    // jvbastel/WOWAI#194: the healer reads a member's damage rate over this
+    // many milliseconds (NoteDamageRate).
+    std::int64_t const DamageRateMs = 3000;
+
+    // Spec #188 fix-up (S1): a tank that moves less than this between two
+    // notes stands still (GroupCoordinator::NoteTankPlace).
+    float const TankStillYards = 1.0f;
+
     // The clocks of a held pull, both from the engage (PullState::engagedMs)
     // and both once the tank is back at its fight spot
     // (PullState::backAtFightSpot), in this order:
@@ -159,6 +167,10 @@ namespace Bots
     std::int64_t const CasterComeMs = 6000;
     std::int64_t const HoldContactMs = 2000;
     std::int64_t const HoldLimitMs = 8000;
+    // jvbastel/WOWAI#189: in a player-tank group, the tank holds threat on
+    // the focus once it has been top of the focus's threat list this long
+    // (GroupCoordinator::NoteTankOnTop).
+    std::int64_t const PlayerTankHoldMs = 2000;
     static_assert(CasterComeMs < HoldLimitMs, "the tank goes in to a caster before the damage bots open on it");
 
     // Why the tank holds threat on the focus now (TankHoldsThreatBy).
@@ -168,6 +180,7 @@ namespace Bots
         OutsideAPull, // The tank fights back an enemy outside a pull.
         MeleeContact, // HoldContactMs after the melee contact.
         TimeLimit,    // HoldLimitMs after the engage.
+        TopOfThreat,  // jvbastel/WOWAI#189: a player tank, PlayerTankHoldMs on top.
     };
 
     // Tells if enemy `enemy` still lives, as the asking bot sees it.
@@ -252,6 +265,13 @@ namespace Bots
         // engaged. The damage bots wait for it (DamageRules.h), and the
         // members hold their member spots until it (MemberSpot.h).
         bool TankHoldsThreat(std::int64_t nowMs) const;
+        // jvbastel/WOWAI#189: in a player-tank group, the tank holds
+        // threat once it has been top of the focus's threat list for
+        // PlayerTankHoldMs, and only then (PlayerTank.h, WatchPlayerTank).
+        // Each bot notes on each think whether the tank is on top at
+        // `nowMs`. A note of no top, or a new focus, starts the clock
+        // again.
+        void NoteTankOnTop(bool onTop, std::int64_t nowMs);
         // The same, with the reason: melee contact before the time limit
         // when both hold. The trace of the hold says it (HoldWatch.h).
         ThreatHeld TankHoldsThreatBy(std::int64_t nowMs) const;
@@ -277,7 +297,12 @@ namespace Bots
         // The tank of the group, or NoGuid. The bot AI of the tank sets it
         // on each think. For the chase limit (GroupRules.h).
         Guid GetTank() const;
-        void SetTank(Guid tank);
+        // `playerTank`: the tank is a human (GroupTank.h, GroupTankOf).
+        void SetTank(Guid tank, bool playerTank = false);
+        // jvbastel/WOWAI#189: the ONE test of a player-tank group: the
+        // group's tank is a human, not a bot. The rules of the player tank
+        // (spec #188) ask only this.
+        bool IsPlayerTankGroup() const;
         // The healer of the group, or NoGuid. The bot AI of the healer sets
         // it on each think. The tank taunts enemies off it first
         // (WarriorModule.cpp).
@@ -382,6 +407,38 @@ namespace Bots
         // noted in the HealthFallMs before: the bot is losing health.
         bool NoteHealthFalls(Guid bot, std::uint32_t health, std::int64_t nowMs);
 
+        // jvbastel/WOWAI#194: the threat throttle (DamageRules.h). Bot `bot`
+        // holds back on enemy `enemy` until EndThreatHold of that enemy. A
+        // bot may hold back on several enemies (the focus, an enemy healer).
+        void HoldBackOnThreat(Guid bot, Guid enemy);
+        void EndThreatHold(Guid bot, Guid enemy);
+        bool HoldsBackOnThreat(Guid bot, Guid enemy) const;
+        // The enemies bot `bot` holds back on.
+        std::vector<Guid> GetThreatHolds(Guid bot) const;
+
+        // jvbastel/WOWAI#194: the health of member `member` at `nowMs`, as
+        // the healer sees it on each think. Returns the health the member
+        // lost per second over the notes of the last DamageRateMs (from
+        // the oldest of them), 0 when it lost none.
+        float NoteDamageRate(Guid member, std::uint32_t health, std::int64_t nowMs);
+
+        // jvbastel/WOWAI#193: the healer's "mb" (low mana) call. True the
+        // first time for bot `bot`, and false after that, until
+        // ClearLowManaCall (its mana is at half again, DeathAndRest.cpp).
+        bool NoteLowManaCall(Guid bot);
+        void ClearLowManaCall(Guid bot);
+
+        // Spec #188 fix-up (S1): the player tank's wait (DeathAndRest.h,
+        // WatchPlayerTankRest). Each bot notes where the tank stands at
+        // `nowMs`. TankStillForMs: how long the tank has stood within
+        // TankStillYards of one place at `nowMs`, 0 with no note yet.
+        void NoteTankPlace(Position at, std::int64_t nowMs);
+        std::int64_t TankStillForMs(std::int64_t nowMs) const;
+        // Bot `bot` saw the tank leave its rest (`left`), or saw the tank
+        // wait for the group (`left` false).
+        void NoteTankLeftRest(Guid bot, bool left);
+        bool TankLeftRestOf(Guid bot) const;
+
     private:
         // A pull is on, and `puller` is its puller. The caller holds the lock.
         bool PullsNow(Guid puller) const;
@@ -401,6 +458,11 @@ namespace Bots
         PullState m_pull = {PullPhase::None, NoGuid, NoGuid};
         std::map<Guid, InterruptClaim> m_interruptClaims; // By caster.
         Guid m_tank = NoGuid;
+        bool m_playerTank = false;
+        // jvbastel/WOWAI#189: the tank is top of the focus's threat list
+        // since m_tankOnTopMs (NoteTankOnTop).
+        bool m_tankOnTop = false;
+        std::int64_t m_tankOnTopMs = 0;
         Guid m_healer = NoGuid;
         std::map<Guid, BotRole> m_roles;
         Trail m_trail;
@@ -425,6 +487,21 @@ namespace Bots
             std::uint32_t health;
         };
         std::map<Guid, std::vector<HealthNote>> m_healthNotes;
+        // jvbastel/WOWAI#194: by bot, the enemies it holds back on.
+        std::map<Guid, std::set<Guid>> m_threatHolds;
+        // jvbastel/WOWAI#194: by member, its health notes of the last
+        // DamageRateMs, oldest first (NoteDamageRate).
+        std::map<Guid, std::vector<HealthNote>> m_damageNotes;
+
+        // jvbastel/WOWAI#193: the bots that made their low mana call.
+        std::set<Guid> m_lowManaCalls;
+
+        // Spec #188 fix-up (S1): where the tank stood still since when, and
+        // the bots whose rest the tank left.
+        bool m_hasTankPlace = false;
+        Position m_tankPlace = {0, 0, 0};
+        std::int64_t m_tankStillFromMs = 0;
+        std::set<Guid> m_tankLeftRest;
     };
 }
 

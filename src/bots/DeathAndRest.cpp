@@ -1,6 +1,7 @@
 #include "DeathAndRest.h"
 #include "BossFights.h"
 #include "CommonRules.h"
+#include "HealerSight.h"
 
 namespace Bots
 {
@@ -54,9 +55,24 @@ namespace Bots
         // The bot may rest: after a fight, and not while the script walks it
         // (a scripted move of the test driver, jvbastel/WOWAI#99). A drink
         // would stop the move, and nothing sends it again.
+        // jvbastel/WOWAI#195: and not while it resurrects the dead player
+        // tank first (HealerSight.h).
         bool MayRest(BotContext const& context)
         {
-            return AfterFight(context) && !context.view.IsScriptedMoveInProgress();
+            return AfterFight(context) && !context.view.IsScriptedMoveInProgress()
+                && !TankLeftTheRest(context.view, context.group)
+                && !ResurrectsTankBeforeRest(context.view, context.group);
+        }
+
+        // jvbastel/WOWAI#193: the healer of a player-tank group starts to
+        // drink below half mana: it says "mb" once.
+        void CallLowMana(BotContext const& context)
+        {
+            Guid const self = context.view.GetSelf();
+            Power const mana = context.view.GetMana(self);
+            if (context.group.IsPlayerTankGroup() && context.group.GetHealer() == self && Below(mana.current, mana.max)
+                && context.group.NoteLowManaCall(self))
+                context.actions.SayParty(LowManaLine, PartyLine::Plain);
         }
 
         // Why the bot rests now: its meal still fills it. Eating comes first.
@@ -135,7 +151,10 @@ namespace Bots
                     return MayRest(context) && !context.view.IsDrinking() && (Below(mana.current, mana.max) ||
                         (context.group.RestsUntilFull(context.view.GetSelf()) && mana.current < mana.max));
                 },
-                Always([](BotContext const& context) { context.actions.Drink(); })},
+                Always([](BotContext const& context) {
+                    context.actions.Drink();
+                    CallLowMana(context);
+                })},
             // Over the corpse loot and the follow rule: a move stands the
             // bot up and ends its meal.
             Rule{"keep resting", P + 30,
@@ -169,10 +188,39 @@ namespace Bots
         Power const mana = view.GetMana(self);
         if (IsAlive(view, self) && health.current >= health.max && mana.current >= mana.max)
             group.ClearRestUntilFull(self);
+        // jvbastel/WOWAI#193: at half mana again, the next low mana calls.
+        if (!Below(mana.current, mana.max))
+            group.ClearLowManaCall(self);
     }
 
     bool RestsNow(BotView const& view)
     {
         return RestReasonOf(view) != RestReason::None;
+    }
+
+    // jvbastel/WOWAI#193
+    bool TankLeftTheRest(BotView const& view, GroupCoordinator const& group)
+    {
+        Guid const tank = PlayerTankOf(view, group);
+        return tank != NoGuid
+            && (view.GetDistance(tank) > PlayerTankRestYards || group.TankLeftRestOf(view.GetSelf()));
+    }
+
+    void WatchPlayerTankRest(BotView const& view, GroupCoordinator& group, std::int64_t nowMs)
+    {
+        Guid const tank = PlayerTankOf(view, group);
+        if (tank == NoGuid)
+            return;
+        group.NoteTankPlace(view.GetPosition(tank), nowMs);
+        Guid const self = view.GetSelf();
+        if (view.GetDistance(tank) > PlayerTankRestYards)
+            group.NoteTankLeftRest(self, true);
+        else if (group.TankStillForMs(nowMs) >= PlayerTankWaitMs)
+            group.NoteTankLeftRest(self, false);
+    }
+
+    bool KeepsRestingNow(BotView const& view, GroupCoordinator const& group)
+    {
+        return RestsNow(view) && !TankLeftTheRest(view, group);
     }
 }

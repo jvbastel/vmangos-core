@@ -116,4 +116,11 @@ namespace Bots
         };
         return rule;
     }
+
+    // Spec #188 fix-up (standards 3)
+    Guid PlayerTankOf(BotView const& view, GroupCoordinator const& group)
+    {
+        Guid const tank = group.GetTank();
+        return group.IsPlayerTankGroup() && view.GetHealth(tank).max > 0 ? tank : NoGuid;
+    }
 }

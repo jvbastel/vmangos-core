@@ -36,3 +36,43 @@ TEST(SeenDead, AUnitThatTheBotDoesNotFindIsNotSeenDead)
 
     EXPECT_FALSE(SeenDead(fake, Enemy));
 }
+
+// Spec #188 fix-up (standards 3): the one lookup of the player tank. A tank
+// that the bot does not find (no health: another map, a loading screen) is
+// no player tank to act on.
+namespace
+{
+    Bots::Guid const Human = 0x1;
+}
+
+TEST(PlayerTankOf, IsThePlayerTankThatTheBotSees)
+{
+    FakeBot fake(Self);
+    Bots::GroupCoordinator group;
+    group.SetTank(Human, true);
+    fake.SetHealth(Human, 600, 600);
+
+    EXPECT_EQ(Bots::PlayerTankOf(fake, group), Human);
+    // Seen dead too.
+    fake.SetHealth(Human, 0, 600);
+    EXPECT_EQ(Bots::PlayerTankOf(fake, group), Human);
+}
+
+TEST(PlayerTankOf, AnUnseenTankIsNone)
+{
+    FakeBot fake(Self);
+    Bots::GroupCoordinator group;
+    group.SetTank(Human, true);
+
+    EXPECT_EQ(Bots::PlayerTankOf(fake, group), Bots::NoGuid);
+}
+
+TEST(PlayerTankOf, ABotTankGroupHasNone)
+{
+    FakeBot fake(Self);
+    Bots::GroupCoordinator group;
+    group.SetTank(Human);
+    fake.SetHealth(Human, 600, 600);
+
+    EXPECT_EQ(Bots::PlayerTankOf(fake, group), Bots::NoGuid);
+}
