@@ -36,8 +36,8 @@ import struct
 import sys
 import time
 
-from kit import Realm, Results, pos
-from wowclient import MSG_MOVE_HEARTBEAT, WorldClient, unpack_guid
+from kit import Realm, Results, stand_before
+from wowclient import WorldClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
 CMSG_CAST_SPELL = 302
@@ -149,7 +149,6 @@ talents = (TACTICAL_MASTERY, IMPROVED_TACTICAL_MASTERY_1, BLOODTHRILL_5, WEAPONM
 for spell in talents:
     w.gm(".learn %d" % spell, select=me)
 w.set_active_mover()
-here = pos(w, me)
 
 
 def spawn(entry):
@@ -205,21 +204,23 @@ def stop_swing():
 
 
 boar = spawn(BOAR)
-w.move(MSG_MOVE_HEARTBEAT, here[0] - 2.0, here[1], here[2], 0.0)
-w.pump(1)
+stand_before(w, boar)
 
 # Improved Tactical Mastery ---------------------------------------------------------------------------
 w.gm(".cast %d triggered" % BATTLE_STANCE, select=me)
 w.gm(".modify rage 60", select=me)
 before = rage()
 realm.mark("t217 stance")
-w.gm(".cast %d triggered" % DEFENSIVE_STANCE, select=me)
-w.pump(1)
+w.gm(".cast %d triggered" % DEFENSIVE_STANCE, select=me, wait=0.3)
 after = rage()
 kept = 130 if forever else 50
+# Out of combat Rage decays 2 Rage (20 tenths) per 2 sec regen tick (Player::Regenerate): the stance change
+# and the read take about 2.5 sec, so up to two ticks may be gone. Without Tactical Mastery nothing stays.
+DECAY = 40
 results.check("the Warrior has Rage before the stance change", before >= 300, "%d tenths" % before)
 results.check("the stance change keeps %d Rage (%s)" % (kept // 10, "10 + Improved Tactical Mastery 1/5 = 3"
-              if forever else "stock Tactical Mastery 1/5"), after == min(before, kept), "%d -> %d tenths" % (before, after))
+              if forever else "stock Tactical Mastery 1/5"), kept - DECAY <= after <= min(before, kept),
+              "%d -> %d tenths (up to %d decayed)" % (before, after, DECAY))
 stance_lines = re.findall(r"\[Forever\] Stance change: \S+ keeps (\d+) of (\d+) Rage tenths", realm.log())
 if forever:
     results.check("the stance change logs its Forever line", stance_lines and stance_lines[-1][0] == str(kept),
@@ -278,8 +279,9 @@ else:
 
 # Weaponmaster: no sword proc from Shield Bash ----------------------------------------------------------
 sword = first_entry("SELECT entry FROM item_template WHERE class = 2 AND subclass = 7 AND inventory_type IN (13, 21) "
-                    "AND required_level <= 1 ORDER BY delay DESC, entry LIMIT 1")
+                    "AND required_level <= 1 AND name NOT LIKE 'Monster%' ORDER BY delay DESC, entry LIMIT 1")
 shield = first_entry("SELECT entry FROM item_template WHERE class = 4 AND subclass = 6 AND required_level <= 1 "
+                     "AND name NOT LIKE 'Monster%' "
                      "ORDER BY entry LIMIT 1")
 results.check("a one-hand sword and a shield are worn", sword and shield and equip(sword) and equip(shield),
               "sword %d, shield %d" % (sword, shield))
