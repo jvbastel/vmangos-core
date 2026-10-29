@@ -36,8 +36,8 @@ import struct
 import sys
 import time
 
-from kit import Realm, Results, pos, stat
-from wowclient import MSG_MOVE_HEARTBEAT, WorldClient, unpack_guid
+from kit import Realm, Results, stand_before, stat
+from wowclient import WorldClient, unpack_guid
 
 CMSG_AUTOEQUIP_ITEM = 266
 CMSG_ATTACKSWING = 321
@@ -149,7 +149,6 @@ def equip(entry, slot):
 
 def spawn_boar(level=None):
     """A frozen boar 2 yards east of the Warrior, which faces it."""
-    here = pos(w, me)
     w.gm(".npc spawn add %d" % BOAR, wait=1.5)
     low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % BOAR).split()[-1])
     boar = (0xF130 << 48) | (BOAR << 24) | low
@@ -157,8 +156,7 @@ def spawn_boar(level=None):
         w.gm(".npc set level %d" % level, select=boar)
     w.gm(".modify hp 1000000 1000000", select=boar)
     w.gm(".aura %d" % FREEZE, select=boar)
-    w.move(MSG_MOVE_HEARTBEAT, here[0] - 2.0, here[1], here[2], 0.0)
-    w.pump(1)
+    stand_before(w, boar)
     return boar
 
 

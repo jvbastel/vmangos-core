@@ -150,6 +150,18 @@ def pos(client, guid):
     return None
 
 
+def stand_before(client, guid, distance=2.0):
+    """Moves the client's character `distance` yards west (-X) of the unit, facing it (east, +X). A unit
+    read where it stands now: a new creature can wander off its spawn point before a GM stun lands, so
+    the place of the character at the spawn is not the unit's place. True when the unit was found."""
+    where = pos(client, guid)
+    if where is None:
+        return False
+    client.move(wowclient.MSG_MOVE_HEARTBEAT, where[0] - distance, where[1], where[2], 0.0)
+    client.pump(1)
+    return True
+
+
 def stat(client, guid):
     """(health, max health, mana, max mana) of a unit from `.unit statinfo`;
     -1 for a value that the answer does not have."""

@@ -27,8 +27,8 @@ import struct
 import sys
 import time
 
-from kit import Realm, Results, pos, stat
-from wowclient import MSG_MOVE_HEARTBEAT, WorldClient, unpack_guid
+from kit import Realm, Results, stand_before, stat
+from wowclient import WorldClient, unpack_guid
 
 CMSG_CAST_SPELL = 302
 SMSG_CAST_RESULT = 304
@@ -179,13 +179,11 @@ if not forever:
 results.check("Victory Rush is in the spellbook at level %d" % LEVEL,
               w.knows(VICTORY_RUSH))
 
-# The dummy at the Warrior's place; the Warrior steps 2 yards west of it and faces east, towards it.
-here = pos(w, me)
+# A dummy at the Warrior's place; the Warrior stands 2 yards west of where it is once frozen, facing it.
 dummy = spawn_boar(w)
 w.gm(".modify hp 1000000 1000000", select=dummy)
 w.gm(".aura %d" % FREEZE, select=dummy)
-w.move(MSG_MOVE_HEARTBEAT, here[0] - 2.0, here[1], here[2], 0.0)
-w.pump(1)
+stand_before(w, dummy)
 w.gm(".cooldown clear", select=me)
 
 # A grey kill.
