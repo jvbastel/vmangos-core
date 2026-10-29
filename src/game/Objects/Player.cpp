@@ -85,6 +85,7 @@
 #include "BotHooks.h"
 #include "Forever.h"
 #include "ForeverProtection.h"
+#include "ForeverFury.h"
 
 #include <climits>
 
@@ -2279,7 +2280,8 @@ void Player::RegenerateAll()
             HasAuraType(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT) || IsPolymorphed())
     {
         RegenerateHealth();
-        if (!IsInCombat() && !HasAuraType(SPELL_AURA_INTERRUPT_REGEN))
+        // Forever rules: no rage decay while Lingering Rage runs (jvbastel/WOWAI#218).
+        if (!IsInCombat() && !HasAuraType(SPELL_AURA_INTERRUPT_REGEN) && Forever::RageDecays(this))
             Regenerate(POWER_RAGE);
     }
 

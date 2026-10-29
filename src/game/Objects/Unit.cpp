@@ -63,6 +63,7 @@
 #include "VictoryRush.h"
 #include "ForeverArms.h"
 #include "ForeverProtection.h"
+#include "ForeverFury.h"
 
 #include <limits>
 
@@ -283,6 +284,8 @@ void Unit::Update(uint32 update_diff, uint32 p_time)
 #endif
 
                         ClearInCombat();
+                        // Forever rules: Lingering Rage holds the rage after combat (jvbastel/WOWAI#218).
+                        Forever::StartLingeringRage(this);
                     }
                 }
             }
@@ -806,6 +809,10 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
     if (damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE) && !Forever::RewardSwingRage(this, cleanDamage))
         ((Player*)this)->RewardRage(damage, true);
 
+    // Forever rules: the Gore Drinker heal of a melee attack (jvbastel/WOWAI#218).
+    if (damage)
+        Forever::OnMeleeDamageDealt(this, pVictim, damagetype, cleanDamage, spellProto);
+
     if (Creature* creaVictim = pVictim->ToCreature())
     {
         if (!creaVictim->IsPet())
@@ -882,6 +889,9 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
             {
                 ((Player*)pVictim)->RewardRage(damage, false);
             }
+
+            // Forever rules: Blood Craze after a hit of more than 20% of maximum health (jvbastel/WOWAI#218).
+            Forever::OnDamageTaken(this, pVictim, damage, damagetype);
 
             // random durability for items (HIT TAKEN)
             if (roll_chance_f(sWorld.getConfig(CONFIG_FLOAT_RATE_DURABILITY_LOSS_DAMAGE)))

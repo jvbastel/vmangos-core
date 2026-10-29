@@ -310,3 +310,35 @@ def test_the_vanguard_talent_is_a_passive_spell_that_the_rules_switch_knows(out)
     charge = [row for row in spec_rows("ability") if row["name"] == "Charge"][0]
     assert list(zip(spells_of(charge), map(int, charge["sourceSpells"].split(",")))) == \
         [(60127, 100), (60128, 6178), (60129, 11578)]
+
+
+# --- #218: the Fury talents of the core (src/game/Forever/ForeverFuryRules.h) ---
+
+def test_the_fury_rules_know_the_spec_ids_of_their_talents_and_buffs():
+    # The core finds a talent rank and its value by the spell IDs in ForeverFuryRules.h: they must be
+    # the spec IDs, rank 1 first.
+    rules = (ROOT / "src" / "game" / "Forever" / "ForeverFuryRules.h").read_text(encoding="utf-8")
+    talents = {row["name"]: spells_of(row) for row in spec_rows("talent")}
+    for array, talent in (("LingeringRageRanks", "Lingering Rage"), ("FuriousPrecisionRanks", "Furious Precision"),
+                          ("BloodCrazeRanks", "Blood Craze"), ("ImprovedBerserkerRageRanks", "Improved Berserker Rage"),
+                          ("GoreDrinkerRanks", "Gore Drinker")):
+        m = re.search(r"\b%s\[\] = \{ ([\d, ]+) \};" % array, rules)
+        assert m, array
+        assert [int(v) for v in m.group(1).split(",")] == talents[talent], array
+    buffs = {row["name"]: spells_of(row) for row in spec_rows("ability")}
+    assert re.search(r"\bLingeringRageBuff = %d;" % buffs["Lingering Rage"][0], rules)
+    assert re.search(r"\bGoreDrinkerBuff = %d;" % buffs["Gore Drinker"][0], rules)
+
+
+def test_the_fury_buffs_are_visible_dummy_auras_with_their_duration_and_charges(out):
+    # Lingering Rage 60131: 10 sec (SpellDuration.dbc 1; the core shortens it to the talent's delay).
+    # Gore Drinker 60132: 8 sec (SpellDuration.dbc 31), 3 charges, no proc flags (the core uses the charges).
+    client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    server = server_spells(out)
+    for spell, name, duration, charges in ((60131, "Lingering Rage", 1, 0), (60132, "Gore Drinker", 31, 3)):
+        row = client[spell]
+        assert text(row[SPELL_NAME]) == name
+        assert not row[6] & 0x40, spell        # not passive: the player sees the buff
+        assert (row[61], row[91], row[82]) == (6, 4, 1), spell     # apply aura DUMMY on the caster
+        assert (row[30], row[24], row[26]) == (duration, 0, charges), spell
+        assert int(server[spell]["durationIndex"]) == duration, spell

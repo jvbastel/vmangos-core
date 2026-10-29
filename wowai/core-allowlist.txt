@@ -85,4 +85,9 @@ src/game/Objects/SpellCaster.cpp
 # gate of Defiance and Bastion (Spell::CheckCast, Player::_ApplyItemMods, HandlePlayerLogin), Iron Will
 # (Spell::DoSpellHitOnUnit) and Master of Defense (Unit::ProcSkillsAndReactives). Player.cpp,
 # CharacterHandler.cpp and Unit.cpp are listed above.
+# Spec hook 13, #218 (Forever Fury talents): calls into src/game/Forever/ForeverFury.h for Lingering Rage
+# (Unit::Update at combat end, Player::RegenerateAll, above), Gore Drinker and Blood Craze
+# (Unit::DealDamage, above), Furious Precision (SpellCaster::GetMeleeMissChance) and the casts of
+# Gore Drinker and Improved Berserker Rage (Spell::cast).
+# SpellCaster.cpp is listed above (#217), Spell.cpp below.
 src/game/Spells/Spell.cpp
