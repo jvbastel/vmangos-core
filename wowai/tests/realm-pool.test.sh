@@ -198,7 +198,8 @@ export WOWAI_DEPLOY_DIR="$tmp/deploy" WOWAI_REALM_DATA="$tmp/data"
 
 WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 21 acquire --set Rate.XP.Kill=3 --set 'Forever.DataDir="/opt/forever dbc"'
 check "acquire with --set succeeds" test "$code" -eq 0
-check "acquire does not give --set to the dev script" bash -c "! grep -q -- '--set' <<<'$out'"
+# shellcheck disable=SC2016 # $1 expands in the inner bash
+check "acquire does not give --set to the dev script" bash -c '! grep -q -- --set <<<"$1"' _ "$out"
 s21="$(slot_of 21)"
 conf="$WOWAI_POOL_DIR/$s21/config/mangosd.conf"
 run_kit --ticket 21 config

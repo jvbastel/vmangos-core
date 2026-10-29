@@ -160,8 +160,9 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     done
   }
 
-  # Take a free slot for the ticket, or find the one that it holds. Sets
-  # slot, and lease_state to new or held. The pool lock makes the look for a
+  # Take a free slot for the ticket, or find the one that it holds, and write
+  # the core settings of the request into its lease. Arguments: the ticket,
+  # then <Name>=<value> each. Sets slot, and lease_state to new or held. The pool lock makes the look for a
   # free slot and the write of the lease one step.
   kit_lease() {
     local ticket="$1" n holders="" worktree
@@ -185,15 +186,16 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
       mv "$pool_dir/$slot.lease.new" "$pool_dir/$slot.lease"
       lease_state=new
     fi
+    kit_lease_settings "${@:2}"
     exec 8>&-
   }
 
   # Write the core settings of this acquire into the slot's lease, in place
-  # of the ones of an earlier acquire. Arguments: <Name>=<value> each.
+  # of the ones of an earlier acquire. Arguments: <Name>=<value> each. Runs
+  # under the pool lock (kit_lease), so a release or gc cannot cut in.
   kit_lease_settings() {
     local lease="$pool_dir/$slot.lease"
-    { grep -v '^set=' "$lease" || true; printf 'set=%s\n' "$@"; } > "$lease.new"
-    [ "$#" -gt 0 ] || sed -i '/^set=$/d' "$lease.new"
+    { grep -v '^set=' "$lease" || true; [ "$#" -eq 0 ] || printf 'set=%s\n' "$@"; } > "$lease.new"
     mv "$lease.new" "$lease"
   }
 
@@ -299,8 +301,7 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
           settings+=("$2")
           shift 2
         done
-        kit_lease "$ticket"
-        kit_lease_settings "${settings[@]}"
+        kit_lease "$ticket" "${settings[@]}"
         echo "Ticket $ticket: slot $slot ($lease_state lease)."
         kit_slot_env "$slot" "$ticket"
         # A held lease keeps its database, and so the image and the
