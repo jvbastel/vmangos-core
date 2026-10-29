@@ -9,7 +9,7 @@ from collections import namedtuple
 # kind: talent, ability (a new spell that no talent teaches) or base (a changed stock spell).
 # required_talents: the prerequisite talent IDs (the tree rules allow at most one).
 # effects: three lists, one per spell effect, of the value of each rank, or None to keep the source value.
-# fields: {spell_template column: [value of each rank]}, see FIELDS.
+# fields: {spell_template column: [value of each rank]}, see FIELDS; also nameSubtext and procEvent.<column>.
 # tooltip: the description of the rank spells, or None to keep the stock description.
 Row = namedtuple("Row", "kind talent_id tree tier column ranks required_talents required_rank name icon port "
                         "spells source_spells effects fields tooltip notes")
@@ -25,7 +25,9 @@ NO_TREE = "-"
 FIELDS = {"category": 2, "attributes": 6, "stances": 11, "casterAuraState": 16, "castingTimeIndex": 18,
           "recoveryTime": 19, "categoryRecoveryTime": 20, "procFlags": 24, "procChance": 25, "procCharges": 26,
           "baseLevel": 28, "spellLevel": 29, "durationIndex": 30, "manaCost": 32, "rangeIndex": 36,
-          "equippedItemClass": 58, "equippedItemSubClassMask": 59}
+          "equippedItemClass": 58, "equippedItemSubClassMask": 59,
+          # 64 bits: Spell.dbc holds the low word here and the high word in the next field.
+          "spellFamilyFlags": 161}
 for _k in range(3):
     for _name, _first in (("effect", 61), ("effectDieSides", 64), ("effectBaseDice", 67), ("effectBasePoints", 76),
                           ("effectImplicitTargetA", 82), ("effectImplicitTargetB", 85),
@@ -34,6 +36,12 @@ for _k in range(3):
         FIELDS["%s%d" % (_name, _k + 1)] = _first + _k
 # A text field: the rank text of the spellbook ("Rank 2").
 NAME_SUBTEXT = "nameSubtext"
+# procEvent.<column>: a column of the spell_proc_event row of the row's first rank (the core gives the
+# higher ranks the row of the first rank). One value for all ranks. The generator copies the stock row of
+# that spell, or starts from an empty one, and writes it to forever_spell_proc_event.
+PROC_EVENT = "procEvent."
+PROC_EVENT_COLUMNS = ("SchoolMask", "SpellFamilyName", "SpellFamilyMask0", "SpellFamilyMask1", "SpellFamilyMask2",
+                      "procFlags", "procEx", "Cooldown")
 
 COLUMNS = ("kind", "talentId", "tree", "tier", "column", "ranks", "requiredTalent", "requiredRank", "name",
            "icon", "port", "spells", "sourceSpells", "effect1", "effect2", "effect3", "set", "tooltip", "notes")
@@ -66,8 +74,13 @@ def _fields(where, text, ranks):
     fields = {}
     for item in text.split(";"):
         name, _, value = item.partition("=")
-        if name not in FIELDS and name != NAME_SUBTEXT:
+        proc_event = name.startswith(PROC_EVENT)
+        if proc_event and name[len(PROC_EVENT):] not in PROC_EVENT_COLUMNS:
+            raise SpecError("%s: unknown proc event column '%s'" % (where, name))
+        if not proc_event and name not in FIELDS and name != NAME_SUBTEXT:
             raise SpecError("%s: unknown set field '%s'" % (where, name))
+        if proc_event and "/" in value:
+            raise SpecError("%s: %s takes one value for all ranks" % (where, name))
         fields[name] = _per_rank("%s %s" % (where, name), value, ranks, str if name == NAME_SUBTEXT else _int)
     return fields
 
@@ -119,3 +132,8 @@ def read(path):
 
 def talents(spec):
     return [row for row in spec.rows if row.kind == "talent"]
+
+
+def proc_event(row):
+    """{spell_proc_event column: value} that the row sets on the proc event of its first rank."""
+    return {name[len(PROC_EVENT):]: values[0] for name, values in row.fields.items() if name.startswith(PROC_EVENT)}
