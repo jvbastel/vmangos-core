@@ -206,18 +206,21 @@ if forever:
     results.check("each Gore Drinker buff logs a Forever line",
                   len([l for l in fury_lines() if "Gore Drinker" in l]) == 5, "%r" % fury_lines())
 
-# Gore Drinker: the next 3 melee attacks heal 1% of maximum health each (rank 2).
-w.gm(".cast %d triggered" % BLOODRAGE, select=me, wait=1.0)
-w.gm(".unaura %d" % BLOODRAGE_OVER_TIME, select=me)
+# Gore Drinker: the next 3 melee attacks heal 1% of maximum health each (rank 2). `.modify hp` sets the
+# maximum health too, so the heal is 1% of the new maximum. The buff lasts 8 sec and each GM command
+# takes a few seconds: set the health first, then cast and swing at once.
 top = stat(w, me)[1]
 w.gm(".modify hp %d" % (top // 2), select=me)
+half_top = stat(w, me)[1]
+w.gm(".cast %d triggered" % BLOODRAGE, select=me, wait=0.5)
 heals_start = len(w.heals)
 hits = [s for s in swing(boar, 8) if not s[0] & HITINFO_MISS and s[1] > 0]
 gore = [a for s, a in w.heals[heals_start:] if s == GORE_DRINKER_BUFF]
+w.gm(".unaura %d" % BLOODRAGE_OVER_TIME, select=me)
 results.check("the Warrior hits the boar more than 3 times", len(hits) > 3, "%d hits" % len(hits))
 if forever:
-    results.check("3 melee attacks each heal 1% of maximum health", gore == [top * 10 // 1000] * 3,
-                  "heals %r, max health %d" % (gore, top))
+    results.check("3 melee attacks each heal 1% of maximum health", gore == [half_top * 10 // 1000] * 3,
+                  "heals %r, max health %d" % (gore, half_top))
     results.check("the Gore Drinker buff is gone after 3 attacks", GORE_DRINKER_BUFF not in auras())
 else:
     results.check("no Gore Drinker heal with the rules off", not gore, "%r" % gore)
@@ -229,9 +232,10 @@ w.gm(".die", select=boar, wait=1.0)
 if forever:
     dropped = realm.wait_log(r"\[Forever\] Lingering Rage: %s keeps its rage for 10000 ms\." % NAME, 15, w)
     results.check("out of combat, the Warrior gets Lingering Rage for 10 sec", dropped)
-    results.check("the Lingering Rage buff lasts 10 sec", auras().get(LINGERING_RAGE_BUFF) == 10000, "%r" % auras())
+    # Each read takes about 2.5 sec: the two Rage reads are about 5 sec apart, both inside the 10 sec.
     r0 = rage()
-    w.pump(6)
+    buffs = auras()
+    results.check("the Lingering Rage buff lasts 10 sec", buffs.get(LINGERING_RAGE_BUFF) == 10000, "%r" % buffs)
     r1 = rage()
     results.check("the Rage does not decay while Lingering Rage runs", r0 > 0 and r1 == r0, "%d -> %d" % (r0, r1))
     w.pump(8)
