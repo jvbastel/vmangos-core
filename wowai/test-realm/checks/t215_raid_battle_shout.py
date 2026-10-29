@@ -92,6 +92,20 @@ for c in (party, near):
 far.gm(".go xyz %f %f %f" % (x + FAR, y, z + 2), select=far.guid)
 pump_all(3)
 
+
+def distance(c):
+    where = pos(c, c.guid)
+    if where is None:
+        return -1.0  # no position: fails both the near and the far test
+    cx, cy, cz = where
+    return ((cx - x) ** 2 + (cy - y) ** 2 + (cz - z) ** 2) ** 0.5
+
+
+# Guard against a false pass: the far member must really stand out of range, the near members in range.
+dist = {name: round(distance(c), 1) for name, c in zip(("party", "near", "far"), (party, near, far))}
+results.check("the party and near members stand on the Warrior, the far member out of range",
+              dist["party"] < 5 and dist["near"] < 5 and dist["far"] > 40, "distances %r" % dist)
+
 # The cast: Battle Shout rank 7 with 100 Rage, no target (target mask 0, the caster).
 warrior.gm(".learn %d" % BATTLE_SHOUT_7, select=warrior.guid)
 warrior.gm(".modify rage 100", select=warrior.guid)
