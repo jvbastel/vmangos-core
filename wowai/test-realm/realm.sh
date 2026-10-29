@@ -11,6 +11,8 @@
 
 # The number of test realm slots in the pool of the check kit.
 pool_slots=5
+# Where mangosd sees the Forever data of the realm folder (realm_forever).
+forever_mount=/opt/vmangos/storage/forever
 
 realm_usage() {
   cat <<'EOF'
@@ -28,7 +30,7 @@ to the shared test realm: that needs --shared.
   wowai/test-realm/realm.sh baseline | gc
 
 Kit commands:
-  acquire [--set <Name>=<value>]... [services]
+  acquire [--forever] [--set <Name>=<value>]... [services]
                        Lease a free slot, or find the slot that the ticket
                        holds. Build the worktree into the slot's dev install,
                        reset the database to the baseline (a new lease only),
@@ -45,6 +47,14 @@ Kit commands:
                        acquire writes mangosd.conf again from the example
                        file of vmangos-deploy, so no setting of an earlier
                        lease (or of a hand edit) stays.
+                       --forever: the Forever rules (spec #204): the same
+                       as --set Forever.Rules=1 --set
+                       'Forever.DataDir="/opt/vmangos/storage/forever/dbc"'.
+                       With Forever.Rules = 1, each acquire generates the
+                       Forever data from the worktree's forever/warrior.tsv
+                       into the slot's forever/ folder (mounted at
+                       /opt/vmangos/storage/forever) and loads its
+                       forever_world.sql into the world database.
   release              Stop the checks of the pid files, keep the logs, stop
                        the slot (`docker compose stop`) and its dev container,
                        and delete the lease.
@@ -294,7 +304,12 @@ Release one (realm.sh --ticket <N> release), or free the slots of deleted worktr
       acquire)
         shift
         settings=()
-        while [ "$#" -gt 0 ] && [ "$1" = --set ]; do
+        while [ "$#" -gt 0 ] && { [ "$1" = --set ] || [ "$1" = --forever ]; }; do
+          if [ "$1" = --forever ]; then
+            settings+=("Forever.Rules=1" "Forever.DataDir=\"$forever_mount/dbc\"")
+            shift
+            continue
+          fi
           [ "$#" -ge 2 ] || kit_die "--set needs <Name>=<value>"
           [[ "$2" =~ ^[A-Za-z][A-Za-z0-9_.]*=.+$ && "$2" != *$'\n'* ]] ||
             kit_die "--set needs <Name>=<value> (a core config name, then one line), not '$2'"
@@ -390,6 +405,7 @@ WOWAI_REALM_DATA=$data
 WOWAI_BOTCHAT_SRC=$botchat
 WOWAI_BOTCHAT_LLM=$botchat_llm
 WOWAI_BOTS_DATA=$bots_data
+WOWAI_FOREVER_DATA=$realm_dir/forever
 WOWAI_REALM_LOGIN_PORT=$(realm_default_setting WOWAI_REALM_LOGIN_PORT)
 WOWAI_REALM_WORLD_PORT=$(realm_default_setting WOWAI_REALM_WORLD_PORT)
 WOWAI_REALM_SOAP_PORT=$(realm_default_setting WOWAI_REALM_SOAP_PORT)
@@ -441,6 +457,32 @@ EOF
   if [ ! -f "$realm_dir/config/realmd.conf" ]; then
     tr -d '\r' < "$example/realmd.conf.example" > "$realm_dir/config/realmd.conf"
   fi
+  realm_forever "$data/5875/dbc"
+}
+
+# The Forever data of the realm (spec #204), in the folder forever/ of the
+# realm folder, which mangosd mounts at $forever_mount. The folder is emptied
+# first (it keeps its inode, see realm_edit_config). With Forever.Rules = 1
+# in mangosd.conf, forever/generator writes the data of the tree's
+# forever/warrior.tsv into it; realm_start then loads its SQL. Argument: the
+# stock DBC folder.
+realm_forever() {
+  local folder="$realm_dir/forever"
+  mkdir -p "$folder"
+  find "$folder" -mindepth 1 -delete
+  grep -qx 'Forever.Rules = 1' "$realm_dir/config/mangosd.conf" || return 0
+  echo "Forever.Rules = 1: generating the Forever data of $src/forever/warrior.tsv..."
+  python3 -I "$src/forever/generator/generate.py" --spec "$src/forever/warrior.tsv" \
+    --stock "$1" --out "$folder" || die "the Forever data generator failed"
+}
+
+# Load the Forever server tables that realm_forever generated, if any. The
+# migration of the forever_* tables runs first (realm_start).
+realm_load_forever() {
+  local sql="$realm_dir/forever/sql/forever_world.sql"
+  [ -f "$sql" ] || return 0
+  echo "Loading the Forever server tables into the world database..."
+  realm_mariadb mangos < "$sql" || die "loading $sql failed"
 }
 
 # Set a value of a configuration file: the line "<name> = <value>" in place
@@ -549,6 +591,7 @@ realm_start() {
   echo "Starting the database of the test realm $(realm_env COMPOSE_PROJECT_NAME) (a fresh one takes a few minutes)..."
   realm_compose up --detach --wait --wait-timeout 1800 database
   cmd_realm_migrate
+  realm_load_forever
   realm_setup_accounts
   realm_compose up --detach "$@"
   realm_wait_ready
