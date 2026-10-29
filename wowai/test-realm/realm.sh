@@ -85,7 +85,8 @@ the shared test realm (or on the realm that the WOWAI_REALM_* settings name).
   check <script> [args]
                        Mark the log, then run a Python check script with
                        the kit's Python client on its path. Keeps a pid file.
-  env                  Print the settings that the ticket gives.
+  env                  Print the settings that the ticket gives, and the GM
+                       account and password of its realm.
   config               Write the .env and the configuration files of the
                        realm folder (up, build, and acquire do it too). A
                        running mangosd reads them at its next start.
@@ -938,6 +939,11 @@ cmd_realm_env() {
     echo "$name=$(realm_default_setting "$name")"
   done
   echo "WOWAI_DEV_INSTALL=$(realpath -m "$install_dir")"
+  # The login of the realm (the GM account), once `up` or `acquire` has made it.
+  if [ -f "$realm_dir/.env" ]; then
+    echo "WOWAI_REALM_GM_ACCOUNT=$(realm_env WOWAI_REALM_GM_ACCOUNT)"
+    echo "WOWAI_REALM_GM_PASSWORD=$(realm_env WOWAI_REALM_GM_PASSWORD)"
+  fi
 }
 
 cmd_realm() {

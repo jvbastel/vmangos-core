@@ -67,6 +67,8 @@ done
 
 run_kit --shared env
 check "--shared names the shared realm" bash -c "[ $code -eq 0 ] && grep -qxF 'WOWAI_REALM_PROJECT=$shared_project' <<<'$out'"
+check "env prints the GM account and its password (to log in to the realm)" \
+  bash -c "grep -qE '^WOWAI_REALM_GM_ACCOUNT=.+' <<<'$out' && grep -qE '^WOWAI_REALM_GM_PASSWORD=.+' <<<'$out'"
 run_kit --ticket 998 env
 check "a ticket with no slot gets an error" test "$code" -ne 0
 run_kit --shared down
