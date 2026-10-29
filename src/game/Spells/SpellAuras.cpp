@@ -49,6 +49,7 @@
 #include "MoveSpline.h"
 #include "MovementPacketSender.h"
 #include "ZoneScript.h"
+#include "ForeverWarrior.h"
 #include "LoveIsInTheAir.h"
 #include "Utilities/Random.h"
 
@@ -4436,6 +4437,9 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
             return;
 
         m_modifier.m_amount = CalculateDotDamage();
+
+        // Forever rules: a Warrior's Rend taps the target at once (jvbastel/WOWAI#214).
+        Forever::TapOnRendApply(GetCaster(), target, GetSpellProto());
     }
 #endif
 }
@@ -5889,6 +5893,9 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
                 fdamage = target->MeleeDamageBonusTaken(pCaster, fdamage, attackType, spellProto, GetEffIndex(), DOT, GetStackAmount());
             }
 
+            // Forever rules: the ticks of a Warrior's Rend and Deep Wound can crit (jvbastel/WOWAI#214).
+            bool const foreverCrit = Forever::RollDotCrit(pCaster, target, spellProto, fdamage);
+
             uint32 pdamage = rand_ditheru(fdamage);
             uint32 const originalDamage = pdamage;
 
@@ -5914,7 +5921,7 @@ void Aura::PeriodicTick(SpellEntry const* sProto, AuraType auraType, uint32 data
             if (pdamage)
                 procVictim |= PROC_FLAG_TAKEN_ANY_DAMAGE;
 
-            pCaster->ProcDamageAndSpell(ProcSystemArguments(target, procAttacker, procVictim, PROC_EX_NORMAL_HIT, pdamage, originalDamage, BASE_ATTACK, spellProto));
+            pCaster->ProcDamageAndSpell(ProcSystemArguments(target, procAttacker, procVictim, foreverCrit ? PROC_EX_CRITICAL_HIT : PROC_EX_NORMAL_HIT, pdamage, originalDamage, BASE_ATTACK, spellProto));
 
             cleanDamage.absorb = absorb;
             cleanDamage.resist = resist;
