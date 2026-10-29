@@ -27,6 +27,7 @@
 #include "WorldPacket.h"
 #include "Opcodes.h"
 #include "Utilities/Random.h"
+#include "ForeverArms.h"
 
 Unit* SpellCaster::SelectMagnetTarget(Unit* victim, Spell* spell, SpellEffectIndex eff)
 {
@@ -1127,6 +1128,9 @@ float SpellCaster::CalcArmorReducedDamage(Unit const* pVictim, uint32 const dama
     // Ignore enemy armor by SPELL_AURA_MOD_TARGET_RESISTANCE aura
     if (pUnit)
         armor += pUnit->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_TARGET_RESISTANCE, SPELL_SCHOOL_MASK_NORMAL);
+
+    // Forever rules: Weaponmaster with a mace or staff ignores a part of the armor (jvbastel/WOWAI#217).
+    Forever::WeaponmasterArmor(pUnit, armor);
 
     if (armor < 0.0f)
         armor = 0.0f;

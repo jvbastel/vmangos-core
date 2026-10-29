@@ -70,3 +70,9 @@ sql/migrations/20261029140000_characters.sql
 src/game/Objects/Unit.cpp
 src/game/Spells/SpellAuras.cpp
 src/game/Spells/SpellEffects.cpp
+# Spec hook 13, #217 (Forever Arms talents): one call each into src/game/Forever/ForeverArms.h for
+# Improved Tactical Mastery (SpellAuras.cpp), Spearing Strike (SpellEffects.cpp), Bloodthrill,
+# Weaponmaster crit and sword proc, and the Improved Slam swing (Unit.cpp, above), the Weaponmaster
+# armor ignore (SpellCaster.cpp) and the Improved Slam swing timer (Spell.cpp).
+src/game/Objects/SpellCaster.cpp
+src/game/Spells/Spell.cpp

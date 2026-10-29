@@ -60,6 +60,7 @@
 #include "Errors.h"
 #include "Utilities/Random.h"
 #include "ForeverWarrior.h"
+#include "ForeverArms.h"
 
 #include <limits>
 
@@ -417,7 +418,8 @@ bool Unit::UpdateMeleeAttackingState()
 {
     Unit* pVictim = GetVictim();
 
-    if (!pVictim || IsNonMeleeSpellCasted(false))
+    // Forever rules: Improved Slam swings through the cast of Slam (jvbastel/WOWAI#217).
+    if (!pVictim || (IsNonMeleeSpellCasted(false) && !Forever::SwingsThroughCast(this)))
         return false;
 
     if (!IsAttackReady(BASE_ATTACK) && !(IsAttackReady(OFF_ATTACK) && HaveOffhandWeapon()))
@@ -2240,7 +2242,7 @@ void Unit::AttackerStateUpdate(Unit* pVictim, WeaponAttackType attType, bool ext
     if (!pVictim->IsAlive())
         return;
 
-    if (!extra && IsNonMeleeSpellCasted(false))
+    if (!extra && IsNonMeleeSpellCasted(false) && !Forever::SwingsThroughCast(this))
         return;
 
     if (attType != BASE_ATTACK && attType != OFF_ATTACK)
@@ -2572,6 +2574,8 @@ float Unit::GetUnitCriticalChance(WeaponAttackType attackType, Unit const* pVict
                 crit = 0.0f;
                 break;
         }
+        // Forever rules: Weaponmaster with an axe or polearm (jvbastel/WOWAI#217).
+        crit += Forever::WeaponmasterCritBonus(this, attackType);
     }
     else
     {
@@ -8914,6 +8918,16 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* pTarget, uint32 procFlag,
                 }
             }
         }
+
+        // Forever rules: Bloodthrill opens Overpower on a target with the Warrior's Rend (jvbastel/WOWAI#217).
+        if (!isVictim)
+        {
+            if (uint32 const window = Forever::BloodthrillOverpower(this, pTarget, procFlag, procExtra, attType))
+            {
+                m_reactiveTimer[REACTIVE_OVERPOWER] = window;
+                m_reactiveTarget[REACTIVE_OVERPOWER] = pTarget->GetObjectGuid();
+            }
+        }
     }
 }
 
@@ -8993,6 +9007,9 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* pTarget, ProcSystemArgumen
 #else
         auto result = IsTriggeredAtSpellProcEvent(pTarget, itr.second, data.procSpell, procFlag, data.procExtra, data.attType, isVictim, spellProcEvent, data.isSpellTriggeredByAuraOrItem);
 #endif
+        // Forever rules: no Weaponmaster sword proc from Shield Bash or Shield Slam (jvbastel/WOWAI#217).
+        if (result == SPELL_PROC_TRIGGER_OK && Forever::WeaponmasterBlocksProc(this, itr.second->GetSpellProto(), data.procSpell))
+            continue;
         if (result != SPELL_PROC_TRIGGER_OK)
         {
             if (result == SPELL_PROC_TRIGGER_ROLL_FAILED &&

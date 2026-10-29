@@ -52,6 +52,7 @@
 #include "ScriptMgr.h"
 #include "SocialMgr.h"
 #include "ForeverWarrior.h"
+#include "ForeverArms.h"
 
 using namespace Spells;
 using ExecuteLogInfo = WorldPackets::Spell::SpellLogExecute::ExecuteLogInfo;
@@ -1472,6 +1473,9 @@ void Spell::EffectDummy(SpellEffectIndex effIdx)
         }
         case SPELLFAMILY_WARRIOR:
         {
+            // Forever rules: Spearing Strike, its bonus and the dismount (jvbastel/WOWAI#217).
+            if (Forever::SpearingStrike(m_casterUnit, unitTarget, m_spellInfo, m_damage))
+                return;
             break;
         }
         case SPELLFAMILY_WARLOCK:
