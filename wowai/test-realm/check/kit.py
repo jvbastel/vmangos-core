@@ -26,6 +26,7 @@ import collections
 import math
 import os
 import re
+import struct
 import subprocess
 import sys
 import time
@@ -151,17 +152,17 @@ def pos(client, guid):
 
 
 def clear_backpack(realm, client):
-    """Deletes every item kind found in the backpack of the client's character (`.deleteitem`, all copies,
-    worn ones too), so that a check that runs again on the same character can add its items: a full
-    backpack makes `.additem` fail without an error the check sees."""
+    """Destroys every item in the backpack of the client's character, as a player does (CMSG_DESTROYITEM),
+    so that a check that runs again on the same character can add its items: a full backpack makes
+    `.additem` fail without an error the check sees. (Not `.deleteitem`: on this core it can crash
+    mangosd, see notes/ticket-204-results.md, Batch 3+4 test.)"""
     client.gm(".save", select=client.guid)
-    rows = realm.sql("characters", "SELECT item_id, COUNT(*) FROM character_inventory WHERE guid = %d AND item_id IN "
-                     "(SELECT item_id FROM (SELECT item_id FROM character_inventory WHERE guid = %d AND bag = 0 "
-                     "AND slot BETWEEN 23 AND 38) AS pack) GROUP BY item_id" % (client.guid, client.guid))
-    for line in rows.splitlines():
-        parts = line.split()
-        if len(parts) == 2 and parts[0].isdigit():
-            client.gm(".deleteitem %s %s" % (parts[0], parts[1]), select=client.guid, wait=0.5)
+    rows = realm.sql("characters", "SELECT slot FROM character_inventory WHERE guid = %d AND bag = 0 "
+                     "AND slot BETWEEN 23 AND 38" % client.guid)
+    for line in rows.split():
+        if line.isdigit():
+            client.send(wowclient.CMSG_DESTROYITEM, struct.pack("<BBBBBB", 255, int(line), 0, 0, 0, 0))
+    client.pump(1)
 
 
 def stand_before(client, guid, distance=2.0):
