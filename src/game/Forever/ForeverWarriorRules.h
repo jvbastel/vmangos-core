@@ -8,8 +8,8 @@
 #ifndef WOWAI_GAME_FOREVER_WARRIOR_RULES_H
 #define WOWAI_GAME_FOREVER_WARRIOR_RULES_H
 
-// The pure math of the Forever Warrior mechanics (jvbastel/WOWAI#214): rage from weapon speed and the
-// Deep Wounds bleed. No game header, so wowai/tests/forever-warrior-rules.test.sh tests it on the host.
+// The pure math of the Forever Warrior mechanics (jvbastel/WOWAI#214): rage from weapon speed, the
+// Deep Wounds bleed and the attack power part of Revenge. No game header, so wowai/tests/forever-warrior-rules.test.sh tests it on the host.
 // ForeverWarrior.cpp calls it from the core hooks. The chosen formulas and their sources are in the
 // header of forever/warrior.tsv ("Warrior mechanics").
 
@@ -28,6 +28,11 @@ namespace WarriorRules
     constexpr float CritFactor = 2.0f;
     // A Warrior without a usable weapon swings with the unarmed speed of the core (BASE_ATTACK_TIME).
     constexpr uint32_t UnarmedSpeedMs = 2000;
+    // Revenge: a percent of attack power on top of the base damage. Only the client hotfix of Revenge has
+    // it (SpellDescriptionVariables 1024: 0.225 in Defensive Stance, else 0.25; still pushed to build
+    // 1.60.1.70685), not the 70685 DB2 itself. Improved Revenge raises the whole damage (a damage modifier).
+    constexpr float RevengeAttackPowerPct = 25.0f;
+    constexpr float RevengeDefensiveAttackPowerPct = 22.5f;
     // Deep Wound (12721): 12 sec with a tick every 3 sec.
     constexpr uint32_t DeepWoundTicks = 4;
 
@@ -41,6 +46,14 @@ namespace WarriorRules
         if (crit)
             rage *= CritFactor;
         return rage;
+    }
+
+    // The attack power part of the Revenge damage.
+    inline float RevengeAttackPowerBonus(float attackPower, bool defensiveStance)
+    {
+        if (attackPower <= 0.0f)
+            return 0.0f;
+        return attackPower * (defensiveStance ? RevengeDefensiveAttackPowerPct : RevengeAttackPowerPct) / 100.0f;
     }
 
     // The damage of a Warrior DoT tick that crits: x2 (melee crit), then the crit damage talents

@@ -45,6 +45,10 @@ namespace Forever
     // Spell::EffectDummy, Deep Wounds: the tick damage of the new bleed (`tickDamage`) also gets the
     // damage that the caster's old bleed on `target` had not dealt yet (a rolling bleed).
     void DeepWoundsRoll(Unit* caster, Unit* target, int32& tickDamage);
+
+    // Spell::EffectSchoolDMG: a Forever Warrior's Revenge adds a percent of its attack power to `damage`
+    // (ForeverWarriorRules.h). The damage modifiers (Improved Revenge) apply to the sum later.
+    void RevengeDamage(Unit* caster, SpellEntry const* spellProto, Unit* target, float& damage);
 }
 
 #endif

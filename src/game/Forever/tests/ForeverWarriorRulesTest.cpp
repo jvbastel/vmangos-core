@@ -52,6 +52,12 @@ int main()
     Near("at most the full duration of the old bleed rolls", DeepWoundsRolledTick(12.0f, 2.0f, 9), 5.0f);
     Near("a negative old tick adds nothing", DeepWoundsRolledTick(12.0f, -3.0f, 2), 3.0f);
 
+    // Revenge: attack power (client hotfix of Revenge, variable set 1024).
+    Near("Revenge adds 25% of attack power", RevengeAttackPowerBonus(1000.0f, false), 250.0f);
+    Near("Revenge adds 22.5% of attack power in Defensive Stance", RevengeAttackPowerBonus(1000.0f, true), 225.0f);
+    Near("no attack power adds nothing", RevengeAttackPowerBonus(0.0f, true), 0.0f);
+    Near("a negative attack power adds nothing", RevengeAttackPowerBonus(-50.0f, false), 0.0f);
+
     std::printf("%d of %d checks passed.\n", checks - failures, checks);
     return failures == 0 ? 0 : 1;
 }

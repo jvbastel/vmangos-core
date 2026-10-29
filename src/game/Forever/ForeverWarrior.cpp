@@ -30,6 +30,9 @@ namespace
             spellProto->IsFitToFamily<SPELLFAMILY_WARRIOR, CF_WARRIOR_REND>());
     }
 
+    // Defensive Stance: Revenge takes a lower attack power percent in it.
+    uint32 const DefensiveStanceSpell = 71;
+
     // The weapon of a hand that the Warrior can swing (not broken, usable), or nullptr (unarmed).
     Item* SwingWeapon(Player const* warrior, WeaponAttackType attackType)
     {
@@ -159,4 +162,18 @@ void Forever::DeepWoundsRoll(Unit* caster, Unit* target, int32& tickDamage)
     // again on the rolled part. A small overcount that we accept (no published rule).
     float const newDamage = float(tickDamage) * WarriorRules::DeepWoundTicks;
     tickDamage = int32(WarriorRules::DeepWoundsRolledTick(newDamage, oldAura->GetModifier()->m_amount, left));
+}
+
+void Forever::RevengeDamage(Unit* caster, SpellEntry const* spellProto, Unit* target, float& damage)
+{
+    if (!spellProto || !spellProto->IsFitToFamily<SPELLFAMILY_WARRIOR, CF_WARRIOR_REVENGE>() || !IsForeverWarrior(caster))
+        return;
+    float attackPower = caster->GetTotalAttackPowerValue(BASE_ATTACK);
+    if (target)
+        attackPower += caster->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_MELEE_ATTACK_POWER_VERSUS, target->GetCreatureTypeMask());
+    bool const defensive = caster->HasAura(DefensiveStanceSpell);
+    float const bonus = WarriorRules::RevengeAttackPowerBonus(attackPower, defensive);
+    sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Revenge: %s spell %u %.0f + %.0f (attack power %.0f%s)",
+        caster->GetName(), spellProto->Id, damage, bonus, attackPower, defensive ? ", Defensive Stance" : "");
+    damage += bonus;
 }

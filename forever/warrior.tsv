@@ -34,6 +34,11 @@
 #   Recklessness keeps its 30 minute cooldown; only Retaliation and Shield Wall go to 15 minutes.
 #   Bloodthirst gives movement speed, not attack speed.
 #   Deep Wounds: the client has no crit flag on its bleed; #204 user story 12 lets its ticks crit (#214).
+#   Iron Will shortens Charm and Stun effects (client 70685: mechanics 1 and 12); #204 and the fan sites say
+#   Stun and Fear.
+# Hotfix-sourced numbers (not in the 70685 DB2, only in the client's hotfix cache, which a 70685 client still
+# received on 2026-10-29): Revenge adds 25% of attack power, 22.5% in Defensive Stance (Revenge ranks 1-6,
+# SpellDescriptionVariables 1024).
 #
 # Warrior mechanics (server code, src/game/Forever/ForeverWarrior*.{h,cpp}, #214). Blizzard has published no
 # formula for them, and the client holds none (only marker spells such as Rule of Rage 1322574). Our choices:
@@ -154,7 +159,7 @@ base	0	-	0	0	1	0	0	Shield Wall	281	data	871	871	-60	-	-	category=0;categoryRecov
 base	0	-	0	0	1	0	0	Shield Block	28	data	2565	2565	-	-	-	durationIndex=165;procCharges=2	-	Improved Shield Block 3/3 is baseline: 7 sec, 2 attacks (stock 5 sec, 1 attack).
 base	0	-	0	0	6	0	0	Thunder Clap	199	C++	6343,8198,8204,8205,11580,11581	6343,8198,8204,8205,11580,11581	-	-20	-	categoryRecoveryTime=6000;stances=0x30000	-	6 sec cooldown (stock 4), 20% attack speed slow (stock 10%), usable in Defensive Stance. The large attack power scaling (no published value) and the lower threat: #212.
 base	0	-	0	0	1	0	0	Taunt	24	data	355	355	-	-	-	categoryRecoveryTime=8000	-	8 sec cooldown (Improved Taunt baseline).
-base	0	-	0	0	6	0	0	Revenge	562	data	6572,6574,7379,11600,11601,25288	6572,6574,7379,11600,11601,25288	20/31/43/73/109/138	-	-	effectDieSides1=5/7/11/19/25/31	-	About 1.7 times the stock damage: 20-24, 31-37, 43-53, 73-91, 109-133, 138-168.
+base	0	-	0	0	6	0	0	Revenge	562	C++	6572,6574,7379,11600,11601,25288	6572,6574,7379,11600,11601,25288	20/31/43/73/109/138	-	-	effectDieSides1=5/7/11/19/25/31	Instantly counterattack an enemy for $s1 damage plus 25% of your attack power (22.5% in Defensive Stance) and a high amount of threat. Revenge must follow a block, dodge or parry.	About 1.7 times the stock damage: 20-24, 31-37, 43-53, 73-91, 109-133, 138-168. Plus 25% of attack power, 22.5% in Defensive Stance (hotfix-sourced, see the header): Forever::RevengeDamage in src/game/Forever/ForeverWarrior.cpp, Spell::EffectSchoolDMG. Improved Revenge raises the sum (its damage modifier), as the client tooltip multiplies the attack power part by it.
 base	0	-	0	0	1	0	0	Berserker Rage	1465	data	18499	18499	-	-	-	baseLevel=30;spellLevel=30;baseline=1	-	Learned at level 30 (stock 32 at the trainer). Substitute for the trainer level: baseline at level 30 (#212), so no trainer table changes.
 base	0	-	0	0	1	0	0	Bloodrage	86	data	2687	2687	-	-	-	scriptName=	-	It no longer puts the Warrior in combat: the Forever row drops the stock script spell_warrior_bloodrage, which only did that (#212).
 base	0	-	0	0	7	0	0	Rend	245	C++	772,6546,6547,6548,11572,11573,11574	772,6546,6547,6548,11572,11573,11574	-	-	-	-	-	Ticks can crit (Forever flag 'periodic can crit') and Rend taps the target at once: #214 (see Warrior mechanics in the header). Large attack power scaling: no published value, not ported yet.
