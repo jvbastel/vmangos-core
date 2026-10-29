@@ -211,8 +211,10 @@ reasons, went = w.cast_at(VICTORY_RUSH, dummy)
 results.check("after the kill Victory Rush goes", went and not [r for r in reasons if r is not None], "reasons %r" % reasons)
 damage = before_dummy - stat(w, dummy)[0]
 expected = 1 + int(0.15 * ap)
-results.check("Victory Rush deals 1 + 15%% of attack power (%.0f AP)" % ap, abs(damage - expected) <= max(2, expected * 0.05),
-              "damage %d, expected %d" % (damage, expected))
+# `.cheat criticals off` leaves the natural crit chance: a melee crit doubles the hit.
+results.check("Victory Rush deals 1 + 15%% of attack power (%.0f AP)" % ap,
+              any(abs(damage - e) <= max(2, e * 0.05) for e in (expected, 2 * expected)),
+              "damage %d, expected %d (or %d on a crit)" % (damage, expected, 2 * expected))
 healed = stat(w, me)[0] - before_heal
 results.check("Victory Rush heals 10%% of maximum health (%d)" % max_health,
               max_health // 10 <= healed <= max_health // 10 + max_health // 50, "healed %d" % healed)
