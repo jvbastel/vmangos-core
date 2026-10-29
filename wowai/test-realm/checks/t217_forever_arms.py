@@ -109,6 +109,7 @@ realm = Realm()
 results = Results()
 w = realm.login("PLAYER217", "Foreverarms" if forever else "Vanillaarms", race=2, cls=1, client_class=ArmsClient)
 me = w.guid
+w.gm(".gm off")   # a GM character in GM mode cannot attack
 clear_backpack(realm, w)   # a run before filled it with the same weapons
 level = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % me) or 1)
 if level < LEVEL:
@@ -132,6 +133,14 @@ def spawn_sturdy(entry):
     guid = spawn(realm, w, entry)
     sturdy(w, guid)
     return guid
+
+
+def mounted(guid):
+    for line in w.gm(".debug getvaluebyname UNIT_FIELD_MOUNTDISPLAYID", select=guid, wait=1.0):
+        m = re.match(r"UNIT_FIELD_MOUNTDISPLAYID: (\d+)", line)
+        if m:
+            return int(m.group(1)) != 0
+    return False
 
 
 def despawn(guid):
@@ -281,7 +290,7 @@ for label, query in (
         ("a Dragonkin", "type = %d" % CREATURE_DRAGONKIN),
         ("a Giant", "type = %d" % CREATURE_GIANT),
         ("a mounted Humanoid", "type = %d AND mount_display_id > 0" % CREATURE_HUMANOID)):
-    entry = first_entry("SELECT entry FROM creature_template WHERE %s AND faction IN %s AND level_max <= 63 "
+    entry = first_entry("SELECT entry FROM creature_template WHERE %s AND faction IN %s AND level_max <= 63 AND name NOT LIKE '[%%' "
                         "ORDER BY entry LIMIT 1" % (query, ATTACKABLE_FACTIONS))
     results.check("the world has %s to spawn" % label, entry > 0)
     if entry:
@@ -289,11 +298,23 @@ for label, query in (
 equip(LARGE_AXE)
 for label, entry, bonus in targets:
     guid = boar if entry == BOAR else spawn_sturdy(entry)
-    realm.mark("t217 spearing %d" % entry)
-    w.gm(".cast %d triggered" % SPEARING_STRIKE, select=guid)
-    w.pump(1)
-    lines = re.findall(r"\[Forever\] Spearing Strike: \S+ on \S+ \(creature type (\d+)(, dismounted)?\), "
-                       r"([\d.]+) -> ([\d.]+)", realm.log())
+    if "mounted" in label and not mounted(guid):
+        # A creature that `.npc spawn add` makes has no mount on this core (UNIT_FIELD_MOUNTDISPLAYID 0), and
+        # one in combat dismounts (Creature::SetInCombatWith). The mounted case stays to GoogleTest
+        # (ForeverArmsRulesTest); notes/followups-204.md.
+        print("SKIP: %s: the spawned creature %d is not mounted" % (label, entry))
+        despawn(guid)
+        continue
+    # A strike can miss: up to 3 strikes for one line (the cooldown cheat is on).
+    for _ in range(3 if forever and bonus else 1):
+        realm.mark("t217 spearing %d" % entry)
+        w.gm(".cast %d triggered" % SPEARING_STRIKE, select=guid)
+        w.pump(1)
+        # The target is a guid text with spaces: "Creature (Entry: 149 Guid: 303784)".
+        lines = re.findall(r"\[Forever\] Spearing Strike: \S+ on .+? \(creature type (\d+)(, dismounted|, still mounted)?\), "
+                           r"([\d.]+) -> ([\d.]+)", realm.log())
+        if lines:
+            break
     if forever and bonus:
         results.check("Spearing Strike deals x3 to %s" % label,
                       len(lines) == 1 and abs(float(lines[0][3]) - 3 * float(lines[0][2])) < 0.2, "%r" % lines)
