@@ -54,13 +54,20 @@ def set_values(row, name):
     return None
 
 
-def changed_stock_spells():
-    """The stock spells that the stock rows of the profession files change in place (#228)."""
+def changed_stock_spells(kinds=("stock",)):
+    """The stock spells that the stock rows of the profession files change in place (#228), or the rows of
+    the other `kinds` (removed: the removal rows of #229)."""
     spells = set()
     for path in SPEC_DIR.glob("*.tsv"):
         lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")]
-        spells |= {int(line.split("\t")[1]) for line in lines[1:] if line.split("\t")[0] == "stock"}
+        spells |= {int(line.split("\t")[1]) for line in lines[1:] if line.split("\t")[0] in kinds}
     return spells
+
+
+def removed_stock_abilities():
+    """The stock SkillLineAbility.dbc IDs of the recipes that the removal rows take away (#229)."""
+    removed = changed_stock_spells(("removed",))
+    return {key for key, row in read_dbc(STOCK / "SkillLineAbility.dbc")[0].items() if row[2] in removed}
 
 
 def int32(value):
@@ -365,9 +372,10 @@ def test_the_other_spec_files_leave_the_warrior_output_as_it_is(out, tmp_path):
     for name in ("Spell.dbc", "SkillLineAbility.dbc"):
         full, full_text = read_dbc(out / "client" / "DBFilesClient" / name)
         only, only_text = read_dbc(warrior / "client" / "DBFilesClient" / name)
-        assert set(only) < set(full), name
+        gone = removed_stock_abilities() if name == "SkillLineAbility.dbc" else set()
+        assert set(only) - gone < set(full), name
         for key, row in only.items():
-            if (key if name == "Spell.dbc" else row[2]) in changed:
+            if (key if name == "Spell.dbc" else row[2]) in changed or key in gone:
                 continue
             if name == "Spell.dbc":
                 # Every field: the string fields (8 locales of name, rank, description, tooltip) by text.

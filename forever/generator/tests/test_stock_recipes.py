@@ -13,7 +13,7 @@ from collections import Counter
 import pytest
 
 from test_blacksmithing import BLACKSMITHING, counted, spec_rows, sql_rows
-from test_pipeline import STOCK, generate, read_dbc
+from test_pipeline import STOCK, generate, read_dbc, removed_stock_abilities
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -93,8 +93,11 @@ def test_each_stock_recipe_has_its_forever_colour_range_in_the_client_in_place_o
     client, _ = read_dbc(out / "client" / "DBFilesClient" / "SkillLineAbility.dbc")
     stock, _ = read_dbc(STOCK / "SkillLineAbility.dbc")
     rows = {int(row["spell"]): row for row in stock_rows()}
-    assert set(client) >= set(stock)
+    gone = removed_stock_abilities()
+    assert set(client) >= set(stock) - gone
     for key, old in stock.items():
+        if key in gone:
+            continue
         new = client[key]
         spec = rows.get(old[SLA_SPELL]) if old[1] == BLACKSMITHING else None
         if spec is None:
