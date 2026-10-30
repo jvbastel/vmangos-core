@@ -9,7 +9,7 @@ from collections import namedtuple
 from .spec import SpecError, rows_of
 
 # reagents: [(item, count)]; creates: (item, count); focus: the name of a stock SpellFocusObject.dbc row, or
-# NO_FOCUS; plans: the stock plans item of a stock row, or None.
+# NO_VALUE; plans: the stock plans item of a stock row, or None.
 Recipe = namedtuple("Recipe", "kind spell source_spell name skill_line min_rank yellow grey reagents creates focus "
                               "plans forever_spell notes")
 

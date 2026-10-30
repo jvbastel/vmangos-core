@@ -11,11 +11,11 @@ A stock row keeps the stock spell ID, so that a character who knows the recipe k
   forever_spell_template).
 The generator has no world database: the copies are SQL that runs on the stock rows at load time.
 """
+from .recipes import MAX_REAGENTS, NO_VALUE, focus_ids
 from .spec import SpecError
 
 TRAINER_TABLE = "forever_npc_trainer"
 ITEM_TABLE = "forever_item_template"
-NO_FOCUS = "-"
 # The world database build of the skill line ability rows (SUPPORTED_CLIENT_BUILD of the core).
 CLIENT_BUILD = 5875
 # Spell.dbc 1.12.1: 15 RequiresSpellFocus, 42-49 Reagent, 50-57 ReagentCount, 61 Effect1, 64 EffectDieSides1,
@@ -24,7 +24,6 @@ SPELL_FOCUS, SPELL_REAGENTS, SPELL_REAGENT_COUNTS = 15, 42, 50
 SPELL_EFFECT1, SPELL_DIE_SIDES1, SPELL_BASE_POINTS1, SPELL_ITEM_TYPE1, SPELL_TRIGGER1 = 61, 64, 76, 103, 109
 SPELL_NAME, SPELL_RANK = 120, 129
 SPELL_EFFECT_LEARN_SPELL = 36
-MAX_REAGENTS = 8
 # SkillLineAbility.dbc 1.12.1: 0 ID, 1 SkillLine, 2 Spell, 10 grey, 11 yellow.
 SLA_SKILL, SLA_SPELL, SLA_GREY, SLA_YELLOW = 1, 2, 10, 11
 
@@ -41,9 +40,8 @@ def stock_abilities(recipe, stock):
 
 
 def focus_id(recipe, stock):
-    if recipe.focus == NO_FOCUS:
+    if recipe.focus == NO_VALUE:
         return 0
-    from .recipes import focus_ids
     return focus_ids(stock).get(recipe.focus)
 
 
@@ -76,9 +74,11 @@ def check(spec, stock):
             raise SpecError("%s: a stock row keeps the item that the stock spell makes (%dx%d)" % ((where,) + made))
         if focus_id(recipe, stock) is None:
             raise SpecError("%s: the focus '%s' is no stock SpellFocusObject.dbc name" % (where, recipe.focus))
-        if recipe.plans is not None and recipe.plans in item_rows:
+        if recipe.plans is None:
+            continue
+        if recipe.plans in item_rows:
             raise SpecError("%s: its plans %d are also an item row of the spec" % (where, recipe.plans))
-        if recipe.plans is not None and recipe.plans in plans:
+        if recipe.plans in plans:
             raise SpecError("%s: the plans %d are named twice" % (where, recipe.plans))
         plans.add(recipe.plans)
 

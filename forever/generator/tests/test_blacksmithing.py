@@ -214,7 +214,7 @@ def test_a_recipe_spell_that_clashes_with_a_warrior_spell_is_refused(tmp_path):
     error = refused(tmp_path, "blacksmithing.tsv", ("profession spell ID range: 61000-61999.", "profession spell ID range: 60100-61999."),
                     ("recipe\t61000\t", "recipe\t60100\t"))
     # #228: a Warrior spell inside the profession block is refused before the clash.
-    assert "spell 60100 clashes" in error or "spell 60100 is inside the profession spell ID range" in error
+    assert "spell 60100 is inside the profession spell ID range" in error
 
 
 def test_a_new_item_outside_the_free_item_range_is_refused(tmp_path):
