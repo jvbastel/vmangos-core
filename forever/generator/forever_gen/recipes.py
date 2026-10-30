@@ -7,7 +7,7 @@ learning it needs and the colour range. build.py writes both into the client dat
 from collections import namedtuple
 
 from . import removed_recipes
-from .common import MAX_REAGENTS, NO_VALUE, SpecError, check_kind, focus_ids, id_range, rows_of
+from .common import MAX_REAGENTS, NO_VALUE, SpecError, check_kind, id_range, rows_of
 
 # reagents: [(item, count)]; creates: (item, count); focus: the name of a stock SpellFocusObject.dbc row, or
 # NO_VALUE; plans: the plans item (a stock one for a stock row, an item row of the spec for a new recipe), or
@@ -86,7 +86,7 @@ def check(spec, stock, used_spells, check_focus=True):
             # The core tells a profession spell from a Warrior spell by this block, even with the rules off.
             raise SpecError("spell row spell %d is inside the profession spell ID range %d-%d" % (spell, low, high))
     stock_spells = stock.spell.by_id()
-    foci = focus_ids(stock)
+    foci = stock.focus_ids
     seen = set(used_spells)
     for recipe in spec.recipes:
         where = "recipe %s: spell %d" % (recipe.name, recipe.spell)
@@ -106,7 +106,7 @@ def spell_changes(recipe, stock):
     focus, the reagents and their counts, and the made item with its count (base points + die sides 1)."""
     padding = [0] * (MAX_REAGENTS - len(recipe.reagents))
     item, count = recipe.creates
-    return ([("requiresSpellFocus", focus_ids(stock)[recipe.focus])]
+    return ([("requiresSpellFocus", stock.focus_ids[recipe.focus])]
             + list(zip(REAGENT_COLUMNS, [r for r, _ in recipe.reagents] + padding))
             + list(zip(REAGENT_COUNT_COLUMNS, [c for _, c in recipe.reagents] + padding))
             + [("effectItemType1", item), ("effectBasePoints1", count - 1), ("effectDieSides1", 1),

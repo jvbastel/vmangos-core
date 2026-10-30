@@ -18,7 +18,7 @@ import struct
 from collections import namedtuple
 
 from . import client_patch, dead_content, encrypted, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, sources, stock_recipes
-from .common import CLIENT_BUILD, sql_text
+from .common import CLIENT_BUILD, focus_ids, sql_text
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -64,6 +64,8 @@ class Stock:
 
     def __init__(self, folder):
         self.spell_focus = Dbc.read(os.path.join(folder, "SpellFocusObject.dbc"))
+        # {name: ID} of the spell foci, built once (recipes and stock recipes look each focus up by name).
+        self.focus_ids = focus_ids(self)
         self.talent = Dbc.read(os.path.join(folder, "Talent.dbc"))
         self.talent_tab = Dbc.read(os.path.join(folder, "TalentTab.dbc"))
         self.spell = Dbc.read(os.path.join(folder, "Spell.dbc"))
@@ -110,7 +112,8 @@ def spell_changes(row, rank):
 def skill_line_abilities(spec):
     """The Ability of each spell of a row with a skill line, and of each recipe, by ID. The ID is the
     spell ID: a new spell is in the free range, so its ID is free in SkillLineAbility.dbc too."""
-    abilities = [Ability(r.spell, r.skill_line, r.spell, 0, 0, r.min_rank, 0, r.grey, r.yellow) for r in spec.recipes]
+    abilities = [Ability(id=r.spell, skill=r.skill_line, spell=r.spell, race_mask=0, class_mask=0, req_skill=r.min_rank,
+                         superseded=0, grey=r.grey, yellow=r.yellow) for r in spec.recipes]
     for row in spec.rows:
         if SKILL_LINE not in row.fields:
             continue
@@ -119,7 +122,8 @@ def skill_line_abilities(spec):
                 superseded = row.fields[SUPERSEDED_BY][rank]
             else:
                 superseded = row.spells[rank + 1] if rank + 1 < len(row.spells) else 0
-            abilities.append(Ability(spell, row.fields[SKILL_LINE][rank], spell, 0, WARRIOR_CLASS_MASK, 1, superseded, 0, 0))
+            abilities.append(Ability(id=spell, skill=row.fields[SKILL_LINE][rank], spell=spell, race_mask=0,
+                                     class_mask=WARRIOR_CLASS_MASK, req_skill=1, superseded=superseded, grey=0, yellow=0))
     return sorted(abilities)
 
 
@@ -155,22 +159,26 @@ def spell_edits(spec, stock):
         comment = "-- %s rank %d, %s." % (row.name, rank + 1,
                                           "from spell %d" % source if spell != source else "changes the stock spell")
         script = row.fields[SCRIPT_NAME][rank] if SCRIPT_NAME in row.fields else None
-        edits.append(SpellEdit(spell, source, spell_changes(row, rank), name, rank_text, description, script, comment))
+        edits.append(SpellEdit(spell=spell, source=source, changes=spell_changes(row, rank), name=name, rank_text=rank_text,
+                               description=description, script_name=script, comment=comment))
     for recipe in spec.recipes:
         # A source with a description (a stock smelt: "... smelt thorium ...") would describe another recipe.
         description = "" if stock.spell.text(stock_by_id[recipe.source_spell][SPELL_DESCRIPTION]) else None
-        edits.append(SpellEdit(recipe.spell, recipe.source_spell, recipes.spell_changes(recipe, stock), recipe.name,
-                               "", description, None, "-- Recipe %s, from spell %d." % (recipe.name, recipe.source_spell)))
+        edits.append(SpellEdit(spell=recipe.spell, source=recipe.source_spell, changes=recipes.spell_changes(recipe, stock),
+                               name=recipe.name, rank_text="", description=description, script_name=None,
+                               comment="-- Recipe %s, from spell %d." % (recipe.name, recipe.source_spell)))
     for learn in new_recipes.plans_learns(spec):
-        edits.append(SpellEdit(learn.spell, new_recipes.LEARN_SOURCE, [("effectTriggerSpell1", learn.recipe)],
-                               learn.name, "", learn.description, None,
-                               "-- %s, teaches recipe %d, from spell %d." % (learn.name, learn.recipe, new_recipes.LEARN_SOURCE)))
+        edits.append(SpellEdit(spell=learn.spell, source=new_recipes.LEARN_SOURCE, changes=[("effectTriggerSpell1", learn.recipe)],
+                               name=learn.name, rank_text="", description=learn.description, script_name=None,
+                               comment="-- %s, teaches recipe %d, from spell %d." % (learn.name, learn.recipe,
+                                                                                    new_recipes.LEARN_SOURCE)))
     for recipe in spec.stock_recipes:
         changed = stock_recipes.spell_changes(recipe, stock)
         if changed:
             changes, name, rank_text = changed
-            edits.append(SpellEdit(recipe.spell, recipe.spell, changes, name, rank_text, None, None,
-                                   "-- Stock recipe %s, changes the stock spell." % recipe.name))
+            edits.append(SpellEdit(spell=recipe.spell, source=recipe.spell, changes=changes, name=name, rank_text=rank_text,
+                                   description=None, script_name=None,
+                                   comment="-- Stock recipe %s, changes the stock spell." % recipe.name))
     return sorted(edits, key=lambda e: e.spell)
 
 

@@ -16,6 +16,8 @@ skill line abilities, trainers, items, gameobject loot):
    a copy after marker_sql would have one column too few, so all other rows come first
    (tests/test_removals.py checks it).
 A key that a ticket removes must have no other forever row: the key is the union key of the whole table.
+For the removed recipes, removed_recipes.check holds it: a removed spell is no other recipe row of the spec,
+so its skill line abilities and learn spells (the keys) have no other forever row.
 """
 from .common import SpecError
 

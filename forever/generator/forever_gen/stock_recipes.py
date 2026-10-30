@@ -12,7 +12,7 @@ A stock row keeps the stock spell ID, so that a character who knows the recipe k
 The generator has no world database: the copies are SQL that runs on the stock rows at load time.
 """
 from .common import (CLIENT_BUILD, MAX_REAGENTS, NO_VALUE, SPELL_BASE_POINTS1, SPELL_DIE_SIDES1, SPELL_EFFECT1, SpecError,
-                     copy_item_sql, fail_unless, focus_ids, int32, sql_text)
+                     copy_item_sql, fail_unless, int32, sql_text)
 
 TRAINER_TABLE = "forever_npc_trainer"
 ITEM_TABLE = "forever_item_template"
@@ -36,7 +36,7 @@ def stock_abilities(recipe, stock):
 def focus_id(recipe, stock):
     if recipe.focus == NO_VALUE:
         return 0
-    return focus_ids(stock).get(recipe.focus)
+    return stock.focus_ids.get(recipe.focus)
 
 
 def stock_reagents(row):
