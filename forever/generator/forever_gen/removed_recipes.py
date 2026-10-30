@@ -12,12 +12,12 @@ The spell itself stays in Spell.dbc and spell_template, so that a character who 
 from collections import namedtuple
 
 from . import removals
+from .recipes import NO_VALUE
 from .spec import SpecError
 
 KIND = "removed"
-NO_VALUE = "-"
 # The columns of a removal row that hold a value; the other recipe columns are NO_VALUE.
-USED = ("kind", "spell", "sourceSpell", "name", "skillLine", "plans", "foreverSpell", "notes")
+USED = ("kind", "spell", "sourceSpell", "name", "skillLine", "plans", "notes")
 # plans: the stock plans item of the recipe, or None.
 RemovedRecipe = namedtuple("RemovedRecipe", "spell source_spell name skill_line plans notes")
 
