@@ -12,19 +12,241 @@
 # off. Its skill line ability takes the same ID. Next free profession spell ID: 61001.
 #
 # Columns (tab-separated):
-#   kind          recipe (a new recipe spell)
-#   spell         the spell ID, from the profession spell range
+#   kind          recipe (a new recipe spell) or stock (a stock recipe that Forever changes, #228)
+#   spell         the spell ID: from the profession spell range for a new recipe, the stock spell for a
+#                 stock row
 #   sourceSpell   the stock recipe spell that the new spell is a copy of: its cast time, tool (Blacksmith
-#                 Hammer), icon and visuals stay
+#                 Hammer), icon and visuals stay. A stock row: the same as `spell`
 #   name          the recipe name (the craft window and the spell)
 #   skillLine     the profession: 164 Blacksmithing
-#   minRank       the skill that learning the recipe needs (orange from here)
+#   minRank       the skill that learning the recipe needs (orange from here). A new recipe: its skill line
+#                 ability. A stock row: the skill that its trainer rows (forever_npc_trainer) and its plans
+#                 (required_skill_rank) need; the stock skill line ability keeps its own value
 #   yellow, grey  the colour range: yellow from `yellow`, green from the middle, grey from `grey`
 #   reagents      item x count, separated by commas (at most 8)
 #   creates       the item that the recipe makes, x count
-#   focus         the name of the spell focus object of the stock SpellFocusObject.dbc, for example Anvil
+#   focus         the name of the spell focus object of the stock SpellFocusObject.dbc, for example Anvil,
+#                 or - for none (stock rows only)
+#   plans         the stock plans item that teaches a stock row, or - (no plans, or a new recipe: #230)
 #   foreverSpell  the spell ID of the recipe in the Forever client (the source row of the dump)
 #   notes         free text
-kind	spell	sourceSpell	name	skillLine	minRank	yellow	grey	reagents	creates	focus	foreverSpell	notes
+#
+# A stock row writes only what differs from stock 1.12: its colour range in place of the stock one, the
+# skill of its trainer rows and of its plans, and its reagents, name and focus where they differ from the
+# stock spell. A recipe whose stock focus is the Anvil keeps the Anvil where Forever asks for a Master
+# Forge (the notes say so).
+kind	spell	sourceSpell	name	skillLine	minRank	yellow	grey	reagents	creates	focus	plans	foreverSpell	notes
 # --- #226 tracer bullet: one new recipe, crafted at an Anvil from stock reagents.
-recipe	61000	3319	Strange Copper Boots	164	1	40	40	2318x2,2840x2,10940x4	70000x1	Anvil	1252230	A copy of Copper Chain Boots (3319). Light Leather, Copper Bar, Strange Dust. Plans 251333 (skill 35) have no source yet: learn it with a GM command.
+recipe	61000	3319	Strange Copper Boots	164	1	40	40	2318x2,2840x2,10940x4	70000x1	Anvil	-	1252230	A copy of Copper Chain Boots (3319). Light Leather, Copper Bar, Strange Dust. Plans 251333 (skill 35) have no source yet: learn it with a GM command.
+# --- #228 changed stock recipes: the Forever colour range (185 rows), the skill of the trainer and of the
+# plans (the colour shift; the plans skill of the Forever client where it can be read), and the 5
+# weightstones, Runed Copper Pants and the 4 Mithril Plate pieces. The 22 Master Forge recipes keep the
+# Anvil. Source: recipes.tsv and items.tsv of #224 over the stock world DB (skill_line_ability, npc_trainer,
+# item_template). The trainer skill is not in the client: it moves with the colour range (#224 Q3).
+stock	2661	2661	Copper Chain Belt	164	30	70	110	2840x6	2851x1	Anvil	-	2661	Colours 75-115 -> 70-110 (-5). Trainer 35 -> 30.
+stock	2664	2664	Runed Copper Bracers	164	65	90	115	2840x10,3470x3	2854x1	Anvil	-	2664	Colours 115-140 -> 90-115 (-25). Trainer 90 -> 65.
+stock	2665	2665	Coarse Sharpening Stone	164	40	40	55	2836x1	2863x1	-	-	2665	Colours 65-80 -> 40-55 (-25). Trainer 65 -> 40.
+stock	2666	2666	Runed Copper Belt	164	45	85	125	2840x10	2857x1	Anvil	-	2666	Colours 110-150 -> 85-125 (-25). Trainer 70 -> 45.
+stock	2667	2667	Runed Copper Breastplate	164	55	95	135	2840x12,1210x1,3470x2	2864x1	Anvil	2881	2667	Colours 120-160 -> 95-135 (-25). Plans 2881: 80 -> 55.
+stock	2668	2668	Rough Bronze Leggings	164	80	120	150	2841x6	2865x1	Anvil	-	2668	Colours 145-175 -> 120-150 (-25). Trainer 105 -> 80.
+stock	2670	2670	Rough Bronze Cuirass	164	80	120	150	2841x7	2866x1	Anvil	-	2670	Colours 145-175 -> 120-150 (-25). Trainer 105 -> 80.
+stock	2671	2671	Rough Bronze Bracers	164	70	115	145	2841x4	2867x1	Anvil	5577	2671	Colours 145-175 -> 115-145 (-30). Plans 5577: 100 -> 70 (assumed: not readable in the Forever client).
+stock	2672	2672	Patterned Bronze Bracers	164	95	125	155	2841x5,3478x2	2868x1	Anvil	-	2672	Colours 150-180 -> 125-155 (-25). Trainer 120 -> 95.
+stock	2673	2673	Silvered Bronze Breastplate	164	105	135	165	2841x10,2842x2,3478x2,1705x1	2869x1	Anvil	5578	2673	Colours 160-190 -> 135-165 (-25). Plans 5578: 130 -> 105.
+stock	2674	2674	Heavy Sharpening Stone	164	100	100	115	2838x1	2871x1	-	-	2674	Colours 125-140 -> 100-115 (-25). Trainer 125 -> 100.
+stock	2675	2675	Shining Silver Breastplate	164	120	150	180	2841x20,1206x2,1705x2,5500x2,2842x4	2870x1	Anvil	-	2675	Colours 175-205 -> 150-180 (-25). Trainer 145 -> 120.
+stock	2740	2740	Bronze Mace	164	85	115	145	2841x6,2880x4,2319x1	2848x1	Anvil	-	2740	Colours 140-170 -> 115-145 (-25). Trainer 110 -> 85.
+stock	2741	2741	Bronze Axe	164	90	120	150	2841x7,2880x4,2319x1	2849x1	Anvil	-	2741	Colours 145-175 -> 120-150 (-25). Trainer 115 -> 90.
+stock	2742	2742	Bronze Shortsword	164	95	125	155	2841x5,2880x4,2319x2	2850x1	Anvil	-	2742	Colours 150-180 -> 125-155 (-25). Trainer 120 -> 95.
+stock	3115	3115	Rough Weightstone	164	1	15	55	2835x1	3239x1	-	-	3115	Reagents 2589x1, 2835x1 -> 2835x1. No trainer or plans.
+stock	3116	3116	Coarse Weightstone	164	40	40	55	2836x1	3240x1	-	-	3116	Colours 65-80 -> 40-55 (-25). Reagents 2592x1, 2836x1 -> 2836x1. Trainer 65 -> 40.
+stock	3117	3117	Heavy Weightstone	164	100	100	115	2838x1	3241x1	-	-	3117	Colours 125-140 -> 100-115 (-25). Reagents 2592x1, 2838x1 -> 2838x1. Trainer 125 -> 100.
+stock	3292	3292	Heavy Copper Broadsword	164	65	110	150	2840x14,2880x2,818x2,2319x2	3487x1	Anvil	-	3292	Colours 135-175 -> 110-150 (-25). Trainer 90 -> 65.
+stock	3293	3293	Copper Battle Axe	164	30	70	110	2840x12,2880x2,774x2,3470x2,2318x2	3488x1	Anvil	-	3293	Colours 75-115 -> 70-110 (-5). Trainer 35 -> 30.
+stock	3294	3294	Thick War Axe	164	45	85	125	2840x10,2880x2,2842x2,3470x2,2318x2	3489x1	Anvil	-	3294	Colours 110-150 -> 85-125 (-25). Trainer 70 -> 45.
+stock	3295	3295	Deadly Bronze Poniard	164	100	130	160	2841x4,3466x1,2459x1,1210x2,3478x2,2319x2	3490x1	Anvil	2883	3295	Colours 155-185 -> 130-160 (-25). Plans 2883: 125 -> 100.
+stock	3296	3296	Heavy Bronze Mace	164	105	135	165	2841x8,3466x1,1206x1,1210x1,3478x2,2319x2	3491x1	Anvil	-	3296	Colours 160-190 -> 135-165 (-25). Trainer 130 -> 105.
+stock	3297	3297	Mighty Iron Hammer	164	120	150	180	3575x6,3466x2,3391x1,1705x2,3478x2,2319x2	3492x1	Anvil	3608	3297	Colours 175-205 -> 150-180 (-25). Plans 3608: 145 -> 120.
+stock	3321	3321	Copper Chain Vest	164	30	70	110	2840x8,774x1,3470x2	3471x1	Anvil	3609	3321	Colours 75-115 -> 70-110 (-5). Plans 3609: 35 -> 30.
+stock	3323	3323	Runed Copper Gauntlets	164	35	75	115	2840x8,3470x2	3472x1	Anvil	-	3323	Colours 80-120 -> 75-115 (-5). Trainer 40 -> 35.
+stock	3324	3324	Runed Copper Pants	164	35	75	115	2840x8,3470x3,2320x3	3473x1	Anvil	-	3324	Colours 85-125 -> 75-115 (-10). Reagents 2321x2, 2840x8, 3470x3 -> 2840x8, 3470x3, 2320x3. Trainer 45 -> 35.
+stock	3325	3325	Gemmed Copper Gauntlets	164	35	75	115	2840x8,818x1,774x1	3474x1	Anvil	3610	3325	Colours 100-140 -> 75-115 (-25). Plans 3610: 60 -> 35.
+stock	3326	3326	Coarse Grinding Stone	164	50	50	75	2836x2	3478x1	-	-	3326	Colours 75-100 -> 50-75 (-25). Trainer 75 -> 50.
+stock	3328	3328	Rough Bronze Shoulders	164	85	115	145	2841x5,1210x1,3478x1	3480x1	Anvil	-	3328	Colours 140-170 -> 115-145 (-25). Trainer 110 -> 85.
+stock	3330	3330	Silvered Bronze Shoulders	164	100	130	160	2841x8,2842x2,3478x2	3481x1	Anvil	2882	3330	Colours 155-185 -> 130-160 (-25). Plans 2882: 125 -> 100.
+stock	3331	3331	Silvered Bronze Boots	164	105	135	165	2841x6,2842x1,3478x2	3482x1	Anvil	-	3331	Colours 160-190 -> 135-165 (-25). Trainer 130 -> 105.
+stock	3333	3333	Silvered Bronze Gauntlets	164	110	140	170	2841x8,2842x1,3478x2	3483x1	Anvil	-	3333	Colours 165-195 -> 140-170 (-25). Trainer 135 -> 110.
+stock	3334	3334	Green Iron Boots	164	120	150	180	3575x4,1705x2,3478x2,2605x1	3484x1	Anvil	3611	3334	Colours 175-205 -> 150-180 (-25). Plans 3611: 145 -> 120.
+stock	3336	3336	Green Iron Gauntlets	164	125	155	185	3575x4,5498x2,3478x2,2605x1	3485x1	Anvil	3612	3336	Colours 180-210 -> 155-185 (-25). Plans 3612: 150 -> 125.
+stock	3337	3337	Heavy Grinding Stone	164	100	100	125	2838x3	3486x1	-	-	3337	Colours 125-150 -> 100-125 (-25). Trainer 125 -> 100.
+stock	3491	3491	Big Bronze Knife	164	75	110	140	2841x6,2880x4,3470x2,818x1,2319x1	3848x1	Anvil	-	3491	Colours 135-165 -> 110-140 (-25). Trainer 100 -> 75.
+stock	3492	3492	Hardened Iron Shortsword	164	135	160	185	3575x6,3466x2,3486x1,1705x2,4234x3	3849x1	Anvil	12162	3492	Colours 185-210 -> 160-185 (-25). Plans 12162: 160 -> 135.
+stock	3493	3493	Jade Serpentblade	164	150	175	200	3575x8,3466x2,3486x2,1529x2,4234x3	3850x1	Anvil	3866	3493	Colours 200-225 -> 175-200 (-25). Plans 3866: 175 -> 150.
+stock	3494	3494	Solid Iron Maul	164	130	155	180	3575x8,3466x2,3486x1,2842x4,4234x2	3851x1	Anvil	10858	3494	Colours 180-205 -> 155-180 (-25). Plans 10858: 155 -> 130.
+stock	3495	3495	Golden Iron Destroyer	164	145	170	195	3575x10,3577x4,1705x2,3466x2,4234x2,3486x2	3852x1	Anvil	3867	3495	Colours 195-220 -> 170-195 (-25). Plans 3867: 170 -> 145.
+stock	3496	3496	Moonsteel Broadsword	164	155	180	205	3859x8,3466x2,3486x2,1705x3,4234x3	3853x1	Anvil	12163	3496	Colours 205-230 -> 180-205 (-25). Plans 12163: 180 -> 155.
+stock	3497	3497	Frost Tiger Blade	164	175	200	225	3859x8,3466x2,3486x2,1529x2,3829x1,4234x4	3854x1	Anvil	3868	3497	Colours 225-250 -> 200-225 (-25). Plans 3868: 200 -> 175.
+stock	3498	3498	Massive Iron Axe	164	160	185	210	3575x14,3466x2,3486x2,3577x4,4234x2	3855x1	Anvil	12164	3498	Colours 210-235 -> 185-210 (-25). Plans 12164: 185 -> 160.
+stock	3500	3500	Shadow Crescent Axe	164	175	200	225	3859x10,3466x2,3486x3,3864x2,3824x1,4234x3	3856x1	Anvil	3869	3500	Colours 225-250 -> 200-225 (-25). Plans 3869: 200 -> 175.
+stock	3501	3501	Green Iron Bracers	164	140	165	190	3575x6,2605x1	3835x1	Anvil	-	3501	Colours 190-215 -> 165-190 (-25). Trainer 165 -> 140.
+stock	3502	3502	Green Iron Helm	164	145	170	195	3575x12,3864x1,2605x1	3836x1	Anvil	-	3502	Colours 195-220 -> 170-195 (-25). Trainer 170 -> 145.
+stock	3503	3503	Golden Scale Coif	164	165	190	215	3859x8,3577x2,3486x2	3837x1	Anvil	6047	3503	Colours 215-240 -> 190-215 (-25). Plans 6047: 190 -> 165.
+stock	3504	3504	Green Iron Shoulders	164	135	160	185	3575x7,3486x1,2605x1	3840x1	Anvil	3870	3504	Colours 185-210 -> 160-185 (-25). Plans 3870: 160 -> 135.
+stock	3505	3505	Golden Scale Shoulders	164	150	175	200	3859x6,3577x2,3486x1	3841x1	Anvil	3871	3505	Colours 200-225 -> 175-200 (-25). Plans 3871: 175 -> 150.
+stock	3506	3506	Green Iron Leggings	164	130	155	180	3575x8,3486x1,2605x1	3842x1	Anvil	-	3506	Colours 180-205 -> 155-180 (-25). Trainer 155 -> 130.
+stock	3507	3507	Golden Scale Leggings	164	145	170	195	3575x10,3577x2,3486x1	3843x1	Anvil	3872	3507	Colours 195-220 -> 170-195 (-25). Plans 3872: 170 -> 145.
+stock	3508	3508	Green Iron Hauberk	164	155	180	205	3575x20,3486x4,1529x2,1206x2,4255x1	3844x1	Anvil	-	3508	Colours 205-230 -> 180-205 (-25). Trainer 180 -> 155.
+stock	3511	3511	Golden Scale Cuirass	164	170	195	220	3859x12,3577x2,3486x4,1529x2	3845x1	Anvil	3873	3511	Colours 220-245 -> 195-220 (-25). Plans 3873: 195 -> 170.
+stock	3513	3513	Polished Steel Boots	164	160	185	210	3859x8,3864x1,1705x1,3486x2	3846x1	Anvil	3874	3513	Colours 210-235 -> 185-210 (-25). Plans 3874: 185 -> 160.
+stock	3515	3515	Golden Scale Boots	164	175	200	225	3859x10,3577x4,3486x4,3864x1	3847x1	Anvil	3875	3515	Colours 225-250 -> 200-225 (-25). Plans 3875: 200 -> 175.
+stock	6517	6517	Pearl-handled Dagger	164	85	115	145	2841x6,3466x1,5498x2,3478x2	5540x1	Anvil	-	6517	Colours 140-170 -> 115-145 (-25). Trainer 110 -> 85.
+stock	6518	6518	Iridescent Hammer	164	115	145	175	2841x10,3466x1,5500x1,3478x2,2319x2	5541x1	Anvil	5543	6518	Colours 170-200 -> 145-175 (-25). Plans 5543: 140 -> 115.
+stock	7221	7221	Iron Shield Spike	164	125	155	185	3575x6,3478x4	6042x1	Anvil	6044	7221	Colours 180-210 -> 155-185 (-25). Plans 6044: 150 -> 125.
+stock	7222	7222	Iron Counterweight	164	140	165	190	3575x4,3478x2,1705x1	6043x1	Anvil	6045	7222	Colours 190-215 -> 165-190 (-25). Plans 6045: 165 -> 140.
+stock	7223	7223	Golden Scale Bracers	164	160	185	210	3859x5,3486x2	6040x1	Anvil	-	7223	Colours 210-235 -> 185-210 (-25). Trainer 185 -> 160.
+stock	7224	7224	Steel Weapon Chain	164	165	190	215	3859x8,3486x2,4234x4	6041x1	Anvil	6046	7224	Colours 215-240 -> 190-215 (-25). Plans 6046: 190 -> 165.
+stock	7408	7408	Heavy Copper Maul	164	40	80	120	2840x12,2880x2,2318x2	6214x1	Anvil	-	7408	Colours 105-145 -> 80-120 (-25). Trainer 65 -> 40.
+stock	7817	7817	Rough Bronze Boots	164	70	100	130	2841x6,3470x6	6350x1	Anvil	-	7817	Colours 125-155 -> 100-130 (-25). Trainer 95 -> 70.
+stock	7818	7818	Silver Rod	164	75	80	85	2842x1,3470x2	6338x1	Anvil	-	7818	Colours 105-110 -> 80-85 (-25). Trainer 100 -> 75.
+stock	8366	8366	Ironforge Chain	164	40	80	120	2840x12,774x2,3470x2	6730x1	Anvil	6734	8366	Colours 110-150 -> 80-120 (-30). Plans 6734: 70 -> 40 (assumed: not readable in the Forever client).
+stock	8367	8367	Ironforge Breastplate	164	100	115	155	2840x16,818x2,3470x3	6731x1	Anvil	6735	8367	Colours 140-180 -> 115-155 (-25). Plans 6735: 100 (Forever keeps it).
+stock	8368	8368	Ironforge Gauntlets	164	110	140	170	2841x8,1210x3,3478x4	6733x1	Anvil	6736	8368	Colours 170-200 -> 140-170 (-30). Plans 6736: 140 -> 110 (assumed: not readable in the Forever client).
+stock	8768	8768	Iron Buckle	164	125	125	130	3575x1	7071x2	Anvil	-	8768	Colours 150-155 -> 125-130 (-25). Trainer 150 -> 125.
+stock	8880	8880	Copper Dagger	164	25	65	105	2840x6,2880x1,3470x1,2318x1	7166x1	Anvil	-	8880	Colours 70-110 -> 65-105 (-5). Trainer 30 -> 25.
+stock	9811	9811	Barbaric Iron Shoulders	164	135	160	185	3575x8,5635x4,1210x2,3486x2	7913x1	Anvil	7978	9811	Colours 185-210 -> 160-185 (-25). Plans 7978: 160 -> 135.
+stock	9813	9813	Barbaric Iron Breastplate	164	135	160	185	3575x20,3486x4	7914x1	Anvil	7979	9813	Colours 185-210 -> 160-185 (-25). Plans 7979: 160 -> 135.
+stock	9814	9814	Barbaric Iron Helm	164	150	175	200	3575x10,5637x2,5635x2	7915x1	Anvil	7980	9814	Colours 200-225 -> 175-200 (-25). Plans 7980: 175 -> 150.
+stock	9818	9818	Barbaric Iron Boots	164	155	180	205	3575x12,5637x4,818x4,3486x2	7916x1	Anvil	7981	9818	Colours 205-230 -> 180-205 (-25). Plans 7981: 180 -> 155.
+stock	9820	9820	Barbaric Iron Gloves	164	160	185	210	3575x14,3486x3,5637x2	7917x1	Anvil	7982	9820	Colours 210-235 -> 185-210 (-25). Plans 7982: 185 -> 160.
+stock	9916	9916	Steel Breastplate	164	175	200	225	3859x16,3486x3	7963x1	Anvil	-	9916	Colours 225-250 -> 200-225 (-25). Trainer 200 -> 175.
+stock	9918	9918	Solid Sharpening Stone	164	175	175	185	7912x1	7964x1	-	-	9918	Colours 200-210 -> 175-185 (-25). Trainer 200 -> 175.
+stock	9920	9920	Solid Grinding Stone	164	175	175	185	7912x4	7966x1	-	-	9920	Colours 200-210 -> 175-185 (-25). Trainer 200 -> 175.
+stock	9921	9921	Solid Weightstone	164	175	175	185	7912x1	7965x1	-	-	9921	Colours 200-210 -> 175-185 (-25). Reagents 4306x1, 7912x1 -> 7912x1. Trainer 200 -> 175.
+stock	9926	9926	Heavy Mithril Shoulder	164	180	200	220	3860x8,4234x6	7918x1	Anvil	-	9926	Colours 225-245 -> 200-220 (-25). Trainer 205 -> 180.
+stock	9928	9928	Heavy Mithril Gauntlet	164	180	200	220	3860x6,4338x4	7919x1	Anvil	-	9928	Colours 225-245 -> 200-220 (-25). Trainer 205 -> 180.
+stock	9931	9931	Mithril Plate Pants	164	180	205	225	3860x12	7920x1	Anvil	-	9931	Colours 230-250 -> 205-225 (-25). Name Mithril Scale Pants -> Mithril Plate Pants. Trainer 205 -> 180.
+stock	9933	9933	Heavy Mithril Pants	164	185	205	225	3860x10,1705x2	7921x1	Anvil	7975	9933	Colours 230-250 -> 205-225 (-25). Plans 7975: 210 -> 185.
+stock	9935	9935	Steel Plate Helm	164	190	210	230	3859x14,7966x1	7922x1	Anvil	-	9935	Colours 235-255 -> 210-230 (-25). Trainer 215 -> 190.
+stock	9937	9937	Mithril Plate Bracers	164	190	210	230	3860x8,3864x2	7924x1	Anvil	7995	9937	Colours 235-255 -> 210-230 (-25). Name Mithril Scale Bracers -> Mithril Plate Bracers. Plans 7995: 215 -> 190.
+stock	9939	9939	Mithril Shield Spike	164	190	210	230	3860x4,6037x2,7966x4	7967x1	Anvil	7976	9939	Colours 235-255 -> 210-230 (-25). Plans 7976: 215 -> 190.
+stock	9942	9942	Mithril Plate Gloves	164	195	215	235	3860x8,4234x6,4338x4	7925x1	Anvil	7977	9942	Colours 240-260 -> 215-235 (-25). Name Mithril Scale Gloves -> Mithril Plate Gloves. Plans 7977: 220 -> 195 (assumed: not readable in the Forever client).
+stock	9945	9945	Ornate Mithril Pants	164	195	215	235	3860x12,6037x1,7966x1,7909x1	7926x1	Anvil	7983	9945	Colours 240-260 -> 215-235 (-25). Plans 7983: 220 -> 195.
+stock	9950	9950	Ornate Mithril Gloves	164	195	215	235	3860x10,4338x6,6037x1,7966x1	7927x1	Anvil	7984	9950	Colours 240-260 -> 215-235 (-25). Plans 7984: 220 -> 195.
+stock	9952	9952	Ornate Mithril Shoulders	164	200	220	240	3860x12,6037x1,4304x6	7928x1	Anvil	7985	9952	Colours 245-265 -> 220-240 (-25). Plans 7985: 225 -> 200.
+stock	9954	9954	Truesilver Gauntlets	164	200	220	240	3860x10,6037x8,7909x3,3864x3,5966x1,7966x2	7938x1	Anvil	-	9954	Colours 245-265 -> 220-240 (-25). Trainer 225 -> 200.
+stock	9957	9957	Orcish War Leggings	164	205	225	245	3860x12,7067x1	7929x1	Anvil	7994	9957	Colours 250-270 -> 225-245 (-25). Plans 7994: 230 -> 205 (assumed: not readable in the Forever client).
+stock	9959	9959	Heavy Mithril Breastplate	164	205	225	245	3860x16	7930x1	Anvil	-	9959	Colours 250-270 -> 225-245 (-25). Trainer 230 -> 205.
+stock	9961	9961	Mithril Coif	164	205	225	245	3860x10,4338x6	7931x1	Anvil	-	9961	Colours 250-270 -> 225-245 (-25). Trainer 230 -> 205.
+stock	9964	9964	Mithril Spurs	164	210	230	250	3860x4,7966x3	7969x1	Anvil	7989	9964	Colours 255-275 -> 230-250 (-25). Plans 7989: 235 -> 210.
+stock	9966	9966	Mithril Plate Shoulders	164	210	230	250	3860x14,4304x4,3864x4	7932x1	Anvil	7991	9966	Colours 255-275 -> 230-250 (-25). Name Mithril Scale Shoulders -> Mithril Plate Shoulders. Plans 7991: 235 -> 210.
+stock	9968	9968	Heavy Mithril Boots	164	210	230	250	3860x14,4304x4	7933x1	Anvil	-	9968	Colours 255-275 -> 230-250 (-25). Trainer 235 -> 210.
+stock	9970	9970	Heavy Mithril Helm	164	220	230	250	3860x14,7909x1	7934x1	Anvil	7990	9970	Colours 255-275 -> 230-250 (-25). Plans 7990: 245 -> 220.
+stock	9972	9972	Ornate Mithril Breastplate	164	215	235	255	3860x16,6037x6,7077x1,7966x1	7935x1	Anvil	7986	9972	Colours 260-280 -> 235-255 (-25). Plans 7986: 240 -> 215 (assumed: not readable in the Forever client).
+stock	9974	9974	Truesilver Breastplate	164	220	240	260	3860x12,6037x24,7910x4,7971x4,7966x2	7939x1	Anvil	-	9974	Colours 265-285 -> 240-260 (-25). Trainer 245 -> 220.
+stock	9979	9979	Ornate Mithril Boots	164	220	240	260	3860x14,6037x2,4304x4,7966x1,7909x1	7936x1	Anvil	7988	9979	Colours 265-285 -> 240-260 (-25). Plans 7988: 245 -> 220 (assumed: not readable in the Forever client).
+stock	9980	9980	Ornate Mithril Helm	164	220	240	260	3860x16,6037x2,7971x1,7966x1	7937x1	Anvil	7987	9980	Colours 265-285 -> 240-260 (-25). Plans 7987: 245 -> 220 (assumed: not readable in the Forever client).
+stock	9983	9983	Copper Claymore	164	25	65	105	2840x10,2880x2,3470x1,2318x1	7955x1	Anvil	-	9983	Colours 70-110 -> 65-105 (-5). Trainer 30 -> 25.
+stock	9986	9986	Bronze Greatsword	164	105	135	165	2841x12,3466x2,2319x2	7957x1	Anvil	-	9986	Colours 160-190 -> 135-165 (-25). Trainer 130 -> 105.
+stock	9987	9987	Bronze Battle Axe	164	110	140	170	2841x14,3466x1,2319x2	7958x1	Anvil	-	9987	Colours 165-195 -> 140-170 (-25). Trainer 135 -> 110.
+stock	9993	9993	Heavy Mithril Axe	164	185	210	235	3860x12,3864x2,7966x1,4234x4	7941x1	Anvil	-	9993	Colours 235-260 -> 210-235 (-25). Trainer 210 -> 185.
+stock	9995	9995	Blue Glittering Axe	164	195	220	245	3860x16,7909x2,7966x1,4304x4	7942x1	Anvil	7992	9995	Colours 245-270 -> 220-245 (-25). Plans 7992: 220 -> 195.
+stock	9997	9997	Wicked Mithril Blade	164	200	225	250	3860x14,6037x4,7966x1,4304x2	7943x1	Anvil	8029	9997	Colours 250-275 -> 225-250 (-25). Plans 8029: 225 -> 200.
+stock	10001	10001	Big Black Mace	164	205	230	255	3860x16,7971x1,1210x4,7966x1,4304x2	7945x1	Anvil	-	10001	Colours 255-280 -> 230-255 (-25). Trainer 230 -> 205.
+stock	10003	10003	The Shatterer	164	210	235	260	3860x24,7075x4,6037x6,3864x5,1529x5,7966x4,4304x4	7954x1	Anvil	-	10003	Colours 260-285 -> 235-260 (-25). Trainer 235 -> 210.
+stock	10005	10005	Dazzling Mithril Rapier	164	215	240	265	3860x14,7909x1,1705x2,1206x2,7966x1,4338x2	7944x1	Anvil	7993	10005	Colours 265-290 -> 240-265 (-25). Plans 7993: 240 -> 215.
+stock	10007	10007	Phantom Blade	164	220	245	270	3860x28,7081x6,6037x8,3823x2,7909x6,7966x4,4304x2	7961x1	Anvil	-	10007	Colours 270-295 -> 245-270 (-25). Trainer 245 -> 220.
+stock	10009	10009	Runed Mithril Hammer	164	220	245	270	3860x18,7075x2,7966x1,4304x4	7946x1	Anvil	8028	10009	Colours 270-295 -> 245-270 (-25). Plans 8028: 245 -> 220.
+stock	10011	10011	Blight	164	225	250	275	3860x28,7972x10,6037x10,7966x6,4304x6	7959x1	Anvil	-	10011	Colours 275-300 -> 250-275 (-25). Trainer 250 -> 225.
+stock	10013	10013	Ebon Shiv	164	230	255	280	3860x12,6037x6,7910x2,7966x1,4304x2	7947x1	Anvil	8030	10013	Colours 280-305 -> 255-280 (-25). Plans 8030: 255 -> 230.
+stock	10015	10015	Truesilver Champion	164	235	260	285	3860x30,6037x16,7910x6,7081x4,7966x8,4304x6	7960x1	Anvil	-	10015	Colours 285-310 -> 260-285 (-25). Trainer 260 -> 235.
+stock	11454	11454	Inlaid Mithril Cylinder	164	200	200	225	3860x5,3577x1,6037x1	9060x1	Anvil	10713	11454	Colours 225-250 -> 200-225 (-25). Plans 10713: 200 (Forever keeps it).
+stock	11643	11643	Golden Scale Gauntlets	164	180	200	220	3859x10,3577x4,3486x4,3864x1	9366x1	Anvil	9367	11643	Colours 225-245 -> 200-220 (-25). Plans 9367: 205 -> 180.
+stock	12259	12259	Silvered Bronze Leggings	164	130	155	180	2841x12,2842x4,3478x2	10423x1	Anvil	10424	12259	Colours 180-205 -> 155-180 (-25). Plans 10424: 155 -> 130.
+stock	14379	14379	Golden Rod	164	125	130	135	3577x1,3478x2	11128x1	Anvil	-	14379	Colours 155-160 -> 130-135 (-25). Trainer 150 -> 125.
+stock	14380	14380	Truesilver Rod	164	175	180	185	6037x1,3486x1	11144x1	Anvil	-	14380	Colours 205-210 -> 180-185 (-25). Trainer 200 -> 175.
+stock	15292	15292	Dark Iron Pulverizer	164	240	260	280	11371x18,7077x4	11608x1	Black Anvil	11610	15292	Colours 285-305 -> 260-280 (-25). Plans 11610: 265 -> 240.
+stock	15293	15293	Dark Iron Mail	164	245	265	285	11371x10,7077x2	11606x1	Black Anvil	11614	15293	Colours 290-310 -> 265-285 (-25). Plans 11614: 270 -> 245.
+stock	15294	15294	Dark Iron Sunderer	164	250	270	290	11371x26,7077x4	11607x1	Black Anvil	11611	15294	Colours 295-315 -> 270-290 (-25). Plans 11611: 275 -> 250.
+stock	15295	15295	Dark Iron Shoulders	164	255	275	295	11371x6,7077x1	11605x1	Black Anvil	11615	15295	Colours 300-320 -> 275-295 (-25). Plans 11615: 280 -> 255.
+stock	15296	15296	Dark Iron Plate	164	260	280	300	11371x20,7077x8	11604x1	Black Anvil	11612	15296	Colours 305-325 -> 280-300 (-25). Plans 11612: 285 -> 260.
+stock	15972	15972	Glinting Steel Dagger	164	155	180	205	3859x10,3466x2,1206x1,7067x1,4234x1	12259x1	Anvil	-	15972	Colours 205-230 -> 180-205 (-25). Trainer 180 -> 155.
+stock	15973	15973	Searing Golden Blade	164	165	190	215	3859x10,3577x4,7068x2,4234x2	12260x1	Anvil	12261	15973	Colours 215-240 -> 190-215 (-25). Plans 12261: 190 -> 165.
+stock	16639	16639	Dense Grinding Stone	164	225	230	235	12365x4	12644x1	-	-	16639	Colours 255-260 -> 230-235 (-25). Trainer 250 -> 225.
+stock	16640	16640	Dense Weightstone	164	225	230	235	12365x1	12643x1	-	-	16640	Colours 255-260 -> 230-235 (-25). Reagents 12365x1, 14047x1 -> 12365x1. Trainer 250 -> 225.
+stock	16641	16641	Dense Sharpening Stone	164	225	230	235	12365x1	12404x1	-	-	16641	Colours 255-260 -> 230-235 (-25). Trainer 250 -> 225.
+stock	16642	16642	Thorium Armor	164	225	245	265	12359x16,12361x1,11188x4	12405x1	Anvil	12682	16642	Colours 270-290 -> 245-265 (-25). Plans 12682: 250 -> 225.
+stock	16643	16643	Thorium Belt	164	225	245	265	12359x12,11186x4	12406x1	Anvil	12683	16643	Colours 270-290 -> 245-265 (-25). Plans 12683: 250 -> 225.
+stock	16644	16644	Thorium Bracers	164	230	250	270	12359x12,11184x4	12408x1	Anvil	12684	16644	Colours 275-295 -> 250-270 (-25). Plans 12684: 255 -> 230.
+stock	16645	16645	Radiant Belt	164	235	255	275	12359x10,7077x2	12416x1	Anvil	12685	16645	Colours 280-300 -> 255-275 (-25). Plans 12685: 260 -> 235.
+stock	16646	16646	Imperial Plate Shoulders	164	240	260	280	12359x24,8170x6,3864x2	12428x1	Anvil	12687	16646	Colours 285-305 -> 260-280 (-25). Plans 12687: 265 -> 240.
+stock	16647	16647	Imperial Plate Belt	164	240	260	280	12359x22,8170x6,7909x1	12424x1	Anvil	12688	16647	Colours 285-305 -> 260-280 (-25). Plans 12688: 265 -> 240.
+stock	16648	16648	Radiant Breastplate	164	245	265	285	12359x18,7077x2,7910x1	12415x1	Anvil	12689	16648	Colours 290-310 -> 265-285 (-25). Plans 12689: 270 -> 245.
+stock	16649	16649	Imperial Plate Bracers	164	245	265	285	12359x20,7910x1	12425x1	Anvil	12690	16649	Colours 290-310 -> 265-285 (-25). Plans 12690: 270 -> 245.
+stock	16651	16651	Thorium Shield Spike	164	250	270	290	12359x4,12644x4,7076x2	12645x1	Anvil	12692	16651	Colours 295-315 -> 270-290 (-25). Plans 12692: 275 -> 250.
+stock	16652	16652	Thorium Boots	164	255	275	295	12359x20,8170x8,11185x4	12409x1	Anvil	12693	16652	Colours 300-320 -> 275-295 (-25). Plans 12693: 280 -> 255.
+stock	16653	16653	Thorium Helm	164	255	275	295	12359x24,7910x1,11188x4	12410x1	Anvil	12694	16653	Colours 300-320 -> 275-295 (-25). Plans 12694: 280 -> 255.
+stock	16654	16654	Radiant Gloves	164	260	280	300	12359x18,7077x4	12418x1	Anvil	12695	16654	Colours 305-325 -> 280-300 (-25). Plans 12695: 285 -> 260.
+stock	16655	16655	Fiery Plate Gauntlets	164	265	285	305	12359x20,12655x6,7078x2,7910x4	12631x1	Anvil	12699	16655	Colours 310-330 -> 285-305 (-25). Plans 12699: 290 -> 265.
+stock	16656	16656	Radiant Boots	164	265	285	305	12359x14,7077x4	12419x1	Anvil	12697	16656	Colours 310-330 -> 285-305 (-25). Plans 12697: 290 -> 265.
+stock	16657	16657	Imperial Plate Boots	164	270	290	310	12359x34,7910x1,7909x1	12426x1	Anvil	12700	16657	Colours 315-335 -> 290-310 (-25). Plans 12700: 295 -> 270.
+stock	16658	16658	Imperial Plate Helm	164	270	290	310	12359x34,7910x2	12427x1	Anvil	12701	16658	Colours 315-335 -> 290-310 (-25). Plans 12701: 295 -> 270.
+stock	16659	16659	Radiant Circlet	164	270	290	310	12359x18,7077x4	12417x1	Anvil	12702	16659	Colours 315-335 -> 290-310 (-25). Plans 12702: 295 -> 270.
+stock	16660	16660	Dawnbringer Shoulders	164	265	285	305	12359x20,12360x4,12364x2,7080x2	12625x1	Anvil	12698	16660	Colours 310-330 -> 285-305 (-25). Plans 12698: 290 -> 265.
+stock	16662	16662	Thorium Leggings	164	275	295	315	12359x26,11186x4	12414x1	Anvil	12704	16662	Colours 320-340 -> 295-315 (-25). Plans 12704: 300 -> 275.
+stock	16663	16663	Imperial Plate Chest	164	275	295	315	12359x40,7910x2	12422x1	Anvil	12705	16663	Colours 320-340 -> 295-315 (-25). Plans 12705: 300 -> 275.
+stock	16664	16664	Runic Plate Shoulders	164	275	295	315	12359x20,12360x2,3577x6	12610x1	Anvil	12706	16664	Colours 320-340 -> 295-315 (-25). Plans 12706: 300 -> 275.
+stock	16665	16665	Runic Plate Boots	164	275	295	315	12359x20,12360x2,2842x10	12611x1	Anvil	12707	16665	Colours 320-340 -> 295-315 (-25). Plans 12707: 300 -> 275.
+stock	16667	16667	Demon Forged Breastplate	164	260	280	300	12359x40,12662x10,12361x4,7910x4	12628x1	Anvil	12696	16667	Colours 305-325 -> 280-300 (-25). Plans 12696: 285 -> 260.
+stock	16724	16724	Whitesoul Helm	164	290	310	330	12359x20,12655x4,6037x6,3577x6,12800x2	12633x1	Anvil	12711	16724	Colours 320-340 -> 310-330 (-10). Forever focus: Master Forge; kept at the Anvil. Plans 12711: 300 -> 290.
+stock	16725	16725	Radiant Leggings	164	280	300	320	12359x20,7077x4	12420x1	Anvil	12713	16725	Colours 320-340 -> 300-320 (-20). Plans 12713: 300 -> 280.
+stock	16726	16726	Runic Plate Helm	164	280	300	320	12359x30,12360x2,6037x2,12364x1	12612x1	Anvil	12714	16726	Colours 320-340 -> 300-320 (-20). Plans 12714: 300 -> 280.
+stock	16729	16729	Lionheart Helm	164	300	320	340	12359x80,12360x12,8146x40,12361x10,12800x4	12640x1	Anvil	12717	16729	Forever focus: Master Forge; kept at the Anvil. Plans 12717: 300 (Forever keeps it).
+stock	16730	16730	Imperial Plate Leggings	164	280	300	320	12359x44,7910x2	12429x1	Anvil	12715	16730	Colours 320-340 -> 300-320 (-20). Plans 12715: 300 -> 280.
+stock	16731	16731	Runic Breastplate	164	285	305	325	12359x40,12360x2,7910x1	12613x1	Anvil	12718	16731	Colours 320-340 -> 305-325 (-15). Plans 12718: 300 -> 285.
+stock	16732	16732	Runic Plate Leggings	164	285	305	325	12359x40,12360x2,7910x1	12614x1	Anvil	12719	16732	Colours 320-340 -> 305-325 (-15). Plans 12719: 300 -> 285.
+stock	16741	16741	Stronghold Gauntlets	164	300	320	340	12360x15,12655x20,7076x10,12361x4,12799x4	12639x1	Anvil	12720	16741	Forever focus: Master Forge; kept at the Anvil. Plans 12720: 300 (Forever keeps it).
+stock	16742	16742	Enchanted Thorium Helm	164	300	320	340	12360x6,12655x16,7076x6,12799x2,12800x1	12620x1	Anvil	12725	16742	Forever focus: Master Forge; kept at the Anvil. Plans 12725: 300 (Forever keeps it).
+stock	16744	16744	Enchanted Thorium Leggings	164	300	320	340	12360x10,12655x20,7080x6,12361x2,12364x1	12619x1	Anvil	12726	16744	Forever focus: Master Forge; kept at the Anvil. Plans 12726: 300 (Forever keeps it).
+stock	16745	16745	Enchanted Thorium Breastplate	164	300	320	340	12360x8,12655x24,7076x4,7080x4,12364x2,12800x2	12618x1	Anvil	12727	16745	Forever focus: Master Forge; kept at the Anvil. Plans 12727: 300 (Forever keeps it).
+stock	16960	16960	Thorium Greatsword	164	235	260	285	12359x16,12644x2,8170x4	12764x1	Anvil	12816	16960	Colours 285-310 -> 260-285 (-25). Plans 12816: 260 -> 235 (assumed: not readable in the Forever client).
+stock	16965	16965	Bleakwood Hew	164	245	270	295	12359x30,12803x6,8153x6,12799x6,12644x2,8170x8	12769x1	Anvil	12817	16965	Colours 295-320 -> 270-295 (-25). Plans 12817: 270 -> 245 (assumed: not readable in the Forever client).
+stock	16967	16967	Inlaid Thorium Hammer	164	245	270	295	12359x30,3577x4,6037x2,12361x2,8170x4	12772x1	Anvil	12818	16967	Colours 295-320 -> 270-295 (-25). Plans 12818: 270 -> 245 (assumed: not readable in the Forever client).
+stock	16969	16969	Ornate Thorium Handaxe	164	250	275	300	12359x20,12799x2,12644x2,8170x4	12773x1	Anvil	12819	16969	Colours 300-325 -> 275-300 (-25). Plans 12819: 275 -> 250.
+stock	16970	16970	Dawn's Edge	164	250	275	300	12359x30,12655x4,7910x4,12361x4,12644x2,8170x4	12774x1	Anvil	12821	16970	Colours 300-325 -> 275-300 (-25). Plans 12821: 275 -> 250.
+stock	16971	16971	Huge Thorium Battleaxe	164	255	280	305	12359x40,12644x6,8170x6	12775x1	Anvil	12823	16971	Colours 305-330 -> 280-305 (-25). Plans 12823: 280 -> 255.
+stock	16973	16973	Enchanted Battlehammer	164	255	280	305	12359x20,12655x6,12364x2,12804x4,8170x4	12776x1	Anvil	12824	16973	Colours 305-330 -> 280-305 (-25). Plans 12824: 280 -> 255.
+stock	16978	16978	Blazing Rapier	164	255	280	305	12655x10,7078x4,7077x4,12800x2,12644x2	12777x1	Anvil	12825	16978	Colours 305-330 -> 280-305 (-25). Plans 12825: 280 -> 255.
+stock	16980	16980	Rune Edge	164	260	285	310	12359x30,12799x2,12644x2,8170x4	12779x1	Anvil	12826	16980	Colours 310-335 -> 285-310 (-25). Plans 12826: 285 -> 260 (assumed: not readable in the Forever client).
+stock	16983	16983	Serenity	164	260	285	310	12655x6,12360x2,12804x4,12799x2,12361x2,12364x1	12781x1	Anvil	12827	16983	Colours 310-335 -> 285-310 (-25). Plans 12827: 285 -> 260.
+stock	16984	16984	Volcanic Hammer	164	265	290	315	12359x30,7077x4,7910x4,8170x4	12792x1	Anvil	12828	16984	Colours 315-340 -> 290-315 (-25). Plans 12828: 290 -> 265.
+stock	16985	16985	Corruption	164	265	290	315	12359x40,12360x2,12662x16,12808x8,12361x2,12644x2,8170x4	12782x1	Anvil	12830	16985	Colours 315-340 -> 290-315 (-25). Plans 12830: 290 -> 265.
+stock	16986	16986	Blood Talon	164	300	325	350	12655x10,12360x10,12662x8,7910x10,12644x2	12795x1	Anvil	12831	16986	Forever focus: Master Forge; kept at the Anvil. Plans 12831: 300 (not readable in the Forever client: kept).
+stock	16987	16987	Darkspear	164	300	325	350	12655x20,12804x20,12364x2,12800x2,12644x2	12802x1	Anvil	12832	16987	Forever focus: Master Forge; kept at the Anvil. Plans 12832: 300 (not readable in the Forever client: kept).
+stock	16988	16988	Hammer of the Titans	164	300	320	340	12359x50,12360x15,12809x4,12810x6,7076x10	12796x1	Anvil	12833	16988	Forever focus: Master Forge; kept at the Anvil. Plans 12833: 300 (Forever keeps it).
+stock	16990	16990	Arcanite Champion	164	300	320	340	12360x15,12800x8,12811x1,12799x4,12810x8,12644x2	12790x1	Anvil	12834	16990	Forever focus: Master Forge; kept at the Anvil. Plans 12834: 300 (Forever keeps it).
+stock	16991	16991	Annihilator	164	300	295	315	12359x40,12360x12,12808x10,12364x8,12644x2,12810x4	12798x1	Anvil	12835	16991	Colours 320-340 -> 295-315 (-25). Plans 12835: 300 (Forever keeps it).
+stock	16992	16992	Frostguard	164	300	320	340	12360x18,12361x8,12800x8,7080x4,12644x2,12810x4	12797x1	Anvil	12836	16992	Forever focus: Master Forge; kept at the Anvil. Plans 12836: 300 (Forever keeps it).
+stock	16993	16993	Masterwork Stormhammer	164	300	320	340	12655x20,12364x8,12799x8,7076x6,12810x4	12794x1	Anvil	12837	16993	Forever focus: Master Forge; kept at the Anvil. Plans 12837: 300 (Forever keeps it).
+stock	16994	16994	Arcanite Reaper	164	300	320	340	12360x20,12810x6,12644x2	12784x1	Anvil	12838	16994	Forever focus: Master Forge; kept at the Anvil. Plans 12838: 300 (Forever keeps it).
+stock	16995	16995	Heartseeker	164	300	320	340	12360x10,12655x10,12810x2,7910x6,12800x6,12799x6,12644x4	12783x1	Anvil	12839	16995	Forever focus: Master Forge; kept at the Anvil. Plans 12839: 300 (Forever keeps it).
+stock	19666	19666	Silver Skeleton Key	164	75	75	95	2842x1,3470x1	15869x2	Anvil	-	19666	Colours 100-120 -> 75-95 (-25). Trainer 100 -> 75.
+stock	19667	19667	Golden Skeleton Key	164	125	125	145	3577x1,3486x1	15870x2	Anvil	-	19667	Colours 150-170 -> 125-145 (-25). Trainer 150 -> 125.
+stock	19668	19668	Truesilver Skeleton Key	164	175	175	195	6037x1,7966x1	15871x2	Anvil	-	19668	Colours 200-220 -> 175-195 (-25). Trainer 200 -> 175.
+stock	19669	19669	Arcanite Skeleton Key	164	250	250	260	12360x1,12644x1	15872x2	Anvil	-	19669	Colours 275-285 -> 250-260 (-25). Trainer 275 -> 250.
+stock	20201	20201	Arcanite Rod	164	250	250	260	12360x3,12644x1	16206x1	Anvil	-	20201	Colours 275-285 -> 250-260 (-25). Trainer 275 -> 250.
+stock	20872	20872	Fiery Chain Girdle	164	270	290	310	11371x6,17010x3,17011x3	16989x1	Black Anvil	17049	20872	Colours 315-335 -> 290-310 (-25). Plans 17049: 295 -> 270.
+stock	20874	20874	Dark Iron Bracers	164	270	290	310	11371x4,17010x2,17011x2	17014x1	Black Anvil	17051	20874	Colours 315-335 -> 290-310 (-25). Plans 17051: 295 -> 270.
+stock	21913	21913	Edge of Winter	164	165	190	215	3859x10,3829x1,7070x2,7069x2,4234x2	17704x1	Anvil	17706	21913	Colours 215-240 -> 190-215 (-25). Plans 17706: 190 -> 165.
+stock	22757	22757	Elemental Sharpening Stone	164	300	275	295	7067x2,12365x3	18262x1	-	18264	22757	Colours 300-320 -> 275-295 (-25). Plans 18264: 300 (Forever keeps it).
+stock	23632	23632	Girdle of the Dawn	164	265	285	305	12359x8,6037x6,12811x1	19051x1	Anvil	19203	23632	Colours 310-330 -> 285-305 (-25). Plans 19203: 290 -> 265.
+stock	23633	23633	Gloves of the Dawn	164	300	320	340	12360x2,6037x10,12811x1	19057x1	Anvil	19205	23633	Forever focus: Master Forge; kept at the Anvil. Plans 19205: 300 (Forever keeps it).
+stock	23650	23650	Ebon Hand	164	300	295	315	17011x4,17010x7,12360x12,11371x8,12800x4	19170x1	Black Anvil	19210	23650	Colours 320-340 -> 295-315 (-25). Plans 19210: 300 (Forever keeps it).
+stock	23652	23652	Blackguard	164	300	295	315	17011x6,17010x6,12360x10,11371x6,12809x12	19168x1	Black Anvil	19211	23652	Colours 320-340 -> 295-315 (-25). Plans 19211: 300 (Forever keeps it).
+stock	23653	23653	Nightfall	164	300	295	315	17011x8,17010x5,12360x10,11371x12,12364x4	19169x1	Black Anvil	19212	23653	Colours 320-340 -> 295-315 (-25). Plans 19212: 300 (Forever keeps it).
+stock	27585	27585	Heavy Obsidian Belt	164	300	320	340	22202x14,12655x4,7076x2	22197x1	Anvil	22209	27585	Forever focus: Master Forge; kept at the Anvil. Plans 22209: 300 (not readable in the Forever client: kept).
+stock	27829	27829	Titanic Leggings	164	300	320	340	12360x12,12655x20,7076x10,13510x2	22385x1	Anvil	22388	27829	Forever focus: Master Forge; kept at the Anvil. Plans 22388: 300 (Forever keeps it).
+stock	27830	27830	Persuader	164	300	320	340	12360x15,11371x10,12808x20,20520x20,15417x10,12753x2	22384x1	Anvil	22390	27830	Forever focus: Master Forge; kept at the Anvil. Plans 22390: 300 (Forever keeps it).
+stock	27832	27832	Sageblade	164	300	320	340	12360x12,20725x2,13512x2,12810x4	22383x1	Anvil	22389	27832	Forever focus: Master Forge; kept at the Anvil. Plans 22389: 300 (Forever keeps it).
+stock	28461	28461	Ironvine Breastplate	164	300	320	340	12655x12,19726x2,12360x2,12803x2	22762x1	Anvil	22766	28461	Forever focus: Master Forge; kept at the Anvil. Plans 22766: 300 (not readable in the Forever client: kept).
+stock	28462	28462	Ironvine Gloves	164	300	320	340	12655x8,19726x1,12803x2	22763x1	Anvil	22767	28462	Forever focus: Master Forge; kept at the Anvil. Plans 22767: 300 (not readable in the Forever client: kept).
+stock	28463	28463	Ironvine Belt	164	300	320	340	12655x6,12803x2	22764x1	Anvil	22768	28463	Forever focus: Master Forge; kept at the Anvil. Plans 22768: 300 (not readable in the Forever client: kept).

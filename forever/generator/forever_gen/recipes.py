@@ -8,13 +8,16 @@ from collections import namedtuple
 
 from .spec import SpecError, rows_of
 
-# reagents: [(item, count)]; creates: (item, count); focus: the name of a stock SpellFocusObject.dbc row.
+# reagents: [(item, count)]; creates: (item, count); focus: the name of a stock SpellFocusObject.dbc row, or
+# NO_VALUE; plans: the stock plans item of a stock row, or None.
 Recipe = namedtuple("Recipe", "kind spell source_spell name skill_line min_rank yellow grey reagents creates focus "
-                              "forever_spell notes")
+                              "plans forever_spell notes")
 
 COLUMNS = ("kind", "spell", "sourceSpell", "name", "skillLine", "minRank", "yellow", "grey", "reagents", "creates",
-           "focus", "foreverSpell", "notes")
-KINDS = ("recipe",)
+           "focus", "plans", "foreverSpell", "notes")
+# recipe: a new recipe spell (here). stock: a stock recipe that Forever changes in place (stock_recipes.py, #228).
+KINDS = ("recipe", "stock")
+NO_VALUE = "-"
 MAX_REAGENTS = 8
 # The spell_template columns of the reagents (Spell.dbc fields 42-49 and 50-57).
 REAGENT_COLUMNS = ["reagent%d" % k for k in range(1, MAX_REAGENTS + 1)]
@@ -34,6 +37,7 @@ def _counted(where, column, text):
 
 
 def read_rows(path, lines):
+    """{"recipes": the new recipes, "stock_recipes": the stock rows}."""
     recipes = []
     for where, raw in rows_of(path, lines, COLUMNS):
         if raw["kind"] not in KINDS:
@@ -48,8 +52,10 @@ def read_rows(path, lines):
             kind=raw["kind"], spell=int(raw["spell"]), source_spell=int(raw["sourceSpell"]), name=raw["name"],
             skill_line=int(raw["skillLine"]), min_rank=int(raw["minRank"]), yellow=int(raw["yellow"]),
             grey=int(raw["grey"]), reagents=reagents, creates=creates[0], focus=raw["focus"],
+            plans=None if raw["plans"] == NO_VALUE else int(raw["plans"]),
             forever_spell=int(raw["foreverSpell"]), notes=raw["notes"]))
-    return {"recipes": recipes}
+    return {"recipes": [r for r in recipes if r.kind == "recipe"],
+            "stock_recipes": [r for r in recipes if r.kind == "stock"]}
 
 
 def focus_ids(stock):
@@ -59,12 +65,16 @@ def focus_ids(stock):
 
 def check(spec, stock, used_spells):
     """The ID rules of the recipes: a new spell in the profession spell range, no clash with a stock spell or
-    another spec spell (`used_spells`: the spell IDs of the other rows), a stock source spell and a stock
-    spell focus."""
+    another spec spell (`used_spells`: the spell IDs of the other rows, none of them in the profession
+    range), a stock source spell and a stock spell focus."""
     low, high = spec.profession_id_range or (0, -1)
     if spec.recipes and not spec.id_range[0] <= low <= high <= spec.id_range[1]:
         raise SpecError("the free profession spell ID range %d-%d is not inside the free spell ID range %d-%d"
                         % ((low, high) + spec.id_range))
+    for spell in sorted(used_spells):
+        if low <= spell <= high:
+            # The core tells a profession spell from a Warrior spell by this block, even with the rules off.
+            raise SpecError("spell row spell %d is inside the profession spell ID range %d-%d" % (spell, low, high))
     stock_spells = stock.spell.by_id()
     foci = focus_ids(stock)
     seen = set(used_spells)

@@ -16,7 +16,7 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, items, recipes, rules
+from . import client_patch, items, recipes, rules, stock_recipes
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -38,7 +38,7 @@ SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 # The world database build of the Forever rows (SUPPORTED_CLIENT_BUILD of the core).
 CLIENT_BUILD = 5875
 FOREVER_TABLES = ("forever_spell_template", "forever_spell_chain", "forever_spell_proc_event",
-                  "forever_skill_line_ability", "forever_spell_threat", items.TABLE)
+                  "forever_skill_line_ability", "forever_spell_threat", items.TABLE, stock_recipes.TRAINER_TABLE)
 # The spells that the core teaches a Warrior at their spellLevel, with no trainer (#212). The core reads it only
 # with Forever.Rules = 1. The migration sql/migrations/20261029120000_world.sql makes it too, with the same
 # columns (tests/test_spell_ids.py checks it), so that a realm without the generated SQL fails at startup, not quietly.
@@ -138,7 +138,8 @@ def spell_texts(row, rank, stock_rank_text):
 
 
 def spell_edits(spec, stock):
-    """The SpellEdit of each spell of the spec, by spell ID: the ranks of the spell rows, then the recipes."""
+    """The SpellEdit of each spell of the spec, by spell ID: the ranks of the spell rows, the recipes, and
+    the stock recipes whose reagents, name or focus change (#228)."""
     stock_by_id = stock.spell.by_id()
     edits = []
     for spell, source, row, rank in spell_ranks(spec):
@@ -151,6 +152,12 @@ def spell_edits(spec, stock):
     for recipe in spec.recipes:
         edits.append(SpellEdit(recipe.spell, recipe.source_spell, recipes.spell_changes(recipe, stock), recipe.name,
                                "", None, None, "-- Recipe %s, from spell %d." % (recipe.name, recipe.source_spell)))
+    for recipe in spec.stock_recipes:
+        changed = stock_recipes.spell_changes(recipe, stock)
+        if changed:
+            changes, name, rank_text = changed
+            edits.append(SpellEdit(recipe.spell, recipe.spell, changes, name, rank_text, None, None,
+                                   "-- Stock recipe %s, changes the stock spell." % recipe.name))
     return sorted(edits, key=lambda e: e.spell)
 
 
@@ -218,7 +225,7 @@ def _dbc_value(name, value):
     return value & 0xFFFFFFFF
 
 
-def server_sql(spec, edits):
+def server_sql(spec, edits, stock):
     """The Forever server tables. Each spec spell is a copy of the stock server row of its source spell
     (with the core's own fixes), with the spec values set on top. The tables are made again in the shape
     of the stock tables first, so that a new column of a stock table cannot break the copies."""
@@ -250,6 +257,7 @@ def server_sql(spec, edits):
     lines += _server_skill_line_abilities(skill_line_abilities(spec))
     lines += _server_baseline(baseline_spells(spec))
     lines += items.server_sql(spec.items)
+    lines += stock_recipes.server_sql(spec, stock)
     return "\n".join(lines) + "\n"
 
 
@@ -328,11 +336,12 @@ def generate(spec, stock_folder, out, marker_icons):
     rules.check(spec, stock, marker_icons)
     recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     items.check(spec, stock)
+    stock_recipes.check(spec, stock)
     edits = spell_edits(spec, stock)
     talents = in_client_order(talent_table(spec, stock))
     spell_table = client_spell_table(edits, stock)
-    sql = server_sql(spec, edits)
-    abilities = client_skill_line_ability_table(skill_line_abilities(spec), stock)
+    sql = server_sql(spec, edits, stock)
+    abilities = stock_recipes.apply_colours(client_skill_line_ability_table(skill_line_abilities(spec), stock), spec, stock)
 
     server_dbc = os.path.join(out, "dbc")
     client_dbc = os.path.join(out, "client", "DBFilesClient")

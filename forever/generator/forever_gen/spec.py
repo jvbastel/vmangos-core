@@ -19,8 +19,9 @@ Row = namedtuple("Row", "kind talent_id tree tier column ranks required_talents 
 # id_range: the free spell ID range; rows: the spell rows (talent, ability, base); recipes: recipes.Recipe;
 # items: items.Item; item_id_range: the free item ID range; profession_id_range: the block of the spell range
 # for the profession spells (the lead's decision on #226). A range that no file names is None.
-Spec = namedtuple("Spec", "id_range rows recipes items item_id_range profession_id_range",
-                  defaults=((), (), None, None))
+# stock_recipes: the stock rows of the recipe files (recipes.Recipe of kind stock, #228).
+Spec = namedtuple("Spec", "id_range rows recipes items item_id_range profession_id_range stock_recipes",
+                  defaults=((), (), None, None, ()))
 # The free ID range lines of a spec file header: "# Free <label> range: <low>-<high>.", by Spec field.
 RANGE_LABELS = {"id_range": "ID", "item_id_range": "item ID", "profession_id_range": "profession spell ID"}
 
@@ -141,7 +142,7 @@ def read(path):
         files = [path]
     from . import items, recipes  # they import SpecError from here
     readers = {COLUMNS: _read_spell_rows, recipes.COLUMNS: recipes.read_rows, items.COLUMNS: items.read_rows}
-    found = {"rows": [], "recipes": [], "items": []}
+    found = {"rows": [], "recipes": [], "items": [], "stock_recipes": []}
     ranges = {}
     for file in files:
         with open(file, encoding="utf-8") as handle:
@@ -159,7 +160,7 @@ def read(path):
     if "id_range" not in ranges:
         raise SpecError("%s: no '# Free ID range: <low>-<high>.' line in the header" % path)
     return Spec(ranges["id_range"], found["rows"], found["recipes"], found["items"], ranges.get("item_id_range"),
-                ranges.get("profession_id_range"))
+                ranges.get("profession_id_range"), found["stock_recipes"])
 
 
 def rows_of(path, lines, header):

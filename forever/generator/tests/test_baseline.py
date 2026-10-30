@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from test_pipeline import STOCK, generate, int32, read_dbc, server_spells
+from test_pipeline import STOCK, changed_stock_spells, generate, int32, read_dbc, server_spells
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -80,10 +80,12 @@ def test_slam_rank_1_comes_before_the_stock_ranks(out):
 
 
 def test_the_client_data_patch_holds_the_skill_line_abilities(out):
+    # Every stock row stays byte for byte, but those of the stock recipes that blacksmithing.tsv changes (#228).
     stock, _ = read_dbc(STOCK / "SkillLineAbility.dbc")
     client, _ = read_dbc(out / "client" / "DBFilesClient" / "SkillLineAbility.dbc")
+    changed = changed_stock_spells()
     assert set(stock) < set(client)
-    assert all(client[i] == row for i, row in stock.items())
+    assert all(client[i] == row for i, row in stock.items() if row[2] not in changed)
 
 
 def test_tactical_mastery_keeps_10_rage_through_the_stance_class_script(out):
