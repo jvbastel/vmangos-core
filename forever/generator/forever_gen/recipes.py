@@ -18,7 +18,8 @@ Recipe = namedtuple("Recipe", "kind spell source_spell name skill_line min_rank 
 COLUMNS = ("kind", "spell", "sourceSpell", "name", "skillLine", "minRank", "yellow", "grey", "reagents", "creates",
            "focus", "plans", "foreverSpell", "notes")
 # recipe: a new recipe spell (here). stock: a stock recipe that Forever changes in place (stock_recipes.py, #228).
-KINDS = ("recipe", "stock")
+# removed: a stock recipe that Forever took away (removed_recipes.py, #229).
+KINDS = ("recipe", "stock", "removed")
 NO_VALUE = "-"
 MAX_REAGENTS = 8
 # The spell_template columns of the reagents (Spell.dbc fields 42-49 and 50-57).
@@ -50,11 +51,15 @@ def _plans(where, text):
 
 
 def read_rows(path, lines):
-    """{"recipes": the new recipes, "stock_recipes": the stock rows}."""
-    recipes = []
+    """{"recipes": the new recipes, "stock_recipes": the stock rows, "removed_recipes": the removal rows}."""
+    from . import removed_recipes  # it imports stock_recipes, which imports this module
+    recipes, removed = [], []
     for where, raw in rows_of(path, lines, COLUMNS):
         if raw["kind"] not in KINDS:
             raise SpecError("%s: unknown kind '%s'" % (where, raw["kind"]))
+        if raw["kind"] == removed_recipes.KIND:
+            removed.append(removed_recipes.read_row(where, raw))
+            continue
         reagents = _counted(where, "reagents", raw["reagents"])
         if len(reagents) > MAX_REAGENTS:
             raise SpecError("%s: %d reagents, at most %d" % (where, len(reagents), MAX_REAGENTS))
@@ -69,7 +74,7 @@ def read_rows(path, lines):
             plans=plans, plans_spell=plans_spell,
             forever_spell=None if raw["foreverSpell"] == NO_VALUE else int(raw["foreverSpell"]), notes=raw["notes"]))
     return {"recipes": [r for r in recipes if r.kind == "recipe"],
-            "stock_recipes": [r for r in recipes if r.kind == "stock"]}
+            "stock_recipes": [r for r in recipes if r.kind == "stock"], "removed_recipes": removed}
 
 
 def focus_ids(stock):

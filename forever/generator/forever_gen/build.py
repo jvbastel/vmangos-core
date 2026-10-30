@@ -16,7 +16,7 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, dead_content, items, new_recipes, recipes, rules, stock_recipes
+from . import client_patch, dead_content, items, new_recipes, recipes, removals, removed_recipes, rules, stock_recipes
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -269,6 +269,10 @@ def server_sql(spec, edits, stock):
     lines += items.server_sql(spec.items)
     lines += new_recipes.server_sql(spec)
     lines += stock_recipes.server_sql(spec, stock)
+    # Last: the removal marker column of each override table, then the rows that it removes (#229). A row
+    # copied with SELECT * after it would have one column too few (removals.py). Add removal lines here.
+    removed = removed_recipes.server_sql(spec, stock)
+    lines += removals.marker_sql(FOREVER_TABLES) + removed
     return "\n".join(lines) + "\n"
 
 
@@ -352,11 +356,13 @@ def generate(spec, stock_folder, out, marker_icons):
     rules.check(spec, stock, marker_icons)
     recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     stock_recipes.check(spec, stock)
+    removed_recipes.check(spec, stock)
     edits = spell_edits(spec, stock)
     talents = in_client_order(talent_table(spec, stock))
     spell_table = client_spell_table(edits, stock)
     sql = server_sql(spec, edits, stock)
     abilities = stock_recipes.apply_colours(client_skill_line_ability_table(skill_line_abilities(spec), stock), spec, stock)
+    abilities = removed_recipes.apply(abilities, spec, stock)
 
     server_dbc = os.path.join(out, "dbc")
     client_dbc = os.path.join(out, "client", "DBFilesClient")

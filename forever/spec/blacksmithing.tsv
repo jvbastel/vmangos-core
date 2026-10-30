@@ -12,7 +12,9 @@
 # off. Its skill line ability takes the same ID. Next free profession spell ID: 61374.
 #
 # Columns (tab-separated):
-#   kind          recipe (a new recipe spell) or stock (a stock recipe that Forever changes, #228)
+#   kind          recipe (a new recipe spell), stock (a stock recipe that Forever changes, #228) or
+#                 removed (a stock recipe that Forever took away, #229: only kind, spell, sourceSpell, name,
+#                 skillLine, plans and notes; the other columns are -)
 #   spell         the spell ID: from the profession spell range for a new recipe, the stock spell for a
 #                 stock row
 #   sourceSpell   the stock recipe spell that the new spell is a copy of: its cast time, tool (Blacksmith
@@ -250,6 +252,16 @@ stock	27832	27832	Sageblade	164	300	320	340	12360x12,20725x2,13512x2,12810x4	223
 stock	28461	28461	Ironvine Breastplate	164	300	320	340	12655x12,19726x2,12360x2,12803x2	22762x1	Anvil	22766	28461	Forever focus: Master Forge; kept at the Anvil. Plans 22766: 300 (not readable in the Forever client: kept).
 stock	28462	28462	Ironvine Gloves	164	300	320	340	12655x8,19726x1,12803x2	22763x1	Anvil	22767	28462	Forever focus: Master Forge; kept at the Anvil. Plans 22767: 300 (not readable in the Forever client: kept).
 stock	28463	28463	Ironvine Belt	164	300	320	340	12655x6,12803x2	22764x1	Anvil	22768	28463	Forever focus: Master Forge; kept at the Anvil. Plans 22768: 300 (not readable in the Forever client: kept).
+# --- #229 removed stock recipes: Forever took these six away. Each leaves the Blacksmithing skill line (its
+# stock SkillLineAbility row) and every trainer row of its learn spell on the Forever realm. The spell stays,
+# so that a character who knows it keeps it (#233). Their plans still drop and sell (not in the spec).
+# Source: recipes.tsv of #224, group stock-missing-in-fv.
+removed	16650	16650	Wildthorn Mail	164	-	-	-	-	-	-	12691	-	Not in the Forever client. Stock SkillLineAbility 9167, learn spell 16679, plans 12691.
+removed	16728	16728	Helm of the Great Chief	164	-	-	-	-	-	-	12716	-	Not in the Forever client. Stock SkillLineAbility 9325, learn spell 16750, plans 12716.
+removed	16746	16746	Invulnerable Mail	164	-	-	-	-	-	-	12728	-	Not in the Forever client. Stock SkillLineAbility 9338, learn spell 16762, plans 12728.
+removed	16661	16661	Storm Gauntlets	164	-	-	-	-	-	-	12703	-	Not in the Forever client. Stock SkillLineAbility 9579, learn spell 16692, plans 12703.
+removed	23628	23628	Heavy Timbermaw Belt	164	-	-	-	-	-	-	19202	-	Not in the Forever client. Stock SkillLineAbility 12677, learn spell 23630, plans 19202.
+removed	23629	23629	Heavy Timbermaw Boots	164	-	-	-	-	-	-	19204	-	Not in the Forever client. Stock SkillLineAbility 12678, learn spell 23631, plans 19204.
 
 # --- #230 new recipes: every new Forever Blacksmithing recipe of build 1.60.1.70685 and the new
 # smelt Smelt Azerothium (written by forever/generator/tools/new_recipe_rows.py; do not edit by hand).
