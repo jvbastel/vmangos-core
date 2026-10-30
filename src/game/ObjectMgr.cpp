@@ -3936,6 +3936,9 @@ void ObjectMgr::LoadItemPrototypes()
     std::set<uint32> obtainedItems;
     FillObtainedItemsList(obtainedItems);
 
+    // WOWAI Forever rules (#225): the Forever item rows have 1.12 spell IDs already.
+    std::set<uint32> const foreverItems = Forever::ForeverRowKeys("item_template", "entry");
+
     // check data correctness
     for (const auto& item : GetItemPrototypeMap())
     {
@@ -4093,7 +4096,7 @@ void ObjectMgr::LoadItemPrototypes()
         {
             for (uint8 j = 0; j < MAX_ITEM_PROTO_SPELLS; ++j)
             {
-                if (proto->Spells[j].SpellId)
+                if (proto->Spells[j].SpellId && !foreverItems.count(i))
                     CorrectItemEffects(proto->ItemId, const_cast<ItemPrototype*>(proto)->Spells[j]);
 
                 if (proto->Spells[j].SpellTrigger >= MAX_ITEM_SPELLTRIGGER)
