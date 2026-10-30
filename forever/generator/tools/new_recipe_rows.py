@@ -223,7 +223,7 @@ class Ids:
 
 
 def build(dump, current):
-    """(recipe rows, item rows, tracer plans value, exclusions [(what, id, name, why)])."""
+    """(recipe rows, item rows, tracer plans value, exclusions [(what, id, name, why)], the Ids used)."""
     ids = Ids(current)
     exclusions = list(OTHER_EXCLUSIONS)
     chosen = []
@@ -253,7 +253,7 @@ def build(dump, current):
         notes = ["From Forever spell %d (%s)." % (spell, r["category"])]
         source_item = made if made in dump.stock else None
         if made in REAGENT_SOURCES:
-            made_rows.append(reagent_row(dump, made, item_id(made)))
+            made_rows.append(reagent_row(dump, made, item_id(made), made_by=r["name"]))
         elif made not in dump.stock and spell != TRACER_SPELL:
             row, source_item = item_row(dump, made, item_id(made))
             made_rows.append(row)
@@ -342,16 +342,18 @@ def plans_row(dump, f, entry, skill):
             % (s["name"], source, skill)]
 
 
-def reagent_row(dump, forever_id, entry):
+def reagent_row(dump, forever_id, entry, made_by=None):
+    """A new reagent: a copy of its stock source in REAGENT_SOURCES. `made_by`: the recipe that makes it."""
     f = dump.items[forever_id]
     source = REAGENT_SOURCES.get(forever_id)
     if source is None:
         raise SystemExit("reagent %d %s: no stock source in REAGENT_SOURCES" % (forever_id, f["name"]))
     s = dump.stock[source]
+    origin = ("Made by %s." % made_by if made_by
+              else "Its source (vein, drop or vendor) is a later ticket.")
     return ["item", str(entry), str(source), f["name"], QUALITY[f["quality"]], f["ilvl"], f["reqlvl"] or "0",
             BONDING[int(f["bonding"] or 0)], "-", "-", "-", "0", "none", "-", "-", "-", s["display_id"], f["sell"] or "0",
-            str(forever_id), "-", "Reagent, copy of %s (%d). Its source (vein, drop or vendor) is a later ticket."
-            % (s["name"], source)]
+            str(forever_id), "-", "Reagent, copy of %s (%d). %s" % (s["name"], source, origin)]
 
 
 def wrap(text, width=110):

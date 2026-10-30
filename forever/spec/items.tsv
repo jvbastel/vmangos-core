@@ -185,7 +185,7 @@ stock	22384	22384	Persuader	epic	63	58	equip	oneHand	2800	89-167	0	-	-	-	-	36969
 #   hammers have no stock spell and are not ported.
 # Excluded (encrypted in the client data, not filled from fan sites): the plans 251340, 251342, 251343,
 #   251344, 251345, 251346, 251347, 251348, 251349, 251350, 251351, 251352, 251353, 251354, 251395.
-item	70001	12359	Azerothium Bar	uncommon	55	0	none	-	-	-	0	none	-	-	-	22444	3000	249726	-	Reagent, copy of Thorium Bar (12359). Its source (vein, drop or vendor) is a later ticket.
+item	70001	12359	Azerothium Bar	uncommon	55	0	none	-	-	-	0	none	-	-	-	22444	3000	249726	-	Reagent, copy of Thorium Bar (12359). Made by Smelt Azerothium.
 item	70002	10620	Pitchblende	uncommon	60	0	none	-	-	-	0	none	-	-	-	20658	375	249426	-	Reagent, copy of Thorium Ore (10620). Its source (vein, drop or vendor) is a later ticket.
 item	70003	6350	Gemmed Copper Boots	rare	15	10	pickup	-	-	-	109	none	Str 4, Sta 4	-	-	6885	401	250620	Str 4, Sta 4	Copy of Rough Bronze Boots (6350): its model and icon.
 item	70004	3609	Plans: Gemmed Copper Boots	rare	15	0	pickup	-	-	-	0	none	-	-	-	15274	25	251332	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 35. No source yet (a later ticket).
@@ -407,7 +407,7 @@ item	70219	11615	Plans: Blessed Plate Chest	uncommon	60	0	pickup	-	-	-	0	none	-	
 item	70220	12613	Enriched Thorium Breastplate	rare	62	57	pickup	-	-	-	647	none	Sta 25	Defense 9, SpellPower 14	-	19730	39509	250595	DefRating 9, SpellPower 14, Sta 25	Copy of Runic Breastplate (12613): its model and icon.
 item	70221	12704	Plans: Enriched Thorium Breastplate	rare	60	0	pickup	-	-	-	0	none	-	-	-	15274	1500	251447	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
 item	70222	12359	Legionite Bar	uncommon	60	0	none	-	-	-	0	none	-	-	-	22444	5000	251290	-	Reagent, copy of Thorium Bar (12359). Its source (vein, drop or vendor) is a later ticket.
-item	70223	12359	Heavy Thorium Bar	uncommon	60	0	none	-	-	-	0	none	-	-	-	22444	1500	251291	-	Reagent, copy of Thorium Bar (12359). Its source (vein, drop or vendor) is a later ticket.
+item	70223	12359	Heavy Thorium Bar	uncommon	60	0	none	-	-	-	0	none	-	-	-	22444	1500	251291	-	Reagent, copy of Thorium Bar (12359). Made by Smelt Heavy Thorium.
 item	70224	12619	Enriched Thorium Leggings	rare	63	58	pickup	-	-	-	575	none	Sta 26	Defense 9, SpellPower 14	-	22882	41634	250596	DefRating 9, SpellPower 14, Sta 26	Copy of Enchanted Thorium Leggings (12619): its model and icon.
 item	70225	12704	Plans: Enriched Thorium Leggings	rare	60	0	pickup	-	-	-	0	none	-	-	-	15274	1500	251448	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
 item	70226	20551	Enriched Thorium Helm	rare	63	58	pickup	-	-	-	534	none	Sta 21	Defense 8, SpellPower 23	-	33195	31277	250597	DefRating 8, SpellPower 23, Sta 21	Copy of Darkrune Helm (20551): its model and icon.

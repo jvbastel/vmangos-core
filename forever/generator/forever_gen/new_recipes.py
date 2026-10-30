@@ -8,8 +8,8 @@ a copy of LEARN_SOURCE from the profession spell range, named in the plans colum
 The plans item gets the learn spell and the skill that learning the recipe needs (the recipe's minRank).
 
 The refusals run on the whole spec, before the dead-content rule (dead_content.py) cuts rows: every reagent
-and made item is a stock item or an item row of the spec, every new row names its Forever source, and every
-new item copies a stock item.
+and made item is a stock item or an item row of the spec (the reagents of the stock rows too), every new
+row names its Forever source, and every new item copies a stock item.
 """
 import os
 from collections import namedtuple
@@ -65,6 +65,14 @@ def ranges_text(ids):
     return "\n".join(lines) + "\n"
 
 
+def _check_reagents(recipe, item_entries, stock_items):
+    """Refuses a reagent of a new or a stock recipe row that is no stock item and no item row of the spec."""
+    for reagent, _ in recipe.reagents:
+        if reagent not in item_entries and reagent not in stock_items:
+            raise SpecError("recipe %s: spell %d: the reagent %d is no stock item and no item row of the spec"
+                            % (recipe.name, recipe.spell, reagent))
+
+
 def check(spec, stock, used_spells):
     """The rules of the new rows over the whole spec: sources, existing items, plans and learn spells.
     `used_spells`: the spell IDs of the spell rows."""
@@ -79,13 +87,13 @@ def check(spec, stock, used_spells):
     low, high = spec.profession_id_range or (0, -1)
     stock_spells = stock.spell.by_id()
     seen = set(used_spells) | {recipe.spell for recipe in spec.recipes}
+    for recipe in spec.stock_recipes:
+        _check_reagents(recipe, item_entries, stock_items)
     for recipe in spec.recipes:
         where = "recipe %s: spell %d" % (recipe.name, recipe.spell)
         if recipe.forever_spell is None:
             raise SpecError("%s has no source (foreverSpell)" % where)
-        for reagent, _ in recipe.reagents:
-            if reagent not in item_entries and reagent not in stock_items:
-                raise SpecError("%s: the reagent %d is no stock item and no item row of the spec" % (where, reagent))
+        _check_reagents(recipe, item_entries, stock_items)
         made = recipe.creates[0]
         if made not in item_entries and made not in stock_items:
             raise SpecError("%s: the made item %d is no stock item and no item row of the spec" % (where, made))

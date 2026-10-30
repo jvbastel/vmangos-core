@@ -176,6 +176,28 @@ def test_a_reagent_that_is_no_item_is_refused(tmp_path):
     assert "recipe Test Boots: spell 61950: the reagent 99999 is no stock item and no item row of the spec" in error
 
 
+STOCK_ROW = "stock\t2661\t2661\tCopper Chain Belt\t164\t30\t70\t110\t2840x6\t"
+
+
+def test_a_reagent_of_a_stock_row_that_is_no_item_is_refused(tmp_path):
+    error = refused(tmp_path, changes=[("blacksmithing.tsv", STOCK_ROW, STOCK_ROW.replace("2840x6", "99999x6"))])
+    assert "recipe Copper Chain Belt: spell 2661: the reagent 99999 is no stock item and no item row of the spec" in error
+
+
+def test_a_new_reagent_that_a_stock_row_uses_is_not_cut(tmp_path):
+    out = tmp_path / "out"
+    folder = spec_folder(tmp_path, [recipe(61950, "Smelt Test Bar", "2840x1", "70950x1", focus="Forge", source=2657,
+                                           skill=186),
+                                    recipe(61951, "Test Master Helm", "70950x2", "70951x1", focus="Master Forge")],
+                         [item(70950, "Test Bar", source=2840), item(70951, "Test Master Helm")],
+                         [("blacksmithing.tsv", STOCK_ROW, STOCK_ROW.replace("2840x6", "70950x6"))])
+    done = run(folder, out)
+    assert done.returncode == 0, done.stderr
+    cuts = cut_list(out)
+    assert ("recipe", 61951) in cuts
+    assert ("recipe", 61950) not in cuts and ("item", 70950) not in cuts
+
+
 def test_a_made_item_that_is_no_item_is_refused(tmp_path):
     error = refused(tmp_path, [recipe(61950, "Test Boots", "2840x2", "79998x1")])
     assert "recipe Test Boots: spell 61950: the made item 79998 is no stock item and no item row of the spec" in error

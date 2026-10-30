@@ -12,7 +12,7 @@ The spec keeps every new recipe and item that the Forever client can read, also 
 - a new item that only cut recipes make, a raw new reagent (no recipe makes it: an ore, a drop) that no
   remaining recipe uses, and the plans of a cut recipe.
 It repeats until nothing more is cut. Stock items, changed stock items and new items that no recipe names
-are not touched.
+are not touched. A stock recipe row is never cut, so a new reagent that it uses stays.
 """
 from collections import namedtuple
 
@@ -57,6 +57,10 @@ def cut(spec):
             users.setdefault(reagent, []).append(recipe)
         if recipe.plans is not None:
             teaches[recipe.plans] = recipe
+    # A stock row (#228) is never cut: a new reagent that it uses stays in use.
+    for recipe in spec.stock_recipes:
+        for reagent, _ in recipe.reagents:
+            users.setdefault(reagent, []).append(recipe)
     cut_recipes = {}
     changed = True
     while changed:
