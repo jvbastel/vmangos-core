@@ -149,12 +149,15 @@ results.check("no stock trainer row teaches a removed recipe", learned_rows == "
 
 # The plans: with the rules on they teach nothing.
 if mode == "forever":
-    copies = realm.sql("mangos", "SELECT COUNT(*) FROM forever_item_template WHERE entry IN (%s) AND forever_removed = 0 "
-                       "AND spellid_1 NOT IN (%s) AND spellid_2 NOT IN (%s)" % (
-                           ", ".join(str(p) for p in PLANS.values()), ", ".join(str(s) for s in REMOVED.values()),
-                           ", ".join(str(s) for s in REMOVED.values())))
-    results.check("the world DB holds a copy of each of the six plans with no learn spell", copies == "6",
-                  "got %r" % copies)
+    # The copy takes every patch row of the stock plans (12691 has patch 0 and 8), so count the
+    # stock rows with no matching copy row that has no learn spell.
+    learn = ", ".join(str(s) for s in REMOVED.values())
+    no_learn = " AND ".join("f.spellid_%d NOT IN (%s)" % (k, learn) for k in range(1, 6))
+    missing = realm.sql("mangos", "SELECT COUNT(*) FROM item_template i WHERE i.entry IN (%s) AND NOT EXISTS ("
+                        "SELECT 1 FROM forever_item_template f WHERE f.entry = i.entry AND f.patch = i.patch "
+                        "AND f.forever_removed = 0 AND %s)" % (", ".join(str(p) for p in PLANS.values()), no_learn))
+    results.check("the world DB holds a copy of every patch row of the six plans with no learn spell",
+                  missing == "0", "got %r stock rows without a copy" % missing)
 c.gm(".unlearn %d" % RECIPE, select=me)
 c.gm(".learn %d" % ARMORSMITH, select=me)
 c.gm(".setskill %d %d %d" % (BLACKSMITHING_SKILL, MAX_SKILL, MAX_SKILL), select=me)
