@@ -36,6 +36,11 @@ def new_recipes():
     return [row for row in spec_rows("blacksmithing.tsv") if row["kind"] == "recipe"]
 
 
+def new_items():
+    """The new item rows of items.tsv (kind item; the changed stock items of #227 are kind stock)."""
+    return [row for row in spec_rows("items.tsv") if row["kind"] == "item"]
+
+
 def counted(text):
     """[(item, count)] of a spec value "item x count, ..."."""
     return [tuple(int(v) for v in part.split("x")) for part in text.split(",")]
@@ -135,10 +140,15 @@ def test_each_item_is_in_the_item_override_table_with_its_stats_as_stock_equip_s
     stock_spells, _ = read_dbc(STOCK / "Spell.dbc")
     displays, _ = read_dbc(STOCK / "ItemDisplayInfo.dbc")
     stat_types = {"Mana": 0, "Health": 1, "Agi": 3, "Str": 4, "Int": 5, "Spi": 6, "Sta": 7}
-    for spec in spec_rows("items.tsv"):
+    from test_stock_items import bonus_of  # (#227) it imports this module
+    for spec in new_items():
         server = items[int(spec["entry"])]
         stats = [] if spec["stats"] == "-" else [s.strip().split(" ") for s in spec["stats"].split(",")]
-        spells = [] if spec["equipSpells"] == "-" else [int(s) for s in spec["equipSpells"].split(",")]
+        bonuses = [] if spec["bonuses"] == "-" else [b.strip().split(" ")[:2] for b in spec["bonuses"].split(",")]
+        others = [] if spec["equipSpells"] == "-" else [int(s) for s in spec["equipSpells"].split(",")]
+        spells = [int(server["spellid_%d" % k]) for k in range(1, len(bonuses) + 1)] + others
+        # Each bonus is a stock equip spell that gives it (#227).
+        assert [bonus_of(stock_spells, s) for s in spells[:len(bonuses)]] == [(n, int(v)) for n, v in bonuses]
         assert server["name"] == spec["name"]
         assert [(int(server["stat_type%d" % k]), int(server["stat_value%d" % k])) for k in range(1, 11)] == \
             [(stat_types[n], int(v)) for n, v in stats] + [(0, 0)] * (10 - len(stats))
@@ -163,7 +173,7 @@ def test_the_tracer_item_has_its_forever_stats(out):
 def test_the_item_table_is_made_again_in_the_shape_of_the_stock_table(out):
     sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
     assert "DROP TABLE IF EXISTS `forever_item_template`;\nCREATE TABLE `forever_item_template` LIKE `item_template`;" in sql
-    assert sql.count("INSERT INTO `forever_item_template` SELECT * FROM `forever_item_new`;") == len(spec_rows("items.tsv"))
+    assert sql.count("INSERT INTO `forever_item_template` SELECT * FROM `forever_item_new`;") == len(new_items())
 
 
 def test_new_recipe_and_item_ids_are_in_their_free_ranges(out):
@@ -173,9 +183,8 @@ def test_new_recipe_and_item_ids_are_in_their_free_ranges(out):
     stock, _ = read_dbc(STOCK / "Spell.dbc")
     for recipe in new_recipes():
         assert spell_low <= int(recipe["spell"]) <= spell_high and int(recipe["spell"]) not in stock
-    for item in spec_rows("items.tsv"):
-        if item["entry"] != item["sourceItem"]:
-            assert item_low <= int(item["entry"]) <= item_high
+    for item in new_items():
+        assert item_low <= int(item["entry"]) <= item_high
     made = {item for recipe in new_recipes() for item, _ in counted(recipe["creates"])}
     assert made <= {int(item["entry"]) for item in spec_rows("items.tsv")}
 

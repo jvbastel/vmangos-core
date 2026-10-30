@@ -68,6 +68,8 @@ class Stock:
         self.spell = Dbc.read(os.path.join(folder, "Spell.dbc"))
         self.spell_icon = Dbc.read(os.path.join(folder, "SpellIcon.dbc"))
         self.skill_line_ability = Dbc.read(os.path.join(folder, "SkillLineAbility.dbc"))
+        # The item models and icons (#227: an item takes a stock display).
+        self.item_display_info = Dbc.read(os.path.join(folder, "ItemDisplayInfo.dbc"))
 
 
 def spell_ranks(spec):
