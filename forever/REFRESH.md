@@ -5,7 +5,8 @@ The spec is the folder `forever/spec`, one file per area. The generator in `fore
 
 - `warrior.tsv` holds the Forever rules of the Warrior (spec jvbastel/WOWAI#204): one row per talent, per
   new ability and per changed base ability.
-- `blacksmithing.tsv` holds the Blacksmithing recipes (spec #225): one row per new recipe spell.
+- `blacksmithing.tsv` holds the Blacksmithing recipes (spec #225): one row per new recipe spell (kind
+  `recipe`), and one row per stock recipe that Forever changes in place (kind `stock`, #228).
 - `items.tsv` holds the new and changed items (spec #225): one row per item.
 
 Each header names the sources, the Forever build, the date, its free ID range, the next free IDs and each
@@ -58,6 +59,11 @@ merges it.
 - A recipe (`blacksmithing.tsv`) is a copy of a stock recipe spell (`sourceSpell`), which keeps the stock
   cast time, tool and icon. Pick a stock recipe of the same profession and station. A recipe whose stock
   focus is the Anvil keeps the Anvil, even where Forever asks for a Master Forge.
+- A stock row (`kind` stock, `spell` = `sourceSpell` = the stock spell) holds the Forever colour range, the
+  skill that its trainer rows and its plans need (`minRank`, `plans`), and the Forever reagents, name and
+  focus. Compare `recipes.tsv` of the client dump with the stock world DB (skill_line_ability, npc_trainer,
+  item_template). The plans skill comes from the Forever plans item where the client can read it; the
+  trainer skill is not in the client and moves with the colour range.
 - An item (`items.tsv`) is a copy of the stock row of `sourceItem` (class, subclass, slot, material,
   durability). Pick a stock item of the same kind. Base stats go into `stats`; every other stat becomes a
   stock equip spell in `equipSpells` (for example 9395 for +5 spell damage and healing). Keep the Forever
