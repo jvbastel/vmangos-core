@@ -192,7 +192,9 @@ def test_the_tracer_item_has_its_forever_stats(out):
 def test_the_item_table_is_made_again_in_the_shape_of_the_stock_table(out):
     sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
     assert "DROP TABLE IF EXISTS `forever_item_template`;\nCREATE TABLE `forever_item_template` LIKE `item_template`;" in sql
-    assert sql.count("INSERT INTO `forever_item_template` SELECT * FROM `forever_item_new`;") == len(new_items(out))
+    # The new items of items.tsv and the new ores of mining.tsv (#232).
+    ores = [row for row in spec_rows("mining.tsv") if row["kind"] == "ore"]
+    assert sql.count("INSERT INTO `forever_item_template` SELECT * FROM `forever_item_new`;") == len(new_items(out)) + len(ores)
 
 
 def test_new_recipe_and_item_ids_are_in_their_free_ranges(out):
