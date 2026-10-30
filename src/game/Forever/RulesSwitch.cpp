@@ -238,10 +238,11 @@ namespace
             // not load them, so SaveToDB keeps them (KeepsRowsOfUnknownSpell); the next Forever login
             // starts from a talent reset and the baseline spells anyway. The profession spells stay: a recipe
             // is no Warrior spell, and it is back at the next Forever login (#233, WarriorSwitchOffDeletes).
+            // The ranges are those of the tested rule (ForeverProfessionIds.h, WarriorSwitchOffRanges).
             if (to == Rules::Vanilla)
-                CharacterDatabase.PExecute("DELETE FROM `character_spell` WHERE `guid` = %u AND `spell` BETWEEN %u AND %u AND `spell` NOT BETWEEN %u AND %u",
-                    guid, Forever::SpellIds::FreeIdFirst, Forever::SpellIds::FreeIdLast,
-                    Forever::ProfessionIds::ProfessionSpellFirst, Forever::ProfessionIds::ProfessionSpellLast);
+                for (Forever::ProfessionIds::SpellIdRange const& range : Forever::ProfessionIds::WarriorSwitchOffRanges)
+                    CharacterDatabase.PExecute("DELETE FROM `character_spell` WHERE `guid` = %u AND `spell` BETWEEN %u AND %u",
+                        guid, range.first, range.last);
             // SaveToDB wrote `online` = 0 (the player is not in the world yet). HandlePlayerLogin sets it to
             // 1 later, but in another queue, so it can run first. Set it here too, last in this queue.
             CharacterDatabase.PExecute("UPDATE `characters` SET `online` = 1 WHERE `guid` = %u", guid);

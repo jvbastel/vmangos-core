@@ -48,6 +48,18 @@ namespace ProfessionIds
         return SpellIds::IsForeverOnlySpell(spellId) && !IsProfessionSpell(spellId);
     }
 
+    // The same rule as spell ID ranges, for the SQL of the switch (RulesSwitch.cpp): the free spell range
+    // without the profession block. tests/ForeverProfessionIdsTest.cpp checks that they agree.
+    struct SpellIdRange
+    {
+        uint32_t first;
+        uint32_t last;
+    };
+    constexpr SpellIdRange WarriorSwitchOffRanges[] = {
+        { SpellIds::FreeIdFirst, ProfessionSpellFirst - 1 },
+        { ProfessionSpellLast + 1, SpellIds::FreeIdLast },
+    };
+
     // At load, the stock core deletes the inventory rows of an item that does not exist, for good
     // (Player::_LoadInventory). With the rules off, a Forever-only item does not exist; its rows stay and the
     // item is not loaded, so that it is back when the rules are on again. With the rules on, an unknown

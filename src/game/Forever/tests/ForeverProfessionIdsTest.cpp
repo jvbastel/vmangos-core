@@ -6,6 +6,8 @@
 #include "../ForeverSpellIds.h"
 #include "TestCheck.h"
 
+#include <initializer_list>
+
 int main()
 {
     using namespace ForeverTest;
@@ -25,6 +27,17 @@ int main()
     Check("switch off: a free-range spell above the profession block goes", WarriorSwitchOffDeletes(ProfessionSpellLast + 1));
     Check("switch off: a free-range spell below the profession block goes", WarriorSwitchOffDeletes(ProfessionSpellFirst - 1));
     Check("switch off: a stock spell is not touched", !WarriorSwitchOffDeletes(12294));
+
+    // The ranges that RulesSwitch.cpp deletes with SQL are the rule above, at every edge of the ranges.
+    for (uint32_t id : { 12294u, Forever::SpellIds::FreeIdFirst - 1, Forever::SpellIds::FreeIdFirst, 60119u,
+                         ProfessionSpellFirst - 1, ProfessionSpellFirst, 61000u, ProfessionSpellLast,
+                         ProfessionSpellLast + 1, Forever::SpellIds::FreeIdLast, Forever::SpellIds::FreeIdLast + 1 })
+    {
+        bool inRange = false;
+        for (SpellIdRange const& range : WarriorSwitchOffRanges)
+            inRange = inRange || (id >= range.first && id <= range.last);
+        Check("switch off: the SQL ranges delete a spell exactly when the rule does", inRange == WarriorSwitchOffDeletes(id));
+    }
 
     // Items: with the rules off, a Forever-only item does not exist; its inventory rows stay.
     Check("rules off: the Strange Copper Boots keep their rows", KeepsRowsOfUnknownItem(70000, false));
