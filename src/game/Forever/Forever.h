@@ -11,6 +11,7 @@
 #include "Common.h"
 
 #include <functional>
+#include <set>
 #include <string>
 
 class Field;
@@ -66,6 +67,11 @@ namespace Forever
     // condition. With the rules on: the query on the stock table without the rows whose `key` has a Forever
     // row, UNION ALL the query on forever_<table>. With the rules off: the query on the stock table.
     std::string SelectWithForeverRows(char const* table, char const* key, std::function<std::string(std::string const&)> const& select);
+
+    // The `key` values of the rows of forever_<table> (empty with the rules off). ObjectMgr::LoadItemPrototypes
+    // keeps the spell IDs of these item rows: they are 1.12 IDs, so the pre-1.4 spell power substitution of
+    // CorrectItemEffects must not touch them (batch 1 of #225: 70000 got +2 instead of +5 spell power).
+    std::set<uint32> ForeverRowKeys(char const* table, char const* key);
 
     // SpellMgr::LoadSpells, after the stock rows: with the rules on, loads each forever_spell_template
     // row through `load` (which replaces the stock spell of that ID or adds a new one), after
