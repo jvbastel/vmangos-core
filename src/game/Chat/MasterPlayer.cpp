@@ -236,9 +236,18 @@ void MasterPlayer::LoadMailedItems(std::unique_ptr<QueryResult> result)
         if (!proto)
         {
             // WOWAI Forever rules (#233): a Forever-only item with the rules off. Its rows stay, and the whole
-            // mail is not loaded, so that no mail action (take, return, delete) can lose the item.
+            // mail is not loaded, so that no mail action (take, return, delete) can lose the item. The items of
+            // the mail that loaded before this one leave memory too (their rows stay): no item without a mail.
             if (Forever::KeepsRowsOfUnknownItem(itemId))
             {
+                for (MailItemInfo const& info : mail->items)
+                {
+                    if (Item* loaded = GetMItem(info.itemGuid))
+                    {
+                        RemoveMItem(info.itemGuid);
+                        delete loaded;
+                    }
+                }
                 RemoveMail(mail_id);
                 delete mail;
                 continue;
