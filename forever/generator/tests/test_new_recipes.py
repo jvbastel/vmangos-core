@@ -215,3 +215,142 @@ def test_an_unknown_spell_focus_is_still_refused(tmp_path):
     error = refused(tmp_path, [recipe(61950, "Test Boots", "2840x2", "70950x1", focus="Moonwell Forge")],
                     [item(70950, "Test Boots")])
     assert "no stock SpellFocusObject.dbc name" in error
+
+
+# --- The real spec (forever/spec).
+
+def by_column(rows, column):
+    return {int(row[column]): row for row in rows}
+
+
+@pytest.fixture(scope="module")
+def real(tmp_path_factory):
+    out = tmp_path_factory.mktemp("real") / "out"
+    done = run(SPEC_DIR, out)
+    assert done.returncode == 0, done.stderr
+    return out, done.stdout
+
+
+def new_recipe_rows():
+    return [row for row in spec_rows("blacksmithing.tsv") if row["kind"] == "recipe"]
+
+
+def new_item_rows():
+    return [row for row in spec_rows("items.tsv") if row["kind"] == "item"]
+
+
+def test_the_ticket_counts_of_new_recipes_items_and_cuts(real):
+    out, _ = real
+    recipes, items = new_recipe_rows(), new_item_rows()
+    cut = cut_list(out)
+    # 194 new Blacksmithing recipes and the 2 new smelts of build 1.60.1.70685 (#226's tracer is one of them).
+    assert len(recipes) == 196
+    assert sum(r["skillLine"] == "186" for r in recipes) == 2
+    # About 380 items: 195 made items (193 recipes make new gear, Copper Rod the stock 6217, the 2 smelts their
+    # bars), the 178 readable plans (193 recipes have plans, 15 of them encrypted) and 9 raw new reagents.
+    assert len(items) == 195 + 178 + 9
+    assert sum(r["name"].startswith("Plans: ") for r in items) == 178
+    # The cut list: the 43 Master Forge recipes, Smelt Heavy Thorium and the 3 Anvil recipes that need Heavy
+    # Thorium Bar.
+    cut_recipes = {key: reason for (kind, key), (_, reason) in cut.items() if kind == "recipe"}
+    assert sum(reason == "needs a Master Forge" for reason in cut_recipes.values()) == 43
+    assert len(cut_recipes) == 47
+
+
+def test_the_cut_list_holds_the_heavy_thorium_and_master_forge_rows(real):
+    out, stdout = real
+    cut = {(kind, name): reason for (kind, _), (name, reason) in cut_list(out).items()}
+    assert cut[("recipe", "Smelt Heavy Thorium")] == "needs a Molten Foundry"
+    assert cut[("item", "Heavy Thorium Bar")] == "no remaining recipe makes it"
+    assert cut[("item", "Heavy Thorium Ore")] == "no remaining recipe uses it"
+    for name in ("Thorium Greatmace", "Thorium Cestus", "Thorium Poleaxe"):
+        assert cut[("recipe", name)].startswith("needs Heavy Thorium Bar")
+    for name in ("Goregasher Grips", "Clutchlord's Stompers", "Ironwood Blade", "Azerothium Legplates",
+                 "Legplates of Glory", "Justice Sabatons", "Enriched Thorium Helm", "Legionite Glaive"):
+        assert cut[("recipe", name)] == "needs a Master Forge", name
+    assert cut[("item", "Legionite Bar")] == "no remaining recipe uses it"
+    assert "recipe\t" in stdout and "Smelt Heavy Thorium\tneeds a Molten Foundry" in stdout
+
+
+def test_smelt_azerothium_and_pitchblende_survive_for_bold_dirk(real):
+    # Bold Dirk (Anvil) needs 10 Azerothium Bar and no Heavy Thorium, so Smelt Azerothium (2 Pitchblende + 1
+    # Coal at a Forge) and Pitchblende stay (#232 puts Pitchblende into the Thorium veins).
+    out, _ = real
+    names = {name for name, _ in cut_list(out).values()}
+    assert not {"Smelt Azerothium", "Azerothium Bar", "Pitchblende", "Bold Dirk"} & names
+    smelt = next(r for r in new_recipe_rows() if r["name"] == "Smelt Azerothium")
+    items = {r["name"]: int(r["entry"]) for r in new_item_rows()}
+    assert counted(smelt["reagents"]) == [(3857, 1), (items["Pitchblende"], 2)]
+    assert counted(smelt["creates"]) == [(items["Azerothium Bar"], 1)] and smelt["focus"] == "Forge"
+
+
+@pytest.mark.skipif(not (DUMP / "fv_new_recipes.tsv").is_file(), reason="no client dump at %s" % DUMP)
+def test_the_spec_has_every_readable_new_recipe_of_the_client():
+    with open(DUMP / "fv_new_recipes.tsv", encoding="utf-8") as handle:
+        dump = [r for r in csv.DictReader(handle, delimiter="\t", quoting=csv.QUOTE_NONE) if r["group"] == "fv-new"]
+    recipes = by_column(new_recipe_rows(), "foreverSpell")
+    items = {int(r["foreverItem"]): int(r["entry"]) for r in new_item_rows()}
+    assert set(recipes) == {int(r["spell"]) for r in dump}
+    for r in dump:
+        row = recipes[int(r["spell"])]
+        assert (row["name"], row["yellow"], row["grey"], row["focus"]) == (r["name"], r["yellow"], r["grey"], r["focus"])
+        made = int(r["creates_id"])
+        assert counted(row["creates"]) == [(items.get(made, made), 1)]
+
+
+def test_the_encrypted_plans_are_listed_as_excluded_and_have_no_rows():
+    encrypted = [251340] + list(range(251342, 251355)) + [251395]
+    assert len(encrypted) == 15
+    for name in ("blacksmithing.tsv", "items.tsv"):
+        text = (SPEC_DIR / name).read_text(encoding="utf-8")
+        assert "Excluded (encrypted in the client data, not filled from fan sites): the plans" in text
+        for plans in encrypted:
+            assert str(plans) in text
+    assert not {int(r["foreverItem"]) for r in new_item_rows()} & set(encrypted)
+
+
+def test_each_live_plans_item_teaches_its_recipe_at_its_skill(real):
+    out, _ = real
+    client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
+    cut = {key for (kind, key) in cut_list(out) if kind == "recipe"}
+    items = by_column(new_item_rows(), "entry")
+    taught = 0
+    for row in new_recipe_rows():
+        if row["plans"] == "-" or int(row["spell"]) in cut:
+            continue
+        plans, learn = (int(v) for v in row["plans"].split("/"))
+        assert (client[learn][EFFECT1], client[learn][TRIGGER1]) == (LEARN_SPELL, int(row["spell"]))
+        assert text(client[learn][NAME]) == items[plans]["name"]
+        assert ("`spellid_1`=%d, `spelltrigger_1`=0" % learn) in sql
+        assert ("`required_skill`=164, `required_skill_rank`=%s WHERE `entry`=%d;" % (row["minRank"], plans)) in sql
+        taught += 1
+    # Less the cut recipes, the 15 encrypted plans, and Copper Rod and Smelt Azerothium, which have no plans.
+    assert taught == 196 - 47 - 15 - 2
+
+
+def test_worked_examples_of_the_new_items(real):
+    out, _ = real
+    server = {row["name"]: row for row in sql_rows(out, "forever_item_new")}
+    # Guard's Boots (250504): DefRating 4 = Defense 4 (7517), Sta 5, Str 5, rare, 131 armor.
+    boots = server["Guard's Boots"]
+    assert (boots["quality"], boots["armor"], boots["spellid_1"]) == ("3", "131", "7517")
+    # Brass Knuckles (250602): a fist weapon (item_template class 2, subclass 13), 17-33 damage at 2.4 s.
+    fist = server["Brass Knuckles"]
+    assert (fist["dmg_min1"], fist["dmg_max1"], fist["delay"]) == ("17", "33", "2400")
+    # Bronze Dory: a polearm; Cracked Blacksmith Hammer: a thrown weapon (their copies: Blight, Large Throwing Knife).
+    rows = {r["name"]: r for r in new_item_rows()}
+    assert rows["Bronze Dory"]["sourceItem"] == "7959" and rows["Cracked Blacksmith Hammer"]["sourceItem"] == "3105"
+
+
+def test_new_ids_are_in_their_free_ranges_and_unique():
+    spell_low, spell_high = free_range("blacksmithing.tsv", "profession spell ID")
+    item_low, item_high = free_range("items.tsv", "item ID")
+    spells = []
+    for row in new_recipe_rows():
+        spells.append(int(row["spell"]))
+        if row["plans"] != "-":
+            spells.append(int(row["plans"].split("/")[1]))
+    entries = [int(row["entry"]) for row in new_item_rows()]
+    assert all(spell_low <= s <= spell_high for s in spells) and len(set(spells)) == len(spells)
+    assert all(item_low <= e <= item_high for e in entries) and len(set(entries)) == len(entries)

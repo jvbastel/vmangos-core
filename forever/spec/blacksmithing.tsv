@@ -9,7 +9,7 @@
 #
 # Free profession spell ID range: 61000-61999. A recipe spell takes its ID from this block of the free spell
 # range of warrior.tsv, so that the core can tell a profession spell from a Warrior spell even with the rules
-# off. Its skill line ability takes the same ID. Next free profession spell ID: 61001.
+# off. Its skill line ability takes the same ID. Next free profession spell ID: 61374.
 #
 # Columns (tab-separated):
 #   kind          recipe (a new recipe spell) or stock (a stock recipe that Forever changes, #228)
@@ -37,7 +37,7 @@
 # Forge (the notes say so).
 kind	spell	sourceSpell	name	skillLine	minRank	yellow	grey	reagents	creates	focus	plans	foreverSpell	notes
 # --- #226 tracer bullet: one new recipe, crafted at an Anvil from stock reagents.
-recipe	61000	3319	Strange Copper Boots	164	1	40	40	2318x2,2840x2,10940x4	70000x1	Anvil	-	1252230	A copy of Copper Chain Boots (3319). Light Leather, Copper Bar, Strange Dust. Plans 251333 (skill 35) have no source yet: learn it with a GM command.
+recipe	61000	3319	Strange Copper Boots	164	35	40	40	2318x2,2840x2,10940x4	70000x1	Anvil	70005/61197	1252230	A copy of Copper Chain Boots (3319). Light Leather, Copper Bar, Strange Dust. Plans 251333 (skill 35) have no source yet: learn it with a GM command.
 # --- #228 changed stock recipes: the Forever colour range (185 rows), the skill of the trainer and of the
 # plans (the colour shift; the plans skill of the Forever client where it can be read), and the 5
 # weightstones, Runed Copper Pants and the 4 Mithril Plate pieces. The 22 Master Forge recipes keep the
@@ -250,3 +250,214 @@ stock	27832	27832	Sageblade	164	300	320	340	12360x12,20725x2,13512x2,12810x4	223
 stock	28461	28461	Ironvine Breastplate	164	300	320	340	12655x12,19726x2,12360x2,12803x2	22762x1	Anvil	22766	28461	Forever focus: Master Forge; kept at the Anvil. Plans 22766: 300 (not readable in the Forever client: kept).
 stock	28462	28462	Ironvine Gloves	164	300	320	340	12655x8,19726x1,12803x2	22763x1	Anvil	22767	28462	Forever focus: Master Forge; kept at the Anvil. Plans 22767: 300 (not readable in the Forever client: kept).
 stock	28463	28463	Ironvine Belt	164	300	320	340	12655x6,12803x2	22764x1	Anvil	22768	28463	Forever focus: Master Forge; kept at the Anvil. Plans 22768: 300 (not readable in the Forever client: kept).
+
+# --- #230 new recipes: every new Forever Blacksmithing recipe of build 1.60.1.70685 and the new
+# smelt Smelt Azerothium (written by forever/generator/tools/new_recipe_rows.py; do not edit by hand).
+# Source: fv_new_recipes.tsv and items.tsv of #224 (WoW Forever build 1.60.1.70685), over the stock world DB
+#   (item_template, spell_template, skill_line_ability).
+# The rows keep every readable new recipe, also those that cannot work on a 1.12 realm: the generator's
+#   dead-content rule (forever_gen/dead_content.py) cuts the Master Forge and Molten Foundry recipes and all
+#   that is then left with no use (Heavy Thorium and what needs it, the Glory and Justice sets, Goregasher and
+#   Clutchlord, the Ironwood set), and prints the cut list.
+# minRank: the skill that the plans need (RequiredSkillRank in the client), else 1. plans: '<plans
+#   item>/<learn spell>'. A recipe copies the stock recipe of its item's source item, else the stock Anvil
+#   recipe nearest in skill; a smelt copies Smelt Thorium.
+# Excluded, no rows: 66 Season of Discovery row; 6 camping object (needs C++); 16 rank, child-line or unnamed
+#   row.
+# Excluded (encrypted in the client data, not filled from fan sites): the plans 251340, 251342, 251343,
+#   251344, 251345, 251346, 251347, 251348, 251349, 251350, 251351, 251352, 251353, 251354, 251395.
+recipe	61001	12260	Copper Rod	164	1	10	15	2840x1	6217x1	Anvil	-	1245287	From Forever spell 1245287 (Inert Enchanting Rods). No plans in the client (learned with a GM command; trainer: a later ticket).
+recipe	61002	16153	Smelt Azerothium	186	1	275	275	3857x1,70002x2	70001x1	Forge	-	1249637	From Forever spell 1249637 (Smelted Bars). No plans in the client (learned with a GM command; trainer: a later ticket).
+recipe	61003	7817	Gemmed Copper Boots	164	35	40	40	774x2,818x2,2318x4,2840x2	70003x1	Anvil	70004/61196	1252229	From Forever spell 1252229 (Mail Boots).
+recipe	61004	7817	Glowing Copper Boots	164	35	40	40	2318x2,2840x2,10938x4	70006x1	Anvil	70007/61198	1252231	From Forever spell 1252231 (Mail Boots).
+recipe	61005	3331	Sterling Silver Boots	164	100	130	160	2319x2,2840x2,2842x6,3478x2	70008x1	Anvil	70009/61199	1252232	From Forever spell 1252232 (Mail Boots).
+recipe	61006	2668	Sterling Silver Leggings	164	105	135	165	2840x3,2842x10,3478x3	70010x1	Anvil	70011/61200	1252233	From Forever spell 1252233 (Mail Legguards).
+recipe	61007	3333	Sterling Silver Gauntlet	164	105	135	165	2840x2,2842x6,3478x2	70012x1	Anvil	70013/61201	1252234	From Forever spell 1252234 (Mail Gauntlets).
+recipe	61008	3330	Sterling Silver Shoulders	164	110	140	170	2840x2,2842x6,3478x2	70014x1	Anvil	70015/61202	1252235	From Forever spell 1252235 (Mail Pauldrons).
+recipe	61009	2675	Sterling Silver Breastplate	164	125	155	185	2840x4,2842x12,3478x3	70016x1	Anvil	70017/61203	1252236	From Forever spell 1252236 (Mail Chestguards).
+recipe	61010	8367	Veteran's Chain Shirt	164	1	85	85	2841x4,3470x2,5498x2	70018x1	Anvil	-	1252237	From Forever spell 1252237 (Mail Chestguards). Plans 251340 are in encrypted client data: excluded.
+recipe	61011	8367	Guard's Chain Shirt	164	80	85	85	1210x2,2841x4,3470x2	70019x1	Anvil	70020/61204	1252238	From Forever spell 1252238 (Mail Chestguards).
+recipe	61012	8367	Protector's Chain Shirt	164	1	85	85	818x2,2841x4,3470x2	70021x1	Anvil	-	1252239	From Forever spell 1252239 (Mail Chestguards). Plans 251342 are in encrypted client data: excluded.
+recipe	61013	8367	Acolyte's Chain Shirt	164	1	85	85	2841x4,3470x2,10940x2	70022x1	Anvil	-	1252240	From Forever spell 1252240 (Mail Chestguards). Plans 251343 are in encrypted client data: excluded.
+recipe	61014	8367	Crusader's Chain Shirt	164	1	85	85	2841x4,3470x2,10938x2	70023x1	Anvil	-	1252241	From Forever spell 1252241 (Mail Chestguards). Plans 251344 are in encrypted client data: excluded.
+recipe	61015	2668	Veteran's Chain Leggings	164	1	100	100	2841x6,3478x2,5498x4	70024x1	Anvil	-	1252242	From Forever spell 1252242 (Mail Legguards). Plans 251345 are in encrypted client data: excluded.
+recipe	61016	2668	Guard's Chain Leggings	164	1	100	100	1210x4,2841x6,3478x2	70025x1	Anvil	-	1252243	From Forever spell 1252243 (Mail Legguards). Plans 251346 are in encrypted client data: excluded.
+recipe	61017	2668	Protector's Chain Leggings	164	1	100	100	818x4,2841x6,3478x2	70026x1	Anvil	-	1252244	From Forever spell 1252244 (Mail Legguards). Plans 251347 are in encrypted client data: excluded.
+recipe	61018	2668	Acolyte's Chain Leggings	164	1	100	100	2841x6,3478x2,10940x4	70027x1	Anvil	-	1252245	From Forever spell 1252245 (Mail Legguards). Plans 251348 are in encrypted client data: excluded.
+recipe	61019	2668	Crusader's Chain Leggings	164	1	100	100	2841x6,3478x2,10938x4	70028x1	Anvil	-	1252246	From Forever spell 1252246 (Mail Legguards). Plans 251349 are in encrypted client data: excluded.
+recipe	61020	3502	Veteran's Chain Helm	164	1	130	130	2841x8,3478x2,5498x6	70029x1	Anvil	-	1252247	From Forever spell 1252247 (Mail Helmets). Plans 251350 are in encrypted client data: excluded.
+recipe	61021	3502	Guard's Chain Helm	164	1	130	130	1210x6,2841x8,3478x2	70030x1	Anvil	-	1252248	From Forever spell 1252248 (Mail Helmets). Plans 251351 are in encrypted client data: excluded.
+recipe	61022	3502	Protector's Chain Helm	164	1	130	130	818x6,2841x8,3478x2	70031x1	Anvil	-	1252249	From Forever spell 1252249 (Mail Helmets). Plans 251352 are in encrypted client data: excluded.
+recipe	61023	3502	Acolyte's Chain Helm	164	1	130	130	2841x8,3478x2,10940x6	70032x1	Anvil	-	1252250	From Forever spell 1252250 (Mail Helmets). Plans 251353 are in encrypted client data: excluded.
+recipe	61024	3502	Crusader's Chain Helm	164	1	130	130	2841x8,3478x2,10938x6	70033x1	Anvil	-	1252251	From Forever spell 1252251 (Mail Helmets). Plans 251354 are in encrypted client data: excluded.
+recipe	61025	3331	Veteran's Boots	164	85	115	145	2841x12,3478x2,5498x5,70036x4	70034x1	Anvil	70035/61205	1252252	From Forever spell 1252252 (Mail Boots).
+recipe	61026	3331	Guard's Boots	164	85	115	145	1210x5,2841x12,3478x2,70036x4	70037x1	Anvil	70038/61206	1252253	From Forever spell 1252253 (Mail Boots).
+recipe	61027	3331	Protector's Boots	164	85	115	145	818x5,2841x12,3478x2,70036x4	70039x1	Anvil	70040/61207	1252254	From Forever spell 1252254 (Mail Boots).
+recipe	61028	3331	Acolyte's Boots	164	85	115	145	2841x12,3478x2,10940x5,70036x4	70041x1	Anvil	70042/61208	1252255	From Forever spell 1252255 (Mail Boots).
+recipe	61029	3331	Crusader's Boots	164	85	115	145	2841x12,3478x2,10938x5,70036x4	70043x1	Anvil	70044/61209	1252256	From Forever spell 1252256 (Mail Boots).
+recipe	61030	3325	Veteran's Gloves	164	80	110	140	2841x10,3470x4,5498x3,70047x2	70045x1	Anvil	70046/61210	1252257	From Forever spell 1252257 (Mail Gauntlets).
+recipe	61031	3325	Guard's Gloves	164	80	110	140	1210x3,2841x10,3470x4,70047x2	70048x1	Anvil	70049/61211	1252258	From Forever spell 1252258 (Mail Gauntlets).
+recipe	61032	3325	Protector's Gloves	164	80	110	140	818x3,2841x10,3470x4,70047x2	70050x1	Anvil	70051/61212	1252259	From Forever spell 1252259 (Mail Gauntlets).
+recipe	61033	3325	Acolyte's Gloves	164	80	110	140	2841x10,3470x4,10940x3,70047x2	70052x1	Anvil	70053/61213	1252260	From Forever spell 1252260 (Mail Gauntlets).
+recipe	61034	3325	Crusader's Gloves	164	80	110	140	2841x10,3470x4,10938x3,70047x2	70054x1	Anvil	70055/61214	1252261	From Forever spell 1252261 (Mail Gauntlets).
+recipe	61035	2666	Veteran's Chain Belt	164	45	85	125	2840x12,3470x4,5498x2,70036x2	70056x1	Anvil	70057/61215	1252262	From Forever spell 1252262 (Mail Belts).
+recipe	61036	2666	Guard's Chain Belt	164	45	85	125	1210x2,2840x12,3470x4,70036x2	70058x1	Anvil	70059/61216	1252263	From Forever spell 1252263 (Mail Belts).
+recipe	61037	2666	Protector's Chain Belt	164	45	85	125	818x2,2840x12,3470x4,70036x2	70060x1	Anvil	70061/61217	1252264	From Forever spell 1252264 (Mail Belts).
+recipe	61038	2666	Acolyte's Chain Belt	164	45	85	125	2840x12,3470x4,10940x2,70036x2	70062x1	Anvil	70063/61218	1252265	From Forever spell 1252265 (Mail Belts).
+recipe	61039	2666	Crusader's Chain Belt	164	45	85	125	2840x12,3470x4,10938x2,70036x2	70064x1	Anvil	70065/61219	1252266	From Forever spell 1252266 (Mail Belts).
+recipe	61040	2673	Veteran's Silvered Chain Shirt	164	110	140	170	2841x20,2842x5,3478x6,5498x8,70036x6	70066x1	Anvil	70067/61220	1252267	From Forever spell 1252267 (Mail Chestguards).
+recipe	61041	2673	Guard's Silvered Chain Shirt	164	110	140	170	1210x8,2841x20,2842x5,3478x6,70036x6	70068x1	Anvil	70069/61221	1252268	From Forever spell 1252268 (Mail Chestguards).
+recipe	61042	2673	Protector's Silvered Chain Shirt	164	110	140	170	818x8,2841x20,2842x5,3478x6,70036x6	70070x1	Anvil	70071/61222	1252269	From Forever spell 1252269 (Mail Chestguards).
+recipe	61043	2673	Acolyte's Silvered Chain Shirt	164	110	140	170	2841x20,2842x5,3478x6,10940x8,70036x6	70072x1	Anvil	70073/61223	1252270	From Forever spell 1252270 (Mail Chestguards).
+recipe	61044	2673	Crusader's Silvered Chain Shirt	164	110	140	170	2841x20,2842x5,3478x6,10938x8,70036x6	70074x1	Anvil	70075/61224	1252271	From Forever spell 1252271 (Mail Chestguards).
+recipe	61045	3506	Veteran's Silvered Chain Leggings	164	125	155	185	2841x20,2842x6,3478x8,5498x8,70036x6	70076x1	Anvil	70077/61225	1252272	From Forever spell 1252272 (Mail Legguards).
+recipe	61046	3506	Guard's Silvered Chain Leggings	164	125	155	185	1210x8,2841x20,2842x6,3478x8,70036x6	70078x1	Anvil	70079/61226	1252273	From Forever spell 1252273 (Mail Legguards).
+recipe	61047	3506	Protector's Silvered Chain Leggings	164	125	155	185	818x8,2841x20,2842x6,3478x8,70036x6	70080x1	Anvil	70081/61227	1252274	From Forever spell 1252274 (Mail Legguards).
+recipe	61048	3506	Acolyte's Silvered Chain Leggings	164	125	155	185	2841x20,2842x6,3478x8,10940x8,70036x6	70082x1	Anvil	70083/61228	1252275	From Forever spell 1252275 (Mail Legguards).
+recipe	61049	3506	Crusader's Silvered Chain Leggings	164	125	155	185	2841x20,2842x6,3478x8,10938x8,70036x6	70084x1	Anvil	70085/61229	1252276	From Forever spell 1252276 (Mail Legguards).
+recipe	61050	3502	Veteran's Silvered Chain Helm	164	95	125	155	2841x15,2842x4,3478x6,5498x6,70036x4	70086x1	Anvil	70087/61230	1252277	From Forever spell 1252277 (Mail Helmets).
+recipe	61051	3502	Guard's Silvered Chain Helm	164	95	125	155	1210x6,2841x15,2842x4,3478x6,70036x4	70088x1	Anvil	70089/61231	1252278	From Forever spell 1252278 (Mail Helmets).
+recipe	61052	3502	Protector's Silvered Chain Helm	164	95	125	155	818x6,2841x15,2842x4,3478x6,70036x4	70090x1	Anvil	70091/61232	1252279	From Forever spell 1252279 (Mail Helmets).
+recipe	61053	3502	Acolyte's Silvered Chain Helm	164	95	125	155	2841x15,2842x4,3478x6,10940x6,70036x4	70092x1	Anvil	70093/61233	1252280	From Forever spell 1252280 (Mail Helmets).
+recipe	61054	3502	Crusader's Silvered Chain Helm	164	95	125	155	2841x15,2842x4,3478x6,10938x6,70036x4	70094x1	Anvil	70095/61234	1252281	From Forever spell 1252281 (Mail Helmets).
+recipe	61055	3508	Hard Gold Cuirass	164	145	170	195	3486x2,3577x12,3859x3	70096x1	Anvil	70097/61235	1252282	From Forever spell 1252282 (Mail Chestguards).
+recipe	61056	9818	Hard Gold Boots	164	150	175	200	3486x2,3577x6,3859x2,4234x2	70098x1	Anvil	70099/61236	1252283	From Forever spell 1252283 (Mail Boots).
+recipe	61057	3501	Hard Gold Bracers	164	160	185	210	3486x2,3577x6,3859x1	70100x1	Anvil	70101/61237	1252284	From Forever spell 1252284 (Mail Bracers).
+recipe	61058	9931	Hard Gold Leggings	164	165	190	215	3486x2,3577x10,3859x2	70102x1	Anvil	70103/61238	1252285	From Forever spell 1252285 (Mail Legguards).
+recipe	61059	9814	Hard Gold Coif	164	170	195	220	3486x2,3577x10,3859x2	70104x1	Anvil	70105/61239	1252286	From Forever spell 1252286 (Mail Helmets).
+recipe	61060	9820	Hard Gold Gauntlet	164	175	200	225	3486x2,3577x8,3859x2	70106x1	Anvil	70107/61240	1252287	From Forever spell 1252287 (Mail Gauntlets).
+recipe	61061	9966	Hard Gold Pauldrons	164	175	200	225	3486x2,3577x8,3859x2	70108x1	Anvil	70109/61241	1252288	From Forever spell 1252288 (Mail Pauldrons).
+recipe	61062	9959	Shining Mithril Breastplate	164	195	215	235	3486x2,3860x8,6037x9,7971x2	70110x1	Anvil	70111/61242	1252289	From Forever spell 1252289 (Plate Chestguards).
+recipe	61063	9952	Shining Mithril Pauldrons	164	195	215	235	3486x2,3860x6,4304x2,6037x3	70112x1	Anvil	70113/61243	1252290	From Forever spell 1252290 (Plate Pauldrons).
+recipe	61064	9968	Shining Mithril Boots	164	200	220	240	3486x2,3860x4,4304x4,6037x3	70114x1	Anvil	70115/61244	1252291	From Forever spell 1252291 (Plate Boots).
+recipe	61065	9970	Shining Mithril Helm	164	1	235	255	3486x2,3860x8,6037x9,7075x1	70116x1	Anvil	-	1252292	From Forever spell 1252292 (Plate Helmets). Plans 251395 are in encrypted client data: excluded.
+recipe	61066	9945	Shining Mithril Pants	164	220	240	260	3486x2,3860x6,6037x9,7075x1	70117x1	Anvil	70118/61245	1252293	From Forever spell 1252293 (Plate Legguards).
+recipe	61067	9954	Shining Mithril Gauntlet	164	220	240	260	3486x2,3860x5,6037x6,7909x2	70119x1	Anvil	70120/61246	1252294	From Forever spell 1252294 (Plate Gauntlets).
+recipe	61068	9968	Officer's Boots	164	200	205	205	1529x4,3486x4,3859x4	70121x1	Anvil	70122/61247	1252295	From Forever spell 1252295 (Plate Boots).
+recipe	61069	9968	Sentinel's Boots	164	200	205	205	3486x4,3859x4,8831x4	70123x1	Anvil	70124/61248	1252296	From Forever spell 1252296 (Plate Boots).
+recipe	61070	9968	Warder's Boots	164	200	205	205	3486x4,3859x4,7971x4	70125x1	Anvil	70126/61249	1252297	From Forever spell 1252297 (Plate Boots).
+recipe	61071	9968	Prefect's Boots	164	200	205	205	3486x4,3859x4,13926x4	70127x1	Anvil	70128/61250	1252298	From Forever spell 1252298 (Plate Boots).
+recipe	61072	9968	Justicar's Boots	164	200	205	205	3486x4,3859x4,7079x4	70129x1	Anvil	70130/61251	1252299	From Forever spell 1252299 (Plate Boots).
+recipe	61073	16655	Officer's Gloves	164	250	255	255	1529x4,7966x4,12359x8	70131x1	Anvil	70132/61252	1252300	From Forever spell 1252300 (Plate Gauntlets).
+recipe	61074	16655	Sentinel's Gloves	164	250	255	255	7966x4,8831x4,12359x8	70133x1	Anvil	70134/61253	1252301	From Forever spell 1252301 (Plate Gauntlets).
+recipe	61075	16655	Warder's Gloves	164	250	255	255	7966x4,7971x4,12359x8	70135x1	Anvil	70136/61254	1252302	From Forever spell 1252302 (Plate Gauntlets).
+recipe	61076	16655	Prefect's Gloves	164	250	255	255	7966x4,12359x8,13926x4	70137x1	Anvil	70138/61255	1252303	From Forever spell 1252303 (Plate Gauntlets).
+recipe	61077	16655	Justicar's Gloves	164	250	255	255	7079x4,7966x4,12359x8	70139x1	Anvil	70140/61256	1252304	From Forever spell 1252304 (Plate Gauntlets).
+recipe	61078	2666	Officer's Belt	164	150	155	155	1529x2,3486x2,3575x6	70141x1	Anvil	70142/61257	1252305	From Forever spell 1252305 (Mail Belts).
+recipe	61079	2666	Sentinel's Belt	164	150	155	155	3486x2,3575x6,8831x2	70143x1	Anvil	70144/61258	1252306	From Forever spell 1252306 (Mail Belts).
+recipe	61080	2666	Warder's Belt	164	150	155	155	3486x2,3575x6,7971x2	70145x1	Anvil	70146/61259	1252307	From Forever spell 1252307 (Mail Belts).
+recipe	61081	2666	Prefect's Belt	164	150	155	155	3486x2,3575x6,13926x2	70147x1	Anvil	70148/61260	1252308	From Forever spell 1252308 (Mail Belts).
+recipe	61082	2666	Justicar's Belt	164	150	155	155	3486x2,3575x6,7079x2	70149x1	Anvil	70150/61261	1252309	From Forever spell 1252309 (Mail Belts).
+recipe	61083	9979	Officer's Sabatons	164	240	260	280	1529x6,7966x3,12359x20,70047x4,70036x4,70153x4	70151x1	Anvil	70152/61262	1252310	From Forever spell 1252310 (Plate Boots).
+recipe	61084	9979	Sentinel's Sabatons	164	240	260	280	7966x3,8831x6,12359x20,70047x4,70036x4,70153x4	70154x1	Anvil	70155/61263	1252311	From Forever spell 1252311 (Plate Boots).
+recipe	61085	9979	Warder's Sabatons	164	240	260	280	7966x3,7971x6,12359x20,70047x4,70036x4,70153x4	70156x1	Anvil	70157/61264	1252312	From Forever spell 1252312 (Plate Boots).
+recipe	61086	9979	Prefect's Sabatons	164	240	260	280	7966x3,12359x20,13926x6,70047x4,70036x4,70153x4	70158x1	Anvil	70159/61265	1252313	From Forever spell 1252313 (Plate Boots).
+recipe	61087	9979	Justicar's Sabatons	164	240	260	280	7079x6,7966x3,12359x20,70047x4,70036x4,70153x4	70160x1	Anvil	70161/61266	1252314	From Forever spell 1252314 (Plate Boots).
+recipe	61088	9820	Officer's Gauntlet	164	175	200	225	1529x4,3486x4,3859x10,70047x2,70153x4	70162x1	Anvil	70163/61267	1252315	From Forever spell 1252315 (Mail Gauntlets).
+recipe	61089	9820	Sentinel's Gauntlet	164	175	200	225	3486x4,3859x10,8831x4,70047x2,70153x4	70164x1	Anvil	70165/61268	1252316	From Forever spell 1252316 (Mail Gauntlets).
+recipe	61090	9820	Warder's Gauntlet	164	175	200	225	3486x4,3859x10,7971x4,70047x2,70153x4	70166x1	Anvil	70167/61269	1252317	From Forever spell 1252317 (Mail Gauntlets).
+recipe	61091	9820	Prefect's Gauntlet	164	175	200	225	3486x4,3859x10,13926x4,70047x2,70153x4	70168x1	Anvil	70169/61270	1252318	From Forever spell 1252318 (Mail Gauntlets).
+recipe	61092	9820	Justicar's Gauntlet	164	175	200	225	3486x4,3859x10,7079x4,70047x2,70153x4	70170x1	Anvil	70171/61271	1252319	From Forever spell 1252319 (Mail Gauntlets).
+recipe	61093	16647	Officer's Waistguard	164	250	270	290	1529x10,7966x4,12359x24,70047x6,70153x6	70172x1	Anvil	70173/61272	1252320	From Forever spell 1252320 (Plate Belts).
+recipe	61094	16647	Sentinel's Waistguard	164	250	270	290	7966x4,8831x10,12359x24,70047x6,70153x6	70174x1	Anvil	70175/61273	1252321	From Forever spell 1252321 (Plate Belts).
+recipe	61095	16647	Warder's Waistguard	164	250	270	290	7966x4,7971x10,12359x24,70047x6,70153x6	70176x1	Anvil	70177/61274	1252322	From Forever spell 1252322 (Plate Belts).
+recipe	61096	16647	Prefect's Waistguard	164	250	270	290	7966x4,12359x24,13926x10,70047x6,70153x6	70178x1	Anvil	70179/61275	1252323	From Forever spell 1252323 (Plate Belts).
+recipe	61097	16647	Justicar's Waistguard	164	250	270	290	7079x10,7966x4,12359x24,70047x6,70153x6	70180x1	Anvil	70181/61276	1252324	From Forever spell 1252324 (Plate Belts).
+recipe	61098	9952	Officer's Pauldrons	164	210	230	250	1529x8,3860x20,7966x2,11139x1,70047x4,70153x6	70182x1	Anvil	70183/61277	1252325	From Forever spell 1252325 (Plate Pauldrons).
+recipe	61099	9952	Sentinel's Pauldrons	164	210	230	250	3860x20,7966x2,8831x8,11139x1,70047x4,70153x6	70184x1	Anvil	70185/61278	1252326	From Forever spell 1252326 (Plate Pauldrons).
+recipe	61100	9952	Warder's Pauldrons	164	210	230	250	3860x20,7966x2,7971x8,11139x1,70047x4,70153x6	70186x1	Anvil	70187/61279	1252327	From Forever spell 1252327 (Plate Pauldrons).
+recipe	61101	9952	Prefect's Pauldrons	164	210	230	250	3860x20,7966x2,11139x1,13926x8,70047x4,70153x6	70188x1	Anvil	70189/61280	1252328	From Forever spell 1252328 (Plate Pauldrons).
+recipe	61102	9952	Justicar's Pauldrons	164	210	230	250	3860x20,7079x8,7966x2,11139x1,70047x4,70153x6	70190x1	Anvil	70191/61281	1252329	From Forever spell 1252329 (Plate Pauldrons).
+recipe	61103	16644	Officer's Wristguards	164	225	250	275	1529x6,7966x2,11139x1,12359x16,70047x4,70153x6	70192x1	Anvil	70193/61282	1252330	From Forever spell 1252330 (Plate Bracers).
+recipe	61104	16644	Sentinel's Wristguards	164	225	250	275	7966x2,8831x6,11139x1,12359x16,70047x4,70153x6	70194x1	Anvil	70195/61283	1252331	From Forever spell 1252331 (Plate Bracers).
+recipe	61105	16644	Warder's Wristguards	164	225	250	275	7966x2,7971x6,11139x1,12359x16,70047x4,70153x6	70196x1	Anvil	70197/61284	1252332	From Forever spell 1252332 (Plate Bracers).
+recipe	61106	16644	Prefect's Wristguards	164	225	250	275	7966x2,11139x1,12359x16,13926x6,70047x4,70153x6	70198x1	Anvil	70199/61285	1252333	From Forever spell 1252333 (Plate Bracers).
+recipe	61107	16644	Justicar's Wristguards	164	225	250	275	7079x6,7966x2,11139x1,12359x16,70047x4,70153x6	70200x1	Anvil	70201/61286	1252334	From Forever spell 1252334 (Plate Bracers).
+recipe	61108	16646	Blessed Plate Pauldrons	164	240	260	280	8170x6,12359x20,12361x1	70202x1	Anvil	70203/61287	1252335	From Forever spell 1252335 (Plate Pauldrons). Forever item set 1968 (#231).
+recipe	61109	9979	Blessed Plate Boots	164	240	260	280	8170x6,12359x24,12361x1	70204x1	Anvil	70205/61288	1252336	From Forever spell 1252336 (Plate Boots). Forever item set 1968 (#231).
+recipe	61110	16655	Blessed Plate Gauntlet	164	245	265	285	12359x20,12361x2	70206x1	Anvil	70207/61289	1252337	From Forever spell 1252337 (Plate Gauntlets). Forever item set 1968 (#231).
+recipe	61111	16655	Imperial Plate Gauntlets	164	255	275	295	7910x1,12359x24	70208x1	Anvil	70209/61290	1252338	From Forever spell 1252338 (Plate Gauntlets). Forever item set 321 (#231).
+recipe	61112	20874	Blessed Plate Bracers	164	255	275	295	12359x16,12361x1	70210x1	Anvil	70211/61291	1252339	From Forever spell 1252339 (Plate Bracers). Forever item set 1968 (#231).
+recipe	61113	16662	Blessed Plate Leggings	164	270	290	310	12359x40,12361x2	70212x1	Anvil	70213/61292	1252340	From Forever spell 1252340 (Plate Legguards). Forever item set 1968 (#231).
+recipe	61114	23632	Blessed Plate Belt	164	270	290	310	7071x1,8170x6,12359x18,12361x1	70214x1	Anvil	70215/61293	1252341	From Forever spell 1252341 (Plate Belts). Forever item set 1968 (#231).
+recipe	61115	16724	Blessed Plate Helm	164	275	295	315	12359x30,12361x2	70216x1	Anvil	70217/61294	1252342	From Forever spell 1252342 (Plate Helmets). Forever item set 1968 (#231).
+recipe	61116	16663	Blessed Plate Chest	164	280	300	320	12359x36,12361x2	70218x1	Anvil	70219/61295	1252343	From Forever spell 1252343 (Plate Chestguards). Forever item set 1968 (#231).
+recipe	61117	16731	Enriched Thorium Breastplate	164	300	320	340	7078x4,7082x4,70001x4,70222x8,70223x24	70220x1	Master Forge	70221/61296	1252344	From Forever spell 1252344 (Plate Chestguards). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61118	16744	Enriched Thorium Leggings	164	300	320	340	7082x6,70001x3,70222x10,70223x20	70224x1	Master Forge	70225/61297	1252345	From Forever spell 1252345 (Plate Legguards). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61119	24913	Enriched Thorium Helm	164	300	320	340	7078x6,70001x3,70222x6,70223x16	70226x1	Master Forge	70227/61298	1252346	From Forever spell 1252346 (Plate Helmets). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61120	16730	Champion's Legplates	164	300	320	340	7082x10,13512x2,70222x12,70223x20	70228x1	Master Forge	70229/61299	1252347	From Forever spell 1252347 (Plate Legguards). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61121	16726	Stalwart Helm	164	300	320	340	7910x10,7971x20,12359x80,12800x4,70222x12	70230x1	Master Forge	70231/61300	1252348	From Forever spell 1252348 (Plate Helmets). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61122	16730	Martyr's Legplates	164	300	320	340	7078x10,13511x2,70222x12,70223x20	70232x1	Master Forge	70233/61301	1252349	From Forever spell 1252349 (Plate Legguards). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61123	16663	Breastplate of Salvation	164	300	320	340	12359x80,12361x10,12662x20,12800x4,70222x12	70234x1	Master Forge	70235/61302	1252350	From Forever spell 1252350 (Plate Chestguards). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61124	2666	Brass Knuckles	164	80	110	140	1210x2,2319x1,2841x6,2880x4,3470x2	70236x1	Anvil	70237/61303	1252351	From Forever spell 1252351 (Fist Weapons).
+recipe	61125	10011	Bronze Dory	164	95	125	155	2319x1,2841x8,2880x4	70238x1	Anvil	70239/61304	1252352	From Forever spell 1252352 (Polearms).
+recipe	61126	3295	Iron Fists	164	130	155	180	2842x2,3466x2,3486x1,3575x6,4234x2	70240x1	Anvil	70241/61305	1252353	From Forever spell 1252353 (Fist Weapons).
+recipe	61127	10011	Steel Spear	164	160	185	210	3466x2,3486x4,3859x10,4234x1,7069x1	70242x1	Anvil	70243/61306	1252354	From Forever spell 1252354 (Polearms).
+recipe	61128	3297	Iron Morningstar	164	165	190	215	3466x2,3486x2,3575x14,3864x4,4234x2	70244x1	Anvil	70245/61307	1252355	From Forever spell 1252355 (One-Handed Maces).
+recipe	61129	15972	Mithril Shortsword	164	180	200	220	1705x4,3466x2,3486x2,3860x8,4234x2	70246x1	Anvil	70247/61308	1252356	From Forever spell 1252356 (Daggers).
+recipe	61130	16967	Mithril Warhammer	164	190	210	230	3860x12,3864x2,4234x4,7966x1	70248x1	Anvil	70249/61309	1252357	From Forever spell 1252357 (Two-Handed Maces).
+recipe	61131	3503	Mithril Claws	164	195	215	235	1529x1,3860x8,4234x2,7966x1	70250x1	Anvil	70251/61310	1252358	From Forever spell 1252358 (Fist Weapons).
+recipe	61132	3497	Mithril Claymore	164	195	215	235	3577x6,3860x16,4234x4,7966x2	70252x1	Anvil	70253/61311	1252359	From Forever spell 1252359 (Two-Handed Swords).
+recipe	61133	10013	Mithril Stiletto	164	210	230	250	1210x6,3577x2,3860x16,7966x1	70254x1	Anvil	70255/61312	1252360	From Forever spell 1252360 (Daggers).
+recipe	61134	16965	Charged Mithril Battleaxe	164	215	235	255	3860x20,4234x4,7082x6,7966x4	70256x1	Anvil	70257/61313	1252361	From Forever spell 1252361 (Two-Handed Axes).
+recipe	61135	15292	Thorium Greatmace	164	250	270	290	7076x4,12359x30,12644x2,70001x10,70223x4	70258x1	Anvil	70259/61314	1252362	From Forever spell 1252362 (Two-Handed Maces).
+recipe	61136	10007	Thorium Cestus	164	250	270	290	7082x4,12359x20,12644x1,70001x10,70223x8	70260x1	Anvil	70261/61315	1252363	From Forever spell 1252363 (Fist Weapons).
+recipe	61137	16987	Thorium Poleaxe	164	260	280	305	8170x4,12359x20,12803x4,70001x10,70223x6	70262x1	Anvil	70263/61316	1252364	From Forever spell 1252364 (Polearms).
+recipe	61138	10013	Bold Dirk	164	270	290	310	7082x4,8170x4,12359x30,70001x10	70264x1	Anvil	70265/61317	1252365	From Forever spell 1252365 (Daggers).
+recipe	61139	16994	Stormcarver	164	300	320	340	12644x2,70001x10,70222x20	70266x1	Master Forge	70267/61318	1252366	From Forever spell 1252366 (Two-Handed Axes). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61140	16662	Bagh Nakh	164	300	320	340	7910x4,12361x4,70001x10,70222x10,70223x10	70268x1	Master Forge	70269/61319	1252367	From Forever spell 1252367 (Fist Weapons). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61141	16987	Legionite Glaive	164	300	320	340	70272x4,70273x1,70001x10,70222x15,70223x8	70270x1	Master Forge	70271/61320	1252368	From Forever spell 1252368 (Polearms). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61142	16730	Justice Leggings	164	300	320	330	12360x4,18567x1,70223x18,70276x5	70274x1	Master Forge	70275/61321	1292945	From Forever spell 1292945 (Plate Legguards). Forever item set 2106 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61143	24912	Justice Gauntlets	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70277x1	Master Forge	70278/61322	1292946	From Forever spell 1292946 (Plate Gauntlets). Forever item set 2106 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61144	16664	Justice Spaulders	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70279x1	Master Forge	70280/61323	1292947	From Forever spell 1292947 (Plate Pauldrons). Forever item set 2106 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61145	16665	Justice Greaves	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70281x1	Master Forge	70282/61324	1292948	From Forever spell 1292948 (Plate Boots). Forever item set 2106 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61146	16730	Justice Legplates	164	300	320	330	12360x4,18567x1,70223x18,70276x5	70283x1	Master Forge	70284/61325	1292949	From Forever spell 1292949 (Plate Legguards). Forever item set 2107 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61147	24912	Justice Gloves	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70285x1	Master Forge	70286/61326	1292950	From Forever spell 1292950 (Plate Gauntlets). Forever item set 2107 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61148	16664	Justice Epaulets	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70287x1	Master Forge	70288/61327	1292951	From Forever spell 1292951 (Plate Pauldrons). Forever item set 2107 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61149	16665	Justice Treads	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70289x1	Master Forge	70290/61328	1292952	From Forever spell 1292952 (Plate Boots). Forever item set 2107 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61150	16730	Justice Legguards	164	300	320	330	12360x4,18567x1,70223x18,70276x5	70291x1	Master Forge	70292/61329	1292953	From Forever spell 1292953 (Plate Legguards). Forever item set 2108 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61151	24912	Justice Handguards	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70293x1	Master Forge	70294/61330	1292954	From Forever spell 1292954 (Plate Gauntlets). Forever item set 2108 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61152	16664	Justice Pauldrons	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70295x1	Master Forge	70296/61331	1292955	From Forever spell 1292955 (Plate Pauldrons). Forever item set 2108 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61153	16665	Justice Sabatons	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70297x1	Master Forge	70298/61332	1292956	From Forever spell 1292956 (Plate Boots). Forever item set 2108 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61154	16730	Legplates of Glory	164	300	320	330	12360x4,18567x1,70223x18,70276x5	70299x1	Master Forge	70300/61333	1292981	From Forever spell 1292981 (Plate Legguards). Forever item set 2102 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61155	24912	Gauntlets of Glory	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70301x1	Master Forge	70302/61334	1292982	From Forever spell 1292982 (Plate Gauntlets). Forever item set 2102 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61156	16664	Shoulders of Glory	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70303x1	Master Forge	70304/61335	1292983	From Forever spell 1292983 (Plate Pauldrons). Forever item set 2102 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61157	16665	Greaves of Glory	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70305x1	Master Forge	70306/61336	1292984	From Forever spell 1292984 (Plate Boots). Forever item set 2102 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61158	16730	Legguards of Glory	164	300	320	330	12360x4,18567x1,70223x18,70276x5	70307x1	Master Forge	70308/61337	1292985	From Forever spell 1292985 (Plate Legguards). Forever item set 2103 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61159	24912	Handguards of Glory	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70309x1	Master Forge	70310/61338	1292986	From Forever spell 1292986 (Plate Gauntlets). Forever item set 2103 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61160	16664	Pauldrons of Glory	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70311x1	Master Forge	70312/61339	1292987	From Forever spell 1292987 (Plate Pauldrons). Forever item set 2103 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61161	16665	Sabatons of Glory	164	300	320	330	12360x2,18567x1,70223x12,70276x3	70313x1	Master Forge	70314/61340	1292988	From Forever spell 1292988 (Plate Boots). Forever item set 2103 (#231). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61162	16655	Goregasher Grips	164	285	290	295	7078x3,12359x7,12655x5,18567x1	70315x1	Master Forge	70316/61341	1297138	From Forever spell 1297138 (Plate Gauntlets). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61163	23632	Goregasher Support	164	290	295	300	7078x3,12359x11,12655x5,18567x1	70317x1	Master Forge	70318/61342	1297139	From Forever spell 1297139 (Plate Belts). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61164	16657	Goregasher Stompers	164	295	295	300	7078x3,12359x9,12655x5,18567x1	70319x1	Master Forge	70320/61343	1297140	From Forever spell 1297140 (Plate Boots). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61165	16655	Clutchlord's Grips	164	285	290	295	7076x3,12359x7,12655x5,18567x1	70321x1	Master Forge	70322/61344	1297141	From Forever spell 1297141 (Plate Gauntlets). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61166	23632	Clutchlord's Support	164	290	295	300	7076x3,12359x11,12655x5,18567x1	70323x1	Master Forge	70324/61345	1297142	From Forever spell 1297142 (Plate Belts). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61167	16657	Clutchlord's Stompers	164	295	295	300	7076x3,12359x9,12655x5,18567x1	70325x1	Master Forge	70326/61346	1297143	From Forever spell 1297143 (Plate Boots). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61168	3321	Cloudy Skyforged Chainmail	164	60	65	70	2840x8,2880x1	70327x1	Anvil	70328/61347	1301421	From Forever spell 1301421 (Mail Chestguards).
+recipe	61169	2663	Cloudy Skyforged Wristguards	164	50	55	60	2840x5	70329x1	Anvil	70330/61348	1301422	From Forever spell 1301422 (Mail Bracers).
+recipe	61170	3323	Cloudy Skyforged Gauntlets	164	55	60	65	2840x7	70331x1	Anvil	70332/61349	1301423	From Forever spell 1301423 (Mail Gauntlets).
+recipe	61171	2661	Cloudy Skyforged Chain	164	50	55	60	2840x6	70333x1	Anvil	70334/61350	1301424	From Forever spell 1301424 (Mail Belts).
+recipe	61172	3324	Cloudy Skyforged Legguards	164	60	65	70	2840x8,2880x1	70335x1	Anvil	70336/61351	1301425	From Forever spell 1301425 (Mail Legguards).
+recipe	61173	3319	Cloudy Skyforged Greaves	164	55	60	65	2840x7	70337x1	Anvil	70338/61352	1301426	From Forever spell 1301426 (Mail Boots).
+recipe	61174	3321	Azure Skyforged Chainmail	164	60	65	70	2840x8,2880x1	70339x1	Anvil	70340/61353	1301445	From Forever spell 1301445 (Mail Chestguards).
+recipe	61175	2663	Azure Skyforged Wristguards	164	50	55	60	2840x5	70341x1	Anvil	70342/61354	1301446	From Forever spell 1301446 (Mail Bracers).
+recipe	61176	3323	Azure Skyforged Gauntlets	164	55	60	65	2840x7	70343x1	Anvil	70344/61355	1301447	From Forever spell 1301447 (Mail Gauntlets).
+recipe	61177	2661	Azure Skyforged Chain	164	50	55	60	2840x6	70345x1	Anvil	70346/61356	1301448	From Forever spell 1301448 (Mail Belts).
+recipe	61178	3324	Azure Skyforged Legguards	164	60	65	70	2840x8,2880x1	70347x1	Anvil	70348/61357	1301449	From Forever spell 1301449 (Mail Legguards).
+recipe	61179	3319	Azure Skyforged Greaves	164	55	60	65	2840x7	70349x1	Anvil	70350/61358	1301450	From Forever spell 1301450 (Mail Boots).
+recipe	61180	9814	Cloudy Skyforged Helm	164	175	185	190	3486x5,3575x18,5498x1	70351x1	Anvil	70352/61359	1301526	From Forever spell 1301526 (Mail Helmets).
+recipe	61181	3504	Cloudy Skyforged Pauldrons	164	175	185	190	3486x3,3575x14,5498x1	70353x1	Anvil	70354/61360	1301527	From Forever spell 1301527 (Mail Pauldrons).
+recipe	61182	9814	Azure Skyforged Helm	164	175	185	190	3486x5,3575x18,7909x1	70355x1	Anvil	70356/61361	1301534	From Forever spell 1301534 (Mail Helmets).
+recipe	61183	3504	Azure Skyforged Pauldrons	164	175	185	190	3486x3,3575x14,7909x1	70357x1	Anvil	70358/61362	1301535	From Forever spell 1301535 (Mail Pauldrons).
+recipe	61184	3319	Rough Copper Chain Boots	164	50	60	70	2840x9	70359x1	Anvil	70360/61363	1302598	From Forever spell 1302598 (Mail Boots).
+recipe	61185	16153	Smelt Heavy Thorium	186	1	300	315	70361x1	70223x1	Molten Foundry	-	1306126	From Forever spell 1306126 (Smelted Bars). No plans in the client (learned with a GM command; trainer: a later ticket). Needs a Molten Foundry: the dead-content rule cuts it.
+recipe	61186	23652	Ironwood Blade	164	300	310	325	70222x1,70223x14,70276x2	70362x1	Master Forge	70363/61364	1306533	From Forever spell 1306533 (One-Handed Swords). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61187	16994	Forest Defender's Axe	164	300	310	325	70222x1,70223x20,70276x4	70364x1	Master Forge	70365/61365	1306534	From Forever spell 1306534 (Two-Handed Axes). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61188	23650	Greenhammer	164	300	310	325	70222x1,70223x16,70276x2	70366x1	Master Forge	70367/61366	1306535	From Forever spell 1306535 (One-Handed Maces). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61189	27586	Evergreen Shield	164	300	310	325	70222x1,70223x10,70276x2	70368x1	Master Forge	70369/61367	1306536	From Forever spell 1306536 (Shields). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61190	16665	Depleted Thorium Sabatons	164	300	310	325	70222x1,70223x12,70276x2	70370x1	Master Forge	70371/61368	1306537	From Forever spell 1306537 (Plate Boots). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61191	23633	Heavy Thorium Gauntlets	164	300	310	325	70222x1,70223x14,70276x2	70372x1	Master Forge	70373/61369	1306538	From Forever spell 1306538 (Plate Gauntlets). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61192	24140	Azerothium Legplates	164	300	310	325	70222x1,70223x18,70276x3	70374x1	Master Forge	70375/61370	1306539	From Forever spell 1306539 (Plate Legguards). Needs a Master Forge: the dead-content rule cuts it.
+recipe	61193	2664	Cracked Blacksmith Hammer	164	110	115	120	818x1,2841x18,2842x2	70376x1	Anvil	70377/61371	1317962	From Forever spell 1317962 (Thrown).
+recipe	61194	3493	Mithril Blacksmith Hammer	164	195	200	205	3577x2,3860x10,7910x1	70378x1	Anvil	70379/61372	1317963	From Forever spell 1317963 (Thrown).
+recipe	61195	10011	Arcanite Blacksmith Hammer	164	270	275	280	11371x4,12360x1,12361x1	70380x1	Anvil	70381/61373	1317964	From Forever spell 1317964 (Thrown).
