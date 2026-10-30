@@ -19,9 +19,10 @@ class Player;
 class Unit;
 
 // The Forever rules of the Warrior (spec jvbastel/WOWAI#204) and of Mining and Blacksmithing (spec #225):
-// one realm setting, Forever.Rules, off by default. When it is on, the core loads the talent tables from the Forever DBC folder (Forever.DataDir)
-// and the rows of the forever_* world tables on top of the stock rows by ID. The stock tables and the
-// stock DBC files never change, so the setting off and a restart give vanilla back.
+// one realm setting, Forever.Rules, off by default. When it is on, the core loads the talent tables from
+// the Forever DBC folder (Forever.DataDir) and the rows of the forever_* world tables on top of the stock
+// rows by ID. The stock tables and the stock DBC files never change, so the setting off and a restart
+// give vanilla back.
 //
 // This header is the one facade of the Forever rules for the stock code: a stock file includes only
 // Forever.h. Each function is one hook in an upstream file, or a helper that several Forever files share.
