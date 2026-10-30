@@ -132,3 +132,19 @@ def server_sql(spec, stock):
                 "DROP TEMPORARY TABLE `forever_plans_new`;",
             ]
     return lines
+
+
+def spell_changes(recipe, stock):
+    """(the spell_template columns, the name, the stock rank text) that a stock row sets on its stock
+    spell, or None when its focus, reagents and name are those of the stock spell."""
+    row = stock.spell.by_id()[recipe.spell]
+    focus = focus_id(recipe, stock)
+    name = stock.spell.text(row[SPELL_NAME])
+    if (focus, recipe.reagents, recipe.name) == (row[SPELL_FOCUS], stock_reagents(row), name):
+        return None
+    padding = [(0, 0)] * (MAX_REAGENTS - len(recipe.reagents))
+    reagents = recipe.reagents + padding
+    changes = ([("requiresSpellFocus", focus)]
+               + [("reagent%d" % (k + 1), item) for k, (item, _) in enumerate(reagents)]
+               + [("reagentCount%d" % (k + 1), count) for k, (_, count) in enumerate(reagents)])
+    return changes, recipe.name, stock.spell.text(row[SPELL_RANK])

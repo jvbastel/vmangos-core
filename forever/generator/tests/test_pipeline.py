@@ -215,7 +215,7 @@ def test_a_new_spell_is_a_copy_of_its_source_with_the_spec_values(out):
 def test_the_stock_spell_rows_that_the_spec_does_not_name_stay_in_the_client_table(out):
     client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
     stock, stock_text = read_dbc(STOCK / "Spell.dbc")
-    named = {spell for row in spec_rows() for spell in spells_of(row)}
+    named = {spell for row in spec_rows() for spell in spells_of(row)} | changed_stock_spells()
     assert set(stock) <= set(client)
     for spell, row in stock.items():
         if spell not in named:

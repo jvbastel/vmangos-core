@@ -138,7 +138,8 @@ def spell_texts(row, rank, stock_rank_text):
 
 
 def spell_edits(spec, stock):
-    """The SpellEdit of each spell of the spec, by spell ID: the ranks of the spell rows, then the recipes."""
+    """The SpellEdit of each spell of the spec, by spell ID: the ranks of the spell rows, the recipes, and
+    the stock recipes whose reagents, name or focus change (#228)."""
     stock_by_id = stock.spell.by_id()
     edits = []
     for spell, source, row, rank in spell_ranks(spec):
@@ -151,6 +152,12 @@ def spell_edits(spec, stock):
     for recipe in spec.recipes:
         edits.append(SpellEdit(recipe.spell, recipe.source_spell, recipes.spell_changes(recipe, stock), recipe.name,
                                "", None, None, "-- Recipe %s, from spell %d." % (recipe.name, recipe.source_spell)))
+    for recipe in spec.stock_recipes:
+        changed = stock_recipes.spell_changes(recipe, stock)
+        if changed:
+            changes, name, rank_text = changed
+            edits.append(SpellEdit(recipe.spell, recipe.spell, changes, name, rank_text, None, None,
+                                   "-- Stock recipe %s, changes the stock spell." % recipe.name))
     return sorted(edits, key=lambda e: e.spell)
 
 

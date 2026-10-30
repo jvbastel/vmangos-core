@@ -149,3 +149,30 @@ def test_the_plans_of_each_stock_recipe_need_its_forever_skill(out):
     # Plans: Runed Copper Breastplate 80 -> 55, Plans: Frost Tiger Blade 200 -> 175.
     assert (plans[2881]["required_skill_rank"], plans[3868]["required_skill_rank"]) == ("55", "175")
     assert sql(out).count("INSERT INTO `forever_item_template` SELECT * FROM `forever_plans_new`;") == len(with_plans)
+
+
+def test_the_reagent_and_name_changes_are_in_the_client_and_server_spells(out):
+    client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    server = {int(row["entry"]): row for row in sql_rows(out, "forever_spell_new")}
+    for spell, reagents in FOREVER_REAGENTS.items():
+        padded = reagents + [(0, 0)] * (8 - len(reagents))
+        assert list(zip(client[spell][REAGENTS], client[spell][REAGENT_COUNTS])) == padded, spell
+        assert [(int(server[spell]["reagent%d" % k]), int(server[spell]["reagentCount%d" % k]))
+                for k in range(1, 9)] == padded, spell
+    for spell, name in FOREVER_NAMES.items():
+        assert text(client[spell][NAME]) == name and server[spell]["name"] == name
+    # Only those 10 stock recipes change their spell: the other stock rows change no Spell.dbc byte.
+    stock, _ = read_dbc(STOCK / "Spell.dbc")
+    changed = {int(row["spell"]) for row in stock_rows() if client[int(row["spell"])] != stock[int(row["spell"])]}
+    assert changed == set(FOREVER_REAGENTS) | set(FOREVER_NAMES)
+    assert {spell for spell in server if spell in stock} >= changed
+
+
+def test_the_22_master_forge_recipes_keep_the_anvil_in_the_client_and_server(out):
+    client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
+    server = {int(row["entry"]): row for row in sql_rows(out, "forever_spell_new")}
+    by_name = {row["name"]: int(row["spell"]) for row in stock_rows()}
+    for name in MASTER_FORGE:
+        spell = by_name[name]
+        assert client[spell][FOCUS] == ANVIL, name
+        assert int(server.get(spell, {}).get("requiresSpellFocus", ANVIL)) == ANVIL, name
