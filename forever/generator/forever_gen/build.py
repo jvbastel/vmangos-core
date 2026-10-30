@@ -218,10 +218,6 @@ def _dbc_value(name, value):
     return value & 0xFFFFFFFF
 
 
-def _sql_text(value):
-    return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
-
-
 def server_sql(spec, edits):
     """The Forever server tables. Each spec spell is a copy of the stock server row of its source spell
     (with the core's own fixes), with the spec values set on top. The tables are made again in the shape
@@ -232,13 +228,13 @@ def server_sql(spec, edits):
         lines += ["DROP TABLE IF EXISTS `%s`;" % table,
                   "CREATE TABLE `%s` LIKE `%s`;" % (table, table[len("forever_"):])]
     for edit in edits:
-        values = [("entry", str(edit.spell)), ("build", str(CLIENT_BUILD)), ("name", _sql_text(edit.name)),
-                  ("nameSubtext", _sql_text(edit.rank_text))]
+        values = [("entry", str(edit.spell)), ("build", str(CLIENT_BUILD)), ("name", items.sql_text(edit.name)),
+                  ("nameSubtext", items.sql_text(edit.rank_text))]
         if edit.description is not None:
-            values.append(("description", _sql_text(edit.description)))
+            values.append(("description", items.sql_text(edit.description)))
         values += [(column, str(value)) for column, value in edit.changes]
         if edit.script_name is not None:
-            values.append(("script_name", _sql_text(edit.script_name)))
+            values.append(("script_name", items.sql_text(edit.script_name)))
         lines += [
             "",
             edit.comment,

@@ -82,7 +82,8 @@ def check(spec, stock):
                 raise SpecError("%s: the equip spell %d is no stock spell" % (where, spell))
 
 
-def _sql_text(value):
+def sql_text(value):
+    """A MySQL string literal."""
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
@@ -91,7 +92,7 @@ def item_columns(item):
     and spell slot is set, so that none of the source item stays."""
     stats = item.stats + [(0, 0)] * (MAX_STATS - len(item.stats))
     spells = [(s, SPELL_TRIGGER_ON_EQUIP) for s in item.equip_spells] + [(0, 0)] * (MAX_SPELLS - len(item.equip_spells))
-    columns = [("entry", str(item.entry)), ("patch", "0"), ("name", _sql_text(item.name)),
+    columns = [("entry", str(item.entry)), ("patch", "0"), ("name", sql_text(item.name)),
                ("description", "''"), ("display_id", str(item.display_id)), ("quality", str(item.quality)),
                ("sell_price", str(item.sell_price)), ("item_level", str(item.item_level)),
                ("required_level", str(item.required_level)), ("bonding", str(item.bonding)),

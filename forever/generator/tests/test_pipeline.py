@@ -30,6 +30,7 @@ pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no 
 
 # Spell.dbc 1.12.1: 0 ID, 117 SpellIconID, 120 Name (enUS), 129 Rank (enUS), 138 Description (enUS).
 SPELL_ID, SPELL_ICON, SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION = 0, 117, 120, 129, 138
+SPELL_STRING_FIELDS = {first + k for first in (120, 129, 138, 147) for k in range(8)}
 
 
 def spec_rows(kind=None):
@@ -356,8 +357,12 @@ def test_the_other_spec_files_leave_the_warrior_output_as_it_is(out, tmp_path):
         assert set(only) < set(full), name
         for key, row in only.items():
             if name == "Spell.dbc":
-                assert full[key][:SPELL_NAME] == row[:SPELL_NAME], key
-                assert full_text(full[key][SPELL_NAME]) == only_text(row[SPELL_NAME]), key
+                # Every field: the string fields (8 locales of name, rank, description, tooltip) by text.
+                for field, value in enumerate(row):
+                    if field in SPELL_STRING_FIELDS:
+                        assert full_text(full[key][field]) == only_text(value), (key, field)
+                    else:
+                        assert full[key][field] == value, (key, field)
             else:
                 assert full[key] == row, key
     sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
