@@ -7,8 +7,8 @@ src/game/Forever/Forever.cpp): a stock row whose key has a forever row does not 
 the marker does not load either. So the stock row is gone with the rules on, and loads as usual with the
 rules off (the core then reads no forever table).
 
-How a ticket removes stock rows (any override table: skill line abilities, trainers, items, and the loot and
-item set tables of later tickets):
+How a ticket removes stock rows (any override table but those of NOT_REMOVABLE, which get no marker column:
+skill line abilities, trainers, items, gameobject loot):
 1. Its table is in build.FOREVER_TABLES, so that marker_sql gives it the column.
 2. Its module returns remove_rows(<stock table>, <the key column of the core's Table() call>, keys) lines,
    and build.server_sql puts them in the `removed` list, which it writes after marker_sql at the very end.
@@ -30,11 +30,13 @@ NOT_REMOVABLE = {
 
 
 def marker_sql(tables):
-    """The marker column of each override table in `tables` (forever_<stock table>). It comes after every
-    other row of the tables (see the module docstring)."""
+    """The marker column of each override table in `tables` (forever_<stock table>) whose stock rows can be
+    removed. It comes after every other row of the tables (see the module docstring). A table of
+    NOT_REMOVABLE gets no marker: its core loader would not honour it (forever_spell_template is read by
+    position with SELECT *, by Forever::LoadSpellTemplate, not by Table())."""
     lines = ["", "-- The removal marker (#229): a forever row with %s = 1 takes the stock rows of its key away." % MARKER]
     lines += ["ALTER TABLE `%s` ADD COLUMN `%s` TINYINT UNSIGNED NOT NULL DEFAULT 0;" % (table, MARKER)
-              for table in tables]
+              for table in tables if table[len("forever_"):] not in NOT_REMOVABLE]
     return lines
 
 

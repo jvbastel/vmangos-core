@@ -21,6 +21,8 @@ REMOVED = {"Wildthorn Mail": (16650, 9167, 16679, 12691), "Helm of the Great Chi
            "Invulnerable Mail": (16746, 9338, 16762, 12728), "Storm Gauntlets": (16661, 9579, 16692, 12703),
            "Heavy Timbermaw Belt": (23628, 12677, 23630, 19202), "Heavy Timbermaw Boots": (23629, 12678, 23631, 19204)}
 MARKER = "forever_removed"
+# The override tables whose stock rows cannot be removed: they get no marker column.
+UNMARKED = {"forever_spell_template"}
 SLA_SPELL = 2
 
 
@@ -117,12 +119,18 @@ def test_every_override_table_gets_the_marker_after_all_its_other_rows(out):
     tables = re.findall(r"^CREATE TABLE `(forever_\w+)` LIKE `\w+`;$", text, re.M)
     assert {"forever_skill_line_ability", "forever_npc_trainer", "forever_item_template",
             "forever_spell_template"} <= set(tables)
-    for table in tables:
+    for table in set(tables) - UNMARKED:
         alter = "ALTER TABLE `%s` ADD COLUMN `%s` TINYINT UNSIGNED NOT NULL DEFAULT 0;" % (table, MARKER)
         assert text.count(alter) == 1, table
         after = text[text.index(alter):]
         # A row copied with SELECT * after the marker column has one column too few: the load would fail.
         assert not re.search(r"INSERT INTO `%s` SELECT \* FROM" % table, after), table
+
+
+def test_forever_spell_template_gets_no_marker(out):
+    # The core reads forever_spell_template by position with SELECT * (Forever::LoadSpellTemplate), not by
+    # Table(), and a spell cannot be removed (removals.NOT_REMOVABLE): a marker there would not be honoured.
+    assert "ALTER TABLE `forever_spell_template` ADD COLUMN" not in sql(out)
 
 
 def test_the_core_reads_the_marker_of_the_generator():

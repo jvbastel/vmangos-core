@@ -226,6 +226,8 @@ void Forever::LoadSpellTemplate(std::function<void(uint32)> const& resize, std::
     }
     resize(maxId + 1);
 
+    // Read by position with SELECT *: forever_spell_template has no removal marker column (a spell cannot be
+    // removed, forever/generator/forever_gen/removals.py NOT_REMOVABLE), so its rows have the stock columns only.
     result = WorldDatabase.PQuery("SELECT * FROM `forever_spell_template` t1 WHERE `build`=(SELECT MAX(`build`) FROM `forever_spell_template` t2 WHERE t1.`entry`=t2.`entry` && `build` <= %u)", SUPPORTED_CLIENT_BUILD);
     uint32 count = 0;
     if (result)
