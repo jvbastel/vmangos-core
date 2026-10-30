@@ -38,6 +38,7 @@
 #include "ProgressBar.h"
 #include "Language.h"
 #include "PoolManager.h"
+#include "Forever.h"
 #include "GameEventMgr.h"
 #include "Spell.h"
 #include "AccountMgr.h"
@@ -9766,7 +9767,7 @@ void ObjectMgr::LoadGameObjectForQuests()
 void ObjectMgr::LoadSkillLineAbility()
 {
     // Getting the maximum ID.
-    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT MAX(`id`) FROM `skill_line_ability` WHERE `build`=%u", SUPPORTED_CLIENT_BUILD));
+    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT MAX(`id`) FROM %s WHERE `build`=%u", Forever::Table("skill_line_ability", "id").c_str(), SUPPORTED_CLIENT_BUILD));
 
     if (!result)
     {
@@ -9780,7 +9781,7 @@ void ObjectMgr::LoadSkillLineAbility()
     uint32 maxSkillLineAbilityId = fields[0].GetUInt32() + 1;
 
     // Actually loading the skills.
-    result = WorldDatabase.PQuery("SELECT * FROM `skill_line_ability` WHERE `build`=%u", SUPPORTED_CLIENT_BUILD);
+    result = WorldDatabase.PQuery("SELECT * FROM %s WHERE `build`=%u", Forever::Table("skill_line_ability", "id").c_str(), SUPPORTED_CLIENT_BUILD);
 
     if (!result)
     {

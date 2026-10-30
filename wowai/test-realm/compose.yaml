@@ -84,6 +84,9 @@ services:
       - ${WOWAI_REALM_DATA:?}:/opt/vmangos/storage/data:ro
       - ${WOWAI_REALM_DIR:?}/storage/mangosd/logs:/opt/vmangos/storage/logs
       - ${WOWAI_REALM_DIR:?}/storage/mangosd/honor:/opt/vmangos/storage/honor
+      # The Forever data that the kit generates (realm.sh realm_forever). An
+      # older .env has no WOWAI_FOREVER_DATA until the next `realm up`.
+      - ${WOWAI_FOREVER_DATA:-./forever}:/opt/vmangos/storage/forever:ro
     environment:
       - VMANGOS_DEPLOY_VERSION=1
       - TZ=${WOWAI_REALM_TZ:-Etc/UTC}

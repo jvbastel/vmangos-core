@@ -59,6 +59,7 @@
 #include "MovementPacketSender.h"
 #include "Errors.h"
 #include "Utilities/Random.h"
+#include "Forever.h"
 
 #include <limits>
 
@@ -279,6 +280,8 @@ void Unit::Update(uint32 update_diff, uint32 p_time)
 #endif
 
                         ClearInCombat();
+                        // WOWAI Forever rules (#218): Lingering Rage holds the rage after combat.
+                        Forever::StartLingeringRage(this);
                     }
                 }
             }
@@ -416,7 +419,8 @@ bool Unit::UpdateMeleeAttackingState()
 {
     Unit* pVictim = GetVictim();
 
-    if (!pVictim || IsNonMeleeSpellCasted(false))
+    // WOWAI Forever rules (#217): Improved Slam swings through the cast of Slam.
+    if (!pVictim || (IsNonMeleeSpellCasted(false) && !Forever::SwingsThroughCast(this)))
         return false;
 
     if (!IsAttackReady(BASE_ATTACK) && !(IsAttackReady(OFF_ATTACK) && HaveOffhandWeapon()))
@@ -725,7 +729,8 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
             // Rage on outgoing parry/dodge
             if (cleanDamage->hitOutCome == MELEE_HIT_PARRY || cleanDamage->hitOutCome == MELEE_HIT_DODGE)
             {
-                if (cleanDamage->damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE))
+                // WOWAI Forever rules (#214): a Warrior gets no rage from a dodge or parry.
+                if (cleanDamage->damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE) && !Forever::NoRageForAvoidedSwing(this))
                     ((Player*)this)->RewardRage(cleanDamage->damage*0.75, true);
             }
 
@@ -796,8 +801,13 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
     }
 
     // Rage from Damage made (only from direct weapon damage)
-    if (damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE))
+    // WOWAI Forever rules (#214): a Warrior's rage comes from the weapon speed.
+    if (damage && damagetype == DIRECT_DAMAGE && this != pVictim && IsPlayer() && (GetPowerType() == POWER_RAGE) && !Forever::RewardSwingRage(this, cleanDamage))
         ((Player*)this)->RewardRage(damage, true);
+
+    // WOWAI Forever rules (#218): the Gore Drinker heal of a melee attack.
+    if (damage)
+        Forever::OnMeleeDamageDealt(this, pVictim, damagetype, cleanDamage, spellProto);
 
     if (Creature* creaVictim = pVictim->ToCreature())
     {
@@ -875,6 +885,9 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
             {
                 ((Player*)pVictim)->RewardRage(damage, false);
             }
+
+            // WOWAI Forever rules (#218): Blood Craze after a hit of more than 20% of maximum health.
+            Forever::OnDamageTaken(this, pVictim, damage, damagetype);
 
             // random durability for items (HIT TAKEN)
             if (roll_chance_f(sWorld.getConfig(CONFIG_FLOAT_RATE_DURABILITY_LOSS_DAMAGE)))
@@ -1102,6 +1115,9 @@ void Unit::Kill(Unit* pVictim, SpellEntry const* spellProto, bool durabilityLoss
     // To be replaced if possible using ProcDamageAndSpell
     if (pVictim != this) // The one who has the fatal blow
         ProcDamageAndSpell(ProcSystemArguments(pVictim, PROC_FLAG_KILL, PROC_FLAG_HEARTBEAT, PROC_EX_NONE, 0, 0));
+
+    // WOWAI Forever rules (#213): the Warrior with the killing blow gets Victorious.
+    Forever::OnKillForVictoryRush(this, pVictim);
 
     DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamageAttackStop");
 
@@ -2237,7 +2253,7 @@ void Unit::AttackerStateUpdate(Unit* pVictim, WeaponAttackType attType, bool ext
     if (!pVictim->IsAlive())
         return;
 
-    if (!extra && IsNonMeleeSpellCasted(false))
+    if (!extra && IsNonMeleeSpellCasted(false) && !Forever::SwingsThroughCast(this))
         return;
 
     if (attType != BASE_ATTACK && attType != OFF_ATTACK)
@@ -2569,6 +2585,8 @@ float Unit::GetUnitCriticalChance(WeaponAttackType attackType, Unit const* pVict
                 crit = 0.0f;
                 break;
         }
+        // WOWAI Forever rules (#217): Weaponmaster with an axe or polearm.
+        crit += Forever::WeaponmasterCritBonus(this, attackType);
     }
     else
     {
@@ -8900,6 +8918,8 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* pTarget, uint32 procFlag,
                     ModifyAuraState(AURA_STATE_DEFENSE, true);
                     StartReactiveTimer(REACTIVE_DEFENSE, pTarget->GetObjectGuid());
                 }
+                // WOWAI Forever rules (#219): Master of Defense gives Rage on a dodge or parry with a shield.
+                Forever::OnDodgeOrParry(this, procExtra);
             }
             else //For attacker
             {
@@ -8909,6 +8929,16 @@ void Unit::ProcSkillsAndReactives(bool isVictim, Unit* pTarget, uint32 procFlag,
                     static_cast<Player*>(this)->AddComboPoints(pTarget, 1);
                     StartReactiveTimer(REACTIVE_OVERPOWER, pTarget->GetObjectGuid());
                 }
+            }
+        }
+
+        // WOWAI Forever rules (#217): Bloodthrill opens Overpower on a target with the Warrior's Rend.
+        if (!isVictim)
+        {
+            if (uint32 const window = Forever::BloodthrillOverpower(this, pTarget, procFlag, procExtra, attType, procSpell))
+            {
+                m_reactiveTimer[REACTIVE_OVERPOWER] = window;
+                m_reactiveTarget[REACTIVE_OVERPOWER] = pTarget->GetObjectGuid();
             }
         }
     }
@@ -8990,6 +9020,9 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit* pTarget, ProcSystemArgumen
 #else
         auto result = IsTriggeredAtSpellProcEvent(pTarget, itr.second, data.procSpell, procFlag, data.procExtra, data.attType, isVictim, spellProcEvent, data.isSpellTriggeredByAuraOrItem);
 #endif
+        // WOWAI Forever rules (#217): no Weaponmaster sword proc from Shield Bash or Shield Slam.
+        if (result == SPELL_PROC_TRIGGER_OK && Forever::WeaponmasterBlocksProc(this, itr.second->GetSpellProto(), data.procSpell))
+            continue;
         if (result != SPELL_PROC_TRIGGER_OK)
         {
             if (result == SPELL_PROC_TRIGGER_ROLL_FAILED &&

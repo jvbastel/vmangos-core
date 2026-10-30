@@ -521,6 +521,12 @@ file(GLOB game_BOT_SRCS CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/Bots/*.h"
 )
 list(APPEND game_SRCS ${game_BOT_SRCS})
+# The fork's own folder Forever: the Forever rules (jvbastel/WOWAI#204), also a glob.
+file(GLOB game_FOREVER_SRCS CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/Forever/*.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Forever/*.h"
+)
+list(APPEND game_SRCS ${game_FOREVER_SRCS})
 
 if((${CMAKE_VERSION} VERSION_LESS "3.16") OR USE_PCH_OLD)
   list(APPEND game_SRCS
@@ -557,6 +563,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouse
   ${CMAKE_CURRENT_SOURCE_DIR}/Battlegrounds
   ${CMAKE_CURRENT_SOURCE_DIR}/Bots
+  ${CMAKE_CURRENT_SOURCE_DIR}/Forever
   ${CMAKE_CURRENT_SOURCE_DIR}/Chat
   ${CMAKE_CURRENT_SOURCE_DIR}/Commands
   ${CMAKE_CURRENT_SOURCE_DIR}/Database

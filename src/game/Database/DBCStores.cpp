@@ -25,6 +25,7 @@
 #include "DBCfmt.h"
 #include "SpellMgr.h"
 #include "ObjectMgr.h"
+#include "Forever.h"
 
 #include <map>
 #include <vector>
@@ -323,7 +324,11 @@ void LoadDBCStores(std::string const& dataPath)
     LoadDBC(availableDbcLocales, bar, badDbcFiles, sSpellShapeshiftFormStore, dbcPath, "SpellShapeshiftForm.dbc");
     LoadDBC(availableDbcLocales, bar, badDbcFiles, sSpellVisualStore,         dbcPath, "SpellVisual.dbc");
     LoadDBC(availableDbcLocales, bar, badDbcFiles, sStableSlotPricesStore,    dbcPath, "StableSlotPrices.dbc");
-    LoadDBC(availableDbcLocales, bar, badDbcFiles, sTalentStore,              dbcPath, "Talent.dbc");
+    // WOWAI Forever rules: the Forever DBC folder has no locale subfolders. Its loads use their own
+    // locale mask, so that they do not clear the locale bits of the stock DBC files loaded after them.
+    uint32 foreverDbcLocales = 0;
+    uint32& talentDbcLocales = Forever::RulesOn() ? foreverDbcLocales : availableDbcLocales;
+    LoadDBC(talentDbcLocales, bar, badDbcFiles, sTalentStore,                Forever::DbcPath(dbcPath), "Talent.dbc");
 
     // create talent spells set
     for (uint32 i = 0; i < sTalentStore.GetNumRows(); ++i)
@@ -335,7 +340,8 @@ void LoadDBCStores(std::string const& dataPath)
                 sTalentSpellPosMap[talentInfo->RankID[j]] = TalentSpellPos(i, j);
     }
 
-    LoadDBC(availableDbcLocales, bar, badDbcFiles, sTalentTabStore,           dbcPath, "TalentTab.dbc");
+    LoadDBC(talentDbcLocales, bar, badDbcFiles, sTalentTabStore,             Forever::DbcPath(dbcPath), "TalentTab.dbc");
+    Forever::LoadStockTalents(dbcPath);
 
     LoadDBC(availableDbcLocales, bar, badDbcFiles, sTaxiPathStore,            dbcPath, "TaxiPath.dbc");
     for (uint32 i = 1; i < sTaxiPathStore.GetNumRows(); ++i)

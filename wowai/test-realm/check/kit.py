@@ -19,13 +19,16 @@ realm.roster() and realm.bot(role, faction) give the bots by role, so a
 check names no bot (the roster changes).
 pos(client, guid) and stat(client, guid) read a unit with GM commands.
 dist(a, b), kill(client, guid), and revive_all(realm, client, bots) are the
-small helpers that the checks share.
+small helpers that the checks share. spawn(realm, client), sturdy(client,
+guid) and saved_spells(realm, client) serve the spell and talent checks,
+with wowclient.SpellClient as the client class.
 Realm(62) works outside the check command too.
 """
 import collections
 import math
 import os
 import re
+import struct
 import subprocess
 import sys
 import time
@@ -41,6 +44,10 @@ ROLES = ["tank", "healer", "melee", "ranged"]
 ALLIANCE_RACES = (1, 3, 4, 7)
 # A bot of the roster (Realm.roster). faction: "horde" or "alliance".
 Bot = collections.namedtuple("Bot", "name role race cls faction")
+# A target for the combat checks: Mottled Boar (Durotar), a neutral beast that can be attacked.
+BOAR = 3098
+# A GM stun without an end (`.aura FREEZE`): the target stays where it is and does not hit back.
+FREEZE = 9454
 
 
 class Realm:
@@ -150,6 +157,32 @@ def pos(client, guid):
     return None
 
 
+def clear_backpack(realm, client):
+    """Destroys every item in the backpack of the client's character, as a player does (CMSG_DESTROYITEM),
+    so that a check that runs again on the same character can add its items: a full backpack makes
+    `.additem` fail without an error the check sees. (Not `.deleteitem`: on this core it can crash
+    mangosd, see notes/ticket-204-results.md, Batch 3+4 test.)"""
+    client.gm(".save", select=client.guid)
+    rows = realm.sql("characters", "SELECT slot FROM character_inventory WHERE guid = %d AND bag = 0 "
+                     "AND slot BETWEEN 23 AND 38" % client.guid)
+    for line in rows.split():
+        if line.isdigit():
+            client.send(wowclient.CMSG_DESTROYITEM, struct.pack("<BBBBBB", 255, int(line), 0, 0, 0, 0))
+    client.pump(1)
+
+
+def stand_before(client, guid, distance=2.0):
+    """Moves the client's character `distance` yards west (-X) of the unit, facing it (east, +X). A unit
+    read where it stands now: a new creature can wander off its spawn point before a GM stun lands, so
+    the place of the character at the spawn is not the unit's place. True when the unit was found."""
+    where = pos(client, guid)
+    if where is None:
+        return False
+    client.move(wowclient.MSG_MOVE_HEARTBEAT, where[0] - distance, where[1], where[2], 0.0)
+    client.pump(1)
+    return True
+
+
 def stat(client, guid):
     """(health, max health, mana, max mana) of a unit from `.unit statinfo`;
     -1 for a value that the answer does not have."""
@@ -176,6 +209,31 @@ def revive_all(realm, client, bots):
     for bot in bots:
         realm.soap(".revive %s" % bot)
     client.gm(".revive", select=client.guid)
+
+
+def spawn(realm, client, entry=BOAR, wait=1.5):
+    """Spawns the creature `entry` at the client's place (GM `.npc spawn add`); its guid."""
+    client.gm(".npc spawn add %d" % entry, wait=wait)
+    low = int(realm.sql("mangos", "SELECT MAX(guid) FROM creature WHERE id = %d" % entry).split()[-1])
+    return (0xF130 << 48) | (entry << 24) | low
+
+
+def sturdy(client, guid, freeze=True):
+    """Gives a spawned creature a million health and, with `freeze`, the endless GM stun."""
+    client.gm(".modify hp 1000000 1000000", select=guid)
+    if freeze:
+        client.gm(".aura %d" % FREEZE, select=guid)
+
+
+def saved_spells(realm, client, enabled_only=True):
+    """The spells in character_spell of the client's character after a `.save`. With `enabled_only`,
+    without the disabled rows (a spell that a switch or a lost talent took away)."""
+    client.gm(".save", select=client.guid)
+    client.pump(1)
+    query = "SELECT spell FROM character_spell WHERE guid = %d" % client.guid
+    if enabled_only:
+        query += " AND disabled = 0"
+    return {int(row) for row in realm.sql("characters", query).splitlines() if row}
 
 
 class Results:

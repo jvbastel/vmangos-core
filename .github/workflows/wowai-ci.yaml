@@ -10,7 +10,8 @@
 # `wowai/dev-container/Dockerfile`. Keep the three in step.
 #
 # The scripts job runs shellcheck on each shell script under wowai/ (see
-# `wowai/shellcheck.sh`) and the script tests that need no Docker.
+# `wowai/shellcheck.sh`), the tests of the Forever generator
+# (forever/generator, pytest) and the script tests that need no Docker.
 name: WOWAI CI
 
 # It runs only on pull requests into wowai, not on every push, to save CI
@@ -96,6 +97,11 @@ jobs:
         shell: bash
         run: ctest --test-dir build --output-on-failure
 
+      # The pure Forever rules (*Rules.h, ForeverSpellIds.h of src/game/Forever), with the host compiler.
+      - name: Run the Forever rules tests
+        shell: bash
+        run: wowai/tests/forever-rules.test.sh
+
       - name: Build src/bots alone (no game headers) and run its tests
         shell: bash
         run: wowai/bots-test.sh "$PWD/src/bots" "$RUNNER_TEMP/bots"
@@ -126,6 +132,17 @@ jobs:
       - name: Trust the checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # The data pipeline of the Forever rules (spec jvbastel/WOWAI#204, Testing Decision 1): spec
+      # parsing, the rule checks and refusals, the DBC and SQL output, the client data patch, and the
+      # spell IDs of the C++ code against forever/warrior.tsv.
+      - name: Run the Forever generator tests
+        shell: bash
+        working-directory: forever/generator
+        run: uv run --frozen pytest -q
+
       - name: Run shellcheck on the wowai scripts
         shell: bash
         run: wowai/shellcheck.sh
@@ -152,6 +169,7 @@ jobs:
           wowai/release/tests/release-core.test.sh
           wowai/tests/check-kit.test.sh --quick
           wowai/tests/realm-pool.test.sh
+          wowai/tests/forever-client.test.sh
           wowai/tests/game-layer-map.test.sh
           python3 wowai/tests/test_wowclient.py
           python3 wowai/tests/test_runs.py

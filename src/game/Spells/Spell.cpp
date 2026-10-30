@@ -48,6 +48,7 @@
 #include "Geometry.h"
 #include "Anticheat.h"
 #include "Utilities/Random.h"
+#include "Forever.h"
 
 using namespace Spells;
 
@@ -1781,6 +1782,8 @@ void Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask)
             if (duration > 0)
             {
                 unit->ApplyDiminishingToDuration(m_diminishGroup, duration, m_caster, m_diminishLevel, isReflected);
+                // WOWAI Forever rules (#219): Iron Will shortens Charm and Stun on a Warrior.
+                Forever::ApplyIronWill(unit, m_spellAuraHolder, duration);
 
                 // Fully diminished
                 if (duration == 0)
@@ -3802,7 +3805,12 @@ void Spell::cast(bool skipCheck)
         }
     }
 
-    if (m_casterUnit && IsMeleeAttackResetSpell() && !(m_spellInfo->AttributesEx2 & SPELL_ATTR_EX2_DO_NOT_RESET_COMBAT_TIMERS))
+    // WOWAI Forever rules (#218): Gore Drinker and Improved Berserker Rage react to the cast.
+    Forever::OnSpellCast(m_casterUnit, m_spellInfo);
+
+    // WOWAI Forever rules (#217): Improved Slam keeps the swing timers.
+    if (m_casterUnit && IsMeleeAttackResetSpell() && !(m_spellInfo->AttributesEx2 & SPELL_ATTR_EX2_DO_NOT_RESET_COMBAT_TIMERS) &&
+        !Forever::KeepsSwingTimer(m_casterUnit, m_spellInfo))
     {
         m_casterUnit->ResetAttackTimer(BASE_ATTACK);
         if (m_casterUnit->HaveOffhandWeapon())
@@ -5699,6 +5707,9 @@ SpellCastResult Spell::CheckCast(bool strict)
         if (castResult != SPELL_CAST_OK)
             return castResult;
     }
+    // WOWAI Forever rules (#219): Defiance and Bastion of a Warrior need a shield.
+    if (m_spellInfo->IsPassiveSpell() && Forever::ShieldTalentBlocked(m_casterUnit, m_spellInfo))
+        return SPELL_FAILED_DONT_REPORT;
 
     if (!m_IsTriggeredSpell)
     {

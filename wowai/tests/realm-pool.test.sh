@@ -179,4 +179,103 @@ check "no command removes a slot" bash -c "! grep -E ' (down|rm)( |$)' '$FAKE_DO
 check "each Compose project is a slot or the baseline" bash -c \
   "! grep -oE -- '--project-name [^ ]+' '$FAKE_DOCKER_LOG' | grep -vE -- '--project-name wowai-test-([1-5]|baseline)$'"
 
+# --- Core settings of a lease, with the real dev script ---
+
+# A vmangos-deploy folder with an example mangosd.conf, extracted data, and a
+# chat service: what `realm config` reads.
+mkdir -p "$tmp/deploy/config" "$tmp/data/5875" "$WOWAI_BOTCHAT_SRC"
+touch "$WOWAI_BOTCHAT_SRC/Dockerfile"
+cat > "$tmp/deploy/config/mangosd.conf.example" <<'EOF'
+WowPatch = 10
+SOAP.Enabled = 0
+Rate.XP.Kill = 1
+Instance.PerHourLimit = 5
+Instance.UnloadDelay = 1800000
+LogLevel.File = 0
+EOF
+touch "$tmp/deploy/config/realmd.conf.example"
+export WOWAI_DEPLOY_DIR="$tmp/deploy" WOWAI_REALM_DATA="$tmp/data"
+
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 21 acquire --set Rate.XP.Kill=3 --set 'Forever.DataDir="/opt/forever dbc"'
+check "acquire with --set succeeds" test "$code" -eq 0
+# shellcheck disable=SC2016 # $1 expands in the inner bash
+check "acquire does not give --set to the dev script" bash -c '! grep -q -- --set <<<"$1"' _ "$out"
+s21="$(slot_of 21)"
+conf="$WOWAI_POOL_DIR/$s21/config/mangosd.conf"
+run_kit --ticket 21 config
+check "config succeeds" test "$code" -eq 0
+check "a setting of the lease that the file has gets its value" grep -qx 'Rate.XP.Kill = 3' "$conf"
+check "a setting of the lease that the file lacks is added" grep -qx 'Forever.DataDir = "/opt/forever dbc"' "$conf"
+check "the file has each setting once" test "$(grep -c '^Rate.XP.Kill' "$conf")" = 1
+check "the scripted runs still get their instance limit" grep -qx 'Instance.PerHourLimit = 100000' "$conf"
+check "the scripted runs still get their unload delay" grep -qx 'Instance.UnloadDelay = 120000' "$conf"
+check "the kit still raises the file log level" grep -qx 'LogLevel.File = 3' "$conf"
+check "SOAP is still on" grep -qx 'SOAP.Enabled = 1' "$conf"
+inode="$(stat -c %i "$conf")"
+
+run_kit --ticket 21 release
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 22 acquire
+check "the next lease gets the same slot" test "$(slot_of 22)" = "$s21"
+run_kit --ticket 22 config
+check "a lease with no settings gets the default value" grep -qx 'Rate.XP.Kill = 1' "$conf"
+check "a setting that the last lease added is gone" bash -c "! grep -q '^Forever.DataDir' '$conf'"
+check "the scripted run settings stay with no lease settings" grep -qx 'Instance.PerHourLimit = 100000' "$conf"
+check "the configuration file keeps its inode" test "$(stat -c %i "$conf")" = "$inode"
+
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 22 acquire --set Rate.XP.Kill=2
+run_kit --ticket 22 config
+check "a second acquire of a held lease writes its own settings" grep -qx 'Rate.XP.Kill = 2' "$conf"
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 22 acquire
+run_kit --ticket 22 config
+check "a second acquire with no settings gets the defaults" grep -qx 'Rate.XP.Kill = 1' "$conf"
+
+for bad in 'Rate.XP.Kill' '=1' 'Bad Name=1' $'Rate.XP.Kill=a\nb'; do
+  WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 23 acquire --set "$bad"
+  check "--set $(printf %q "$bad") is refused" test "$code" -ne 0
+done
+check "a refused request gets no lease" test -z "$(slot_of 23)"
+
+# --- The Forever rules of a lease (spec #204) ---
+
+# The stock DBC files, when this machine has them: then the kit really
+# generates the Forever data.
+stock="${FOREVER_STOCK_DBC:-/mnt/c/Games/vmangos-deploy/storage/mangosd/extracted-data/5875/dbc}"
+[ ! -f "$stock/Spell.dbc" ] || ln -s "$stock" "$tmp/data/5875/dbc"
+
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 24 acquire --forever --set Rate.XP.Kill=3
+check "acquire with --forever succeeds" test "$code" -eq 0
+s24="$(slot_of 24)"
+conf="$WOWAI_POOL_DIR/$s24/config/mangosd.conf"
+run_kit --ticket 24 config
+# With no stock DBC the generator cannot run, and config stops (a Forever
+# realm never starts without its data). It writes mangosd.conf first.
+if [ -L "$tmp/data/5875/dbc" ]; then
+  check "config of a Forever lease succeeds" test "$code" -eq 0
+else
+  check "config of a Forever lease with no stock DBC stops at the generator" \
+    bash -c "[ $code -ne 0 ] && grep -q 'the Forever data generator failed' <<<\"\$1\"" _ "$out"
+fi
+check "a Forever lease turns the Forever rules on" grep -qx 'Forever.Rules = 1' "$conf"
+check "a Forever lease names the mounted Forever DBC folder" \
+  grep -qx 'Forever.DataDir = "/opt/vmangos/storage/forever/dbc"' "$conf"
+check "--forever keeps the other settings of the request" grep -qx 'Rate.XP.Kill = 3' "$conf"
+check "the .env names the Forever folder of the slot" \
+  grep -qx "WOWAI_FOREVER_DATA=$WOWAI_POOL_DIR/$s24/forever" "$WOWAI_POOL_DIR/$s24/.env"
+if [ -L "$tmp/data/5875/dbc" ]; then
+  check "a Forever lease generates the Forever talent tables" test -f "$WOWAI_POOL_DIR/$s24/forever/dbc/Talent.dbc"
+  check "a Forever lease generates the Forever server tables" \
+    grep -q 'INSERT INTO .forever_spell_template.' "$WOWAI_POOL_DIR/$s24/forever/sql/forever_world.sql"
+else
+  echo "SKIP: no stock DBC folder at $stock: the Forever data is not generated"
+fi
+
+run_kit --ticket 24 release
+WOWAI_KIT_DEV="$tmp/fake-dev" run_kit --ticket 25 acquire
+run_kit --ticket 25 config
+check "the next lease gets the slot of the Forever lease" test "$(slot_of 25)" = "$s24"
+check "a lease after a Forever lease has the Forever rules off" bash -c "! grep -q '^Forever.Rules = 1' '$conf'"
+check "a lease after a Forever lease has no Forever DBC folder" bash -c "! grep -q '^Forever.DataDir' '$conf'"
+check "a lease after a Forever lease has no Forever data" \
+  test -z "$(find "$WOWAI_POOL_DIR/$s24/forever" -mindepth 1 -print -quit)"
+
 finish

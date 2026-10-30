@@ -25,6 +25,7 @@
 #include "Database/DatabaseEnv.h"
 #include "DBCStores.h"
 #include "SpellMgr.h"
+#include "Forever.h"
 
 void CharacterDatabaseCleaner::CleanDatabase()
 {
@@ -188,7 +189,8 @@ void CharacterDatabaseCleaner::CleanCharacterSkills()
 
 bool CharacterDatabaseCleaner::SpellCheck(uint32 spell_id)
 {
-    return sSpellMgr.IsExistingSpellId(spell_id);
+    // WOWAI Forever rules (#204, review S1): keep a Forever-only spell while the rules are off.
+    return sSpellMgr.IsExistingSpellId(spell_id) || Forever::KeepsRowsOfUnknownSpell(spell_id);
 }
 
 void CharacterDatabaseCleaner::CleanCharacterSpell()

@@ -188,6 +188,13 @@ namespace Bots
         return false;
     }
 
+    std::string BotClassRefusal(BotClass botClass, bool foreverRules)
+    {
+        if (foreverRules && botClass == BotClass::Warrior)
+            return "No Warrior bot: the Forever rules are on, and the player plays the Warrior.";
+        return "";
+    }
+
     BotRecipeResult ParseBotRecipe(std::vector<std::string> const& allWords)
     {
         char const* const usage = "Usage: <name> <class> <role> [race|horde|alliance] [gear <template>]";

@@ -83,6 +83,7 @@
 #include "world/scourge_invasion.h"
 #include "world/world_event_wareffort.h"
 #include "BotHooks.h"
+#include "Forever.h"
 
 #include <climits>
 
@@ -2277,7 +2278,8 @@ void Player::RegenerateAll()
             HasAuraType(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT) || IsPolymorphed())
     {
         RegenerateHealth();
-        if (!IsInCombat() && !HasAuraType(SPELL_AURA_INTERRUPT_REGEN))
+        // WOWAI Forever rules (#218): no rage decay while Lingering Rage runs.
+        if (!IsInCombat() && !HasAuraType(SPELL_AURA_INTERRUPT_REGEN) && Forever::RageDecays(this))
             Regenerate(POWER_RAGE);
     }
 
@@ -2313,6 +2315,8 @@ void Player::Regenerate(Powers power)
         {
             float RageDecreaseRate = sWorld.getConfig(CONFIG_FLOAT_RATE_POWER_RAGE_LOSS);
             addValue = 20 * RageDecreaseRate;               // 2 rage by tick (= 2 seconds => 1 rage/sec)
+            // WOWAI Forever rules (#204): Anger Management makes the loss smaller (client 70685).
+            Forever::RageDecay(this, addValue);
         }
         break;
         case POWER_ENERGY:                                  // Regenerate energy (rogue)
@@ -3215,6 +3219,7 @@ void Player::GiveLevel(uint32 level)
         pet->SynchronizeLevelWithOwner();
 
     BotHooks::OnLevelUp(this);
+    Forever::LearnBaselineSpells(this);
 }
 
 void Player::UpdateFreeTalentPoints(bool resetIfNeed)
@@ -3465,7 +3470,8 @@ bool Player::AddSpell(uint32 spellId, bool active, bool learning, bool dependent
     if (!spellInfo)
     {
         // do character spell book cleanup (all characters)
-        if (!IsInWorld() && !learning)                      // spell load case
+        // WOWAI Forever rules (#204, review S1): not for a Forever-only spell while the rules are off.
+        if (!IsInWorld() && !learning && !Forever::KeepsRowsOfUnknownSpell(spellId)) // spell load case
         {
             sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "Player::AddSpell: nonexistent in SpellStore spell #%u request, deleting for all characters in `character_spell`.", spellId);
             CharacterDatabase.PExecute("DELETE FROM `character_spell` WHERE `spell` = '%u'", spellId);
@@ -3795,6 +3801,9 @@ void Player::LearnSpell(uint32 spellId, bool dependent, bool talent)
                 LearnSpell(i->second, false);
         }
     }
+
+    if (!dependent)
+        Forever::OnSpellLearned(this, spellId);
 }
 
 void Player::RemoveSpell(uint32 spellId, bool disabled, bool learnLowRank)
@@ -3927,6 +3936,8 @@ void Player::RemoveSpell(uint32 spellId, bool disabled, bool learnLowRank)
     // remove from spell book if not replaced by lesser rank
     if (!previousActivated)
         SendSpellRemoved(spellId);
+
+    Forever::OnSpellRemoved(this, spellId);
 }
 
 void Player::_LoadSpellCooldowns(std::unique_ptr<QueryResult> result)
@@ -6874,6 +6885,10 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply)
     // Some bonus parry talents are weapon specific in early patches.
     if (slot == EQUIPMENT_SLOT_MAINHAND)
         UpdateParryPercentage();
+
+    // WOWAI Forever rules (#219): Defiance and Bastion follow the shield in the off hand.
+    if (slot == EQUIPMENT_SLOT_OFFHAND)
+        Forever::OnOffHandChanged(this, item, apply);
 
     sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "_ApplyItemMods complete.");
 }

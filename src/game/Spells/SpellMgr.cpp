@@ -29,6 +29,7 @@
 #include "ScriptMgr.h"
 #include "Unit.h"
 #include "BattleGround.h"
+#include "Forever.h"
 
 using namespace Spells;
 
@@ -318,7 +319,7 @@ void SpellMgr::LoadSpellProcEvents()
     mSpellProcEventMap.clear();                             // need for reload case
 
     //                                                                0        1             2                  3                   4                   5                   6            7         8          9               10
-    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `entry`, `SchoolMask`, `SpellFamilyName`, `SpellFamilyMask0`, `SpellFamilyMask1`, `SpellFamilyMask2`, `procFlags`, `procEx`, `ppmRate`, `CustomChance`, `Cooldown` FROM `spell_proc_event` WHERE %u BETWEEN `build_min` AND `build_max`", SUPPORTED_CLIENT_BUILD));
+    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `entry`, `SchoolMask`, `SpellFamilyName`, `SpellFamilyMask0`, `SpellFamilyMask1`, `SpellFamilyMask2`, `procFlags`, `procEx`, `ppmRate`, `CustomChance`, `Cooldown` FROM %s WHERE %u BETWEEN `build_min` AND `build_max`", Forever::Table("spell_proc_event", "entry").c_str(), SUPPORTED_CLIENT_BUILD));
     if (!result)
     {
         BarGoLink bar(1);
@@ -836,7 +837,7 @@ void SpellMgr::LoadSpellThreats()
     mSpellThreatMap.clear();                                // need for reload case
 
     //                                                                0        1         2             3
-    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `entry`, `threat`, `multiplier`, `inverse_effect_mask` FROM `spell_threat` WHERE %u BETWEEN `build_min` AND `build_max`", SUPPORTED_CLIENT_BUILD));
+    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `entry`, `threat`, `multiplier`, `inverse_effect_mask` FROM %s WHERE %u BETWEEN `build_min` AND `build_max`", Forever::Table("spell_threat", "entry").c_str(), SUPPORTED_CLIENT_BUILD));
     if (!result)
     {
         BarGoLink bar(1);
@@ -1622,7 +1623,7 @@ void SpellMgr::LoadSpellChains()
     }
 
     // load custom case
-    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `spell_id`, `prev_spell`, `first_spell`, `rank`, `req_spell` FROM `spell_chain` WHERE %u BETWEEN `build_min` AND `build_max`", SUPPORTED_CLIENT_BUILD));
+    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `spell_id`, `prev_spell`, `first_spell`, `rank`, `req_spell` FROM %s WHERE %u BETWEEN `build_min` AND `build_max`", Forever::Table("spell_chain", "spell_id").c_str(), SUPPORTED_CLIENT_BUILD));
     if (!result)
     {
         BarGoLink bar(1);
@@ -3114,7 +3115,8 @@ void SpellMgr::LoadExistingSpellIds()
     mExistingSpellsSet.clear();
 
     Field* fields;
-    std::unique_ptr<QueryResult> result(WorldDatabase.Query("SELECT DISTINCT `entry` FROM `spell_template`"));
+    // WOWAI Forever rules: with Forever.Rules = 1, the Forever spell IDs exist too.
+    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT DISTINCT `entry` FROM %s", Forever::Table("spell_template", "entry").c_str()));
 
     if (result)
     {
@@ -3742,6 +3744,10 @@ void SpellMgr::LoadSpells()
         fields = result->Fetch();
         LoadSpell(fields);
     } while (result->NextRow());
+
+    // WOWAI Forever rules (spec jvbastel/WOWAI#204): the Forever spell rows on top of the stock rows by ID.
+    Forever::LoadSpellTemplate([this](uint32 size) { if (size > mSpellEntryMap.size()) mSpellEntryMap.resize(size); },
+        [this](Field* row) { LoadSpell(row); });
 
 #if SUPPORTED_CLIENT_BUILD == CLIENT_BUILD_1_12_1
     // Load localized texts (currently we only have 1.12 locales).
