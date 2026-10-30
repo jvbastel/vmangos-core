@@ -36,7 +36,7 @@ def read_rows(path, lines):
         if kind not in KINDS:
             raise SpecError("%s: unknown kind '%s'" % (where, kind))
         if kind == ORE:
-            ores.append(_ore(raw))
+            ores.append(_ore(where, raw))
         elif kind == DROP:
             drops.append(_drop(where, raw))
         else:
@@ -44,10 +44,10 @@ def read_rows(path, lines):
     return {"items": ores, "drops": drops, "mining_cuts": cuts}
 
 
-def _ore(raw):
+def _ore(where, raw):
     return item_rows.Item(
         kind=item_rows.NEW, entry=int(raw["item"]), source_item=int(raw["sourceItem"]), name=raw["name"],
-        quality=item_rows.QUALITIES[raw["quality"]], item_level=int(raw["itemLevel"]), required_level=0,
+        quality=item_rows._named(where, "quality", raw["quality"], item_rows.QUALITIES), item_level=int(raw["itemLevel"]), required_level=0,
         bonding=item_rows.BONDINGS["none"], inventory_type=None, delay=None, damage=None, armor=0, resistances=None,
         stats=[], bonuses=[], equip_spells=[], display_id=int(raw["displayId"]), sell_price=int(raw["sellPrice"]),
         forever_item=int(raw["foreverItem"]), forever_stats="-", notes=raw["notes"])

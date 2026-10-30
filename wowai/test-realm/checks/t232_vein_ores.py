@@ -108,10 +108,11 @@ realm.sql("mangos", "INSERT INTO %s (entry, item, ChanceOrQuestChance, groupid) 
           "ON DUPLICATE KEY UPDATE ChanceOrQuestChance = 100, groupid = 0" % (TABLE, COPPER_LOOT, pyrite))
 
 name = "Pyriteon" if mode == "forever" else "Pyriteoff"
-c = realm.login("PLAYER232", name, race=2, cls=3, client_class=LootClient)
-me = c.guid
+c = None
 spawned = []
 try:
+    c = realm.login("PLAYER232", name, race=2, cls=3, client_class=LootClient)
+    me = c.guid
     c.gm(".reload gameobject_loot_template", wait=3)
     clear_backpack(realm, c)
     c.gm(".learn %d" % APPRENTICE_MINING, select=me)
@@ -143,6 +144,7 @@ finally:
                   % (TABLE, chance, group, COPPER_LOOT, pyrite))
     else:
         realm.sql("mangos", "DELETE FROM %s WHERE entry = %d AND item = %d" % (TABLE, COPPER_LOOT, pyrite))
-    c.gm(".reload gameobject_loot_template", wait=3)
+    if c is not None:
+        c.gm(".reload gameobject_loot_template", wait=3)
 
 results.finish()

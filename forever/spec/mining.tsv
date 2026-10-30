@@ -9,6 +9,8 @@
 # explore-professions.md 5a). The client has no drop rates and no spawns: the rates below are the spec's choice.
 # Only numbers and names.
 #
+# Free item ID range: 70000-79999. The ores take their IDs from here; items.tsv keeps the next free item ID.
+#
 # Rates (the `rate` column):
 #   spec      the spec's rate: Pyrite drops from the Copper and Tin Veins at the stock Malachite/Tigerseye rate, 1%
 #             in loot group 1 with the stock gems (one gem of the group at most per vein).
