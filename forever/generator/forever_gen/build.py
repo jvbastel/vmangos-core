@@ -16,7 +16,7 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, items, recipes, rules, stock_recipes
+from . import client_patch, dead_content, items, new_recipes, recipes, rules, stock_recipes
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -70,6 +70,8 @@ class Stock:
         self.skill_line_ability = Dbc.read(os.path.join(folder, "SkillLineAbility.dbc"))
         # The item models and icons (#227: an item takes a stock display).
         self.item_display_info = Dbc.read(os.path.join(folder, "ItemDisplayInfo.dbc"))
+        # The stock item IDs of the world database (#230), from the generator's own list.
+        self.item_ids = new_recipes.ItemIds.read()
 
 
 def spell_ranks(spec):
@@ -152,8 +154,14 @@ def spell_edits(spec, stock):
         script = row.fields[SCRIPT_NAME][rank] if SCRIPT_NAME in row.fields else None
         edits.append(SpellEdit(spell, source, spell_changes(row, rank), name, rank_text, description, script, comment))
     for recipe in spec.recipes:
+        # A source with a description (a stock smelt: "... smelt thorium ...") would describe another recipe.
+        description = "" if stock.spell.text(stock_by_id[recipe.source_spell][SPELL_DESCRIPTION]) else None
         edits.append(SpellEdit(recipe.spell, recipe.source_spell, recipes.spell_changes(recipe, stock), recipe.name,
-                               "", None, None, "-- Recipe %s, from spell %d." % (recipe.name, recipe.source_spell)))
+                               "", description, None, "-- Recipe %s, from spell %d." % (recipe.name, recipe.source_spell)))
+    for learn in new_recipes.learn_spells(spec):
+        edits.append(SpellEdit(learn.spell, new_recipes.LEARN_SOURCE, [("effectTriggerSpell1", learn.recipe)],
+                               learn.name, "", learn.description, None,
+                               "-- %s, teaches recipe %d, from spell %d." % (learn.name, learn.recipe, new_recipes.LEARN_SOURCE)))
     for recipe in spec.stock_recipes:
         changed = stock_recipes.spell_changes(recipe, stock)
         if changed:
@@ -259,6 +267,7 @@ def server_sql(spec, edits, stock):
     lines += _server_skill_line_abilities(skill_line_abilities(spec))
     lines += _server_baseline(baseline_spells(spec))
     lines += items.server_sql(spec.items)
+    lines += new_recipes.server_sql(spec)
     lines += stock_recipes.server_sql(spec, stock)
     return "\n".join(lines) + "\n"
 
@@ -332,12 +341,16 @@ def proc_event_sql(row):
 
 
 def generate(spec, stock_folder, out, marker_icons):
-    """Checks the spec against the stock data and the core's marker icons, then writes the three outputs
-    into `out`. A spec that breaks a rule raises a SpecError before anything is written."""
+    """Checks the spec against the stock data and the core's marker icons, leaves out the dead content
+    (dead_content.py), then writes the three outputs and the cut list (cut-list.tsv) into `out`. A spec that
+    breaks a rule raises a SpecError before anything is written. Returns the cut list."""
     stock = Stock(stock_folder)
+    # The item rules and the rules of the new rows hold for every row, also the ones the rule then cuts.
+    items.check(spec, stock)
+    new_recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
+    spec, cuts = dead_content.cut(spec)
     rules.check(spec, stock, marker_icons)
     recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
-    items.check(spec, stock)
     stock_recipes.check(spec, stock)
     edits = spell_edits(spec, stock)
     talents = in_client_order(talent_table(spec, stock))
@@ -357,4 +370,7 @@ def generate(spec, stock_folder, out, marker_icons):
     abilities.write(os.path.join(client_dbc, "SkillLineAbility.dbc"))
     with open(os.path.join(sql_dir, "forever_world.sql"), "w", encoding="utf-8", newline="\n") as file:
         file.write(sql)
+    with open(os.path.join(out, "cut-list.tsv"), "w", encoding="utf-8", newline="\n") as file:
+        file.write(dead_content.cut_list_text(cuts))
     client_patch.write(os.path.join(out, "client"))
+    return cuts
