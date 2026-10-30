@@ -1,19 +1,25 @@
 -- The frame of WowaiRole: a small movable box with one button per role.
--- A click on the picked role clears the pick. The "-" button folds the box
--- to its title bar. The place and the fold are saved per character.
+-- A click on the picked role clears the pick. The frame is hidden at login:
+-- a click on the minimap button, or /wowai, shows or hides it. The "x"
+-- button and Escape hide it. A drag moves the minimap button around the
+-- minimap. The place of the frame and of the button are saved per character.
 --
 -- To add a section (the bot panel, #198), call in a later file of the toc:
 --   WowaiRole.AddSection(height, function(section) ... end)
 -- `section` is a Frame of the given height under the sections above it. The
--- frame grows to hold it and hides it with the rest when folded. The builder
--- runs at VARIABLES_LOADED, when the frame is made. AddSection returns the
--- section: WowaiRole.SetSectionHeight(section, height) changes its height.
+-- frame grows to hold it. The builder runs at VARIABLES_LOADED, when the
+-- frame is made. AddSection returns the section:
+-- WowaiRole.SetSectionHeight(section, height) changes its height.
 
 local WIDTH = 236
 local TITLE_HEIGHT = 26
 local ROLE_HEIGHT = 30
+-- The minimap button sits on a circle of this radius around the minimap's
+-- center, at WowaiRoleDB.minimapAngle degrees (0 is right, 90 is up).
+local MINIMAP_RADIUS = 80
+local MINIMAP_ANGLE = 200
 
-local frame, foldButton
+local frame
 local roleButtons = {}
 local sections = {}   -- { height, build, frame }
 
@@ -50,33 +56,21 @@ local function Refresh()
 end
 
 function WowaiRole.Layout()
-	local folded = WowaiRoleDB.folded
-	local height = TITLE_HEIGHT
-	if not folded then
-		height = height + ROLE_HEIGHT
-	end
+	local height = TITLE_HEIGHT + ROLE_HEIGHT
 	for _, section in ipairs(sections) do
-		if folded then
-			section.frame:Hide()
-		else
-			section.frame:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -height)
-			section.frame:Show()
-			height = height + section.height
-		end
-	end
-	for _, button in pairs(roleButtons) do
-		if folded then
-			button:Hide()
-		else
-			button:Show()
-		end
-	end
-	if folded then
-		foldButton:SetText("+")
-	else
-		foldButton:SetText("-")
+		section.frame:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -height)
+		height = height + section.height
 	end
 	frame:SetHeight(height + 6)
+end
+
+-- Shows the frame if it is hidden, hides it if it is shown.
+function WowaiRole.Toggle()
+	if frame:IsShown() then
+		frame:Hide()
+	else
+		frame:Show()
+	end
 end
 
 function WowaiRole.MakeSection(section)
@@ -86,9 +80,62 @@ function WowaiRole.MakeSection(section)
 	section.build(section.frame)
 end
 
+local function PlaceMinimapButton(button)
+	local angle = math.rad(WowaiRoleDB.minimapAngle or MINIMAP_ANGLE)
+	button:ClearAllPoints()
+	button:SetPoint("CENTER", Minimap, "CENTER",
+		MINIMAP_RADIUS * math.cos(angle), MINIMAP_RADIUS * math.sin(angle))
+end
+
+-- While a drag: the angle of the cursor around the minimap's center.
+local function FollowCursor()
+	local x, y = GetCursorPosition()
+	local scale = Minimap:GetEffectiveScale()
+	local centerX, centerY = Minimap:GetCenter()
+	WowaiRoleDB.minimapAngle = math.deg(math.atan2(y / scale - centerY, x / scale - centerX))
+	PlaceMinimapButton(this)
+end
+
+function WowaiRole.MakeMinimapButton()
+	local button = CreateFrame("Button", "WowaiRoleMinimapButton", Minimap)
+	button:SetWidth(31)
+	button:SetHeight(31)
+	button:SetFrameStrata("MEDIUM")
+	button:SetFrameLevel(8)
+	button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+	local icon = button:CreateTexture(nil, "BACKGROUND")
+	icon:SetTexture("Interface\\Icons\\Ability_Warrior_BattleShout")
+	icon:SetWidth(20)
+	icon:SetHeight(20)
+	icon:SetPoint("TOPLEFT", button, "TOPLEFT", 7, -5)
+	local border = button:CreateTexture(nil, "OVERLAY")
+	border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+	border:SetWidth(53)
+	border:SetHeight(53)
+	border:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+
+	button:RegisterForClicks("LeftButtonUp")
+	button:RegisterForDrag("LeftButton")
+	button:SetScript("OnClick", WowaiRole.Toggle)
+	button:SetScript("OnDragStart", function() this:SetScript("OnUpdate", FollowCursor) end)
+	button:SetScript("OnDragStop", function() this:SetScript("OnUpdate", nil) end)
+	button:SetScript("OnEnter", function()
+		GameTooltip:SetOwner(this, "ANCHOR_LEFT")
+		GameTooltip:SetText("WOWAI role")
+		GameTooltip:AddLine("Click to show or hide. Drag to move.", 1, 1, 1)
+		GameTooltip:Show()
+	end)
+	button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	PlaceMinimapButton(button)
+end
+
 function WowaiRole.MakeFrame()
 	frame = CreateFrame("Frame", "WowaiRoleFrame", UIParent)
 	WowaiRole.frame = frame
+	frame:Hide()
+	-- Escape hides the frames of this list.
+	table.insert(UISpecialFrames, "WowaiRoleFrame")
 	frame:SetWidth(WIDTH)
 	frame:SetBackdrop({
 		bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -115,18 +162,12 @@ function WowaiRole.MakeFrame()
 	title:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -9)
 	title:SetText("WOWAI role")
 
-	foldButton = CreateFrame("Button", "WowaiRoleFold", frame, "UIPanelButtonTemplate")
-	foldButton:SetWidth(20)
-	foldButton:SetHeight(18)
-	foldButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -5)
-	foldButton:SetScript("OnClick", function()
-		if WowaiRoleDB.folded then
-			WowaiRoleDB.folded = nil
-		else
-			WowaiRoleDB.folded = 1
-		end
-		WowaiRole.Layout()
-	end)
+	local closeButton = CreateFrame("Button", "WowaiRoleClose", frame, "UIPanelButtonTemplate")
+	closeButton:SetWidth(20)
+	closeButton:SetHeight(18)
+	closeButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -5)
+	closeButton:SetText("x")
+	closeButton:SetScript("OnClick", function() frame:Hide() end)
 
 	local x = 8
 	for _, role in ipairs(WowaiRole.ROLES) do
@@ -152,4 +193,12 @@ function WowaiRole.MakeFrame()
 	end
 	WowaiRole.Layout()
 	WowaiRole.OnChange(Refresh)
+	WowaiRole.MakeMinimapButton()
+end
+
+SLASH_WOWAIROLE1 = "/wowai"
+SlashCmdList["WOWAIROLE"] = function()
+	if frame then
+		WowaiRole.Toggle()
+	end
 end

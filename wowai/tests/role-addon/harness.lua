@@ -53,9 +53,12 @@ local function NewObject(name)
 	function object:RegisterEvent(e) self.events = self.events or {}; self.events[e] = true end
 	function object:CreateFontString(n) local f = NewObject(n); f.parent = self; return f end
 	function object:SetHeight(h) self.height = h end
+	function object:CreateTexture() local t = NewObject(); t.parent = self; return t end
 	local noop = function() end
 	for _, method in ipairs({"SetWidth", "SetPoint", "SetBackdrop", "SetMovable", "EnableMouse",
-		"RegisterForDrag", "StartMoving", "StopMovingOrSizing", "SetTextColor"}) do
+		"RegisterForDrag", "StartMoving", "StopMovingOrSizing", "SetTextColor", "ClearAllPoints",
+		"SetFrameStrata", "SetFrameLevel", "SetHighlightTexture", "SetTexture", "RegisterForClicks",
+		"SetOwner", "AddLine"}) do
 		object[method] = noop
 	end
 	return object
@@ -95,6 +98,9 @@ local function Login(lateVariables)
 	globals, frames, sent, whispers, chatShown = {}, {}, {}, {}, {}
 	ChatFrame_OnEvent = FrameXMLChatFrame
 	UIParent = NewObject("UIParent")
+	Minimap = NewObject("Minimap")
+	GameTooltip = NewObject("GameTooltip")
+	UISpecialFrames, SlashCmdList = {}, {}
 	WowaiRole = nil
 	local toc = io.open(folder .. "/WowaiRole.toc")
 	for line in toc:lines() do
@@ -115,6 +121,18 @@ end
 WowaiRoleDB = nil
 Login()
 check("the frame exists", globals.WowaiRoleFrame ~= nil)
+check("the frame is hidden at login", not globals.WowaiRoleFrame:IsShown())
+check("a minimap button exists", globals.WowaiRoleMinimapButton ~= nil
+	and globals.WowaiRoleMinimapButton.parent == Minimap)
+Click("WowaiRoleMinimapButton")
+check("the minimap button shows the frame", globals.WowaiRoleFrame:IsShown())
+Click("WowaiRoleMinimapButton")
+check("a second click hides it", not globals.WowaiRoleFrame:IsShown())
+SlashCmdList.WOWAIROLE("")
+check("/wowai shows the frame", globals.WowaiRoleFrame:IsShown() and SLASH_WOWAIROLE1 == "/wowai")
+Click("WowaiRoleClose")
+check("the x button hides it", not globals.WowaiRoleFrame:IsShown())
+check("Escape hides it", UISpecialFrames[1] == "WowaiRoleFrame")
 check("a button for each role", globals.WowaiRole_tank and globals.WowaiRole_healer and globals.WowaiRole_melee
 	and globals.WowaiRole_ranged)
 check("nothing is sent with no group and no pick", table.getn(sent) == 0)
@@ -150,14 +168,10 @@ partySize = 0
 Login(true)
 check("a login with late saved variables sends the pick, with no group", Last() == "WHISPER Thrallson WOWAI_ROLE 1:tank", Last())
 
--- The fold, and a later section (the bot panel of #198).
+-- A later section (the bot panel of #198).
 local built = false
 WowaiRole.AddSection(40, function(section) built = section ~= nil end)
 check("a section can be added to the frame", built)
-Click("WowaiRoleFold")
-check("the fold hides the role buttons", not globals.WowaiRole_tank:IsShown() and WowaiRoleDB.folded == 1)
-Click("WowaiRoleFold")
-check("the unfold shows them", globals.WowaiRole_tank:IsShown() and WowaiRoleDB.folded == nil)
 
 
 -- jvbastel/WOWAI#198: the bot panel.
@@ -230,10 +244,10 @@ partySize = 1
 Fire("PARTY_MEMBERS_CHANGED")
 check("a group change does not ask again (the list does not depend on the group)", Requests() == 2)
 
-Click("WowaiRoleFold")
-check("the fold hides the panel", not getglobal("WowaiBotsRefresh"):IsVisible())
-Click("WowaiRoleFold")
-check("the unfold shows the panel", getglobal("WowaiBotsRefresh"):IsVisible())
+Click("WowaiRoleMinimapButton")
+check("the minimap button shows the panel", getglobal("WowaiBotsRefresh"):IsVisible())
+Click("WowaiRoleClose")
+check("the x button hides the panel", not getglobal("WowaiBotsRefresh"):IsVisible())
 
 if failures > 0 then
 	print(failures .. " checks failed")
