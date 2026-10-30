@@ -69,9 +69,9 @@ namespace Forever
     // the insert, and the insert does not fail on the primary key.
     bool IsHiddenRecipe(uint32 spellId);
 
-    // LoadDBCStores, for each DBC file that the Forever rules replace (Talent.dbc, TalentTab.dbc, ItemSet.dbc): the
-    // Forever DBC folder when the rules are on, else the stock folder `stockPath`. A missing file in
-    // the Forever folder stops the server like a missing stock file.
+    // LoadDBCStores, for each DBC file that the Forever rules replace (Talent.dbc, TalentTab.dbc,
+    // ItemSet.dbc): the Forever DBC folder when the rules are on, else the stock folder `stockPath`. A
+    // missing file in the Forever folder stops the server like a missing stock file.
     std::string DbcPath(std::string const& stockPath);
 
     // The world table `table` for the FROM of a loader query: with the rules on, the stock rows whose

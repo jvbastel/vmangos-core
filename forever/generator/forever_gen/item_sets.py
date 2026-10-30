@@ -94,8 +94,9 @@ def check(spec, stock):
             if piece not in spec_items and piece not in stock_pieces:
                 raise SpecError("%s: item %d is no item row of the spec (or the dead-content rule cut it) and no "
                                 "stock piece of this set" % (where, piece))
-        if len(spells(item_set)) > MAX_SPELLS:
-            raise SpecError("%s: %d bonus spells, at most %d" % (where, len(spells(item_set)), MAX_SPELLS))
+        set_spells = spells(item_set)
+        if len(set_spells) > MAX_SPELLS:
+            raise SpecError("%s: %d bonus spells, at most %d" % (where, len(set_spells), MAX_SPELLS))
         for bonus in item_set.bonuses:
             if not 1 <= bonus.threshold <= len(item_set.pieces):
                 raise SpecError("%s: the threshold %d is not 1 to %d (the pieces)" % (where, bonus.threshold, len(item_set.pieces)))
@@ -118,7 +119,8 @@ def client_table(spec, stock):
             row[NAME:NAME + 8] = [table.add_text(item_set.name)] + [0] * 7
         pieces = item_set.pieces + [0] * (MAX_PIECES - len(item_set.pieces))
         row[ITEMS:ITEMS + MAX_PIECES] = pieces
-        pairs = spells(item_set) + [(0, 0)] * (MAX_SPELLS - len(spells(item_set)))
+        set_spells = spells(item_set)
+        pairs = set_spells + [(0, 0)] * (MAX_SPELLS - len(set_spells))
         row[SPELLS:SPELLS + MAX_SPELLS] = [s for s, _ in pairs]
         row[THRESHOLDS:THRESHOLDS + MAX_SPELLS] = [t for _, t in pairs]
     table.rows.sort(key=lambda r: r[0])

@@ -231,7 +231,7 @@ void LoadDBCStores(std::string const& dataPath)
 #endif
     //LoadDBC(availableDbcLocales,bar,badDbcFiles,sItemDisplayInfoStore,     dbcPath,"ItemDisplayInfo.dbc");     -- not used currently
     LoadDBC(availableDbcLocales, bar, badDbcFiles, sItemRandomPropertiesStore, dbcPath, "ItemRandomProperties.dbc");
-    // WOWAI Forever rules: the Forever DBC folder has no locale subfolders. Its loads use their own
+    // WOWAI Forever rules (#206, #231): the Forever DBC folder has no locale subfolders. Its loads use their own
     // locale mask, so that they do not clear the locale bits of the stock DBC files loaded after them.
     // The Forever DBC folder holds ItemSet.dbc (the item sets, #231), Talent.dbc and TalentTab.dbc.
     uint32 foreverDbcLocales = 0;
