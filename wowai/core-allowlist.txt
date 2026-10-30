@@ -117,3 +117,6 @@ src/game/Database/CharacterDatabaseCleaner.cpp
 src/game/Chat/MasterPlayer.cpp
 src/game/AuctionHouse/AuctionHouseMgr.cpp
 src/game/Objects/Item.cpp
+# Spec hook 23, #225 final review: the GM item commands find a Forever item by its name (.additem and
+# .deleteitem in CharacterCommands.cpp read item_template through Forever::Table).
+src/game/Commands/CharacterCommands.cpp

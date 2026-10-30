@@ -185,6 +185,8 @@ void ObjectMgr::LoadAllIdentifiers()
     m_ItemIdSet.clear();
 
     Field* fields;
+    // WOWAI Forever rules (#226): with the rules on, the item IDs of forever_item_template count too, so that a
+    // Forever-only item (70000-79999) is a known item ID.
     std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT DISTINCT `entry` FROM %s", Forever::Table("item_template", "entry").c_str()));
 
     if (result)

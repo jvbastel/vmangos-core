@@ -34,6 +34,7 @@
 #include "PlayerDump.h"
 #include "CharacterDatabaseCache.h"
 #include "Config/Config.h"
+#include "Forever.h"
 
 #include <regex>
 #include <iterator>
@@ -3275,7 +3276,8 @@ bool ChatHandler::HandleAddItemCommand(char* args)
     {
         std::string itemName = cId;
         WorldDatabase.escape_string(itemName);
-        std::unique_ptr<QueryResult> result = WorldDatabase.PQuery("SELECT `entry` FROM `item_template` WHERE `name` = '%s'", itemName.c_str());
+        // WOWAI Forever rules (#225 review): the name of a Forever item (forever_item_template) is found too.
+        std::unique_ptr<QueryResult> result = WorldDatabase.PQuery("SELECT `entry` FROM %s WHERE `name` = '%s'", Forever::Table("item_template", "entry").c_str(), itemName.c_str());
         if (!result)
         {
             PSendSysMessage(LANG_COMMAND_COULDNOTFIND, cId);
@@ -3371,7 +3373,8 @@ bool ChatHandler::HandleDeleteItemCommand(char* args)
         std::string itemName = cId;
         WorldDatabase.escape_string(itemName);
 
-        std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `entry` FROM `item_template` WHERE `name` = '%s'", itemName.c_str()));
+        // WOWAI Forever rules (#225 review): the name of a Forever item (forever_item_template) is found too.
+        std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `entry` FROM %s WHERE `name` = '%s'", Forever::Table("item_template", "entry").c_str(), itemName.c_str()));
 
         if (!result)
         {
