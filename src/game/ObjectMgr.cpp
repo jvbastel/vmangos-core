@@ -3936,7 +3936,7 @@ void ObjectMgr::LoadItemPrototypes()
     std::set<uint32> obtainedItems;
     FillObtainedItemsList(obtainedItems);
 
-    // Forever.Rules (#225): the Forever item rows have 1.12 spell IDs already.
+    // WOWAI Forever rules (#225): the Forever item rows have 1.12 spell IDs already.
     std::set<uint32> const foreverItems = Forever::ForeverRowKeys("item_template", "entry");
 
     // check data correctness
