@@ -82,10 +82,11 @@ def focus_ids(stock):
     return {stock.spell_focus.text(row[FOCUS_NAME]): row[0] for row in stock.spell_focus.rows}
 
 
-def check(spec, stock, used_spells):
+def check(spec, stock, used_spells, check_focus=True):
     """The ID rules of the recipes: a new spell in the profession spell range, no clash with a stock spell or
     another spec spell (`used_spells`: the spell IDs of the other rows, none of them in the profession
-    range), a stock source spell and a stock spell focus."""
+    range), a stock source spell and a stock spell focus. build.generate runs it on the full spec without
+    the focus (a cut recipe can need a Forever-only station), then on the spec after the dead-content rule."""
     low, high = spec.profession_id_range or (0, -1)
     if spec.recipes and not spec.id_range[0] <= low <= high <= spec.id_range[1]:
         raise SpecError("the free profession spell ID range %d-%d is not inside the free spell ID range %d-%d"
@@ -106,7 +107,7 @@ def check(spec, stock, used_spells):
             raise SpecError("%s is outside the free profession spell ID range %d-%d" % (where, low, high))
         if recipe.source_spell not in stock_spells:
             raise SpecError("%s: the source spell %d is no stock spell" % (where, recipe.source_spell))
-        if recipe.focus not in foci:
+        if check_focus and recipe.focus not in foci:
             raise SpecError("%s: the focus '%s' is no stock SpellFocusObject.dbc name" % (where, recipe.focus))
 
 

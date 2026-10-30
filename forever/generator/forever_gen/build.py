@@ -363,6 +363,9 @@ def generate(spec, stock_folder, out, marker_icons):
     sources.check(spec)
     new_recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     mining.check(spec, stock)
+    # The ID rules hold for the rows that the rule cuts too: a refresh can bring a cut row back (review L2).
+    rules.check(spec, stock, marker_icons)
+    recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)], check_focus=False)
     full_items = spec.items
     spec, cuts = dead_content.cut(spec)
     # The drops of a cut ore go too (#232), and the mining content that is not ported joins the cut list.
