@@ -176,3 +176,43 @@ def test_the_22_master_forge_recipes_keep_the_anvil_in_the_client_and_server(out
         spell = by_name[name]
         assert client[spell][FOCUS] == ANVIL, name
         assert int(server.get(spell, {}).get("requiresSpellFocus", ANVIL)) == ANVIL, name
+
+
+def refused(tmp_path, *changes):
+    from test_blacksmithing import refused as refused_in
+    return refused_in(tmp_path, "blacksmithing.tsv", *changes)
+
+
+# Runed Copper Breastplate: its stock row and its plans.
+BREASTPLATE = "stock\t2667\t2667\tRuned Copper Breastplate\t164\t55\t95\t135\t"
+
+
+def test_a_stock_row_that_is_no_stock_spell_is_refused(tmp_path):
+    error = refused(tmp_path, (BREASTPLATE, BREASTPLATE.replace("2667\t2667", "59990\t59990")))
+    assert "spell 59990 is no stock spell" in error
+
+
+def test_a_stock_row_with_another_source_spell_is_refused(tmp_path):
+    error = refused(tmp_path, (BREASTPLATE, BREASTPLATE.replace("2667\t2667", "2667\t2666")))
+    assert "changes the stock spell in place" in error
+
+
+def test_a_stock_row_that_makes_another_item_is_refused(tmp_path):
+    error = refused(tmp_path, ("\t2864x1\tAnvil\t2881\t", "\t2865x1\tAnvil\t2881\t"))
+    assert "keeps the item that the stock spell makes" in error
+
+
+def test_a_stock_row_with_plans_that_are_also_an_item_row_is_refused(tmp_path):
+    error = refused(tmp_path, ("\t2864x1\tAnvil\t2881\t", "\t2864x1\tAnvil\t70000\t"))
+    assert "plans 70000 are also an item row" in error
+
+
+def test_a_warrior_spell_in_the_profession_spell_block_is_refused(tmp_path):
+    # Follow-up of #226: the core tells a profession spell from a Warrior spell by the block 61000-61999.
+    from test_blacksmithing import refused as refused_in
+    from test_pipeline import SPEC
+    first = next(line for line in SPEC.read_text(encoding="utf-8").splitlines() if line.startswith("ability\t"))
+    spells = first.split("\t")[11]
+    moved = first.replace("\t%s\t" % spells, "\t%s\t" % ",".join(str(61500 + k) for k in range(len(spells.split(",")))), 1)
+    error = refused_in(tmp_path, "warrior.tsv", (first, moved))
+    assert "is inside the profession spell ID range 61000-61999" in error

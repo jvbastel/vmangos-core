@@ -65,12 +65,16 @@ def focus_ids(stock):
 
 def check(spec, stock, used_spells):
     """The ID rules of the recipes: a new spell in the profession spell range, no clash with a stock spell or
-    another spec spell (`used_spells`: the spell IDs of the other rows), a stock source spell and a stock
-    spell focus."""
+    another spec spell (`used_spells`: the spell IDs of the other rows, none of them in the profession
+    range), a stock source spell and a stock spell focus."""
     low, high = spec.profession_id_range or (0, -1)
     if spec.recipes and not spec.id_range[0] <= low <= high <= spec.id_range[1]:
         raise SpecError("the free profession spell ID range %d-%d is not inside the free spell ID range %d-%d"
                         % ((low, high) + spec.id_range))
+    for spell in sorted(used_spells):
+        if low <= spell <= high:
+            # The core tells a profession spell from a Warrior spell by this block, even with the rules off.
+            raise SpecError("spell row spell %d is inside the profession spell ID range %d-%d" % (spell, low, high))
     stock_spells = stock.spell.by_id()
     foci = focus_ids(stock)
     seen = set(used_spells)
