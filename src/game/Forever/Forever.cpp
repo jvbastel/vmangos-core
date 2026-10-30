@@ -174,7 +174,8 @@ std::string Forever::Table(char const* table, char const* key)
     std::string const column = std::string("`") + key + "`";
     // A marked row still hides the stock rows of its key (NOT IN), but does not load itself. The loaders
     // read the row by position, so the forever rows give the stock columns only, not the marker.
-    // The two information_schema queries run once per loader call: at startup and at a GM reload only.
+    // The two information_schema queries run once per call: at startup, at a GM reload, and at a GM .additem
+    // or .deleteitem by name.
     std::string foreverRows = "SELECT * FROM " + forever;
     if (HasRemovalMarker(std::string("forever_") + table))
     {

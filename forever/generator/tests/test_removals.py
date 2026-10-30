@@ -88,7 +88,7 @@ def test_each_removal_row_marks_the_trainer_rows_of_its_learn_spell_on_the_serve
 def plans_copy(out, plans):
     """The SQL lines that copy the stock plans `plans` into forever_item_template, or []."""
     lines = sql(out).splitlines()
-    start = "CREATE TEMPORARY TABLE `forever_plans_gone` SELECT * FROM `item_template` WHERE `entry`=%d " % plans
+    start = "CREATE TEMPORARY TABLE `forever_plans_gone` SELECT * FROM `item_template` WHERE `entry`=%d;" % plans
     for k, line in enumerate(lines):
         if line.startswith(start):
             end = lines.index("DROP TEMPORARY TABLE `forever_plans_gone`;", k)
@@ -103,8 +103,11 @@ def test_the_plans_of_each_removed_recipe_teach_nothing_on_the_server(out):
         block = plans_copy(out, plans)
         assert block, name
         assert "INSERT INTO `forever_item_template` SELECT * FROM `forever_plans_gone`;" in block, name
-        # The copy keeps the content patch of the stock plans (Timbermaw plans: a later patch).
+        # The copy keeps the content patch of the stock plans (Timbermaw plans: a later patch), and takes every
+        # patch row: Forever::Table() hides all stock rows of the entry.
         assert not [line for line in block if "`patch`=" in line], name
+        assert block[0] == ("CREATE TEMPORARY TABLE `forever_plans_gone` SELECT * FROM `item_template` "
+                            "WHERE `entry`=%d;" % plans), name
         for k in range(1, 6):
             emptied = [line for line in block if line.startswith("UPDATE `forever_plans_gone` SET `spellid_%d`=0, "
                                                                  "`spelltrigger_%d`=0" % (k, k))]

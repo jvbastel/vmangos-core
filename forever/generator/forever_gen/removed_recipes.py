@@ -16,8 +16,8 @@ spell taken out of its spell slots, so the plans have no use. The loot and vendo
 from collections import namedtuple
 
 from . import removals
-from .common import NO_VALUE, SpecError, copy_item_sql, fail_unless
-from .items import SPELL_SLOT, MAX_ITEM_SPELLS
+from .common import NO_VALUE, SpecError, fail_unless
+from .items import MAX_ITEM_SPELLS, SPELL_SLOT, TABLE as ITEM_TABLE
 from .stock_recipes import no_trainer_template_sql, stock_abilities, stock_learn_spells
 
 KIND = "removed"
@@ -82,22 +82,24 @@ PLANS_TEMP = "forever_plans_gone"
 
 def plans_sql(recipe, learn):
     """The forever_item_template copy of the stock plans of a removed recipe, with each spell slot that holds
-    a learn spell of the recipe emptied: the plans stay an item but teach nothing. Unless the newest stock
-    plans row holds a learn spell in exactly one slot, the SQL fails instead of copying the row. The copy
-    keeps the patch of the stock row: the Timbermaw plans come with a later content patch, and must not
-    appear earlier with the rules on."""
+    a learn spell of the recipe emptied: the plans stay an item but teach nothing. It copies every patch row
+    of the plans, because Forever::Table() hides all stock rows of the entry: a copy of the newest row only
+    would take the item away on a realm of an earlier patch. Unless each stock plans row holds a learn spell
+    in exactly one slot, the SQL fails instead of copying the rows. The copy keeps the patch of each stock
+    row: the Timbermaw plans come with a later content patch, and must not appear earlier with the rules on."""
     teaching = ", ".join(str(spell) for spell in learn)
     slots = " + ".join("(`spellid_%d` IN (%s))" % (k, teaching) for k in range(1, MAX_ITEM_SPELLS + 1))
     lines = [
         "-- Removed recipe %s (%d): its plans %d teach nothing." % (recipe.name, recipe.spell, recipe.plans),
-        copy_item_sql(PLANS_TEMP, recipe.plans),
-        fail_unless("(SELECT SUM(%s) FROM `%s`)=1" % (slots, PLANS_TEMP), "forever_found"),
+        "CREATE TEMPORARY TABLE `%s` SELECT * FROM `item_template` WHERE `entry`=%d;" % (PLANS_TEMP, recipe.plans),
+        fail_unless("(SELECT COUNT(*) FROM `%s`)>0 AND (SELECT COUNT(*) FROM `%s` WHERE %s<>1)=0" % (
+            PLANS_TEMP, PLANS_TEMP, slots), "forever_plans_teach"),
     ]
     for k in range(1, MAX_ITEM_SPELLS + 1):
         lines.append("UPDATE `%s` SET %s WHERE `spellid_%d` IN (%s);" % (
             PLANS_TEMP, ", ".join("`%s_%d`=%s" % (column, k, empty) for column, empty in SPELL_SLOT), k, teaching))
     return lines + [
-        "INSERT INTO `forever_item_template` SELECT * FROM `%s`;" % PLANS_TEMP,
+        "INSERT INTO `%s` SELECT * FROM `%s`;" % (ITEM_TABLE, PLANS_TEMP),
         "DROP TEMPORARY TABLE `%s`;" % PLANS_TEMP,
     ]
 
