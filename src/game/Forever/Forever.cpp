@@ -152,6 +152,21 @@ std::string Forever::SelectWithForeverRows(char const* table, char const* key, s
     return select(stock) + " AND " + column + " NOT IN (SELECT " + column + " FROM " + forever + ") UNION ALL " + foreverRows;
 }
 
+std::set<uint32> Forever::ForeverRowKeys(char const* table, char const* key)
+{
+    std::set<uint32> keys;
+    if (!rulesOn)
+        return keys;
+    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT DISTINCT `%s` FROM `forever_%s`", key, table));
+    if (result)
+    {
+        do
+            keys.insert(result->Fetch()[0].GetUInt32());
+        while (result->NextRow());
+    }
+    return keys;
+}
+
 void Forever::LoadSpellTemplate(std::function<void(uint32)> const& resize, std::function<void(Field*)> const& load)
 {
     if (!rulesOn)
