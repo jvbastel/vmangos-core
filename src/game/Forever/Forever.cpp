@@ -6,6 +6,7 @@
 */
 
 #include "Forever.h"
+#include "ForeverProfessionIds.h"
 #include "ForeverSpellIds.h"
 #include "Config/Config.h"
 #include "Database/DatabaseEnv.h"
@@ -16,11 +17,14 @@
 
 #include <cstdlib>
 #include <memory>
+#include <unordered_set>
 
 namespace
 {
     bool rulesOn = false;
     std::string dataDir;
+    // The stock recipes that the Forever rules remove (#229), filled with the rules on (LoadRemovedRecipes).
+    std::unordered_set<uint32> removedRecipes;
 
     // The removal marker of the override tables (#229, forever/generator/forever_gen/removals.py): a
     // forever_<table> row with this column 1 takes the stock rows of its key away and does not load itself.
@@ -49,6 +53,23 @@ namespace
     {
         std::unique_ptr<QueryResult> found(WorldDatabase.PQuery("SELECT 1 FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = '%s' AND `COLUMN_NAME` = '%s'", foreverTable.c_str(), RemovalMarker));
         return bool(found);
+    }
+
+    // The recipe spells whose skill line abilities forever_skill_line_ability marks removed (#229), and which
+    // no unmarked Forever row teaches. Their character_spell rows are not loaded with the rules on (#233).
+    void LoadRemovedRecipes()
+    {
+        removedRecipes.clear();
+        if (!HasRemovalMarker("forever_skill_line_ability"))
+            return;
+        std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT DISTINCT `spell_id` FROM `forever_skill_line_ability` WHERE `%s` = 1 AND `spell_id` NOT IN (SELECT `spell_id` FROM `forever_skill_line_ability` WHERE `%s` = 0)", RemovalMarker, RemovalMarker));
+        if (result)
+        {
+            do
+                removedRecipes.insert(result->Fetch()[0].GetUInt32());
+            while (result->NextRow());
+        }
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] %u removed stock recipes are not loaded for the characters who know them.", uint32(removedRecipes.size()));
     }
 }
 
@@ -117,6 +138,22 @@ bool Forever::KeepsRowsOfUnknownSpell(uint32 spellId)
     return keep;
 }
 
+bool Forever::KeepsRowsOfUnknownItem(uint32 itemId)
+{
+    bool const keep = ProfessionIds::KeepsRowsOfUnknownItem(itemId, rulesOn);
+    if (keep)
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] Item %u exists only under the Forever rules: it is not loaded, and its rows stay.", itemId);
+    return keep;
+}
+
+bool Forever::HidesKnownSpell(uint32 spellId)
+{
+    bool const hide = ProfessionIds::HidesKnownSpell(removedRecipes.count(spellId) != 0, rulesOn);
+    if (hide)
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] Recipe %u is removed under the Forever rules: it is not loaded, and its row stays.", spellId);
+    return hide;
+}
+
 std::string Forever::DbcPath(std::string const& stockPath)
 {
     return rulesOn ? dataDir : stockPath;
@@ -181,4 +218,5 @@ void Forever::LoadSpellTemplate(std::function<void(uint32)> const& resize, std::
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] Loaded %u Forever spell rows on top of the stock spells.", count);
 
     LoadBaselineSpells();
+    LoadRemovedRecipes();
 }

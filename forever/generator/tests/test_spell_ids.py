@@ -14,6 +14,8 @@ from test_pipeline import ROOT
 
 HEADER = ROOT / "src" / "game" / "Forever" / "ForeverSpellIds.h"
 FOREVER_SRC = ROOT / "src" / "game" / "Forever"
+# The profession block of the spell range (#233); tests/test_profession_ids.py checks it against the spec.
+PROFESSION_HEADER = FOREVER_SRC / "ForeverProfessionIds.h"
 CONSTANT = re.compile(r"constexpr uint32_t (\w+)(\[\])?\s*=\s*(\{[^}]*\}|\d+)\s*;\s*//\s*spec:\s*(.+?)\s*$", re.M)
 
 
@@ -56,7 +58,7 @@ def test_no_other_forever_file_writes_a_forever_spell_id(the_spec):
     low, high = the_spec.id_range
     offenders = []
     for path in sorted(FOREVER_SRC.glob("*.[ch]*")):
-        if path == HEADER:
+        if path in (HEADER, PROFESSION_HEADER):
             continue
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             code = line.split("//")[0]
