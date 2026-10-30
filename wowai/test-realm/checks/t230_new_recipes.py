@@ -85,6 +85,20 @@ class ItemClient(SpellClient):
         if opcode == SMSG_ITEM_QUERY_SINGLE_RESPONSE and len(body) >= 4:
             self.item_answers[struct.unpack_from("<I", body, 0)[0]] = body
 
+    def craft(self, spell, timeout=40):
+        """Casts `spell` and waits until its cast ends (some recipes cast for more than 6 s):
+        (the fail reasons of its cast results, whether a SMSG_SPELL_GO of it came)."""
+        start_results, start_go = len(self.cast_results), len(self.spell_go)
+        self.cast_at(spell)
+        for _ in range(timeout):
+            self.pump(1)
+            reasons = [reason for s, reason in self.cast_results[start_results:] if s == spell]
+            if reasons or spell in self.spell_go[start_go:]:
+                break
+        self.pump(1)
+        reasons = [reason for s, reason in self.cast_results[start_results:] if s == spell]
+        return reasons, spell in self.spell_go[start_go:]
+
     def query_item(self, entry, wait=1.5):
         """The parsed item query answer of `entry` (as the client asks for a tooltip), or None."""
         self.item_answers.pop(entry, None)
@@ -163,7 +177,7 @@ if mode == "forever":
         before = items_in_bags(realm, c, made)
         for reagent, count in counted(recipe["reagents"]):
             c.gm(".additem %d %d" % (reagent, count), select=me)
-        reasons, went = c.cast(spell, wait=6)
+        reasons, went = c.craft(spell)
         results.check("the character crafts %s at the Anvil" % family, went and not any(reasons),
                       "fail reasons %r" % reasons)
         results.check("the crafted %s is in the bags" % family, items_in_bags(realm, c, made) == before + 1,
@@ -179,7 +193,7 @@ if mode == "forever":
     answer = c.query_item(int(plans))
     want = (BLACKSMITHING_SKILL, int(recipes[PLANS_OF]["minRank"]))
     results.check("the plans of %s are an item that needs Blacksmithing %d" % (PLANS_OF, want[1]),
-                  answer is not None and answer["required_skill"] == want, "got %r" % (answer or {}).get("required_skill"))
+                  answer is not None and answer["required_skill"] == want, "got %r" % ((answer or {}).get("required_skill"),))
 else:
     for family in FAMILIES:
         spell = int(recipes[family]["spell"])
