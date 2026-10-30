@@ -9,6 +9,9 @@ The spec is the folder `forever/spec`, one file per area. The generator in `fore
   `recipe`), one row per stock recipe that Forever changes in place (kind `stock`, #228), and one row per
   stock recipe that Forever took away (kind `removed`, #229).
 - `items.tsv` holds the new and changed items (spec #225): one row per item.
+- `mining.tsv` holds the Mining rows (spec #225, #232): the new ores (kind `ore`, new items like those of
+  `items.tsv`), one row per ore and vein loot ID (kind `drop`), and the Forever mining content that is not
+  ported (kind `cut`, listed in the cut list).
 
 Each header names the sources, the Forever build, the date, its free ID range, the next free IDs and each
 column. Within a file, the rows of one ticket stay in a block under a comment line that names the ticket.
@@ -98,6 +101,13 @@ merges it.
   but leaves out of the generated data each new recipe that needs a Forever-only station (Master Forge,
   Molten Foundry), each recipe and item that only cut rows use or make, and the plans of a cut recipe. The
   generator prints the cut list and writes it to `cut-list.tsv`. Review it at each refresh.
+- Ores and veins (`mining.tsv`): the client has no drop rates and no spawns. A drop row names the loot ID of
+  its veins (`gameobject_template.data1`, read on a test realm slot: `realm.sh --ticket N sql mangos ...`) and
+  the stock gameobjects that use it; the generated SQL fails if one does not. The generator copies every stock
+  row of the loot ID into `forever_gameobject_loot_template` and adds the ore (the core reads the table by
+  loot ID). `rate` says where the chance comes from: `spec` (the spec's choice) or `fallback` (the stock gem
+  rate of the vein, until launch data gives a rate). When launch data gives a rate, change `chance` and set
+  `rate` to `spec`. A drop of an ore that the dead-content rule cuts is left out and listed in the cut list.
 
 ### The removal marker
 

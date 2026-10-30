@@ -16,7 +16,7 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, dead_content, items, new_recipes, recipes, removals, removed_recipes, rules, stock_recipes
+from . import client_patch, dead_content, items, mining, new_recipes, recipes, removals, removed_recipes, rules, stock_recipes
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -38,7 +38,8 @@ SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 # The world database build of the Forever rows (SUPPORTED_CLIENT_BUILD of the core).
 CLIENT_BUILD = 5875
 FOREVER_TABLES = ("forever_spell_template", "forever_spell_chain", "forever_spell_proc_event",
-                  "forever_skill_line_ability", "forever_spell_threat", items.TABLE, stock_recipes.TRAINER_TABLE)
+                  "forever_skill_line_ability", "forever_spell_threat", items.TABLE, stock_recipes.TRAINER_TABLE,
+                  mining.TABLE)
 # The spells that the core teaches a Warrior at their spellLevel, with no trainer (#212). The core reads it only
 # with Forever.Rules = 1. The migration sql/migrations/20261029120000_world.sql makes it too, with the same
 # columns (tests/test_spell_ids.py checks it), so that a realm without the generated SQL fails at startup, not quietly.
@@ -269,6 +270,7 @@ def server_sql(spec, edits, stock):
     lines += items.server_sql(spec.items)
     lines += new_recipes.server_sql(spec)
     lines += stock_recipes.server_sql(spec, stock)
+    lines += mining.server_sql(spec)
     # Last: the removal marker column of each override table, then the rows that it removes (#229). A row
     # copied with SELECT * after it would have one column too few (removals.py). Add removal lines here.
     removed = removed_recipes.server_sql(spec, stock)
@@ -352,7 +354,12 @@ def generate(spec, stock_folder, out, marker_icons):
     # The item rules and the rules of the new rows hold for every row, also the ones the rule then cuts.
     items.check(spec, stock)
     new_recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
+    mining.check(spec, stock)
+    full_items = spec.items
     spec, cuts = dead_content.cut(spec)
+    # The drops of a cut ore go too (#232), and the mining content that is not ported joins the cut list.
+    spec, mining_cuts = mining.cut(spec, full_items)
+    cuts = sorted(cuts + mining_cuts, key=lambda c: (c.kind, c.id))
     rules.check(spec, stock, marker_icons)
     recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     stock_recipes.check(spec, stock)
