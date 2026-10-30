@@ -98,7 +98,7 @@ if mode == "forever":
     # One row per client build: all of them are marked.
     marked = realm.sql("mangos", "SELECT COUNT(*) > 0 AND SUM(forever_removed = 0) = 0 FROM forever_skill_line_ability"
                        " WHERE id = %d" % RECIPE_ABILITY)
-    results.check("the world DB holds the marked copy of skill line ability %d" % RECIPE_ABILITY, marked == "1",
+    results.check("the world DB marks every build row of skill line ability %d" % RECIPE_ABILITY, marked == "1",
                   "got %r" % marked)
 
 # The skill line: a craft at orange gives a skill-up only through the recipe's skill line ability.

@@ -22,8 +22,9 @@ vanilla: two Imperial Plate pieces give the stock 2-piece bonus (Armor 100) and 
          Gauntlets nor any Blessed Plate piece (`.additem` gives nothing).
 
 Every stock Imperial Plate piece is patch 2 content, so a server at WowPatch 0 (the slots) refuses it. The
-check then says SKIP for the parts that need stock pieces and checks that Imperial Plate Gauntlets alone gives
-no bonus.
+check then says SKIP for the parts that need stock pieces, checks that the refused pieces are patch 2 content,
+that Imperial Plate Gauntlets is a piece of set 321 (forever_item_template) and that it alone gives no bonus. Run
+the check on a slot acquired with `--set WowPatch=10` to check the stock pieces too.
 """
 import re
 import struct
@@ -49,6 +50,16 @@ BLESSED_PIECES = (70202, 70204, 70206, 70210, 70212, 70214)  # Pauldrons, Boots,
 STOCK_IMPERIAL = {2: [15666], 4: [9335], 6: [14465]}
 SKIP_STOCK = ("SKIP: the server refuses the stock Imperial Plate pieces (patch 2 content, above the WowPatch of the "
               "server), so the bonuses of stock pieces are not checked")
+
+
+def skip_stock(mode):
+    """The stock pieces were refused: say SKIP, and check that their patch explains it (a refusal of 1.12
+    content of patch 0-1 is a failure, not a skip)."""
+    print(SKIP_STOCK)
+    patch = realm.sql("mangos", "SELECT MIN(patch) FROM item_template WHERE entry IN (%d, %d)"
+                      % (IMPERIAL_BELT, IMPERIAL_BRACERS))
+    results.check("%s: the refused stock Imperial Plate pieces are patch 2 content or later" % mode,
+                  patch.isdigit() and int(patch) >= 2, "patch %s" % patch)
 
 
 def forever_bonuses(set_id):
@@ -144,7 +155,10 @@ if mode == "forever":
         results.check("forever: Imperial Plate Gauntlets (70208) is worn", made and IMPERIAL_GAUNTLETS in equipped())
         check_bonuses("forever Imperial Plate with the eighth piece", imperial, 3)
     else:
-        print(SKIP_STOCK)
+        skip_stock("forever")
+        set_id = realm.sql("mangos", "SELECT set_id FROM forever_item_template WHERE entry = %d" % IMPERIAL_GAUNTLETS)
+        results.check("forever: Imperial Plate Gauntlets (70208) is a piece of Imperial Plate (%d)" % IMPERIAL,
+                      set_id == str(IMPERIAL), "set_id %s" % set_id)
         made = wear(IMPERIAL_GAUNTLETS)
         results.check("forever: Imperial Plate Gauntlets (70208) is worn", made and IMPERIAL_GAUNTLETS in equipped())
         check_bonuses("forever Imperial Plate Gauntlets alone", imperial, 1)
@@ -169,7 +183,7 @@ else:
         results.check("vanilla: no Forever Imperial bonus is on", not (forever_spells & have),
                       "auras %s" % sorted(have))
     else:
-        print(SKIP_STOCK)
+        skip_stock("vanilla")
     for entry in (IMPERIAL_GAUNTLETS,) + BLESSED_PIECES[:1]:
         c.gm(".additem %d" % entry, select=me)
         results.check("vanilla: the server does not know item %d" % entry, backpack_slot_of(entry) is None)
