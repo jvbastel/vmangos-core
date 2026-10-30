@@ -15,20 +15,22 @@ database (same lease), as in t208_rules_switch.py:
 
 Two characters with Blacksmithing: an Orc Hunter (not a Warrior) and an Orc Warrior. The Forever recipe is
 Strange Copper Boots (spell 61000) and the Forever-only item its boots (item 70000, forever/spec/). The removed
-stock recipe is Heavy Timbermaw Belt (23628, a `removed` row of blacksmithing.tsv, #229).
+stock recipe is Wildthorn Mail (16650, a `removed` row of blacksmithing.tsv, #229). Not Heavy Timbermaw Belt
+(23628): its item 19043 is patch 1.6 content, so at WowPatch 0 (the slots) the spell is broken and .learn refuses it.
 
-setup         (rules off) Both learn Blacksmithing; the Hunter learns Heavy Timbermaw Belt.
-forever       (rules on) The Hunter does not have the removed belt recipe, but its row stays. Both learn the
+setup         (rules off) Both learn Blacksmithing; the Hunter learns Wildthorn Mail.
+forever       (rules on) The Hunter does not have the removed mail recipe, but its row stays. Both learn the
               Forever recipe and get the Forever boots. The Warrior (switched to the Forever rules) reaches
-              level 30 and learns the Forever-only talent Lingering Rage (60106), a free-range Warrior spell.
+              level 30 and learns Cruelty 5/5, then the Forever-only talent Lingering Rage (60106), a free-range
+              Warrior spell. (A rerun of this step finds the Warrior already on the Forever rules: no switch.)
               Then the check asks the character DB cleaner to run at the next startup (all cleaning flags).
 vanilla       (rules off) The cleaner ran and left the kept rows. The Hunter logs in: the Forever recipe and
               the boots are not loaded (no recipe in the login spells, the server log names the kept item),
-              and both rows are still in the character database after a save; the belt recipe is back. The
+              and both rows are still in the character database after a save; the mail recipe is back. The
               Warrior switches back: Lingering Rage is gone as before (#208), the Forever recipe row and the
               boots row stay. The cleaner is asked to run again.
 forever-again (rules on) The cleaner ran and left the rows. Both characters have the recipe and the boots back
-              (the boots are loaded: destroying them takes the row away), and the Hunter's belt recipe is
+              (the boots are loaded: destroying them takes the row away), and the Hunter's mail recipe is
               hidden again.
 """
 import struct
@@ -42,10 +44,11 @@ HUNTER_ACCOUNT, HUNTER = "PLAYER233", "Keepsmith"
 WARRIOR_ACCOUNT, WARRIOR = "PLAYER233B", "Keepwar"
 RECIPE = 61000           # Strange Copper Boots, a Forever recipe (profession spell block 61000-61999)
 ITEM = 70000             # Strange Copper Boots, a Forever-only item (item range 70000-79999)
-REMOVED_RECIPE = 23628   # Heavy Timbermaw Belt, a stock recipe that the Forever rules remove
+REMOVED_RECIPE = 16650   # Wildthorn Mail, a stock recipe that the Forever rules remove
 BLACKSMITHING_SKILL, BLACKSMITHING_APPRENTICE = 164, 2018
 LEVEL = 30
 LINGERING_RAGE, LINGERING_RAGE_1 = 60002, 60106  # a Forever-only Warrior talent and its rank 1 spell
+CRUELTY, CRUELTY_SPELLS = 157, (12320, 12852, 12853, 12855, 12856)  # 5 points first: Lingering Rage is tier 2
 ALL_CLEANING_FLAGS = 0x1F  # CharacterDatabaseCleaner.h: characters, pets, items, skills, spells
 RULES = {"vanilla": 0, "forever": 1}
 SWITCH = r"\[Forever\] %s switches from the %s rules to the %s rules"
@@ -167,9 +170,9 @@ if mode == "setup":
     learn_blacksmithing(h)
     h.gm(".learn %d" % REMOVED_RECIPE, select=h.guid)
     h.pump(1)
-    results.check("the Hunter knows Heavy Timbermaw Belt under the vanilla rules", h.knows(REMOVED_RECIPE),
+    results.check("the Hunter knows Wildthorn Mail under the vanilla rules", h.knows(REMOVED_RECIPE),
                   "learned %r" % h.learned)
-    results.check("the Hunter's belt recipe is saved", REMOVED_RECIPE in saved_spells(realm, h))
+    results.check("the Hunter's mail recipe is saved", REMOVED_RECIPE in saved_spells(realm, h))
     h.logout()
     w = login(WARRIOR_ACCOUNT, WARRIOR, 1)
     clear_backpack(realm, w)
@@ -178,23 +181,31 @@ if mode == "setup":
     results.check("the Warrior last logged in under the vanilla rules", stored_rules(w.guid) == RULES["vanilla"])
 elif mode == "forever":
     h = login(HUNTER_ACCOUNT, HUNTER, 3)
-    results.check("the Hunter: the login sends no removed belt recipe",
+    results.check("the Hunter: the login sends no removed mail recipe",
                   h.initial_spells is not None and REMOVED_RECIPE not in h.initial_spells)
-    results.check("the server hides the removed belt recipe", realm.wait_log(HIDDEN_RECIPE, 5, h))
+    results.check("the server hides the removed mail recipe", realm.wait_log(HIDDEN_RECIPE, 5, h))
     get_recipe_and_boots("the Hunter", h)
-    results.check("the Hunter: the removed belt recipe row stays after a save", REMOVED_RECIPE in spell_rows(h.guid))
+    results.check("the Hunter: the removed mail recipe row stays after a save", REMOVED_RECIPE in spell_rows(h.guid))
     h.logout()
 
+    rerun = stored_rules(realm.guid_of(WARRIOR)) == RULES["forever"]
     w = login(WARRIOR_ACCOUNT, WARRIOR, 1)
-    results.check("the Warrior switches to the Forever rules", realm.wait_log(SWITCH % (WARRIOR, "vanilla", "Forever"), 5, w))
+    if rerun:
+        results.check("the Warrior is already on the Forever rules (a rerun of this step)",
+                      stored_rules(w.guid) == RULES["forever"])
+    else:
+        results.check("the Warrior switches to the Forever rules",
+                      realm.wait_log(SWITCH % (WARRIOR, "vanilla", "Forever"), 5, w))
     have = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % w.guid) or 1)
     if have < LEVEL:
         w.gm(".levelup %d" % (LEVEL - have), select=w.guid)
     w.gm(".reset talents", select=w.guid)
     w.pump(1)
+    cruelty = w.learn_ranks(CRUELTY, 5)
     lingering = w.learn_talent(LINGERING_RAGE)
-    results.check("the Warrior learns the Forever-only talent Lingering Rage", lingering == [LINGERING_RAGE_1],
-                  "learned %r" % lingering)
+    results.check("the Warrior learns Cruelty 5/5, then the Forever-only talent Lingering Rage",
+                  cruelty == list(CRUELTY_SPELLS) and lingering == [LINGERING_RAGE_1],
+                  "learned %r %r" % (cruelty, lingering))
     get_recipe_and_boots("the Warrior", w)
     w.logout()
     results.check("the Warrior has Lingering Rage saved", LINGERING_RAGE_1 in spell_rows(w.guid))
@@ -207,7 +218,7 @@ elif mode == "vanilla":
 
     h = login(HUNTER_ACCOUNT, HUNTER, 3)
     check_not_loaded("the Hunter", h)
-    results.check("the Hunter: the removed belt recipe is back with the rules off",
+    results.check("the Hunter: the removed mail recipe is back with the rules off",
                   h.initial_spells is not None and REMOVED_RECIPE in h.initial_spells)
     h.logout()
 
@@ -228,10 +239,10 @@ else:
 
     h = login(HUNTER_ACCOUNT, HUNTER, 3)
     check_loaded_again("the Hunter", h)
-    results.check("the Hunter: the removed belt recipe is hidden again",
+    results.check("the Hunter: the removed mail recipe is hidden again",
                   h.initial_spells is not None and REMOVED_RECIPE not in h.initial_spells)
     h.logout()
-    results.check("the Hunter: the removed belt recipe row stays", REMOVED_RECIPE in spell_rows(hunter))
+    results.check("the Hunter: the removed mail recipe row stays", REMOVED_RECIPE in spell_rows(hunter))
 
     w = login(WARRIOR_ACCOUNT, WARRIOR, 1)
     results.check("the Warrior switches to the Forever rules again",
