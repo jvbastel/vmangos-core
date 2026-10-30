@@ -1,0 +1,35 @@
+# Forever item sets: the new and changed item sets of spec jvbastel/WOWAI#225 (#231). forever/generator writes
+# them into ItemSet.dbc of the Forever DBC folder (the core reads the set bonuses there with Forever.Rules = 1)
+# and of the client data patch (the tooltip), and the set ID into the forever_item_template row of each piece
+# that is an item row of items.tsv. A stock piece keeps its stock row and can only be in its own stock set.
+# Never edit a generated file by hand. To gather the data again, see forever/REFRESH.md.
+#
+# Source: WoW Forever build 1.60.1.70685, recorded 2026-10-30: the local Forever client (ItemSet and
+# ItemSetSpell, item sets 1968 and 321), compared with the stock 1.12 ItemSet.dbc. Only numbers and names.
+#
+# Columns (tab-separated):
+#   kind         set: an item set (the set ID keeps the Forever ID; a stock ID changes that stock set)
+#                bonus: one set bonus of the set `set`
+#   set          the ItemSet.dbc ID
+#   name         the set name (set row); a label (bonus row)
+#   threshold    bonus: the number of worn pieces that gives the bonus; set: -
+#   pieces       set: the item entries, in tooltip order (at most 17); bonus: -
+#   bonuses      bonus: "<bonus> <value>" or "<bonus> <rounded> (Forever <value>)", separated by commas, as in
+#                items.tsv (equip_stats.py), plus Strength, ShadowRes and HealthRegen (item_sets.py); each is a
+#                stock 1.12 equip spell. "none": a Forever bonus with no 1.12 aura, not ported. set: -
+#   foreverSpell bonus: the Forever set spell (ItemSetSpell); set: -
+#   notes        free text
+kind	set	name	threshold	pieces	bonuses	foreverSpell	notes
+# --- #231 Blessed Plate (new) and Imperial Plate (stock set 321, rewritten).
+set	1968	Blessed Plate	-	70218,70216,70214,70212,70210,70206,70204,70202	-	-	New set. Forever ItemSet 1968; pieces in its order: Forever items 250594, 250593, 250592, 250591, 250590, 250588, 250587, 250586 (the #230 items).
+bonus	1968	Blessed Plate (2)	2	-	ShadowRes 10	14673	Forever 14673 itself: +10 Shadow Resistance.
+bonus	1968	Blessed Plate (3)	3	-	Strength 20	1252009	Forever 1252009 "Increase Strength 20 - Blessed Plate Set": +20 Strength = 14492 Increased Strength 20.
+bonus	1968	Blessed Plate (4)	4	-	HealthRegen 16 (Forever 20)	1302375	Forever 1302375 "Blessed": party members within 30 yd restore 20 health every 5 sec (area aura). 1.12 has no equip-style party regen aura: the wearer only, Vitality 16 (23210), the largest stock one.
+bonus	1968	Blessed Plate (5)	5	-	Hit 2, SpellHit 2	1252013	Forever 1252013 "Increased Hit Chance 2 - Blessed Plate Set": 2% melee and spell hit = 15465 and 23729.
+bonus	1968	Blessed Plate (6)	6	-	HolyDamage 29	21518	Forever 21518 itself: Holy damage up to 29.
+set	321	Imperial Plate	-	12424,12426,12425,12422,12427,12429,12428,70208	-	-	Stock set 321 (stock bonuses: 2 Armor 100, 4 Attack Power 28, 6 Stamina 18). Forever adds an eighth piece, Imperial Plate Gauntlets (Forever 250589, #230 item 70208), and rewrites the bonuses.
+bonus	321	Imperial Plate (2)	2	-	Defense 7	13385	Forever 13385 itself: Defense +7.
+bonus	321	Imperial Plate (3)	3	-	Hit 1, SpellHit 1	1251990	Forever 1251990 "Increased Hit Chance 1 - Imperial Set": 1% melee and spell hit = 15464 and 23727.
+bonus	321	Imperial Plate (4)	4	-	none	1302372	Not ported: Forever 1302372 "Imperial March": movement speed cannot drop below 80% (aura 305). 1.12 has no such aura.
+bonus	321	Imperial Plate (5)	5	-	Strength 20	1251984	Forever 1251984 "Increase Strength 20 - Imperial Set": +20 Strength = 14492.
+bonus	321	Imperial Plate (6)	6	-	Crit 1, SpellCrit 1	1251991	Forever 1251991 "Increased Critical 1 - All - Imperial Set": 1% melee and spell crit (aura 290) = 7597 and 18384.

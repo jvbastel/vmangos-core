@@ -1,12 +1,13 @@
 """Builds the Forever data from the spec and the stock 1.12.1 DBC files.
 
 Three outputs, all from the same rows, so that the client and the server never drift apart:
-  dbc/                  the Forever DBC folder of the server core (Forever.DataDir): the talent tables
+  dbc/                  the Forever DBC folder of the server core (Forever.DataDir): the talent tables and
+                        the item sets (ItemSet.dbc, item_sets.py)
   client/DBFilesClient/ the DBCs of the client data patch
   client/client-data-patch.MPQ  the client data patch: those DBCs in one MPQ
   sql/forever_world.sql the Forever server tables (forever_spell_template, ...) of the world database, and
                         forever_baseline_spell: the spells that the core teaches at their level (#212)
-The client data patch holds the talent tables, the spell table and the skill line abilities.
+The client data patch holds the talent tables, the spell table, the skill line abilities and the item sets.
 
 Each row kind of the spec has its own functions: the spell rows here, the recipes in recipes.py and the
 items in items.py. The spell rows and the recipes both become SpellEdits and Abilities, which the table
@@ -16,7 +17,7 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, dead_content, items, new_recipes, recipes, removals, removed_recipes, rules, stock_recipes
+from . import client_patch, dead_content, item_sets, items, new_recipes, recipes, removals, removed_recipes, rules, stock_recipes
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -70,6 +71,8 @@ class Stock:
         self.skill_line_ability = Dbc.read(os.path.join(folder, "SkillLineAbility.dbc"))
         # The item models and icons (#227: an item takes a stock display).
         self.item_display_info = Dbc.read(os.path.join(folder, "ItemDisplayInfo.dbc"))
+        # The item sets (#231).
+        self.item_set = Dbc.read(os.path.join(folder, "ItemSet.dbc"))
         # The stock item IDs of the world database (#230), from the generator's own list.
         self.item_ids = new_recipes.ItemIds.read()
 
@@ -267,6 +270,7 @@ def server_sql(spec, edits, stock):
     lines += _server_skill_line_abilities(skill_line_abilities(spec))
     lines += _server_baseline(baseline_spells(spec))
     lines += items.server_sql(spec.items)
+    lines += item_sets.server_sql(spec, items.TABLE)
     lines += new_recipes.server_sql(spec)
     lines += stock_recipes.server_sql(spec, stock)
     # Last: the removal marker column of each override table, then the rows that it removes (#229). A row
@@ -357,12 +361,14 @@ def generate(spec, stock_folder, out, marker_icons):
     recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     stock_recipes.check(spec, stock)
     removed_recipes.check(spec, stock)
+    item_sets.check(spec, stock)
     edits = spell_edits(spec, stock)
     talents = in_client_order(talent_table(spec, stock))
     spell_table = client_spell_table(edits, stock)
     sql = server_sql(spec, edits, stock)
     abilities = stock_recipes.apply_colours(client_skill_line_ability_table(skill_line_abilities(spec), stock), spec, stock)
     abilities = removed_recipes.apply(abilities, spec, stock)
+    sets = item_sets.client_table(spec, stock)
 
     server_dbc = os.path.join(out, "dbc")
     client_dbc = os.path.join(out, "client", "DBFilesClient")
@@ -372,6 +378,7 @@ def generate(spec, stock_folder, out, marker_icons):
     for folder in (server_dbc, client_dbc):
         talents.write(os.path.join(folder, "Talent.dbc"))
         stock.talent_tab.write(os.path.join(folder, "TalentTab.dbc"))
+        sets.write(os.path.join(folder, "ItemSet.dbc"))
     spell_table.write(os.path.join(client_dbc, "Spell.dbc"))
     abilities.write(os.path.join(client_dbc, "SkillLineAbility.dbc"))
     with open(os.path.join(sql_dir, "forever_world.sql"), "w", encoding="utf-8", newline="\n") as file:

@@ -9,6 +9,8 @@ The spec is the folder `forever/spec`, one file per area. The generator in `fore
   `recipe`), one row per stock recipe that Forever changes in place (kind `stock`, #228), and one row per
   stock recipe that Forever took away (kind `removed`, #229).
 - `items.tsv` holds the new and changed items (spec #225): one row per item.
+- `item_sets.tsv` holds the new and changed item sets (#231): a `set` row (ID, name, pieces) and one `bonus`
+  row per set bonus.
 
 Each header names the sources, the Forever build, the date, its free ID range, the next free IDs and each
 column. Within a file, the rows of one ticket stay in a block under a comment line that names the ticket.
@@ -98,6 +100,13 @@ merges it.
   but leaves out of the generated data each new recipe that needs a Forever-only station (Master Forge,
   Molten Foundry), each recipe and item that only cut rows use or make, and the plans of a cut recipe. The
   generator prints the cut list and writes it to `cut-list.tsv`. Review it at each refresh.
+- Item sets (`item_sets.tsv`, #231): the Forever client tables ItemSet and ItemSetSpell give the pieces and
+  the bonus spells (`SpellEffect` gives each spell's aura and value). Write each bonus as the stock equip spell
+  of the same aura and value, as in `items.tsv`, plus `Strength`, `ShadowRes` and `HealthRegen`
+  (`generator/forever_gen/item_sets.py`). A bonus with no 1.12 aura gets `none` and a note. A set keeps its
+  Forever ID. A piece is an `items.tsv` row (the generator puts the set ID on its row) or a stock piece of
+  the same stock set. The generator writes ItemSet.dbc into the Forever DBC folder (the core reads it there)
+  and the client data patch.
 
 ### The removal marker
 

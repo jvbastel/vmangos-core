@@ -49,7 +49,7 @@ src/game/Objects/TemporarySummon.h
 # Spec hook 11: the Forever rules (spec jvbastel/WOWAI#204, WOWAI#206). The spec file and its
 # generator, the fork's own Forever folder, the migration of the forever_* world tables, and one
 # call into Forever.h in each loader that reads Forever data: the config (World.cpp, above), the
-# talent tables (DBCStores.cpp), and the spell rows (SpellMgr.cpp: spell_template, spell_chain,
+# talent tables and the item sets (DBCStores.cpp, #231), and the spell rows (SpellMgr.cpp: spell_template, spell_chain,
 # spell_proc_event, spell_threat; ObjectMgr.cpp: skill_line_ability).
 forever/**
 src/game/Forever/**
