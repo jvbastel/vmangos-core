@@ -20,7 +20,7 @@ Forever only (client 70685), before the boar: out of combat the Warrior's rage d
 then with Anger Management (12296). After the axe swings: the Warrior learns Dual Wield and Dual Wield
 Specialization 5/5 (23588), holds a second Hand Axe in the off hand and swings.
 
-forever: each hit gives the rage of the formula in forever/warrior.tsv (speed x 3.46 one-hand, x 4.5
+forever: each hit gives the rage of the formula in forever/spec/warrior.tsv (speed x 3.46 one-hand, x 4.5
          two-hand, x2 on a crit), whatever the damage, and the rage that the Warrior has is their sum.
          The slow axe gives more rage per hit than the fast one. Each Rend tick of the Warrior crits (a log
          line, and twice the Rogue's tick); the Rogue's Rend and Shadow Word: Pain ticks never crit. Deep

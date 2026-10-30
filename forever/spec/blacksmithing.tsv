@@ -1,0 +1,30 @@
+# Forever Blacksmithing: the recipe file of spec jvbastel/WOWAI#225. forever/generator makes the recipe spells
+# (client Spell.dbc and SkillLineAbility.dbc in the client data patch, forever_spell_template and
+# forever_skill_line_ability on the server) from it. The items that the recipes make are in items.tsv.
+# Never edit a generated file by hand. To gather the data again, see forever/REFRESH.md.
+#
+# Source: WoW Forever build 1.60.1.70685, recorded 2026-10-30: the local Forever client (its SkillLineAbility,
+# SpellReagents, SpellEffect and SpellCastingRequirements tables; the dump fv_new_recipes.tsv of #224). Only
+# numbers and names come from the client.
+#
+# Free profession spell ID range: 61000-61999. A recipe spell takes its ID from this block of the free spell
+# range of warrior.tsv, so that the core can tell a profession spell from a Warrior spell even with the rules
+# off. Its skill line ability takes the same ID. Next free profession spell ID: 61001.
+#
+# Columns (tab-separated):
+#   kind          recipe (a new recipe spell)
+#   spell         the spell ID, from the profession spell range
+#   sourceSpell   the stock recipe spell that the new spell is a copy of: its cast time, tool (Blacksmith
+#                 Hammer), icon and visuals stay
+#   name          the recipe name (the craft window and the spell)
+#   skillLine     the profession: 164 Blacksmithing
+#   minRank       the skill that learning the recipe needs (orange from here)
+#   yellow, grey  the colour range: yellow from `yellow`, green from the middle, grey from `grey`
+#   reagents      item x count, separated by commas (at most 8)
+#   creates       the item that the recipe makes, x count
+#   focus         the name of the spell focus object of the stock SpellFocusObject.dbc, for example Anvil
+#   foreverSpell  the spell ID of the recipe in the Forever client (the source row of the dump)
+#   notes         free text
+kind	spell	sourceSpell	name	skillLine	minRank	yellow	grey	reagents	creates	focus	foreverSpell	notes
+# --- #226 tracer bullet: one new recipe, crafted at an Anvil from stock reagents.
+recipe	61000	3319	Strange Copper Boots	164	1	40	40	2318x2,2840x2,10940x4	70000x1	Anvil	1252230	A copy of Copper Chain Boots (3319). Light Leather, Copper Bar, Strange Dust. Plans 251333 (skill 35) have no source yet: learn it with a GM command.

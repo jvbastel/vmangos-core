@@ -1,8 +1,11 @@
-"""The spec file: one row per talent, per new ability and per changed base ability.
+"""The spec: the folder forever/spec, one file per area (#226). Each file names its row kinds in its column
+line. The spell file kind (warrior.tsv) has one row per talent, per new ability and per changed base ability;
+the recipe rows (recipes.py) and the item rows (items.py) have their own columns.
 
 The rules that need the stock data (tree rules, ID clashes, icons) are in rules.py. This module only reads
 the rows and refuses a row that it cannot read.
 """
+import os
 import re
 from collections import namedtuple
 
@@ -13,7 +16,13 @@ from collections import namedtuple
 # tooltip: the description of the rank spells, or None to keep the stock description.
 Row = namedtuple("Row", "kind talent_id tree tier column ranks required_talents required_rank name icon port "
                         "spells source_spells effects fields tooltip notes")
-Spec = namedtuple("Spec", "id_range rows")
+# id_range: the free spell ID range; rows: the spell rows (talent, ability, base); recipes: recipes.Recipe;
+# items: items.Item; item_id_range: the free item ID range; profession_id_range: the block of the spell range
+# for the profession spells (the lead's decision on #226). A range that no file names is None.
+Spec = namedtuple("Spec", "id_range rows recipes items item_id_range profession_id_range",
+                  defaults=((), (), None, None))
+# The free ID range lines of a spec file header: "# Free <label> range: <low>-<high>.", by Spec field.
+RANGE_LABELS = {"id_range": "ID", "item_id_range": "item ID", "profession_id_range": "profession spell ID"}
 
 KINDS = ("talent", "ability", "base")
 TREES = ("arms", "fury", "protection")
@@ -26,11 +35,16 @@ FIELDS = {"category": 2, "attributes": 6, "attributesEx": 7, "attributesEx3": 9,
           "recoveryTime": 19, "categoryRecoveryTime": 20, "interruptFlags": 21, "auraInterruptFlags": 22, "channelInterruptFlags": 23,
           "procFlags": 24, "procChance": 25, "procCharges": 26,
           "baseLevel": 28, "spellLevel": 29, "durationIndex": 30, "manaCost": 32, "rangeIndex": 36,
+          # The recipe columns (recipes.py): the spell focus, the tools and the reagents.
+          "requiresSpellFocus": 15, "totem1": 40, "totem2": 41,
           "equippedItemClass": 58, "equippedItemSubClassMask": 59,
           # The global cooldown: its category (133 for the Warrior abilities) and its time in ms.
           "startRecoveryCategory": 157, "startRecoveryTime": 158,
           # 64 bits: Spell.dbc holds the low word here and the high word in the next field.
           "spellFamilyFlags": 161}
+for _k in range(8):
+    FIELDS["reagent%d" % (_k + 1)] = 42 + _k
+    FIELDS["reagentCount%d" % (_k + 1)] = 50 + _k
 for _k in range(3):
     for _name, _first in (("effect", 61), ("effectDieSides", 64), ("effectBaseDice", 67), ("effectBasePoints", 76),
                           ("effectImplicitTargetA", 82), ("effectImplicitTargetB", 85),
@@ -107,25 +121,62 @@ def _fields(where, text, ranks):
     return fields
 
 
-def read(path):
-    with open(path, encoding="utf-8") as file:
-        text = file.read()
-    m = re.search(r"^# Free ID range: (\d+)-(\d+)\.", text, re.M)
-    if not m:
-        raise SpecError("%s: no '# Free ID range: <low>-<high>.' line in the header" % path)
-    id_range = (int(m.group(1)), int(m.group(2)))
+def _id_range(text, label):
+    m = re.search(r"^# Free %s range: (\d+)-(\d+)\." % label, text, re.M)
+    return (int(m.group(1)), int(m.group(2))) if m else None
 
-    lines = [line for line in text.splitlines() if line and not line.startswith("#")]
-    header = tuple(lines[0].split("\t"))
-    if header != COLUMNS:
-        raise SpecError("%s: the column line is not %s" % (path, "\t".join(COLUMNS)))
+
+def data_lines(text):
+    """The lines of a spec file that are no comments: the column line first, then the rows."""
+    return [line for line in text.splitlines() if line and not line.startswith("#")]
+
+
+def read(path):
+    """The spec of a folder (every *.tsv file in it, by name) or of one spec file. Each file is read by the
+    reader of its column line. A free ID range ("# Free ID range: <low>-<high>." for spells, "# Free item
+    ID range: ..." for items) is named by one file and holds for all."""
+    if os.path.isdir(path):
+        files = [os.path.join(path, name) for name in sorted(os.listdir(path)) if name.endswith(".tsv")]
+    else:
+        files = [path]
+    from . import items, recipes  # they import SpecError from here
+    readers = {COLUMNS: _read_spell_rows, recipes.COLUMNS: recipes.read_rows, items.COLUMNS: items.read_rows}
+    found = {"rows": [], "recipes": [], "items": []}
+    ranges = {}
+    for file in files:
+        with open(file, encoding="utf-8") as handle:
+            text = handle.read()
+        for field, label in RANGE_LABELS.items():
+            id_range = _id_range(text, label)
+            if id_range and ranges.setdefault(field, id_range) != id_range:
+                raise SpecError("%s: the free %s range %d-%d is not the one of another spec file" % ((file, label) + id_range))
+        lines = data_lines(text)
+        header = tuple(lines[0].split("\t")) if lines else ()
+        if header not in readers:
+            raise SpecError("%s: the column line is that of no spec file kind (spells: %s)" % (file, "\t".join(COLUMNS)))
+        for key, rows in readers[header](file, lines).items():
+            found[key] += rows
+    if "id_range" not in ranges:
+        raise SpecError("%s: no '# Free ID range: <low>-<high>.' line in the header" % path)
+    return Spec(ranges["id_range"], found["rows"], found["recipes"], found["items"], ranges.get("item_id_range"),
+                ranges.get("profession_id_range"))
+
+
+def rows_of(path, lines, header):
+    """(where, {column: value}) of each row of a spec file whose column line is `header`."""
     rows = []
     for number, line in enumerate(lines[1:], start=2):
         values = line.split("\t")
         if len(values) != len(header):
             raise SpecError("%s: data line %d has %d columns, not %d" % (path, number, len(values), len(header)))
         raw = dict(zip(header, values))
-        where = "%s (data line %d)" % (raw["name"], number)
+        rows.append(("%s (data line %d)" % (raw["name"], number), raw))
+    return rows
+
+
+def _read_spell_rows(path, lines):
+    rows = []
+    for where, raw in rows_of(path, lines, COLUMNS):
         if raw["kind"] not in KINDS:
             raise SpecError("%s: unknown kind '%s'" % (where, raw["kind"]))
         ranks = int(raw["ranks"])
@@ -149,7 +200,7 @@ def read(path):
         if not len(row.spells) == len(row.source_spells) == ranks:
             raise SpecError("%s: spells and sourceSpells need one value per rank (%d)" % (where, ranks))
         rows.append(row)
-    return Spec(id_range, rows)
+    return {"rows": rows}
 
 
 def talents(spec):

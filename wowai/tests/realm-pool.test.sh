@@ -265,6 +265,8 @@ if [ -L "$tmp/data/5875/dbc" ]; then
   check "a Forever lease generates the Forever talent tables" test -f "$WOWAI_POOL_DIR/$s24/forever/dbc/Talent.dbc"
   check "a Forever lease generates the Forever server tables" \
     grep -q 'INSERT INTO .forever_spell_template.' "$WOWAI_POOL_DIR/$s24/forever/sql/forever_world.sql"
+  check "a Forever lease generates the Blacksmithing items too (#226)" \
+    grep -q 'INSERT INTO .forever_item_template.' "$WOWAI_POOL_DIR/$s24/forever/sql/forever_world.sql"
 else
   echo "SKIP: no stock DBC folder at $stock: the Forever data is not generated"
 fi

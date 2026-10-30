@@ -10,7 +10,7 @@
 
 // The pure rules of the Forever Fury talents (jvbastel/WOWAI#218): the small decisions of Lingering Rage, Furious Precision, Blood Craze, Improved Berserker Rage and Gore
 // Drinker. No game header, so wowai/tests/forever-rules.test.sh tests it on the host. ForeverFury.cpp
-// calls it from the core hooks. The talent values come from the rank spells (forever/warrior.tsv).
+// calls it from the core hooks. The talent values come from the rank spells (forever/spec/warrior.tsv).
 
 #include "ForeverSpellIds.h"
 

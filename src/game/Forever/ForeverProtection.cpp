@@ -97,7 +97,7 @@ void Forever::OnDodgeOrParry(Unit* victim, uint32 procExtra)
     if (!MasterOfDefenseCanProc(avoided, HasUsableShield(warrior), chance) || !roll_chance_i(chance))
         return;
 
-    // 23602 (forever/warrior.tsv, base row Shield Specialization): an energize of 5 Rage. The client sees
+    // 23602 (forever/spec/warrior.tsv, base row Shield Specialization): an energize of 5 Rage. The client sees
     // it in the combat log (SMSG_SPELLENERGIZELOG) and in the Rage bar.
     warrior->CastSpell(warrior, MasterOfDefenseRageSpell, true);
     sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Master of Defense: %s %s, spell %u (chance %d%%)",

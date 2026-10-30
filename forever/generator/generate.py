@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Generates the Forever data from the spec file and the stock 1.12.1 DBC files.
+"""Generates the Forever data from the spec folder and the stock 1.12.1 DBC files.
 
-    python3 -I forever/generator/generate.py --spec forever/warrior.tsv \\
+    python3 -I forever/generator/generate.py --spec forever/spec \\
         --stock <extracted-data>/5875/dbc --out <folder>
 
 Writes <folder>/dbc (the Forever DBC folder, Forever.DataDir), <folder>/client/DBFilesClient (the DBCs of
@@ -25,7 +25,7 @@ CORE_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--spec", required=True, help="the spec file, forever/warrior.tsv")
+    parser.add_argument("--spec", required=True, help="the spec folder forever/spec (every *.tsv in it), or one spec file")
     parser.add_argument("--stock", required=True, help="the stock DBC folder, <extracted-data>/5875/dbc")
     parser.add_argument("--out", required=True, help="the output folder")
     parser.add_argument("--core-src", default=CORE_SRC,

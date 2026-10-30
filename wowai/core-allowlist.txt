@@ -54,6 +54,9 @@ src/game/Objects/TemporarySummon.h
 forever/**
 src/game/Forever/**
 sql/migrations/20261029120000_world.sql
+# The Forever item override table forever_item_template (WOWAI#226, spec #225); ObjectMgr.cpp reads it in
+# LoadAllIdentifiers and LoadItemPrototypes.
+sql/migrations/20261030120000_world.sql
 src/game/Database/DBCStores.cpp
 src/game/Spells/SpellMgr.cpp
 src/game/ObjectMgr.cpp

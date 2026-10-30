@@ -3344,7 +3344,7 @@ BotChat.TimeoutMs = 5000
 # WOWAI FOREVER RULES
 #
 #    The Forever rules of the Warrior (spec jvbastel/WOWAI#204): the Forever talent trees and spell data that
-#    forever/generator makes from forever/warrior.tsv. The players need the client data patch of the same
+#    forever/generator makes from the spec folder forever/spec. The players need the client data patch of the same
 #    spec. The stock tables and the stock DBC files never change: set Forever.Rules = 0 and restart to get
 #    vanilla back. The core reads these settings at startup only.
 #

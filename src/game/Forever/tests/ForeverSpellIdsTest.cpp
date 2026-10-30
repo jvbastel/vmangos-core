@@ -1,5 +1,5 @@
 // Tests of the spell IDs of the Forever rules (ForeverSpellIds.h, spec jvbastel/WOWAI#204).
-// forever/generator/tests/test_spell_ids.py checks the ID values against forever/warrior.tsv; this test
+// forever/generator/tests/test_spell_ids.py checks the ID values against forever/spec/warrior.tsv; this test
 // checks the rules that use them.
 
 #include "../ForeverSpellIds.h"

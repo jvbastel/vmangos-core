@@ -33,7 +33,7 @@ CHARGE = (100, 6178, 11578)
 VANGUARD_CHARGE = (60127, 60128, 60129)
 VANGUARD = 60007
 VANGUARD_SPELL = 60119
-# 15 Protection points (forever/warrior.tsv): Shield Specialization 5, Anticipation 5, Improved Revenge 3,
+# 15 Protection points (forever/spec/warrior.tsv): Shield Specialization 5, Anticipation 5, Improved Revenge 3,
 # Improved Bloodrage 2. Vanguard is on tier 4.
 PROTECTION_15 = ((1601, 5), (138, 5), (147, 3), (142, 2))
 BUTTON_CHARGE = 115  # a high button, free on a new character
