@@ -181,12 +181,12 @@ stock	22384	22384	Persuader	epic	63	58	equip	oneHand	2800	89-167	0	-	-	-	-	36969
 #   (item_template, spell_template, skill_line_ability).
 # A made item copies the stock item of its class, subclass and slot nearest in item level (a Blacksmithing
 #   item first) and takes its model; plans copy the stock plans nearest in skill; a new reagent copies a stock
-#   reagent of its kind. No new item has a source yet (later tickets). Forever on-hit effects of the thrown
-#   hammers have no stock spell and are not ported.
+#   reagent of its kind. Only Pitchblende has a source yet (mining.tsv); the others: later tickets. Forever
+#   on-hit effects of the thrown hammers have no stock spell and are not ported.
 # Excluded (encrypted in the client data, not filled from fan sites): the plans 251340, 251342, 251343,
 #   251344, 251345, 251346, 251347, 251348, 251349, 251350, 251351, 251352, 251353, 251354, 251395.
 item	70001	12359	Azerothium Bar	uncommon	55	0	none	-	-	-	0	none	-	-	-	22444	3000	249726	-	Reagent, copy of Thorium Bar (12359). Made by Smelt Azerothium.
-item	70002	10620	Pitchblende	uncommon	60	0	none	-	-	-	0	none	-	-	-	20658	375	249426	-	Reagent, copy of Thorium Ore (10620). Its source (vein, drop or vendor) is a later ticket.
+item	70002	10620	Pitchblende	uncommon	60	0	none	-	-	-	0	none	-	-	-	20658	375	249426	-	Reagent, copy of Thorium Ore (10620). Its source: the Small and Rich Thorium Veins (mining.tsv, #232).
 item	70003	6350	Gemmed Copper Boots	rare	15	10	pickup	-	-	-	109	none	Str 4, Sta 4	-	-	6885	401	250620	Str 4, Sta 4	Copy of Rough Bronze Boots (6350): its model and icon.
 item	70004	3609	Plans: Gemmed Copper Boots	rare	15	0	pickup	-	-	-	0	none	-	-	-	15274	25	251332	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 35. No source yet (a later ticket).
 item	70005	3609	Plans: Strange Copper Boots	rare	15	0	pickup	-	-	-	0	none	-	-	-	15274	25	251333	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 35. No source yet (a later ticket).
@@ -545,7 +545,7 @@ item	70357	3840	Azure Skyforged Pauldrons	uncommon	35	30	equip	-	-	-	160	none	Ag
 item	70358	3866	Plans: Azure Skyforged Pauldrons	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	25000	276985	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
 item	70359	3469	Rough Copper Chain Boots	uncommon	10	4	equip	-	-	-	74	none	Str 1	-	-	23528	49	277672	Str 1	Copy of Copper Chain Boots (3469): its model and icon.
 item	70360	3610	Plans: Rough Copper Chain Boots	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	150	277673	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 50. No source yet (a later ticket).
-item	70361	10620	Heavy Thorium Ore	common	60	0	none	-	-	-	0	none	-	-	-	20658	375	248815	-	Reagent, copy of Thorium Ore (10620). Its source (vein, drop or vendor) is a later ticket.
+item	70361	10620	Heavy Thorium Ore	common	60	0	none	-	-	-	0	none	-	-	-	20658	375	248815	-	Reagent, copy of Thorium Ore (10620). Its source: the Small and Rich Thorium Veins (mining.tsv, #232).
 item	70362	19168	Ironwood Blade	epic	65	60	equip	-	2400	79-148	0	none	Str 8, Sta 12	Hit 1	-	31692	10484	279259	Str 8, Sta 12, HitRating 10	Copy of Blackguard (19168): its model and icon.
 item	70363	12704	Plans: Ironwood Blade	epic	1	0	pickup	-	-	-	0	none	-	-	-	15274	125000	279308	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
 item	70364	12784	Forest Defender's Axe	epic	65	60	equip	-	3300	162-244	0	none	Sta 27, Str 18	SpellPower 28	-	23904	5062	279260	Sta 27, Str 18, SpellPower 28	Copy of Arcanite Reaper (12784): its model and icon.
