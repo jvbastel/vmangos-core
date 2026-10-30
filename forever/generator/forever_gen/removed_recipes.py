@@ -83,7 +83,9 @@ PLANS_TEMP = "forever_plans_gone"
 def plans_sql(recipe, learn):
     """The forever_item_template copy of the stock plans of a removed recipe, with each spell slot that holds
     a learn spell of the recipe emptied: the plans stay an item but teach nothing. Unless the newest stock
-    plans row holds a learn spell in exactly one slot, the SQL fails instead of copying the row."""
+    plans row holds a learn spell in exactly one slot, the SQL fails instead of copying the row. The copy
+    keeps the patch of the stock row: the Timbermaw plans come with a later content patch, and must not
+    appear earlier with the rules on."""
     teaching = ", ".join(str(spell) for spell in learn)
     slots = " + ".join("(`spellid_%d` IN (%s))" % (k, teaching) for k in range(1, MAX_ITEM_SPELLS + 1))
     lines = [
@@ -95,7 +97,6 @@ def plans_sql(recipe, learn):
         lines.append("UPDATE `%s` SET %s WHERE `spellid_%d` IN (%s);" % (
             PLANS_TEMP, ", ".join("`%s_%d`=%s" % (column, k, empty) for column, empty in SPELL_SLOT), k, teaching))
     return lines + [
-        "UPDATE `%s` SET `patch`=0;" % PLANS_TEMP,
         "INSERT INTO `forever_item_template` SELECT * FROM `%s`;" % PLANS_TEMP,
         "DROP TEMPORARY TABLE `%s`;" % PLANS_TEMP,
     ]

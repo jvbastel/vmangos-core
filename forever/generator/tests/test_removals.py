@@ -103,6 +103,8 @@ def test_the_plans_of_each_removed_recipe_teach_nothing_on_the_server(out):
         block = plans_copy(out, plans)
         assert block, name
         assert "INSERT INTO `forever_item_template` SELECT * FROM `forever_plans_gone`;" in block, name
+        # The copy keeps the content patch of the stock plans (Timbermaw plans: a later patch).
+        assert not [line for line in block if "`patch`=" in line], name
         for k in range(1, 6):
             emptied = [line for line in block if line.startswith("UPDATE `forever_plans_gone` SET `spellid_%d`=0, "
                                                                  "`spelltrigger_%d`=0" % (k, k))]
