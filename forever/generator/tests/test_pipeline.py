@@ -54,6 +54,15 @@ def set_values(row, name):
     return None
 
 
+def changed_stock_spells():
+    """The stock spells that the stock rows of the profession files change in place (#228)."""
+    spells = set()
+    for path in SPEC_DIR.glob("*.tsv"):
+        lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")]
+        spells |= {int(line.split("\t")[1]) for line in lines[1:] if line.split("\t")[0] == "stock"}
+    return spells
+
+
 def int32(value):
     return value - (1 << 32) if value >= 1 << 31 else value
 
@@ -349,6 +358,8 @@ def test_the_other_spec_files_leave_the_warrior_output_as_it_is(out, tmp_path):
     (alone / "warrior.tsv").write_bytes(SPEC.read_bytes())
     warrior = generate(tmp_path / "warrior-out", alone)
     assert sorted(p.name for p in SPEC_DIR.glob("*.tsv")) != ["warrior.tsv"], "the spec folder has only the Warrior file"
+    # The stock recipes that a profession file changes in place (#228) are not Warrior rows.
+    changed = changed_stock_spells()
     for name in ("dbc/Talent.dbc", "dbc/TalentTab.dbc", "client/DBFilesClient/Talent.dbc"):
         assert (out / name).read_bytes() == (warrior / name).read_bytes(), name
     for name in ("Spell.dbc", "SkillLineAbility.dbc"):
@@ -356,6 +367,8 @@ def test_the_other_spec_files_leave_the_warrior_output_as_it_is(out, tmp_path):
         only, only_text = read_dbc(warrior / "client" / "DBFilesClient" / name)
         assert set(only) < set(full), name
         for key, row in only.items():
+            if (key if name == "Spell.dbc" else row[2]) in changed:
+                continue
             if name == "Spell.dbc":
                 # Every field: the string fields (8 locales of name, rank, description, tooltip) by text.
                 for field, value in enumerate(row):

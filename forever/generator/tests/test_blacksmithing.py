@@ -31,6 +31,11 @@ def spec_rows(name):
     return [dict(zip(header, line.split("\t"))) for line in lines[1:]]
 
 
+def new_recipes():
+    """The new recipe rows of blacksmithing.tsv (kind recipe; the stock rows of #228 change stock recipes)."""
+    return [row for row in spec_rows("blacksmithing.tsv") if row["kind"] == "recipe"]
+
+
 def counted(text):
     """[(item, count)] of a spec value "item x count, ..."."""
     return [tuple(int(v) for v in part.split("x")) for part in text.split(",")]
@@ -69,7 +74,7 @@ def test_each_recipe_is_a_client_spell_that_makes_its_item_at_its_focus_from_its
     stock, _ = read_dbc(STOCK / "Spell.dbc")
     foci, focus_text = read_dbc(STOCK / "SpellFocusObject.dbc")
     focus_ids = {focus_text(row[1]): key for key, row in foci.items()}
-    for recipe in spec_rows("blacksmithing.tsv"):
+    for recipe in new_recipes():
         spell, source = int(recipe["spell"]), int(recipe["sourceSpell"])
         row = client[spell]
         reagents = counted(recipe["reagents"])
@@ -96,7 +101,7 @@ def test_the_tracer_recipe_is_strange_copper_boots_at_an_anvil(out):
 def test_each_recipe_has_its_skill_line_and_colour_range_in_the_client(out):
     abilities, _ = read_dbc(out / "client" / "DBFilesClient" / "SkillLineAbility.dbc")
     by_spell = {row[2]: row for row in abilities.values()}
-    for recipe in spec_rows("blacksmithing.tsv"):
+    for recipe in new_recipes():
         row = by_spell[int(recipe["spell"])]
         assert (row[1], row[3], row[4]) == (int(recipe["skillLine"]), 0, 0)
         assert (row[7], row[9], row[11], row[10]) == (int(recipe["minRank"]), 0, int(recipe["yellow"]), int(recipe["grey"]))
@@ -106,7 +111,7 @@ def test_each_recipe_has_its_skill_line_and_colour_range_in_the_client(out):
 def test_each_recipe_is_in_the_server_spell_and_skill_line_tables(out):
     spells = {int(row["entry"]): row for row in sql_rows(out, "forever_spell_new")}
     abilities = {int(row["spell_id"]): row for row in sql_rows(out, "forever_sla_new")}
-    for recipe in spec_rows("blacksmithing.tsv"):
+    for recipe in new_recipes():
         spell = int(recipe["spell"])
         server = spells[spell]
         reagents = counted(recipe["reagents"])
@@ -166,12 +171,12 @@ def test_new_recipe_and_item_ids_are_in_their_free_ranges(out):
     item_low, item_high = free_range("items.tsv", "item ID")
     assert (spell_low, spell_high) == (61000, 61999) and (item_low, item_high) == (70000, 79999)
     stock, _ = read_dbc(STOCK / "Spell.dbc")
-    for recipe in spec_rows("blacksmithing.tsv"):
+    for recipe in new_recipes():
         assert spell_low <= int(recipe["spell"]) <= spell_high and int(recipe["spell"]) not in stock
     for item in spec_rows("items.tsv"):
         if item["entry"] != item["sourceItem"]:
             assert item_low <= int(item["entry"]) <= item_high
-    made = {item for recipe in spec_rows("blacksmithing.tsv") for item, _ in counted(recipe["creates"])}
+    made = {item for recipe in new_recipes() for item, _ in counted(recipe["creates"])}
     assert made <= {int(item["entry"]) for item in spec_rows("items.tsv")}
 
 

@@ -8,13 +8,16 @@ from collections import namedtuple
 
 from .spec import SpecError, rows_of
 
-# reagents: [(item, count)]; creates: (item, count); focus: the name of a stock SpellFocusObject.dbc row.
+# reagents: [(item, count)]; creates: (item, count); focus: the name of a stock SpellFocusObject.dbc row, or
+# NO_FOCUS; plans: the stock plans item of a stock row, or None.
 Recipe = namedtuple("Recipe", "kind spell source_spell name skill_line min_rank yellow grey reagents creates focus "
-                              "forever_spell notes")
+                              "plans forever_spell notes")
 
 COLUMNS = ("kind", "spell", "sourceSpell", "name", "skillLine", "minRank", "yellow", "grey", "reagents", "creates",
-           "focus", "foreverSpell", "notes")
-KINDS = ("recipe",)
+           "focus", "plans", "foreverSpell", "notes")
+# recipe: a new recipe spell (here). stock: a stock recipe that Forever changes in place (stock_recipes.py, #228).
+KINDS = ("recipe", "stock")
+NO_VALUE = "-"
 MAX_REAGENTS = 8
 # The spell_template columns of the reagents (Spell.dbc fields 42-49 and 50-57).
 REAGENT_COLUMNS = ["reagent%d" % k for k in range(1, MAX_REAGENTS + 1)]
@@ -34,6 +37,7 @@ def _counted(where, column, text):
 
 
 def read_rows(path, lines):
+    """{"recipes": the new recipes, "stock_recipes": the stock rows}."""
     recipes = []
     for where, raw in rows_of(path, lines, COLUMNS):
         if raw["kind"] not in KINDS:
@@ -48,8 +52,10 @@ def read_rows(path, lines):
             kind=raw["kind"], spell=int(raw["spell"]), source_spell=int(raw["sourceSpell"]), name=raw["name"],
             skill_line=int(raw["skillLine"]), min_rank=int(raw["minRank"]), yellow=int(raw["yellow"]),
             grey=int(raw["grey"]), reagents=reagents, creates=creates[0], focus=raw["focus"],
+            plans=None if raw["plans"] == NO_VALUE else int(raw["plans"]),
             forever_spell=int(raw["foreverSpell"]), notes=raw["notes"]))
-    return {"recipes": recipes}
+    return {"recipes": [r for r in recipes if r.kind == "recipe"],
+            "stock_recipes": [r for r in recipes if r.kind == "stock"]}
 
 
 def focus_ids(stock):

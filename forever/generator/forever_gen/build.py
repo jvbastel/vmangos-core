@@ -16,7 +16,7 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, items, recipes, rules
+from . import client_patch, items, recipes, rules, stock_recipes
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -328,11 +328,12 @@ def generate(spec, stock_folder, out, marker_icons):
     rules.check(spec, stock, marker_icons)
     recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     items.check(spec, stock)
+    stock_recipes.check(spec, stock)
     edits = spell_edits(spec, stock)
     talents = in_client_order(talent_table(spec, stock))
     spell_table = client_spell_table(edits, stock)
     sql = server_sql(spec, edits)
-    abilities = client_skill_line_ability_table(skill_line_abilities(spec), stock)
+    abilities = stock_recipes.apply_colours(client_skill_line_ability_table(skill_line_abilities(spec), stock), spec, stock)
 
     server_dbc = os.path.join(out, "dbc")
     client_dbc = os.path.join(out, "client", "DBFilesClient")
