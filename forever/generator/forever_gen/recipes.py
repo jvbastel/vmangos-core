@@ -9,9 +9,11 @@ from collections import namedtuple
 from .spec import SpecError, rows_of
 
 # reagents: [(item, count)]; creates: (item, count); focus: the name of a stock SpellFocusObject.dbc row, or
-# NO_VALUE; plans: the stock plans item of a stock row, or None.
+# NO_VALUE; plans: the plans item (a stock one for a stock row, an item row of the spec for a new recipe), or
+# None; forever_spell: the Forever spell (the source row of the dump), or None when the row has none;
+# plans_spell: the learn spell (Effect1 Learn Spell) that the plans of a new recipe cast (#230), or None.
 Recipe = namedtuple("Recipe", "kind spell source_spell name skill_line min_rank yellow grey reagents creates focus "
-                              "plans forever_spell notes")
+                              "plans forever_spell notes plans_spell", defaults=(None,))
 
 COLUMNS = ("kind", "spell", "sourceSpell", "name", "skillLine", "minRank", "yellow", "grey", "reagents", "creates",
            "focus", "plans", "foreverSpell", "notes")
@@ -37,6 +39,17 @@ def _counted(where, column, text):
     return pairs
 
 
+def _plans(where, text):
+    """(plans item, learn spell) of the plans column: "-", "<item>" (a stock row) or "<item>/<learn spell>"
+    (a new recipe, #230)."""
+    if text == NO_VALUE:
+        return None, None
+    item, _, spell = text.partition("/")
+    if not item.isdigit() or spell and not spell.isdigit():
+        raise SpecError("%s: plans '%s' is not '<item>' or '<item>/<learn spell>'" % (where, text))
+    return int(item), int(spell) if spell else None
+
+
 def read_rows(path, lines):
     """{"recipes": the new recipes, "stock_recipes": the stock rows, "removed_recipes": the removal rows}."""
     from . import removed_recipes  # it imports stock_recipes, which imports this module
@@ -53,12 +66,13 @@ def read_rows(path, lines):
         creates = _counted(where, "creates", raw["creates"])
         if len(creates) != 1:
             raise SpecError("%s: a recipe makes one item" % where)
+        plans, plans_spell = _plans(where, raw["plans"])
         recipes.append(Recipe(
             kind=raw["kind"], spell=int(raw["spell"]), source_spell=int(raw["sourceSpell"]), name=raw["name"],
             skill_line=int(raw["skillLine"]), min_rank=int(raw["minRank"]), yellow=int(raw["yellow"]),
             grey=int(raw["grey"]), reagents=reagents, creates=creates[0], focus=raw["focus"],
-            plans=None if raw["plans"] == NO_VALUE else int(raw["plans"]),
-            forever_spell=int(raw["foreverSpell"]), notes=raw["notes"]))
+            plans=plans, plans_spell=plans_spell,
+            forever_spell=None if raw["foreverSpell"] == NO_VALUE else int(raw["foreverSpell"]), notes=raw["notes"]))
     return {"recipes": [r for r in recipes if r.kind == "recipe"],
             "stock_recipes": [r for r in recipes if r.kind == "stock"], "removed_recipes": removed}
 

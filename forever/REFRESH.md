@@ -82,6 +82,23 @@ merges it.
   other columns. The recipe leaves the client skill line and every trainer; its spell stays, so that a
   character who knows it keeps it.
 
+- New recipes and items (#230): `generator/tools/new_recipe_rows.py` writes the `# --- #230` blocks of
+  `blacksmithing.tsv` and `items.tsv` from the client dump (`fv_new_recipes.tsv`, `items.tsv`) and the stock
+  world DB. It is a row writer, not a dump tool: it reads the dump outside git and keeps the IDs that a
+  block already gave out on a rerun. With `--stock-item-ids` it also writes
+  `generator/forever_gen/stock_item_ids.txt` (the stock `item_template` IDs), which the refusals read. Never
+  edit the #230 blocks or that file by hand.
+- A new recipe with plans names them as `<item>/<learn spell>`: the plans item is an `items.tsv` row, and the
+  learn spell (a copy of stock spell 2760) takes the next free ID of the profession spell range. The plans
+  need the recipe's `minRank`.
+- The generator refuses a new recipe or item without its Forever source (`foreverSpell`, `foreverItem`), a
+  reagent or made item that is neither a stock item nor an `items.tsv` row, and a new item whose
+  `sourceItem` is no stock item.
+- The dead-content rule (`generator/forever_gen/dead_content.py`) keeps every readable new row in the spec
+  but leaves out of the generated data each new recipe that needs a Forever-only station (Master Forge,
+  Molten Foundry), each recipe and item that only cut rows use or make, and the plans of a cut recipe. The
+  generator prints the cut list and writes it to `cut-list.tsv`. Review it at each refresh.
+
 ### The removal marker
 
 Every Forever override table (`forever_<stock table>`) has one more column than its stock table:

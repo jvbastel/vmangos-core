@@ -8,7 +8,7 @@
 # 1.12 item_template rows. Only numbers and names.
 #
 # Free item ID range: 70000-79999. A new item takes its ID from here. The stock 1.12 world database ends at item
-# 25818. Next free item ID: 70001.
+# 25818. Next free item ID: 70382.
 #
 # Stats: the 1.12 item has five base stats (Str, Agi, Sta, Int, Spi) and Health and Mana in `stats`, and the
 # six resistances in `resistances`. Every other Forever stat is a bonus: a stock 1.12 equip spell
@@ -174,3 +174,395 @@ stock	19694	19694	Darksoul Leggings	rare	65	60	equip	-	-	-	852	-	Sta 22	-	-	3216
 stock	20039	20039	Dark Iron Boots	epic	70	60	equip	-	-	-	784	-	-	-	-	32599	31709	20039	FireRes 28, BonusArmor 120	armor 664->784.
 stock	22383	22383	Sageblade	epic	64	59	equip	-	1800	58-109	0	-	Sta 14, Int 6	Hit 1	-	36970	84291	22383	Sta 14, Int 6, HitRating 10	damage 49-100->58-109; bonuses: spell power 20 and spell penetration 10 (stock spells 14799, 25975) -> Hit 1 (15464). Forever made it a melee dagger: the damage is from the non-caster table, and the dump diff hid the change because it drops stat-like stock spells.
 stock	22384	22384	Persuader	epic	63	58	equip	oneHand	2800	89-167	0	-	-	-	-	36969	80554	22384	HitRating 10, CritRating 14	slot 21->13; speed 2700->2800; damage 86-161->89-167.
+
+# --- #230 new items: the items, plans and new reagents of the #230 recipes (written by
+# forever/generator/tools/new_recipe_rows.py; do not edit by hand).
+# Source: fv_new_recipes.tsv and items.tsv of #224 (WoW Forever build 1.60.1.70685), over the stock world DB
+#   (item_template, spell_template, skill_line_ability).
+# A made item copies the stock item of its class, subclass and slot nearest in item level (a Blacksmithing
+#   item first) and takes its model; plans copy the stock plans nearest in skill; a new reagent copies a stock
+#   reagent of its kind. No new item has a source yet (later tickets). Forever on-hit effects of the thrown
+#   hammers have no stock spell and are not ported.
+# Excluded (encrypted in the client data, not filled from fan sites): the plans 251340, 251342, 251343,
+#   251344, 251345, 251346, 251347, 251348, 251349, 251350, 251351, 251352, 251353, 251354, 251395.
+item	70001	12359	Azerothium Bar	uncommon	55	0	none	-	-	-	0	none	-	-	-	22444	3000	249726	-	Reagent, copy of Thorium Bar (12359). Made by Smelt Azerothium.
+item	70002	10620	Pitchblende	uncommon	60	0	none	-	-	-	0	none	-	-	-	20658	375	249426	-	Reagent, copy of Thorium Ore (10620). Its source (vein, drop or vendor) is a later ticket.
+item	70003	6350	Gemmed Copper Boots	rare	15	10	pickup	-	-	-	109	none	Str 4, Sta 4	-	-	6885	401	250620	Str 4, Sta 4	Copy of Rough Bronze Boots (6350): its model and icon.
+item	70004	3609	Plans: Gemmed Copper Boots	rare	15	0	pickup	-	-	-	0	none	-	-	-	15274	25	251332	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 35. No source yet (a later ticket).
+item	70005	3609	Plans: Strange Copper Boots	rare	15	0	pickup	-	-	-	0	none	-	-	-	15274	25	251333	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 35. No source yet (a later ticket).
+item	70006	6350	Glowing Copper Boots	rare	15	10	pickup	-	-	-	109	none	Int 4	Healing 9	-	6885	256	250482	Int 4, Healing 9, SpellDmg 3	Copy of Rough Bronze Boots (6350): its model and icon; SpellDmg 3 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70007	3609	Plans: Glowing Copper Boots	rare	15	0	pickup	-	-	-	0	none	-	-	-	15274	25	251334	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 35. No source yet (a later ticket).
+item	70008	3482	Sterling Silver Boots	uncommon	25	20	equip	-	-	-	126	none	Sta 3, Str 3	SpellPower 4	-	9404	1267	250483	SpellPower 4, Sta 3, Str 3	Copy of Silvered Bronze Boots (3482): its model and icon.
+item	70009	5577	Plans: Sterling Silver Boots	uncommon	25	0	pickup	-	-	-	0	none	-	-	-	15274	300	251335	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 100. No source yet (a later ticket).
+item	70010	2865	Sterling Silver Leggings	uncommon	26	21	equip	-	-	-	163	none	Sta 3, Str 3	SpellPower 4	-	4333	1908	250484	SpellPower 4, Sta 3, Str 3	Copy of Rough Bronze Leggings (2865): its model and icon.
+item	70011	5577	Plans: Sterling Silver Leggings	uncommon	26	0	pickup	-	-	-	0	none	-	-	-	15274	300	251336	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 105. No source yet (a later ticket).
+item	70012	3483	Sterling Silver Gauntlet	uncommon	26	21	equip	-	-	-	116	none	Sta 4, Str 4	SpellPower 4	-	9406	957	250485	SpellPower 4, Sta 4, Str 4	Copy of Silvered Bronze Gauntlets (3483): its model and icon.
+item	70013	5577	Plans: Sterling Silver Gauntlet	uncommon	26	0	pickup	-	-	-	0	none	-	-	-	15274	300	251337	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 105. No source yet (a later ticket).
+item	70014	3481	Sterling Silver Shoulders	uncommon	27	22	equip	-	-	-	142	none	Sta 4, Str 4	SpellPower 4	-	9407	490	250486	SpellPower 4, Sta 4, Str 4	Copy of Silvered Bronze Shoulders (3481): its model and icon.
+item	70015	5577	Plans: Sterling Silver Shoulders	uncommon	27	0	pickup	-	-	-	0	none	-	-	-	15274	450	251338	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 110. No source yet (a later ticket).
+item	70016	2870	Sterling Silver Breastplate	uncommon	30	25	equip	-	-	-	198	none	Sta 6, Str 7	SpellPower 7	-	23540	485	250487	SpellPower 7, Sta 6, Str 7	Copy of Shining Silver Breastplate (2870): its model and icon.
+item	70017	2882	Plans: Sterling Silver Breastplate	uncommon	30	0	pickup	-	-	-	0	none	-	-	-	15274	500	251339	-	Plans, copy of Plans: Silvered Bronze Shoulders (2882). Needs Blacksmithing 125. No source yet (a later ticket).
+item	70018	6731	Veteran's Chain Shirt	rare	20	15	pickup	-	-	-	184	none	Agi 4, Sta 5, Str 7	-	-	12945	974	250488	Agi 4, Sta 5, Str 7	Copy of Ironforge Breastplate (6731): its model and icon.
+item	70019	6731	Guard's Chain Shirt	rare	20	15	pickup	-	-	-	184	none	Sta 7, Str 4	Defense 5	-	12945	978	250489	DefRating 5, Sta 7, Str 4	Copy of Ironforge Breastplate (6731): its model and icon.
+item	70020	2881	Plans: Guard's Chain Shirt	rare	20	0	pickup	-	-	-	0	none	-	-	-	15274	150	251341	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 80. No source yet (a later ticket).
+item	70021	6731	Protector's Chain Shirt	rare	20	15	pickup	-	-	-	184	none	Sta 7	Defense 3, SpellPower 5	-	12945	488	250490	DefRating 3, SpellPower 5, Sta 7	Copy of Ironforge Breastplate (6731): its model and icon.
+item	70022	6731	Acolyte's Chain Shirt	rare	20	15	pickup	-	-	-	184	none	Int 5, Sta 4	Healing 15 (Forever 16)	-	12945	313	250491	Int 5, SpellDmg 5, Healing 16, Sta 4	Copy of Ironforge Breastplate (6731): its model and icon; SpellDmg 5 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70023	6731	Crusader's Chain Shirt	rare	20	15	pickup	-	-	-	184	none	Sta 5, Str 4	SpellPower 9	-	12945	456	250492	SpellPower 9, Sta 5, Str 4	Copy of Ironforge Breastplate (6731): its model and icon.
+item	70024	2865	Veteran's Chain Leggings	rare	25	20	pickup	-	-	-	176	none	Agi 5, Sta 7, Str 9	-	-	4333	1895	250493	Agi 5, Sta 7, Str 9	Copy of Rough Bronze Leggings (2865): its model and icon.
+item	70025	2865	Guard's Chain Leggings	rare	25	20	pickup	-	-	-	176	none	Sta 9, Str 5	Defense 7	-	4333	1954	250494	DefRating 7, Sta 9, Str 5	Copy of Rough Bronze Leggings (2865): its model and icon.
+item	70026	2865	Protector's Chain Leggings	rare	25	20	pickup	-	-	-	176	none	Sta 9	Defense 5, SpellPower 6	-	4333	788	250495	DefRating 5, SpellPower 6, Sta 9	Copy of Rough Bronze Leggings (2865): its model and icon.
+item	70027	2865	Acolyte's Chain Leggings	rare	25	20	pickup	-	-	-	176	none	Int 7, Sta 5	Healing 22 (Forever 21)	-	4333	781	250496	Int 7, SpellDmg 7, Healing 21, Sta 5	Copy of Rough Bronze Leggings (2865): its model and icon; SpellDmg 7 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70028	2865	Crusader's Chain Leggings	rare	25	20	pickup	-	-	-	176	none	Sta 7, Str 3	SpellPower 11	-	4333	801	250497	SpellPower 11, Sta 7, Str 3	Copy of Rough Bronze Leggings (2865): its model and icon.
+item	70029	3836	Veteran's Chain Helm	rare	30	25	pickup	-	-	-	177	none	Sta 11, Str 12	-	-	25658	0	250498	Sta 11, Str 12	Copy of Green Iron Helm (3836): its model and icon.
+item	70030	3836	Guard's Chain Helm	rare	30	25	pickup	-	-	-	177	none	Agi 12, Sta 11	-	-	25658	2480	250499	Agi 12, Sta 11	Copy of Green Iron Helm (3836): its model and icon.
+item	70031	3836	Protector's Chain Helm	rare	30	25	pickup	-	-	-	177	none	Sta 11	Defense 7	-	25658	1101	250500	DefRating 7, Sta 11	Copy of Green Iron Helm (3836): its model and icon.
+item	70032	3836	Acolyte's Chain Helm	rare	30	25	pickup	-	-	-	177	none	Sta 11	Healing 26 (Forever 25)	-	25658	1088	250501	SpellDmg 8, Healing 25, Sta 11	Copy of Green Iron Helm (3836): its model and icon; SpellDmg 8 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70033	3836	Crusader's Chain Helm	rare	30	25	pickup	-	-	-	177	none	Str 11	SpellPower 14	-	25658	1024	250502	SpellPower 14, Str 11	Copy of Green Iron Helm (3836): its model and icon.
+item	70034	3482	Veteran's Boots	rare	22	17	pickup	-	-	-	131	none	Agi 4, Sta 5, Str 5	-	-	9404	1054	250503	Agi 4, Sta 5, Str 5	Copy of Silvered Bronze Boots (3482): its model and icon.
+item	70035	2881	Plans: Veteran's Boots	rare	22	0	pickup	-	-	-	0	none	-	-	-	15274	425	251355	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 85. No source yet (a later ticket).
+item	70036	8170	Pristine Leather	uncommon	25	0	none	-	-	-	0	none	-	-	-	16474	125	249427	-	Reagent, copy of Rugged Leather (8170). Its source (vein, drop or vendor) is a later ticket.
+item	70037	3482	Guard's Boots	rare	22	17	pickup	-	-	-	131	none	Sta 5, Str 5	Defense 4	-	9404	1057	250504	DefRating 4, Sta 5, Str 5	Copy of Silvered Bronze Boots (3482): its model and icon.
+item	70038	2881	Plans: Guard's Boots	rare	22	0	pickup	-	-	-	0	none	-	-	-	15274	425	251356	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 85. No source yet (a later ticket).
+item	70039	3482	Protector's Boots	rare	22	17	pickup	-	-	-	131	none	Sta 5	Defense 4, SpellPower 6	-	9404	1061	250505	DefRating 4, SpellPower 6, Sta 5	Copy of Silvered Bronze Boots (3482): its model and icon.
+item	70040	2881	Plans: Protector's Boots	rare	22	0	pickup	-	-	-	0	none	-	-	-	15274	425	251357	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 85. No source yet (a later ticket).
+item	70041	3482	Acolyte's Boots	rare	22	17	pickup	-	-	-	131	none	Int 5, Sta 4	Healing 11	-	9404	1065	250506	Int 5, SpellDmg 4, Healing 11, Sta 4	Copy of Silvered Bronze Boots (3482): its model and icon; SpellDmg 4 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70042	2881	Plans: Acolyte's Boots	rare	22	0	pickup	-	-	-	0	none	-	-	-	15274	425	251358	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 85. No source yet (a later ticket).
+item	70043	3482	Crusader's Boots	rare	22	17	pickup	-	-	-	131	none	Sta 5, Str 4	SpellPower 6	-	9404	1069	250507	SpellPower 6, Sta 5, Str 4	Copy of Silvered Bronze Boots (3482): its model and icon.
+item	70044	2881	Plans: Crusader's Boots	rare	22	0	pickup	-	-	-	0	none	-	-	-	15274	425	251359	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 85. No source yet (a later ticket).
+item	70045	3474	Veteran's Gloves	rare	20	15	pickup	-	-	-	115	none	Agi 3, Sta 5, Str 5	-	-	9390	487	250508	Agi 3, Sta 5, Str 5	Copy of Gemmed Copper Gauntlets (3474): its model and icon.
+item	70046	2881	Plans: Veteran's Gloves	rare	20	0	pickup	-	-	-	0	none	-	-	-	15274	400	251360	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 80. No source yet (a later ticket).
+item	70047	3372	Sulfuric Acid	uncommon	25	0	none	-	-	-	0	none	-	-	-	18077	125	249410	-	Reagent, copy of Leaded Vial (3372). Its source (vein, drop or vendor) is a later ticket.
+item	70048	3474	Guard's Gloves	rare	20	15	pickup	-	-	-	115	none	Sta 5, Str 5	Defense 3	-	9390	489	250509	DefRating 3, Sta 5, Str 5	Copy of Gemmed Copper Gauntlets (3474): its model and icon.
+item	70049	2881	Plans: Guard's Gloves	rare	20	0	pickup	-	-	-	0	none	-	-	-	15274	400	251361	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 80. No source yet (a later ticket).
+item	70050	3474	Protector's Gloves	rare	20	15	pickup	-	-	-	115	none	Sta 5	Defense 3, SpellPower 5	-	9390	504	250510	DefRating 3, SpellPower 5, Sta 5	Copy of Gemmed Copper Gauntlets (3474): its model and icon.
+item	70051	2881	Plans: Protector's Gloves	rare	20	0	pickup	-	-	-	0	none	-	-	-	15274	400	251362	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 80. No source yet (a later ticket).
+item	70052	3474	Acolyte's Gloves	rare	20	15	pickup	-	-	-	115	none	Int 5, Sta 3	Healing 11 (Forever 10)	-	9390	506	250511	Int 5, SpellDmg 3, Healing 10, Sta 3	Copy of Gemmed Copper Gauntlets (3474): its model and icon; SpellDmg 3 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70053	2881	Plans: Acolyte's Gloves	rare	20	0	pickup	-	-	-	0	none	-	-	-	15274	400	251363	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 80. No source yet (a later ticket).
+item	70054	3474	Crusader's Gloves	rare	20	15	pickup	-	-	-	115	none	Sta 5, Str 3	SpellPower 5	-	9390	508	250512	SpellPower 5, Sta 5, Str 3	Copy of Gemmed Copper Gauntlets (3474): its model and icon.
+item	70055	2881	Plans: Crusader's Gloves	rare	20	0	pickup	-	-	-	0	none	-	-	-	15274	400	251364	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 80. No source yet (a later ticket).
+item	70056	2857	Veteran's Chain Belt	rare	17	12	pickup	-	-	-	98	none	Agi 3, Sta 4, Str 4	-	-	25852	335	250513	Agi 3, Sta 4, Str 4	Copy of Runed Copper Belt (2857): its model and icon.
+item	70057	3609	Plans: Veteran's Chain Belt	rare	17	0	pickup	-	-	-	0	none	-	-	-	15274	225	251365	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 45. No source yet (a later ticket).
+item	70058	2857	Guard's Chain Belt	rare	17	12	pickup	-	-	-	98	none	Sta 4, Str 4	Defense 3	-	25852	336	250514	DefRating 3, Sta 4, Str 4	Copy of Runed Copper Belt (2857): its model and icon.
+item	70059	3609	Plans: Guard's Chain Belt	rare	17	0	pickup	-	-	-	0	none	-	-	-	15274	225	251366	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 45. No source yet (a later ticket).
+item	70060	2857	Protector's Chain Belt	rare	17	12	pickup	-	-	-	98	none	Sta 4	Defense 2, SpellPower 5	-	25852	337	250515	DefRating 2, SpellPower 5, Sta 4	Copy of Runed Copper Belt (2857): its model and icon.
+item	70061	3609	Plans: Protector's Chain Belt	rare	17	0	pickup	-	-	-	0	none	-	-	-	15274	225	251367	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 45. No source yet (a later ticket).
+item	70062	2857	Acolyte's Chain Belt	rare	17	12	pickup	-	-	-	98	none	Int 4, Sta 3	Healing 9	-	25852	339	250516	Int 4, SpellDmg 3, Healing 9, Sta 3	Copy of Runed Copper Belt (2857): its model and icon; SpellDmg 3 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70063	3609	Plans: Acolyte's Chain Belt	rare	17	0	pickup	-	-	-	0	none	-	-	-	15274	225	251368	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 45. No source yet (a later ticket).
+item	70064	2857	Crusader's Chain Belt	rare	17	12	pickup	-	-	-	98	none	Sta 4, Str 3	SpellPower 5	-	25852	340	250517	SpellPower 5, Sta 4, Str 3	Copy of Runed Copper Belt (2857): its model and icon.
+item	70065	3609	Plans: Crusader's Chain Belt	rare	17	0	pickup	-	-	-	0	none	-	-	-	15274	225	251369	-	Plans, copy of Plans: Copper Chain Vest (3609). Needs Blacksmithing 45. No source yet (a later ticket).
+item	70066	2869	Veteran's Silvered Chain Shirt	rare	27	22	pickup	-	-	-	208	none	Agi 6, Sta 7, Str 10	-	-	9403	2464	250518	Agi 6, Sta 7, Str 10	Copy of Silvered Bronze Breastplate (2869): its model and icon.
+item	70067	5577	Plans: Veteran's Silvered Chain Shirt	rare	27	0	pickup	-	-	-	0	none	-	-	-	15274	550	251370	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 110. No source yet (a later ticket).
+item	70068	2869	Guard's Silvered Chain Shirt	rare	27	22	pickup	-	-	-	208	none	Sta 10, Str 6	Defense 7	-	9403	2473	250519	DefRating 7, Sta 10, Str 6	Copy of Silvered Bronze Breastplate (2869): its model and icon.
+item	70069	5577	Plans: Guard's Silvered Chain Shirt	rare	27	0	pickup	-	-	-	0	none	-	-	-	15274	550	251371	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 110. No source yet (a later ticket).
+item	70070	2869	Protector's Silvered Chain Shirt	rare	27	22	pickup	-	-	-	208	none	Sta 10	Defense 7, SpellPower 7	-	9403	2482	250520	DefRating 7, SpellPower 7, Sta 10	Copy of Silvered Bronze Breastplate (2869): its model and icon.
+item	70071	5577	Plans: Protector's Silvered Chain Shirt	rare	27	0	pickup	-	-	-	0	none	-	-	-	15274	550	251372	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 110. No source yet (a later ticket).
+item	70072	2869	Acolyte's Silvered Chain Shirt	rare	27	22	pickup	-	-	-	208	none	Int 7, Sta 6	Healing 22	-	9403	2491	250521	Int 7, SpellDmg 7, Healing 22, Sta 6	Copy of Silvered Bronze Breastplate (2869): its model and icon; SpellDmg 7 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70073	5577	Plans: Acolyte's Silvered Chain Shirt	rare	27	0	pickup	-	-	-	0	none	-	-	-	15274	550	251373	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 110. No source yet (a later ticket).
+item	70074	2869	Crusader's Silvered Chain Shirt	rare	27	22	pickup	-	-	-	208	none	Sta 7, Str 6	SpellPower 12	-	9403	2500	250522	SpellPower 12, Sta 7, Str 6	Copy of Silvered Bronze Breastplate (2869): its model and icon.
+item	70075	5577	Plans: Crusader's Silvered Chain Shirt	rare	27	0	pickup	-	-	-	0	none	-	-	-	15274	550	251374	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 110. No source yet (a later ticket).
+item	70076	3842	Veteran's Silvered Chain Leggings	rare	30	25	pickup	-	-	-	191	none	Agi 7, Sta 8, Str 11	-	-	9415	3340	250523	Agi 7, Sta 8, Str 11	Copy of Green Iron Leggings (3842): its model and icon.
+item	70077	2882	Plans: Veteran's Silvered Chain Leggings	rare	30	0	pickup	-	-	-	0	none	-	-	-	15274	625	251375	-	Plans, copy of Plans: Silvered Bronze Shoulders (2882). Needs Blacksmithing 125. No source yet (a later ticket).
+item	70078	3842	Guard's Silvered Chain Leggings	rare	30	25	pickup	-	-	-	191	none	Sta 11, Str 7	Defense 8	-	9415	3352	250524	DefRating 8, Sta 11, Str 7	Copy of Green Iron Leggings (3842): its model and icon.
+item	70079	2882	Plans: Guard's Silvered Chain Leggings	rare	30	0	pickup	-	-	-	0	none	-	-	-	15274	625	251376	-	Plans, copy of Plans: Silvered Bronze Shoulders (2882). Needs Blacksmithing 125. No source yet (a later ticket).
+item	70080	3842	Protector's Silvered Chain Leggings	rare	30	25	pickup	-	-	-	191	none	Sta 11	Defense 8, SpellPower 8	-	9415	3363	250525	DefRating 8, SpellPower 8, Sta 11	Copy of Green Iron Leggings (3842): its model and icon.
+item	70081	2882	Plans: Protector's Silvered Chain Leggings	rare	30	0	pickup	-	-	-	0	none	-	-	-	15274	625	251377	-	Plans, copy of Plans: Silvered Bronze Shoulders (2882). Needs Blacksmithing 125. No source yet (a later ticket).
+item	70082	3842	Acolyte's Silvered Chain Leggings	rare	30	25	pickup	-	-	-	191	none	Int 8, Sta 7	Healing 26 (Forever 25)	-	9415	3137	250526	Int 8, SpellDmg 8, Healing 25, Sta 7	Copy of Green Iron Leggings (3842): its model and icon; SpellDmg 8 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70083	2882	Plans: Acolyte's Silvered Chain Leggings	rare	30	0	pickup	-	-	-	0	none	-	-	-	15274	625	251378	-	Plans, copy of Plans: Silvered Bronze Shoulders (2882). Needs Blacksmithing 125. No source yet (a later ticket).
+item	70084	3842	Crusader's Silvered Chain Leggings	rare	30	25	pickup	-	-	-	191	none	Sta 8, Str 7	SpellPower 13	-	9415	3149	250527	SpellPower 13, Sta 8, Str 7	Copy of Green Iron Leggings (3842): its model and icon.
+item	70085	2882	Plans: Crusader's Silvered Chain Leggings	rare	30	0	pickup	-	-	-	0	none	-	-	-	15274	625	251379	-	Plans, copy of Plans: Silvered Bronze Shoulders (2882). Needs Blacksmithing 125. No source yet (a later ticket).
+item	70086	3836	Veteran's Silvered Chain Helm	rare	25	20	pickup	-	-	-	163	none	Sta 9, Str 10	-	-	25658	1439	250528	Sta 9, Str 10	Copy of Green Iron Helm (3836): its model and icon.
+item	70087	5577	Plans: Veteran's Silvered Chain Helm	rare	25	0	pickup	-	-	-	0	none	-	-	-	15274	475	251380	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 95. No source yet (a later ticket).
+item	70088	3836	Guard's Silvered Chain Helm	rare	25	20	pickup	-	-	-	163	none	Sta 9, Agi 10	-	-	25658	1444	250529	Sta 9, Agi 10	Copy of Green Iron Helm (3836): its model and icon.
+item	70089	5577	Plans: Guard's Silvered Chain Helm	rare	25	0	pickup	-	-	-	0	none	-	-	-	15274	475	251381	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 95. No source yet (a later ticket).
+item	70090	3836	Protector's Silvered Chain Helm	rare	25	20	pickup	-	-	-	163	none	Sta 9	Defense 7	-	25658	1450	250530	DefRating 7, Sta 9	Copy of Green Iron Helm (3836): its model and icon.
+item	70091	5577	Plans: Protector's Silvered Chain Helm	rare	25	0	pickup	-	-	-	0	none	-	-	-	15274	475	251382	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 95. No source yet (a later ticket).
+item	70092	3836	Acolyte's Silvered Chain Helm	rare	25	20	pickup	-	-	-	163	none	Sta 9	Healing 22 (Forever 21)	-	25658	1455	250531	SpellDmg 7, Healing 21, Sta 9	Copy of Green Iron Helm (3836): its model and icon; SpellDmg 7 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70093	5577	Plans: Acolyte's Silvered Chain Helm	rare	25	0	pickup	-	-	-	0	none	-	-	-	15274	475	251383	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 95. No source yet (a later ticket).
+item	70094	3836	Crusader's Silvered Chain Helm	rare	25	20	pickup	-	-	-	163	none	Sta 9	SpellPower 11	-	25658	1460	250532	SpellPower 11, Sta 9	Copy of Green Iron Helm (3836): its model and icon.
+item	70095	5577	Plans: Crusader's Silvered Chain Helm	rare	25	0	pickup	-	-	-	0	none	-	-	-	15274	475	251384	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 95. No source yet (a later ticket).
+item	70096	3844	Hard Gold Cuirass	uncommon	34	29	equip	-	-	-	210	none	Str 11	SpellPower 6	-	13088	3929	250533	SpellPower 6, Str 11	Copy of Green Iron Hauberk (3844): its model and icon.
+item	70097	3608	Plans: Hard Gold Cuirass	uncommon	34	0	pickup	-	-	-	0	none	-	-	-	15274	800	251385	-	Plans, copy of Plans: Mighty Iron Hammer (3608). Needs Blacksmithing 145. No source yet (a later ticket).
+item	70098	7916	Hard Gold Boots	uncommon	35	30	equip	-	-	-	147	none	Str 7	SpellPower 7	-	16086	3268	250534	SpellPower 7, Str 7	Copy of Barbaric Iron Boots (7916): its model and icon.
+item	70099	3612	Plans: Hard Gold Boots	uncommon	35	0	pickup	-	-	-	0	none	-	-	-	15274	850	251386	-	Plans, copy of Plans: Green Iron Gauntlets (3612). Needs Blacksmithing 150. No source yet (a later ticket).
+item	70100	3835	Hard Gold Bracers	uncommon	37	32	equip	-	-	-	96	none	Str 6	SpellPower 6	-	9417	2634	250535	SpellPower 6, Str 6	Copy of Green Iron Bracers (3835): its model and icon.
+item	70101	3870	Plans: Hard Gold Bracers	uncommon	37	0	pickup	-	-	-	0	none	-	-	-	15274	900	251387	-	Plans, copy of Plans: Green Iron Shoulders (3870). Needs Blacksmithing 160. No source yet (a later ticket).
+item	70102	7920	Hard Gold Leggings	uncommon	38	33	equip	-	-	-	195	none	Str 10	SpellPower 12	-	3409	5711	250536	SpellPower 12, Str 10	Copy of Mithril Scale Pants (7920): its model and icon.
+item	70103	6045	Plans: Hard Gold Leggings	uncommon	38	0	pickup	-	-	-	0	none	-	-	-	15274	950	251388	-	Plans, copy of Plans: Iron Counterweight (6045). Needs Blacksmithing 165. No source yet (a later ticket).
+item	70104	7915	Hard Gold Coif	uncommon	40	35	equip	-	-	-	187	none	Str 14	SpellPower 7	-	16084	5036	250537	SpellPower 7, Str 14	Copy of Barbaric Iron Helm (7915): its model and icon.
+item	70105	3866	Plans: Hard Gold Coif	uncommon	40	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251389	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 170. No source yet (a later ticket).
+item	70106	7917	Hard Gold Gauntlet	uncommon	40	35	equip	-	-	-	144	none	Str 8	SpellPower 9	-	16087	3354	250538	SpellPower 9, Str 8	Copy of Barbaric Iron Gloves (7917): its model and icon.
+item	70107	3866	Plans: Hard Gold Gauntlet	uncommon	40	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251390	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70108	7932	Hard Gold Pauldrons	uncommon	40	35	equip	-	-	-	173	none	Str 11	SpellPower 5	-	16111	5073	250539	SpellPower 5, Str 11	Copy of Mithril Scale Shoulders (7932): its model and icon.
+item	70109	3866	Plans: Hard Gold Pauldrons	uncommon	40	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251391	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70110	7930	Shining Mithril Breastplate	uncommon	45	40	equip	-	-	-	437	none	Str 14	SpellPower 14	-	16109	11586	250540	SpellPower 14, Str 14	Copy of Heavy Mithril Breastplate (7930): its model and icon.
+item	70111	3868	Plans: Shining Mithril Breastplate	uncommon	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251392	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 195. No source yet (a later ticket).
+item	70112	7928	Shining Mithril Pauldrons	uncommon	45	40	equip	-	-	-	327	none	Str 10	SpellPower 11	-	16106	8704	250541	SpellPower 11, Str 10	Copy of Ornate Mithril Shoulder (7928): its model and icon.
+item	70113	3868	Plans: Shining Mithril Pauldrons	uncommon	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251393	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 195. No source yet (a later ticket).
+item	70114	7933	Shining Mithril Boots	uncommon	45	40	equip	-	-	-	300	none	Str 9	SpellPower 12	-	16113	8110	250542	SpellPower 12, Str 9	Copy of Heavy Mithril Boots (7933): its model and icon.
+item	70115	3868	Plans: Shining Mithril Boots	uncommon	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251394	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 200. No source yet (a later ticket).
+item	70116	7934	Shining Mithril Helm	uncommon	48	43	equip	-	-	-	376	none	Str 14	SpellPower 15	-	16115	10255	250543	SpellPower 15, Str 14	Copy of Heavy Mithril Helm (7934): its model and icon.
+item	70117	7926	Shining Mithril Pants	uncommon	49	44	equip	-	-	-	413	none	Str 14	SpellPower 16	-	16103	14716	250544	SpellPower 16, Str 14	Copy of Ornate Mithril Pants (7926): its model and icon.
+item	70118	7977	Plans: Shining Mithril Pants	uncommon	49	0	pickup	-	-	-	0	none	-	-	-	1102	2500	251396	-	Plans, copy of Plans: Mithril Scale Gloves (7977). Needs Blacksmithing 220. No source yet (a later ticket).
+item	70119	7938	Shining Mithril Gauntlet	uncommon	49	44	equip	-	-	-	295	none	Str 12	SpellPower 9	-	16124	7428	250545	SpellPower 9, Str 12	Copy of Truesilver Gauntlets (7938): its model and icon.
+item	70120	7977	Plans: Shining Mithril Gauntlet	uncommon	49	0	pickup	-	-	-	0	none	-	-	-	1102	2500	251397	-	Plans, copy of Plans: Mithril Scale Gloves (7977). Needs Blacksmithing 220. No source yet (a later ticket).
+item	70121	7933	Officer's Boots	rare	45	40	pickup	-	-	-	330	none	Agi 7, Sta 9, Str 13	-	-	16113	3321	250546	Agi 7, Sta 9, Str 13	Copy of Heavy Mithril Boots (7933): its model and icon.
+item	70122	3868	Plans: Officer's Boots	rare	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251398	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 200. No source yet (a later ticket).
+item	70123	7933	Sentinel's Boots	rare	45	40	pickup	-	-	-	330	none	Sta 13, Str 7	Defense 9	-	16113	3351	250547	DefRating 9, Sta 13, Str 7	Copy of Heavy Mithril Boots (7933): its model and icon.
+item	70124	3868	Plans: Sentinel's Boots	rare	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251399	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 200. No source yet (a later ticket).
+item	70125	7933	Warder's Boots	rare	45	40	pickup	-	-	-	330	none	Sta 13	Defense 9, SpellPower 9	-	16113	3357	250548	DefRating 9, SpellPower 9, Sta 13	Copy of Heavy Mithril Boots (7933): its model and icon.
+item	70126	3868	Plans: Warder's Boots	rare	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251400	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 200. No source yet (a later ticket).
+item	70127	7933	Prefect's Boots	rare	45	40	pickup	-	-	-	330	none	Int 9, Sta 7	Healing 29 (Forever 28)	-	16113	9994	250549	Int 9, SpellDmg 9, Healing 28, Sta 7	Copy of Heavy Mithril Boots (7933): its model and icon; SpellDmg 9 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70128	3868	Plans: Prefect's Boots	rare	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251401	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 200. No source yet (a later ticket).
+item	70129	7933	Justicar's Boots	rare	45	40	pickup	-	-	-	330	none	Sta 9, Str 7	SpellPower 15	-	16113	3388	250550	SpellPower 15, Sta 9, Str 7	Copy of Heavy Mithril Boots (7933): its model and icon.
+item	70130	3868	Plans: Justicar's Boots	rare	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251402	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 200. No source yet (a later ticket).
+item	70131	12631	Officer's Gloves	rare	55	50	pickup	-	-	-	361	none	Agi 9, Sta 11, Str 16	-	-	25747	13178	250551	Agi 9, Sta 11, Str 16	Copy of Fiery Plate Gauntlets (12631): its model and icon.
+item	70132	12682	Plans: Officer's Gloves	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	4000	251403	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70133	12631	Sentinel's Gloves	rare	55	50	pickup	-	-	-	361	none	Sta 16, Str 9	Defense 11	-	25747	13227	250552	DefRating 11, Sta 16, Str 9	Copy of Fiery Plate Gauntlets (12631): its model and icon.
+item	70134	12682	Plans: Sentinel's Gloves	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	4000	251404	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70135	12631	Warder's Gloves	rare	55	50	pickup	-	-	-	361	none	Sta 16	Defense 11, SpellPower 11	-	25747	13275	250553	DefRating 11, SpellPower 11, Sta 16	Copy of Fiery Plate Gauntlets (12631): its model and icon.
+item	70136	12682	Plans: Warder's Gloves	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	4000	251405	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70137	12631	Prefect's Gloves	rare	55	50	pickup	-	-	-	361	none	Int 11, Sta 9	Healing 35	-	25747	13325	250554	Int 11, SpellDmg 12, Healing 35, Sta 9	Copy of Fiery Plate Gauntlets (12631): its model and icon; SpellDmg 12 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70138	12682	Plans: Prefect's Gloves	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	4000	251406	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70139	12631	Justicar's Gloves	rare	55	50	pickup	-	-	-	361	none	Sta 11, Str 9	SpellPower 19	-	25747	13374	250555	SpellPower 19, Sta 11, Str 9	Copy of Fiery Plate Gauntlets (12631): its model and icon.
+item	70140	12682	Plans: Justicar's Gloves	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	4000	251407	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70141	2857	Officer's Belt	rare	35	30	pickup	-	-	-	132	none	Agi 6, Sta 7, Str 10	-	-	25852	2622	250556	Agi 6, Sta 7, Str 10	Copy of Runed Copper Belt (2857): its model and icon.
+item	70142	3612	Plans: Officer's Belt	rare	35	0	pickup	-	-	-	0	none	-	-	-	15274	850	251408	-	Plans, copy of Plans: Green Iron Gauntlets (3612). Needs Blacksmithing 150. No source yet (a later ticket).
+item	70143	2857	Sentinel's Belt	rare	35	30	pickup	-	-	-	132	none	Sta 10, Str 6	Defense 7	-	25852	2631	250557	DefRating 7, Sta 10, Str 6	Copy of Runed Copper Belt (2857): its model and icon.
+item	70144	3612	Plans: Sentinel's Belt	rare	35	0	pickup	-	-	-	0	none	-	-	-	15274	850	251409	-	Plans, copy of Plans: Green Iron Gauntlets (3612). Needs Blacksmithing 150. No source yet (a later ticket).
+item	70145	2857	Warder's Belt	rare	35	30	pickup	-	-	-	132	none	Sta 10	Defense 7, SpellPower 7	-	25852	2710	250558	DefRating 7, SpellPower 7, Sta 10	Copy of Runed Copper Belt (2857): its model and icon.
+item	70146	3612	Plans: Warder's Belt	rare	35	0	pickup	-	-	-	0	none	-	-	-	15274	850	251410	-	Plans, copy of Plans: Green Iron Gauntlets (3612). Needs Blacksmithing 150. No source yet (a later ticket).
+item	70147	2857	Prefect's Belt	rare	35	30	pickup	-	-	-	132	none	Int 7, Sta 6	Healing 22	-	25852	2719	250559	Int 7, SpellDmg 7, Healing 22, Sta 6	Copy of Runed Copper Belt (2857): its model and icon; SpellDmg 7 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70148	3612	Plans: Prefect's Belt	rare	35	0	pickup	-	-	-	0	none	-	-	-	15274	850	251411	-	Plans, copy of Plans: Green Iron Gauntlets (3612). Needs Blacksmithing 150. No source yet (a later ticket).
+item	70149	2857	Justicar's Belt	rare	35	30	pickup	-	-	-	132	none	Sta 7, Str 6	SpellPower 12	-	25852	2729	250560	SpellPower 12, Sta 7, Str 6	Copy of Runed Copper Belt (2857): its model and icon.
+item	70150	3612	Plans: Justicar's Belt	rare	35	0	pickup	-	-	-	0	none	-	-	-	15274	850	251412	-	Plans, copy of Plans: Green Iron Gauntlets (3612). Needs Blacksmithing 150. No source yet (a later ticket).
+item	70151	7936	Officer's Sabatons	rare	52	47	pickup	-	-	-	376	none	Agi 9, Sta 12, Str 13	-	-	16118	15856	250561	Agi 9, Sta 12, Str 13	Copy of Ornate Mithril Boots (7936): its model and icon.
+item	70152	7986	Plans: Officer's Sabatons	rare	52	0	pickup	-	-	-	0	none	-	-	-	15274	1200	251413	-	Plans, copy of Plans: Ornate Mithril Breastplate (7986). Needs Blacksmithing 240. No source yet (a later ticket).
+item	70153	4359	Sandpaper	uncommon	45	0	none	-	-	-	0	none	-	-	-	10700	250	249432	-	Reagent, copy of Handful of Copper Bolts (4359). Its source (vein, drop or vendor) is a later ticket.
+item	70154	7936	Sentinel's Sabatons	rare	52	47	pickup	-	-	-	376	none	Sta 13, Str 12	Defense 9	-	16118	15918	250562	DefRating 9, Sta 13, Str 12	Copy of Ornate Mithril Boots (7936): its model and icon.
+item	70155	7986	Plans: Sentinel's Sabatons	rare	52	0	pickup	-	-	-	0	none	-	-	-	15274	1200	251414	-	Plans, copy of Plans: Ornate Mithril Breastplate (7986). Needs Blacksmithing 240. No source yet (a later ticket).
+item	70156	7936	Warder's Sabatons	rare	52	47	pickup	-	-	-	376	none	Sta 13	Defense 9, SpellPower 14	-	16118	15979	250563	DefRating 9, SpellPower 14, Sta 13	Copy of Ornate Mithril Boots (7936): its model and icon.
+item	70157	7986	Plans: Warder's Sabatons	rare	52	0	pickup	-	-	-	0	none	-	-	-	15274	1200	251415	-	Plans, copy of Plans: Ornate Mithril Breastplate (7986). Needs Blacksmithing 240. No source yet (a later ticket).
+item	70158	7936	Prefect's Sabatons	rare	52	47	pickup	-	-	-	376	none	Int 9, Sta 12	Healing 26 (Forever 27)	-	16118	16041	250564	Int 9, SpellDmg 9, Healing 27, Sta 12	Copy of Ornate Mithril Boots (7936): its model and icon; SpellDmg 9 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70159	7986	Plans: Prefect's Sabatons	rare	52	0	pickup	-	-	-	0	none	-	-	-	15274	1200	251416	-	Plans, copy of Plans: Ornate Mithril Breastplate (7986). Needs Blacksmithing 240. No source yet (a later ticket).
+item	70160	7936	Justicar's Sabatons	rare	52	47	pickup	-	-	-	376	none	Sta 12, Str 9	SpellPower 15	-	16118	16101	250565	SpellPower 15, Sta 12, Str 9	Copy of Ornate Mithril Boots (7936): its model and icon.
+item	70161	7986	Plans: Justicar's Sabatons	rare	52	0	pickup	-	-	-	0	none	-	-	-	15274	1200	251417	-	Plans, copy of Plans: Ornate Mithril Breastplate (7986). Needs Blacksmithing 240. No source yet (a later ticket).
+item	70162	7917	Officer's Gauntlet	rare	40	35	pickup	-	-	-	159	none	Agi 7, Sta 9, Str 10	-	-	16087	3850	250566	Agi 7, Sta 9, Str 10	Copy of Barbaric Iron Gloves (7917): its model and icon.
+item	70163	3866	Plans: Officer's Gauntlet	rare	40	0	pickup	-	-	-	0	none	-	-	-	15274	875	251418	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70164	7917	Sentinel's Gauntlet	rare	40	35	pickup	-	-	-	159	none	Sta 10, Str 9	Defense 7	-	16087	3864	250567	DefRating 7, Sta 10, Str 9	Copy of Barbaric Iron Gloves (7917): its model and icon.
+item	70165	3866	Plans: Sentinel's Gauntlet	rare	40	0	pickup	-	-	-	0	none	-	-	-	15274	875	251419	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70166	7917	Warder's Gauntlet	rare	40	35	pickup	-	-	-	159	none	Sta 10	Defense 7, SpellPower 11	-	16087	3878	250568	DefRating 7, SpellPower 11, Sta 10	Copy of Barbaric Iron Gloves (7917): its model and icon.
+item	70167	3866	Plans: Warder's Gauntlet	rare	40	0	pickup	-	-	-	0	none	-	-	-	15274	875	251420	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70168	7917	Prefect's Gauntlet	rare	40	35	pickup	-	-	-	159	none	Int 7, Sta 9	Healing 22 (Forever 21)	-	16087	3893	250569	Int 7, SpellDmg 7, Healing 21, Sta 9	Copy of Barbaric Iron Gloves (7917): its model and icon; SpellDmg 7 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70169	3866	Plans: Prefect's Gauntlet	rare	40	0	pickup	-	-	-	0	none	-	-	-	15274	875	251421	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70170	7917	Justicar's Gauntlet	rare	40	35	pickup	-	-	-	159	none	Sta 9, Str 7	SpellPower 11	-	16087	3908	250570	SpellPower 11, Sta 9, Str 7	Copy of Barbaric Iron Gloves (7917): its model and icon.
+item	70171	3866	Plans: Justicar's Gauntlet	rare	40	0	pickup	-	-	-	0	none	-	-	-	15274	875	251422	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70172	12424	Officer's Waistguard	rare	55	50	pickup	-	-	-	324	none	Agi 10, Sta 13, Str 14	-	-	24514	13177	250571	Agi 10, Sta 13, Str 14	Copy of Imperial Plate Belt (12424): its model and icon.
+item	70173	12682	Plans: Officer's Waistguard	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251423	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70174	12424	Sentinel's Waistguard	rare	55	50	pickup	-	-	-	324	none	Sta 14, Str 13	Defense 10	-	24514	13225	250572	DefRating 10, Sta 14, Str 13	Copy of Imperial Plate Belt (12424): its model and icon.
+item	70175	12682	Plans: Sentinel's Waistguard	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251424	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70176	12424	Warder's Waistguard	rare	55	50	pickup	-	-	-	324	none	Sta 14	Defense 10, SpellPower 15	-	24514	13274	250573	DefRating 10, SpellPower 15, Sta 14	Copy of Imperial Plate Belt (12424): its model and icon.
+item	70177	12682	Plans: Warder's Waistguard	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251425	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70178	12424	Prefect's Waistguard	rare	55	50	pickup	-	-	-	324	none	Int 10, Sta 13	Healing 30	-	24514	13677	250574	Int 10, SpellDmg 10, Healing 30, Sta 13	Copy of Imperial Plate Belt (12424): its model and icon; SpellDmg 10 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70179	12682	Plans: Prefect's Waistguard	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251426	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70180	12424	Justicar's Waistguard	rare	55	50	pickup	-	-	-	324	none	Sta 13, Str 10	SpellPower 16	-	24514	13726	250575	SpellPower 16, Sta 13, Str 10	Copy of Imperial Plate Belt (12424): its model and icon.
+item	70181	12682	Plans: Justicar's Waistguard	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251427	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70182	7928	Officer's Pauldrons	rare	47	42	pickup	-	-	-	375	none	Agi 8, Sta 10, Str 13	-	-	16106	12276	250576	Agi 8, Sta 10, Str 13	Copy of Ornate Mithril Shoulder (7928): its model and icon.
+item	70183	7975	Plans: Officer's Pauldrons	rare	47	0	pickup	-	-	-	0	none	-	-	-	15274	1050	251428	-	Plans, copy of Plans: Heavy Mithril Pants (7975). Needs Blacksmithing 210. No source yet (a later ticket).
+item	70184	7928	Sentinel's Pauldrons	rare	47	42	pickup	-	-	-	375	none	Sta 13, Str 8	Defense 10	-	16106	12320	250577	DefRating 10, Sta 13, Str 8	Copy of Ornate Mithril Shoulder (7928): its model and icon.
+item	70185	7975	Plans: Sentinel's Pauldrons	rare	47	0	pickup	-	-	-	0	none	-	-	-	15274	1050	251429	-	Plans, copy of Plans: Heavy Mithril Pants (7975). Needs Blacksmithing 210. No source yet (a later ticket).
+item	70186	7928	Warder's Pauldrons	rare	47	42	pickup	-	-	-	375	none	Sta 13	Defense 10, SpellPower 9	-	16106	12364	250578	DefRating 10, SpellPower 9, Sta 13	Copy of Ornate Mithril Shoulder (7928): its model and icon.
+item	70187	7975	Plans: Warder's Pauldrons	rare	47	0	pickup	-	-	-	0	none	-	-	-	15274	1050	251430	-	Plans, copy of Plans: Heavy Mithril Pants (7975). Needs Blacksmithing 210. No source yet (a later ticket).
+item	70188	7928	Prefect's Pauldrons	rare	47	42	pickup	-	-	-	375	none	Int 10, Sta 8	Healing 29	-	16106	12408	250579	Int 10, SpellDmg 10, Healing 29, Sta 8	Copy of Ornate Mithril Shoulder (7928): its model and icon; SpellDmg 10 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70189	7975	Plans: Prefect's Pauldrons	rare	47	0	pickup	-	-	-	0	none	-	-	-	15274	1050	251431	-	Plans, copy of Plans: Heavy Mithril Pants (7975). Needs Blacksmithing 210. No source yet (a later ticket).
+item	70190	7928	Justicar's Pauldrons	rare	47	42	pickup	-	-	-	375	none	Sta 10, Str 8	SpellPower 16	-	16106	12450	250580	SpellPower 16, Sta 10, Str 8	Copy of Ornate Mithril Shoulder (7928): its model and icon.
+item	70191	7975	Plans: Justicar's Pauldrons	rare	47	0	pickup	-	-	-	0	none	-	-	-	15274	1050	251432	-	Plans, copy of Plans: Heavy Mithril Pants (7975). Needs Blacksmithing 210. No source yet (a later ticket).
+item	70192	12408	Officer's Wristguards	rare	50	45	pickup	-	-	-	231	none	Agi 6, Sta 8, Str 11	-	-	25753	9390	250581	Agi 6, Sta 8, Str 11	Copy of Thorium Bracers (12408): its model and icon.
+item	70193	7985	Plans: Officer's Wristguard	rare	50	0	pickup	-	-	-	0	none	-	-	-	15274	1125	251433	-	Plans, copy of Plans: Ornate Mithril Shoulder (7985). Needs Blacksmithing 225. No source yet (a later ticket).
+item	70194	12408	Sentinel's Wristguards	rare	50	45	pickup	-	-	-	231	none	Sta 11, Str 6	Defense 8	-	25753	9426	250582	DefRating 8, Sta 11, Str 6	Copy of Thorium Bracers (12408): its model and icon.
+item	70195	7985	Plans: Sentinel's Wristguard	rare	50	0	pickup	-	-	-	0	none	-	-	-	15274	1125	251434	-	Plans, copy of Plans: Ornate Mithril Shoulder (7985). Needs Blacksmithing 225. No source yet (a later ticket).
+item	70196	12408	Warder's Wristguards	rare	50	45	pickup	-	-	-	231	none	Sta 11	Defense 8, SpellPower 7	-	25753	9462	250583	DefRating 8, SpellPower 7, Sta 11	Copy of Thorium Bracers (12408): its model and icon.
+item	70197	7985	Plans: Warder's Wristguard	rare	50	0	pickup	-	-	-	0	none	-	-	-	15274	1125	251435	-	Plans, copy of Plans: Ornate Mithril Shoulder (7985). Needs Blacksmithing 225. No source yet (a later ticket).
+item	70198	12408	Prefect's Wristguards	rare	50	45	pickup	-	-	-	231	none	Int 8, Sta 6	Healing 24 (Forever 23)	-	25753	9498	250584	Int 8, SpellDmg 8, Healing 23, Sta 6	Copy of Thorium Bracers (12408): its model and icon; SpellDmg 8 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70199	7985	Plans: Prefect's Wristguard	rare	50	0	pickup	-	-	-	0	none	-	-	-	15274	1125	251436	-	Plans, copy of Plans: Ornate Mithril Shoulder (7985). Needs Blacksmithing 225. No source yet (a later ticket).
+item	70200	12408	Justicar's Wristguards	rare	50	45	pickup	-	-	-	231	none	Sta 8, Str 6	SpellPower 12	-	25753	9535	250585	SpellPower 12, Sta 8, Str 6	Copy of Thorium Bracers (12408): its model and icon.
+item	70201	7985	Plans: Justicar's Wristguards	rare	50	0	pickup	-	-	-	0	none	-	-	-	15274	1125	251437	-	Plans, copy of Plans: Ornate Mithril Shoulder (7985). Needs Blacksmithing 225. No source yet (a later ticket).
+item	70202	12428	Blessed Plate Pauldrons	uncommon	52	47	equip	-	-	-	373	none	Sta 7, Str 5	SpellPower 15	-	24509	13467	250586	SpellPower 15, Sta 7, Str 5	Copy of Imperial Plate Shoulders (12428): its model and icon.
+item	70203	7986	Plans: Blessed Plate Pauldrons	uncommon	52	0	pickup	-	-	-	0	none	-	-	-	15274	3000	251438	-	Plans, copy of Plans: Ornate Mithril Breastplate (7986). Needs Blacksmithing 240. No source yet (a later ticket).
+item	70204	7936	Blessed Plate Boots	uncommon	52	47	equip	-	-	-	342	none	Sta 7, Str 13	SpellPower 6	-	16118	13517	250587	SpellPower 6, Sta 7, Str 13	Copy of Ornate Mithril Boots (7936): its model and icon.
+item	70205	7986	Plans: Blessed Plate Boots	uncommon	52	0	pickup	-	-	-	0	none	-	-	-	15274	3000	251439	-	Plans, copy of Plans: Ornate Mithril Breastplate (7986). Needs Blacksmithing 240. No source yet (a later ticket).
+item	70206	12631	Blessed Plate Gauntlet	uncommon	54	49	equip	-	-	-	322	none	Sta 13, Str 5	SpellPower 8	-	25747	10241	250588	SpellPower 8, Sta 13, Str 5	Copy of Fiery Plate Gauntlets (12631): its model and icon.
+item	70207	7987	Plans: Blessed Plate Gauntlet	uncommon	54	0	pickup	-	-	-	0	none	-	-	-	15274	4000	251440	-	Plans, copy of Plans: Ornate Mithril Helm (7987). Needs Blacksmithing 245. No source yet (a later ticket).
+item	70208	12631	Imperial Plate Gauntlets	uncommon	57	52	equip	-	-	-	339	none	Sta 12, Str 12	-	-	25747	12244	250589	Sta 12, Str 12	Copy of Fiery Plate Gauntlets (12631): its model and icon.
+item	70209	8030	Plans: Imperial Plate Gauntlets	uncommon	57	0	pickup	-	-	-	0	none	-	-	-	1301	4000	251441	-	Plans, copy of Plans: Ebon Shiv (8030). Needs Blacksmithing 255. No source yet (a later ticket).
+item	70210	17014	Blessed Plate Bracers	uncommon	57	52	equip	-	-	-	237	none	Sta 6, Str 11	SpellPower 4	-	28844	12621	250590	SpellPower 4, Sta 6, Str 11	Copy of Dark Iron Bracers (17014): its model and icon.
+item	70211	8030	Plans: Blessed Plate Bracers	uncommon	57	0	pickup	-	-	-	0	none	-	-	-	1301	4000	251442	-	Plans, copy of Plans: Ebon Shiv (8030). Needs Blacksmithing 255. No source yet (a later ticket).
+item	70212	12414	Blessed Plate Leggings	uncommon	59	54	equip	-	-	-	491	none	Sta 20, Str 7	SpellPower 13	-	22951	28034	250591	SpellPower 13, Sta 20, Str 7	Copy of Thorium Leggings (12414): its model and icon.
+item	70213	11614	Plans: Blessed Plate Leggings	uncommon	59	0	pickup	-	-	-	0	none	-	-	-	15274	4000	251443	-	Plans, copy of Plans: Dark Iron Mail (11614). Needs Blacksmithing 270. No source yet (a later ticket).
+item	70214	19051	Blessed Plate Belt	uncommon	59	54	equip	-	-	-	315	none	Sta 5, Str 15	SpellPower 9	-	31565	14148	250592	SpellPower 9, Sta 5, Str 15	Copy of Girdle of the Dawn (19051): its model and icon.
+item	70215	11614	Plans: Blessed Plate Belt	uncommon	59	0	pickup	-	-	-	0	none	-	-	-	15274	4000	251444	-	Plans, copy of Plans: Dark Iron Mail (11614). Needs Blacksmithing 270. No source yet (a later ticket).
+item	70216	12633	Blessed Plate Helm	uncommon	60	55	equip	-	-	-	463	none	Sta 7, Str 11	SpellPower 23	-	22901	22196	250593	SpellPower 23, Sta 7, Str 11	Copy of Whitesoul Helm (12633): its model and icon.
+item	70217	11611	Plans: Blessed Plate Helm	uncommon	60	0	pickup	-	-	-	0	none	-	-	-	1102	5000	251445	-	Plans, copy of Plans: Dark Iron Sunderer (11611). Needs Blacksmithing 275. No source yet (a later ticket).
+item	70218	12422	Blessed Plate Chest	uncommon	61	56	equip	-	-	-	579	none	Sta 8, Str 20	SpellPower 13	-	25749	31247	250594	SpellPower 13, Sta 8, Str 20	Copy of Imperial Plate Chest (12422): its model and icon.
+item	70219	11615	Plans: Blessed Plate Chest	uncommon	60	0	pickup	-	-	-	0	none	-	-	-	15274	5000	251446	-	Plans, copy of Plans: Dark Iron Shoulders (11615). Needs Blacksmithing 280. No source yet (a later ticket).
+item	70220	12613	Enriched Thorium Breastplate	rare	62	57	pickup	-	-	-	647	none	Sta 25	Defense 9, SpellPower 14	-	19730	39509	250595	DefRating 9, SpellPower 14, Sta 25	Copy of Runic Breastplate (12613): its model and icon.
+item	70221	12704	Plans: Enriched Thorium Breastplate	rare	60	0	pickup	-	-	-	0	none	-	-	-	15274	1500	251447	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70222	12359	Legionite Bar	uncommon	60	0	none	-	-	-	0	none	-	-	-	22444	5000	251290	-	Reagent, copy of Thorium Bar (12359). Its source (vein, drop or vendor) is a later ticket.
+item	70223	12359	Heavy Thorium Bar	uncommon	60	0	none	-	-	-	0	none	-	-	-	22444	1500	251291	-	Reagent, copy of Thorium Bar (12359). Made by Smelt Heavy Thorium.
+item	70224	12619	Enriched Thorium Leggings	rare	63	58	pickup	-	-	-	575	none	Sta 26	Defense 9, SpellPower 14	-	22882	41634	250596	DefRating 9, SpellPower 14, Sta 26	Copy of Enchanted Thorium Leggings (12619): its model and icon.
+item	70225	12704	Plans: Enriched Thorium Leggings	rare	60	0	pickup	-	-	-	0	none	-	-	-	15274	1500	251448	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70226	20551	Enriched Thorium Helm	rare	63	58	pickup	-	-	-	534	none	Sta 21	Defense 8, SpellPower 23	-	33195	31277	250597	DefRating 8, SpellPower 23, Sta 21	Copy of Darkrune Helm (20551): its model and icon.
+item	70227	12704	Plans: Enriched Thorium Helm	rare	60	0	pickup	-	-	-	0	none	-	-	-	15274	1500	251449	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70228	12429	Champion's Legplates	epic	61	56	equip	-	-	-	608	none	Str 18	Crit 1, SpellPower 39 (Forever 38)	-	24506	50706	250598	CritRating 14, SpellPower 38, Str 18	Copy of Imperial Plate Leggings (12429): its model and icon.
+item	70229	12704	Plans: Champion's Legplates	epic	60	0	pickup	-	-	-	0	none	-	-	-	15274	5000	251450	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70230	12612	Stalwart Helm	epic	61	56	equip	-	-	-	565	none	Str 12	Hit 2, SpellPower 39 (Forever 38)	-	23491	38092	250599	HitRating 20, SpellPower 38, Str 12	Copy of Runic Plate Helm (12612): its model and icon.
+item	70231	12704	Plans: Stalwart Helm	epic	60	0	pickup	-	-	-	0	none	-	-	-	15274	5000	251451	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70232	12429	Martyr's Legplates	epic	61	56	equip	-	-	-	608	none	Int 14, Spi 18	Healing 73	-	24506	51067	250600	Int 14, SpellDmg 25, Healing 73, Spi 18	Copy of Imperial Plate Leggings (12429): its model and icon; SpellDmg 25 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70233	12704	Plans: Martyr's Legplates	epic	60	0	pickup	-	-	-	0	none	-	-	-	15274	5000	251452	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70234	12422	Breastplate of Salvation	epic	61	56	equip	-	-	-	695	none	Int 14, Spi 33	Healing 40	-	25749	46368	250601	Int 14, SpellDmg 14, Healing 40, Spi 33	Copy of Imperial Plate Chest (12422): its model and icon; SpellDmg 14 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70235	12704	Plans: Breastplate of Salvation	epic	60	0	pickup	-	-	-	0	none	-	-	-	15274	5000	251453	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70236	2942	Brass Knuckles	uncommon	21	16	equip	-	2400	17-33	0	none	Agi 2, Sta 2	-	-	3007	1562	250602	Agi 2, Sta 2	Copy of Iron Knuckles (2942): its model and icon.
+item	70237	2881	Plans: Brass Knuckles	uncommon	21	0	pickup	-	-	-	0	none	-	-	-	15274	300	251454	-	Plans, copy of Plans: Runed Copper Breastplate (2881). Needs Blacksmithing 80. No source yet (a later ticket).
+item	70238	7959	Bronze Dory	uncommon	25	20	equip	-	3400	45-69	0	none	Agi 8	AP 6	-	22234	488	250603	Agi 8, AP 6	Copy of Blight (7959): its model and icon.
+item	70239	5577	Plans: Bronze Dory	uncommon	25	0	pickup	-	-	-	0	none	-	-	-	15274	400	251455	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 95. No source yet (a later ticket).
+item	70240	7683	Iron Fists	uncommon	31	26	equip	-	2400	27-51	0	none	Agi 5	-	-	15720	4754	250604	Agi 5	Copy of Bloody Brass Knuckles (7683): its model and icon.
+item	70241	5578	Plans: Iron Fists	uncommon	31	0	pickup	-	-	-	0	none	-	-	-	15274	750	251456	-	Plans, copy of Plans: Silvered Bronze Breastplate (5578). Needs Blacksmithing 130. No source yet (a later ticket).
+item	70242	7959	Steel Spear	uncommon	37	32	equip	-	3300	67-102	0	none	Agi 13	AP 10	-	22234	2501	250605	Agi 13, AP 10	Copy of Blight (7959): its model and icon.
+item	70243	3870	Plans: Steel Spear	uncommon	37	0	pickup	-	-	-	0	none	-	-	-	15274	1100	251457	-	Plans, copy of Plans: Green Iron Shoulders (3870). Needs Blacksmithing 160. No source yet (a later ticket).
+item	70244	3492	Iron Morningstar	uncommon	38	33	equip	-	2500	36-67	0	none	Str 4	SpellPower 5	-	3780	9416	250606	SpellPower 5, Str 4	Copy of Mighty Iron Hammer (3492): its model and icon.
+item	70245	6045	Plans: Iron Morningstar	uncommon	38	0	pickup	-	-	-	0	none	-	-	-	15274	1200	251458	-	Plans, copy of Plans: Iron Counterweight (6045). Needs Blacksmithing 165. No source yet (a later ticket).
+item	70246	12259	Mithril Shortsword	uncommon	41	36	equip	-	1700	27-51	0	none	-	AP 14	-	4119	11906	250607	AP 14	Copy of Glinting Steel Dagger (12259): its model and icon.
+item	70247	7981	Plans: Mithril Shortsword	uncommon	41	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251459	-	Plans, copy of Plans: Barbaric Iron Boots (7981). Needs Blacksmithing 180. No source yet (a later ticket).
+item	70248	12772	Mithril Warhammer	uncommon	43	38	equip	-	3500	91-137	0	none	Agi 14, Str 9	-	-	23230	4356	250608	Agi 14, Str 9	Copy of Inlaid Thorium Hammer (12772): its model and icon.
+item	70249	6046	Plans: Mithril Warhammer	uncommon	43	0	pickup	-	-	-	0	none	-	-	-	15274	1500	251460	-	Plans, copy of Plans: Steel Weapon Chain (6046). Needs Blacksmithing 190. No source yet (a later ticket).
+item	70250	11743	Mithril Claws	uncommon	45	40	equip	-	2600	48-90	0	none	Agi 5, Str 6	-	-	21714	4079	250609	Agi 5, Str 6	Copy of Rockfist (11743): its model and icon.
+item	70251	3868	Plans: Mithril Claws	uncommon	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251461	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 195. No source yet (a later ticket).
+item	70252	3854	Mithril Claymore	uncommon	45	40	equip	-	3800	105-158	0	none	Sta 15, Str 9	-	-	20252	20470	250610	Sta 15, Str 9	Copy of Frost Tiger Blade (3854): its model and icon.
+item	70253	3868	Plans: Mithril Claymore	uncommon	45	0	pickup	-	-	-	0	none	-	-	-	15274	2000	251462	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 195. No source yet (a later ticket).
+item	70254	7947	Mithril Stiletto	uncommon	47	42	equip	-	1800	35-66	0	none	Agi 8	-	-	16130	4133	250611	Agi 8	Copy of Ebon Shiv (7947): its model and icon.
+item	70255	7975	Plans: Mithril Stiletto	uncommon	47	0	pickup	-	-	-	0	none	-	-	-	15274	2500	251463	-	Plans, copy of Plans: Heavy Mithril Pants (7975). Needs Blacksmithing 210. No source yet (a later ticket).
+item	70256	12769	Charged Mithril Battleaxe	uncommon	48	43	equip	-	3300	98-148	0	none	Str 14	SpellPower 15	-	25600	10273	250612	SpellPower 15, Str 14	Copy of Bleakwood Hew (12769): its model and icon.
+item	70257	7976	Plans: Charged Mithril Battleaxe	uncommon	48	0	pickup	-	-	-	0	none	-	-	-	1102	2500	251464	-	Plans, copy of Plans: Mithril Shield Spike (7976). Needs Blacksmithing 215. No source yet (a later ticket).
+item	70258	11608	Thorium Greatmace	rare	55	50	pickup	-	3600	136-205	0	none	Str 21	SpellPower 23	-	25046	48384	250613	SpellPower 23, Str 21	Copy of Dark Iron Pulverizer (11608): its model and icon.
+item	70259	12682	Plans: Thorium Greatmace	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251465	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70260	11743	Thorium Cestus	rare	55	50	pickup	-	2400	61-114	0	none	Sta 9	AP 16	-	21714	38843	250614	AP 16, Sta 9	Copy of Rockfist (11743): its model and icon.
+item	70261	12682	Plans: Thorium Cestus	rare	55	0	pickup	-	-	-	0	none	-	-	-	15274	1250	251466	-	Plans, copy of Plans: Thorium Armor (12682). Needs Blacksmithing 250. No source yet (a later ticket).
+item	70262	12802	Thorium Poleaxe	rare	57	52	equip	-	3400	133-200	0	none	Agi 25, Sta 10, Str 13	-	-	23283	54752	250615	Agi 25, Sta 10, Str 13	Copy of Darkspear (12802): its model and icon.
+item	70263	12685	Plans: Thorium Poleaxe	rare	57	0	pickup	-	-	-	0	none	-	-	-	15274	5000	251467	-	Plans, copy of Plans: Radiant Belt (12685). Needs Blacksmithing 260. No source yet (a later ticket).
+item	70264	7947	Bold Dirk	uncommon	57	52	equip	-	1800	42-80	0	none	Agi 6	AP 16	-	16130	40772	250616	Agi 6, AP 16	Copy of Ebon Shiv (7947): its model and icon.
+item	70265	11614	Plans: Bold Dirk	rare	57	0	pickup	-	-	-	0	none	-	-	-	15274	25000	251468	-	Plans, copy of Plans: Dark Iron Mail (11614). Needs Blacksmithing 270. No source yet (a later ticket).
+item	70266	12784	Stormcarver	rare	63	58	equip	-	3600	155-233	0	none	Sta 11, Str 15	SpellPower 32	-	23904	74598	250617	SpellPower 32, Sta 11, Str 15	Copy of Arcanite Reaper (12784): its model and icon.
+item	70267	12704	Plans: Stormcarver	rare	60	0	pickup	-	-	-	0	none	-	-	-	15274	20000	251469	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70268	22317	Bagh Nakh	rare	63	58	equip	-	2700	78-146	0	none	Agi 13, Sta 5	-	-	23742	59891	250618	Agi 13, Sta 5	Copy of Lefty's Brass Knuckle (22317): its model and icon.
+item	70269	12704	Plans: Bagh Nakh	rare	60	0	pickup	-	-	-	0	none	-	-	-	15274	20000	251470	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70270	12802	Legionite Glaive	rare	63	58	pickup	-	3200	138-207	0	none	Agi 16	AP 54, Hit 1	-	23283	75130	250619	Agi 16, AP 54, HitRating 10	Copy of Darkspear (12802): its model and icon.
+item	70271	12704	Plans: Legionite Glaive	rare	60	0	pickup	-	-	-	0	none	-	-	-	15274	1500	251471	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70272	12363	Torbernite	uncommon	60	0	none	-	-	-	0	none	-	-	-	18707	15000	248820	-	Reagent, copy of Arcane Crystal (12363). Its source (vein, drop or vendor) is a later ticket.
+item	70273	13468	Death Lotus	uncommon	60	0	none	-	-	-	0	none	-	-	-	24688	1500	248822	-	Reagent, copy of Black Lotus (13468). Its source (vein, drop or vendor) is a later ticket.
+item	70274	12429	Justice Leggings	epic	61	60	equip	-	-	-	608	none	-	-	-	24506	47245	273908	-	Copy of Imperial Plate Leggings (12429): its model and icon.
+item	70275	12704	Plans: Justice Leggings	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273976	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70276	12803	Malleable Essence of Nature	epic	60	1	none	-	-	-	0	none	-	-	-	23285	0	274030	-	Reagent, copy of Living Essence (12803). Its source (vein, drop or vendor) is a later ticket.
+item	70277	20549	Justice Gauntlets	epic	61	60	equip	-	-	-	434	none	-	-	-	32946	23848	273909	-	Copy of Darkrune Gauntlets (20549): its model and icon.
+item	70278	12704	Plans: Justice Gauntlets	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273977	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70279	12610	Justice Spaulders	epic	61	60	equip	-	-	-	521	none	-	-	-	23490	35633	273910	-	Copy of Runic Plate Shoulders (12610): its model and icon.
+item	70280	12704	Plans: Justice Spaulders	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273978	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70281	12611	Justice Greaves	epic	61	60	equip	-	-	-	478	none	-	-	-	23486	35768	273911	-	Copy of Runic Plate Boots (12611): its model and icon.
+item	70282	12704	Plans: Justice Greaves	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273979	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70283	12429	Justice Legplates	epic	61	60	equip	-	-	-	608	none	-	-	-	24506	49254	273912	-	Copy of Imperial Plate Leggings (12429): its model and icon.
+item	70284	12704	Plans: Justice Legplates	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273980	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70285	20549	Justice Gloves	epic	61	60	equip	-	-	-	434	none	-	-	-	32946	24858	273913	-	Copy of Darkrune Gauntlets (20549): its model and icon.
+item	70286	12704	Plans: Justice Gloves	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273981	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70287	12610	Justice Epaulets	epic	61	60	equip	-	-	-	521	none	-	-	-	23490	37136	273914	-	Copy of Runic Plate Shoulders (12610): its model and icon.
+item	70288	12704	Plans: Justice Epaulets	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273982	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70289	12611	Justice Treads	epic	61	60	equip	-	-	-	478	none	-	-	-	23486	37271	273915	-	Copy of Runic Plate Boots (12611): its model and icon.
+item	70290	12704	Plans: Justice Treads	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273983	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70291	12429	Justice Legguards	epic	61	60	equip	-	-	-	608	none	-	-	-	24506	49970	273916	-	Copy of Imperial Plate Leggings (12429): its model and icon.
+item	70292	12704	Plans: Justice Legguards	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273984	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70293	20549	Justice Handguards	epic	61	60	equip	-	-	-	434	none	-	-	-	32946	25216	273917	-	Copy of Darkrune Gauntlets (20549): its model and icon.
+item	70294	12704	Plans: Justice Handguards	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273985	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70295	12610	Justice Pauldrons	epic	61	60	equip	-	-	-	521	none	-	-	-	23490	37673	273918	-	Copy of Runic Plate Shoulders (12610): its model and icon.
+item	70296	12704	Plans: Justice Pauldrons	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273986	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70297	12611	Justice Sabatons	epic	61	60	equip	-	-	-	478	none	-	-	-	23486	37808	273919	-	Copy of Runic Plate Boots (12611): its model and icon.
+item	70298	12704	Plans: Justice Sabatons	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	273987	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70299	12429	Legplates of Glory	epic	61	60	equip	-	-	-	608	none	-	-	-	24506	47806	273944	-	Copy of Imperial Plate Leggings (12429): its model and icon.
+item	70300	12704	Plans: Legplates of Glory	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	274012	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70301	20549	Gauntlets of Glory	epic	61	60	equip	-	-	-	434	none	-	-	-	32946	24130	273945	-	Copy of Darkrune Gauntlets (20549): its model and icon.
+item	70302	12704	Plans: Gauntlets of Glory	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	274013	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70303	12610	Shoulders of Glory	epic	61	60	equip	-	-	-	521	none	-	-	-	23490	36056	273946	-	Copy of Runic Plate Shoulders (12610): its model and icon.
+item	70304	12704	Plans: Shoulders of Glory	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	274014	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70305	12611	Greaves of Glory	epic	61	60	equip	-	-	-	478	none	-	-	-	23486	36187	273947	-	Copy of Runic Plate Boots (12611): its model and icon.
+item	70306	12704	Plans: Greaves of Glory	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	274015	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70307	12429	Legguards of Glory	epic	61	60	equip	-	-	-	608	none	-	-	-	24506	48523	273948	-	Copy of Imperial Plate Leggings (12429): its model and icon.
+item	70308	12704	Plans: Legguards of Glory	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	274016	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70309	20549	Handguards of Glory	epic	61	60	equip	-	-	-	434	none	-	-	-	32946	24490	273949	-	Copy of Darkrune Gauntlets (20549): its model and icon.
+item	70310	12704	Plans: Handguards of Glory	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	274017	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70311	12610	Pauldrons of Glory	epic	61	60	equip	-	-	-	521	none	-	-	-	23490	36593	273950	-	Copy of Runic Plate Shoulders (12610): its model and icon.
+item	70312	12704	Plans: Pauldrons of Glory	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	274018	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70313	12611	Sabatons of Glory	epic	61	60	equip	-	-	-	478	none	-	-	-	23486	36724	273951	-	Copy of Runic Plate Boots (12611): its model and icon.
+item	70314	12704	Plans: Sabatons of Glory	epic	1	1	pickup	-	-	-	0	none	-	-	-	15274	0	274019	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70315	12631	Goregasher Grips	rare	58	53	equip	-	-	-	379	Nature 5	Sta 19, Str 11	-	-	25747	15752	275622	Sta 19, Str 11, NatureRes 5	Copy of Fiery Plate Gauntlets (12631): its model and icon.
+item	70316	11612	Plans: Goregasher Grips	rare	1	1	pickup	-	-	-	0	none	-	-	-	1102	18750	275598	-	Plans, copy of Plans: Dark Iron Plate (11612). Needs Blacksmithing 285. No source yet (a later ticket).
+item	70317	19051	Goregasher Support	rare	58	53	equip	-	-	-	341	Nature 6	Sta 17, Str 14	-	-	31565	15809	275623	Sta 17, Str 14, NatureRes 6	Copy of Girdle of the Dawn (19051): its model and icon.
+item	70318	12697	Plans: Goregasher Support	rare	1	1	pickup	-	-	-	0	none	-	-	-	15274	18750	275599	-	Plans, copy of Plans: Radiant Boots (12697). Needs Blacksmithing 290. No source yet (a later ticket).
+item	70319	12426	Goregasher Stompers	rare	58	53	equip	-	-	-	417	Nature 8	Sta 8	AP 38	-	24513	23622	275624	Sta 8, AP 38, NatureRes 8	Copy of Imperial Plate Boots (12426): its model and icon.
+item	70320	12700	Plans: Goregasher Stompers	rare	1	1	pickup	-	-	-	0	none	-	-	-	1102	18750	275600	-	Plans, copy of Plans: Imperial Plate Boots (12700). Needs Blacksmithing 295. No source yet (a later ticket).
+item	70321	12631	Clutchlord's Grips	rare	58	53	equip	-	-	-	379	Nature 7	Sta 20, Str 7	-	-	25747	15927	275625	Sta 20, NatureRes 7, Str 7	Copy of Fiery Plate Gauntlets (12631): its model and icon.
+item	70322	11612	Plans: Clutchlord's Grips	rare	1	1	pickup	-	-	-	0	none	-	-	-	1102	18750	275601	-	Plans, copy of Plans: Dark Iron Plate (11612). Needs Blacksmithing 285. No source yet (a later ticket).
+item	70323	19051	Clutchlord's Support	rare	58	53	equip	-	-	-	341	Nature 4	Sta 21, Str 7	-	-	31565	15986	275626	Sta 21, Str 7, NatureRes 4	Copy of Girdle of the Dawn (19051): its model and icon.
+item	70324	12697	Plans: Clutchlord's Support	rare	1	1	pickup	-	-	-	0	none	-	-	-	15274	18750	275602	-	Plans, copy of Plans: Radiant Boots (12697). Needs Blacksmithing 290. No source yet (a later ticket).
+item	70325	12426	Clutchlord's Stompers	rare	58	53	equip	-	-	-	417	Nature 4	Sta 10, Str 19	-	-	24513	23882	275627	Sta 10, Str 19, NatureRes 4	Copy of Imperial Plate Boots (12426): its model and icon.
+item	70326	12700	Plans: Clutchlord's Stompers	rare	1	1	pickup	-	-	-	0	none	-	-	-	1102	18750	275603	-	Plans, copy of Plans: Imperial Plate Boots (12700). Needs Blacksmithing 295. No source yet (a later ticket).
+item	70327	3471	Cloudy Skyforged Chainmail	uncommon	12	7	equip	-	-	-	122	none	Str 2	-	-	13090	0	276992	Str 2	Copy of Copper Chain Vest (3471): its model and icon.
+item	70328	3610	Plans: Cloudy Skyforged Chainmail	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	312	276928	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 60. No source yet (a later ticket).
+item	70329	2853	Cloudy Skyforged Wristguards	uncommon	10	5	equip	-	-	-	47	none	Str 1	-	-	6966	0	276993	Str 1	Copy of Copper Bracers (2853): its model and icon.
+item	70330	3610	Plans: Cloudy Skyforged Wristguards	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	237	276929	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 50. No source yet (a later ticket).
+item	70331	3472	Cloudy Skyforged Gauntlets	uncommon	11	6	equip	-	-	-	72	none	Agi 1	-	-	25850	0	276994	Agi 1	Copy of Runed Copper Gauntlets (3472): its model and icon.
+item	70332	3610	Plans: Cloudy Skyforged Gauntlets	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	275	276930	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 55. No source yet (a later ticket).
+item	70333	2851	Cloudy Skyforged Chain	uncommon	10	5	equip	-	-	-	61	none	Sta 1	-	-	23529	0	276995	Sta 1	Copy of Copper Chain Belt (2851): its model and icon.
+item	70334	3610	Plans: Cloudy Skyforged Chain	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	237	276931	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 50. No source yet (a later ticket).
+item	70335	3473	Cloudy Skyforged Legguards	uncommon	12	7	equip	-	-	-	107	none	Sta 2	-	-	25849	0	276996	Sta 2	Copy of Runed Copper Pants (3473): its model and icon.
+item	70336	3610	Plans: Cloudy Skyforged Legguards	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	312	276932	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 60. No source yet (a later ticket).
+item	70337	3469	Cloudy Skyforged Greaves	uncommon	11	6	equip	-	-	-	79	none	Agi 1	-	-	23528	0	276997	Agi 1	Copy of Copper Chain Boots (3469): its model and icon.
+item	70338	3610	Plans: Cloudy Skyforged Greaves	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	275	276933	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 55. No source yet (a later ticket).
+item	70339	3471	Azure Skyforged Chainmail	uncommon	12	7	equip	-	-	-	122	none	Str 2	-	-	13090	0	277016	Str 2	Copy of Copper Chain Vest (3471): its model and icon.
+item	70340	3610	Plans: Azure Skyforged Chainmail	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	312	276952	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 60. No source yet (a later ticket).
+item	70341	2853	Azure Skyforged Wristguards	uncommon	10	5	equip	-	-	-	47	none	Str 1	-	-	6966	0	277017	Str 1	Copy of Copper Bracers (2853): its model and icon.
+item	70342	3610	Plans: Azure Skyforged Wristguards	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	237	276953	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 50. No source yet (a later ticket).
+item	70343	3472	Azure Skyforged Gauntlets	uncommon	11	6	equip	-	-	-	72	none	Agi 1	-	-	25850	0	277018	Agi 1	Copy of Runed Copper Gauntlets (3472): its model and icon.
+item	70344	3610	Plans: Azure Skyforged Gauntlets	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	275	276954	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 55. No source yet (a later ticket).
+item	70345	2851	Azure Skyforged Chain	uncommon	10	5	equip	-	-	-	61	none	Sta 1	-	-	23529	0	277019	Sta 1	Copy of Copper Chain Belt (2851): its model and icon.
+item	70346	3610	Plans: Azure Skyforged Chain	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	237	276955	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 50. No source yet (a later ticket).
+item	70347	3473	Azure Skyforged Legguards	uncommon	12	7	equip	-	-	-	107	none	Sta 2	-	-	25849	0	277020	Sta 2	Copy of Runed Copper Pants (3473): its model and icon.
+item	70348	3610	Plans: Azure Skyforged Legguards	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	312	276956	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 60. No source yet (a later ticket).
+item	70349	3469	Azure Skyforged Greaves	uncommon	11	6	equip	-	-	-	79	none	Agi 1	-	-	23528	0	277021	Agi 1	Copy of Copper Chain Boots (3469): its model and icon.
+item	70350	3610	Plans: Azure Skyforged Greaves	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	275	276957	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 55. No source yet (a later ticket).
+item	70351	7915	Cloudy Skyforged Helm	uncommon	35	30	equip	-	-	-	173	none	Str 9, Sta 9	-	-	16084	0	277040	Str 9, Sta 9	Copy of Barbaric Iron Helm (7915): its model and icon.
+item	70352	3866	Plans: Cloudy Skyforged Helm	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	25000	276976	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70353	3840	Cloudy Skyforged Pauldrons	uncommon	35	30	equip	-	-	-	160	none	Agi 7, Sta 7	-	-	9422	0	277041	Agi 7, Sta 7	Copy of Green Iron Shoulders (3840): its model and icon.
+item	70354	3866	Plans: Cloudy Skyforged Pauldrons	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	25000	276977	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70355	7915	Azure Skyforged Helm	uncommon	35	30	equip	-	-	-	173	none	Str 9, Sta 9	-	-	16084	0	277048	Str 9, Sta 9	Copy of Barbaric Iron Helm (7915): its model and icon.
+item	70356	3866	Plans: Azure Skyforged Helm	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	25000	276984	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70357	3840	Azure Skyforged Pauldrons	uncommon	35	30	equip	-	-	-	160	none	Agi 7, Sta 7	-	-	9422	0	277049	Agi 7, Sta 7	Copy of Green Iron Shoulders (3840): its model and icon.
+item	70358	3866	Plans: Azure Skyforged Pauldrons	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	25000	276985	-	Plans, copy of Plans: Jade Serpentblade (3866). Needs Blacksmithing 175. No source yet (a later ticket).
+item	70359	3469	Rough Copper Chain Boots	uncommon	10	4	equip	-	-	-	74	none	Str 1	-	-	23528	49	277672	Str 1	Copy of Copper Chain Boots (3469): its model and icon.
+item	70360	3610	Plans: Rough Copper Chain Boots	uncommon	1	0	pickup	-	-	-	0	none	-	-	-	15274	150	277673	-	Plans, copy of Plans: Gemmed Copper Gauntlets (3610). Needs Blacksmithing 50. No source yet (a later ticket).
+item	70361	10620	Heavy Thorium Ore	common	60	0	none	-	-	-	0	none	-	-	-	20658	375	248815	-	Reagent, copy of Thorium Ore (10620). Its source (vein, drop or vendor) is a later ticket.
+item	70362	19168	Ironwood Blade	epic	65	60	equip	-	2400	79-148	0	none	Str 8, Sta 12	Hit 1	-	31692	10484	279259	Str 8, Sta 12, HitRating 10	Copy of Blackguard (19168): its model and icon.
+item	70363	12704	Plans: Ironwood Blade	epic	1	0	pickup	-	-	-	0	none	-	-	-	15274	125000	279308	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70364	12784	Forest Defender's Axe	epic	65	60	equip	-	3300	162-244	0	none	Sta 27, Str 18	SpellPower 28	-	23904	5062	279260	Sta 27, Str 18, SpellPower 28	Copy of Arcanite Reaper (12784): its model and icon.
+item	70365	12704	Plans: Forest Defender's Axe	epic	1	0	pickup	-	-	-	0	none	-	-	-	15274	125000	279309	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70366	19170	Greenhammer	epic	65	60	equip	-	2300	76-142	0	none	Agi 8, Sta 12	Hit 1	-	31822	53222	279261	Agi 8, Sta 12, HitRating 10	Copy of Ebon Hand (19170): its model and icon.
+item	70367	12704	Plans: Greenhammer	epic	1	0	pickup	-	-	-	0	none	-	-	-	15274	125000	279310	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70368	22198	Evergreen Shield	epic	65	60	equip	-	-	-	2468	none	Sta 16	Crit 1, Healing 24 (Forever 23)	-	34533	19893	279262	Sta 16, CritRating 14, Healing 23, SpellDmg 8	Copy of Jagged Obsidian Shield (22198): its model and icon; SpellDmg 8 is the damage part of the Forever healing stat: 1.12 healing gives none.
+item	70369	12704	Plans: Evergreen Shield	epic	1	0	pickup	-	-	-	0	none	-	-	-	15274	125000	279311	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70370	12611	Depleted Thorium Sabatons	epic	65	60	equip	-	-	-	507	none	Str 14, Sta 21	SpellPower 21	-	23486	13732	279263	Str 14, Sta 21, SpellDmg 21	Copy of Runic Plate Boots (12611): its model and icon; Forever SpellDmg 21 (damage only) is SpellPower.
+item	70371	12704	Plans: Depleted Thorium Sabatons	epic	1	0	pickup	-	-	-	0	none	-	-	-	15274	125000	279312	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70372	19057	Heavy Thorium Gauntlets	epic	65	60	equip	-	-	-	461	none	Sta 14, Str 21	Defense 12	-	31564	13149	279264	Sta 14, Str 21, DefRating 12	Copy of Gloves of the Dawn (19057): its model and icon.
+item	70373	12704	Plans: Heavy Thorium Gauntlets	epic	1	0	pickup	-	-	-	0	none	-	-	-	15274	125000	279313	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70374	19694	Azerothium Legplates	epic	65	60	equip	-	-	-	646	none	Str 24, Agi 18, Sta 27	-	-	32167	13732	279265	Str 24, Agi 18, Sta 27	Copy of Darksoul Leggings (19694): its model and icon.
+item	70375	12704	Plans: Azerothium Legplates	epic	1	0	pickup	-	-	-	0	none	-	-	-	15274	125000	279314	-	Plans, copy of Plans: Thorium Leggings (12704). Needs Blacksmithing 300. No source yet (a later ticket).
+item	70376	3105	Cracked Blacksmith Hammer	uncommon	22	17	pickup	-	2200	17-32	0	none	Str 2	-	-	3155	1411	285279	Str 2	Copy of Large Throwing Knife (3105): its model and icon.
+item	70377	5577	Plans: Cracked Blacksmith Hammer	uncommon	1	1	pickup	-	-	-	0	none	-	-	-	15274	1000	285289	-	Plans, copy of Plans: Rough Bronze Bracers (5577). Needs Blacksmithing 110. No source yet (a later ticket).
+item	70378	15326	Mithril Blacksmith Hammer	uncommon	39	34	pickup	-	2100	31-59	0	none	Str 5	-	-	26358	7658	285280	Str 5	Copy of Gleaming Throwing Axe (15326): its model and icon; the Forever effect 'hit 1318163 Concussed' is no stock spell: not ported.
+item	70379	3868	Plans: Mithril Blacksmith Hammer	uncommon	1	1	pickup	-	-	-	0	none	-	-	-	15274	1000	285290	-	Plans, copy of Plans: Frost Tiger Blade (3868). Needs Blacksmithing 195. No source yet (a later ticket).
+item	70380	20086	Arcanite Blacksmith Hammer	rare	54	49	pickup	-	2200	55-103	0	none	Spi 4, Str 6	-	-	32693	26186	285281	Spi 4, Str 6	Copy of Dusksteel Throwing Knife (20086): its model and icon; the Forever effect 'hit 1318178 Cracked Skull' is no stock spell: not ported.
+item	70381	11614	Plans: Arcanite Blacksmith Hammer	rare	1	1	pickup	-	-	-	0	none	-	-	-	15274	1000	285291	-	Plans, copy of Plans: Dark Iron Mail (11614). Needs Blacksmithing 270. No source yet (a later ticket).

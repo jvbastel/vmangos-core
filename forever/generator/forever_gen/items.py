@@ -103,7 +103,8 @@ def read_rows(path, lines):
             armor=int(raw["armor"]), resistances=_resistances(where, raw["resistances"]),
             stats=_stats(where, raw["stats"]), bonuses=bonuses, equip_spells=spells,
             display_id=int(raw["displayId"]), sell_price=int(raw["sellPrice"]),
-            forever_item=int(raw["foreverItem"]), forever_stats=raw["foreverStats"], notes=raw["notes"]))
+            forever_item=None if raw["foreverItem"] == KEEP else int(raw["foreverItem"]),
+            forever_stats=raw["foreverStats"], notes=raw["notes"]))
     return {"items": items}
 
 
@@ -217,6 +218,8 @@ def server_sql(items):
             comment,
             "CREATE TEMPORARY TABLE `%s` SELECT * FROM `item_template` WHERE `entry`=%d "
             "ORDER BY `patch` DESC LIMIT 1;" % (temp, item.source_item),
+            # The source row must exist: with none, the SQL fails instead of losing the item (#230).
+            "SELECT IF((SELECT COUNT(*) FROM `%s`)=1, 0, (SELECT 1 UNION SELECT 2)) INTO @forever_found;" % temp,
             "UPDATE `%s` SET %s;" % (temp, ", ".join("`%s`=%s" % kv for kv in item_columns(item))),
         ]
         if item.kind == STOCK and _sets_spells(item):
