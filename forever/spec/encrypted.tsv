@@ -1,0 +1,171 @@
+# Forever encrypted rows: the profession items of spec jvbastel/WOWAI#225 that the Forever client holds in encrypted
+# data (US42). forever/generator leaves them out: it refuses an item row whose Forever data comes from one of them,
+# and writes this list into encrypted-list.tsv, so that the post-launch refresh knows what to try again. They are
+# not filled from fan sites. Never edit a generated file by hand. To gather the data again, see forever/REFRESH.md.
+#
+# Source: WoW Forever build 1.60.1.70685, recorded 2026-10-30: the dump items.tsv of #224, rows with the status
+# "not readable in Forever ItemSparse/Item" (their ItemSparse rows sit in sections with an unknown TACT key, for
+# example DA0E7785727A0A65). The names are those of the stock 1.12 item where the ID is stock, else of the Forever
+# Item table. Only numbers and names.
+#
+# 148 rows by use: 63 made by Season of Discovery recipes (2 of them also reagents), 31 Season of Discovery plans, 22
+# stock plans, 15 plans of new Forever recipes (blacksmithing.tsv has no row for them), 6 metal and stone, 5 Season of
+# Discovery reagents, 4 stock crafted items (items.tsv: Rune Edge, Ironvine Breastplate, Gloves, Belt), 2 other
+# recipe items. A name of - : the client cannot read the name either.
+#
+# Columns (tab-separated):
+#   foreverItem   the item ID in the Forever client (a stock ID or a new Forever ID)
+#   name          the item name
+#   used          where the profession data uses it (from the dump): creates:<group> (made by a recipe), plans:<group>
+#                 (teaches a recipe), reagent:<group>, metal&stone, bs-recipe-item. Groups: stock, fv-new (new in
+#                 Forever), sod (Season of Discovery)
+#   notes         free text, or -
+foreverItem	name	used	notes
+3861	Blacksteel Bar	metal&stone	-
+5577	Plans: Rough Bronze Bracers	bs-recipe-item,plans:stock	-
+6734	Plans: Ironforge Chain	bs-recipe-item,plans:stock	-
+6736	Plans: Ironforge Gauntlets	bs-recipe-item,plans:stock	-
+7977	Plans: Mithril Scale Gloves	bs-recipe-item,plans:stock	-
+7986	Plans: Ornate Mithril Breastplate	bs-recipe-item,plans:stock	-
+7987	Plans: Ornate Mithril Helm	bs-recipe-item,plans:stock	-
+7988	Plans: Ornate Mithril Boots	bs-recipe-item,plans:stock	-
+7994	Plans: Orcish War Leggings	bs-recipe-item,plans:stock	-
+12779	Rune Edge	creates:stock	-
+12816	Plans: Thorium Greatsword	bs-recipe-item,plans:stock	-
+12817	Plans: Bleakwood Hew	bs-recipe-item,plans:stock	-
+12818	Plans: Inlaid Thorium Hammer	bs-recipe-item,plans:stock	-
+12826	Plans: Rune Edge	bs-recipe-item,plans:stock	-
+12831	Plans: Blood Talon	bs-recipe-item,plans:stock	-
+12832	Plans: Darkspear	bs-recipe-item,plans:stock	-
+22209	Plans: Heavy Obsidian Belt	bs-recipe-item,plans:stock	-
+22214	Plans: Light Obsidian Belt	bs-recipe-item,plans:stock	-
+22762	Ironvine Breastplate	creates:stock	-
+22763	Ironvine Gloves	creates:stock	-
+22764	Ironvine Belt	creates:stock	-
+22766	Plans: Ironvine Breastplate	bs-recipe-item,plans:stock	-
+22767	Plans: Ironvine Gloves	bs-recipe-item,plans:stock	-
+22768	Plans: Ironvine Belt	bs-recipe-item,plans:stock	-
+210773	-	creates:sod	-
+210794	-	creates:sod	-
+211422	-	reagent:sod	-
+211846	-	bs-recipe-item,plans:sod	-
+215128	-	metal&stone	-
+215161	-	creates:sod	-
+215167	-	creates:sod	-
+217275	-	creates:sod	-
+217277	-	creates:sod	-
+217279	-	creates:sod	-
+217281	-	creates:sod	-
+217283	-	creates:sod	-
+217285	-	creates:sod	-
+220688	-	reagent:sod	-
+220738	-	creates:sod	-
+220739	-	creates:sod	-
+220740	-	creates:sod	-
+221021	-	reagent:sod	-
+227684	-	creates:sod	-
+227845	-	creates:sod	-
+227850	-	creates:sod	-
+227857	-	creates:sod	-
+227865	-	creates:sod	-
+227870	-	creates:sod	-
+227871	-	creates:sod	-
+227872	-	creates:sod	-
+227876	-	creates:sod	-
+227880	-	creates:sod	-
+227881	-	creates:sod	-
+227884	-	creates:sod	-
+227885	-	creates:sod	-
+227886	-	creates:sod	-
+227887	-	creates:sod	-
+227891	-	bs-recipe-item,plans:stock	-
+227892	-	bs-recipe-item,plans:stock	-
+227893	-	bs-recipe-item,plans:stock	-
+228125	-	creates:sod	-
+228230	-	creates:sod	-
+228305	-	bs-recipe-item,plans:sod	-
+228306	-	bs-recipe-item,plans:sod	-
+228307	-	bs-recipe-item,plans:sod	-
+228308	-	bs-recipe-item,plans:sod	-
+233490	-	creates:sod	-
+233491	-	creates:sod	-
+233492	-	creates:sod	-
+233793	-	creates:sod	-
+233795	-	creates:sod	-
+233796	-	creates:sod	-
+233797	-	creates:sod	-
+233798	-	creates:sod	-
+233801	-	creates:sod	-
+234003	-	creates:sod,metal&stone,reagent:sod	-
+234004	-	creates:sod,metal&stone,reagent:sod	-
+234006	-	reagent:sod	-
+234085	-	bs-recipe-item,plans:sod	-
+234086	-	creates:sod	-
+234220	-	bs-recipe-item,plans:sod	-
+234221	-	bs-recipe-item,plans:sod	-
+234222	-	bs-recipe-item,plans:sod	-
+234223	-	bs-recipe-item,plans:sod	-
+234224	-	bs-recipe-item,plans:sod	-
+234225	-	bs-recipe-item,plans:sod	-
+234226	-	bs-recipe-item,plans:sod	-
+234227	-	bs-recipe-item,plans:sod	-
+234228	-	bs-recipe-item,plans:sod	-
+234278	-	plans:sod	-
+234279	-	bs-recipe-item,plans:sod	-
+234288	-	creates:sod	-
+234289	-	bs-recipe-item,plans:sod	-
+234290	-	creates:sod	-
+234291	-	bs-recipe-item,plans:sod	-
+234292	-	creates:sod	-
+234293	-	bs-recipe-item,plans:sod	-
+234319	-	creates:sod	-
+234320	-	bs-recipe-item,plans:sod	-
+234321	-	creates:sod	-
+234322	-	bs-recipe-item,plans:sod	-
+234428	-	creates:sod	-
+234429	-	bs-recipe-item,plans:sod	-
+234458	-	bs-recipe-item,plans:sod	-
+234459	-	creates:sod	-
+234460	-	creates:sod	-
+234461	-	bs-recipe-item,plans:sod	-
+234487	-	creates:sod	-
+234488	-	bs-recipe-item,plans:sod	-
+235039	-	bs-recipe-item,plans:sod	-
+235040	-	creates:sod	-
+236656	-	reagent:sod	-
+236695	-	creates:sod	-
+236696	-	creates:sod	-
+236697	-	creates:sod	-
+237810	-	metal&stone	-
+238241	-	metal&stone	-
+238288	-	creates:sod	-
+238289	-	creates:sod	-
+238290	-	creates:sod	-
+238291	-	creates:sod	-
+238292	-	creates:sod	-
+238293	-	creates:sod	-
+238294	-	creates:sod	-
+238295	-	creates:sod	-
+239217	-	bs-recipe-item	-
+250390	-	plans:sod	-
+250391	-	plans:sod	-
+250392	-	plans:sod	-
+250393	-	plans:sod	-
+251340	-	bs-recipe-item,plans:fv-new	-
+251342	-	bs-recipe-item,plans:fv-new	-
+251343	-	bs-recipe-item,plans:fv-new	-
+251344	-	bs-recipe-item,plans:fv-new	-
+251345	-	bs-recipe-item,plans:fv-new	-
+251346	-	bs-recipe-item,plans:fv-new	-
+251347	-	bs-recipe-item,plans:fv-new	-
+251348	-	bs-recipe-item,plans:fv-new	-
+251349	-	bs-recipe-item,plans:fv-new	-
+251350	-	bs-recipe-item,plans:fv-new	-
+251351	-	bs-recipe-item,plans:fv-new	-
+251352	-	bs-recipe-item,plans:fv-new	-
+251353	-	bs-recipe-item,plans:fv-new	-
+251354	-	bs-recipe-item,plans:fv-new	-
+251395	-	bs-recipe-item,plans:fv-new	-
+251649	-	metal&stone	-
+251652	-	metal&stone	-
+273100	-	bs-recipe-item	-

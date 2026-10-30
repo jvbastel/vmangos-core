@@ -14,6 +14,9 @@ The spec is the folder `forever/spec`, one file per area. The generator in `fore
 - `mining.tsv` holds the Mining rows (spec #225, #232): the new ores (kind `ore`, new items like those of
   `items.tsv`), one row per ore and vein loot ID (kind `drop`), and the Forever mining content that is not
   ported (kind `cut`, listed in the cut list).
+- `encrypted.tsv` lists the profession items that the Forever client holds in encrypted data (US42 of #225).
+  The spec has no row from them, and the generator writes them into `encrypted-list.tsv` next to the cut
+  list. At a refresh, try them again: a row that the client can now read leaves this file for its own file.
 
 Each header names the sources, the Forever build, the date, its free ID range, the next free IDs and each
 column. Within a file, the rows of one ticket stay in a block under a comment line that names the ticket.

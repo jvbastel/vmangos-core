@@ -17,7 +17,7 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, dead_content, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, stock_recipes
+from . import client_patch, dead_content, encrypted, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, stock_recipes
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -353,11 +353,13 @@ def proc_event_sql(row):
 
 def generate(spec, stock_folder, out, marker_icons):
     """Checks the spec against the stock data and the core's marker icons, leaves out the dead content
-    (dead_content.py), then writes the three outputs and the cut list (cut-list.tsv) into `out`. A spec that
-    breaks a rule raises a SpecError before anything is written. Returns the cut list."""
+    (dead_content.py), then writes the three outputs, the cut list (cut-list.tsv) and the encrypted list
+    (encrypted-list.tsv, encrypted.py) into `out`. A spec that breaks a rule raises a SpecError before
+    anything is written. Returns the cut list."""
     stock = Stock(stock_folder)
     # The item rules and the rules of the new rows hold for every row, also the ones the rule then cuts.
     items.check(spec, stock)
+    encrypted.check(spec)
     new_recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     mining.check(spec, stock)
     full_items = spec.items
@@ -393,5 +395,7 @@ def generate(spec, stock_folder, out, marker_icons):
         file.write(sql)
     with open(os.path.join(out, "cut-list.tsv"), "w", encoding="utf-8", newline="\n") as file:
         file.write(dead_content.cut_list_text(cuts))
+    with open(os.path.join(out, "encrypted-list.tsv"), "w", encoding="utf-8", newline="\n") as file:
+        file.write(encrypted.list_text(spec))
     client_patch.write(os.path.join(out, "client"))
     return cuts
