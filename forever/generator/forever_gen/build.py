@@ -18,6 +18,7 @@ import struct
 from collections import namedtuple
 
 from . import client_patch, dead_content, encrypted, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, sources, stock_recipes
+from .common import CLIENT_BUILD, sql_text
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -36,8 +37,6 @@ SPELL_ATTR_PASSIVE = 0x40
 # The one 64-bit `set` column: the generator writes its high word into the next Spell.dbc field.
 SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 
-# The world database build of the Forever rows (SUPPORTED_CLIENT_BUILD of the core).
-CLIENT_BUILD = 5875
 FOREVER_TABLES = ("forever_spell_template", "forever_spell_chain", "forever_spell_proc_event",
                   "forever_skill_line_ability", "forever_spell_threat", items.TABLE, stock_recipes.TRAINER_TABLE,
                   mining.TABLE)
@@ -162,7 +161,7 @@ def spell_edits(spec, stock):
         description = "" if stock.spell.text(stock_by_id[recipe.source_spell][SPELL_DESCRIPTION]) else None
         edits.append(SpellEdit(recipe.spell, recipe.source_spell, recipes.spell_changes(recipe, stock), recipe.name,
                                "", description, None, "-- Recipe %s, from spell %d." % (recipe.name, recipe.source_spell)))
-    for learn in new_recipes.learn_spells(spec):
+    for learn in new_recipes.plans_learns(spec):
         edits.append(SpellEdit(learn.spell, new_recipes.LEARN_SOURCE, [("effectTriggerSpell1", learn.recipe)],
                                learn.name, "", learn.description, None,
                                "-- %s, teaches recipe %d, from spell %d." % (learn.name, learn.recipe, new_recipes.LEARN_SOURCE)))
@@ -249,13 +248,13 @@ def server_sql(spec, edits, stock):
         lines += ["DROP TABLE IF EXISTS `%s`;" % table,
                   "CREATE TABLE `%s` LIKE `%s`;" % (table, table[len("forever_"):])]
     for edit in edits:
-        values = [("entry", str(edit.spell)), ("build", str(CLIENT_BUILD)), ("name", items.sql_text(edit.name)),
-                  ("nameSubtext", items.sql_text(edit.rank_text))]
+        values = [("entry", str(edit.spell)), ("build", str(CLIENT_BUILD)), ("name", sql_text(edit.name)),
+                  ("nameSubtext", sql_text(edit.rank_text))]
         if edit.description is not None:
-            values.append(("description", items.sql_text(edit.description)))
+            values.append(("description", sql_text(edit.description)))
         values += [(column, str(value)) for column, value in edit.changes]
         if edit.script_name is not None:
-            values.append(("script_name", items.sql_text(edit.script_name)))
+            values.append(("script_name", sql_text(edit.script_name)))
         lines += [
             "",
             edit.comment,

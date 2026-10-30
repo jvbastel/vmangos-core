@@ -31,6 +31,7 @@ GENERATOR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, GENERATOR)
 
 from forever_gen import dead_content, equip_stats, new_recipes, spec  # noqa: E402
+from forever_gen.common import number_text  # noqa: E402
 
 SPEC_DIR = os.path.join(GENERATOR, "..", "spec")
 BLOCK_TICKET = "#230"
@@ -77,10 +78,6 @@ SKIP_NAMES = re.compile(r"^(Deprecated|Monster|Test|\[PH\])|\bDEP\b|\(old\)|OLD"
 def read_tsv(path):
     with open(path, encoding="utf-8") as handle:
         return list(csv.DictReader(handle, delimiter="\t", quoting=csv.QUOTE_NONE))
-
-
-def fmt(value):
-    return ("%.2f" % value).rstrip("0").rstrip(".")
 
 
 class Dump:
@@ -184,7 +181,7 @@ def stats_of(forever):
             if amount == int(amount) and int(amount) in equip_stats.BONUSES[bonus][1]:
                 bonuses.append("%s %d" % (bonus, amount))
             else:
-                bonuses.append("%s %d (Forever %s)" % (bonus, equip_stats.nearest(bonus, amount), fmt(amount)))
+                bonuses.append("%s %d (Forever %s)" % (bonus, equip_stats.nearest(bonus, amount), number_text(amount)))
         else:
             raise SystemExit("item %s: the Forever stat %s has no 1.12 rule" % (forever["item"], name))
     return base, bonuses, res, bonus_armor, notes

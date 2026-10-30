@@ -16,9 +16,9 @@ spell taken out of its spell slots, so the plans have no use. The loot and vendo
 from collections import namedtuple
 
 from . import removals
-from .items import SPELL_SLOT, MAX_SPELLS
-from .recipes import NO_VALUE
-from .spec import SpecError
+from .common import NO_VALUE, SpecError, copy_item_sql, fail_unless
+from .items import SPELL_SLOT, MAX_ITEM_SPELLS
+from .stock_recipes import no_trainer_template_sql, stock_abilities, stock_learn_spells
 
 KIND = "removed"
 # The columns of a removal row that hold a value; the other recipe columns are NO_VALUE.
@@ -40,7 +40,6 @@ def check(spec, stock):
     """A removal row names a stock recipe spell (spell = sourceSpell) with a stock skill line ability in its
     skill line, once, and no other recipe row of the spec names that spell. Its plans, if any, have a learn
     spell and are no other row of the spec."""
-    from .stock_recipes import learn_spells, stock_abilities
     stock_spells = stock.spell.by_id()
     others = {recipe.spell for recipe in list(spec.recipes) + list(spec.stock_recipes)}
     item_rows = {item.entry for item in spec.items}
@@ -61,7 +60,7 @@ def check(spec, stock):
             raise SpecError("%s has no stock skill line ability in skill line %d" % (where, recipe.skill_line))
         if recipe.plans is None:
             continue
-        if not learn_spells(recipe, stock):
+        if not stock_learn_spells(recipe, stock):
             raise SpecError("%s: no stock spell learns it, so its plans %d cannot be emptied" % (where, recipe.plans))
         # The generator writes a forever_item_template copy of the plans (server_sql): no other row may.
         if recipe.plans in item_rows:
@@ -73,7 +72,6 @@ def check(spec, stock):
 
 def apply(table, spec, stock):
     """The client SkillLineAbility.dbc `table` without the stock rows of the removed recipes."""
-    from .stock_recipes import stock_abilities
     gone = {row[0] for recipe in spec.removed_recipes for row in stock_abilities(recipe, stock)}
     table.rows = [row for row in table.rows if row[0] not in gone]
     return table
@@ -87,14 +85,13 @@ def plans_sql(recipe, learn):
     a learn spell of the recipe emptied: the plans stay an item but teach nothing. Unless the newest stock
     plans row holds a learn spell in exactly one slot, the SQL fails instead of copying the row."""
     teaching = ", ".join(str(spell) for spell in learn)
-    slots = " + ".join("(`spellid_%d` IN (%s))" % (k, teaching) for k in range(1, MAX_SPELLS + 1))
+    slots = " + ".join("(`spellid_%d` IN (%s))" % (k, teaching) for k in range(1, MAX_ITEM_SPELLS + 1))
     lines = [
         "-- Removed recipe %s (%d): its plans %d teach nothing." % (recipe.name, recipe.spell, recipe.plans),
-        "CREATE TEMPORARY TABLE `%s` SELECT * FROM `item_template` WHERE `entry`=%d "
-        "ORDER BY `patch` DESC LIMIT 1;" % (PLANS_TEMP, recipe.plans),
-        "SELECT IF((SELECT SUM(%s) FROM `%s`)=1, 0, (SELECT 1 UNION SELECT 2)) INTO @forever_found;" % (slots, PLANS_TEMP),
+        copy_item_sql(PLANS_TEMP, recipe.plans),
+        fail_unless("(SELECT SUM(%s) FROM `%s`)=1" % (slots, PLANS_TEMP), "forever_found"),
     ]
-    for k in range(1, MAX_SPELLS + 1):
+    for k in range(1, MAX_ITEM_SPELLS + 1):
         lines.append("UPDATE `%s` SET %s WHERE `spellid_%d` IN (%s);" % (
             PLANS_TEMP, ", ".join("`%s_%d`=%s" % (column, k, empty) for column, empty in SPELL_SLOT), k, teaching))
     return lines + [
@@ -107,25 +104,23 @@ def plans_sql(recipe, learn):
 def plans_server_sql(spec, stock):
     """The plans copies of the removed recipes that teach nothing (plans_sql). They are copies with SELECT *,
     so build.server_sql writes them before removals.marker_sql."""
-    from .stock_recipes import learn_spells
     lines = []
     for recipe in sorted(spec.removed_recipes, key=lambda r: r.spell):
         if recipe.plans is not None:
-            lines += [""] + plans_sql(recipe, learn_spells(recipe, stock))
+            lines += [""] + plans_sql(recipe, stock_learn_spells(recipe, stock))
     return lines
 
 
 def server_sql(spec, stock):
     """The removal lines of the removed recipes: their stock skill line abilities and the trainer rows of
     their learn spells. build.server_sql writes them after removals.marker_sql."""
-    from .stock_recipes import learn_spells, no_trainer_template_sql, stock_abilities
     lines = []
     for recipe in sorted(spec.removed_recipes, key=lambda r: r.spell):
         lines += [""]
-        if learn_spells(recipe, stock):
-            lines.append(no_trainer_template_sql(", ".join(str(s) for s in learn_spells(recipe, stock))))
+        if stock_learn_spells(recipe, stock):
+            lines.append(no_trainer_template_sql(", ".join(str(s) for s in stock_learn_spells(recipe, stock))))
         lines += removals.remove_rows("skill_line_ability", "id", [row[0] for row in stock_abilities(recipe, stock)],
                                       "Removed recipe %s (%d): its skill line ability." % (recipe.name, recipe.spell))
-        lines += removals.remove_rows("npc_trainer", "spell", learn_spells(recipe, stock),
+        lines += removals.remove_rows("npc_trainer", "spell", stock_learn_spells(recipe, stock),
                                       "Removed recipe %s (%d): the trainer rows of its learn spells." % (recipe.name, recipe.spell))
     return lines

@@ -17,7 +17,7 @@ skill line abilities, trainers, items, gameobject loot):
    (tests/test_removals.py checks it).
 A key that a ticket removes must have no other forever row: the key is the union key of the whole table.
 """
-from .spec import SpecError
+from .common import SpecError
 
 MARKER = "forever_removed"
 # The stock tables whose rows a marker must not remove, with the reason.

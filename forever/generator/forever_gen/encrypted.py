@@ -6,7 +6,7 @@ them, and writes them into encrypted-list.tsv, so that the post-launch refresh k
 """
 from collections import namedtuple
 
-from .spec import SpecError, rows_of
+from .common import SpecError, rows_of
 
 COLUMNS = ("foreverItem", "name", "used", "notes")
 LIST_COLUMNS = ("foreverItem", "name", "used")

@@ -7,7 +7,7 @@ from, so that bad data never reaches a realm.
 - an item set: its notes, the Forever item set (or the stock set it changes); a set bonus: foreverSpell;
 - a mining drop: its rate column (mining.py: spec or fallback); an ore is a new item.
 """
-from .spec import SpecError
+from .common import SpecError
 
 NO_VALUE = "-"
 

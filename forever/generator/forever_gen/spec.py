@@ -9,6 +9,9 @@ import os
 import re
 from collections import namedtuple
 
+from . import encrypted, item_sets, items, mining, recipes
+from .common import SpecError, check_kind, rows_of  # noqa: F401 (SpecError: the error of the spec, for build and generate)
+
 # kind: talent, ability (a new spell that no talent teaches) or base (a changed stock spell).
 # required_talents: the prerequisite talent IDs (the tree rules allow at most one).
 # effects: three lists, one per spell effect, of the value of each rank, or None to keep the source value.
@@ -86,10 +89,6 @@ COLUMNS = ("kind", "talentId", "tree", "tier", "column", "ranks", "requiredTalen
            "icon", "port", "spells", "sourceSpells", "effect1", "effect2", "effect3", "set", "tooltip", "notes")
 
 
-class SpecError(Exception):
-    """The spec breaks a rule. The generator writes nothing."""
-
-
 def _int(text):
     return int(text, 0)
 
@@ -143,7 +142,6 @@ def read(path):
         files = [os.path.join(path, name) for name in sorted(os.listdir(path)) if name.endswith(".tsv")]
     else:
         files = [path]
-    from . import encrypted, item_sets, items, mining, recipes  # they import SpecError from here
     readers = {COLUMNS: _read_spell_rows, recipes.COLUMNS: recipes.read_rows, items.COLUMNS: items.read_rows,
                item_sets.COLUMNS: item_sets.read_rows, mining.COLUMNS: mining.read_rows,
                encrypted.COLUMNS: encrypted.read_rows}
@@ -170,23 +168,10 @@ def read(path):
                 found["drops"], found["mining_cuts"], found["encrypted"])
 
 
-def rows_of(path, lines, header):
-    """(where, {column: value}) of each row of a spec file whose column line is `header`."""
-    rows = []
-    for number, line in enumerate(lines[1:], start=2):
-        values = line.split("\t")
-        if len(values) != len(header):
-            raise SpecError("%s: data line %d has %d columns, not %d" % (path, number, len(values), len(header)))
-        raw = dict(zip(header, values))
-        rows.append(("%s (data line %d)" % (raw["name"], number), raw))
-    return rows
-
-
 def _read_spell_rows(path, lines):
     rows = []
     for where, raw in rows_of(path, lines, COLUMNS):
-        if raw["kind"] not in KINDS:
-            raise SpecError("%s: unknown kind '%s'" % (where, raw["kind"]))
+        check_kind(where, raw["kind"], KINDS)
         ranks = int(raw["ranks"])
         effects = [None if raw[c] == "-" else _per_rank("%s %s" % (where, c), raw[c], ranks)
                    for c in ("effect1", "effect2", "effect3")]

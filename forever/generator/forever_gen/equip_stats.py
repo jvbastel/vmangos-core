@@ -24,7 +24,7 @@ spell damage of one school, HolyDamage to ArcaneDamage.
 """
 from collections import namedtuple
 
-from .spec import SpecError
+from .common import NO_VALUE, SPELL_BASE_POINTS1, SPELL_DIE_SIDES1, SPELL_EFFECT1, SpecError, int32
 
 # name: the spec name; value: the 1.12 value (a whole number); forever: the Forever value of a rounded
 # bonus, else None; spell: the stock equip spell.
@@ -139,9 +139,10 @@ BONUSES = {
     }),
 }
 
-# Spell.dbc 1.12.1: 61-63 Effect, 64-66 EffectDieSides, 76-78 EffectBasePoints, 91-93 EffectApplyAuraName,
-# 106-108 EffectMiscValue.
-EFFECT, DIE_SIDES, BASE_POINTS, AURA, MISC = 61, 64, 76, 91, 106
+# Spell.dbc 1.12.1: 61-63 Effect, 64-66 EffectDieSides, 76-78 EffectBasePoints (common.py), 91-93
+# EffectApplyAuraName, 106-108 EffectMiscValue.
+EFFECT, DIE_SIDES, BASE_POINTS = SPELL_EFFECT1, SPELL_DIE_SIDES1, SPELL_BASE_POINTS1
+AURA, MISC = 91, 106
 SPELL_EFFECT_APPLY_AURA = 6
 
 
@@ -155,7 +156,7 @@ def parse(where, text, table=BONUSES):
     by commas, or "-". Refuses a name with no stock equip spell, a value with none and no Forever value
     (the rounding rule), and a rounded value that is not the nearest one. `table`: the bonus table (the item
     sets of #231 add bonuses of their own)."""
-    if text == "-":
+    if text == NO_VALUE:
         return []
     bonuses = []
     for part in text.split(","):
@@ -183,10 +184,6 @@ def parse(where, text, table=BONUSES):
     return bonuses
 
 
-def _int32(value):
-    return value - (1 << 32) if value >= 1 << 31 else value
-
-
 def check(stock, table=BONUSES):
     """Proves the table against the stock Spell.dbc: each spell exists, and each of its effects applies the
     aura of its bonus with the bonus value."""
@@ -195,7 +192,7 @@ def check(stock, table=BONUSES):
         for value, spell in values.items():
             row = spells.get(spell)
             effects = [] if row is None else [
-                (row[AURA + k], row[MISC + k], _int32(row[BASE_POINTS + k]) + row[DIE_SIDES + k])
+                (row[AURA + k], row[MISC + k], int32(row[BASE_POINTS + k]) + row[DIE_SIDES + k])
                 for k in range(3) if row[EFFECT + k]]
             if row is None or [e[:2] for e in effects] != list(auras) or \
                     any(row[EFFECT + k] not in (0, SPELL_EFFECT_APPLY_AURA) for k in range(3)) or \

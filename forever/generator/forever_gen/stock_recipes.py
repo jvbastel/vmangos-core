@@ -11,26 +11,19 @@ A stock row keeps the stock spell ID, so that a character who knows the recipe k
   forever_spell_template).
 The generator has no world database: the copies are SQL that runs on the stock rows at load time.
 """
-from .recipes import MAX_REAGENTS, NO_VALUE, focus_ids
-from .items import sql_text
-from .spec import SpecError
+from .common import (CLIENT_BUILD, MAX_REAGENTS, NO_VALUE, SPELL_BASE_POINTS1, SPELL_DIE_SIDES1, SPELL_EFFECT1, SpecError,
+                     copy_item_sql, fail_unless, focus_ids, int32, sql_text)
 
 TRAINER_TABLE = "forever_npc_trainer"
 ITEM_TABLE = "forever_item_template"
-# The world database build of the skill line ability rows (SUPPORTED_CLIENT_BUILD of the core).
-CLIENT_BUILD = 5875
 # Spell.dbc 1.12.1: 15 RequiresSpellFocus, 42-49 Reagent, 50-57 ReagentCount, 61 Effect1, 64 EffectDieSides1,
 # 76 EffectBasePoints1, 103 EffectItemType1, 109 EffectTriggerSpell1, 120 Name (enUS), 129 Rank (enUS).
 SPELL_FOCUS, SPELL_REAGENTS, SPELL_REAGENT_COUNTS = 15, 42, 50
-SPELL_EFFECT1, SPELL_DIE_SIDES1, SPELL_BASE_POINTS1, SPELL_ITEM_TYPE1, SPELL_TRIGGER1 = 61, 64, 76, 103, 109
+SPELL_ITEM_TYPE1, SPELL_TRIGGER1 = 103, 109
 SPELL_NAME, SPELL_RANK = 120, 129
 SPELL_EFFECT_LEARN_SPELL = 36
 # SkillLineAbility.dbc 1.12.1: 0 ID, 1 SkillLine, 2 Spell, 10 grey, 11 yellow.
 SLA_SKILL, SLA_SPELL, SLA_GREY, SLA_YELLOW = 1, 2, 10, 11
-
-
-def _int32(value):
-    return value - (1 << 32) if value >= 1 << 31 else value
 
 
 def stock_abilities(recipe, stock):
@@ -70,7 +63,7 @@ def check(spec, stock):
         if not stock_abilities(recipe, stock):
             raise SpecError("%s has no stock skill line ability in skill line %d" % (where, recipe.skill_line))
         row = stock_spells[recipe.spell]
-        made = (row[SPELL_ITEM_TYPE1], _int32(row[SPELL_BASE_POINTS1]) + row[SPELL_DIE_SIDES1])
+        made = (row[SPELL_ITEM_TYPE1], int32(row[SPELL_BASE_POINTS1]) + row[SPELL_DIE_SIDES1])
         if recipe.creates != made:
             raise SpecError("%s: a stock row keeps the item that the stock spell makes (%dx%d)" % ((where,) + made))
         if focus_id(recipe, stock) is None:
@@ -95,7 +88,7 @@ def apply_colours(table, spec, stock):
     return table
 
 
-def learn_spells(recipe, stock):
+def stock_learn_spells(recipe, stock):
     """The stock spells that teach the recipe (Effect1 Learn Spell on it): the spells of its trainer rows.
     The core takes a trainer row only for a spell whose first effect is Learn Spell."""
     return sorted(row[0] for row in stock.spell.rows
@@ -106,8 +99,7 @@ def no_trainer_template_sql(teaching):
     """SQL that fails when an npc_trainer_template row teaches one of the spells `teaching` ("1, 2"): the core
     reads that table with no Forever override (ObjectMgr::LoadTrainers), so a Forever trainer change would
     not reach it (review L5)."""
-    return ("SELECT IF((SELECT COUNT(*) FROM `npc_trainer_template` WHERE `spell` IN (%s))=0, 0, "
-            "(SELECT 1 UNION SELECT 2)) INTO @forever_found;" % teaching)
+    return fail_unless("(SELECT COUNT(*) FROM `npc_trainer_template` WHERE `spell` IN (%s))=0" % teaching, "forever_found")
 
 
 def plans_name(recipe, stock):
@@ -135,7 +127,7 @@ def server_sql(spec, stock):
                 "INSERT INTO `forever_skill_line_ability` SELECT * FROM `forever_sla_stock`;",
                 "DROP TEMPORARY TABLE `forever_sla_stock`;",
             ]
-        teaching = ", ".join(str(spell) for spell in learn_spells(recipe, stock))
+        teaching = ", ".join(str(spell) for spell in stock_learn_spells(recipe, stock))
         if teaching:
             # Every stock trainer row of the learn spells: the core reads forever_npc_trainer over npc_trainer
             # by `spell`, so the copy must hold all of them. npc_trainer_template has no Forever override
@@ -147,8 +139,7 @@ def server_sql(spec, stock):
             ]
         if recipe.plans is not None:
             lines += [
-                "CREATE TEMPORARY TABLE `forever_plans_new` SELECT * FROM `item_template` WHERE `entry`=%d "
-                "ORDER BY `patch` DESC LIMIT 1;" % recipe.plans,
+                copy_item_sql("forever_plans_new", recipe.plans),
                 "UPDATE `forever_plans_new` SET `entry`=%d, `patch`=0, `required_skill_rank`=%d%s;"
                 % (recipe.plans, recipe.min_rank, plans_name(recipe, stock)),
                 "INSERT INTO `%s` SELECT * FROM `forever_plans_new`;" % ITEM_TABLE,

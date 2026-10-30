@@ -17,13 +17,12 @@ generator leaves it out.
 from collections import namedtuple
 
 from . import equip_stats
-from .spec import SpecError, rows_of
+from .common import NO_VALUE, SpecError, rows_of
 
 COLUMNS = ("kind", "set", "name", "threshold", "pieces", "bonuses", "foreverSpell", "notes")
 # set: a new set (an ID that is no stock set); stockset: a changed stock set (a stock ID); bonus: a set bonus.
 SET, STOCK_SET, BONUS = "set", "stockset", "bonus"
 NOT_PORTED = "none"
-KEEP = "-"
 
 # The bonuses of the sets that no item uses as a bonus (equip_stats.BONUSES has the others). The spell of a
 # value is the one that most stock items use for it, then the lowest ID. No stock item gives Strength by a
@@ -40,7 +39,7 @@ SET_BONUSES = dict(equip_stats.BONUSES, **{
 # ItemSet.dbc 1.12.1: 0 ID, 1-8 Name (enUS first), 9 the name flags, 10-26 ItemID[17], 27-34 SetSpellID[8],
 # 35-42 SetThreshold[8], 43 RequiredSkill, 44 RequiredSkillRank.
 NAME, NAME_FLAGS, ITEMS, SPELLS, THRESHOLDS = 1, 9, 10, 27, 35
-MAX_PIECES, MAX_SPELLS = 17, 8
+MAX_PIECES, MAX_SET_SPELLS = 17, 8
 
 # set_id: the ItemSet.dbc ID; pieces: [item entry]; bonuses: [SetBonus]; notes: the set row's notes;
 # kind: SET or STOCK_SET.
@@ -60,7 +59,7 @@ def read_rows(path, lines):
             sets[set_id] = ItemSet(set_id, raw["name"], pieces, [], raw["notes"], raw["kind"])
         elif raw["kind"] == BONUS:
             parts = [] if raw["bonuses"] == NOT_PORTED else equip_stats.parse(where, raw["bonuses"], SET_BONUSES)
-            if raw["foreverSpell"] == KEEP:
+            if raw["foreverSpell"] == NO_VALUE:
                 raise SpecError("%s: a set bonus has no source (foreverSpell)" % where)
             bonuses.append((where, set_id, SetBonus(int(raw["threshold"]), parts, int(raw["foreverSpell"]), raw["notes"])))
         else:
@@ -104,8 +103,8 @@ def check(spec, stock):
                 raise SpecError("%s: item %d is no item row of the spec (or the dead-content rule cut it) and no "
                                 "stock piece of this set" % (where, piece))
         set_spells = spells(item_set)
-        if len(set_spells) > MAX_SPELLS:
-            raise SpecError("%s: %d bonus spells, at most %d" % (where, len(set_spells), MAX_SPELLS))
+        if len(set_spells) > MAX_SET_SPELLS:
+            raise SpecError("%s: %d bonus spells, at most %d" % (where, len(set_spells), MAX_SET_SPELLS))
         for bonus in item_set.bonuses:
             if not 1 <= bonus.threshold <= len(item_set.pieces):
                 raise SpecError("%s: the threshold %d is not 1 to %d (the pieces)" % (where, bonus.threshold, len(item_set.pieces)))
@@ -129,9 +128,9 @@ def client_table(spec, stock):
         pieces = item_set.pieces + [0] * (MAX_PIECES - len(item_set.pieces))
         row[ITEMS:ITEMS + MAX_PIECES] = pieces
         set_spells = spells(item_set)
-        pairs = set_spells + [(0, 0)] * (MAX_SPELLS - len(set_spells))
-        row[SPELLS:SPELLS + MAX_SPELLS] = [s for s, _ in pairs]
-        row[THRESHOLDS:THRESHOLDS + MAX_SPELLS] = [t for _, t in pairs]
+        pairs = set_spells + [(0, 0)] * (MAX_SET_SPELLS - len(set_spells))
+        row[SPELLS:SPELLS + MAX_SET_SPELLS] = [s for s, _ in pairs]
+        row[THRESHOLDS:THRESHOLDS + MAX_SET_SPELLS] = [t for _, t in pairs]
     table.rows.sort(key=lambda r: r[0])
     return table
 

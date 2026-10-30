@@ -15,7 +15,7 @@ import os
 from collections import namedtuple
 
 from . import items
-from .spec import SpecError
+from .common import SpecError, id_range
 
 # The stock learn spell that each learn spell copies: Plans: Runed Copper Breastplate (Effect1 Learn Spell).
 LEARN_SOURCE = 2760
@@ -84,7 +84,7 @@ def check(spec, stock, used_spells):
             raise SpecError("%s has no source (foreverItem)" % where)
         if item.source_item not in stock_items:
             raise SpecError("%s: the source item %d is no stock item" % (where, item.source_item))
-    low, high = spec.profession_id_range or (0, -1)
+    low, high = id_range(spec.profession_id_range)
     stock_spells = stock.spell.by_id()
     seen = set(used_spells) | {recipe.spell for recipe in spec.recipes}
     for recipe in spec.stock_recipes:
@@ -111,7 +111,7 @@ def check(spec, stock, used_spells):
         seen.add(recipe.plans_spell)
 
 
-def learn_spells(spec):
+def plans_learns(spec):
     """The Learn of each new recipe with plans and a learn spell, by spell ID. The spell has the name of the
     plans item, as the stock learn spells have."""
     names = {item.entry: item.name for item in spec.items}

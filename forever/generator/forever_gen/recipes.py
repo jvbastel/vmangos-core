@@ -6,7 +6,8 @@ learning it needs and the colour range. build.py writes both into the client dat
 """
 from collections import namedtuple
 
-from .spec import SpecError, rows_of
+from . import removed_recipes
+from .common import MAX_REAGENTS, NO_VALUE, SpecError, check_kind, focus_ids, id_range, rows_of
 
 # reagents: [(item, count)]; creates: (item, count); focus: the name of a stock SpellFocusObject.dbc row, or
 # NO_VALUE; plans: the plans item (a stock one for a stock row, an item row of the spec for a new recipe), or
@@ -20,13 +21,9 @@ COLUMNS = ("kind", "spell", "sourceSpell", "name", "skillLine", "minRank", "yell
 # recipe: a new recipe spell (here). stock: a stock recipe that Forever changes in place (stock_recipes.py, #228).
 # removed: a stock recipe that Forever took away (removed_recipes.py, #229).
 KINDS = ("recipe", "stock", "removed")
-NO_VALUE = "-"
-MAX_REAGENTS = 8
 # The spell_template columns of the reagents (Spell.dbc fields 42-49 and 50-57).
 REAGENT_COLUMNS = ["reagent%d" % k for k in range(1, MAX_REAGENTS + 1)]
 REAGENT_COUNT_COLUMNS = ["reagentCount%d" % k for k in range(1, MAX_REAGENTS + 1)]
-# SpellFocusObject.dbc 1.12.1: 0 ID, 1 Name (enUS).
-FOCUS_NAME = 1
 
 
 def _counted(where, column, text):
@@ -52,11 +49,9 @@ def _plans(where, text):
 
 def read_rows(path, lines):
     """{"recipes": the new recipes, "stock_recipes": the stock rows, "removed_recipes": the removal rows}."""
-    from . import removed_recipes  # it imports stock_recipes, which imports this module
     recipes, removed = [], []
     for where, raw in rows_of(path, lines, COLUMNS):
-        if raw["kind"] not in KINDS:
-            raise SpecError("%s: unknown kind '%s'" % (where, raw["kind"]))
+        check_kind(where, raw["kind"], KINDS)
         if raw["kind"] == removed_recipes.KIND:
             removed.append(removed_recipes.read_row(where, raw))
             continue
@@ -77,17 +72,12 @@ def read_rows(path, lines):
             "stock_recipes": [r for r in recipes if r.kind == "stock"], "removed_recipes": removed}
 
 
-def focus_ids(stock):
-    """{name: ID} of the stock SpellFocusObject.dbc."""
-    return {stock.spell_focus.text(row[FOCUS_NAME]): row[0] for row in stock.spell_focus.rows}
-
-
 def check(spec, stock, used_spells, check_focus=True):
     """The ID rules of the recipes: a new spell in the profession spell range, no clash with a stock spell or
     another spec spell (`used_spells`: the spell IDs of the other rows, none of them in the profession
     range), a stock source spell and a stock spell focus. build.generate runs it on the full spec without
     the focus (a cut recipe can need a Forever-only station), then on the spec after the dead-content rule."""
-    low, high = spec.profession_id_range or (0, -1)
+    low, high = id_range(spec.profession_id_range)
     if spec.recipes and not spec.id_range[0] <= low <= high <= spec.id_range[1]:
         raise SpecError("the free profession spell ID range %d-%d is not inside the free spell ID range %d-%d"
                         % ((low, high) + spec.id_range))

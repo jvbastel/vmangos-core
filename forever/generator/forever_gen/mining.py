@@ -12,7 +12,7 @@ The generator has no world DB: the SQL fails when a vein of a drop row does not 
 from collections import namedtuple
 
 from . import dead_content, items as item_rows
-from .spec import SpecError, rows_of
+from .common import SpecError, check_kind, fail_unless, number_text, rows_of
 
 COLUMNS = ("kind", "item", "name", "sourceItem", "quality", "itemLevel", "displayId", "sellPrice", "foreverItem",
            "vein", "gameobjects", "lootId", "chance", "groupid", "rate", "notes")
@@ -33,8 +33,7 @@ def read_rows(path, lines):
     ores, drops, cuts = [], [], []
     for where, raw in rows_of(path, lines, COLUMNS):
         kind = raw["kind"]
-        if kind not in KINDS:
-            raise SpecError("%s: unknown kind '%s'" % (where, kind))
+        check_kind(where, kind, KINDS)
         if kind == ORE:
             ores.append(_ore(where, raw))
         elif kind == DROP:
@@ -45,12 +44,10 @@ def read_rows(path, lines):
 
 
 def _ore(where, raw):
-    return item_rows.Item(
-        kind=item_rows.NEW, entry=int(raw["item"]), source_item=int(raw["sourceItem"]), name=raw["name"],
-        quality=item_rows._named(where, "quality", raw["quality"], item_rows.QUALITIES), item_level=int(raw["itemLevel"]), required_level=0,
-        bonding=item_rows.BONDINGS["none"], inventory_type=None, delay=None, damage=None, armor=0, resistances=None,
-        stats=[], bonuses=[], equip_spells=[], display_id=int(raw["displayId"]), sell_price=int(raw["sellPrice"]),
-        forever_item=int(raw["foreverItem"]), forever_stats="-", notes=raw["notes"])
+    return item_rows.new_material(
+        where, entry=int(raw["item"]), source_item=int(raw["sourceItem"]), name=raw["name"], quality=raw["quality"],
+        item_level=int(raw["itemLevel"]), display_id=int(raw["displayId"]), sell_price=int(raw["sellPrice"]),
+        forever_item=int(raw["foreverItem"]), notes=raw["notes"])
 
 
 def _drop(where, raw):
@@ -104,14 +101,11 @@ def server_sql(spec):
             "",
             "-- Loot ID %d (%s): the stock rows and %s." % (loot_id, drops[0].vein, ", ".join(d.name for d in drops)),
             # Each vein of the row must use this loot ID: with one that does not, the SQL fails.
-            "SELECT IF((SELECT COUNT(DISTINCT `entry`) FROM `gameobject_template` WHERE `entry` IN (%s) AND `data1`=%d)=%d, "
-            "0, (SELECT 1 UNION SELECT 2)) INTO @forever_vein;" % (", ".join(map(str, gameobjects)), loot_id, len(gameobjects)),
+            fail_unless("(SELECT COUNT(DISTINCT `entry`) FROM `gameobject_template` WHERE `entry` IN (%s) AND `data1`=%d)=%d"
+                        % (", ".join(map(str, gameobjects)), loot_id, len(gameobjects)), "forever_vein"),
             "INSERT INTO `%s` SELECT * FROM `%s` WHERE `entry`=%d;" % (TABLE, STOCK_TABLE, loot_id),
         ]
         lines += ["INSERT INTO `%s` (`entry`, `item`, `ChanceOrQuestChance`, `groupid`, `mincountOrRef`, `maxcount`) "
-                  "VALUES (%d, %d, %s, %d, 1, 1);" % (TABLE, loot_id, d.item, _chance(d.chance), d.group) for d in drops]
+                  "VALUES (%d, %d, %s, %d, 1, 1);" % (TABLE, loot_id, d.item, number_text(d.chance), d.group) for d in drops]
     return lines
 
-
-def _chance(value):
-    return ("%.2f" % value).rstrip("0").rstrip(".")
