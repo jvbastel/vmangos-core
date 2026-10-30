@@ -15490,6 +15490,9 @@ bool Player::_LoadInventory(std::unique_ptr<QueryResult> result, uint32 timediff
 
             if (!proto)
             {
+                // WOWAI Forever rules (#233): not for a Forever-only item while the rules are off.
+                if (Forever::KeepsRowsOfUnknownItem(item_id))
+                    continue;
                 CharacterDatabase.PExecute("DELETE FROM `character_inventory` WHERE `item_guid` = '%u'", item_lowguid);
                 CharacterDatabase.PExecute("DELETE FROM `item_instance` WHERE `guid` = '%u'", item_lowguid);
                 CharacterDatabase.PExecute("INSERT INTO `character_deleted_items` (`player_guid`, `item_id`, `stack_count`) VALUES ('%u', '%u', '%u')", GetGUIDLow(), item_id, fields[2].GetUInt32());
@@ -15836,6 +15839,10 @@ void Player::_LoadSpells(std::unique_ptr<QueryResult> result)
             Field* fields = result->Fetch();
 
             uint32 spellId = fields[0].GetUInt32();
+
+            // WOWAI Forever rules (#233): a stock recipe that the rules remove; its row stays.
+            if (Forever::HidesKnownSpell(spellId))
+                continue;
 
             AddSpell(spellId, fields[1].GetBool(), false, false, fields[2].GetBool());
         }
@@ -16951,6 +16958,9 @@ void Player::_SaveSpells()
     for (PlayerSpellMap::iterator itr = m_spells.begin(); itr != m_spells.end();)
     {
         if (itr->second.state == PLAYERSPELL_REMOVED || itr->second.state == PLAYERSPELL_CHANGED)
+            stmtDel.PExecute(GetGUIDLow(), itr->first);
+        // WOWAI Forever rules (#233): a removed stock recipe learned again still has its hidden row.
+        else if (itr->second.state == PLAYERSPELL_NEW && !itr->second.dependent && Forever::IsHiddenRecipe(itr->first))
             stmtDel.PExecute(GetGUIDLow(), itr->first);
 
         // add only changed/new not dependent spells

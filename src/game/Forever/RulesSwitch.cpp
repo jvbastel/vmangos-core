@@ -9,6 +9,7 @@
 // or off is enough to move each Warrior to the active rules, with no database script by hand.
 
 #include "Forever.h"
+#include "ForeverProfessionIds.h"
 #include "ForeverSpellIds.h"
 #include "Database/DatabaseEnv.h"
 #include "Database/DBCStore.h"
@@ -235,10 +236,12 @@ namespace
             master->SaveActions();
             // The rows of the Forever-only spells that this character no longer has. The vanilla core did
             // not load them, so SaveToDB keeps them (KeepsRowsOfUnknownSpell); the next Forever login
-            // starts from a talent reset and the baseline spells anyway.
+            // starts from a talent reset and the baseline spells anyway. The profession spells stay: a recipe
+            // is no Warrior spell, and it is back at the next Forever login (#233, WarriorSwitchOffDeletes).
             if (to == Rules::Vanilla)
-                CharacterDatabase.PExecute("DELETE FROM `character_spell` WHERE `guid` = %u AND `spell` BETWEEN %u AND %u",
-                    guid, Forever::SpellIds::FreeIdFirst, Forever::SpellIds::FreeIdLast);
+                CharacterDatabase.PExecute("DELETE FROM `character_spell` WHERE `guid` = %u AND `spell` BETWEEN %u AND %u AND `spell` NOT BETWEEN %u AND %u",
+                    guid, Forever::SpellIds::FreeIdFirst, Forever::SpellIds::FreeIdLast,
+                    Forever::ProfessionIds::ProfessionSpellFirst, Forever::ProfessionIds::ProfessionSpellLast);
             // SaveToDB wrote `online` = 0 (the player is not in the world yet). HandlePlayerLogin sets it to
             // 1 later, but in another queue, so it can run first. Set it here too, last in this queue.
             CharacterDatabase.PExecute("UPDATE `characters` SET `online` = 1 WHERE `guid` = %u", guid);
