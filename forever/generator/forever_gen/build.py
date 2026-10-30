@@ -17,7 +17,7 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, dead_content, encrypted, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, stock_recipes
+from . import client_patch, dead_content, encrypted, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, sources, stock_recipes
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -360,6 +360,7 @@ def generate(spec, stock_folder, out, marker_icons):
     # The item rules and the rules of the new rows hold for every row, also the ones the rule then cuts.
     items.check(spec, stock)
     encrypted.check(spec)
+    sources.check(spec)
     new_recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     mining.check(spec, stock)
     full_items = spec.items

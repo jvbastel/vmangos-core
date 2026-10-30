@@ -58,6 +58,8 @@ def read_rows(path, lines):
             sets[set_id] = ItemSet(set_id, raw["name"], pieces, [], raw["notes"])
         elif raw["kind"] == BONUS:
             parts = [] if raw["bonuses"] == NOT_PORTED else equip_stats.parse(where, raw["bonuses"], SET_BONUSES)
+            if raw["foreverSpell"] == KEEP:
+                raise SpecError("%s: a set bonus has no source (foreverSpell)" % where)
             bonuses.append((where, set_id, SetBonus(int(raw["threshold"]), parts, int(raw["foreverSpell"]), raw["notes"])))
         else:
             raise SpecError("%s: unknown kind '%s'" % (where, raw["kind"]))
