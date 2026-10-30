@@ -59,9 +59,15 @@ merges it.
   cast time, tool and icon. Pick a stock recipe of the same profession and station. A recipe whose stock
   focus is the Anvil keeps the Anvil, even where Forever asks for a Master Forge.
 - An item (`items.tsv`) is a copy of the stock row of `sourceItem` (class, subclass, slot, material,
-  durability). Pick a stock item of the same kind. Base stats go into `stats`; every other stat becomes a
-  stock equip spell in `equipSpells` (for example 9395 for +5 spell damage and healing). Keep the Forever
-  values in `foreverStats`. `displayId` is a stock `ItemDisplayInfo.dbc` ID, which also gives the icon.
+  durability). A new item (kind `item`) takes a free item ID; pick a stock source item of the same kind.
+  A changed stock item (kind `stock`) is its own source and keeps its stock ID. Base stats go into `stats`,
+  resistances into `resistances`; every other stat is a bonus in `bonuses` ("SpellPower 5"), which the
+  generator turns into a stock equip spell (the table in `generator/forever_gen/equip_stats.py`). A Forever
+  value with no stock spell is rounded to the nearest one, up on a tie, and keeps its Forever value:
+  "SpellPower 11 (Forever 10)". The generator refuses any other value. Keep the Forever stats in
+  `foreverStats`. `displayId` is a stock `ItemDisplayInfo.dbc` ID, which also gives the icon; the generator
+  refuses any other. The changed stock items of #227 come from the dumps by a script outside git
+  (`notes/forever/client-data/tools/t227/build_rows.py`).
 
 ## 3. Pick a stock icon
 

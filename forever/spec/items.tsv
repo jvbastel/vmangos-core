@@ -4,31 +4,173 @@
 # Never edit a generated file by hand. To gather the data again, see forever/REFRESH.md.
 #
 # Source: WoW Forever build 1.60.1.70685, recorded 2026-10-30: the local Forever client (ItemSparse and Item,
-# the dump items.tsv of #224, whose stats come from the allocations of ItemSparse). Only numbers and names.
+# the dump items.tsv of #224, whose stats come from the allocations of ItemSparse), compared with the stock
+# 1.12 item_template rows. Only numbers and names.
 #
 # Free item ID range: 70000-79999. A new item takes its ID from here. The stock 1.12 world database ends at item
 # 25818. Next free item ID: 70001.
 #
-# Stats: the 1.12 item has five base stats (Str, Agi, Sta, Int, Spi) and Health and Mana. Every other Forever
-# stat (spell power, healing, hit, crit, defense, ...) becomes a stock equip spell. `foreverStats` keeps the
-# Forever values next to the 1.12 ones, so that exact values can come later.
+# Stats: the 1.12 item has five base stats (Str, Agi, Sta, Int, Spi) and Health and Mana in `stats`, and the
+# six resistances in `resistances`. Every other Forever stat is a bonus: a stock 1.12 equip spell
+# (forever/generator/forever_gen/equip_stats.py names them). Forever ratings become 1.12 percents at level 60:
+# 14 crit rating = 1% Crit, 10 hit = 1% Hit, 12 dodge = 1% Dodge, 15 parry = 1% Parry, 5 block = 1% Block,
+# 1 defense rating = 1 Defense. Forever bonus armor is added to `armor`, as on the stock items. A value with
+# no stock spell is rounded to the nearest value that has one, up on a tie, and keeps its Forever value:
+# "SpellPower 11 (Forever 10)". `foreverStats` keeps the Forever stats as the client has them.
 #
-# Columns (tab-separated):
-#   kind           item (a new item, or a changed stock item that is its own source)
-#   entry          the item ID: from the free item range for a new item
+# Changed stock crafted items (#227): 117 rows of the kind `stock`. They keep their stock IDs. Among them 23
+# white items that became green, 39 new weapon speeds, 27 Main Hand weapons that became One-Hand, the Golden
+# Scale set (Spirit -> Stamina) and the Thorium resistance set (+Stamina).
+# Excluded (in encrypted client data that build 1.60.1.70685 cannot read): 12779, 22762, 22763, 22764.
+# Not ported: 12802 (Darkspear: its Forever equip spell 1314143 Ancestor's Vengeance is no stock spell; it keeps
+# its stock spell 16939).
+# Unchanged in 1.12 terms: 12409, 12415, 16988, 16989, 19164, 22195, 22197, 22198. The dump lists a difference,
+# but their Forever resistances and all-resist stat (124) are the stock resistance columns and spell 18676.
+#
+# Columns (tab-separated). In inventoryType, delay, damage, resistances, bonuses and equipSpells, "-" keeps
+# the value of the source row.
+#   kind           item: a new item, from the free item range, a copy of another item (sourceItem)
+#                  stock: a changed stock item; entry = sourceItem, a stock ID below the free item range
+#   entry          the item ID
 #   sourceItem     the stock item whose row is copied: class, subclass, slot, material, durability, sheath
 #   name           the item name
 #   quality        poor, common, uncommon, rare or epic
 #   itemLevel, requiredLevel
 #   bonding        none, pickup, equip or use
-#   armor          the armor value
+#   inventoryType  the slot: oneHand, mainHand, offHand, twoHand, shield, ranged, holdable, or -
+#   delay          the weapon speed in ms, or -
+#   damage         the weapon damage "<min>-<max>", or -
+#   armor          the armor value (with the Forever bonus armor)
+#   resistances    "<Holy|Fire|Nature|Frost|Shadow|Arcane> <value>", separated by commas (the others are 0),
+#                  none, or -
 #   stats          base stats: "<Str|Agi|Sta|Int|Spi|Health|Mana> <value>", separated by commas, or -
-#   equipSpells    the stock spells that the item gives on equip, separated by commas, or -
+#   bonuses        "<bonus> <value>" or "<bonus> <rounded> (Forever <value>)", separated by commas, or -
+#   equipSpells    other stock spells that the item gives on equip, separated by commas, or -. With bonuses
+#                  or equipSpells set, the item's on-equip spells are these, and a stock item keeps its other
+#                  spells (on use, chance on hit). With both -, a stock item keeps all its spells.
 #   displayId      a stock ItemDisplayInfo.dbc ID (the model and the icon)
 #   sellPrice      in copper
 #   foreverItem    the item ID in the Forever client
 #   foreverStats   the Forever stats as the client has them
-#   notes          free text
-kind	entry	sourceItem	name	quality	itemLevel	requiredLevel	bonding	armor	stats	equipSpells	displayId	sellPrice	foreverItem	foreverStats	notes
+#   notes          free text: for a stock item, what changed from stock
+kind	entry	sourceItem	name	quality	itemLevel	requiredLevel	bonding	inventoryType	delay	damage	armor	resistances	stats	bonuses	equipSpells	displayId	sellPrice	foreverItem	foreverStats	notes
 # --- #226 tracer bullet: the item of the recipe Strange Copper Boots (blacksmithing.tsv).
-item	70000	3469	Strange Copper Boots	rare	15	10	pickup	109	Sta 4	9395	23528	243	250621	SpellPower 5, Sta 4	Mail boots. SpellPower 5 = Increase Spell Dam 5 (9395, +5 damage and healing). The model and icon of Copper Chain Boots (3469).
+item	70000	3469	Strange Copper Boots	rare	15	10	pickup	-	-	-	109	-	Sta 4	SpellPower 5	-	23528	243	250621	SpellPower 5, Sta 4	Mail boots. SpellPower 5 = Increase Spell Dam 5 (9395, +5 damage and healing). The model and icon of Copper Chain Boots (3469).
+# --- #227 changed stock crafted items (from the dumps by notes/forever/client-data/tools/t227/build_rows.py, outside git).
+stock	2844	2844	Copper Mace	common	9	4	none	oneHand	2600	7-13	0	-	-	-	-	2861	106	2844	-	slot 21->13; speed 2200->2600; damage 6-11->7-13.
+stock	2845	2845	Copper Axe	common	9	4	none	oneHand	2400	6-12	0	-	-	-	-	14035	109	2845	-	slot 21->13; speed 1900->2400; damage 5-10->6-12.
+stock	2847	2847	Copper Shortsword	uncommon	10	4	equip	oneHand	2500	9-18	0	-	Str 1	-	-	4805	110	2847	Str 1	quality 1->2; itemLevel 9->10; bonding 0->2; slot 21->13; speed 2100->2500; damage 5-11->9-18; stats {}->{Str 1}.
+stock	2848	2848	Bronze Mace	uncommon	22	17	none	oneHand	2600	20-38	0	-	Sta 3	-	-	5198	1119	2848	Sta 3	quality 1->2; slot 21->13; damage 18-34->20-38; stats {}->{Sta 3}.
+stock	2849	2849	Bronze Axe	uncommon	23	18	equip	oneHand	2500	20-38	0	-	Str 3	-	-	19929	1269	2849	Str 3	quality 1->2; bonding 0->2; slot 21->13; speed 2100->2500; damage 15-29->20-38; stats {}->{Str 3}.
+stock	2850	2850	Bronze Shortsword	uncommon	24	19	equip	oneHand	2500	21-40	0	-	Agi 3	-	-	3855	1439	2850	Agi 3	quality 1->2; bonding 0->2; slot 21->13; speed 2100->2500; damage 16-31->21-40; stats {}->{Agi 3}.
+stock	2851	2851	Copper Chain Belt	uncommon	11	6	equip	-	-	-	65	-	Sta 1	-	-	23529	56	2851	Sta 1	quality 1->2; bonding 0->2; armor 61->65; stats {}->{Sta 1}.
+stock	2852	2852	Copper Chain Pants	uncommon	10	4	equip	-	-	-	94	-	Sta 1	-	-	13095	67	2852	Sta 1	quality 1->2; itemLevel 9->10; bonding 0->2; armor 83->94; stats {}->{Sta 1}.
+stock	2854	2854	Runed Copper Bracers	uncommon	19	14	equip	-	-	-	72	-	Str 2, Sta 2	-	-	25851	225	2854	Str 2, Sta 2	quality 1->2; bonding 0->2; armor 68->72; stats {}->{Str 2, Sta 2}.
+stock	2857	2857	Runed Copper Belt	uncommon	18	13	equip	-	-	-	91	-	Str 3, Sta 2	-	-	25852	198	2857	Str 3, Sta 2	quality 1->2; bonding 0->2; armor 86->91; stats {}->{Str 3, Sta 2}.
+stock	2866	2866	Rough Bronze Cuirass	uncommon	23	18	equip	-	-	-	177	-	Sta 8	-	-	23530	752	2866	Sta 8	quality 1->2; bonding 0->2; armor 168->177; stats {}->{Sta 8}.
+stock	3469	3469	Copper Chain Boots	uncommon	10	4	equip	-	-	-	74	-	Sta 1	-	-	23528	49	3469	Sta 1	quality 1->2; itemLevel 9->10; bonding 0->2; armor 65->74; stats {}->{Sta 1}.
+stock	3472	3472	Runed Copper Gauntlets	uncommon	12	7	equip	-	-	-	77	-	Str 1, Sta 1	-	-	25850	71	3472	Str 1, Sta 1	quality 1->2; bonding 0->2; armor 73->77; stats {}->{Str 1, Sta 1}.
+stock	3480	3480	Rough Bronze Shoulders	uncommon	22	17	equip	-	-	-	130	-	Sta 4, Str 3	-	-	23531	532	3480	Sta 4, Str 3	quality 1->2; bonding 0->2; armor 124->130; stats {}->{Sta 4, Str 3}.
+stock	3487	3487	Heavy Copper Broadsword	uncommon	19	14	equip	-	3300	33-50	0	-	Sta 6	-	-	20196	1498	3487	Sta 6	speed 2700->3300; damage 27-41->33-50.
+stock	3488	3488	Copper Battle Axe	uncommon	13	8	equip	-	3500	25-38	0	-	Sta 3	-	-	8516	613	3488	Sta 3	speed 3200->3500; damage 23-35->25-38.
+stock	3489	3489	Thick War Axe	uncommon	17	12	equip	oneHand	2500	15-28	0	-	Sta 1, Str 1	-	-	8496	937	3489	Sta 1, Str 1	slot 21->13.
+stock	3491	3491	Heavy Bronze Mace	uncommon	25	20	equip	oneHand	2800	25-47	0	-	Str 4	-	-	5211	2741	3491	Str 4	slot 21->13.
+stock	3492	3492	Mighty Iron Hammer	uncommon	30	25	equip	oneHand	2800	30-57	0	-	Str 5	-	-	3780	4552	3492	Str 5	slot 21->13.
+stock	3835	3835	Green Iron Bracers	uncommon	33	28	equip	-	-	-	91	-	Sta 5, Str 4	-	-	9417	1106	3835	Sta 5, Str 4	quality 1->2; bonding 0->2; armor 86->91; stats {}->{Sta 5, Str 4}.
+stock	3837	3837	Golden Scale Coif	uncommon	38	33	equip	-	-	-	181	-	Str 10, Sta 10	-	-	15333	4405	3837	Str 10, Sta 10	stats {Str 10, Spi 10}->{Str 10, Sta 10}.
+stock	3841	3841	Golden Scale Shoulders	uncommon	35	30	equip	-	-	-	160	-	Str 7, Sta 6	-	-	9424	3106	3841	Str 7, Sta 6	stats {Str 7, Spi 6}->{Str 7, Sta 6}.
+stock	3843	3843	Golden Scale Leggings	uncommon	34	29	equip	-	-	-	184	-	Str 11, Sta 5	-	-	9242	3882	3843	Str 11, Sta 5	stats {Str 11, Spi 5}->{Str 11, Sta 5}.
+stock	3844	3844	Green Iron Hauberk	rare	36	31	equip	-	-	-	478	-	Sta 11, Str 7	-	-	13088	5658	3844	Sta 11, Str 7, BonusArmor 120	armor 358->478.
+stock	3845	3845	Golden Scale Cuirass	uncommon	40	35	equip	-	-	-	231	-	Str 14, Sta 6	-	-	9425	6558	3845	Str 14, Sta 6	stats {Str 14, Spi 6}->{Str 14, Sta 6}.
+stock	3847	3847	Golden Scale Boots	uncommon	40	35	equip	-	-	-	159	-	Str 8, Sta 8	-	-	9426	4977	3847	Str 8, Sta 8	stats {Str 8, Spi 8}->{Str 8, Sta 8}.
+stock	3849	3849	Hardened Iron Shortsword	uncommon	32	27	equip	oneHand	1800	21-39	0	-	Sta 5	-	-	5153	5468	3849	Sta 5	slot 21->13.
+stock	3850	3850	Jade Serpentblade	uncommon	35	30	equip	-	2800	35-67	0	-	Agi 4	AP 4	-	20215	7304	3850	AP 4, Agi 4	speed 2600->2800; damage 33-62->35-67; stats {Str 4, Agi 4}->{Agi 4}; bonuses {}->{AP 4}.
+stock	3852	3852	Golden Iron Destroyer	uncommon	34	29	equip	-	3300	60-91	0	-	Str 11	SpellPower 4	-	15468	8360	3852	Str 11, SpellPower 4	speed 2750->3300; damage 50-76->60-91; stats {Str 11, Sta 4}->{Str 11}; bonuses {}->{SpellPower 4}.
+stock	3853	3853	Moonsteel Broadsword	uncommon	36	31	equip	-	3500	69-104	0	-	Str 4	SpellPower 12	-	7324	10153	3853	Str 4, SpellPower 12	speed 2800->3500; damage 55-83->69-104; stats {Sta 4, Spi 12}->{Str 4}; bonuses {}->{SpellPower 12}.
+stock	3856	3856	Shadow Crescent Axe	uncommon	40	35	equip	-	3300	76-115	0	-	Str 11	SpellPower 11 (Forever 10)	-	8533	14221	3856	Str 11, SpellPower 10	speed 2500->3300; damage 58-87->76-115; stats {Str 11, Sta 10}->{Str 11}; bonuses {}->{SpellPower 11}.
+stock	5541	5541	Iridescent Hammer	uncommon	28	23	equip	-	2400	24-46	0	-	Str 3, Sta 3	-	-	19801	3693	5541	Str 3, Sta 3	speed 1800->2400; damage 18-34->24-46.
+stock	6040	6040	Golden Scale Bracers	uncommon	37	32	equip	-	-	-	96	-	Sta 5, Str 6	-	-	9634	1649	6040	Sta 5, Str 6	quality 1->2; bonding 0->2; armor 91->96; stats {}->{Sta 5, Str 6}.
+stock	6214	6214	Heavy Copper Maul	uncommon	16	11	equip	-	3300	28-43	0	-	Str 4	-	-	10642	595	6214	Str 4	quality 1->2; bonding 0->2; speed 2800->3300; damage 21-32->28-43; stats {}->{Str 4}.
+stock	6350	6350	Rough Bronze Boots	uncommon	18	13	equip	-	-	-	111	-	Str 2, Sta 3	-	-	6885	295	6350	Str 2, Sta 3	quality 1->2; bonding 0->2; armor 106->111; stats {}->{Str 2, Sta 3}.
+stock	6731	6731	Ironforge Breastplate	uncommon	20	15	equip	-	-	-	228	-	Str 3, Sta 3	-	-	12945	871	6731	Str 3, Sta 3, BonusArmor 30	armor 198->228.
+stock	6733	6733	Ironforge Gauntlets	uncommon	28	23	equip	-	-	-	220	-	-	-	-	12948	1145	6733	BonusArmor 50, AP 12	armor 120->220.
+stock	7166	7166	Copper Dagger	uncommon	11	6	equip	-	1700	7-13	0	-	Agi 1	-	-	13848	194	7166	Agi 1	quality 1->2; bonding 0->2; speed 1500->1700; damage 5-10->7-13; stats {}->{Agi 1}.
+stock	7914	7914	Barbaric Iron Breastplate	uncommon	32	27	equip	-	-	-	204	-	Str 12	-	-	16080	3330	7914	Str 12	bonding 0->2.
+stock	7919	7919	Heavy Mithril Gauntlet	uncommon	41	40	equip	-	-	-	348	-	Sta 8	-	-	16091	2476	7919	Sta 8, BonusArmor 80	armor 268->348.
+stock	7920	7920	Mithril Plate Pants	uncommon	42	40	equip	-	-	-	208	-	Spi 11	-	-	3409	8053	7920	Spi 11, DodgeRating 12	requiredLevel 37->40; name Mithril Scale Pants->Mithril Plate Pants.
+stock	7921	7921	Heavy Mithril Pants	uncommon	42	40	equip	-	-	-	537	-	Sta 11	-	-	16092	5387	7921	Sta 11, BonusArmor 120	armor 417->537.
+stock	7922	7922	Steel Plate Helm	uncommon	43	40	equip	-	-	-	310	-	Sta 12, Str 12	-	-	16093	2377	7922	Sta 12, Str 12	quality 1->2; bonding 0->2; armor 355->310; stats {}->{Sta 12, Str 12}.
+stock	7924	7924	Mithril Plate Bracers	uncommon	43	40	equip	-	-	-	106	-	Spi 7, Sta 6	-	-	6985	4103	7924	Spi 7, Sta 6	requiredLevel 38->40; name Mithril Scale Bracers->Mithril Plate Bracers.
+stock	7925	7925	Mithril Plate Gloves	uncommon	44	40	equip	-	-	-	153	-	Spi 10, Sta 9	-	-	16102	4447	7925	Spi 10, Sta 9	requiredLevel 39->40; name Mithril Scale Gloves->Mithril Plate Gloves.
+stock	7928	7928	Ornate Mithril Shoulders	uncommon	45	40	equip	-	-	-	327	-	Str 5	-	-	16106	4857	7928	Str 5, DodgeRating 12	name Ornate Mithril Shoulder->Ornate Mithril Shoulders.
+stock	7929	7929	Orcish War Leggings	uncommon	42	40	equip	-	-	-	208	-	Str 17	-	-	23538	7739	7929	Str 17	requiredLevel 37->40.
+stock	7930	7930	Heavy Mithril Breastplate	uncommon	46	41	equip	-	-	-	626	-	Sta 15	-	-	16109	7045	7930	Sta 15, BonusArmor 90	armor 536->626.
+stock	7932	7932	Mithril Plate Shoulders	uncommon	47	42	equip	-	-	-	194	-	Spi 10, Sta 10	-	-	16111	8661	7932	Spi 10, Sta 10	name Mithril Scale Shoulders->Mithril Plate Shoulders.
+stock	7933	7933	Heavy Mithril Boots	uncommon	47	42	equip	-	-	-	452	-	Sta 12	-	-	16113	5769	7933	Sta 12, BonusArmor 70	armor 382->452.
+stock	7934	7934	Heavy Mithril Helm	uncommon	47	42	equip	-	-	-	569	-	Sta 15	-	-	16115	5790	7934	Sta 15, BonusArmor 100	armor 469->569.
+stock	7941	7941	Heavy Mithril Axe	uncommon	42	37	equip	oneHand	2700	45-85	0	-	Sta 7	-	-	16126	12520	7941	Sta 7	slot 21->13.
+stock	7942	7942	Blue Glittering Axe	uncommon	44	39	equip	-	2400	43-81	0	-	Agi 8	-	-	5639	14659	7942	Agi 8	speed 1800->2400; damage 32-61->43-81.
+stock	7943	7943	Wicked Mithril Blade	uncommon	45	40	equip	oneHand	2500	46-87	0	-	Str 6, Agi 4	-	-	16128	15891	7943	Str 6, Agi 4	slot 21->13; speed 2300->2500; damage 43-80->46-87.
+stock	7944	7944	Dazzling Mithril Rapier	uncommon	48	43	equip	oneHand	1700	34-63	0	-	Agi 8	-	-	20221	20092	7944	Agi 8	slot 21->13.
+stock	7945	7945	Big Black Mace	uncommon	46	41	equip	oneHand	2600	49-93	0	-	Str 8	-	-	5223	17291	7945	Str 8	slot 21->13; speed 2400->2600; damage 46-86->49-93.
+stock	7946	7946	Runed Mithril Hammer	uncommon	49	44	equip	oneHand	1600	32-61	0	-	Sta 7	Defense 4	-	15887	21660	7946	Sta 7, DefRating 4	slot 21->13; speed 2000->1600; damage 41-76->32-61; stats {Str 7, Sta 4}->{Sta 7}; bonuses {}->{Defense 4}.
+stock	7947	7947	Ebon Shiv	uncommon	51	46	equip	-	1700	36-67	0	-	Agi 9	-	-	16130	24892	7947	Agi 9	speed 1500->1700; damage 32-59->36-67.
+stock	7954	7954	The Shatterer	rare	47	42	equip	oneHand	2400	53-99	0	-	-	-	-	19748	23159	7954	-	slot 21->13; keeps the stock spells: the Forever hit spell 13534 (Disarm) is no stock spell.
+stock	7955	7955	Copper Claymore	uncommon	11	6	equip	-	3300	20-31	0	-	Str 1, Sta 1	-	-	20071	241	7955	Str 1, Sta 1	quality 1->2; bonding 0->2; speed 3000->3300; damage 15-23->20-31; stats {}->{Str 1, Sta 1}.
+stock	7956	7956	Bronze Warhammer	uncommon	25	20	equip	-	3500	47-71	0	-	Sta 6, Str 6	-	-	16146	1944	7956	Sta 6, Str 6	quality 1->2; bonding 0->2; speed 3100->3500; damage 37-57->47-71; stats {}->{Sta 6, Str 6}.
+stock	7957	7957	Bronze Greatsword	uncommon	26	21	equip	-	3400	47-72	0	-	Sta 6	SpellPower 7	-	16147	2205	7957	SpellPower 7, Sta 6	quality 1->2; bonding 0->2; speed 3000->3400; damage 38-58->47-72; stats {}->{Sta 6}; bonuses {}->{SpellPower 7}.
+stock	7958	7958	Bronze Battle Axe	uncommon	27	22	equip	-	3300	48-73	0	-	Str 10	-	-	19272	2435	7958	Str 10	quality 1->2; bonding 0->2; speed 2900->3300; damage 39-59->48-73; stats {}->{Str 10}.
+stock	7959	7959	Blight	rare	50	45	equip	-	3700	128-193	0	-	-	-	-	22234	33857	7959	-	speed 2700->3700; damage 93-141->128-193; keeps the stock spells: the Forever hit spell 9796 (Blight) is no stock spell.
+stock	7960	7960	Truesilver Champion	rare	52	47	equip	-	3400	122-184	0	-	-	-	-	23264	38548	7960	-	speed 3000->3400; damage 108-162->122-184; keeps the stock spells: the Forever hit spell 9800 (Holy Shield) is no stock spell.
+stock	7961	7961	Phantom Blade	rare	49	44	equip	oneHand	1600	36-68	0	-	-	-	-	25053	25508	7961	-	slot 21->13; speed 2600->1600; damage 59-111->36-68; keeps the stock spells: the Forever hit spell 9806 (Phantom Strike) is no stock spell.
+stock	7963	7963	Steel Breastplate	uncommon	40	35	equip	-	-	-	231	-	Sta 12	Block 2	-	16184	6488	7963	Sta 12, BlockRating 10	armor 381->231; stats {}->{Sta 12}; bonuses {}->{Block 2}.
+stock	9366	9366	Golden Scale Gauntlets	uncommon	41	36	equip	-	-	-	146	-	Str 11, Sta 4	-	-	18256	3689	9366	Str 11, Sta 4	stats {Str 11, Spi 4}->{Str 11, Sta 4}.
+stock	10421	10421	Rough Copper Vest	uncommon	10	2	equip	-	-	-	108	-	Sta 1	-	-	977	32	10421	Sta 1	quality 1->2; itemLevel 7->10; bonding 0->2; armor 81->108; stats {}->{Sta 1}.
+stock	11604	11604	Dark Iron Plate	rare	59	54	pickup	-	-	-	1017	-	Sta 12	-	-	21580	19428	11604	Sta 12, BonusArmor 200, FireRes 19	armor 817->1017.
+stock	11605	11605	Dark Iron Shoulders	uncommon	58	53	equip	-	-	-	614	-	Sta 10	-	-	21574	10776	11605	Sta 10, BonusArmor 100, FireRes 10	armor 514->614.
+stock	11606	11606	Dark Iron Mail	uncommon	56	51	equip	-	-	-	563	-	Sta 13	-	-	21577	19255	11606	Sta 13, BonusArmor 130, FireRes 12	armor 433->563.
+stock	12259	12259	Glinting Steel Dagger	uncommon	36	31	equip	-	1700	22-42	0	-	-	-	-	4119	8072	12259	AP 12	speed 1500->1700; damage 19-37->22-42.
+stock	12260	12260	Searing Golden Blade	uncommon	39	34	equip	-	1400	21-39	0	-	Int 7	-	-	22258	10395	12260	Int 7, 85 39	stats {}->{Int 7}; keeps the stock equip spells: the Forever stat 85 39 has no 1.12 rule.
+stock	12405	12405	Thorium Armor	uncommon	50	45	equip	-	-	-	480	-	Sta 15	-	-	25751	9239	12405	Sta 15, ArcaneRes 8, FireRes 8, FrostRes 8, NatureRes 8, ShadowRes 8	stats {}->{Sta 15}.
+stock	12406	12406	Thorium Belt	uncommon	50	45	equip	-	-	-	270	-	Sta 12	-	-	22550	4636	12406	Sta 12, FireRes 6, FrostRes 6, ArcaneRes 6, NatureRes 6, ShadowRes 6	stats {}->{Sta 12}.
+stock	12408	12408	Thorium Bracers	uncommon	51	46	equip	-	-	-	214	-	Sta 8	-	-	25753	4998	12408	Sta 8, ArcaneRes 5, FireRes 5, FrostRes 5, NatureRes 5, ShadowRes 5	stats {}->{Sta 8}.
+stock	12410	12410	Thorium Helm	uncommon	56	51	equip	-	-	-	434	-	Sta 18	-	-	25856	10372	12410	Sta 18, ArcaneRes 10, FireRes 10, FrostRes 10, NatureRes 10, ShadowRes 10	stats {}->{Sta 18}.
+stock	12414	12414	Thorium Leggings	uncommon	60	55	equip	-	-	-	499	-	Sta 19	-	-	22951	17376	12414	Sta 19, ArcaneRes 10, FireRes 10, FrostRes 10, NatureRes 10, ShadowRes 10	stats {}->{Sta 19}.
+stock	12416	12416	Radiant Belt	uncommon	52	47	equip	-	-	-	159	-	Sta 7	-	-	25740	7595	12416	Sta 7, ShadowRes 12, FrostRes 12	stats {}->{Sta 7}.
+stock	12417	12417	Radiant Circlet	uncommon	59	54	equip	-	-	-	258	-	Sta 9	-	-	25826	17034	12417	Sta 9, FrostRes 18, ShadowRes 18	stats {}->{Sta 9}.
+stock	12418	12418	Radiant Gloves	uncommon	57	52	equip	-	-	-	192	-	Sta 9	-	-	25744	10242	12418	Sta 9, FrostRes 12, ShadowRes 12	stats {}->{Sta 9}.
+stock	12419	12419	Radiant Boots	uncommon	58	53	equip	-	-	-	215	-	Sta 9	-	-	25741	16421	12419	Sta 9, FrostRes 15, ShadowRes 15	stats {}->{Sta 9}.
+stock	12420	12420	Radiant Leggings	uncommon	61	56	equip	-	-	-	286	-	Sta 12	-	-	25745	25330	12420	Sta 12, FrostRes 18, ShadowRes 18	stats {}->{Sta 12}.
+stock	12610	12610	Runic Plate Shoulders	uncommon	60	55	equip	-	-	-	427	-	Sta 14	-	-	23490	12247	12610	Sta 14, FireRes 10, NatureRes 10	armor 527->427; stats {}->{Sta 14}.
+stock	12611	12611	Runic Plate Boots	uncommon	60	55	equip	-	-	-	392	-	Sta 14	-	-	23486	12293	12611	Sta 14, FireRes 10, NatureRes 10	armor 492->392; stats {}->{Sta 14}.
+stock	12612	12612	Runic Plate Helm	uncommon	61	56	equip	-	-	-	471	Fire 14, Nature 14	Sta 19	-	-	23491	12956	12612	Sta 19, FireRes 14, NatureRes 14	armor 621->471; stats {}->{Sta 19}; resistances {Fire 13, Nature 13}->{Fire 14, Nature 14}.
+stock	12613	12613	Runic Breastplate	uncommon	62	57	equip	-	-	-	588	-	Sta 18	-	-	19730	18205	12613	Sta 18, FireRes 15, NatureRes 15	armor 738->588; stats {}->{Sta 18}.
+stock	12614	12614	Runic Plate Leggings	uncommon	62	57	equip	-	-	-	515	-	Sta 19	-	-	23485	18272	12614	Sta 19, FireRes 14, NatureRes 14	armor 665->515; stats {}->{Sta 19}.
+stock	12633	12633	Whitesoul Helm	rare	60	55	equip	-	-	-	749	-	Spi 15, Int 15	-	-	22901	14859	12633	Spi 15, Int 15, BonusArmor 120, Healing 35, SpellDmg 12	armor 629->749; SpellDmg 12 is the damage part of the Forever healing stat: 1.12 healing spells give none.
+stock	12639	12639	Stronghold Gauntlets	epic	62	57	equip	-	-	-	441	-	Sta 18	-	-	25750	15271	12639	Sta 18, ParryRating 15, CritRating 14	stats {Sta 12}->{Sta 18}.
+stock	12773	12773	Ornate Thorium Handaxe	uncommon	55	50	pickup	oneHand	1900	43-81	0	-	Str 10	-	-	23234	33079	12773	Str 10	slot 21->13.
+stock	12775	12775	Huge Thorium Battleaxe	uncommon	56	51	equip	-	3500	121-183	0	-	-	-	-	23434	39949	12775	90 2	speed 3300->3500; damage 114-172->121-183; keeps the stock equip spells: the Forever stat 90 2 has no 1.12 rule.
+stock	12776	12776	Enchanted Battlehammer	rare	56	51	equip	-	3500	135-203	0	Arcane 4	-	-	-	23240	48124	12776	ParryRating 21, HitRating 20, ArcaneRes 4	speed 2600->3500; damage 100-150->135-203; resistances {}->{Arcane 4}.
+stock	12777	12777	Blazing Rapier	rare	56	51	equip	-	2400	62-116	0	-	-	-	-	23241	38648	12777	-	speed 1700->2400; damage 44-82->62-116; keeps the stock spells: the Forever hit spell 16898 (Blaze) is no stock spell.
+stock	12781	12781	Serenity	rare	57	52	equip	oneHand	2500	65-123	0	-	-	-	-	23244	42721	12781	-	slot 21->13; speed 2000->2500; damage 52-98->65-123; keeps the stock spells: the Forever hit spell 16908 (Dispel Magic) is no stock spell.
+stock	12782	12782	Corruption	rare	58	53	pickup	-	3300	131-197	0	-	Str 30, Sta 30	-	-	24255	56808	12782	Str 30, Sta 30	speed 3000->3300; damage 119-179->131-197; stats {Str 30, Sta 30, Spi -40}->{Str 30, Sta 30}.
+stock	12783	12783	Heartseeker	rare	63	58	equip	-	1900	55-102	0	-	Agi 4	-	-	23248	58215	12783	Agi 4, CritRating 14	speed 1700->1900; damage 49-92->55-102; stats {Str 4}->{Agi 4}.
+stock	12790	12790	Arcanite Champion	rare	63	58	equip	-	3400	146-220	0	-	-	-	-	24813	74619	12790	-	speed 3000->3400; damage 129-194->146-220; keeps the stock spells: the Forever hit spell 16916 (Strength of the Champion) is no stock spell.
+stock	12792	12792	Volcanic Hammer	uncommon	58	53	equip	oneHand	2500	60-113	0	-	-	-	-	23267	39255	12792	-	slot 21->13; keeps the stock spells: the Forever hit spell 18082 (Fireball) is no stock spell.
+stock	12794	12794	Masterwork Stormhammer	rare	63	57	equip	oneHand	1600	46-86	0	-	-	-	-	7438	56304	12794	-	slot 21->13; speed 2000->1600; damage 58-108->46-86; keeps the stock spells: the Forever hit spell 16921 (Chain Lightning) is no stock spell.
+stock	12797	12797	Frostguard	rare	63	58	equip	oneHand	2800	81-151	0	-	-	-	-	23274	56943	12797	-	slot 21->13; speed 2300->2800; damage 66-124->81-151; keeps the stock spells: the Forever hit spell 16927 (Chilled) is no stock spell.
+stock	12798	12798	Annihilator	rare	63	58	equip	oneHand	2400	69-129	0	-	-	AP 14	-	28849	57150	12798	AP 14	slot 21->13; speed 1700->2400; damage 49-92->69-129; bonuses {}->{AP 14}; keeps the stock spells: the Forever hit spell 16928 (Armor Shatter) is no stock spell.
+stock	17013	17013	Dark Iron Leggings	epic	60	55	equip	-	-	-	958	-	Sta 14	-	-	28843	26441	17013	Sta 14, BonusArmor 180, FireRes 30	armor 778->958.
+stock	17014	17014	Dark Iron Bracers	epic	59	54	equip	-	-	-	494	-	Sta 7	-	-	28844	12637	17014	Sta 7, BonusArmor 100, FireRes 18	armor 394->494.
+stock	17015	17015	Dark Iron Reaver	rare	65	60	equip	oneHand	2400	71-134	0	-	Sta 10	-	-	28848	63738	17015	Sta 10, FireRes 6	slot 21->13.
+stock	17016	17016	Dark Iron Destroyer	rare	65	60	equip	oneHand	2400	71-134	0	-	Str 10	-	-	23276	63973	17016	Str 10, FireRes 6	slot 21->13.
+stock	17193	17193	Sulfuron Hammer	epic	67	60	equip	-	3700	188-283	0	-	-	-	-	29699	122311	17193	-	damage 176-295->188-283; keeps the stock spells: the Forever hit spell 21159 (Fireball) is no stock spell.
+stock	17704	17704	Edge of Winter	uncommon	38	33	equip	oneHand	2800	40-75	0	-	Sta 3	-	-	29759	9178	17704	Sta 3	slot 21->13; speed 2100->2800; damage 30-56->40-75; keeps the stock spells: the Forever hit spell 16407 (Frost Blast) is no stock spell.
+stock	19057	19057	Gloves of the Dawn	rare	61	56	equip	-	-	-	398	-	Str 21, Sta 9	-	-	31564	11606	19057	Str 21, Sta 9	itemLevel 64->61; requiredLevel 59->56; armor 417->398; stats {Str 23, Sta 10}->{Str 21, Sta 9}.
+stock	19148	19148	Dark Iron Helm	epic	66	60	equip	-	-	-	908	-	Sta 20	-	-	31671	25399	19148	Sta 20, BonusArmor 150, FireRes 35	armor 758->908.
+stock	19168	19168	Blackguard	epic	70	60	equip	-	1800	65-121	0	-	Sta 12	-	-	31692	102890	19168	Sta 12, ParryRating 15	stats {Sta 9}->{Sta 12}.
+stock	19693	19693	Darksoul Breastplate	rare	65	60	equip	-	-	-	796	-	Sta 32	-	-	32166	24192	19693	Sta 32, BonusArmor 60, HitRating 10	armor 736->796.
+stock	19694	19694	Darksoul Leggings	rare	65	60	equip	-	-	-	852	-	Sta 22	-	-	32167	24286	19694	Sta 22, BonusArmor 130, HitRating 20	armor 722->852.
+stock	20039	20039	Dark Iron Boots	epic	70	60	equip	-	-	-	784	-	-	-	-	32599	31709	20039	FireRes 28, BonusArmor 120	armor 664->784.
+stock	22383	22383	Sageblade	epic	64	59	equip	-	1800	58-109	0	-	Sta 14, Int 6	-	-	36970	84291	22383	Sta 14, Int 6, HitRating 10	damage 49-100->58-109; keeps the stock equip spells (spell power 20, spell penetration 10): the Forever data shows HitRating 10 and no spell power, which looks like a gap in the dump; check by hand.
+stock	22384	22384	Persuader	epic	63	58	equip	oneHand	2800	89-167	0	-	-	-	-	36969	80554	22384	HitRating 10, CritRating 14	slot 21->13; speed 2700->2800; damage 86-161->89-167.
