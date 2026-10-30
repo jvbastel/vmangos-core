@@ -3,7 +3,7 @@ jvbastel/WOWAI#233) against the free range lines of the spec files. With the rul
 recipe or item apart only by its ID, so a spec range that moves must fail here, not in the game."""
 import re
 
-from forever_gen import spec
+from forever_gen import items, spec
 from test_pipeline import ROOT, SPEC_DIR
 
 HEADER = ROOT / "src" / "game" / "Forever" / "ForeverProfessionIds.h"
@@ -31,3 +31,8 @@ def test_every_spec_recipe_and_item_is_in_the_ranges_the_core_keeps():
     assert the_spec.recipes, "no recipe rows read"
     for recipe in the_spec.recipes:
         assert low <= recipe.spell <= high, recipe
+    first, last = constant("ItemIdFirst"), constant("ItemIdLast")
+    new_items = [item for item in the_spec.items if item.kind == items.NEW]
+    assert new_items, "no new item rows read"
+    for item in new_items:
+        assert first <= item.entry <= last, item
