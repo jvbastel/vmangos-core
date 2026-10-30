@@ -51,6 +51,24 @@ namespace Forever
     // (ForeverSpellIds.h, KeepsRowsOfUnknownSpell).
     bool KeepsRowsOfUnknownSpell(uint32 spellId);
 
+    // Player::_LoadInventory (#233): true when the inventory rows of the unknown item `itemId` must stay. The
+    // stock code deletes the rows of an item that does not exist for good. With the rules off, a Forever-only
+    // item (the item range of forever/spec/items.tsv) does not exist, but the character keeps it for the day
+    // the rules are on again (ForeverProfessionIds.h, KeepsRowsOfUnknownItem). The item is not loaded.
+    // The other loads that delete an unknown item ask the same: MasterPlayer::LoadMailedItems (the whole mail
+    // is not loaded), AuctionHouseMgr::LoadAuctions (the auction is not loaded) and Item::LoadLootFromDB.
+    bool KeepsRowsOfUnknownItem(uint32 itemId);
+
+    // Player::_LoadSpells (#233): true when the known spell `spellId` is not loaded. With the rules on, a stock
+    // recipe that the Forever rules remove (#229) is hidden; its character_spell row stays, so the character
+    // has it again with the rules off. With the rules off, always false.
+    bool HidesKnownSpell(uint32 spellId);
+
+    // Player::_SaveSpells (#233): HidesKnownSpell with no log line. A hidden recipe that the character learns
+    // again is a new spell whose character_spell row is still there, so the save deletes that row before
+    // the insert, and the insert does not fail on the primary key.
+    bool IsHiddenRecipe(uint32 spellId);
+
     // LoadDBCStores, for each DBC file that the Forever rules replace (Talent.dbc, TalentTab.dbc, ItemSet.dbc): the
     // Forever DBC folder when the rules are on, else the stock folder `stockPath`. A missing file in
     // the Forever folder stops the server like a missing stock file.
@@ -90,7 +108,11 @@ namespace Forever
     // bars are loaded and before they go to the client: the rules switch (RulesSwitch.cpp). The realm
     // stores the rules that each character last logged in under (characters table forever_character).
     // On a login under other rules, a Warrior gets a talent reset and loses the spells that are not in
-    // the active rule set, and those spells leave its action bars. Then the character is saved.
+    // the active rule set, and those spells leave its action bars. Then the character is saved. The
+    // profession part needs no switch step and holds for every class (#233): the load keeps the rows of
+    // Forever recipes and items with the rules off (KeepsRowsOfUnknownSpell, KeepsRowsOfUnknownItem) and hides
+    // a removed stock recipe with the rules on (HidesKnownSpell), and the Warrior switch-off delete skips
+    // the recipes.
     // On a Forever login, a Warrior also learns the baseline spells of its level (LearnBaselineSpells),
     // gets stock Charge on its Vanguard Charge buttons without the talent (FixChargeButtons), and gets its
     // shield talent auras once its items are loaded (UpdateShieldTalents).
