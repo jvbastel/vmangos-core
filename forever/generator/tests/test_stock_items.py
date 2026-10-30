@@ -179,7 +179,6 @@ def test_the_spec_has_a_row_for_every_changed_readable_stock_crafted_item(stock_
         return {int(i) for i in re.search(r"^# %s[^:]*: ([\d, ]+)" % label, text, re.M).group(1).split(", ")}
 
     excluded = header_ids("Excluded")
-    not_ported = header_ids("Not ported")
     unchanged = header_ids("Unchanged in 1.12 terms")
     rows = {int(row["entry"]) for row in stock_rows}
     gear = ("quality", "ilvl", "reqlvl", "inv", "delay", "bonding", "stats", "armor", "dps", "name", "rating/aura", "spells")
@@ -193,7 +192,7 @@ def test_the_spec_has_a_row_for_every_changed_readable_stock_crafted_item(stock_
                 continue
             changed = {part.strip().split(" ")[0] for part in item["stock_diff"].split(";") if part.strip()}
             if item["cls"].split("/")[0] in ("2", "4") and changed & set(gear):
-                assert entry in rows | not_ported | unchanged, item["name"]
+                assert entry in rows | unchanged, item["name"]
     assert excluded == {12779, 22762, 22763, 22764}
     assert len(rows) >= 100 and not rows & (excluded | unchanged)
 

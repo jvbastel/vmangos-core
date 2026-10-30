@@ -22,10 +22,10 @@
 # white items that became green, 39 new weapon speeds, 27 Main Hand weapons that became One-Hand, the Golden
 # Scale set (Spirit -> Stamina) and the Thorium resistance set (+Stamina).
 # Excluded (in encrypted client data that build 1.60.1.70685 cannot read): 12779, 22762, 22763, 22764.
-# Not ported: 12802 (Darkspear: its Forever equip spell 1314143 Ancestor's Vengeance is no stock spell; it keeps
-# its stock spell 16939).
-# Unchanged in 1.12 terms: 12409, 12415, 16988, 16989, 19164, 22195, 22197, 22198. The dump lists a difference,
-# but their Forever resistances and all-resist stat (124) are the stock resistance columns and spell 18676.
+# Unchanged in 1.12 terms: 12409, 12415, 16988, 16989, 19164, 22195, 22197, 22198, 12802. The dump lists a difference,
+# but their Forever resistances and all-resist stat (124) are the stock resistance columns and spell 18676. Darkspear
+# (12802): its Forever equip spell 1314143 procs the stock spell 16939 (5% chance) with a 60 s cooldown; it keeps
+# 16939, and the 1.12 item row has no column for the cooldown.
 #
 # Columns (tab-separated). In inventoryType, delay, damage, resistances, bonuses and equipSpells, "-" keeps
 # the value of the source row.
@@ -172,5 +172,5 @@ stock	19168	19168	Blackguard	epic	70	60	equip	-	1800	65-121	0	-	Sta 12	-	-	31692
 stock	19693	19693	Darksoul Breastplate	rare	65	60	equip	-	-	-	796	-	Sta 32	-	-	32166	24192	19693	Sta 32, BonusArmor 60, HitRating 10	armor 736->796.
 stock	19694	19694	Darksoul Leggings	rare	65	60	equip	-	-	-	852	-	Sta 22	-	-	32167	24286	19694	Sta 22, BonusArmor 130, HitRating 20	armor 722->852.
 stock	20039	20039	Dark Iron Boots	epic	70	60	equip	-	-	-	784	-	-	-	-	32599	31709	20039	FireRes 28, BonusArmor 120	armor 664->784.
-stock	22383	22383	Sageblade	epic	64	59	equip	-	1800	58-109	0	-	Sta 14, Int 6	-	-	36970	84291	22383	Sta 14, Int 6, HitRating 10	damage 49-100->58-109; keeps the stock equip spells (spell power 20, spell penetration 10): the Forever data shows HitRating 10 and no spell power, which looks like a gap in the dump; check by hand.
+stock	22383	22383	Sageblade	epic	64	59	equip	-	1800	58-109	0	-	Sta 14, Int 6	Hit 1	-	36970	84291	22383	Sta 14, Int 6, HitRating 10	damage 49-100->58-109; bonuses: spell power 20 and spell penetration 10 (stock spells 14799, 25975) -> Hit 1 (15464). Forever made it a melee dagger: the damage is from the non-caster table, and the dump diff hid the change because it drops stat-like stock spells.
 stock	22384	22384	Persuader	epic	63	58	equip	oneHand	2800	89-167	0	-	-	-	-	36969	80554	22384	HitRating 10, CritRating 14	slot 21->13; speed 2700->2800; damage 86-161->89-167.
