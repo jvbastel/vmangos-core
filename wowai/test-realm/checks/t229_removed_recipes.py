@@ -27,7 +27,8 @@ The plans (review H1): all six come from plans. The character unlearns Storm Gau
 (9788) with Blacksmithing 300, and uses Plans: Storm Gauntlets (12703, needs 295 and Armorsmith; patch 0, so
 the slots' WowPatch 0 has it).
 forever: the plans have no use: the character does not learn Storm Gauntlets (16661) again and keeps the
-         plans. The world DB holds a forever_item_template copy of each of the six plans with no learn spell.
+         plans. The world DB holds a forever_item_template copy of every stock patch row of the six plans, with
+         no learn spell (12691 has two rows).
 vanilla: the character learns Storm Gauntlets and the plans are used up.
 """
 import struct
@@ -151,13 +152,15 @@ results.check("no stock trainer row teaches a removed recipe", learned_rows == "
 if mode == "forever":
     # The copy takes every patch row of the stock plans (12691 has patch 0 and 8), so count the
     # stock rows with no matching copy row that has no learn spell.
-    learn = ", ".join(str(s) for s in REMOVED.values())
-    no_learn = " AND ".join("f.spellid_%d NOT IN (%s)" % (k, learn) for k in range(1, 6))
+    plans_ids = ", ".join(str(p) for p in PLANS.values())
+    removed_learn_spells = ", ".join(str(s) for s in REMOVED.values())
+    no_learn = " AND ".join("f.spellid_%d NOT IN (%s)" % (k, removed_learn_spells) for k in range(1, 6))
+    stock = realm.sql("mangos", "SELECT COUNT(DISTINCT entry) FROM item_template WHERE entry IN (%s)" % plans_ids)
     missing = realm.sql("mangos", "SELECT COUNT(*) FROM item_template i WHERE i.entry IN (%s) AND NOT EXISTS ("
                         "SELECT 1 FROM forever_item_template f WHERE f.entry = i.entry AND f.patch = i.patch "
-                        "AND f.forever_removed = 0 AND %s)" % (", ".join(str(p) for p in PLANS.values()), no_learn))
+                        "AND f.forever_removed = 0 AND %s)" % (plans_ids, no_learn))
     results.check("the world DB holds a copy of every patch row of the six plans with no learn spell",
-                  missing == "0", "got %r stock rows without a copy" % missing)
+                  stock == "6" and missing == "0", "%r stock plans, %r stock rows without a copy" % (stock, missing))
 c.gm(".unlearn %d" % RECIPE, select=me)
 c.gm(".learn %d" % ARMORSMITH, select=me)
 c.gm(".setskill %d %d %d" % (BLACKSMITHING_SKILL, MAX_SKILL, MAX_SKILL), select=me)
