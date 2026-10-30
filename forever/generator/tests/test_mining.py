@@ -166,13 +166,14 @@ def test_a_chance_outside_0_to_100_is_refused(tmp_path):
 
 # --- The core and the migration (read: the batch build runs them).
 
-def test_the_migration_makes_the_loot_override_table_with_the_marker():
+def test_the_migration_makes_the_loot_override_table_without_the_marker():
+    # The generator owns the marker (removals.marker_sql); forever_world.sql makes the table again.
     migrations = [p for p in (ROOT / "sql" / "migrations").glob("*_world.sql")
                   if TABLE in p.read_text(encoding="utf-8")]
     assert len(migrations) == 1
     text = migrations[0].read_text(encoding="utf-8")
     assert "CREATE TABLE IF NOT EXISTS `%s` LIKE `gameobject_loot_template`;" % TABLE in text
-    assert "ADD COLUMN IF NOT EXISTS `%s`" % MARKER in text
+    assert MARKER not in text
     allowlist = (ROOT / "wowai" / "core-allowlist.txt").read_text(encoding="utf-8")
     assert "sql/migrations/%s" % migrations[0].name in allowlist.splitlines()
 
