@@ -23,11 +23,12 @@ no learn spell of the six removed recipes, in both modes. In stock 1.12 no train
 (they come from plans), so "with the rules off, the trainers offer it" has no case to show. The trainer
 rows go through the same Forever::Table() union and marker as the skill line abilities.
 
-The plans (review H1): all six come from plans. The character (now Blacksmithing 300 and an Armorsmith) uses
-Plans: Wildthorn Mail (12691, needs 270 and Armorsmith 9788).
-forever: the plans have no use: the character does not learn Wildthorn Mail (16650) and keeps the plans. The
-         world DB holds a forever_item_template copy of each of the six plans with no learn spell.
-vanilla: the character learns Wildthorn Mail and the plans are used up.
+The plans (review H1): all six come from plans. The character unlearns Storm Gauntlets, becomes an Armorsmith
+(9788) with Blacksmithing 300, and uses Plans: Storm Gauntlets (12703, needs 295 and Armorsmith; patch 0, so
+the slots' WowPatch 0 has it).
+forever: the plans have no use: the character does not learn Storm Gauntlets (16661) again and keeps the
+         plans. The world DB holds a forever_item_template copy of each of the six plans with no learn spell.
+vanilla: the character learns Storm Gauntlets and the plans are used up.
 """
 import struct
 import sys
@@ -43,9 +44,9 @@ REAGENTS = [(12359, 20), (12655, 4), (7080, 4), (12361, 4)]
 ANVIL = 1744  # gameobject_template: type 8 (spell focus), data0 1 (Anvil)
 BLACKSMITHING_SKILL, BLACKSMITHING_APPRENTICE = 164, 2018
 BLACKSMITH_HAMMER = 5956
-# The plans of the six (spell -> plans item); Wildthorn Mail is used in the check.
+# The plans of the six (spell -> plans item); those of Storm Gauntlets are used in the check.
 PLANS = {16650: 12691, 16728: 12716, 16746: 12728, 16661: 12703, 23628: 19202, 23629: 19204}
-WILDTHORN, WILDTHORN_PLANS, ARMORSMITH = 16650, 12691, 9788
+RECIPE_PLANS, ARMORSMITH = 12703, 9788
 CMSG_USE_ITEM = 171
 INVENTORY_SLOT_BAG_0 = 255
 SKILL, MAX_SKILL = 250, 300
@@ -154,25 +155,25 @@ if mode == "forever":
                            ", ".join(str(s) for s in REMOVED.values())))
     results.check("the world DB holds a copy of each of the six plans with no learn spell", copies == "6",
                   "got %r" % copies)
-c.gm(".unlearn %d" % WILDTHORN, select=me)
+c.gm(".unlearn %d" % RECIPE, select=me)
 c.gm(".learn %d" % ARMORSMITH, select=me)
 c.gm(".setskill %d %d %d" % (BLACKSMITHING_SKILL, MAX_SKILL, MAX_SKILL), select=me)
-c.gm(".additem %d" % WILDTHORN_PLANS, select=me)
+c.gm(".additem %d" % RECIPE_PLANS, select=me)
 c.pump(1)
-plans_query = "SELECT COUNT(*) FROM character_inventory WHERE guid = %%d AND item_id = %d" % WILDTHORN_PLANS
-results.check("the character holds Plans: Wildthorn Mail", saved_count(realm, c, plans_query) == 1)
+plans_query = "SELECT COUNT(*) FROM character_inventory WHERE guid = %%d AND item_id = %d" % RECIPE_PLANS
+results.check("the character holds Plans: Storm Gauntlets", saved_count(realm, c, plans_query) == 1)
 slot = realm.sql("characters", "SELECT slot FROM character_inventory WHERE guid = %d AND bag = 0 AND item_id = %d LIMIT 1"
-                 % (me, WILDTHORN_PLANS)).strip()
+                 % (me, RECIPE_PLANS)).strip()
 c.learned = []
 if slot.isdigit():
     c.use_item(int(slot))
-learned = WILDTHORN in c.learned
+learned = RECIPE in c.learned
 left = saved_count(realm, c, plans_query)
 if mode == "forever":
-    results.check("the plans teach nothing: Wildthorn Mail is not learned", not learned, "learned %r" % c.learned)
+    results.check("the plans teach nothing: Storm Gauntlets are not learned", not learned, "learned %r" % c.learned)
     results.check("the plans stay in the bags", left == 1, "got %d" % left)
 else:
-    results.check("the plans teach Wildthorn Mail", learned, "learned %r" % c.learned)
+    results.check("the plans teach Storm Gauntlets", learned, "learned %r" % c.learned)
     results.check("the plans are used up", left == 0, "got %d" % left)
 
 results.finish()
