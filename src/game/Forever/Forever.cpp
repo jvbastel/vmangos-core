@@ -174,9 +174,17 @@ std::string Forever::Table(char const* table, char const* key)
     std::string const column = std::string("`") + key + "`";
     // A marked row still hides the stock rows of its key (NOT IN), but does not load itself. The loaders
     // read the row by position, so the forever rows give the stock columns only, not the marker.
+    // The two information_schema queries run once per loader call: at startup and at a GM reload only.
     std::string foreverRows = "SELECT * FROM " + forever;
     if (HasRemovalMarker(std::string("forever_") + table))
-        foreverRows = "SELECT " + ColumnList(table) + " FROM " + forever + " WHERE `" + RemovalMarker + "` = 0";
+    {
+        std::string const columns = ColumnList(table);
+        if (columns.empty())
+            // No columns: the stock table is missing, and the stock half of the union fails with its own error.
+            sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Forever] The world table %s has no columns: %s is read without its removal marker.", table, forever.c_str());
+        else
+            foreverRows = "SELECT " + columns + " FROM " + forever + " WHERE `" + RemovalMarker + "` = 0";
+    }
     return "(SELECT * FROM " + stock + " WHERE " + column + " NOT IN (SELECT " + column + " FROM " + forever +
         ") UNION ALL " + foreverRows + ") AS " + stock;
 }

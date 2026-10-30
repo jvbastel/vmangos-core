@@ -91,6 +91,8 @@ namespace Forever
     // The `key` values of the rows of forever_<table> (empty with the rules off). ObjectMgr::LoadItemPrototypes
     // keeps the spell IDs of these item rows: they are 1.12 IDs, so the pre-1.4 spell power substitution of
     // CorrectItemEffects must not touch them (batch 1 of #225: 70000 got +2 instead of +5 spell power).
+    // It returns the keys of marked rows (#229) too. That is harmless: a marked row does not load, so no
+    // item of its key reaches CorrectItemEffects.
     std::set<uint32> ForeverRowKeys(char const* table, char const* key);
 
     // SpellMgr::LoadSpells, after the stock rows: with the rules on, loads each forever_spell_template
