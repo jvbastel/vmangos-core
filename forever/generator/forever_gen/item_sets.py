@@ -20,7 +20,8 @@ from . import equip_stats
 from .spec import SpecError, rows_of
 
 COLUMNS = ("kind", "set", "name", "threshold", "pieces", "bonuses", "foreverSpell", "notes")
-SET, BONUS = "set", "bonus"
+# set: a new set (an ID that is no stock set); stockset: a changed stock set (a stock ID); bonus: a set bonus.
+SET, STOCK_SET, BONUS = "set", "stockset", "bonus"
 NOT_PORTED = "none"
 KEEP = "-"
 
@@ -41,8 +42,9 @@ SET_BONUSES = dict(equip_stats.BONUSES, **{
 NAME, NAME_FLAGS, ITEMS, SPELLS, THRESHOLDS = 1, 9, 10, 27, 35
 MAX_PIECES, MAX_SPELLS = 17, 8
 
-# set_id: the ItemSet.dbc ID; pieces: [item entry]; bonuses: [SetBonus]; notes: the set row's notes.
-ItemSet = namedtuple("ItemSet", "set_id name pieces bonuses notes")
+# set_id: the ItemSet.dbc ID; pieces: [item entry]; bonuses: [SetBonus]; notes: the set row's notes;
+# kind: SET or STOCK_SET.
+ItemSet = namedtuple("ItemSet", "set_id name pieces bonuses notes kind")
 # threshold: the number of worn pieces; bonuses: [equip_stats.Bonus] ([] when not ported).
 SetBonus = namedtuple("SetBonus", "threshold bonuses forever_spell notes")
 
@@ -51,11 +53,11 @@ def read_rows(path, lines):
     sets, bonuses = {}, []
     for where, raw in rows_of(path, lines, COLUMNS):
         set_id = int(raw["set"])
-        if raw["kind"] == SET:
+        if raw["kind"] in (SET, STOCK_SET):
             if set_id in sets:
                 raise SpecError("%s: item set %d is in the spec twice" % (where, set_id))
             pieces = [int(p) for p in raw["pieces"].split(",")]
-            sets[set_id] = ItemSet(set_id, raw["name"], pieces, [], raw["notes"])
+            sets[set_id] = ItemSet(set_id, raw["name"], pieces, [], raw["notes"], raw["kind"])
         elif raw["kind"] == BONUS:
             parts = [] if raw["bonuses"] == NOT_PORTED else equip_stats.parse(where, raw["bonuses"], SET_BONUSES)
             if raw["foreverSpell"] == KEEP:
@@ -79,13 +81,18 @@ def spells(item_set):
 def check(spec, stock):
     """The set rules, on the spec after the dead-content rule: each piece is an item row of the spec or a
     stock piece of the same stock set, in one set only; at most 17 pieces and 8 spells; each threshold
-    between 1 and the number of pieces; the bonus table proven against the stock Spell.dbc."""
+    between 1 and the number of pieces; the bonus table proven against the stock Spell.dbc. A new set has
+    no stock set ID and a changed stock set has one (an ID clash, US35)."""
     equip_stats.check(stock, SET_BONUSES)
     stock_sets = stock.item_set.by_id()
     spec_items = {item.entry for item in spec.items}
     owner = {}
     for item_set in spec.item_sets:
         where = "item set %s (%d)" % (item_set.name, item_set.set_id)
+        if item_set.kind == SET and item_set.set_id in stock_sets:
+            raise SpecError("%s: a new set (kind set) has the ID of a stock set" % where)
+        if item_set.kind == STOCK_SET and item_set.set_id not in stock_sets:
+            raise SpecError("%s: a changed stock set (kind stockset) names no stock set" % where)
         stock_pieces = set(stock_sets[item_set.set_id][ITEMS:ITEMS + MAX_PIECES]) - {0} if item_set.set_id in stock_sets else set()
         if len(item_set.pieces) > MAX_PIECES:
             raise SpecError("%s: %d pieces, at most %d" % (where, len(item_set.pieces), MAX_PIECES))

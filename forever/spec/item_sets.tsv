@@ -8,16 +8,17 @@
 # ItemSetSpell, item sets 1968 and 321), compared with the stock 1.12 ItemSet.dbc. Only numbers and names.
 #
 # Columns (tab-separated):
-#   kind         set: an item set (the set ID keeps the Forever ID; a stock ID changes that stock set)
+#   kind         set: a new item set (the set ID keeps the Forever ID, which is no stock set ID)
+#                stockset: a changed stock item set (the stock set ID)
 #                bonus: one set bonus of the set `set`
 #   set          the ItemSet.dbc ID
 #   name         the set name (set row); a label (bonus row)
-#   threshold    bonus: the number of worn pieces that gives the bonus; set: -
-#   pieces       set: the item entries, in tooltip order (at most 17); bonus: -
+#   threshold    bonus: the number of worn pieces that gives the bonus; set, stockset: -
+#   pieces       set, stockset: the item entries, in tooltip order (at most 17); bonus: -
 #   bonuses      bonus: "<bonus> <value>" or "<bonus> <rounded> (Forever <value>)", separated by commas, as in
 #                items.tsv (equip_stats.py), plus Strength, ShadowRes and HealthRegen (item_sets.py); each is a
-#                stock 1.12 equip spell. "none": a Forever bonus with no 1.12 aura, not ported. set: -
-#   foreverSpell bonus: the Forever set spell (ItemSetSpell); set: -
+#                stock 1.12 equip spell. "none": a Forever bonus with no 1.12 aura, not ported. set, stockset: -
+#   foreverSpell bonus: the Forever set spell (ItemSetSpell); set, stockset: -
 #   notes        free text
 kind	set	name	threshold	pieces	bonuses	foreverSpell	notes
 # --- #231 Blessed Plate (new) and Imperial Plate (stock set 321, rewritten).
@@ -27,7 +28,7 @@ bonus	1968	Blessed Plate (3)	3	-	Strength 20	1252009	Forever 1252009 "Increase S
 bonus	1968	Blessed Plate (4)	4	-	HealthRegen 16 (Forever 20)	1302375	Forever 1302375 "Blessed": party members within 30 yd restore 20 health every 5 sec (area aura). 1.12 has no equip-style party regen aura: the wearer only, Vitality 16 (23210), the largest stock one.
 bonus	1968	Blessed Plate (5)	5	-	Hit 2, SpellHit 2	1252013	Forever 1252013 "Increased Hit Chance 2 - Blessed Plate Set": 2% melee and spell hit = 15465 and 23729.
 bonus	1968	Blessed Plate (6)	6	-	HolyDamage 29	21518	Forever 21518 itself: Holy damage up to 29.
-set	321	Imperial Plate	-	12424,12426,12425,12422,12427,12429,12428,70208	-	-	Stock set 321 (stock bonuses: 2 Armor 100, 4 Attack Power 28, 6 Stamina 18). Forever adds an eighth piece, Imperial Plate Gauntlets (Forever 250589, #230 item 70208), and rewrites the bonuses.
+stockset	321	Imperial Plate	-	12424,12426,12425,12422,12427,12429,12428,70208	-	-	Stock set 321 (stock bonuses: 2 Armor 100, 4 Attack Power 28, 6 Stamina 18). Forever adds an eighth piece, Imperial Plate Gauntlets (Forever 250589, #230 item 70208), and rewrites the bonuses.
 bonus	321	Imperial Plate (2)	2	-	Defense 7	13385	Forever 13385 itself: Defense +7.
 bonus	321	Imperial Plate (3)	3	-	Hit 1, SpellHit 1	1251990	Forever 1251990 "Increased Hit Chance 1 - Imperial Set": 1% melee and spell hit = 15464 and 23727.
 bonus	321	Imperial Plate (4)	4	-	none	1302372	Not ported: Forever 1302372 "Imperial March": movement speed cannot drop below 80% (aura 305). 1.12 has no such aura.

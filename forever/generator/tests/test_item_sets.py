@@ -150,3 +150,15 @@ def test_a_piece_that_the_dead_content_rule_cuts(tmp_path):
     # Blessed Plate Pauldrons (70202) made at a Master Forge: the rule cuts the recipe and the item.
     done = refused(tmp_path, changes=[("blacksmithing.tsv", "70202x1\tAnvil", "70202x1\tMaster Forge")])
     assert "item 70202 is no item row of the spec (or the dead-content rule cut it)" in done
+
+
+def test_a_new_set_on_a_stock_set_id(tmp_path):
+    # A new set (kind set) whose ID is a stock set ID would rewrite that stock set: an ID clash (US35).
+    error = refused(tmp_path, changes=[("item_sets.tsv", "set\t1968\tBlessed Plate", "set\t321\tBlessed Plate"),
+                                       ("item_sets.tsv", "stockset\t321\tImperial Plate", "stockset\t1968\tImperial Plate")])
+    assert "item set Blessed Plate (321): a new set (kind set) has the ID of a stock set" in error
+
+
+def test_a_changed_stock_set_that_is_no_stock_set(tmp_path):
+    error = refused(tmp_path, changes=[("item_sets.tsv", "set\t1968\tBlessed Plate", "stockset\t1968\tBlessed Plate")])
+    assert "item set Blessed Plate (1968): a changed stock set (kind stockset) names no stock set" in error

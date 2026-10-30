@@ -9,7 +9,7 @@ The spec is the folder `forever/spec`, one file per area. The generator in `fore
   `recipe`), one row per stock recipe that Forever changes in place (kind `stock`, #228), and one row per
   stock recipe that Forever took away (kind `removed`, #229).
 - `items.tsv` holds the new and changed items (spec #225): one row per item.
-- `item_sets.tsv` holds the new and changed item sets (#231): a `set` row (ID, name, pieces) and one `bonus`
+- `item_sets.tsv` holds the new and changed item sets (#231): a `set` row (a new set) or a `stockset` row (a changed stock set: ID, name, pieces) and one `bonus`
   row per set bonus.
 - `mining.tsv` holds the Mining rows (spec #225, #232): the new ores (kind `ore`, new items like those of
   `items.tsv`), one row per ore and vein loot ID (kind `drop`), and the Forever mining content that is not
