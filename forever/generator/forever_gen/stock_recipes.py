@@ -55,10 +55,10 @@ def stock_reagents(row):
 def check(spec, stock):
     """A stock row names a stock recipe spell (spell = sourceSpell) with a stock skill line ability in its
     skill line, keeps the item that the stock spell makes, has a stock focus or none, and its plans item is
-    not also an item row of the spec. No stock spell twice."""
+    not also an item row of the spec. No stock spell or plans item twice."""
     stock_spells = stock.spell.by_id()
     item_rows = {item.entry for item in spec.items}
-    seen = set()
+    seen, plans = set(), set()
     for recipe in spec.stock_recipes:
         where = "stock recipe %s: spell %d" % (recipe.name, recipe.spell)
         if recipe.spell in seen:
@@ -78,6 +78,9 @@ def check(spec, stock):
             raise SpecError("%s: the focus '%s' is no stock SpellFocusObject.dbc name" % (where, recipe.focus))
         if recipe.plans is not None and recipe.plans in item_rows:
             raise SpecError("%s: its plans %d are also an item row of the spec" % (where, recipe.plans))
+        if recipe.plans is not None and recipe.plans in plans:
+            raise SpecError("%s: the plans %d are named twice" % (where, recipe.plans))
+        plans.add(recipe.plans)
 
 
 def apply_colours(table, spec, stock):

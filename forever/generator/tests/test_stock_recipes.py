@@ -216,3 +216,9 @@ def test_a_warrior_spell_in_the_profession_spell_block_is_refused(tmp_path):
     moved = first.replace("\t%s\t" % spells, "\t%s\t" % ",".join(str(61500 + k) for k in range(len(spells.split(",")))), 1)
     error = refused_in(tmp_path, "warrior.tsv", (first, moved))
     assert "is inside the profession spell ID range 61000-61999" in error
+
+
+def test_plans_named_by_two_stock_rows_are_refused(tmp_path):
+    # Plans: Runed Copper Breastplate (2881) also on Runed Copper Bracers (2664, a trainer recipe).
+    error = refused(tmp_path, ("\t2854x1\tAnvil\t-\t2664\t", "\t2854x1\tAnvil\t2881\t2664\t"))
+    assert "plans 2881 are named twice" in error
