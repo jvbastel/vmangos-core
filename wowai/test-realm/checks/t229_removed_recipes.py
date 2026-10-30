@@ -10,11 +10,13 @@
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t229_removed_recipes.py vanilla
 
 The skill line: the server gives a craft skill-up only by the skill line ability of the recipe
-(Player::UpdateCraftSkill). An Orc Hunter with Blacksmithing 250 (of 300), who knows Heavy Timbermaw Belt
-(23628, stock colours 310-330, so orange at 250: a skill-up on every craft), crafts it at a GM Anvil.
-forever: the belt is crafted (the spell stays), and the skill stays at 250: the server's skill line does
-         not hold the recipe. The world DB holds the marked copy of its skill line ability (12677).
-vanilla: the belt is crafted and the skill goes up to 251: the stock skill line ability loads as usual.
+(Player::UpdateCraftSkill). An Orc Hunter with Blacksmithing 250 (of 300), who knows Storm Gauntlets
+(16661, stock colours 315-335, so orange at 250: a skill-up on every craft), crafts them at a GM Anvil.
+(Not Heavy Timbermaw Belt: its item comes with a later content patch than the test realm loads, so the
+server calls the spell broken and does not teach it.)
+forever: the gauntlets are crafted (the spell stays), and the skill stays at 250: the server's skill line
+         does not hold the recipe. The world DB marks every build row of its skill line ability (9579).
+vanilla: the gauntlets are crafted and the skill goes up to 251: the stock skill line ability loads as usual.
 
 The trainers: the trainer window of a Blacksmithing trainer that a GM spawns (Saru Steelfury, 3355) offers
 no learn spell of the six removed recipes, in both modes. In stock 1.12 no trainer teaches any of the six
@@ -35,9 +37,9 @@ from wowclient import SpellClient
 
 # The six removed recipes (forever/spec/blacksmithing.tsv, kind removed): spell -> learn spell.
 REMOVED = {16650: 16679, 16728: 16750, 16746: 16762, 16661: 16692, 23628: 23630, 23629: 23631}
-BELT, BELT_ITEM, BELT_ABILITY = 23628, 19043, 12677
-# Heavy Timbermaw Belt: 12 Thorium Bar, 3 Essence of Earth, 3 Living Essence, at an Anvil.
-REAGENTS = [(12359, 12), (7076, 3), (12803, 3)]
+RECIPE, RECIPE_ITEM, RECIPE_ABILITY = 16661, 12632, 9579
+# Storm Gauntlets: 20 Thorium Bar, 4 Enchanted Thorium Bar, 4 Essence of Water, 4 Large Opal, at an Anvil.
+REAGENTS = [(12359, 20), (12655, 4), (7080, 4), (12361, 4)]
 ANVIL = 1744  # gameobject_template: type 8 (spell focus), data0 1 (Anvil)
 BLACKSMITHING_SKILL, BLACKSMITHING_APPRENTICE = 164, 2018
 BLACKSMITH_HAMMER = 5956
@@ -103,16 +105,17 @@ me = c.guid
 clear_backpack(realm, c)
 c.gm(".learn %d" % BLACKSMITHING_APPRENTICE, select=me)
 c.gm(".setskill %d %d %d" % (BLACKSMITHING_SKILL, SKILL, MAX_SKILL), select=me)
-c.gm(".learn %d" % BELT, select=me)
+c.gm(".learn %d" % RECIPE, select=me)
 c.pump(1)
 skill_query = "SELECT value FROM character_skills WHERE guid = %%d AND skill = %d" % BLACKSMITHING_SKILL
 results.check("the character has Blacksmithing %d" % SKILL, saved_count(realm, c, skill_query) == SKILL)
-results.check("the character knows Heavy Timbermaw Belt (the spell stays)", c.knows(BELT), "learned %r" % c.learned)
+results.check("the character knows Storm Gauntlets (the spell stays)", c.knows(RECIPE), "learned %r" % c.learned)
 
 if mode == "forever":
-    marked = realm.sql("mangos", "SELECT COUNT(*) FROM forever_skill_line_ability WHERE id = %d AND forever_removed = 1"
-                       % BELT_ABILITY)
-    results.check("the world DB holds the marked copy of skill line ability %d" % BELT_ABILITY, marked == "1",
+    # One row per client build: all of them are marked.
+    marked = realm.sql("mangos", "SELECT COUNT(*) > 0 AND SUM(forever_removed = 0) = 0 FROM forever_skill_line_ability"
+                       " WHERE id = %d" % RECIPE_ABILITY)
+    results.check("the world DB marks every build row of skill line ability %d" % RECIPE_ABILITY, marked == "1",
                   "got %r" % marked)
 
 # The skill line: a craft at orange gives a skill-up only through the recipe's skill line ability.
@@ -121,10 +124,11 @@ for reagent, count in REAGENTS:
     c.gm(".additem %d %d" % (reagent, count), select=me)
 c.gm(".gobject tmpadd %d 600" % ANVIL, select=me)
 c.pump(1)
-before = saved_count(realm, c, "SELECT COUNT(*) FROM character_inventory WHERE guid = %%d AND item_id = %d" % BELT_ITEM)
-reasons, went = c.cast(BELT, wait=6)
-made = saved_count(realm, c, "SELECT COUNT(*) FROM character_inventory WHERE guid = %%d AND item_id = %d" % BELT_ITEM) - before
-results.check("the character crafts Heavy Timbermaw Belt at the Anvil", went and not any(reasons) and made == 1,
+before = saved_count(realm, c, "SELECT COUNT(*) FROM character_inventory WHERE guid = %%d AND item_id = %d" % RECIPE_ITEM)
+# Storm Gauntlets cast for 60 seconds (SMSG_SPELL_START, cast time index 39).
+reasons, went = c.cast(RECIPE, wait=65)
+made = saved_count(realm, c, "SELECT COUNT(*) FROM character_inventory WHERE guid = %%d AND item_id = %d" % RECIPE_ITEM) - before
+results.check("the character crafts Storm Gauntlets at the Anvil", went and not any(reasons) and made == 1,
               "fail reasons %r, made %d" % (reasons, made))
 skill = saved_count(realm, c, skill_query)
 results.check("after the craft the skill is %d (%s)" % (SKILL_AFTER[mode], "no skill line ability" if mode == "forever"
