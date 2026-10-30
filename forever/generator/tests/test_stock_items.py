@@ -170,6 +170,16 @@ def test_worked_examples_of_the_forever_values(out):
     assert items[12798]["equip"] == [9142] and items[12798]["clears"]
 
 
+def test_the_mithril_scale_pieces_are_mithril_plate_in_forever(out):
+    # Spec #225 user story 7: the four "Mithril Scale" pieces are named "Mithril Plate" on the Forever realm
+    # (the items here, #227; their recipes and plans in test_stock_recipes.py, #228).
+    items = stock_items(out)
+    assert {entry: items[entry]["set"]["name"] for entry in (7920, 7924, 7925, 7932)} == {
+        7920: "Mithril Plate Pants", 7924: "Mithril Plate Bracers", 7925: "Mithril Plate Gloves",
+        7932: "Mithril Plate Shoulders"}
+    assert all(items[entry]["inserted"] for entry in (7920, 7924, 7925, 7932))
+
+
 def test_the_spec_has_a_row_for_every_changed_readable_stock_crafted_item(stock_rows):
     if not (DUMP / "items.tsv").is_file():
         pytest.skip("no dump of the Forever client at %s" % DUMP)
