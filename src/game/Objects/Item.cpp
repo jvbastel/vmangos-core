@@ -28,6 +28,7 @@
 #include "Database/DatabaseEnv.h"
 #include "ItemEnchantmentMgr.h"
 #include "GuildMgr.h"
+#include "Forever.h"
 
 void AddItemsSetItem(Player* player, Item* item)
 {
@@ -537,6 +538,9 @@ void Item::LoadLootFromDB(Field* fields)
 
     if (!proto)
     {
+        // WOWAI Forever rules (#233): a Forever-only item with the rules off. It is not loaded, and its row stays.
+        if (Forever::KeepsRowsOfUnknownItem(item_id))
+            return;
         CharacterDatabase.PExecute("DELETE FROM `item_loot` WHERE `guid` = '%u' AND `item_id` = '%u'", GetGUIDLow(), item_id);
         sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "Item::LoadLootFromDB: %s has an unknown item (id: #%u) in item_loot, deleted.", GetOwnerGuid().GetString().c_str(), item_id);
         return;
