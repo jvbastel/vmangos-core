@@ -146,9 +146,14 @@ bool Forever::KeepsRowsOfUnknownItem(uint32 itemId)
     return keep;
 }
 
+bool Forever::IsHiddenRecipe(uint32 spellId)
+{
+    return ProfessionIds::HidesKnownSpell(removedRecipes.count(spellId) != 0, rulesOn);
+}
+
 bool Forever::HidesKnownSpell(uint32 spellId)
 {
-    bool const hide = ProfessionIds::HidesKnownSpell(removedRecipes.count(spellId) != 0, rulesOn);
+    bool const hide = IsHiddenRecipe(spellId);
     if (hide)
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] Recipe %u is removed under the Forever rules: it is not loaded, and its row stays.", spellId);
     return hide;

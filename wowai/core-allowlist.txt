@@ -108,3 +108,8 @@ src/game/Database/CharacterDatabaseCleaner.cpp
 # Spec hook 22, #233 (spec #225, the rules switch keeps recipes and Forever-only items): Player::_LoadInventory
 # keeps the rows of a Forever-only item with the rules off, and Player::_LoadSpells does not load a stock recipe
 # that the Forever rules remove (Player.cpp, above).
+# #233 merger: the mail, auction and item loot loads keep the rows of a Forever-only item with the rules off,
+# like Player::_LoadInventory, and Player::_SaveSpells saves a hidden removed recipe that is learned again.
+src/game/Chat/MasterPlayer.cpp
+src/game/AuctionHouse/AuctionHouseMgr.cpp
+src/game/Objects/Item.cpp

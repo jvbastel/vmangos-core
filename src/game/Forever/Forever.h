@@ -55,12 +55,19 @@ namespace Forever
     // stock code deletes the rows of an item that does not exist for good. With the rules off, a Forever-only
     // item (the item range of forever/spec/items.tsv) does not exist, but the character keeps it for the day
     // the rules are on again (ForeverProfessionIds.h, KeepsRowsOfUnknownItem). The item is not loaded.
+    // The other loads that delete an unknown item ask the same: MasterPlayer::LoadMailedItems (the whole mail
+    // is not loaded), AuctionHouseMgr::LoadAuctions (the auction is not loaded) and Item::LoadLootFromDB.
     bool KeepsRowsOfUnknownItem(uint32 itemId);
 
     // Player::_LoadSpells (#233): true when the known spell `spellId` is not loaded. With the rules on, a stock
     // recipe that the Forever rules remove (#229) is hidden; its character_spell row stays, so the character
     // has it again with the rules off. With the rules off, always false.
     bool HidesKnownSpell(uint32 spellId);
+
+    // Player::_SaveSpells (#233): HidesKnownSpell with no log line. A hidden recipe that the character learns
+    // again is a new spell whose character_spell row is still there, so the save deletes that row before
+    // the insert, and the insert does not fail on the primary key.
+    bool IsHiddenRecipe(uint32 spellId);
 
     // LoadDBCStores, for each DBC file that the Forever rules replace (Talent.dbc, TalentTab.dbc): the
     // Forever DBC folder when the rules are on, else the stock folder `stockPath`. A missing file in

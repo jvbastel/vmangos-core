@@ -16959,6 +16959,9 @@ void Player::_SaveSpells()
     {
         if (itr->second.state == PLAYERSPELL_REMOVED || itr->second.state == PLAYERSPELL_CHANGED)
             stmtDel.PExecute(GetGUIDLow(), itr->first);
+        // WOWAI Forever rules (#233): a removed stock recipe learned again still has its hidden row.
+        else if (itr->second.state == PLAYERSPELL_NEW && !itr->second.dependent && Forever::IsHiddenRecipe(itr->first))
+            stmtDel.PExecute(GetGUIDLow(), itr->first);
 
         // add only changed/new not dependent spells
         if (!itr->second.dependent && (itr->second.state == PLAYERSPELL_NEW || itr->second.state == PLAYERSPELL_CHANGED))
