@@ -145,15 +145,16 @@ EFFECT, DIE_SIDES, BASE_POINTS, AURA, MISC = 61, 64, 76, 91, 106
 SPELL_EFFECT_APPLY_AURA = 6
 
 
-def nearest(name, value):
+def nearest(name, value, table=BONUSES):
     """The value of the bonus `name` nearest to `value` that has a stock spell; up on a tie."""
-    return min(BONUSES[name][1], key=lambda v: (abs(v - value), -v))
+    return min(table[name][1], key=lambda v: (abs(v - value), -v))
 
 
-def parse(where, text):
+def parse(where, text, table=BONUSES):
     """The bonuses of a `bonuses` value: "<name> <value>" or "<name> <value> (Forever <value>)", separated
     by commas, or "-". Refuses a name with no stock equip spell, a value with none and no Forever value
-    (the rounding rule), and a rounded value that is not the nearest one."""
+    (the rounding rule), and a rounded value that is not the nearest one. `table`: the bonus table (the item
+    sets of #231 add bonuses of their own)."""
     if text == "-":
         return []
     bonuses = []
@@ -161,23 +162,23 @@ def parse(where, text):
         part = part.strip()
         head, _, forever = part.partition(" (Forever ")
         name, _, value = head.partition(" ")
-        if name not in BONUSES:
-            raise SpecError("%s: the bonus '%s' has no stock equip spell (bonuses: %s)" % (where, part, ", ".join(BONUSES)))
+        if name not in table:
+            raise SpecError("%s: the bonus '%s' has no stock equip spell (bonuses: %s)" % (where, part, ", ".join(table)))
         if not value.isdigit() or (forever and not forever.endswith(")")):
             raise SpecError("%s: the bonus '%s' is not '<name> <value>' or '<name> <value> (Forever <value>)'" % (where, part))
-        value, spells = int(value), BONUSES[name][1]
+        value, spells = int(value), table[name][1]
         if not forever:
             if value not in spells:
                 raise SpecError("%s: no stock equip spell gives %s %d, and the bonus has no Forever value to round "
-                                "(write '%s %d (Forever %d)')" % (where, name, value, name, nearest(name, value), value))
+                                "(write '%s %d (Forever %d)')" % (where, name, value, name, nearest(name, value, table), value))
             bonuses.append(Bonus(name, value, None, spells[value]))
             continue
         try:
             exact = float(forever[:-1])
         except ValueError:
             raise SpecError("%s: the Forever value of '%s' is no number" % (where, part))
-        if value != nearest(name, exact):
-            raise SpecError("%s: %s %s rounds to %d, not %d" % (where, name, forever[:-1], nearest(name, exact), value))
+        if value != nearest(name, exact, table):
+            raise SpecError("%s: %s %s rounds to %d, not %d" % (where, name, forever[:-1], nearest(name, exact, table), value))
         bonuses.append(Bonus(name, value, exact, spells[value]))
     return bonuses
 
@@ -186,11 +187,11 @@ def _int32(value):
     return value - (1 << 32) if value >= 1 << 31 else value
 
 
-def check(stock):
+def check(stock, table=BONUSES):
     """Proves the table against the stock Spell.dbc: each spell exists, and each of its effects applies the
     aura of its bonus with the bonus value."""
     spells = stock.spell.by_id()
-    for name, (auras, values) in BONUSES.items():
+    for name, (auras, values) in table.items():
         for value, spell in values.items():
             row = spells.get(spell)
             effects = [] if row is None else [

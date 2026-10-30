@@ -275,8 +275,8 @@ def test_the_client_data_patch_holds_the_client_tables(out):
     import mpyq
     archive = mpyq.MPQArchive(str(out / "client" / client_patch.PATCH_NAME), listfile=True)
     names = sorted(name.decode() for name in archive.files)
-    assert names == ["DBFilesClient\\SkillLineAbility.dbc", "DBFilesClient\\Spell.dbc", "DBFilesClient\\Talent.dbc",
-                     "DBFilesClient\\TalentTab.dbc"]
+    assert names == ["DBFilesClient\\ItemSet.dbc", "DBFilesClient\\SkillLineAbility.dbc", "DBFilesClient\\Spell.dbc",
+                     "DBFilesClient\\Talent.dbc", "DBFilesClient\\TalentTab.dbc"]
     for name in names:
         assert archive.read_file(name) == (out / "client" / name.replace("\\", "/")).read_bytes(), name
 
