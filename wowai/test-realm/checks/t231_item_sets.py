@@ -20,6 +20,10 @@ forever: two stock Imperial Plate pieces give the 2-piece bonus (Defense 7) and 
 vanilla: two Imperial Plate pieces give the stock 2-piece bonus (Armor 100) and not Defense 7; four give the
          stock 4-piece bonus (Attack Power 28) and no Forever bonus. The server knows neither Imperial Plate
          Gauntlets nor any Blessed Plate piece (`.additem` gives nothing).
+
+Every stock Imperial Plate piece is patch 2 content, so a server at WowPatch 0 (the slots) refuses it. The
+check then says SKIP for the parts that need stock pieces and checks that Imperial Plate Gauntlets alone gives
+no bonus.
 """
 import re
 import struct
@@ -43,6 +47,8 @@ IMPERIAL_GAUNTLETS = 70208
 BLESSED_PIECES = (70202, 70204, 70206, 70210, 70212, 70214)  # Pauldrons, Boots, Gauntlet, Bracers, Leggings, Belt
 # The stock 1.12 bonuses of Imperial Plate (ItemSet.dbc 321): 2 Armor 100, 4 Attack Power 28, 6 Stamina 18.
 STOCK_IMPERIAL = {2: [15666], 4: [9335], 6: [14465]}
+SKIP_STOCK = ("SKIP: the server refuses the stock Imperial Plate pieces (patch 2 content, above the WowPatch of the "
+              "server), so the bonuses of stock pieces are not checked")
 
 
 def forever_bonuses(set_id):
@@ -129,13 +135,19 @@ undress()
 
 if mode == "forever":
     imperial = forever_bonuses(IMPERIAL)
-    wear(IMPERIAL_BELT, IMPERIAL_BRACERS)
-    results.check("forever: two stock Imperial Plate pieces are worn", {IMPERIAL_BELT, IMPERIAL_BRACERS} <= equipped())
-    check_bonuses("forever Imperial Plate", imperial, 2)
-    results.check("forever: the stock Imperial 2-piece bonus (Armor 100) is gone", 15666 not in auras())
-    made = wear(IMPERIAL_GAUNTLETS)
-    results.check("forever: Imperial Plate Gauntlets (70208) is worn", made and IMPERIAL_GAUNTLETS in equipped())
-    check_bonuses("forever Imperial Plate with the eighth piece", imperial, 3)
+    if wear(IMPERIAL_BELT, IMPERIAL_BRACERS):
+        results.check("forever: two stock Imperial Plate pieces are worn",
+                      {IMPERIAL_BELT, IMPERIAL_BRACERS} <= equipped())
+        check_bonuses("forever Imperial Plate", imperial, 2)
+        results.check("forever: the stock Imperial 2-piece bonus (Armor 100) is gone", 15666 not in auras())
+        made = wear(IMPERIAL_GAUNTLETS)
+        results.check("forever: Imperial Plate Gauntlets (70208) is worn", made and IMPERIAL_GAUNTLETS in equipped())
+        check_bonuses("forever Imperial Plate with the eighth piece", imperial, 3)
+    else:
+        print(SKIP_STOCK)
+        made = wear(IMPERIAL_GAUNTLETS)
+        results.check("forever: Imperial Plate Gauntlets (70208) is worn", made and IMPERIAL_GAUNTLETS in equipped())
+        check_bonuses("forever Imperial Plate Gauntlets alone", imperial, 1)
 
     undress()
     blessed = forever_bonuses(BLESSED)
@@ -146,15 +158,18 @@ if mode == "forever":
     results.check("forever: six Blessed Plate pieces are worn", set(BLESSED_PIECES) <= equipped())
     check_bonuses("forever Blessed Plate", blessed, 6)
 else:
-    wear(IMPERIAL_BELT, IMPERIAL_BRACERS)
-    results.check("vanilla: two Imperial Plate pieces are worn", {IMPERIAL_BELT, IMPERIAL_BRACERS} <= equipped())
-    check_bonuses("vanilla Imperial Plate", STOCK_IMPERIAL, 2)
-    results.check("vanilla: the Forever 2-piece bonus Defense 7 (13385) is off", 13385 not in auras())
-    wear(IMPERIAL_BOOTS, IMPERIAL_CHEST)
-    check_bonuses("vanilla Imperial Plate", STOCK_IMPERIAL, 4)
-    have = auras()
-    forever_spells = {s for spells in forever_bonuses(IMPERIAL).values() for s in spells} - {13385}
-    results.check("vanilla: no Forever Imperial bonus is on", not (forever_spells & have), "auras %s" % sorted(have))
+    if wear(IMPERIAL_BELT, IMPERIAL_BRACERS):
+        results.check("vanilla: two Imperial Plate pieces are worn", {IMPERIAL_BELT, IMPERIAL_BRACERS} <= equipped())
+        check_bonuses("vanilla Imperial Plate", STOCK_IMPERIAL, 2)
+        results.check("vanilla: the Forever 2-piece bonus Defense 7 (13385) is off", 13385 not in auras())
+        wear(IMPERIAL_BOOTS, IMPERIAL_CHEST)
+        check_bonuses("vanilla Imperial Plate", STOCK_IMPERIAL, 4)
+        have = auras()
+        forever_spells = {s for spells in forever_bonuses(IMPERIAL).values() for s in spells} - {13385}
+        results.check("vanilla: no Forever Imperial bonus is on", not (forever_spells & have),
+                      "auras %s" % sorted(have))
+    else:
+        print(SKIP_STOCK)
     for entry in (IMPERIAL_GAUNTLETS,) + BLESSED_PIECES[:1]:
         c.gm(".additem %d" % entry, select=me)
         results.check("vanilla: the server does not know item %d" % entry, backpack_slot_of(entry) is None)
