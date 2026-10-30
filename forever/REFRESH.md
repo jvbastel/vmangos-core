@@ -6,7 +6,8 @@ The spec is the folder `forever/spec`, one file per area. The generator in `fore
 - `warrior.tsv` holds the Forever rules of the Warrior (spec jvbastel/WOWAI#204): one row per talent, per
   new ability and per changed base ability.
 - `blacksmithing.tsv` holds the Blacksmithing recipes (spec #225): one row per new recipe spell (kind
-  `recipe`), and one row per stock recipe that Forever changes in place (kind `stock`, #228).
+  `recipe`), one row per stock recipe that Forever changes in place (kind `stock`, #228), and one row per
+  stock recipe that Forever took away (kind `removed`, #229).
 - `items.tsv` holds the new and changed items (spec #225): one row per item.
 
 Each header names the sources, the Forever build, the date, its free ID range, the next free IDs and each
@@ -74,6 +75,25 @@ merges it.
   `foreverStats`. `displayId` is a stock `ItemDisplayInfo.dbc` ID, which also gives the icon; the generator
   refuses any other. The changed stock items of #227 come from the dumps by a script outside git
   (`notes/forever/client-data/tools/t227/build_rows.py`).
+
+- A removal row (`kind` removed, `spell` = `sourceSpell` = the stock spell) takes a stock recipe away on the
+  Forever realm: a stock recipe of `recipes.tsv` (group `stock-missing-in-fv`) that the Forever client does not
+  have. Fill `kind`, `spell`, `sourceSpell`, `name`, `skillLine`, `plans` and `notes`; write `-` in the
+  other columns. The recipe leaves the client skill line and every trainer; its spell stays, so that a
+  character who knows it keeps it.
+
+### The removal marker
+
+Every Forever override table (`forever_<stock table>`) has one more column than its stock table:
+`forever_removed`. A row with `forever_removed` = 1 is a copy of the stock rows of one key, and takes them
+away with the rules on: the core reads neither the stock rows of that key nor the marked row
+(`Forever::Table` and `SelectWithForeverRows` in `src/game/Forever/Forever.cpp`). With the rules off the core
+reads no Forever table, so the stock rows load as usual. The generator adds the column at the end of
+`forever_world.sql`, after every other row, because a copy with `SELECT *` has one column too few once the
+column is there. A new kind of removal (items, loot, item sets) adds its override table to
+`build.FOREVER_TABLES` and writes `removals.remove_rows(...)` lines into the `removed` list at the end of
+`build.server_sql`; the module docstring of `generator/forever_gen/removals.py` says how. Spells cannot be
+removed: the core would delete them from every character who knows them.
 
 ## 3. Pick a stock icon
 
