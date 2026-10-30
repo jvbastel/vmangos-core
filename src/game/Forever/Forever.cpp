@@ -143,7 +143,7 @@ bool Forever::KeepsRowsOfUnknownItem(uint32 itemId)
 {
     bool const keep = ProfessionIds::KeepsRowsOfUnknownItem(itemId, rulesOn);
     if (keep)
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] Item %u exists only under the Forever rules: it is not loaded, and its rows stay.", itemId);
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Item %u exists only under the Forever rules: it is not loaded, and its rows stay.", itemId);
     return keep;
 }
 
@@ -156,7 +156,7 @@ bool Forever::HidesKnownSpell(uint32 spellId)
 {
     bool const hide = IsHiddenRecipe(spellId);
     if (hide)
-        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Forever] Recipe %u is removed under the Forever rules: it is not loaded, and its row stays.", spellId);
+        sLog.Out(LOG_BASIC, LOG_LVL_DETAIL, "[Forever] Recipe %u is removed under the Forever rules: it is not loaded, and its row stays.", spellId);
     return hide;
 }
 
