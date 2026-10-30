@@ -25,6 +25,16 @@ SPEC = SPEC_DIR / "warrior.tsv"
 GENERATOR = ROOT / "forever" / "generator" / "generate.py"
 EXPORTER = ROOT / "bots" / "tools" / "talents" / "export_talents.py"
 STOCK = Path(os.environ.get("FOREVER_STOCK_DBC", "/mnt/c/Games/vmangos-deploy/storage/mangosd/extracted-data/5875/dbc"))
+# The dump of the Forever client (outside git); the tests that read it skip without it.
+DUMP = Path(os.environ.get("FOREVER_CLIENT_DUMP", "/home/jvbastel/wowai/notes/forever/client-data/out/professions"))
+# The 1.12 item stat types of the spec's base stats (item_template stat_type).
+STAT_TYPES = {"Mana": 0, "Health": 1, "Agi": 3, "Str": 4, "Int": 5, "Spi": 6, "Sta": 7}
+# The spell effect of each bonus: (aura, misc value) of each "apply aura" effect (Spell.dbc 1.12.1).
+BONUS_AURAS = {((52, 0),): "Crit", ((54, 0),): "Hit", ((49, 0),): "Dodge", ((47, 0),): "Parry", ((51, 0),): "Block",
+               ((30, 95),): "Defense", ((99, 0), (124, 0)): "AP", ((13, 126), (135, 126)): "SpellPower",
+               ((135, 126),): "Healing", ((22, 126),): "AllRes"}
+# Spell.dbc 1.12.1: 61-63 Effect, 64-66 EffectDieSides, 76-78 EffectBasePoints, 91-93 aura, 106-108 misc value.
+EFFECT, DIE_SIDES, BASE_POINTS, AURA, MISC = 61, 64, 76, 91, 106
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -390,3 +400,13 @@ def test_the_other_spec_files_leave_the_warrior_output_as_it_is(out, tmp_path):
     for line in (warrior / "sql" / "forever_world.sql").read_text(encoding="utf-8").splitlines():
         if line.startswith(("UPDATE", "INSERT")):
             assert line in sql, line
+
+
+def bonus_of(spells, spell):
+    """(name, value) of the bonus that a stock equip spell gives, from its Spell.dbc effects."""
+    row = spells[spell]
+    effects = [k for k in range(3) if row[EFFECT + k]]
+    auras = tuple((row[AURA + k], row[MISC + k]) for k in effects)
+    values = {int32(row[BASE_POINTS + k]) + row[DIE_SIDES + k] for k in effects}
+    assert all(row[EFFECT + k] == 6 for k in effects) and len(values) == 1, spell
+    return BONUS_AURAS.get(auras, "spell %d" % spell), values.pop()

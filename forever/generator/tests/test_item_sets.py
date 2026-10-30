@@ -18,6 +18,7 @@ from test_pipeline import STOCK, generate, pytestmark, read_dbc  # noqa: F401  (
 # ItemSet.dbc 1.12.1: 0 ID, 1-8 Name, 9 the name flags, 10-26 ItemID[17], 27-34 SetSpellID[8],
 # 35-42 SetThreshold[8], 43 RequiredSkill, 44 RequiredSkillRank.
 NAME, ITEMS, SPELLS, THRESHOLDS = 1, 10, 27, 35
+MAX_PIECES, MAX_SET_SPELLS = 17, 8
 
 BLESSED, IMPERIAL = 1968, 321
 EXPECTED = {
@@ -51,8 +52,8 @@ EXPECTED = {
 def item_set(row, text):
     return {
         "name": text(row[NAME]),
-        "items": {i for i in row[ITEMS:ITEMS + 17] if i},
-        "bonuses": {(s, t) for s, t in zip(row[SPELLS:SPELLS + 8], row[THRESHOLDS:THRESHOLDS + 8]) if s},
+        "items": {i for i in row[ITEMS:ITEMS + MAX_PIECES] if i},
+        "bonuses": {(s, t) for s, t in zip(row[SPELLS:SPELLS + MAX_SET_SPELLS], row[THRESHOLDS:THRESHOLDS + MAX_SET_SPELLS]) if s},
     }
 
 

@@ -15,9 +15,8 @@ from pathlib import Path
 import pytest
 
 from test_blacksmithing import counted, free_range, spec_rows, sql_rows
-from test_pipeline import GENERATOR, SPEC_DIR, STOCK, pytestmark, read_dbc  # noqa: F401  (pytestmark: skip without stock data)
+from test_pipeline import DUMP, GENERATOR, SPEC_DIR, STOCK, pytestmark, read_dbc  # noqa: F401  (pytestmark: skip without stock data)
 
-DUMP = Path(os.environ.get("FOREVER_CLIENT_DUMP", "/home/jvbastel/wowai/notes/forever/client-data/out/professions"))
 # Spell.dbc 1.12.1: 15 RequiresSpellFocus, 61 Effect1, 109 EffectTriggerSpell1, 120 Name (enUS).
 FOCUS, EFFECT1, TRIGGER1, NAME = 15, 61, 109, 120
 LEARN_SPELL = 36

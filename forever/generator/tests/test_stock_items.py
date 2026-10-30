@@ -16,34 +16,16 @@ from pathlib import Path
 import pytest
 
 from test_blacksmithing import refused, spec_rows
-from test_pipeline import STOCK, generate, int32, read_dbc
+from test_pipeline import DUMP, STAT_TYPES, STOCK, bonus_of, generate, int32, read_dbc  # noqa: F401
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
-DUMP = Path(os.environ.get("FOREVER_CLIENT_DUMP", "/home/jvbastel/wowai/notes/forever/client-data/out/professions"))
 
-# The spell effect of each bonus: (aura, misc value) of each "apply aura" effect (Spell.dbc 1.12.1).
-BONUS_AURAS = {((52, 0),): "Crit", ((54, 0),): "Hit", ((49, 0),): "Dodge", ((47, 0),): "Parry", ((51, 0),): "Block",
-               ((30, 95),): "Defense", ((99, 0), (124, 0)): "AP", ((13, 126), (135, 126)): "SpellPower",
-               ((135, 126),): "Healing", ((22, 126),): "AllRes"}
-# Spell.dbc 1.12.1: 61-63 Effect, 64-66 EffectDieSides, 76-78 EffectBasePoints, 91-93 aura, 106-108 misc value.
-EFFECT, DIE_SIDES, BASE_POINTS, AURA, MISC = 61, 64, 76, 91, 106
 QUALITIES = {"poor": 0, "common": 1, "uncommon": 2, "rare": 3, "epic": 4}
 BONDINGS = {"none": 0, "pickup": 1, "equip": 2, "use": 3}
 SLOTS = {"oneHand": 13, "mainHand": 21, "offHand": 22, "twoHand": 17, "shield": 14, "ranged": 15, "holdable": 23}
-STAT_TYPES = {"Mana": 0, "Health": 1, "Agi": 3, "Str": 4, "Int": 5, "Spi": 6, "Sta": 7}
 RESISTANCES = ("holy", "fire", "nature", "frost", "shadow", "arcane")
 ON_EQUIP = 1
-
-
-def bonus_of(spells, spell):
-    """(name, value) of the bonus that a stock equip spell gives, from its Spell.dbc effects."""
-    row = spells[spell]
-    effects = [k for k in range(3) if row[EFFECT + k]]
-    auras = tuple((row[AURA + k], row[MISC + k]) for k in effects)
-    values = {int32(row[BASE_POINTS + k]) + row[DIE_SIDES + k] for k in effects}
-    assert all(row[EFFECT + k] == 6 for k in effects) and len(values) == 1, spell
-    return BONUS_AURAS.get(auras, "spell %d" % spell), values.pop()
 
 
 def stock_items(out):

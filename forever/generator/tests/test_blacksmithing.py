@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from test_pipeline import SPEC_DIR, STOCK, generate, int32, read_dbc
+from test_pipeline import SPEC_DIR, STAT_TYPES, STOCK, bonus_of, generate, int32, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -158,8 +158,6 @@ def test_each_item_is_in_the_item_override_table_with_its_stats_as_stock_equip_s
     items = {int(row["entry"]): row for row in sql_rows(out, "forever_item_new")}
     stock_spells, _ = read_dbc(STOCK / "Spell.dbc")
     displays, _ = read_dbc(STOCK / "ItemDisplayInfo.dbc")
-    stat_types = {"Mana": 0, "Health": 1, "Agi": 3, "Str": 4, "Int": 5, "Spi": 6, "Sta": 7}
-    from test_stock_items import bonus_of  # (#227) it imports this module
     for spec in new_items(out):
         server = items[int(spec["entry"])]
         stats = [] if spec["stats"] == "-" else [s.strip().split(" ") for s in spec["stats"].split(",")]
@@ -170,7 +168,7 @@ def test_each_item_is_in_the_item_override_table_with_its_stats_as_stock_equip_s
         assert [bonus_of(stock_spells, s) for s in spells[:len(bonuses)]] == [(n, int(v)) for n, v in bonuses]
         assert server["name"] == spec["name"]
         assert [(int(server["stat_type%d" % k]), int(server["stat_value%d" % k])) for k in range(1, 11)] == \
-            [(stat_types[n], int(v)) for n, v in stats] + [(0, 0)] * (10 - len(stats))
+            [(STAT_TYPES[n], int(v)) for n, v in stats] + [(0, 0)] * (10 - len(stats))
         assert [(int(server["spellid_%d" % k]), int(server["spelltrigger_%d" % k])) for k in range(1, 6)] == \
             [(s, ON_EQUIP) for s in spells] + [(0, 0)] * (5 - len(spells))
         assert all(s in stock_spells for s in spells)
