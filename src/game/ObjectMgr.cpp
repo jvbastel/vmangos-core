@@ -10625,7 +10625,9 @@ void ObjectMgr::LoadTrainers(char const* tableName, bool isTemplates)
         } while (result->NextRow());
     }
 
-    result = WorldDatabase.PQuery("SELECT `entry`, `spell`, `spellcost`, `reqskill`, `reqskillvalue`, `reqlevel` FROM %s WHERE %u BETWEEN `build_min` AND `build_max`", tableName, SUPPORTED_CLIENT_BUILD);
+    // WOWAI Forever rules (#228): the forever_npc_trainer rows replace the stock npc_trainer rows of their spell.
+    std::string const fromTable = isTemplates ? std::string("`") + tableName + "`" : Forever::Table(tableName, "spell");
+    result = WorldDatabase.PQuery("SELECT `entry`, `spell`, `spellcost`, `reqskill`, `reqskillvalue`, `reqlevel` FROM %s WHERE %u BETWEEN `build_min` AND `build_max`", fromTable.c_str(), SUPPORTED_CLIENT_BUILD);
 
     if (!result)
     {

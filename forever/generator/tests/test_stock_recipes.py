@@ -105,3 +105,47 @@ def test_each_stock_recipe_has_its_forever_colour_range_in_the_client_in_place_o
     assert not [row for key, row in client.items() if key not in stock and row[SLA_SPELL] in rows]
     # Runed Copper Breastplate (SLA 1647 in 1.12): 120-160 -> 95-135.
     assert (client[stock_abilities()[2667][0]][SLA_YELLOW], client[stock_abilities()[2667][0]][SLA_GREY]) == (95, 135)
+
+
+def learn_spells(spell):
+    """The stock spells that teach `spell` (Effect1 36 Learn Spell, EffectTriggerSpell1 = spell): the
+    spells of the trainer rows."""
+    spells, _ = read_dbc(STOCK / "Spell.dbc")
+    return sorted(key for key, row in spells.items() if row[61] == 36 and row[109] == spell)
+
+
+def sql(out):
+    return (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
+
+
+def test_each_stock_recipe_has_its_colour_range_in_the_server_skill_line_table_by_its_stock_id(out):
+    rows = {int(row["id"]): row for row in sql_rows(out, "forever_sla_stock")}
+    for spec in stock_rows():
+        for ability in [row for row in read_dbc(STOCK / "SkillLineAbility.dbc")[0].values()
+                        if row[SLA_SPELL] == int(spec["spell"]) and row[1] == BLACKSMITHING]:
+            assert (rows[ability[0]]["min_value"], rows[ability[0]]["max_value"]) == (spec["yellow"], spec["grey"])
+    assert len(rows) == len(stock_rows()) + 1  # Radiant Circlet has two stock rows
+
+
+def test_the_trainer_rows_of_each_stock_recipe_need_its_forever_skill(out):
+    text = sql(out)
+    assert "DROP TABLE IF EXISTS `forever_npc_trainer`;\nCREATE TABLE `forever_npc_trainer` LIKE `npc_trainer`;" in text
+    copies = dict(re.findall(r"^INSERT INTO `forever_npc_trainer` SELECT \* FROM `npc_trainer` WHERE `spell` IN \(([\d, ]+)\);\n"
+                             r"UPDATE `forever_npc_trainer` SET `reqskillvalue`=(\d+) WHERE `spell` IN \(\1\);$", text, re.M))
+    for spec in stock_rows():
+        teaching = learn_spells(int(spec["spell"]))
+        if teaching:
+            assert copies[", ".join(map(str, teaching))] == spec["minRank"], spec["name"]
+    # Runed Copper Bracers (2664): the trainers teach 2745 at 90 in 1.12, at 65 (the colour shift 25) in Forever.
+    assert copies["2745"] == "65"
+
+
+def test_the_plans_of_each_stock_recipe_need_its_forever_skill(out):
+    plans = {int(row["entry"]): row for row in sql_rows(out, "forever_plans_new")}
+    with_plans = [row for row in stock_rows() if row["plans"] != "-"]
+    assert len(plans) == len(with_plans)
+    for spec in with_plans:
+        assert (plans[int(spec["plans"])]["required_skill_rank"], plans[int(spec["plans"])]["patch"]) == (spec["minRank"], "0")
+    # Plans: Runed Copper Breastplate 80 -> 55, Plans: Frost Tiger Blade 200 -> 175.
+    assert (plans[2881]["required_skill_rank"], plans[3868]["required_skill_rank"]) == ("55", "175")
+    assert sql(out).count("INSERT INTO `forever_item_template` SELECT * FROM `forever_plans_new`;") == len(with_plans)

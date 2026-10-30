@@ -89,3 +89,46 @@ def apply_colours(table, spec, stock):
             row = by_id[ability[0]]
             row[SLA_GREY], row[SLA_YELLOW] = recipe.grey, recipe.yellow
     return table
+
+
+def learn_spells(recipe, stock):
+    """The stock spells that teach the recipe (Effect1 Learn Spell on it): the spells of its trainer rows.
+    The core takes a trainer row only for a spell whose first effect is Learn Spell."""
+    return sorted(row[0] for row in stock.spell.rows
+                  if row[SPELL_EFFECT1] == SPELL_EFFECT_LEARN_SPELL and row[SPELL_TRIGGER1] == recipe.spell)
+
+
+def server_sql(spec, stock):
+    """The server rows of the stock rows: the skill line abilities (forever_skill_line_ability, by the stock
+    ID), the trainer rows (forever_npc_trainer) and the plans (forever_item_template)."""
+    lines = []
+    for recipe in sorted(spec.stock_recipes, key=lambda r: r.spell):
+        lines += ["", "-- Stock recipe %s (%d): colour range %d-%d, learned at skill %d."
+                  % (recipe.name, recipe.spell, recipe.yellow, recipe.grey, recipe.min_rank)]
+        for ability in stock_abilities(recipe, stock):
+            lines += [
+                "CREATE TEMPORARY TABLE `forever_sla_stock` SELECT * FROM `skill_line_ability` WHERE `id`=%d "
+                "AND `build`=%d;" % (ability[0], CLIENT_BUILD),
+                "UPDATE `forever_sla_stock` SET `id`=%d, `min_value`=%d, `max_value`=%d;"
+                % (ability[0], recipe.yellow, recipe.grey),
+                "INSERT INTO `forever_skill_line_ability` SELECT * FROM `forever_sla_stock`;",
+                "DROP TEMPORARY TABLE `forever_sla_stock`;",
+            ]
+        teaching = ", ".join(str(spell) for spell in learn_spells(recipe, stock))
+        if teaching:
+            # Every stock trainer row of the learn spells: the core reads forever_npc_trainer over npc_trainer
+            # by `spell`, so the copy must hold all of them.
+            lines += [
+                "INSERT INTO `%s` SELECT * FROM `npc_trainer` WHERE `spell` IN (%s);" % (TRAINER_TABLE, teaching),
+                "UPDATE `%s` SET `reqskillvalue`=%d WHERE `spell` IN (%s);" % (TRAINER_TABLE, recipe.min_rank, teaching),
+            ]
+        if recipe.plans is not None:
+            lines += [
+                "CREATE TEMPORARY TABLE `forever_plans_new` SELECT * FROM `item_template` WHERE `entry`=%d "
+                "ORDER BY `patch` DESC LIMIT 1;" % recipe.plans,
+                "UPDATE `forever_plans_new` SET `entry`=%d, `patch`=0, `required_skill_rank`=%d;"
+                % (recipe.plans, recipe.min_rank),
+                "INSERT INTO `%s` SELECT * FROM `forever_plans_new`;" % ITEM_TABLE,
+                "DROP TEMPORARY TABLE `forever_plans_new`;",
+            ]
+    return lines
