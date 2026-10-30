@@ -275,6 +275,7 @@ def server_sql(spec, edits, stock):
     lines += new_recipes.server_sql(spec)
     lines += stock_recipes.server_sql(spec, stock)
     lines += mining.server_sql(spec)
+    lines += removed_recipes.plans_server_sql(spec, stock)
     # Last: the removal marker column of each override table, then the rows that it removes (#229). A row
     # copied with SELECT * after it would have one column too few (removals.py). Add removal lines here.
     removed = removed_recipes.server_sql(spec, stock)

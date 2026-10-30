@@ -7,11 +7,16 @@ line and every trainer:
 - the server removes them with the removal marker (removals.py): forever_skill_line_ability by ID, and
   forever_npc_trainer by each learn spell of the recipe.
 The spell itself stays in Spell.dbc and spell_template, so that a character who knows it keeps its row
-(#233 decides what that character gets). The plans item is only recorded.
+(#233 decides what that character gets).
+All six come from plans. The plans stay an item, so that a character who holds them keeps them, but on the
+Forever realm they teach nothing: forever_item_template holds a copy of the stock plans row with the learn
+spell taken out of its spell slots, so the plans have no use. The loot and vendor rows that offer them stay
+(no Forever creature loot or vendor table yet).
 """
 from collections import namedtuple
 
 from . import removals
+from .items import SPELL_SLOT, MAX_SPELLS
 from .recipes import NO_VALUE
 from .spec import SpecError
 
@@ -33,11 +38,14 @@ def read_row(where, raw):
 
 def check(spec, stock):
     """A removal row names a stock recipe spell (spell = sourceSpell) with a stock skill line ability in its
-    skill line, once, and no other recipe row of the spec names that spell."""
-    from .stock_recipes import stock_abilities
+    skill line, once, and no other recipe row of the spec names that spell. Its plans, if any, have a learn
+    spell and are no other row of the spec."""
+    from .stock_recipes import learn_spells, stock_abilities
     stock_spells = stock.spell.by_id()
     others = {recipe.spell for recipe in list(spec.recipes) + list(spec.stock_recipes)}
-    seen = set()
+    item_rows = {item.entry for item in spec.items}
+    other_plans = {recipe.plans for recipe in spec.stock_recipes if recipe.plans is not None}
+    seen, plans = set(), set()
     for recipe in spec.removed_recipes:
         where = "removed recipe %s: spell %d" % (recipe.name, recipe.spell)
         if recipe.source_spell != recipe.spell:
@@ -51,6 +59,16 @@ def check(spec, stock):
             raise SpecError("%s is also a recipe row of the spec" % where)
         if not stock_abilities(recipe, stock):
             raise SpecError("%s has no stock skill line ability in skill line %d" % (where, recipe.skill_line))
+        if recipe.plans is None:
+            continue
+        if not learn_spells(recipe, stock):
+            raise SpecError("%s: no stock spell learns it, so its plans %d cannot be emptied" % (where, recipe.plans))
+        # The generator writes a forever_item_template copy of the plans (server_sql): no other row may.
+        if recipe.plans in item_rows:
+            raise SpecError("%s: its plans %d are also an item row of the spec" % (where, recipe.plans))
+        if recipe.plans in other_plans or recipe.plans in plans:
+            raise SpecError("%s: the plans %d are named twice" % (where, recipe.plans))
+        plans.add(recipe.plans)
 
 
 def apply(table, spec, stock):
@@ -59,6 +77,42 @@ def apply(table, spec, stock):
     gone = {row[0] for recipe in spec.removed_recipes for row in stock_abilities(recipe, stock)}
     table.rows = [row for row in table.rows if row[0] not in gone]
     return table
+
+
+PLANS_TEMP = "forever_plans_gone"
+
+
+def plans_sql(recipe, learn):
+    """The forever_item_template copy of the stock plans of a removed recipe, with each spell slot that holds
+    a learn spell of the recipe emptied: the plans stay an item but teach nothing. Unless the newest stock
+    plans row holds a learn spell in exactly one slot, the SQL fails instead of copying the row."""
+    teaching = ", ".join(str(spell) for spell in learn)
+    slots = " + ".join("(`spellid_%d` IN (%s))" % (k, teaching) for k in range(1, MAX_SPELLS + 1))
+    lines = [
+        "-- Removed recipe %s (%d): its plans %d teach nothing." % (recipe.name, recipe.spell, recipe.plans),
+        "CREATE TEMPORARY TABLE `%s` SELECT * FROM `item_template` WHERE `entry`=%d "
+        "ORDER BY `patch` DESC LIMIT 1;" % (PLANS_TEMP, recipe.plans),
+        "SELECT IF((SELECT SUM(%s) FROM `%s`)=1, 0, (SELECT 1 UNION SELECT 2)) INTO @forever_found;" % (slots, PLANS_TEMP),
+    ]
+    for k in range(1, MAX_SPELLS + 1):
+        lines.append("UPDATE `%s` SET %s WHERE `spellid_%d` IN (%s);" % (
+            PLANS_TEMP, ", ".join("`%s_%d`=%s" % (column, k, empty) for column, empty in SPELL_SLOT), k, teaching))
+    return lines + [
+        "UPDATE `%s` SET `patch`=0;" % PLANS_TEMP,
+        "INSERT INTO `forever_item_template` SELECT * FROM `%s`;" % PLANS_TEMP,
+        "DROP TEMPORARY TABLE `%s`;" % PLANS_TEMP,
+    ]
+
+
+def plans_server_sql(spec, stock):
+    """The plans copies of the removed recipes that teach nothing (plans_sql). They are copies with SELECT *,
+    so build.server_sql writes them before removals.marker_sql."""
+    from .stock_recipes import learn_spells
+    lines = []
+    for recipe in sorted(spec.removed_recipes, key=lambda r: r.spell):
+        if recipe.plans is not None:
+            lines += [""] + plans_sql(recipe, learn_spells(recipe, stock))
+    return lines
 
 
 def server_sql(spec, stock):

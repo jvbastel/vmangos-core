@@ -80,6 +80,38 @@ def test_each_removal_row_marks_the_trainer_rows_of_its_learn_spell_on_the_serve
     assert marked(out, "npc_trainer") == {"spell": {learn for _, _, learn, _ in REMOVED.values()}}
 
 
+def plans_copy(out, plans):
+    """The SQL lines that copy the stock plans `plans` into forever_item_template, or []."""
+    lines = sql(out).splitlines()
+    start = "CREATE TEMPORARY TABLE `forever_plans_gone` SELECT * FROM `item_template` WHERE `entry`=%d " % plans
+    for k, line in enumerate(lines):
+        if line.startswith(start):
+            end = lines.index("DROP TEMPORARY TABLE `forever_plans_gone`;", k)
+            return lines[k:end + 1]
+    return []
+
+
+def test_the_plans_of_each_removed_recipe_teach_nothing_on_the_server(out):
+    # The six come from plans (world drops, Timbermaw vendors). On the Forever realm the plans stay an item
+    # (a character who holds them keeps them), but their copy has no learn spell: they cannot be used.
+    for name, (_, _, learn, plans) in REMOVED.items():
+        block = plans_copy(out, plans)
+        assert block, name
+        assert "INSERT INTO `forever_item_template` SELECT * FROM `forever_plans_gone`;" in block, name
+        for k in range(1, 6):
+            emptied = [line for line in block if line.startswith("UPDATE `forever_plans_gone` SET `spellid_%d`=0, "
+                                                                 "`spelltrigger_%d`=0" % (k, k))]
+            assert emptied and emptied[0].endswith("WHERE `spellid_%d` IN (%d);" % (k, learn)), (name, k)
+
+
+def test_a_plans_copy_fails_the_load_when_the_plans_do_not_teach_the_recipe(out):
+    # Without the learn spell in a slot of the stock plans row, the SQL fails instead of copying a row that
+    # still teaches something else.
+    for name, (_, _, learn, plans) in REMOVED.items():
+        guard = [line for line in plans_copy(out, plans) if line.startswith("SELECT IF(")]
+        assert guard and all(str(learn) in line for line in guard[:1]), name
+
+
 def test_every_override_table_gets_the_marker_after_all_its_other_rows(out):
     text = sql(out)
     tables = re.findall(r"^CREATE TABLE `(forever_\w+)` LIKE `\w+`;$", text, re.M)
@@ -119,3 +151,10 @@ def test_a_removal_row_of_a_recipe_that_the_spec_also_changes_is_refused(tmp_pat
 def test_a_removal_row_with_another_source_spell_is_refused(tmp_path):
     error = refused(tmp_path, (BELT, BELT.replace("23628\t23628", "23628\t23629")))
     assert "a removal row names the stock spell twice (sourceSpell 23629)" in error
+
+
+def test_a_removal_row_whose_plans_are_an_item_row_of_the_spec_is_refused(tmp_path):
+    # 3609 (Plans: Copper Chain Vest) is the source item of new plans rows, not an item row; 2844 (Copper
+    # Mace) is a changed stock item row of items.tsv.
+    error = refused(tmp_path, (BELT + "-\t-\t-\t-\t-\t-\t19202", BELT + "-\t-\t-\t-\t-\t-\t2844"))
+    assert "removed recipe Heavy Timbermaw Belt: spell 23628: its plans 2844 are also an item row of the spec" in error
