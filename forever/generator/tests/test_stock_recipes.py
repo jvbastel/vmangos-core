@@ -151,6 +151,14 @@ def test_the_plans_of_each_stock_recipe_need_its_forever_skill(out):
     assert sql(out).count("INSERT INTO `forever_item_template` SELECT * FROM `forever_plans_new`;") == len(with_plans)
 
 
+def test_the_plans_of_a_renamed_stock_recipe_carry_its_forever_name(out):
+    # The Forever client: 7991 "Plans: Mithril Plate Shoulders", 7995 "Plans: Mithril Plate Bracers". 7977 is not
+    # readable there and is assumed to follow. The other plans keep their stock name.
+    plans = {int(row["entry"]): row for row in sql_rows(out, "forever_plans_new")}
+    assert {entry: row["name"] for entry, row in plans.items() if "name" in row} == {
+        7991: "Plans: Mithril Plate Shoulders", 7995: "Plans: Mithril Plate Bracers", 7977: "Plans: Mithril Plate Gloves"}
+
+
 def test_the_reagent_and_name_changes_are_in_the_client_and_server_spells(out):
     client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
     server = {int(row["entry"]): row for row in sql_rows(out, "forever_spell_new")}

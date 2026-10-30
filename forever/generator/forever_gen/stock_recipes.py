@@ -6,12 +6,13 @@ A stock row keeps the stock spell ID, so that a character who knows the recipe k
 - the skill that its trainer rows need (forever_npc_trainer: a copy of every stock npc_trainer row of the
   recipe's learn spells, with the new reqskillvalue; the core reads it over npc_trainer by `spell`),
 - the skill that its plans need (forever_item_template: a copy of the stock plans row, with the new
-  required_skill_rank),
+  required_skill_rank and, for a renamed recipe, its Forever name),
 - its reagents, name and spell focus, where they differ from the stock spell (client Spell.dbc and
   forever_spell_template).
 The generator has no world database: the copies are SQL that runs on the stock rows at load time.
 """
 from .recipes import MAX_REAGENTS, NO_VALUE, focus_ids
+from .items import sql_text
 from .spec import SpecError
 
 TRAINER_TABLE = "forever_npc_trainer"
@@ -101,6 +102,15 @@ def learn_spells(recipe, stock):
                   if row[SPELL_EFFECT1] == SPELL_EFFECT_LEARN_SPELL and row[SPELL_TRIGGER1] == recipe.spell)
 
 
+def plans_name(recipe, stock):
+    """The name column that the plans of a renamed stock recipe set ("Plans: <its Forever name>", as the Forever
+    client has it for 7991 and 7995), or "" when the recipe keeps its stock name."""
+    stock_name = stock.spell.text(stock.spell.by_id()[recipe.spell][SPELL_NAME])
+    if recipe.name == stock_name:
+        return ""
+    return ", `name`=%s" % sql_text("Plans: " + recipe.name)
+
+
 def server_sql(spec, stock):
     """The server rows of the stock rows: the skill line abilities (forever_skill_line_ability, by the stock
     ID), the trainer rows (forever_npc_trainer) and the plans (forever_item_template)."""
@@ -129,8 +139,8 @@ def server_sql(spec, stock):
             lines += [
                 "CREATE TEMPORARY TABLE `forever_plans_new` SELECT * FROM `item_template` WHERE `entry`=%d "
                 "ORDER BY `patch` DESC LIMIT 1;" % recipe.plans,
-                "UPDATE `forever_plans_new` SET `entry`=%d, `patch`=0, `required_skill_rank`=%d;"
-                % (recipe.plans, recipe.min_rank),
+                "UPDATE `forever_plans_new` SET `entry`=%d, `patch`=0, `required_skill_rank`=%d%s;"
+                % (recipe.plans, recipe.min_rank, plans_name(recipe, stock)),
                 "INSERT INTO `%s` SELECT * FROM `forever_plans_new`;" % ITEM_TABLE,
                 "DROP TEMPORARY TABLE `forever_plans_new`;",
             ]
