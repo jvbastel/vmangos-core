@@ -102,6 +102,14 @@ def learn_spells(recipe, stock):
                   if row[SPELL_EFFECT1] == SPELL_EFFECT_LEARN_SPELL and row[SPELL_TRIGGER1] == recipe.spell)
 
 
+def no_trainer_template_sql(teaching):
+    """SQL that fails when an npc_trainer_template row teaches one of the spells `teaching` ("1, 2"): the core
+    reads that table with no Forever override (ObjectMgr::LoadTrainers), so a Forever trainer change would
+    not reach it (review L5)."""
+    return ("SELECT IF((SELECT COUNT(*) FROM `npc_trainer_template` WHERE `spell` IN (%s))=0, 0, "
+            "(SELECT 1 UNION SELECT 2)) INTO @forever_found;" % teaching)
+
+
 def plans_name(recipe, stock):
     """The name column that the plans of a renamed stock recipe set ("Plans: <its Forever name>", as the Forever
     client has it for 7991 and 7995), or "" when the recipe keeps its stock name."""
@@ -130,8 +138,10 @@ def server_sql(spec, stock):
         teaching = ", ".join(str(spell) for spell in learn_spells(recipe, stock))
         if teaching:
             # Every stock trainer row of the learn spells: the core reads forever_npc_trainer over npc_trainer
-            # by `spell`, so the copy must hold all of them.
+            # by `spell`, so the copy must hold all of them. npc_trainer_template has no Forever override
+            # (ObjectMgr::LoadTrainers): with a template row for a learn spell the SQL fails (review L5).
             lines += [
+                no_trainer_template_sql(teaching),
                 "INSERT INTO `%s` SELECT * FROM `npc_trainer` WHERE `spell` IN (%s);" % (TRAINER_TABLE, teaching),
                 "UPDATE `%s` SET `reqskillvalue`=%d WHERE `spell` IN (%s);" % (TRAINER_TABLE, recipe.min_rank, teaching),
             ]

@@ -118,10 +118,12 @@ def plans_server_sql(spec, stock):
 def server_sql(spec, stock):
     """The removal lines of the removed recipes: their stock skill line abilities and the trainer rows of
     their learn spells. build.server_sql writes them after removals.marker_sql."""
-    from .stock_recipes import learn_spells, stock_abilities
+    from .stock_recipes import learn_spells, no_trainer_template_sql, stock_abilities
     lines = []
     for recipe in sorted(spec.removed_recipes, key=lambda r: r.spell):
         lines += [""]
+        if learn_spells(recipe, stock):
+            lines.append(no_trainer_template_sql(", ".join(str(s) for s in learn_spells(recipe, stock))))
         lines += removals.remove_rows("skill_line_ability", "id", [row[0] for row in stock_abilities(recipe, stock)],
                                       "Removed recipe %s (%d): its skill line ability." % (recipe.name, recipe.spell))
         lines += removals.remove_rows("npc_trainer", "spell", learn_spells(recipe, stock),

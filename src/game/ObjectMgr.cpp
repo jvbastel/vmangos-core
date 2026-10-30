@@ -10629,6 +10629,8 @@ void ObjectMgr::LoadTrainers(char const* tableName, bool isTemplates)
     }
 
     // WOWAI Forever rules (#228): the forever_npc_trainer rows replace the stock npc_trainer rows of their spell.
+    // npc_trainer_template has no Forever override: no Blacksmithing recipe has template rows, and the
+    // generator's SQL fails when a learn spell that it changes has one (stock_recipes.py, review L5).
     std::string const fromTable = isTemplates ? std::string("`") + tableName + "`" : Forever::Table(tableName, "spell");
     result = WorldDatabase.PQuery("SELECT `entry`, `spell`, `spellcost`, `reqskill`, `reqskillvalue`, `reqlevel` FROM %s WHERE %u BETWEEN `build_min` AND `build_max`", fromTable.c_str(), SUPPORTED_CLIENT_BUILD);
 

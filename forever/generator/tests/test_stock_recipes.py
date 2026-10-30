@@ -143,6 +143,18 @@ def test_the_trainer_rows_of_each_stock_recipe_need_its_forever_skill(out):
     assert copies["2745"] == "65"
 
 
+def test_a_trainer_copy_fails_the_load_when_a_trainer_template_teaches_the_spell(out):
+    # Review L5: the core reads npc_trainer_template with no Forever override (ObjectMgr::LoadTrainers), so a
+    # learn spell with template rows would keep its stock skill there. The SQL fails instead.
+    text = sql(out)
+    copies = re.findall(r"^(.*)\nINSERT INTO `forever_npc_trainer` SELECT \* FROM `npc_trainer` WHERE `spell` IN \(([\d, ]+)\);$",
+                        text, re.M)
+    assert copies
+    for guard, teaching in copies:
+        assert guard == ("SELECT IF((SELECT COUNT(*) FROM `npc_trainer_template` WHERE `spell` IN (%s))=0, 0, "
+                         "(SELECT 1 UNION SELECT 2)) INTO @forever_found;" % teaching)
+
+
 def test_the_plans_of_each_stock_recipe_need_its_forever_skill(out):
     plans = {int(row["entry"]): row for row in sql_rows(out, "forever_plans_new")}
     with_plans = [row for row in stock_rows() if row["plans"] != "-"]

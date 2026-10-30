@@ -80,6 +80,9 @@ def test_each_removal_row_marks_the_trainer_rows_of_its_learn_spell_on_the_serve
     # None of the six has a stock trainer row (they come from plans), so the copy holds no row today. The
     # marker still covers any trainer row that teaches the learn spell.
     assert marked(out, "npc_trainer") == {"spell": {learn for _, _, learn, _ in REMOVED.values()}}
+    # No trainer template teaches it either: that table has no Forever override, so the SQL fails (review L5).
+    for _, _, learn, _ in REMOVED.values():
+        assert "FROM `npc_trainer_template` WHERE `spell` IN (%d))=0" % learn in sql(out)
 
 
 def plans_copy(out, plans):
