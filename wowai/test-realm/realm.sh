@@ -51,7 +51,8 @@ Kit commands:
                        as --set Forever.Rules=1 --set
                        'Forever.DataDir="/opt/vmangos/storage/forever/dbc"'.
                        With Forever.Rules = 1, each acquire generates the
-                       Forever data from the worktree's forever/warrior.tsv
+                       Forever data from the worktree's spec folder
+                       forever/spec (Warrior, Blacksmithing, items)
                        into the slot's forever/ folder (mounted at
                        /opt/vmangos/storage/forever) and loads its
                        forever_world.sql into the world database.
@@ -465,15 +466,15 @@ EOF
 # realm folder, which mangosd mounts at $forever_mount. The folder is emptied
 # first (it keeps its inode, see realm_edit_config). With Forever.Rules = 1
 # in mangosd.conf, forever/generator writes the data of the tree's
-# forever/warrior.tsv into it; realm_start then loads its SQL. Argument: the
+# spec folder forever/spec into it; realm_start then loads its SQL. Argument: the
 # stock DBC folder.
 realm_forever() {
   local folder="$realm_dir/forever"
   mkdir -p "$folder"
   find "$folder" -mindepth 1 -delete
   grep -qx 'Forever.Rules = 1' "$realm_dir/config/mangosd.conf" || return 0
-  echo "Forever.Rules = 1: generating the Forever data of $src/forever/warrior.tsv..."
-  python3 -I "$src/forever/generator/generate.py" --spec "$src/forever/warrior.tsv" \
+  echo "Forever.Rules = 1: generating the Forever data of $src/forever/spec..."
+  python3 -I "$src/forever/generator/generate.py" --spec "$src/forever/spec" \
     --stock "$1" --out "$folder" || die "the Forever data generator failed"
 }
 

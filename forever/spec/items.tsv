@@ -1,0 +1,34 @@
+# Forever items: the new and changed item rows of spec jvbastel/WOWAI#225. forever/generator writes each into
+# forever_item_template (world database): a copy of the stock row of its source item with the spec values on
+# top. The 1.12 client has no item table: it asks the server for each item, so items need no client data.
+# Never edit a generated file by hand. To gather the data again, see forever/REFRESH.md.
+#
+# Source: WoW Forever build 1.60.1.70685, recorded 2026-10-30: the local Forever client (ItemSparse and Item,
+# the dump items.tsv of #224, whose stats come from the allocations of ItemSparse). Only numbers and names.
+#
+# Free item ID range: 70000-79999. A new item takes its ID from here. The stock 1.12 world database ends at item
+# 25818. Next free item ID: 70001.
+#
+# Stats: the 1.12 item has five base stats (Str, Agi, Sta, Int, Spi) and Health and Mana. Every other Forever
+# stat (spell power, healing, hit, crit, defense, ...) becomes a stock equip spell. `foreverStats` keeps the
+# Forever values next to the 1.12 ones, so that exact values can come later.
+#
+# Columns (tab-separated):
+#   kind           item (a new item, or a changed stock item that is its own source)
+#   entry          the item ID: from the free item range for a new item
+#   sourceItem     the stock item whose row is copied: class, subclass, slot, material, durability, sheath
+#   name           the item name
+#   quality        poor, common, uncommon, rare or epic
+#   itemLevel, requiredLevel
+#   bonding        none, pickup, equip or use
+#   armor          the armor value
+#   stats          base stats: "<Str|Agi|Sta|Int|Spi|Health|Mana> <value>", separated by commas, or -
+#   equipSpells    the stock spells that the item gives on equip, separated by commas, or -
+#   displayId      a stock ItemDisplayInfo.dbc ID (the model and the icon)
+#   sellPrice      in copper
+#   foreverItem    the item ID in the Forever client
+#   foreverStats   the Forever stats as the client has them
+#   notes          free text
+kind	entry	sourceItem	name	quality	itemLevel	requiredLevel	bonding	armor	stats	equipSpells	displayId	sellPrice	foreverItem	foreverStats	notes
+# --- #226 tracer bullet: the item of the recipe Strange Copper Boots (blacksmithing.tsv).
+item	70000	3469	Strange Copper Boots	rare	15	10	pickup	109	Sta 4	9395	23528	243	250621	SpellPower 5, Sta 4	Mail boots. SpellPower 5 = Increase Spell Dam 5 (9395, +5 damage and healing). The model and icon of Copper Chain Boots (3469).

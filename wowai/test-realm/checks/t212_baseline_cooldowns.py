@@ -34,7 +34,7 @@ RETALIATION, RECKLESSNESS, SHIELD_WALL = 20230, 1719, 871
 LARGE_ROUND_SHIELD = 2129
 WORN_SHORTSWORD = 25
 MAIN_HAND_SLOT, OFF_HAND_SLOT = 15, 16
-# The baseline spells and their levels (forever/warrior.tsv).
+# The baseline spells and their levels (forever/spec/warrior.tsv).
 BASELINE = {60125: 14, 60123: 20, 60126: 20, 18499: 30}
 MINUTE = 60
 SWITCH = r"\[Forever\] %s switches from the vanilla rules to the Forever rules"

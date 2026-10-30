@@ -8,7 +8,7 @@
 // Vanguard (spec jvbastel/WOWAI#204, WOWAI#216): "Your Charge ability is now usable while in Defensive
 // Stance." The client checks the stance of a spell itself, so the talent cannot change Charge. It swaps
 // Charge for Vanguard Charge instead: a copy of the same rank that the client allows in Battle and
-// Defensive Stance (forever/warrior.tsv, the ability row Charge).
+// Defensive Stance (forever/spec/warrior.tsv, the ability row Charge).
 //
 // While a Warrior knows the Vanguard talent, the spellbook shows the Vanguard Charge of its highest
 // stock Charge rank in place of stock Charge, and each Charge button casts it. The stock Charge ranks

@@ -18,7 +18,7 @@ class SpellEntry;
 // Spearing Strike, Bloodthrill, Weaponmaster and Improved Slam. Each function is one hook in an upstream
 // file. Each does nothing (and returns the stock answer) unless the Forever rules are on and the unit is
 // a Warrior player. The rules are in ForeverArmsRules.h, the values in the talent spells
-// (forever/warrior.tsv).
+// (forever/spec/warrior.tsv).
 namespace Forever
 {
     // Aura::HandleAuraModShapeshift, Warrior stances: `keptTenths` is the Rage that the stock Tactical

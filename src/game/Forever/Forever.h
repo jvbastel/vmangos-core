@@ -18,10 +18,11 @@ class MasterPlayer;
 class Player;
 class Unit;
 
-// The Forever rules of the Warrior (spec jvbastel/WOWAI#204): one realm setting, Forever.Rules, off by
-// default. When it is on, the core loads the talent tables from the Forever DBC folder (Forever.DataDir)
-// and the rows of the forever_* world tables on top of the stock rows by ID. The stock tables and the
-// stock DBC files never change, so the setting off and a restart give vanilla back.
+// The Forever rules of the Warrior (spec jvbastel/WOWAI#204) and of Mining and Blacksmithing (spec #225):
+// one realm setting, Forever.Rules, off by default. When it is on, the core loads the talent tables from
+// the Forever DBC folder (Forever.DataDir) and the rows of the forever_* world tables on top of the stock
+// rows by ID. The stock tables and the stock DBC files never change, so the setting off and a restart
+// give vanilla back.
 //
 // This header is the one facade of the Forever rules for the stock code: a stock file includes only
 // Forever.h. Each function is one hook in an upstream file, or a helper that several Forever files share.
@@ -58,6 +59,13 @@ namespace Forever
     // `key` has no Forever row, plus all rows of forever_<table>, under the name of the stock table.
     // With the rules off, the stock table.
     std::string Table(char const* table, char const* key);
+
+    // A loader query on the world table `table` whose FROM cannot take Table(), because it names the table
+    // twice (ObjectMgr::LoadItemPrototypes: `FROM item_template t1 WHERE patch=(SELECT max(patch) FROM
+    // item_template t2 ...)`, #226). `select(name)` gives the query on the table `name` and ends in a WHERE
+    // condition. With the rules on: the query on the stock table without the rows whose `key` has a Forever
+    // row, UNION ALL the query on forever_<table>. With the rules off: the query on the stock table.
+    std::string SelectWithForeverRows(char const* table, char const* key, std::function<std::string(std::string const&)> const& select);
 
     // SpellMgr::LoadSpells, after the stock rows: with the rules on, loads each forever_spell_template
     // row through `load` (which replaces the stock spell of that ID or adds a new one), after

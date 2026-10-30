@@ -1,6 +1,6 @@
 """The data pipeline test of the Forever rules (spec jvbastel/WOWAI#204, testing decision 1).
 
-It runs the generator on the spec file, as the test realm kit does, and reads what it wrote from the
+It runs the generator on the spec folder forever/spec, as the test realm kit does, and reads what it wrote from the
 outside: the talent tables through the talent exporter of the bot tools, the client spell rows as a
 DBC file, and the server spell data as the SQL that the world database runs.
 
@@ -19,7 +19,9 @@ import pytest
 from forever_gen import client_patch
 
 ROOT = Path(__file__).resolve().parents[3]
-SPEC = ROOT / "forever" / "warrior.tsv"
+# The spec folder (one file per area, #226) and its Warrior file, whose rows these tests check.
+SPEC_DIR = ROOT / "forever" / "spec"
+SPEC = SPEC_DIR / "warrior.tsv"
 GENERATOR = ROOT / "forever" / "generator" / "generate.py"
 EXPORTER = ROOT / "bots" / "tools" / "talents" / "export_talents.py"
 STOCK = Path(os.environ.get("FOREVER_STOCK_DBC", "/mnt/c/Games/vmangos-deploy/storage/mangosd/extracted-data/5875/dbc"))
@@ -28,6 +30,7 @@ pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no 
 
 # Spell.dbc 1.12.1: 0 ID, 117 SpellIconID, 120 Name (enUS), 129 Rank (enUS), 138 Description (enUS).
 SPELL_ID, SPELL_ICON, SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION = 0, 117, 120, 129, 138
+SPELL_STRING_FIELDS = {first + k for first in (120, 129, 138, 147) for k in range(8)}
 
 
 def spec_rows(kind=None):
@@ -72,8 +75,8 @@ def read_dbc(path):
     return rows, lambda offset: strings[offset:strings.index(b"\0", offset)].decode("utf-8")
 
 
-def generate(out):
-    subprocess.run([sys.executable, "-I", str(GENERATOR), "--spec", str(SPEC), "--stock", str(STOCK),
+def generate(out, spec=SPEC_DIR):
+    subprocess.run([sys.executable, "-I", str(GENERATOR), "--spec", str(spec), "--stock", str(STOCK),
                     "--out", str(out)], check=True)
     return out
 
@@ -335,3 +338,34 @@ def test_no_new_forever_spell_is_a_channel(out):
     server = server_spells(out)
     channels = sorted(i for i, row in server.items() if i >= 60100 and int(row.get("attributesEx", 0)) & CHANNELED)
     assert channels == []
+
+
+def test_the_other_spec_files_leave_the_warrior_output_as_it_is(out, tmp_path):
+    # #226: the spec is a folder with one file per area. The Warrior file alone gives the Warrior output;
+    # the other files add their own rows and change no Warrior byte: the talent tables are the same, and
+    # each row of the Warrior-only spell and skill line ability tables is in the full tables as it is.
+    alone = tmp_path / "warrior-only"
+    alone.mkdir()
+    (alone / "warrior.tsv").write_bytes(SPEC.read_bytes())
+    warrior = generate(tmp_path / "warrior-out", alone)
+    assert sorted(p.name for p in SPEC_DIR.glob("*.tsv")) != ["warrior.tsv"], "the spec folder has only the Warrior file"
+    for name in ("dbc/Talent.dbc", "dbc/TalentTab.dbc", "client/DBFilesClient/Talent.dbc"):
+        assert (out / name).read_bytes() == (warrior / name).read_bytes(), name
+    for name in ("Spell.dbc", "SkillLineAbility.dbc"):
+        full, full_text = read_dbc(out / "client" / "DBFilesClient" / name)
+        only, only_text = read_dbc(warrior / "client" / "DBFilesClient" / name)
+        assert set(only) < set(full), name
+        for key, row in only.items():
+            if name == "Spell.dbc":
+                # Every field: the string fields (8 locales of name, rank, description, tooltip) by text.
+                for field, value in enumerate(row):
+                    if field in SPELL_STRING_FIELDS:
+                        assert full_text(full[key][field]) == only_text(value), (key, field)
+                    else:
+                        assert full[key][field] == value, (key, field)
+            else:
+                assert full[key] == row, key
+    sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
+    for line in (warrior / "sql" / "forever_world.sql").read_text(encoding="utf-8").splitlines():
+        if line.startswith(("UPDATE", "INSERT")):
+            assert line in sql, line

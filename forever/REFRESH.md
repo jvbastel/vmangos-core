@@ -1,9 +1,26 @@
 # Refresh of the Forever spec
 
-`forever/warrior.tsv` holds the Forever rules of the Warrior (spec jvbastel/WOWAI#204): one row per
-talent, per new ability and per changed base ability. Its header names the sources, the Forever build, the
-date, the free ID range, the next free IDs and each column. The generator in `forever/generator` makes all
-Forever data from it. Nobody edits the generated files by hand.
+The spec is the folder `forever/spec`, one file per area. The generator in `forever/generator` reads every
+`*.tsv` file in it and makes all Forever data from them. Nobody edits the generated files by hand.
+
+- `warrior.tsv` holds the Forever rules of the Warrior (spec jvbastel/WOWAI#204): one row per talent, per
+  new ability and per changed base ability.
+- `blacksmithing.tsv` holds the Blacksmithing recipes (spec #225): one row per new recipe spell.
+- `items.tsv` holds the new and changed items (spec #225): one row per item.
+
+Each header names the sources, the Forever build, the date, its free ID range, the next free IDs and each
+column. Within a file, the rows of one ticket stay in a block under a comment line that names the ticket.
+
+## Free ID ranges
+
+| IDs | Range | Named in | Notes |
+|---|---|---|---|
+| Spells, talents, skill line abilities | 60000-65535 | `warrior.tsv` | spell IDs are SMALLINT UNSIGNED in the world database |
+| Profession spells (recipes) | 61000-61999 | `blacksmithing.tsv` | a block of the spell range; the core can tell a profession spell from a Warrior spell by its ID, even with the rules off. The generator refuses a recipe outside it |
+| Items | 70000-79999 | `items.tsv` | the stock 1.12 world database ends at item 25818. A changed stock item keeps its own ID |
+
+A new row takes the next free ID of its range, and the header then moves "Next free" on. Never use again an
+ID that an older spec gave out: a character can still know the spell or own the item.
 
 A refresh is a pull request that shows the changed rows. Nothing changes on a server until the player
 merges it.
@@ -38,6 +55,13 @@ merges it.
   The `notes` say what changed from stock and which ticket owns the code.
 - Out of scope, never rows: Expertise, the racial changes, Legacy perks, the "Talented" points, Dual
   Specialization.
+- A recipe (`blacksmithing.tsv`) is a copy of a stock recipe spell (`sourceSpell`), which keeps the stock
+  cast time, tool and icon. Pick a stock recipe of the same profession and station. A recipe whose stock
+  focus is the Anvil keeps the Anvil, even where Forever asks for a Master Forge.
+- An item (`items.tsv`) is a copy of the stock row of `sourceItem` (class, subclass, slot, material,
+  durability). Pick a stock item of the same kind. Base stats go into `stats`; every other stat becomes a
+  stock equip spell in `equipSpells` (for example 9395 for +5 spell damage and healing). Keep the Forever
+  values in `foreverStats`. `displayId` is a stock `ItemDisplayInfo.dbc` ID, which also gives the icon.
 
 ## 3. Pick a stock icon
 

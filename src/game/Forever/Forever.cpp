@@ -49,9 +49,10 @@ void Forever::LoadConfig(bool reload)
     if (rulesOn)
     {
         // Without one of the forever_* tables, the union of Table() fails and the stock table loads 0 rows
-        // (spell IDs, chains, proc events, skill lines, threat). Stop before any of them loads.
+        // (spell IDs, chains, proc events, skill lines, threat, items). Stop before any of them loads.
         static char const* const foreverTables[] = { "forever_spell_template", "forever_spell_chain",
-            "forever_spell_proc_event", "forever_skill_line_ability", "forever_spell_threat", "forever_baseline_spell" };
+            "forever_spell_proc_event", "forever_skill_line_ability", "forever_spell_threat", "forever_baseline_spell",
+            "forever_item_template" };
         for (char const* table : foreverTables)
         {
             std::unique_ptr<QueryResult> found(WorldDatabase.PQuery("SELECT 1 FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = '%s'", table));
@@ -101,6 +102,16 @@ std::string Forever::Table(char const* table, char const* key)
     std::string const column = std::string("`") + key + "`";
     return "(SELECT * FROM " + stock + " WHERE " + column + " NOT IN (SELECT " + column + " FROM " + forever +
         ") UNION ALL SELECT * FROM " + forever + ") AS " + stock;
+}
+
+std::string Forever::SelectWithForeverRows(char const* table, char const* key, std::function<std::string(std::string const&)> const& select)
+{
+    std::string const stock = std::string("`") + table + "`";
+    if (!rulesOn)
+        return select(stock);
+    std::string const forever = std::string("`forever_") + table + "`";
+    std::string const column = std::string("`") + key + "`";
+    return select(stock) + " AND " + column + " NOT IN (SELECT " + column + " FROM " + forever + ") UNION ALL " + select(forever);
 }
 
 void Forever::LoadSpellTemplate(std::function<void(uint32)> const& resize, std::function<void(Field*)> const& load)

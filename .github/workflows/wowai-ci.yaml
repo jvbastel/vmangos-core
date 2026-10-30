@@ -137,7 +137,7 @@ jobs:
 
       # The data pipeline of the Forever rules (spec jvbastel/WOWAI#204, Testing Decision 1): spec
       # parsing, the rule checks and refusals, the DBC and SQL output, the client data patch, and the
-      # spell IDs of the C++ code against forever/warrior.tsv.
+      # spell IDs of the C++ code against forever/spec/warrior.tsv, the recipes and items of forever/spec (#226).
       - name: Run the Forever generator tests
         shell: bash
         working-directory: forever/generator
