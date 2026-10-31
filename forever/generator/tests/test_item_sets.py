@@ -77,7 +77,8 @@ def test_the_other_stock_item_sets_stay_byte_for_byte(out):
     stock, stock_text = read_dbc(STOCK / "ItemSet.dbc")
     assert set(rows) == set(stock) | {BLESSED}
     for set_id, row in stock.items():
-        if set_id != IMPERIAL:
+        # The dungeon sets 161 and 162 of #248 change too (test_loot_item_sets.py).
+        if set_id not in (IMPERIAL, 161, 162):
             assert row[:1] + row[2:] == rows[set_id][:1] + rows[set_id][2:]
             assert text(rows[set_id][NAME]) == stock_text(row[NAME])
 
@@ -94,7 +95,8 @@ def set_ids(out):
 
 def test_the_server_item_rows_of_the_new_pieces_carry_their_set(out):
     # The stock Imperial pieces keep their stock rows (set_id 321 in the world database).
-    assert set_ids(out) == {**{entry: BLESSED for entry in EXPECTED[BLESSED]["items"]}, 70208: IMPERIAL}
+    found = {entry: set_id for entry, set_id in set_ids(out).items() if set_id in (BLESSED, IMPERIAL)}
+    assert found == {**{entry: BLESSED for entry in EXPECTED[BLESSED]["items"]}, 70208: IMPERIAL}
 
 
 def test_a_new_item_copied_from_a_set_piece_is_in_no_set(out):

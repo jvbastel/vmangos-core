@@ -146,7 +146,8 @@ def read(path):
     else:
         files = [path]
     readers = {COLUMNS: _read_spell_rows, recipes.COLUMNS: recipes.read_rows, items.COLUMNS: items.read_rows,
-               item_sets.COLUMNS: item_sets.read_rows, mining.COLUMNS: mining.read_rows,
+               item_sets.COLUMNS: item_sets.read_rows, item_sets.LOOT_COLUMNS: item_sets.read_loot_rows,
+               mining.COLUMNS: mining.read_rows,
                encrypted.COLUMNS: encrypted.read_rows, trainers.COLUMNS: trainers.read_rows,
                loot.ITEM_COLUMNS: loot.read_item_rows, loot.LOOT_COLUMNS: loot.read_loot_rows}
     found = {"rows": [], "recipes": [], "items": [], "stock_recipes": [], "removed_recipes": [], "item_sets": [],
