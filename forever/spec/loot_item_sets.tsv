@@ -1,0 +1,49 @@
+# Forever item sets with a piece in the six dungeons of spec jvbastel/WOWAI#240 (#248). forever/generator writes
+# them into ItemSet.dbc of the Forever DBC folder (the core reads the set bonuses there with Forever.Rules = 1) and
+# of the client data patch (the tooltip), as for item_sets.tsv (#231). A stock piece keeps its stock row and its
+# stock set_id. Never edit a generated file by hand. To gather the data again, see forever/REFRESH.md ("Dungeon
+# loot", item sets).
+#
+# Item ID block: 71600-71699 (no set here needs a new item). Next free item ID: 71600.
+#
+# Which sets: every Forever ItemSet row with a piece that is an item row of a loot_*_items.tsv file (its entry or
+# foreverItem), and every stock set (item_template.set_id) with a piece that a boss or creature of the six dungeons
+# drops or that a quest of their zones gives (stock world database, read 2026-10-31). Only 161, 162 and 2131 have
+# one. Dungeon Set 1 (181-189) and every other set stay stock.
+#
+# Source: WoW Forever build 1.60.1.70685, read 2026-10-31: the local Forever client (ItemSet, ItemSetSpell,
+# SpellName, Spell, SpellEffect, SpellAuraOptions), compared with the stock 1.12 ItemSet.dbc and Spell.dbc.
+#
+# Columns (tab-separated):
+#   kind         set: a new item set (a Forever ID that is no stock set ID)
+#                stockset: a changed stock item set (the stock set ID)
+#                bonus: one set bonus of the set `set`
+#   set          the ItemSet.dbc ID
+#   name         the set name (set row); a label (bonus row)
+#   threshold    bonus: the number of worn pieces that gives the bonus; set, stockset: -
+#   pieces       set, stockset: the item entries (spec entries), in the Forever tooltip order; bonus: -
+#   bonuses      bonus: as in item_sets.tsv (stock 1.12 equip spells, item_sets.py SET_BONUSES); "none": not ported
+#   foreverSpell bonus: the Forever set spell (ItemSetSpell); set, stockset: -
+#   leftOut      bonus: the Forever value that stays off (needed when bonuses is "none"), else -.
+#                set: why the whole set stays out (its bonuses are listed too), else -.
+#                The generator lists each one in loot-list.tsv.
+#   source       client <build>, or a Wowhead Forever URL
+#   date         the date of the reading, YYYY-MM-DD
+#   notes        free text
+kind	set	name	threshold	pieces	bonuses	foreverSpell	leftOut	source	date	notes
+# --- #248 Defias Leather (stock set 161, The Deadmines): the bonuses move and two are new Forever spells.
+stockset	161	Defias Leather	-	10399,10403,10402,10401,10400	-	-	-	client 1.60.1.70685	2026-10-31	Stock set 161, same pieces. Stock bonuses: 2 Armor 10 (9760), 3 Arcane Resistance 5 (14707), 4 Daggers +1 (7534), 5 Attack Power 10 (9140). 10399 and 10403 are Deadmines items rows (#244); 10400-10402 are unchanged stock pieces.
+bonus	161	Defias Leather (2)	2	-	ArcaneRes 5	14707	-	client 1.60.1.70685	2026-10-31	Forever 14707 itself (aura 22, Arcane, 5).
+bonus	161	Defias Leather (3)	3	-	none	1292025	Forever 1292025 Humanoid Slaying 15: +15 Attack Power against Humanoids (melee and ranged)	client 1.60.1.70685	2026-10-31	Auras 102 and 131, creature type mask 64. 1.12 has slaying spells for Beasts, Demons, Undead, Dragons, Elementals and Giants only.
+bonus	161	Defias Leather (4)	4	-	none	1292028	Forever 1292028 Devious Strike: 5% chance on a melee hit from behind to make the target bleed for 15 Physical damage every 1 sec for 5 sec (1292029)	client 1.60.1.70685	2026-10-31	A proc (aura 42) of a new Forever spell; 1.12 has no such proc.
+bonus	161	Defias Leather (5)	5	-	DaggerSkill 1	7534	-	client 1.60.1.70685	2026-10-31	Forever 7534 itself (aura 30, skill 173 Daggers, +1).
+# --- #248 Embrace of the Viper (stock set 162, Wailing Caverns): the bonuses move and two are new Forever spells.
+stockset	162	Embrace of the Viper	-	10412,10411,10413,10410,6473	-	-	-	client 1.60.1.70685	2026-10-31	Stock set 162, same pieces. Stock bonuses: 2 Nature damage 7 (7694), 3 Staves +2 (20607), 4 Healing 11 (7679), 5 Intellect 10 (9106). 6473, 10410, 10411 and 10412 are Wailing Caverns items rows (#243); 10413 is an unchanged stock piece.
+bonus	162	Embrace of the Viper (2)	2	-	Intellect 10	9106	-	client 1.60.1.70685	2026-10-31	Forever 9106 itself (aura 29, Intellect, 10).
+bonus	162	Embrace of the Viper (3)	3	-	AP 10	9140	-	client 1.60.1.70685	2026-10-31	Forever 9140 itself (auras 99 and 124, 10).
+bonus	162	Embrace of the Viper (4)	4	-	none	1291796	Forever 1291796 Embrace of the Viper: taking damage at or below 25% health restores 20 health and 20 mana every 1 sec for 5 sec (1291797), once every 5 min	client 1.60.1.70685	2026-10-31	A proc (aura 42) of a new Forever spell; 1.12 has no such proc.
+bonus	162	Embrace of the Viper (5)	5	-	none	1291807	Forever 1291807 Dream Venom: a chance on melee hit to stun the target for 1 sec (1291806)	client 1.60.1.70685	2026-10-31	A proc (aura 42) of a new Forever spell. No stock equip spell stuns for 1 sec on a hit from any weapon.
+# --- #248 Partners in Crime (new Forever set 2131, The Deadmines): left out.
+set	2131	Partners in Crime	-	71204	-	-	Its other piece, Forever 284716 (an epic), has no source in the six dungeons: one piece cannot reach the 2-piece bonuses	client 1.60.1.70685	2026-10-31	Forever pieces 284715 (First Mate Band, Deadmines items row 71204, #244) and 284716.
+bonus	2131	Partners in Crime (2)	2	-	none	1317038	Forever 1317038 Increase Strength 22: +22 Strength	client 1.60.1.70685	2026-10-31	The set is left out.
+bonus	2131	Partners in Crime (2, Angry)	2	-	none	1317039	Forever 1317039 Now you're making me angry: a chance on melee swing to gain 50 Strength for 10 sec (1317040)	client 1.60.1.70685	2026-10-31	The set is left out.

@@ -376,6 +376,9 @@ def generate(spec, stock_folder, out, marker_icons):
     stock = Stock(stock_folder)
     # The confirmed dungeon loot items join the items (#242); the other loot rows go to the loot list.
     spec, loot_listed = loot.resolve(spec, stock)
+    # A left-out item set (#248) goes too; it and each left-out set bonus join the loot list.
+    spec, set_listed = item_sets.resolve(spec)
+    loot_listed = sorted(loot_listed + set_listed, key=lambda r: (r.list, r.kind, r.id))
     # The item rules and the rules of the new rows hold for every row, also the ones the rule then cuts.
     items.check(spec, stock)
     encrypted.check(spec)

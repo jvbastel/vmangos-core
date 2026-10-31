@@ -222,6 +222,16 @@ keeps each raw answer in `notes/forever/wowhead-cache/item/` (outside git) and p
 The generator writes `loot-list.tsv` next to the cut list: each `leftOut` value (list `left-out`) and each row that
 is not confirmed (list `unconfirmed` or `unreadable`). Review it at each refresh.
 
+Item sets of the dungeons (`loot_item_sets.tsv`, #248): the rows of `item_sets.tsv` (same kinds, bonus names and
+rules, `generator/forever_gen/item_sets.py`) plus `leftOut`, `source` and `date`. A set is in it when a piece is an
+item row of a `loot_*_items.tsv` file (its `entry` or `foreverItem`, in the Forever client table ItemSet) or a stock
+drop or quest reward of the six dungeons with a stock `item_template.set_id`. At 70685 these are 161 Defias Leather,
+162 Embrace of the Viper and 2131 Partners in Crime; Dungeon Set 1 and the other sets stay stock. A bonus with no
+stock equip spell (a new Forever proc, Attack Power against Humanoids) has `bonuses` "none" and its Forever value in
+`leftOut`: the generator refuses a "none" bonus without it. A set whose `leftOut` names a reason stays out of
+ItemSet.dbc (2131: its other piece has no source). The generator lists each left-out set and set bonus in
+`loot-list.tsv` (kinds `set` and `set bonus`). At a refresh, run the set search again over the merged item rows.
+
 The generator has no world database. It reads the stock creatures (entry, loot ID, name), quests (title, reward
 choices), references (the creature loot entries that use each) and gear from `generator/forever_gen/stock_world/`,
 which `generator/tools/stock_world_rows.py` writes from the shared test realm (SELECT only). Run it again after an
