@@ -54,7 +54,8 @@ LIST_FILE = "loot-list.tsv"
 
 # One row of an items file. raw: {column: value}; block: (low, high) of its file; where: the row for an error.
 LootItem = namedtuple("LootItem", "kind entry name status source date left_out raw block path where")
-# A new boss drop. loot: CREATURE or REFERENCE; reference: the reference ID or None.
+# A new boss drop. loot: CREATURE or REFERENCE; reference: the reference ID or None; chance: None on a drop that is
+# not confirmed and names no chance.
 Drop = namedtuple("Drop", "item name boss boss_name loot reference chance status source date where")
 # A quest reward row (kind reward or unlock). replaces: the stock choice it replaces or None; count: the item count.
 Reward = namedtuple("Reward", "kind item name quest title replaces count status source date where")
@@ -88,6 +89,20 @@ def read_item_rows(path, lines):
     return {"loot_items": rows}
 
 
+def _drop_chance(where, raw):
+    """The chance of a drop row in percent. A drop that is not confirmed may have none ("-", #243): its source can
+    name the boss without a chance (a guide), and the row is only listed, never written."""
+    if raw["chance"] == NO_VALUE and raw["status"] != CONFIRMED:
+        return None
+    try:
+        chance = float(raw["chance"])
+    except ValueError:
+        raise SpecError("%s: the chance '%s' is no number (a confirmed drop needs its chance)" % (where, raw["chance"]))
+    if not 0 < chance <= 100:
+        raise SpecError("%s: chance %s is not above 0 and at most 100" % (where, raw["chance"]))
+    return chance
+
+
 def read_loot_rows(path, lines):
     drops, rewards = [], []
     for where, raw in rows_of(path, lines, LOOT_COLUMNS):
@@ -101,9 +116,7 @@ def read_loot_rows(path, lines):
             loot, _, reference = raw["loot"].partition(" ")
             if loot not in (CREATURE, REFERENCE) or (loot == REFERENCE) != reference.isdigit():
                 raise SpecError("%s: loot '%s' is not 'creature' or 'reference <ID>'" % (where, raw["loot"]))
-            chance = float(raw["chance"])
-            if not 0 < chance <= 100:
-                raise SpecError("%s: chance %s is not above 0 and at most 100" % (where, raw["chance"]))
+            chance = _drop_chance(where, raw)
             drops.append(Drop(boss=int(raw["target"]), boss_name=raw["targetName"], loot=loot,
                               reference=int(reference) if reference else None, chance=chance, **common))
         else:
@@ -140,6 +153,18 @@ def _disenchant(item_class, quality, item_level, world):
     return min(candidates, key=lambda g: (abs(g.item_level - item_level), g.entry)).disenchant_id
 
 
+def _stock_item_class(row, source, world):
+    """The item class of the stock source of a stock or twin row, for its disenchant ID: from the stock gear file, or
+    from the row's `class` when the source is not in it (a common item that Forever makes uncommon or better, #243).
+    None: the row keeps the stock disenchant ID."""
+    gear = [g for g in world.gear if g.entry == source]
+    if gear:
+        if _number(row.raw, "class") not in (None, gear[0].item_class):
+            raise SpecError("%s: class %s is not the class %d of the stock item" % (row.where, row.raw["class"], gear[0].item_class))
+        return gear[0].item_class
+    return _number(row.raw, "class")
+
+
 def _item(row, world):
     """The items.Item of a confirmed item row."""
     raw, where = row.raw, row.where
@@ -156,8 +181,7 @@ def _item(row, world):
             raise SpecError("%s: a new item with no stock twin has no sourceItem" % where)
     else:
         source, display = int(raw["sourceItem"]), None
-        gear = [g for g in world.gear if g.entry == source]
-        item_class = gear[0].item_class if gear else None
+        item_class = _stock_item_class(row, source, world)
     if raw["displayId"] != NO_VALUE:
         display = int(raw["displayId"])
     if display is None:
