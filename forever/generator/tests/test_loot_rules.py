@@ -8,8 +8,8 @@ import re
 
 import pytest
 
-from loot_helpers import (ITEM_FILES, LOOT_FILES, changed, item_block, item_rows, loot_list, new_equip_spells, sql,
-                          stock_equip_spells)
+from loot_helpers import (ITEM_FILES, LOOT_FILES, changed, item_block, item_rows, loot_list, new_equip_spells, refused,
+                          sql, stock_equip_spells)
 from test_blacksmithing import spec_rows
 from test_pipeline import STOCK
 
@@ -141,3 +141,10 @@ def test_a_confirmed_new_item_that_no_confirmed_drop_or_reward_names_stays_out_a
     listed = loot_list(out)
     assert "no confirmed drop, reward or item set names it" in listed[("unconfirmed", "item", "71404")]
     assert 71404 not in item_rows(out, "forever_item_new")
+
+
+def test_a_new_item_whose_class_subclass_or_slot_is_not_that_of_item_db2_is_refused(tmp_path):
+    # Bone Knuckles (Forever item 272998) is a fist weapon (2, 13) in the main hand (21) in Item.db2.
+    error = refused(tmp_path, ("loot_ragefire_chasm_items.tsv", "Bone Knuckles\trare\t18\t13\tpickup\t2\t13\t21\t",
+                               "Bone Knuckles\trare\t18\t13\tpickup\t2\t15\t21\t"))
+    assert "Bone Knuckles" in error and "class 2, subclass 15, slot 21 is not 2, 13, 21 of Item.db2 item 272998" in error

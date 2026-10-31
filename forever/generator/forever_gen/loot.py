@@ -20,6 +20,8 @@ rows of that entry (Forever::Table). The new row is outside every stock equal-ch
 from patch DUNGEON_PATCH_MIN on. A quest with a reward row becomes a copy of every stock row of the quest with
 the Forever reward choices. The generator reads the stock creatures, quests and references from stock_world.py.
 """
+import csv
+import os
 import re
 from collections import namedtuple
 
@@ -51,9 +53,9 @@ CREATURE_TABLE, REFERENCE_TABLE, QUEST_TABLE = ("forever_creature_loot_template"
 TABLES = (CREATURE_TABLE, REFERENCE_TABLE, QUEST_TABLE)
 # The other loot tables that can use a reference (LootMgr.cpp loads every store's references from one reference
 # store): a Forever reference copy must not change their loot, so the SQL fails when one of them uses it.
-OTHER_REFERENCE_USERS = ("gameobject_loot_template", "fishing_loot_template", "item_loot_template", "mail_loot_template",
-                         "disenchant_loot_template", "pickpocketing_loot_template", "skinning_loot_template",
-                         "reference_loot_template")
+OTHER_REFERENCE_USERS = ("gameobject_loot_template", "fishing_loot_template", "item_loot_template",
+                         "mail_loot_template", "disenchant_loot_template", "pickpocketing_loot_template",
+                         "skinning_loot_template", "reference_loot_template")
 # The six dungeons of spec #240 are open from the first content patch: a new drop loads from patch 0 to 10.
 DUNGEON_PATCH_MIN, PATCH_MAX = 0, 10
 QUEST_CHOICES = 6
@@ -66,6 +68,9 @@ SOURCE = re.compile(r"(https://nether\.wowhead\.com/tooltip/\w+/\d+\?dataEnv=16&
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
 BLOCK = re.compile(r"^# Item ID block: (\d+)-(\d+)\.", re.M)
 LIST_FILE = "loot-list.tsv"
+# Item.db2 of the Forever client: {Forever item: (class, subclass, slot)} of the Forever item of each new item row
+# (written outside git, forever/REFRESH.md "Dungeon loot"). A new item's class, subclass and slot must be these.
+ITEM_CLASSES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "item_classes.tsv")
 # The loot list of the confirmed rows whose source a script cannot read (a wowhead.com page, which answers 403 to
 # scripts): a refresh reads them with a web-fetch tool and places them by hand (spec story 23).
 MANUAL_SOURCE = "manual-source"
@@ -155,13 +160,28 @@ def _number(raw, column):
     return None if raw[column] == NO_VALUE else int(raw[column])
 
 
-def _template(row, world):
+def read_item_classes(path=ITEM_CLASSES):
+    """{Forever item: (class, subclass, slot)} of Item.db2 (ITEM_CLASSES)."""
+    with open(path, encoding="utf-8", newline="") as handle:
+        lines = [line for line in handle if not line.startswith("#")]
+    return {int(r["foreverItem"]): (int(r["class"]), int(r["subclass"]), int(r["inventoryType"]))
+            for r in csv.DictReader(lines, delimiter="\t", quoting=csv.QUOTE_NONE)}
+
+
+def _template(row, world, classes):
     """The stock item that a new item with no stock twin copies: the same class, subclass and slot, nearest in item
-    level, then of the same quality, then the lowest ID."""
+    level, then of the same quality, then the lowest ID. Refuses a class, subclass or slot that is not the one of
+    Item.db2 (`classes`)."""
     raw = row.raw
     key = (_number(raw, "class"), _number(raw, "subclass"), _number(raw, "inventoryType"))
     if None in key:
         raise SpecError("%s: a new item with no stock twin needs class, subclass and inventoryType" % row.where)
+    forever = int(raw["foreverItem"])
+    if forever not in classes:
+        raise SpecError("%s: Forever item %d is not in %s (Item.db2)" % (row.where, forever, os.path.basename(ITEM_CLASSES)))
+    if classes[forever] != key:
+        raise SpecError("%s: class %d, subclass %d, slot %d is not %d, %d, %d of Item.db2 item %d"
+                        % ((row.where,) + key + classes[forever] + (forever,)))
     quality = item_rows.QUALITIES.get(raw["quality"])
     candidates = [g for g in world.gear if (g.item_class, g.subclass, g.inventory_type) == key]
     if not candidates:
@@ -201,7 +221,7 @@ def _block_and_stats(where, text):
     return (int(blocks[0].partition(" ")[2]) if blocks else None), item_rows.parse_stats(where, rest)
 
 
-def _item(row, world):
+def _item(row, world, classes):
     """The items.Item of a confirmed item row."""
     raw, where = row.raw, row.where
     bonuses = equip_stats.parse(where, raw["bonuses"])
@@ -211,7 +231,7 @@ def _item(row, world):
                                                                         item_rows.MAX_ITEM_SPELLS))
     quality = item_rows.named(where, "quality", raw["quality"], item_rows.QUALITIES)
     if row.kind == NEW:
-        template = _template(row, world)
+        template = _template(row, world, classes)
         source, display, item_class = template.entry, template.display_id, template.item_class
         if raw["sourceItem"] != NO_VALUE:
             raise SpecError("%s: a new item with no stock twin has no sourceItem" % where)
@@ -262,6 +282,7 @@ def resolve(spec, stock):
     # A new item needs a confirmed source of its own (spec story 22): a confirmed drop or reward, or an item set.
     named = {r.item for r in list(spec.loot_drops) + list(spec.loot_rewards) if r.status == CONFIRMED}
     named |= {piece for item_set in spec.item_sets for piece in item_set.pieces}
+    classes = read_item_classes()
     for row in spec.loot_items:
         if row.status != CONFIRMED:
             listed.append(Listed(row.status, "item", row.entry, row.name, row.source))
@@ -274,7 +295,7 @@ def resolve(spec, stock):
             continue
         if row.kind != NEW and int(row.raw["sourceItem"]) not in stock.item_ids:
             raise SpecError("%s: sourceItem %s is no stock item" % (row.where, row.raw["sourceItem"]))
-        new_items.append(_item(row, stock.world))
+        new_items.append(_item(row, stock.world, classes))
         _list_manual(listed, "item", row.entry, row)
         if row.left_out != NO_VALUE:
             listed.append(Listed(LEFT_OUT, "item", row.entry, row.name, row.left_out))
