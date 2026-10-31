@@ -148,3 +148,14 @@ def test_a_new_item_whose_class_subclass_or_slot_is_not_that_of_item_db2_is_refu
     error = refused(tmp_path, ("loot_ragefire_chasm_items.tsv", "Bone Knuckles\trare\t18\t13\tpickup\t2\t13\t21\t",
                                "Bone Knuckles\trare\t18\t13\tpickup\t2\t15\t21\t"))
     assert "Bone Knuckles" in error and "class 2, subclass 15, slot 21 is not 2, 13, 21 of Item.db2 item 272998" in error
+
+
+def test_a_new_loot_item_costs_five_times_its_sell_price(out):
+    # A new item copies a stock item of its slot, which can be of a much higher level (Bone Knuckles copies the
+    # level-51 Vilerend Slicer, buy price 153283). Stock weapons and armor of quality 2-3 cost 5 times their sell
+    # price (6401 of 7140 in the stock item_template); the durability of a slot and quality does not change with level.
+    new = [int(r["entry"]) for r in all_item_rows() if r["kind"] != "stock" and r["status"] == "confirmed"]
+    rows = item_rows(out, "forever_item_new")
+    assert {e: int(rows[e]["buy_price"]) for e in new if e in rows} == {
+        e: 5 * int(rows[e]["sell_price"]) for e in new if e in rows}
+    assert int(rows[71001]["buy_price"]) == 5 * 1352

@@ -61,6 +61,10 @@ DUNGEON_PATCH_MIN, PATCH_MAX = 0, 10
 QUEST_CHOICES = 6
 # The `stats` part that sets the shield block value (item_template `block`), as the tooltip writes it: "Block 9".
 BLOCK_STAT = "Block"
+# A new item copies a stock item of its slot that can be of a much higher level: its buy price is this many times its
+# sell price, as for 6401 of the 7140 stock weapons and armor of quality 2-3 (the durability of a slot and quality does
+# not change with the level, so it stays that of the copied item).
+BUY_PRICE_FACTOR = 5
 # Every class (item_template allowable_class): a lifted class lock.
 ALL_CLASSES = -1
 SOURCE = re.compile(r"(https://nether\.wowhead\.com/tooltip/\w+/\d+\?dataEnv=16&locale=0|https://www\.wowhead\.com/forever/\S+"
@@ -252,7 +256,8 @@ def _item(row, world, classes):
         resistances=item_rows.parse_resistances(where, raw["resistances"]), stats=stats, block=block,
         bonuses=bonuses, equip_spells=spells, display_id=display, sell_price=int(raw["sellPrice"]),
         forever_item=int(raw["foreverItem"]), forever_stats=raw["foreverStats"], notes=raw["notes"],
-        disenchant_id=None if item_class is None else _disenchant(item_class, quality, int(raw["itemLevel"]), world))
+        disenchant_id=None if item_class is None else _disenchant(item_class, quality, int(raw["itemLevel"]), world),
+        buy_price=None if row.kind == STOCK else BUY_PRICE_FACTOR * int(raw["sellPrice"]))
 
 
 def _blocks(spec):
