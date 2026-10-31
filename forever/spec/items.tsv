@@ -9,6 +9,7 @@
 #
 # Free item ID range: 70000-79999. A new item takes its ID from here. The stock 1.12 world database ends at item
 # 25818. Next free item ID: 70384 (70382-70383: the ores of mining.tsv).
+# 71000-71699 are the blocks of the dungeon loot items (spec #240, forever/REFRESH.md "Dungeon loot").
 #
 # Stats: the 1.12 item has five base stats (Str, Agi, Sta, Int, Spi) and Health and Mana in `stats`, and the
 # six resistances in `resistances`. Every other Forever stat is a bonus: a stock 1.12 equip spell

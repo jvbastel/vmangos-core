@@ -17,9 +17,10 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, dead_content, encrypted, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, sources, stock_recipes, trainers
+from . import client_patch, dead_content, encrypted, item_sets, items, loot, mining, new_recipes, recipes, removals, removed_recipes, rules, sources, stock_recipes, trainers
 from .common import CLIENT_BUILD, focus_ids, sql_text
 from .dbc import Dbc
+from .stock_world import StockWorld
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
 
@@ -39,7 +40,7 @@ SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 
 FOREVER_TABLES = ("forever_spell_template", "forever_spell_chain", "forever_spell_proc_event",
                   "forever_skill_line_ability", "forever_spell_threat", items.TABLE, stock_recipes.TRAINER_TABLE,
-                  mining.TABLE)
+                  mining.TABLE) + loot.TABLES
 # The spells that the core teaches a Warrior at their spellLevel, with no trainer (#212). The core reads it only
 # with Forever.Rules = 1. The migration sql/migrations/20261029120000_world.sql makes it too, with the same
 # columns (tests/test_spell_ids.py checks it), so that a realm without the generated SQL fails at startup, not quietly.
@@ -79,6 +80,8 @@ class Stock:
         self.item_set = Dbc.read(os.path.join(folder, "ItemSet.dbc"))
         # The stock item IDs of the world database (#230), from the generator's own list.
         self.item_ids = new_recipes.ItemIds.read()
+        # The stock creatures, quests, references and gear of the world database (#242), from the generator's own files.
+        self.world = StockWorld.read()
 
 
 def spell_ranks(spec):
@@ -288,6 +291,7 @@ def server_sql(spec, edits, stock):
     lines += stock_recipes.server_sql(spec, stock)
     lines += trainers.server_sql(spec, stock)
     lines += mining.server_sql(spec)
+    lines += loot.server_sql(spec, stock)
     lines += removed_recipes.plans_server_sql(spec, stock)
     # Last: the removal marker column of each override table, then the rows that it removes (#229). A row
     # copied with SELECT * after it would have one column too few (removals.py). Add removal lines here.
@@ -370,12 +374,15 @@ def generate(spec, stock_folder, out, marker_icons):
     (encrypted-list.tsv, encrypted.py) into `out`. A spec that breaks a rule raises a SpecError before
     anything is written. Returns the cut list."""
     stock = Stock(stock_folder)
+    # The confirmed dungeon loot items join the items (#242); the other loot rows go to the loot list.
+    spec, loot_listed = loot.resolve(spec, stock)
     # The item rules and the rules of the new rows hold for every row, also the ones the rule then cuts.
     items.check(spec, stock)
     encrypted.check(spec)
     sources.check(spec)
     new_recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     mining.check(spec, stock)
+    loot.check(spec, stock)
     # The ID rules hold for the rows that the rule cuts too: a refresh can bring a cut row back (review L2).
     rules.check(spec, stock, marker_icons)
     recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)], check_focus=False)
@@ -415,5 +422,7 @@ def generate(spec, stock_folder, out, marker_icons):
         file.write(dead_content.cut_list_text(cuts))
     with open(os.path.join(out, "encrypted-list.tsv"), "w", encoding="utf-8", newline="\n") as file:
         file.write(encrypted.list_text(spec))
+    with open(os.path.join(out, loot.LIST_FILE), "w", encoding="utf-8", newline="\n") as file:
+        file.write(loot.list_text(loot_listed))
     client_patch.write(os.path.join(out, "client"))
     return cuts
