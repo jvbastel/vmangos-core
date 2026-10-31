@@ -32,7 +32,7 @@ STAT_TYPES = {"Mana": 0, "Health": 1, "Agi": 3, "Str": 4, "Int": 5, "Spi": 6, "S
 # The spell effect of each bonus: (aura, misc value) of each "apply aura" effect (Spell.dbc 1.12.1).
 BONUS_AURAS = {((52, 0),): "Crit", ((54, 0),): "Hit", ((49, 0),): "Dodge", ((47, 0),): "Parry", ((51, 0),): "Block",
                ((30, 95),): "Defense", ((99, 0), (124, 0)): "AP", ((13, 126), (135, 126)): "SpellPower",
-               ((135, 126),): "Healing", ((22, 126),): "AllRes"}
+               ((135, 126),): "Healing", ((22, 126),): "AllRes", ((85, 0),): "Mp5", ((124, 0),): "RangedAP"}
 # Spell.dbc 1.12.1: 61-63 Effect, 64-66 EffectDieSides, 76-78 EffectBasePoints, 91-93 aura, 106-108 misc value.
 EFFECT, DIE_SIDES, BASE_POINTS, AURA, MISC = 61, 64, 76, 91, 106
 

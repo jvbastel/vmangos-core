@@ -34,18 +34,20 @@ CMSG_QUEST_QUERY, SMSG_QUEST_QUERY_RESPONSE = 92, 93
 CMSG_LOOT, CMSG_LOOT_RELEASE, SMSG_LOOT_RESPONSE = 349, 351, 352
 NOT_FOUND = 0x80000000
 CREATURE_LOOT = "forever_creature_loot_template"
-KAM, KAM_REFERENCE = 1666, 30098
+TARGORR, KAM, HAMHOCK, DEXTREN, BAZIL = 1696, 1666, 1717, 1663, 1716
+# The restore takes the spec chance and the stock table's chance, not values read at the start, so a run that died
+# while forced does not leave 100% behind.
+KAM_REFERENCE = 30098
 WALKING_STICK, GIRDLE, MITTENS = 2280, 71503, 71516
-GIRDLE_CHANCE = 2.19
 CRIME, CRIME_STOCK = 377, [2033, 2906]
 RARE, UNCOMMON = 3, 2
 # The spec drops (forever/spec/loot_stockade.tsv): (boss loot entry, item): chance.
 DROPS = {
-    (1696, 71500): 1.5, (1696, 71501): 1.7, (1696, 71502): 1.68,
-    (1666, 71503): 2.19, (1666, 71504): 1.83,
-    (1717, 71505): 1.75, (1717, 71506): 1.47, (1717, 71507): 1.79,
-    (1663, 71508): 2.0, (1663, 71509): 1.76, (1663, 71510): 1.36,
-    (1716, 71511): 0.98, (1716, 71512): 0.92, (1716, 71513): 1.23, (1716, 71514): 0.94,
+    (TARGORR, 71500): 1.5, (TARGORR, 71501): 1.7, (TARGORR, 71502): 1.68,
+    (KAM, 71503): 2.19, (KAM, 71504): 1.83,
+    (HAMHOCK, 71505): 1.75, (HAMHOCK, 71506): 1.47, (HAMHOCK, 71507): 1.79,
+    (DEXTREN, 71508): 2.0, (DEXTREN, 71509): 1.76, (DEXTREN, 71510): 1.36,
+    (BAZIL, 71511): 0.98, (BAZIL, 71512): 0.92, (BAZIL, 71513): 1.23, (BAZIL, 71514): 0.94,
 }
 
 
@@ -138,12 +140,12 @@ def force():
     c.gm(".reload creature_loot_template", wait=3)
 
 
-def restore(reference):
+def restore():
     realm.sql("mangos", "UPDATE %s SET ChanceOrQuestChance = %s WHERE entry = %d AND item = %d"
-              % (CREATURE_LOOT, GIRDLE_CHANCE, KAM, GIRDLE))
-    if reference:
-        realm.sql("mangos", "UPDATE %s SET ChanceOrQuestChance = %s WHERE entry = %d AND mincountOrRef = -%d"
-                  % (CREATURE_LOOT, reference, KAM, KAM_REFERENCE))
+              % (CREATURE_LOOT, DROPS[(KAM, GIRDLE)], KAM, GIRDLE))
+    realm.sql("mangos", "UPDATE %s SET ChanceOrQuestChance = (SELECT ChanceOrQuestChance FROM creature_loot_template "
+              "WHERE entry = %d AND mincountOrRef = -%d) WHERE entry = %d AND mincountOrRef = -%d"
+              % (CREATURE_LOOT, KAM, KAM_REFERENCE, KAM, KAM_REFERENCE))
     c.gm(".reload creature_loot_template", wait=3)
 
 
@@ -172,7 +174,7 @@ if mode == "forever":
     try:
         loot = kill_and_loot(KAM)
     finally:
-        restore(reference)
+        restore()
     results.check("Kam Deepfury drops his stock Kam's Walking Stick (%d)" % WALKING_STICK, loot and WALKING_STICK in loot,
                   "loot %r" % loot)
     results.check("Kam Deepfury drops the new Demolition Girdle (%d)" % GIRDLE, loot and GIRDLE in loot, "loot %r" % loot)
@@ -198,7 +200,7 @@ else:
     try:
         loot = kill_and_loot(KAM)
     finally:
-        restore(reference)
+        restore()
     results.check("Kam drops no Demolition Girdle, even at 100%% in %s" % CREATURE_LOOT,
                   loot is not None and GIRDLE not in loot, "loot %r" % loot)
 

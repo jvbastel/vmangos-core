@@ -44,9 +44,9 @@ NEW_ITEMS = {
     71509: ("Boneslicer", 273819, (2, 6, 17), 3, {}, set(), ((36, 55), 2000)),
     71510: ("Nightskulker Ring", 273820, (4, 0, 11), 3, {}, set(), None),
     71511: ("Defias Jailbreakers", 273824, (4, 2, 10), 3, {"Agi": 6, "Sta": 7}, set(), None),
-    71512: ("Red Wool Cloak", 273825, (4, 1, 16), 3, {}, {("SpellPower", 4), ("Healing", 7)}, None),
+    71512: ("Red Wool Cloak", 273825, (4, 1, 16), 3, {}, {("SpellPower", 4), ("Healing", 7), ("Mp5", 3)}, None),
     71513: ("Debt Collector", 273827, (2, 7, 21), 3, {}, {("SpellPower", 34)}, ((21, 39), 2300)),
-    71514: ("Concealed Hand Crossbow", 273829, (2, 18, 26), 3, {}, set(), ((24, 37), 2000)),
+    71514: ("Concealed Hand Crossbow", 273829, (2, 18, 26), 3, {}, {("RangedAP", 12)}, ((24, 37), 2000)),
     71515: ("Ursine Hammer", 270027, (2, 5, 17), 2, {"Agi": 5, "Int": 5, "Spi": 5}, set(), ((47, 71), 3200)),
     71516: ("Town Clerk's Mittens", 270029, (4, 1, 10), 2, {"Int": 7}, {("SpellPower", 4)}, None),
     71517: ("Magistrate's Pantaloons", 270036, (4, 1, 7), 3, {"Int": 13}, {("SpellPower", 7)}, None),
@@ -82,7 +82,7 @@ QUEST_ITEMS = {
 }
 # The Forever effects with no 1.12 equip spell (or none of the Forever value): item: a word of its loot list detail.
 LEFT_OUT = {
-    2280: "movement impairing", 2942: "25 damage", 71503: "damage done by magical spells", 71505: "Humanoids",
+    2280: "movement impairing", 2942: "25 damage", 71503: "damage done by magical spells", 71505: "Humanoids", 71507: "Block",
     71508: "Undead", 71509: "70 Physical damage", 71510: "Fear", 71511: "Lockpicking", 71513: "resisted",
 }
 
