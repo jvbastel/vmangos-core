@@ -13,7 +13,7 @@ Every stat other than the base stats is a bonus: a stock equip spell (equip_stat
 from collections import namedtuple
 
 from . import equip_stats
-from .common import NO_VALUE, SpecError, check_kind, copy_item_sql, fail_unless, id_range, rows_of, sql_text
+from .common import NO_VALUE, SpecError, check_kind, copy_item_sql, fail_unless, id_range, optional_int, rows_of, sql_text
 
 # stats: [(item_template stat type, value)]; bonuses: [equip_stats.Bonus]; equip_spells: [spell ID];
 # quality, bonding and inventory_type: the numbers. inventory_type, delay, damage (min, max) and resistances
@@ -101,11 +101,11 @@ def read_rows(path, lines):
             quality=named(where, "quality", raw["quality"], QUALITIES), item_level=int(raw["itemLevel"]),
             required_level=int(raw["requiredLevel"]), bonding=named(where, "bonding", raw["bonding"], BONDINGS),
             inventory_type=None if raw["inventoryType"] == NO_VALUE else named(where, "inventoryType", raw["inventoryType"], SLOTS),
-            delay=None if raw["delay"] == NO_VALUE else int(raw["delay"]), damage=parse_damage(where, raw["damage"]),
+            delay=optional_int(raw, "delay"), damage=parse_damage(where, raw["damage"]),
             armor=int(raw["armor"]), resistances=parse_resistances(where, raw["resistances"]),
             stats=parse_stats(where, raw["stats"]), bonuses=bonuses, equip_spells=spells,
             display_id=int(raw["displayId"]), sell_price=int(raw["sellPrice"]),
-            forever_item=None if raw["foreverItem"] == NO_VALUE else int(raw["foreverItem"]),
+            forever_item=optional_int(raw, "foreverItem"),
             forever_stats=raw["foreverStats"], notes=raw["notes"]))
     return {"items": items}
 

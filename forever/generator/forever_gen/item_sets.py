@@ -15,18 +15,17 @@ SET_BONUSES. A Forever bonus with no 1.12 aura is a bonus row with the bonuses "
 generator leaves it out.
 
 The item sets of the dungeon loot (loot_item_sets.tsv, #248, spec #240) have the same rows plus `leftOut`, `source`
-and `date` (LOOT_COLUMNS). A bonus that is not ported, or only in part, names its Forever value in `leftOut`; a set
+and `date` (DUNGEON_COLUMNS). A bonus that is not ported, or only in part, names its Forever value in `leftOut`; a set
 whose `leftOut` names a reason stays out as a whole (resolve). The generator lists each in the loot list.
 """
 from collections import namedtuple
 
 from . import equip_stats
-from .common import NO_VALUE, SpecError, rows_of
-from .loot import DATE, SOURCE, Listed
+from .common import NO_VALUE, Listed, SpecError, check_source, rows_of
 
 COLUMNS = ("kind", "set", "name", "threshold", "pieces", "bonuses", "foreverSpell", "notes")
 # loot_item_sets.tsv (#248): every row names its source and date, and what stays off.
-LOOT_COLUMNS = ("kind", "set", "name", "threshold", "pieces", "bonuses", "foreverSpell", "leftOut", "source", "date",
+DUNGEON_COLUMNS = ("kind", "set", "name", "threshold", "pieces", "bonuses", "foreverSpell", "leftOut", "source", "date",
                 "notes")
 # set: a new set (an ID that is no stock set); stockset: a changed stock set (a stock ID); bonus: a set bonus.
 SET, STOCK_SET, BONUS = "set", "stockset", "bonus"
@@ -58,26 +57,28 @@ ItemSet = namedtuple("ItemSet", "set_id name pieces bonuses notes kind left_out"
 SetBonus = namedtuple("SetBonus", "threshold bonuses forever_spell notes name left_out", defaults=("", None))
 
 
-def read_rows(path, lines, columns=COLUMNS):
+def _twice(where, set_id):
+    return SpecError("%s: item set %d is in the spec twice" % (where, set_id))
+
+
+def read_rows(path, lines, columns=COLUMNS, check_row=None):
+    """The item sets of an item sets file. check_row(where, raw): the extra rules of the file kind, or None."""
     sets, bonuses = {}, []
     for where, raw in rows_of(path, lines, columns):
         set_id = int(raw["set"])
         left_out = raw.get("leftOut", NO_VALUE)
         left_out = None if left_out == NO_VALUE else left_out
-        if columns == LOOT_COLUMNS:
-            _source(where, raw)
+        if check_row:
+            check_row(where, raw)
         if raw["kind"] in (SET, STOCK_SET):
             if set_id in sets:
-                raise SpecError("%s: item set %d is in the spec twice" % (where, set_id))
+                raise _twice(where, set_id)
             pieces = [int(p) for p in raw["pieces"].split(",")]
             sets[set_id] = ItemSet(set_id, raw["name"], pieces, [], raw["notes"], raw["kind"], left_out)
         elif raw["kind"] == BONUS:
             parts = [] if raw["bonuses"] == NOT_PORTED else equip_stats.parse(where, raw["bonuses"], SET_BONUSES)
             if raw["foreverSpell"] == NO_VALUE:
                 raise SpecError("%s: a set bonus has no source (foreverSpell)" % where)
-            if columns == LOOT_COLUMNS and not parts and left_out is None:
-                raise SpecError("%s: the set bonus %s is left off (none) and names no Forever value (leftOut)"
-                                % (where, raw["name"]))
             bonuses.append((where, set_id, SetBonus(int(raw["threshold"]), parts, int(raw["foreverSpell"]), raw["notes"],
                                                     raw["name"], left_out)))
         else:
@@ -89,17 +90,16 @@ def read_rows(path, lines, columns=COLUMNS):
     return {"item_sets": [sets[k] for k in sorted(sets)]}
 
 
-def read_loot_rows(path, lines):
+def _check_dungeon_row(where, raw):
+    """The rules of a row of loot_item_sets.tsv: a source and date, and a Forever value for a bonus left off."""
+    check_source("item set row %s" % where, raw)
+    if raw["kind"] == BONUS and raw["bonuses"] == NOT_PORTED and raw["leftOut"] == NO_VALUE:
+        raise SpecError("%s: the set bonus %s is left off (none) and names no Forever value (leftOut)" % (where, raw["name"]))
+
+
+def read_dungeon_rows(path, lines):
     """The rows of loot_item_sets.tsv (#248)."""
-    return read_rows(path, lines, LOOT_COLUMNS)
-
-
-def _source(where, raw):
-    where = "item set row %s" % where
-    if not SOURCE.match(raw["source"]):
-        raise SpecError("%s has no source: '%s' is no Wowhead Forever URL and no 'client <build>'" % (where, raw["source"]))
-    if not DATE.match(raw["date"]):
-        raise SpecError("%s: the date '%s' is not YYYY-MM-DD" % (where, raw["date"]))
+    return read_rows(path, lines, DUNGEON_COLUMNS, _check_dungeon_row)
 
 
 def resolve(spec):
@@ -136,7 +136,7 @@ def check(spec, stock):
     for item_set in spec.item_sets:
         where = "item set %s (%d)" % (item_set.name, item_set.set_id)
         if item_set.set_id in seen:
-            raise SpecError("%s: item set %d is in the spec twice" % (where, item_set.set_id))
+            raise _twice(where, item_set.set_id)
         seen.add(item_set.set_id)
         if item_set.kind == SET and item_set.set_id in stock_sets:
             raise SpecError("%s: a new set (kind set) has the ID of a stock set" % where)

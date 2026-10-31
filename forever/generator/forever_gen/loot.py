@@ -26,7 +26,8 @@ import re
 from collections import namedtuple
 
 from . import equip_stats, items as item_rows
-from .common import NO_VALUE, SpecError, check_kind, fail_unless, number_text, rows_of
+from .common import (NO_VALUE, Listed, SpecError, check_kind, check_source, fail_unless, number_text, optional_int,
+                     rows_of)
 
 ITEM_COLUMNS = ("kind", "entry", "foreverItem", "sourceItem", "name", "quality", "itemLevel", "requiredLevel", "bonding",
                 "class", "subclass", "inventoryType", "delay", "damage", "armor", "resistances", "stats", "bonuses",
@@ -67,9 +68,6 @@ BLOCK_STAT = "Block"
 BUY_PRICE_FACTOR = 5
 # Every class (item_template allowable_class): a lifted class lock.
 ALL_CLASSES = -1
-SOURCE = re.compile(r"(https://nether\.wowhead\.com/tooltip/\w+/\d+\?dataEnv=16&locale=0|https://www\.wowhead\.com/forever/\S+"
-                    r"|client \d+\.\d+\.\d+\.\d+)$")
-DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
 BLOCK = re.compile(r"^# Item ID block: (\d+)-(\d+)\.", re.M)
 LIST_FILE = "loot-list.tsv"
 # Item.db2 of the Forever client: {Forever item: (class, subclass, slot)} of the Forever item of each new item row
@@ -87,16 +85,13 @@ LootItem = namedtuple("LootItem", "kind entry name status source date left_out r
 Drop = namedtuple("Drop", "item name boss boss_name loot reference chance status source date notes where")
 # A quest reward row (kind reward or unlock). replaces: the stock choice it replaces, FIXED (the item leaves the fixed
 # rewards and is added as a choice) or None; count: the item count.
+# The loot entry of a drop: the Forever table, the stock table it copies, the entry.
+LootEntry = namedtuple("LootEntry", "table stock_table entry")
 Reward = namedtuple("Reward", "kind item name quest title replaces count status source date notes where")
-# One line of the loot list: list (left-out, unconfirmed, unreadable), kind, id, name, detail.
-Listed = namedtuple("Listed", "list kind id name detail")
 
 
 def _source(where, raw):
-    if not SOURCE.match(raw["source"]):
-        raise SpecError("%s has no source: '%s' is no Wowhead Forever URL and no 'client <build>'" % (where, raw["source"]))
-    if not DATE.match(raw["date"]):
-        raise SpecError("%s: the date '%s' is not YYYY-MM-DD" % (where, raw["date"]))
+    check_source(where, raw)
     if raw["status"] not in STATUSES:
         raise SpecError("%s: status '%s' is none of %s" % (where, raw["status"], ", ".join(STATUSES)))
 
@@ -160,10 +155,6 @@ def read_loot_rows(path, lines):
     return {"loot_drops": drops, "loot_rewards": rewards}
 
 
-def _number(raw, column):
-    return None if raw[column] == NO_VALUE else int(raw[column])
-
-
 def read_item_classes(path=ITEM_CLASSES):
     """{Forever item: (class, subclass, slot)} of Item.db2 (ITEM_CLASSES)."""
     with open(path, encoding="utf-8", newline="") as handle:
@@ -177,7 +168,7 @@ def _template(row, world, classes):
     level, then of the same quality, then the lowest ID. Refuses a class, subclass or slot that is not the one of
     Item.db2 (`classes`)."""
     raw = row.raw
-    key = (_number(raw, "class"), _number(raw, "subclass"), _number(raw, "inventoryType"))
+    key = (optional_int(raw, "class"), optional_int(raw, "subclass"), optional_int(raw, "inventoryType"))
     if None in key:
         raise SpecError("%s: a new item with no stock twin needs class, subclass and inventoryType" % row.where)
     forever = int(raw["foreverItem"])
@@ -208,10 +199,10 @@ def _stock_class(row, source, world):
     disenchant ID stays stock."""
     gear = [g for g in world.gear if g.entry == source]
     if gear:
-        if _number(row.raw, "class") not in (None, gear[0].item_class):
+        if optional_int(row.raw, "class") not in (None, gear[0].item_class):
             raise SpecError("%s: class %s is not the class %d of the stock item" % (row.where, row.raw["class"], gear[0].item_class))
         return gear[0].item_class
-    return _number(row.raw, "class")
+    return optional_int(row.raw, "class")
 
 
 def _block_and_stats(where, text):
@@ -251,7 +242,7 @@ def _item(row, world, classes):
         kind=item_rows.STOCK if row.kind == STOCK else item_rows.NEW, entry=row.entry, source_item=source, name=row.name,
         quality=quality, item_level=int(raw["itemLevel"]),
         required_level=int(raw["requiredLevel"]), bonding=item_rows.named(where, "bonding", raw["bonding"], item_rows.BONDINGS),
-        inventory_type=_number(raw, "inventoryType"), delay=_number(raw, "delay"),
+        inventory_type=optional_int(raw, "inventoryType"), delay=optional_int(raw, "delay"),
         damage=item_rows.parse_damage(where, raw["damage"]), armor=int(raw["armor"]),
         resistances=item_rows.parse_resistances(where, raw["resistances"]), stats=stats, block=block,
         bonuses=bonuses, equip_spells=spells, display_id=display, sell_price=int(raw["sellPrice"]),
@@ -350,18 +341,18 @@ def _known_item(spec, stock, item):
 
 
 def _loot_entry(drop, stock):
-    """(table, stock table, loot entry) of a drop."""
+    """The LootEntry of a drop."""
     if drop.loot == REFERENCE:
-        return REFERENCE_TABLE, "reference_loot_template", drop.reference
-    return CREATURE_TABLE, "creature_loot_template", stock.world.creatures[drop.boss][0]
+        return LootEntry(REFERENCE_TABLE, "reference_loot_template", drop.reference)
+    return LootEntry(CREATURE_TABLE, "creature_loot_template", stock.world.creatures[drop.boss].loot_id)
 
 
 def _check_boss(drop, world):
     """Refuses a drop whose boss is no stock creature with loot, or has another stock name."""
     if drop.boss not in world.creatures:
         raise SpecError("%s: boss %d is no stock creature with loot (unknown boss)" % (drop.where, drop.boss))
-    if world.creatures[drop.boss][1] != drop.boss_name:
-        raise SpecError("%s: boss %d is '%s', not '%s'" % (drop.where, drop.boss, world.creatures[drop.boss][1], drop.boss_name))
+    if world.creatures[drop.boss].name != drop.boss_name:
+        raise SpecError("%s: boss %d is '%s', not '%s'" % (drop.where, drop.boss, world.creatures[drop.boss].name, drop.boss_name))
 
 
 def check(spec, stock):
@@ -378,22 +369,23 @@ def check(spec, stock):
             users = world.references.get(drop.reference)
             if users is None:
                 raise SpecError("%s: reference %d is no stock reference loot entry" % (drop.where, drop.reference))
-            if users != [world.creatures[drop.boss][0]]:
+            if users != [world.creatures[drop.boss].loot_id]:
                 raise SpecError("%s: reference %d is used by the creature loot %s, not by boss %d alone"
                                 % (drop.where, drop.reference, ", ".join(map(str, users)) or "of no creature", drop.boss))
-        key = _loot_entry(drop, stock)[::2] + (drop.item,)
+        entry = _loot_entry(drop, stock)
+        key = (entry.table, entry.entry, drop.item)
         if key in seen:
-            raise SpecError("%s: loot entry %d drops item %d twice" % (drop.where, key[1], drop.item))
+            raise SpecError("%s: loot entry %d drops item %d twice" % (drop.where, entry.entry, drop.item))
         seen.add(key)
     for reward in spec.loot_rewards:
         where = reward.where
         if reward.quest not in world.quests:
             raise SpecError("%s: quest %d is no stock quest (unknown quest)" % (where, reward.quest))
-        if world.quests[reward.quest][0] != reward.title:
-            raise SpecError("%s: quest %d is '%s', not '%s'" % (where, reward.quest, world.quests[reward.quest][0], reward.title))
+        if world.quests[reward.quest].title != reward.title:
+            raise SpecError("%s: quest %d is '%s', not '%s'" % (where, reward.quest, world.quests[reward.quest].title, reward.title))
         if not _known_item(spec, stock, reward.item):
             raise SpecError("%s: item %d is no item (no spec item and no stock item)" % (where, reward.item))
-        if reward.kind == UNLOCK and reward.item not in world.quests[reward.quest][1]:
+        if reward.kind == UNLOCK and reward.item not in world.quests[reward.quest].choices:
             raise SpecError("%s: item %d is no stock reward choice of quest %d" % (where, reward.item, reward.quest))
     for quest in _reward_quests(spec):
         quest_choices(spec, stock, quest)
@@ -407,7 +399,7 @@ def _reward_quests(spec):
 def quest_choices(spec, stock, quest):
     """{slot from 1: (item, count)} of the reward choices that the reward rows of `quest` change. Refuses a replaced
     item that is no stock choice, a quest with no free choice slot for an added item, and an item twice."""
-    choices = list(stock.world.quests[quest][1])
+    choices = list(stock.world.quests[quest].choices)
     changed = {}
     for reward in sorted((r for r in spec.loot_rewards if r.kind == REWARD and r.quest == quest), key=lambda r: r.item):
         if reward.item in choices:
@@ -470,15 +462,16 @@ def _drop_sql(spec, stock):
     for drop in spec.loot_drops:
         by_entry.setdefault(_loot_entry(drop, stock), []).append(drop)
     lines = []
-    for (table, stock_table, entry) in sorted(by_entry):
-        drops = sorted(by_entry[(table, stock_table, entry)], key=lambda d: d.item)
+    for loot_entry in sorted(by_entry):
+        table, stock_table, entry = loot_entry
+        drops = sorted(by_entry[loot_entry], key=lambda d: d.item)
         bosses = sorted({d.boss for d in drops})
         lines += ["", "-- %s %d (%s): the stock rows and %s." % (
             "Reference loot" if table == REFERENCE_TABLE else "Creature loot", entry,
             ", ".join(d.boss_name for d in drops[:1]), ", ".join(d.name for d in drops))]
         # The boss must use this loot entry: with another one, the SQL fails (the generator has no world DB).
         for boss in bosses:
-            loot_id = stock.world.creatures[boss][0]
+            loot_id = stock.world.creatures[boss].loot_id
             lines.append(fail_unless("(SELECT COUNT(*) FROM `creature_template` WHERE `entry`=%d)>0 AND (SELECT COUNT(*) "
                                      "FROM `creature_template` WHERE `entry`=%d AND `loot_id`<>%d)=0" % (boss, boss, loot_id),
                                      "forever_boss"))
