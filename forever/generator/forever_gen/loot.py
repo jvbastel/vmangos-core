@@ -24,7 +24,7 @@ import re
 from collections import namedtuple
 
 from . import equip_stats, items as item_rows
-from .common import NO_VALUE, SpecError, check_kind, fail_unless, number_text, rows_of, sql_text
+from .common import NO_VALUE, SpecError, check_kind, fail_unless, number_text, rows_of
 
 ITEM_COLUMNS = ("kind", "entry", "foreverItem", "sourceItem", "name", "quality", "itemLevel", "requiredLevel", "bonding",
                 "class", "subclass", "inventoryType", "delay", "damage", "armor", "resistances", "stats", "bonuses",
