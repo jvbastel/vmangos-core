@@ -42,6 +42,8 @@ RARE, UNCOMMON, COMMON = 3, 2, 1
 # The spec drops (forever/spec/loot_shadowfang_keep.tsv): (boss loot entry, item): chance.
 DROPS = {(3914, 71300): 1.68, (3914, 71301): 2.09, (3887, 71302): 1.72, (4278, 71303): 1.67,
          (4279, 71304): 1.72, (4274, 71305): 1.99, (3927, 71306): 1.75}
+
+
 class LootClient(wowclient.SpellClient):
     """A SpellClient that keeps the loot windows, item query answers and quest query answers."""
 
