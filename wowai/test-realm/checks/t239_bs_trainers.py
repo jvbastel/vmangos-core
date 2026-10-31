@@ -127,6 +127,6 @@ else:
         offered = offered_states(c, trainer, list(BOOTS) + list(BELTS))
         results.check("%s offers no new learn spell" % who, offered == {}, "got %r" % offered)
 for trainer in (apprentice, journeyman):
-    c.gm(".npc delete", select=trainer)
+    c.gm(".npc spawn delete", select=trainer)
 
 results.finish()

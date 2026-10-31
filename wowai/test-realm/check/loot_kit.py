@@ -113,7 +113,7 @@ def kill_and_loot(realm, client, entry):
         client.gm(".die", select=guid, wait=2.0)
         return client.open_loot(guid)
     finally:
-        client.gm(".npc delete", select=guid, wait=1.0)
+        client.gm(".npc spawn delete", select=guid, wait=1.0)
 
 
 @contextlib.contextmanager
