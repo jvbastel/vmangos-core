@@ -35,7 +35,7 @@ import struct
 import sys
 
 from kit import Realm, Results, clear_backpack, spawn
-from wowclient import SpellClient
+from wowclient import TrainerClient
 
 # The six removed recipes (forever/spec/blacksmithing.tsv, kind removed): spell -> learn spell.
 REMOVED = {16650: 16679, 16728: 16750, 16746: 16762, 16661: 16692, 23628: 23630, 23629: 23631}
@@ -53,34 +53,10 @@ INVENTORY_SLOT_BAG_0 = 255
 SKILL, MAX_SKILL = 250, 300
 SKILL_AFTER = {"forever": SKILL, "vanilla": SKILL + 1}
 TRAINER = 3355
-CMSG_TRAINER_LIST, SMSG_TRAINER_LIST = 432, 433
-# One spell of SMSG_TRAINER_LIST (NPCHandler.cpp, SendTrainerSpellHelper).
-TRAINER_SPELL = struct.Struct("<IBIIIBIIIII")
 
 
-class TrainerClient(SpellClient):
-    """A SpellClient that keeps the spells of the last SMSG_TRAINER_LIST (as in t228_recipe_shifts.py)."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.trainer_spells = None
-
-    def _observe(self, opcode, body):
-        super()._observe(opcode, body)
-        if opcode == SMSG_TRAINER_LIST and len(body) >= 16:
-            count = struct.unpack_from("<I", body, 12)[0]
-            spells = set()
-            for k in range(count):
-                if 16 + (k + 1) * TRAINER_SPELL.size > len(body):
-                    break
-                spells.add(TRAINER_SPELL.unpack_from(body, 16 + k * TRAINER_SPELL.size)[0])
-            self.trainer_spells = spells
-
-    def trainer_list(self, guid, wait=1.5):
-        self.trainer_spells = None
-        self.send(CMSG_TRAINER_LIST, struct.pack("<Q", guid))
-        self.pump(wait)
-        return self.trainer_spells
+class PlansClient(TrainerClient):
+    """A TrainerClient that uses an item of its backpack."""
 
     def use_item(self, slot, wait=4):
         """Uses the first spell of the item in backpack slot `slot` on itself (CMSG_USE_ITEM: bag, slot,
@@ -102,7 +78,7 @@ if mode not in ("forever", "vanilla"):
 realm = Realm()
 results = Results()
 name = "Gonesmith" if mode == "forever" else "Goneplain"
-c = realm.login("PLAYER229", name, race=2, cls=3, client_class=TrainerClient)
+c = realm.login("PLAYER229", name, race=2, cls=3, client_class=PlansClient)
 me = c.guid
 clear_backpack(realm, c)
 c.gm(".learn %d" % BLACKSMITHING_APPRENTICE, select=me)
@@ -141,8 +117,8 @@ results.check("after the craft the skill is %d (%s)" % (SKILL_AFTER[mode], "no s
 trainer = spawn(realm, c, TRAINER)
 offered = c.trainer_list(trainer)
 results.check("the Blacksmithing trainer opens its trainer window", offered is not None)
-results.check("the trainer offers no removed recipe", offered is not None and not offered & set(REMOVED.values()),
-              "offered %r" % sorted((offered or set()) & set(REMOVED.values())))
+results.check("the trainer offers no removed recipe", offered is not None and not offered.keys() & set(REMOVED.values()),
+              "offered %r" % sorted((offered or {}).keys() & set(REMOVED.values())))
 c.gm(".npc delete", select=trainer)
 learned_rows = realm.sql("mangos", "SELECT COUNT(*) FROM npc_trainer WHERE spell IN (%s)"
                          % ", ".join(str(s) for s in REMOVED.values()))

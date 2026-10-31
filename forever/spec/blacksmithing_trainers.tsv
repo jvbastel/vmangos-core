@@ -1,0 +1,33 @@
+# Forever Blacksmithing: how a character learns the new recipes of blacksmithing.tsv that the Forever trainers teach
+# (jvbastel/WOWAI#239, spec #225). forever/generator makes the trainer rows (forever_npc_trainer) and the skill line
+# ability of each row from it. Never edit a generated file by hand. To gather the data again, see forever/REFRESH.md.
+#
+# Source: the Forever beta Blacksmithing data of wowtbc.gg and the warcraft.wiki.gg page "Forever blacksmithing
+# plans", read 2026-10-31 (notes/forever/bs-trainers-research-2026-10-31.md): both mark these 9 recipes as trainer
+# recipes. The skill is the recipe's minRank in blacksmithing.tsv. No Forever source gives which trainer teaches a
+# recipe or what it costs.
+#
+# Columns (tab-separated):
+#   kind          trainer (the trainers teach the recipe) or auto (a character learns it with the profession skill,
+#                 with no trainer step, as stock Rough Copper Vest 12260: the AcquireMethod of its skill line ability)
+#   recipe        the new recipe spell of blacksmithing.tsv
+#   name          the recipe name
+#   learnSpell    the spell that the trainer casts: the learn spell of the recipe's plans (a copy of stock 2760,
+#                 Effect1 Learn Spell). - for auto
+#   trainersFrom  the stock recipe whose stock trainer rows (npc_trainer) the recipe takes: every trainer that
+#                 teaches it teaches the new recipe. Pick a stock recipe that the stock trainers teach at about the
+#                 recipe's skill, not below it (a trainer whose rank caps below the skill must not teach it). - for auto
+#   cost          the trainer cost in copper: a guess, the stock cost of trainersFrom (npc_trainer.spellcost).
+#                 - for auto
+#   notes         free text
+kind	recipe	name	learnSpell	trainersFrom	cost	notes
+# --- #239 the trainer recipes of the Forever beta that no trainer taught. The plans stay as they are.
+trainer	61000	Strange Copper Boots	61197	2661	90	Skill 35. Trainers and cost of Copper Chain Belt (2661: stock skill 35, 90 copper, 20 trainers). The cost is a guess.
+trainer	61003	Gemmed Copper Boots	61196	2661	90	Skill 35. Trainers and cost of Copper Chain Belt (2661: stock skill 35, 90 copper, 20 trainers). The cost is a guess.
+trainer	61004	Glowing Copper Boots	61198	2661	90	Skill 35. Trainers and cost of Copper Chain Belt (2661: stock skill 35, 90 copper, 20 trainers). The cost is a guess.
+trainer	61078	Officer's Belt	61257	8768	225	Skill 150. Trainers and cost of Iron Buckle (8768: stock skill 150, 2s 25c, the 10 Journeyman and Expert trainers). The cost is a guess.
+trainer	61079	Sentinel's Belt	61258	8768	225	Skill 150. Trainers and cost of Iron Buckle (8768: stock skill 150, 2s 25c, the 10 Journeyman and Expert trainers). The cost is a guess.
+trainer	61080	Warder's Belt	61259	8768	225	Skill 150. Trainers and cost of Iron Buckle (8768: stock skill 150, 2s 25c, the 10 Journeyman and Expert trainers). The cost is a guess.
+trainer	61081	Prefect's Belt	61260	8768	225	Skill 150. Trainers and cost of Iron Buckle (8768: stock skill 150, 2s 25c, the 10 Journeyman and Expert trainers). The cost is a guess.
+trainer	61082	Justicar's Belt	61261	8768	225	Skill 150. Trainers and cost of Iron Buckle (8768: stock skill 150, 2s 25c, the 10 Journeyman and Expert trainers). The cost is a guess.
+auto	61001	Copper Rod	-	-	-	Skill 1. Forever grants it with Apprentice Blacksmithing, as stock grants Rough Copper Vest (12260).

@@ -125,10 +125,14 @@ def test_the_tracer_recipe_is_strange_copper_boots_at_an_anvil(out):
 def test_each_recipe_has_its_skill_line_and_colour_range_in_the_client(out):
     abilities, _ = read_dbc(out / "client" / "DBFilesClient" / "SkillLineAbility.dbc")
     by_spell = {row[2]: row for row in abilities.values()}
+    # AcquireMethod 1: the auto rows of blacksmithing_trainers.tsv come with the profession skill (#239).
+    auto = {row["recipe"] for row in spec_rows("blacksmithing_trainers.tsv") if row["kind"] == "auto"}
+    assert auto == {"61001"}  # Copper Rod
     for recipe in new_recipes(out):
         row = by_spell[int(recipe["spell"])]
         assert (row[1], row[3], row[4]) == (int(recipe["skillLine"]), 0, 0)
-        assert (row[7], row[9], row[11], row[10]) == (int(recipe["minRank"]), 0, int(recipe["yellow"]), int(recipe["grey"]))
+        acquire = 1 if recipe["spell"] in auto else 0
+        assert (row[7], row[9], row[11], row[10]) == (int(recipe["minRank"]), acquire, int(recipe["yellow"]), int(recipe["grey"]))
     assert (by_spell[61000][1], by_spell[61000][11], by_spell[61000][10]) == (BLACKSMITHING, 40, 40)
 
 

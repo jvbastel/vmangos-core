@@ -19,53 +19,21 @@ forever: the trainer offers 2745 at skill 65, which the character can learn now 
 vanilla: the trainer offers 2745 at skill 90 (red), and the weightstone cannot be crafted without the
          Wool Cloth.
 """
-import struct
 import sys
 
 from kit import Realm, Results, clear_backpack, spawn
-from wowclient import SpellClient
+from wowclient import TrainerClient
 
 TRAINER = 3355
 RUNED_COPPER_BRACERS_LEARN = 2745
 TRAINER_SKILL = {"forever": 65, "vanilla": 90}
-# SMSG_TRAINER_LIST spell states (TrainerSpellState): 0 green (can learn), 1 red (cannot yet), 2 grey (known).
+# SMSG_TRAINER_LIST spell states (wowclient.TrainerClient): 0 green (can learn), 1 red (cannot yet).
 TRAINER_STATE = {"forever": 0, "vanilla": 1}
 COARSE_WEIGHTSTONE, COARSE_WEIGHTSTONE_ITEM = 3116, 3240
 COARSE_STONE, WOOL_CLOTH = 2836, 2592
 BLACKSMITHING_SKILL, BLACKSMITHING_APPRENTICE = 164, 2018
 BLACKSMITH_HAMMER = 5956
 SKILL = 70
-CMSG_TRAINER_LIST, SMSG_TRAINER_LIST = 432, 433
-# One spell of SMSG_TRAINER_LIST (NPCHandler.cpp, SendTrainerSpellHelper): spell, state, cost, 2 x
-# profession flags, level, required skill, required skill value, 2 x chain spells, 0.
-TRAINER_SPELL = struct.Struct("<IBIIIBIIIII")
-
-
-class TrainerClient(SpellClient):
-    """A SpellClient that keeps the last SMSG_TRAINER_LIST: {spell: (state, required skill, skill value)}."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.trainer_spells = None
-
-    def _observe(self, opcode, body):
-        super()._observe(opcode, body)
-        if opcode == SMSG_TRAINER_LIST and len(body) >= 16:
-            count = struct.unpack_from("<I", body, 12)[0]
-            spells = {}
-            for k in range(count):
-                if 16 + (k + 1) * TRAINER_SPELL.size > len(body):
-                    break
-                spell, state, _, _, _, _, skill, value, _, _, _ = TRAINER_SPELL.unpack_from(body, 16 + k * TRAINER_SPELL.size)
-                spells[spell] = (state, skill, value)
-            self.trainer_spells = spells
-
-    def trainer_list(self, guid, wait=1.5):
-        """The spells that the trainer `guid` offers, as its trainer window shows them, or None."""
-        self.trainer_spells = None
-        self.send(CMSG_TRAINER_LIST, struct.pack("<Q", guid))
-        self.pump(wait)
-        return self.trainer_spells
 
 
 def items_in_bags(realm, client, entry):

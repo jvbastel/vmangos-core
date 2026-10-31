@@ -58,6 +58,11 @@ SMSG_CAST_RESULT = 304
 SMSG_SPELL_GO = 306
 CMSG_LEARN_TALENT = 593
 TARGET_FLAG_UNIT = 0x0002
+CMSG_TRAINER_LIST, SMSG_TRAINER_LIST = 432, 433
+CMSG_TRAINER_BUY_SPELL, SMSG_TRAINER_BUY_SUCCEEDED, SMSG_TRAINER_BUY_FAILED = 434, 435, 436
+# One spell of SMSG_TRAINER_LIST (NPCHandler.cpp, SendTrainerSpellHelper): spell, state, cost, 2 x
+# profession flags, level, required skill, required skill value, 2 x chain spells, 0.
+TRAINER_SPELL = struct.Struct("<IBIIIBIIIII")
 
 CHAT_MSG_SAY = 0x00
 CHAT_MSG_PARTY = 0x01
@@ -411,6 +416,53 @@ class SpellClient(WorldClient):
     def cast_went(self, spell, target=None, wait=2):
         """Casts and waits; True when a SMSG_SPELL_GO of the spell came."""
         return self.cast(spell, target, wait)[1]
+
+
+class TrainerClient(SpellClient):
+    """A SpellClient that keeps the last SMSG_TRAINER_LIST, trainer_spells: {spell: (state, required skill,
+    skill value)}, and the answers to its trainer buys, trainer_buys: [(spell, True or the fail reason)].
+    The states (TrainerSpellState): 0 green (can learn), 1 red (cannot yet), 2 grey (known)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.trainer_spells = None
+        self.trainer_buys = []
+
+    def _observe(self, opcode, body):
+        super()._observe(opcode, body)
+        try:
+            if opcode == SMSG_TRAINER_LIST and len(body) >= 16:
+                count = struct.unpack_from("<I", body, 12)[0]
+                spells = {}
+                for k in range(count):
+                    if 16 + (k + 1) * TRAINER_SPELL.size > len(body):
+                        break
+                    spell, state, _, _, _, _, skill, value, _, _, _ = TRAINER_SPELL.unpack_from(body, 16 + k * TRAINER_SPELL.size)
+                    spells[spell] = (state, skill, value)
+                self.trainer_spells = spells
+            elif opcode == SMSG_TRAINER_BUY_SUCCEEDED:
+                # uint64 trainer guid, uint32 spell.
+                self.trainer_buys.append((struct.unpack_from("<I", body, 8)[0], True))
+            elif opcode == SMSG_TRAINER_BUY_FAILED:
+                # uint64 trainer guid, uint32 spell, uint32 reason.
+                self.trainer_buys.append(struct.unpack_from("<II", body, 8))
+        except (IndexError, struct.error):
+            pass
+
+    def trainer_list(self, guid, wait=1.5):
+        """The spells that the trainer `guid` offers, as its trainer window shows them, or None."""
+        self.trainer_spells = None
+        self.send(CMSG_TRAINER_LIST, struct.pack("<Q", guid))
+        self.pump(wait)
+        return self.trainer_spells
+
+    def buy_spell(self, guid, spell, wait=1.5):
+        """Buys the trainer spell `spell` of the trainer `guid`, as the trainer window's Train button does. The
+        answers of the server: [True or the fail reason]."""
+        start = len(self.trainer_buys)
+        self.send(CMSG_TRAINER_BUY_SPELL, struct.pack("<QI", guid, spell))
+        self.pump(wait)
+        return [answer for s, answer in self.trainer_buys[start:] if s == spell]
 
 
 def unpack_guid(data, pos):
