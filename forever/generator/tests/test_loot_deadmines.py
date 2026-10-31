@@ -100,11 +100,6 @@ QUEST_ITEMS = {
 LEFT_OUT = {872, 5443, 5444, 2169, 5199, 5192, 5197, 5198, 2042, 71201, 71203}
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever244"))
-
-
 def equip_bonuses(spells, row):
     """{(bonus, value)} of the on-equip spells of a generated item row; ("Mining", 2) for MINING_2."""
     ids = [int(row["spellid_%d" % k]) for k in range(1, 6) if row["spelltrigger_%d" % k] == ON_EQUIP]

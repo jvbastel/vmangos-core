@@ -46,11 +46,6 @@ def stock_abilities():
     return {row[SLA_SPELL]: row for row in abilities.values() if row[1] == BLACKSMITHING}
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever228"))
-
-
 def test_the_spec_shifts_185_stock_colour_ranges():
     # The ticket says 175; the dump of #224 has 185 (169 by 25, 6 by 5, 3 by 30, 3 by 20, 2 by 15, 2 by 10).
     stock = stock_abilities()

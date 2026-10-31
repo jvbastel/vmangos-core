@@ -59,11 +59,6 @@ LEFT_OUT = {
 }
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever248"))
-
-
 @pytest.mark.parametrize("set_id", [DEFIAS, VIPER])
 def test_the_server_item_set_table_has_the_forever_bonuses_as_stock_equip_spells(out, set_id):
     rows, text = read_dbc(out / "dbc" / "ItemSet.dbc")

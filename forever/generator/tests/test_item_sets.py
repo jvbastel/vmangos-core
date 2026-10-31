@@ -57,11 +57,6 @@ def item_set(row, text):
     }
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever231"))
-
-
 @pytest.mark.parametrize("set_id", [BLESSED, IMPERIAL])
 def test_the_server_item_set_table_has_the_set_with_its_pieces_and_stock_equip_spell_bonuses(out, set_id):
     rows, text = read_dbc(out / "dbc" / "ItemSet.dbc")

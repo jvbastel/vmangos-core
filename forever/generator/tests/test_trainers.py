@@ -28,11 +28,6 @@ COPPER_ROD, ROUGH_COPPER_VEST = 61001, 12260
 SLA_SPELL, SLA_MIN_SKILL, SLA_ACQUIRE = 2, 7, 9
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever239"))
-
-
 def sql(out):
     return (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
 

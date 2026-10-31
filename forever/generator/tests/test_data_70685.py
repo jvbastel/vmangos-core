@@ -26,11 +26,6 @@ VICTORY_RUSH = 60123
 
 
 @pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever70685"))
-
-
-@pytest.fixture(scope="module")
 def client(out):
     return read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")[0]
 

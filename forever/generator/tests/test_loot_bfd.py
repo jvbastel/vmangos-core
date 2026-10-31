@@ -99,11 +99,6 @@ def bonus_of(spells, spell):
     return name, value
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever246"))
-
-
 def ours(rows, entries):
     """The rows of `rows` (a dict keyed by loot entry or by (loot entry, item)) whose loot entry is in `entries`."""
     return {k: v for k, v in rows.items() if (k[0] if isinstance(k, tuple) else k) in entries}

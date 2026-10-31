@@ -85,11 +85,6 @@ BOOK_OF_UR, DEATHSTALKERS, GHOSTLY_MANTLE = 1013, 1098, 3324
 LEFT_OUT = {6321, 6323, 6319, 3748, 6314, 6220, 6898, 71300, 71301, 71303, 71304}
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever245"))
-
-
 def stock_item_spells(text, name, entry):
     """The on-equip spells that the SQL puts on the changed stock item `entry`."""
     start = text.index("-- Changed stock item %s (%d)." % (name, entry))

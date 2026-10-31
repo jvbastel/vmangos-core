@@ -87,11 +87,6 @@ LEFT_OUT = {
 }
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever247"))
-
-
 def equip_bonuses(spells, row):
     """The on-equip bonuses of a generated new item row."""
     return {bonus_of(spells, int(row["spellid_%d" % k])) for k in range(1, 6) if row["spelltrigger_%d" % k] == ON_EQUIP}

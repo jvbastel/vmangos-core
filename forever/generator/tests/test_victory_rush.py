@@ -25,11 +25,6 @@ RULES = ROOT / "src" / "game" / "Forever" / "VictoryRushRules.h"
 IDS = ROOT / "src" / "game" / "Forever" / "ForeverSpellIds.h"
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever213"))
-
-
 def client_spells(out):
     rows, _ = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
     return rows

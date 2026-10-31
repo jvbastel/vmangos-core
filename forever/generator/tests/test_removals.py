@@ -30,11 +30,6 @@ def removal_rows():
     return [row for row in spec_rows("blacksmithing.tsv") if row["kind"] == "removed"]
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever229"))
-
-
 def sql(out):
     return (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
 

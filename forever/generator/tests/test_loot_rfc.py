@@ -70,11 +70,6 @@ def stock_gear():
     return {int(r[0]): (int(r[1]), int(r[2]), int(r[3]), int(r[6])) for r in rows}
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever242"))
-
-
 def sql(out):
     return (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
 

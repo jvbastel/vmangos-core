@@ -94,11 +94,6 @@ RESISTANCES = {6449: {"nature_res": "2"}, 6631: {"nature_res": "9"},
                        "arcane_res": "1"}}
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever243"))
-
-
 def stock_spells_put(out, entry):
     """The on-equip spells, in order, that the SQL puts on the changed stock item `entry` (None: no spell SQL)."""
     block = re.search(r"^-- Changed stock item [^\n]* \(%d\)\.$(.*?)^DROP TEMPORARY TABLE" % entry, sql(out), re.M | re.S)

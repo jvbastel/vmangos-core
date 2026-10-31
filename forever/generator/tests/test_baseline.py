@@ -24,11 +24,6 @@ SPELL_ATTRIBUTES, DO_NOT_DISPLAY = 6, 0x80
 PARRY, FIRST_NEW_SPELL = 3127, 60000
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever212"))
-
-
 def sql(out):
     return (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
 

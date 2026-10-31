@@ -85,11 +85,6 @@ def sql_rows(out, temp_table):
     return rows
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever226"))
-
-
 def test_the_spec_folder_has_the_warrior_blacksmithing_and_item_files():
     assert {"warrior.tsv", "blacksmithing.tsv", "items.tsv"} <= {p.name for p in SPEC_DIR.glob("*.tsv")}
     for name in ("blacksmithing.tsv", "items.tsv"):

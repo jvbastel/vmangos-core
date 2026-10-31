@@ -115,11 +115,6 @@ def export(dbc_folder, tmp_path):
     return [line.split("\t") for line in done.stdout.splitlines() if not line.startswith("#")]
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever"))
-
-
 def server_spells(out):
     """entry -> the columns that the generated SQL sets on the Forever copy of a spell row."""
     sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")

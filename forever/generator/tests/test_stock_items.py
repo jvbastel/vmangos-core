@@ -51,11 +51,6 @@ def listed(text):
 
 
 @pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever227"))
-
-
-@pytest.fixture(scope="module")
 def stock_rows():
     return [row for row in spec_rows("items.tsv") if row["kind"] == "stock"]
 

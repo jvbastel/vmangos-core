@@ -44,11 +44,6 @@ PUMMEL_RANKS = (6552, 6554)
 
 
 @pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever"))
-
-
-@pytest.fixture(scope="module")
 def client(out):
     return read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")[0]
 
