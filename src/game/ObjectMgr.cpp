@@ -5542,7 +5542,10 @@ void ObjectMgr::LoadQuests()
     m_ExclusiveQuestGroups.clear();
 
     //                                                                0        1         2             3           4             5       6                  7                8                9
-    std::unique_ptr<QueryResult> result(WorldDatabase.PQuery("SELECT `entry`, `Method`, `ZoneOrSort`, `MinLevel`, `QuestLevel`, `Type`, `RequiredClasses`, `RequiredRaces`, `RequiredSkill`, `RequiredSkillValue`,"
+    // WOWAI Forever rules (#242): the forever_quest_template rows replace the stock rows of their quest.
+    std::unique_ptr<QueryResult> result(WorldDatabase.Query(Forever::SelectWithForeverRows("quest_template", "entry", [](std::string const& table)
+    {
+        return std::string("SELECT `entry`, `Method`, `ZoneOrSort`, `MinLevel`, `QuestLevel`, `Type`, `RequiredClasses`, `RequiredRaces`, `RequiredSkill`, `RequiredSkillValue`,"
     //                      10                     11                   12                       13                     14                       15                     16                  17
                           "`RepObjectiveFaction`, `RepObjectiveValue`, `RequiredMinRepFaction`, `RequiredMinRepValue`, `RequiredMaxRepFaction`, `RequiredMaxRepValue`, `SuggestedPlayers`, `LimitTime`,"
     //                      18            19              20             21             22                23                  24           25              26
@@ -5575,7 +5578,9 @@ void ObjectMgr::LoadQuests()
                           "`OfferRewardEmoteDelay1`, `OfferRewardEmoteDelay2`, `OfferRewardEmoteDelay3`, `OfferRewardEmoteDelay4`,"
     //                      123            124               125         126             127      128                  129                     130
                           "`StartScript`, `CompleteScript`, `MaxLevel`, `RewMailMoney`, `RewXP`, `RequiredCondition`, `BreadcrumbForQuestId`, `RewRepSpilloverMask`"
-                          " FROM `quest_template` t1 WHERE `patch`=(SELECT max(`patch`) FROM `quest_template` t2 WHERE t1.`entry`=t2.`entry` && `patch` <= %u)", sWorld.GetWowPatch()));
+                          " FROM ") + table + " t1 WHERE `patch`=(SELECT max(`patch`) FROM " + table + " t2 WHERE t1.`entry`=t2.`entry` && `patch` <= "
+        + std::to_string(sWorld.GetWowPatch()) + ")";
+    })));
     if (!result)
     {
         BarGoLink bar(1);

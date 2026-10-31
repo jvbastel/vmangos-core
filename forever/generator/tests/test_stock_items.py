@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from test_blacksmithing import refused, spec_rows
+from test_blacksmithing import loot_item_rows, refused, spec_rows
 from test_pipeline import DUMP, STAT_TYPES, STOCK, bonus_of, generate, int32, read_dbc  # noqa: F401
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
@@ -62,7 +62,9 @@ def stock_rows():
 
 def test_each_changed_stock_item_has_its_forever_values_in_the_item_override_table(out, stock_rows):
     items = stock_items(out)
-    assert sorted(items) == sorted(int(row["entry"]) for row in stock_rows)
+    # The changed stock items of the dungeon loot files (#242) are checked by their own tests.
+    loot = {int(row["entry"]) for row in loot_item_rows() if row["kind"] == "stock"}
+    assert sorted(set(items) - loot) == sorted(int(row["entry"]) for row in stock_rows)
     for spec in stock_rows:
         item = items[int(spec["entry"])]
         server = item["set"]

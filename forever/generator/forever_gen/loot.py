@@ -270,6 +270,60 @@ def check(spec, stock):
         if key in seen:
             raise SpecError("%s: loot entry %d drops item %d twice" % (drop.where, key[1], drop.item))
         seen.add(key)
+    for reward in spec.loot_rewards:
+        where = reward.where
+        if reward.quest not in world.quests:
+            raise SpecError("%s: quest %d is no stock quest (unknown quest)" % (where, reward.quest))
+        if world.quests[reward.quest][0] != reward.title:
+            raise SpecError("%s: quest %d is '%s', not '%s'" % (where, reward.quest, world.quests[reward.quest][0], reward.title))
+        if not _known_item(spec, stock, reward.item):
+            raise SpecError("%s: item %d is no item (no spec item and no stock item)" % (where, reward.item))
+        if reward.kind == UNLOCK and reward.item not in world.quests[reward.quest][1]:
+            raise SpecError("%s: item %d is no stock reward choice of quest %d" % (where, reward.item, reward.quest))
+    for quest in sorted({r.quest for r in spec.loot_rewards if r.kind == REWARD}):
+        quest_choices(spec, stock, quest)
+
+
+def quest_choices(spec, stock, quest):
+    """{slot from 1: (item, count)} of the reward choices that the reward rows of `quest` change. Refuses a replaced
+    item that is no stock choice, a quest with no free choice slot for an added item, and an item twice."""
+    choices = list(stock.world.quests[quest][1])
+    changed = {}
+    for reward in sorted((r for r in spec.loot_rewards if r.kind == REWARD and r.quest == quest), key=lambda r: r.item):
+        if reward.item in choices:
+            raise SpecError("%s: item %d is a reward choice of quest %d already" % (reward.where, reward.item, quest))
+        old = 0 if reward.replaces is None else reward.replaces
+        if old not in choices:
+            raise SpecError("%s: %s" % (reward.where, "quest %d has no free reward choice slot" % quest if not old
+                                        else "item %d is no stock reward choice of quest %d" % (old, quest)))
+        slot = choices.index(old)
+        choices[slot] = reward.item
+        changed[slot + 1] = (reward.item, reward.count)
+    return changed
+
+
+def _quest_sql(spec, stock):
+    lines = []
+    for quest in sorted({r.quest for r in spec.loot_rewards if r.kind == REWARD}):
+        title, stock_choices = stock.world.quests[quest]
+        changed = quest_choices(spec, stock, quest)
+        temp = "forever_quest_new"
+        same = " AND ".join("`RewChoiceItemId%d`=%d" % (k, item) for k, item in enumerate(stock_choices, start=1))
+        lines += [
+            "",
+            "-- Quest %d (%s): the reward choices %s." % (quest, title, ", ".join(
+                "%d in slot %d" % (item, slot) for slot, (item, _) in sorted(changed.items()))),
+            # Every patch row of the quest, so that the core still picks the row of the realm's patch.
+            "CREATE TEMPORARY TABLE `%s` SELECT * FROM `quest_template` WHERE `entry`=%d;" % (temp, quest),
+            # The stock rows must have the stock choices of the generator's data: with others, the SQL fails.
+            fail_unless("(SELECT COUNT(*) FROM `%s`)>0 AND (SELECT COUNT(*) FROM `%s` WHERE NOT (%s))=0" % (temp, temp, same),
+                        "forever_quest"),
+            "UPDATE `%s` SET %s;" % (temp, ", ".join("`RewChoiceItemId%d`=%d, `RewChoiceItemCount%d`=%d" % (slot, item, slot, count)
+                                                     for slot, (item, count) in sorted(changed.items()))),
+            "INSERT INTO `%s` SELECT * FROM `%s`;" % (QUEST_TABLE, temp),
+            "DROP TEMPORARY TABLE `%s`;" % temp,
+        ]
+    return lines
 
 
 def _drop_sql(spec, stock):
@@ -303,4 +357,4 @@ def _drop_sql(spec, stock):
 def server_sql(spec, stock):
     """The Forever loot and quest rows. They are copied with SELECT *, so they come before the removal marker column
     (removals.py)."""
-    return _drop_sql(spec, stock)
+    return _drop_sql(spec, stock) + _quest_sql(spec, stock)

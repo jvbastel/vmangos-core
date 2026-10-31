@@ -182,4 +182,5 @@ def test_the_core_needs_the_table_with_the_rules_on_and_reads_gameobject_loot_th
     forever = (ROOT / "src" / "game" / "Forever" / "Forever.cpp").read_text(encoding="utf-8")
     assert '"%s"' % TABLE in forever
     loot = (ROOT / "src" / "game" / "LootMgr.cpp").read_text(encoding="utf-8")
-    assert "this == &LootTemplates_Gameobject ? Forever::Table(GetName(), \"entry\")" in loot
+    # #242 widens the hook to creature and reference loot (test_loot_rfc.py).
+    assert "this == &LootTemplates_Gameobject ||" in loot and "? Forever::Table(GetName(), \"entry\")" in loot
