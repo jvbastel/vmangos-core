@@ -49,6 +49,8 @@ TABLES = (CREATURE_TABLE, REFERENCE_TABLE, QUEST_TABLE)
 # The six dungeons of spec #240 are open from the first content patch: a new drop loads from patch 0 to 10.
 DUNGEON_PATCH_MIN, PATCH_MAX = 0, 10
 QUEST_CHOICES = 6
+# The `stats` part that sets the shield block value (item_template `block`), as the tooltip writes it: "Block 9".
+BLOCK_STAT = "Block"
 # Every class (item_template allowable_class): a lifted class lock.
 ALL_CLASSES = -1
 SOURCE = re.compile(r"(https://nether\.wowhead\.com/tooltip/\w+/\d+\?dataEnv=16&locale=0|https://www\.wowhead\.com/forever/\S+"
@@ -59,7 +61,8 @@ LIST_FILE = "loot-list.tsv"
 
 # One row of an items file. raw: {column: value}; block: (low, high) of its file; where: the row for an error.
 LootItem = namedtuple("LootItem", "kind entry name status source date left_out raw block path where")
-# A new boss drop. loot: CREATURE or REFERENCE; reference: the reference ID or None.
+# A new boss drop. loot: CREATURE or REFERENCE; reference: the reference ID or None; chance: None on a drop that is
+# not confirmed and names no chance.
 Drop = namedtuple("Drop", "item name boss boss_name loot reference chance status source date where")
 # A quest reward row (kind reward or unlock). replaces: the stock choice it replaces, FIXED (the item leaves the fixed
 # rewards and is added as a choice) or None; count: the item count.
@@ -94,6 +97,20 @@ def read_item_rows(path, lines):
     return {"loot_items": rows}
 
 
+def _drop_chance(where, raw):
+    """The chance of a drop row in percent. A drop that is not confirmed may have none ("-", #243): its source can
+    name the boss without a chance (a guide), and the row is only listed, never written."""
+    if raw["chance"] == NO_VALUE and raw["status"] != CONFIRMED:
+        return None
+    try:
+        chance = float(raw["chance"])
+    except ValueError:
+        raise SpecError("%s: the chance '%s' is no number (a confirmed drop needs its chance)" % (where, raw["chance"]))
+    if not 0 < chance <= 100:
+        raise SpecError("%s: chance %s is not above 0 and at most 100" % (where, raw["chance"]))
+    return chance
+
+
 def read_loot_rows(path, lines):
     drops, rewards = [], []
     for where, raw in rows_of(path, lines, LOOT_COLUMNS):
@@ -107,9 +124,7 @@ def read_loot_rows(path, lines):
             loot, _, reference = raw["loot"].partition(" ")
             if loot not in (CREATURE, REFERENCE) or (loot == REFERENCE) != reference.isdigit():
                 raise SpecError("%s: loot '%s' is not 'creature' or 'reference <ID>'" % (where, raw["loot"]))
-            chance = float(raw["chance"])
-            if not 0 < chance <= 100:
-                raise SpecError("%s: chance %s is not above 0 and at most 100" % (where, raw["chance"]))
+            chance = _drop_chance(where, raw)
             drops.append(Drop(boss=int(raw["target"]), boss_name=raw["targetName"], loot=loot,
                               reference=int(reference) if reference else None, chance=chance, **common))
         else:
@@ -146,14 +161,28 @@ def _disenchant(item_class, quality, item_level, world):
     return min(candidates, key=lambda g: (abs(g.item_level - item_level), g.entry)).disenchant_id
 
 
-def _stock_class(raw, source, world):
+def _stock_class(row, source, world):
     """The item class of the stock source item of a stock or twin row, for its disenchant ID: from the stock gear
-    file, or else from the row's `class` (#244: a stock white item that is blue in Forever, such as Buzzer Blade, is
-    not in the gear file of uncommon to epic items). None: the disenchant ID stays stock."""
+    file, or else from the row's `class` (#243, #244: a stock white item that Forever makes uncommon or better is not
+    in the gear file of uncommon to epic items). A `class` that differs from the gear file is refused. None: the
+    disenchant ID stays stock."""
     gear = [g for g in world.gear if g.entry == source]
     if gear:
+        if _number(row.raw, "class") not in (None, gear[0].item_class):
+            raise SpecError("%s: class %s is not the class %d of the stock item" % (row.where, row.raw["class"], gear[0].item_class))
         return gear[0].item_class
-    return _number(raw, "class")
+    return _number(row.raw, "class")
+
+
+def _block_and_stats(where, text):
+    """(block, base stats) of a `stats` value: "Block 9" is the shield block value (item_template `block`, #243),
+    the other parts are base stats. block None: the source value stays."""
+    parts = [] if text == NO_VALUE else [part.strip() for part in text.split(",")]
+    blocks = [part for part in parts if part.partition(" ")[0] == BLOCK_STAT]
+    if len(blocks) > 1 or blocks and not blocks[0].partition(" ")[2].isdigit():
+        raise SpecError("%s: the block '%s' is not one '%s <value>'" % (where, ", ".join(blocks), BLOCK_STAT))
+    rest = ", ".join(part for part in parts if part not in blocks) or NO_VALUE
+    return (int(blocks[0].partition(" ")[2]) if blocks else None), item_rows.parse_stats(where, rest)
 
 
 def _item(row, world):
@@ -172,9 +201,10 @@ def _item(row, world):
             raise SpecError("%s: a new item with no stock twin has no sourceItem" % where)
     else:
         source, display = int(raw["sourceItem"]), None
-        item_class = _stock_class(raw, source, world)
+        item_class = _stock_class(row, source, world)
     if raw["displayId"] != NO_VALUE:
         display = int(raw["displayId"])
+    block, stats = _block_and_stats(where, raw["stats"])
     if display is None:
         raise SpecError("%s: a %s row needs a displayId" % (where, row.kind))
     return item_rows.Item(
@@ -183,7 +213,7 @@ def _item(row, world):
         required_level=int(raw["requiredLevel"]), bonding=item_rows.named(where, "bonding", raw["bonding"], item_rows.BONDINGS),
         inventory_type=_number(raw, "inventoryType"), delay=_number(raw, "delay"),
         damage=item_rows.parse_damage(where, raw["damage"]), armor=int(raw["armor"]),
-        resistances=item_rows.parse_resistances(where, raw["resistances"]), stats=item_rows.parse_stats(where, raw["stats"]),
+        resistances=item_rows.parse_resistances(where, raw["resistances"]), stats=stats, block=block,
         bonuses=bonuses, equip_spells=spells, display_id=display, sell_price=int(raw["sellPrice"]),
         forever_item=int(raw["foreverItem"]), forever_stats=raw["foreverStats"], notes=raw["notes"],
         disenchant_id=None if item_class is None else _disenchant(item_class, quality, int(raw["itemLevel"]), world))
