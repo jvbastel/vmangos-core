@@ -195,6 +195,12 @@ def test_a_drop_into_a_reference_that_only_the_boss_uses_copies_the_reference(tm
     text = sql(out)
     assert copied_entries(text, REFERENCE_LOOT) == {TARAGAMAN_REFERENCE}
     assert loot_rows(text, REFERENCE_LOOT) == {(TARAGAMAN_REFERENCE, 71004): (5.0, 0, 1, 1, 0, 10)}
+    # The core reads every loot store's references from one reference store (LootMgr.cpp): no other loot table may
+    # use the reference, or the Forever copy would change that loot too.
+    others = " AND ".join("(SELECT COUNT(*) FROM `%s` WHERE `mincountOrRef`=-%d)=0" % (table, TARAGAMAN_REFERENCE) for table in (
+        "gameobject_loot_template", "fishing_loot_template", "item_loot_template", "mail_loot_template",
+        "disenchant_loot_template", "pickpocketing_loot_template", "skinning_loot_template", "reference_loot_template"))
+    assert "SELECT IF(%s, 0, (SELECT 1 UNION SELECT 2)) INTO @forever_reference_users;" % others in text
 
 
 def test_a_swapped_choice_and_a_lifted_class_lock(tmp_path):

@@ -16,10 +16,13 @@
 # 378 and 386; the stock reward choices of those quests with their Forever stats. Quests 387, 388 and 391 have no
 # item reward in stock or in Forever: no row.
 # Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
-# healing) plus Healing X-Y. No stock spell gives SpellPower 3: it rounds up to 4 (equip_stats.py).
+# healing) plus Healing X-Y.
 # Demolition Girdle's "damage done by magical spells up to 9" (damage without healing) has no stock equip spell of
 # all schools: it is left out (leftOut).
 # Required level: Wowhead shows none on the quest rewards, so they keep 0 as in stock.
+# Rounding: every Forever stat whose kind has stock equip spells takes the nearest one, up on a tie, and keeps
+# its Forever value ("SpellPower 4 (Forever 3)"); Unique-Equipped is left out; a shield writes "Block <value>" in
+# `stats`. The rules are in forever/REFRESH.md, "Dungeon loot".
 #
 # Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
 # of the source row.

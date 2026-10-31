@@ -24,7 +24,9 @@
 #   chance      drop: the drop chance in percent; else "-"
 #   replaces    reward: the stock reward choice it replaces, or "-" to add it in the first empty choice slot; else "-"
 #   count       reward: the number of items; else "-"
-#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it)
+#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it); a drop can
+#               also be left-out: confirmed, but kept out on purpose (a Forever camp blueprint), listed with its boss,
+#               chance and `notes` as the reason
 #   source      a Wowhead URL, or "client <build>"
 #   date        the day the source was read, YYYY-MM-DD
 #   notes

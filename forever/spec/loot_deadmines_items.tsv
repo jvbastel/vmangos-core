@@ -16,6 +16,9 @@
 # 214, 2040).
 # Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
 # healing) plus Healing X-Y. The Forever bonus armor of a weapon (Goblin Hammer) is the item armor.
+# Rounding: every Forever stat whose kind has stock equip spells takes the nearest one, up on a tie, and keeps
+# its Forever value ("SpellPower 4 (Forever 3)"); Unique-Equipped is left out; a shield writes "Block <value>" in
+# `stats`. The rules are in forever/REFRESH.md, "Dungeon loot".
 #
 # Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
 # of the source row.
@@ -66,7 +69,7 @@ stock	5202	5202	5202	Corsair's Overshirt	rare	22	17	pickup	-	-	-	-	-	40	-	Sta 5,
 stock	10399	10399	10399	Blackened Defias Armor	rare	22	17	pickup	-	-	-	-	-	89	Arcane 5	Str 4, Agi 3, Sta 10	-	-	9123	1129	Chest Leather, 89 armor, +4 Str, +3 Agi, +10 Sta, +5 Arcane Resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/10399?dataEnv=16&locale=0	2026-10-31	Edwin VanCleef; Defias Leather set piece (set 161, #248); stock: i24 r19, 92 armor, +11 Sta
 stock	5197	5197	5197	Cookie's Tenderizer	rare	21	16	pickup	-	-	-	2800	27-51	0	-	Spi 4	-	-	20953	1963	One-Hand Mace, 27-51 damage, speed 2.80, +4 Spi; Chance on hit: Tenderize the target, physical damage taken +1 for 1 min	Chance on hit: Tenderize, physical damage taken +1 for 1 min (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/5197?dataEnv=16&locale=0	2026-10-31	Cookie; stock: green, 20-39, +3 Str
 stock	5198	5198	5198	Cookie's Stirring Rod	rare	22	17	pickup	-	-	-	-	-	0	-	-	-	-	21011	1693	Ranged Wand, 20-38 Arcane damage, speed 1.30; Equip: Cooking speed +25%	Equip: Cooking speed +25% (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/5198?dataEnv=16&locale=0	2026-10-31	Cookie; stock: sell price 1660
-# --- #244 new boss drops: one new blue item on six bosses (Wowhead Forever "Dropped by" and "Drop Chance"). The two Forever camp blueprints of Gilnid (273086 Blueprint: Anvil) and Cookie (273102 Blueprint: Cookie's Feast) have no row: Forever camp features have no 1.12 meaning.
+# --- #244 new boss drops: one new blue item on six bosses (Wowhead Forever "Dropped by" and "Drop Chance"). The two Forever camp blueprints of Gilnid (273086 Blueprint: Anvil) and Cookie (273102 Blueprint: Cookie's Feast) have no item row: Forever camp features have no 1.12 meaning (left-out drop rows in loot_deadmines.tsv).
 new	71200	273289	-	Ogre Loincloth	rare	22	17	pickup	4	1	7	-	-	35	-	Str 4, Sta 6	SpellPower 6, Healing 13 (Forever 12)	-	-	895	Legs Cloth, 35 armor, +4 Str, +6 Sta; Equip: healing up to 18 and damage up to 6	-	confirmed	https://nether.wowhead.com/tooltip/item/273289?dataEnv=16&locale=0	2026-10-31	Dropped by Rhahk'Zor 1.56%
 new	71201	273293	-	Bandsaw Wristbands	rare	21	16	pickup	4	3	9	-	-	82	-	Sta 5	-	-	-	592	Wrist Mail, 82 armor, +5 Sta; Equip: deals 5 to 7 Physical damage every time you block	Equip: 5 to 7 Physical damage on each block (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/273293?dataEnv=16&locale=0	2026-10-31	Dropped by Sneed 0.95%
 new	71202	273297	-	Goblin Hammer	rare	23	18	pickup	2	4	21	2000	21-40	20	-	Sta 4	-	-	-	2605	Main Hand Mace, 21-40 damage, speed 2.00, +4 Sta, +20 bonus armor	-	confirmed	https://nether.wowhead.com/tooltip/item/273297?dataEnv=16&locale=0	2026-10-31	Dropped by Gilnid 1.30%; the Forever bonus armor (stat 50) is the item armor

@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from loot_helpers import (ITEM_FILES, LOOT_FILES, item_block, item_rows, loot_list, new_equip_spells, sql,
+from loot_helpers import (ITEM_FILES, LOOT_FILES, changed, item_block, item_rows, loot_list, new_equip_spells, sql,
                           stock_equip_spells)
 from test_blacksmithing import spec_rows
 from test_pipeline import STOCK
@@ -131,3 +131,13 @@ def test_every_source_that_a_script_cannot_read_is_listed(out):
                 for name in ITEM_FILES + LOOT_FILES for r in spec_rows(name)
                 if r["status"] == "confirmed" and r["source"].startswith("https://www.wowhead.com/")}
     assert len(expected) > 20 and manual == expected
+
+
+def test_a_confirmed_new_item_that_no_confirmed_drop_or_reward_names_stays_out_and_is_listed(tmp_path):
+    # Spec story 22: the item row is confirmed, but nothing confirms where it comes from (as 71407 before the lead
+    # decision). Fallenroot Longbow (71404) loses its only drop row's confirmation.
+    out, done = changed(tmp_path, ("loot_blackfathom_deeps.tsv", "9.96\t-\t-\tconfirmed", "9.96\t-\t-\tunconfirmed"))
+    assert done.returncode == 0, done.stderr
+    listed = loot_list(out)
+    assert "no confirmed drop, reward or item set names it" in listed[("unconfirmed", "item", "71404")]
+    assert 71404 not in item_rows(out, "forever_item_new")

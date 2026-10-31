@@ -19,6 +19,9 @@
 # Forever tooltip equals the stock item.
 # Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
 # healing) plus Healing X-Y. Forever bonus armor is added to `armor`, as in items.tsv.
+# Rounding: every Forever stat whose kind has stock equip spells takes the nearest one, up on a tie, and keeps
+# its Forever value ("SpellPower 4 (Forever 3)"); Unique-Equipped is left out; a shield writes "Block <value>" in
+# `stats`. The rules are in forever/REFRESH.md, "Dungeon loot".
 #
 # Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
 # of the source row.
@@ -75,7 +78,7 @@ stock	6392	6392	6392	Belt of Arugal	rare	28	23	pickup	-	-	-	-	-	26	-	Agi 2, Int 
 # Deathsworn Captain 3872 (rare), reference 30129. The tooltips name no "Dropped by"; the stock drop stays as it is, with its Forever stats.
 stock	6641	6641	6641	Haunting Blade	rare	27	22	pickup	-	-	-	3800	68-102	0	-	-	SpellPower 11, Healing 22	-	20167	5062	Two-Hand Sword, 68-102 damage, speed 3.80; Equip: healing up to 33 and damage up to 11	-	confirmed	https://nether.wowhead.com/tooltip/item/6641?dataEnv=16&locale=0	2026-10-31	stock: green i26 r21, 53-80, +9 Spi
 stock	6642	6642	6642	Phantom Armor	rare	27	22	pickup	-	-	-	-	-	208	-	Str 3, Sta 12, Spi 5	-	-	12632	2430	Chest Mail, 208 armor, +3 Str, +12 Sta, +5 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/6642?dataEnv=16&locale=0	2026-10-31	stock: i25 r20, 201 armor, +11 Sta
-# --- #245 new boss drops (Wowhead "Dropped by" names the boss). Blueprint: Tanning Rack (273096, Razorclaw 0.34%) and Blueprint: Toxin Study (273105, Springvale 0.32%) have no row: Forever campsite features with no 1.12 meaning.
+# --- #245 new boss drops (Wowhead "Dropped by" names the boss). Blueprint: Tanning Rack (273096, Razorclaw 0.34%) and Blueprint: Toxin Study (273105, Springvale 0.32%) have no item row: Forever campsite features with no 1.12 meaning (left-out drop rows in loot_shadowfang_keep.tsv).
 new	71300	273456	-	Cell Keeper's Claws	rare	22	17	pickup	2	13	21	2500	25-48	0	-	Agi 2	AP 6	-	-	2188	Main Hand Fist Weapon, 25-48 damage, speed 2.50, +2 Agi; Equip: +6 Attack Power; Equip: +6 Attack Power against Humanoids	Equip: +6 Attack Power against Humanoids (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/273456?dataEnv=16&locale=0	2026-10-31	Dropped by Rethilgore 1.68%
 new	71301	273457	-	Sorcerer Collar	rare	22	17	pickup	4	0	2	-	-	0	-	Int 2, Spi 2	SilenceRes 5 (Forever 4)	-	-	878	Neck, +2 Int, +2 Spi; Equip: reduces the hit chance of Silence effects against you by 4%	-	confirmed	https://nether.wowhead.com/tooltip/item/273457?dataEnv=16&locale=0	2026-10-31	Dropped by Rethilgore 2.09%
 new	71302	273637	-	Blade of Silverlaine	rare	26	21	pickup	2	7	21	2300	17-33	0	Shadow 6	-	SpellPower 28	-	-	3772	Main Hand Sword, 17-33 damage, speed 2.30, +6 Shadow resistance; Equip: damage and healing up to 28	-	confirmed	https://nether.wowhead.com/tooltip/item/273637?dataEnv=16&locale=0	2026-10-31	Dropped by Baron Silverlaine 1.72%

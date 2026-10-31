@@ -14,7 +14,8 @@
 # a Forever-only quest with no reward items shown: out of scope.
 # Stock boss drops keep their stock chance (spec #240): their references and Rethilgore's Rugged Spaulders have no row.
 # Not built: Blueprint: Tanning Rack (273096, Razorclaw the Butcher 0.34 %) and Blueprint: Toxin Study (273105,
-# Commander Springvale 0.32 %), confirmed drops of Forever campsite features that 1.12 has no meaning for.
+# Commander Springvale 0.32 %), confirmed drops of Forever campsite features that 1.12 has no meaning for: they are
+# left-out drop rows at the end of this file, which the loot list names.
 #
 # Columns (tab-separated):
 #   kind        drop: a new item on a boss; reward: a new reward choice of a quest (replaces "-") or a swapped one;
@@ -30,7 +31,9 @@
 #               the stock fixed reward item becomes a choice (first empty choice slot) and leaves the fixed rewards;
 #               else "-"
 #   count       reward: the number of items; else "-"
-#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it)
+#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it); a drop can
+#               also be left-out: confirmed, but kept out on purpose (a Forever camp blueprint), listed with its boss,
+#               chance and `notes` as the reason
 #   source      a Wowhead URL, or "client <build>"
 #   date        the day the source was read, YYYY-MM-DD
 #   notes

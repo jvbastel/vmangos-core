@@ -15,13 +15,16 @@
 # Rows: the 15 stock boss drops of Ghamoo-ra, Lady Sarevess, Gelihast, Twilight Lord Kelris, Old Serra'kis and
 # Aku'mai with their Forever values; the 6 new boss drops of Ghamoo-ra, Gelihast, Lorgus Jett and Twilight Lord Kelris;
 # the 5 new quest reward choices; the 11 stock quest rewards of the BFD quests with their Forever stats.
-# No row: Blueprint: Fishing Rack (273141, Gelihast 1.09%), a Forever camp recipe with no 1.12 meaning; Pathfinder
+# No item row: Blueprint: Fishing Rack (273141, Gelihast 1.09%), a Forever camp recipe with no 1.12 meaning (a
+# left-out drop row in loot_blackfathom_deeps.tsv); Pathfinder
 # Cloak (15340, Aku'mai), a stock world drop that the Forever tooltip does not show for a boss.
 # Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
-# healing) plus Healing X-Y. A value with no stock spell is rounded to the nearest one, up on a tie: "SpellPower 4
-# (Forever 3)". "Increases damage done by magical spells" with no healing (Moss Cinch) has no stock spell of that
-# value (only Wand Specialization 10 and 12): it goes into leftOut. Bonus armor ("+40 Armor") is added to the armor.
+# healing) plus Healing X-Y. "Increases damage done by magical spells" with no healing (Moss Cinch) has no stock
+# equip spell of its kind (only Wand Specialization 10 and 12): it goes into leftOut. Bonus armor ("+40 Armor") is added to the armor.
 # A stock chance-on-hit spell stays (items.py changes only the on-equip slots); a different Forever proc is leftOut.
+# Rounding: every Forever stat whose kind has stock equip spells takes the nearest one, up on a tie, and keeps
+# its Forever value ("SpellPower 4 (Forever 3)"); Unique-Equipped is left out; a shield writes "Block <value>" in
+# `stats`. The rules are in forever/REFRESH.md, "Dungeon loot".
 #
 # Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
 # of the source row.

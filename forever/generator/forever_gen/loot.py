@@ -49,6 +49,11 @@ CREATURE, REFERENCE = "creature", "reference"
 CREATURE_TABLE, REFERENCE_TABLE, QUEST_TABLE = ("forever_creature_loot_template", "forever_reference_loot_template",
                                                 "forever_quest_template")
 TABLES = (CREATURE_TABLE, REFERENCE_TABLE, QUEST_TABLE)
+# The other loot tables that can use a reference (LootMgr.cpp loads every store's references from one reference
+# store): a Forever reference copy must not change their loot, so the SQL fails when one of them uses it.
+OTHER_REFERENCE_USERS = ("gameobject_loot_template", "fishing_loot_template", "item_loot_template", "mail_loot_template",
+                         "disenchant_loot_template", "pickpocketing_loot_template", "skinning_loot_template",
+                         "reference_loot_template")
 # The six dungeons of spec #240 are open from the first content patch: a new drop loads from patch 0 to 10.
 DUNGEON_PATCH_MIN, PATCH_MAX = 0, 10
 QUEST_CHOICES = 6
@@ -249,14 +254,23 @@ def _blocks(spec):
 
 def resolve(spec, stock):
     """(the spec with the confirmed loot items in spec.items, the class locks lifted and only the confirmed drops and
-    rewards, the Listed rows). A drop or reward of a left-out item is left out too."""
+    rewards, the Listed rows). A drop or reward of a left-out item is left out too, and so is a new item that no
+    confirmed drop, reward or item set names."""
     _blocks(spec)
     listed, left = [], {}
     new_items = []
+    # A new item needs a confirmed source of its own (spec story 22): a confirmed drop or reward, or an item set.
+    named = {r.item for r in list(spec.loot_drops) + list(spec.loot_rewards) if r.status == CONFIRMED}
+    named |= {piece for item_set in spec.item_sets for piece in item_set.pieces}
     for row in spec.loot_items:
         if row.status != CONFIRMED:
             listed.append(Listed(row.status, "item", row.entry, row.name, row.source))
             left[row.entry] = row.status
+            continue
+        if row.kind != STOCK and row.entry not in named:
+            listed.append(Listed("unconfirmed", "item", row.entry, row.name,
+                                 "no confirmed drop, reward or item set names it"))
+            left[row.entry] = "unconfirmed"
             continue
         if row.kind != NEW and int(row.raw["sourceItem"]) not in stock.item_ids:
             raise SpecError("%s: sourceItem %s is no stock item" % (row.where, row.raw["sourceItem"]))
@@ -446,6 +460,8 @@ def _drop_sql(spec, stock):
                 lines.append(fail_unless("(SELECT COUNT(DISTINCT `entry`) FROM `creature_loot_template` WHERE "
                                          "`mincountOrRef`=-%d)=1 AND (SELECT COUNT(*) FROM `creature_loot_template` WHERE "
                                          "`mincountOrRef`=-%d AND `entry`=%d)>0" % (entry, entry, loot_id), "forever_reference"))
+                lines.append(fail_unless(" AND ".join("(SELECT COUNT(*) FROM `%s` WHERE `mincountOrRef`=-%d)=0" % (t, entry)
+                                                      for t in OTHER_REFERENCE_USERS), "forever_reference_users"))
         lines.append("INSERT INTO `%s` SELECT * FROM `%s` WHERE `entry`=%d;" % (table, stock_table, entry))
         lines += ["INSERT INTO `%s` (`entry`, `item`, `ChanceOrQuestChance`, `groupid`, `mincountOrRef`, `maxcount`, "
                   "`patch_min`, `patch_max`) VALUES (%d, %d, %s, 0, 1, 1, %d, %d);"
