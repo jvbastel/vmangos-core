@@ -42,6 +42,7 @@ GOLD = 10000
 
 
 def set_skill(client, value, maximum):
+    """Sets Blacksmithing to `value` of `maximum` (GM .setskill)."""
     client.gm(".setskill %d %d %d" % (BLACKSMITHING_SKILL, value, maximum), select=client.guid)
     client.pump(1)
 
@@ -75,6 +76,8 @@ def check_offer(client, trainer, who, spells, skill):
 
 
 def check_buy(client, trainer, learn, recipe, name):
+    """Buys the learn spell at the trainer, as the Train button does, and waits out its cast: the server answers
+    with success, and the character knows the recipe."""
     answers = client.buy_spell(trainer, learn, wait=LEARN_WAIT)
     results.check("buying %s at the trainer succeeds" % name, answers == [True], "answers %r" % answers)
     results.check("the character knows %s (%d)" % (name, recipe), client.knows(recipe), "learned %r" % client.learned)
