@@ -1,0 +1,40 @@
+# Forever loot of Ragefire Chasm (map 389): the boss drop and quest reward rows (spec jvbastel/WOWAI#240, ticket
+# #242). The items are in loot_ragefire_chasm_items.tsv. The layout of the loot files is in forever/REFRESH.md,
+# "Dungeon loot". forever/generator writes a drop row into forever_creature_loot_template (or
+# forever_reference_loot_template): a copy of every stock row of the loot entry plus the new row, outside the stock
+# equal-chance group, with patch_min 0 (Ragefire Chasm is open from patch 0). A reward row becomes a
+# forever_quest_template copy of the stock quest with the Forever reward choices.
+#
+# Sources, read 2026-10-31: Wowhead's Forever tooltip data ("Dropped by" and "Drop Chance" of each item,
+# https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0) and the Forever quest pages
+# (https://www.wowhead.com/forever/quest=<id>, read with a web-fetch tool: notes/forever/dungeon-loot-research.md 7.3).
+# A drop is confirmed when the tooltip's "Dropped by" names the boss; its chance is the tooltip's "Drop Chance".
+# Quests 5722, 5723, 5725, 5728, 5730 and 5761 show the stock reward choices on Wowhead Forever: no row.
+# Stock boss drops keep their stock chance (spec #240): Taragaman and Jergosh have no drop row.
+#
+# Columns (tab-separated):
+#   kind        drop: a new item on a boss; reward: a new reward choice of a quest (replaces "-") or a swapped one;
+#               unlock: the quest reward item loses its class lock (the item needs a row in the items file)
+#   item        the item ID (a row of a loot items file, or a stock item)
+#   name        the item name
+#   target      drop: the boss (creature entry); reward, unlock: the quest ID
+#   targetName  the stock name of the boss or the title of the quest (the generator compares it)
+#   loot        drop: "creature" (the boss's creature loot entry) or "reference <ID>" (a reference loot entry that only
+#               this boss uses); else "-"
+#   chance      drop: the drop chance in percent; else "-"
+#   replaces    reward: the stock reward choice it replaces, or "-" to add it in the first empty choice slot; else "-"
+#   count       reward: the number of items; else "-"
+#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it)
+#   source      a Wowhead URL, or "client <build>"
+#   date        the day the source was read, YYYY-MM-DD
+#   notes
+kind	item	name	target	targetName	loot	chance	replaces	count	status	source	date	notes
+# --- #242 new boss drops.
+drop	71000	Trogg Scepter	11517	Oggleflint	creature	3.22	-	-	confirmed	https://nether.wowhead.com/tooltip/item/272996?dataEnv=16&locale=0	2026-10-31	Forever item 272996
+drop	71001	Bone Knuckles	11517	Oggleflint	creature	2.65	-	-	confirmed	https://nether.wowhead.com/tooltip/item/272998?dataEnv=16&locale=0	2026-10-31	Forever item 272998
+drop	71002	Barbaric Crossbow	11517	Oggleflint	creature	2.93	-	-	confirmed	https://nether.wowhead.com/tooltip/item/272999?dataEnv=16&locale=0	2026-10-31	Forever item 272999
+drop	71003	Searing Dagger	11519	Bazzalan	creature	2.84	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273003?dataEnv=16&locale=0	2026-10-31	Forever item 273003
+drop	71004	Satyrskin Cloak	11519	Bazzalan	creature	2.89	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273005?dataEnv=16&locale=0	2026-10-31	Forever item 273005
+drop	71005	Chasm Walkers	11519	Bazzalan	creature	2.82	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273007?dataEnv=16&locale=0	2026-10-31	Forever item 273007
+# --- #242 quest rewards.
+reward	71006	Garrison Cuffs	5724	Returning the Lost Satchel	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=5724	2026-10-31	Forever item 270003, a third choice next to 15452 and 15453
