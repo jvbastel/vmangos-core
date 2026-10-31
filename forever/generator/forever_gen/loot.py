@@ -34,6 +34,10 @@ LOOT_COLUMNS = ("kind", "item", "name", "target", "targetName", "loot", "chance"
 STOCK, TWIN, NEW = "stock", "item", "new"
 ITEM_KINDS = (STOCK, TWIN, NEW)
 DROP, REWARD, UNLOCK = "drop", "reward", "unlock"
+# The `replaces` value of a reward row whose item is a stock fixed reward that becomes a choice (#245).
+FIXED = "fixed"
+# The fixed reward slots of quest_template (RewItemId1-4).
+FIXED_REWARD_SLOTS = 4
 LOOT_KINDS = (DROP, REWARD, UNLOCK)
 CONFIRMED = "confirmed"
 STATUSES = (CONFIRMED, "unconfirmed", "unreadable")
@@ -56,7 +60,8 @@ LIST_FILE = "loot-list.tsv"
 LootItem = namedtuple("LootItem", "kind entry name status source date left_out raw block path where")
 # A new boss drop. loot: CREATURE or REFERENCE; reference: the reference ID or None.
 Drop = namedtuple("Drop", "item name boss boss_name loot reference chance status source date where")
-# A quest reward row (kind reward or unlock). replaces: the stock choice it replaces or None; count: the item count.
+# A quest reward row (kind reward or unlock). replaces: the stock choice it replaces, FIXED (the item leaves the fixed
+# rewards and is added as a choice) or None; count: the item count.
 Reward = namedtuple("Reward", "kind item name quest title replaces count status source date where")
 # One line of the loot list: list (left-out, unconfirmed, unreadable), kind, id, name, detail.
 Listed = namedtuple("Listed", "list kind id name detail")
@@ -107,7 +112,7 @@ def read_loot_rows(path, lines):
             drops.append(Drop(boss=int(raw["target"]), boss_name=raw["targetName"], loot=loot,
                               reference=int(reference) if reference else None, chance=chance, **common))
         else:
-            replaces = None if raw["replaces"] == NO_VALUE else int(raw["replaces"])
+            replaces = None if raw["replaces"] == NO_VALUE else FIXED if raw["replaces"] == FIXED else int(raw["replaces"])
             count = 1 if raw["count"] == NO_VALUE else int(raw["count"])
             rewards.append(Reward(kind=kind, quest=int(raw["target"]), title=raw["targetName"], replaces=replaces,
                                   count=count, **common))
@@ -297,7 +302,7 @@ def quest_choices(spec, stock, quest):
     for reward in sorted((r for r in spec.loot_rewards if r.kind == REWARD and r.quest == quest), key=lambda r: r.item):
         if reward.item in choices:
             raise SpecError("%s: item %d is a reward choice of quest %d already" % (reward.where, reward.item, quest))
-        old = 0 if reward.replaces is None else reward.replaces
+        old = 0 if reward.replaces in (None, FIXED) else reward.replaces
         if old not in choices:
             raise SpecError("%s: %s" % (reward.where, "quest %d has no free reward choice slot" % quest if not old
                                         else "item %d is no stock reward choice of quest %d" % (old, quest)))
@@ -325,8 +330,27 @@ def _quest_sql(spec, stock):
                         "forever_quest"),
             "UPDATE `%s` SET %s;" % (temp, ", ".join("`RewChoiceItemId%d`=%d, `RewChoiceItemCount%d`=%d" % (slot, item, slot, count)
                                                      for slot, (item, count) in sorted(changed.items()))),
+            *_fixed_reward_sql(spec, quest, temp),
             "INSERT INTO `%s` SELECT * FROM `%s`;" % (QUEST_TABLE, temp),
             "DROP TEMPORARY TABLE `%s`;" % temp,
+        ]
+    return lines
+
+
+def _fixed_reward_sql(spec, quest, temp):
+    """SQL that takes each item of a `replaces` FIXED reward row of `quest` out of the fixed rewards of the quest copy
+    `temp` (#245: Forever offers a stock fixed reward as one of the choices). The generator's stock data has no fixed
+    rewards, so the SQL fails unless every stock row gives the item as a fixed reward. The count is set before the ID:
+    MySQL applies the assignments of an UPDATE from left to right."""
+    lines = []
+    for item in sorted(r.item for r in spec.loot_rewards if r.kind == REWARD and r.quest == quest and r.replaces == FIXED):
+        slots = range(1, FIXED_REWARD_SLOTS + 1)
+        lines += [
+            fail_unless("(SELECT COUNT(*) FROM `%s` WHERE NOT (%s))=0" % (
+                temp, " OR ".join("`RewItemId%d`=%d" % (k, item) for k in slots)), "forever_fixed"),
+            "UPDATE `%s` SET %s;" % (temp, ", ".join(
+                "`RewItemCount{k}`=IF(`RewItemId{k}`={i}, 0, `RewItemCount{k}`), "
+                "`RewItemId{k}`=IF(`RewItemId{k}`={i}, 0, `RewItemId{k}`)".format(k=k, i=item) for k in slots)),
         ]
     return lines
 
