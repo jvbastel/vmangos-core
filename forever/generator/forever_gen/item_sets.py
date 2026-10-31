@@ -34,9 +34,10 @@ NOT_PORTED = "none"
 
 # The bonuses of the sets that no item uses as a bonus (equip_stats.BONUSES has the others). The spell of a
 # value is the one that most stock items use for it, then the lowest ID. No stock item gives Strength by a
-# spell; 14492 "Increased Strength 20" is the stock equip-style spell (passive, no duration).
+# spell; 14492 "Increased Strength 20" is the stock equip-style spell (passive, no duration). 14494 "Increased
+# Strength 22" is the same kind (#248, set 2131).
 SET_BONUSES = dict(equip_stats.BONUSES, **{
-    "Strength": (((29, 0),), {20: 14492}),
+    "Strength": (((29, 0),), {20: 14492, 22: 14494}),
     # The stock spells of the dungeon sets (#248): the Forever bonus is the stock spell itself.
     "Intellect": (((29, 3),), {10: 9106}),
     "ArcaneRes": (((22, 64),), {5: 14707}),
@@ -115,8 +116,9 @@ def resolve(spec):
         else:
             kept.append(item_set)
         for bonus in item_set.bonuses:
-            if bonus.left_out is not None:
-                listed.append(Listed("left-out", "set bonus", item_set.set_id, bonus.name, bonus.left_out))
+            if bonus.left_out is not None or item_set.left_out is not None:
+                detail = bonus.left_out or "Forever %d (the set is left out)" % bonus.forever_spell
+                listed.append(Listed("left-out", "set bonus", item_set.set_id, bonus.name, detail))
     return spec._replace(item_sets=kept), listed
 
 
