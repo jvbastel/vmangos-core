@@ -231,7 +231,7 @@ def loot_list(out):
 
 def test_the_loot_list_names_each_left_out_forever_effect(out):
     listed = loot_list(out)
-    rfc_items = {str(e) for e in list(STOCK_DROPS) + list(NEW_ITEMS) + [15453, 15449, 15450, 15451, 15443, 15445, 15424, 15444]}
+    rfc_items = {row["entry"] for row in spec_rows(ITEMS)}
     assert {key for key in listed if key[0] == "left-out" and key[2] in rfc_items} == {
         ("left-out", "item", "14145"), ("left-out", "item", "71001"), ("left-out", "item", "71002"),
         ("left-out", "item", "71003")}

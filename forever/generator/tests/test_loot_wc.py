@@ -137,6 +137,20 @@ def test_the_stock_wc_boss_drops_get_their_forever_stats(out):
             assert ((int(row["dmg_min1"]), int(row["dmg_max1"])), int(row["delay"])) == weapon, name
 
 
+# The shield block values of Forever (item_template `block`; stock 6447: 6, 13245: 9). The other rows keep their block.
+BLOCKS = {6447: "9", 13245: "10", 6630: "11"}
+
+
+def test_the_wc_shields_get_their_forever_block_value(out):
+    rows = item_rows(out, "forever_item_stock")
+    assert {entry: row["block"] for entry, row in rows.items() if "block" in row} == BLOCKS
+
+
+def test_a_block_value_that_is_no_number_is_refused(tmp_path):
+    error = refused(tmp_path, (ITEMS, "\tBlock 10\t", "\tBlock ten\t"))
+    assert "Kresh's Back" in error and "Block ten" in error
+
+
 def test_the_forever_bonuses_of_changed_stock_items_are_stock_equip_spells(out):
     for entry, spells in STOCK_EQUIP.items():
         assert stock_spells_put(out, entry) == spells, entry
@@ -228,12 +242,12 @@ def test_the_reward_items_of_the_wc_quests_get_their_forever_stats(out):
 def test_the_loot_list_names_each_left_out_wc_stat_and_unconfirmed_row(out):
     listed = loot_list(out)
     wc_items = {str(e) for e in list(STOCK_DROPS) + list(NEW_ITEMS) + [6505, 8071, 10919]}
-    left_out = {"5243", "6447", "6463", "6469", "6629", "10919", "13245", "71100", "71102", "71103"}
+    left_out = {"5243", "6447", "6463", "6469", "6629", "10919", "71100", "71102", "71103"}
     assert {key for key in listed if key[0] == "left-out" and key[2] in wc_items} == {("left-out", "item", e) for e in left_out}
     assert "Movement speed reduced by 25%" in listed[("left-out", "item", "71100")]
     assert "Spell Penetration" in listed[("left-out", "item", "6463")]
     assert "Herbalism" in listed[("left-out", "item", "10919")]
-    assert "Block" in listed[("left-out", "item", "6447")] and "Block" in listed[("left-out", "item", "13245")]
+    assert "+40 Armor" in listed[("left-out", "item", "6447")] and "Block" not in listed[("left-out", "item", "6447")]
     # Night Watch Shortsword on Verdan: Method.gg lists it, the tooltip names no source. Apothecary Gloves as a
     # choice of Serpentbloom: the quest page shows it as a choice and as a fixed reward.
     assert ("unconfirmed", "drop", "935") in listed and ("unconfirmed", "reward", "10919") in listed
