@@ -76,8 +76,8 @@ KEEPS_STOCK_SPELLS = {6472, 6469}
 NEW_ITEMS = {
     71100: ("Cloak of Hermitic Bliss", 273084, (4, 1, 16), 3, {}, set(), None),
     71101: ("Snake Eye Kaleidoscope", 273088, (4, 0, 2), 3, {"Str": 1, "Agi": 1, "Sta": 1, "Int": 1, "Spi": 1}, set(), None),
-    # Mp5 3 is the stock spell 21625 (equip_stats.py; the test's aura names have no mana regeneration).
-    71102: ("Slither Cord", 273089, (4, 1, 6), 3, {}, {("spell 21625", 3)}, None),
+    # Mp5 3 is the stock spell 21625 (equip_stats.py).
+    71102: ("Slither Cord", 273089, (4, 1, 6), 3, {}, {("Mp5", 3)}, None),
     71103: ("Skum's Bucket", 273137, (4, 0, 23), 3, {"Sta": 3}, {("SpellPower", 4), ("Healing", 7)}, None),
     71104: ("Heat Resistant Mitts", 270008, (4, 2, 10), 2, {"Agi": 4, "Sta": 1}, set(), None),
     71105: ("Safety Boots", 270009, (4, 3, 8), 2, {"Str": 4, "Sta": 2}, set(), None),

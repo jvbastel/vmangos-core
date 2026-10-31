@@ -19,9 +19,6 @@ pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no 
 
 ITEMS, LOOT = "loot_ragefire_chasm_items.tsv", "loot_ragefire_chasm.tsv"
 OGGLEFLINT, JERGOSH, BAZZALAN, TARAGAMAN = 11517, 11518, 11519, 11520
-# The other dungeon files add their own rows to the same output (#243-#247): the RFC tests look at the RFC rows.
-RFC_BOSSES = {OGGLEFLINT, JERGOSH, BAZZALAN, TARAGAMAN}
-RFC_QUESTS = {5722, 5723, 5724, 5725, 5728, 5730, 5761}
 # The stock boss drops of Taragaman and Jergosh with their Forever values (Wowhead): quality, armor, base stats,
 # (damage, delay) of a weapon.
 STOCK_DROPS = {
@@ -54,6 +51,11 @@ TARAGAMAN_REFERENCE, JERGOSH_REFERENCE = 30332, 30331
 # Quest 5724 Returning the Lost Satchel: stock choices 15452 and 15453 (stock world DB), Forever adds Garrison Cuffs
 # (Wowhead Forever quest page).
 SATCHEL, GARRISON_CUFFS = 5724, 71006
+# The other dungeons of spec #240 add their own rows to the same output: these tests look at the RFC rows only.
+# RFC_ITEMS comes from the RFC items file, so a new RFC item row needs no edit here.
+RFC_BOSSES = {OGGLEFLINT, JERGOSH, BAZZALAN, TARAGAMAN}
+RFC_QUESTS = {5722, 5723, 5724, 5725, 5728, 5730, 5761}
+RFC_ITEMS = {int(row["entry"]) for row in spec_rows(ITEMS)}
 QUEST = "forever_quest_template"
 CREATURE_LOOT, REFERENCE_LOOT = "forever_creature_loot_template", "forever_reference_loot_template"
 LOOT_ROW = (r"^INSERT INTO `%s` \(`entry`, `item`, `ChanceOrQuestChance`, `groupid`, `mincountOrRef`, `maxcount`, "
@@ -199,8 +201,8 @@ def quest_changes(out):
 
 
 def test_quest_5724_offers_garrison_cuffs_as_its_third_choice(out):
-    changes = {q: c for q, c in quest_changes(out).items() if q in RFC_QUESTS}
-    assert changes == {SATCHEL: {"RewChoiceItemId3": str(GARRISON_CUFFS), "RewChoiceItemCount3": "1"}}
+    assert {q: c for q, c in quest_changes(out).items() if q in RFC_QUESTS} == {
+        SATCHEL: {"RewChoiceItemId3": str(GARRISON_CUFFS), "RewChoiceItemCount3": "1"}}
 
 
 def test_the_quest_copy_takes_every_stock_row_of_the_quest_and_fails_on_other_stock_choices(out):
@@ -231,8 +233,7 @@ def loot_list(out):
 
 def test_the_loot_list_names_each_left_out_forever_effect(out):
     listed = loot_list(out)
-    rfc_items = {row["entry"] for row in spec_rows(ITEMS)}
-    assert {key for key in listed if key[0] == "left-out" and key[2] in rfc_items} == {
+    assert {key for key in listed if key[0] == "left-out" and int(key[2]) in RFC_ITEMS} == {
         ("left-out", "item", "14145"), ("left-out", "item", "71001"), ("left-out", "item", "71002"),
         ("left-out", "item", "71003")}
     assert "Attack Power against Beasts" in listed[("left-out", "item", "71001")]
