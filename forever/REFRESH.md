@@ -198,7 +198,8 @@ Row kinds:
   fixed reward that becomes a choice (`replaces` "fixed", quests 167 and 1098: the first empty choice slot, and the
   SQL takes the item out of the fixed rewards; it fails unless every stock row of the quest gives the item as a fixed
   reward). The generator copies every stock row of the quest into `forever_quest_template` with the new choices.
-  `unlock`: a stock reward choice that loses its class lock (the item needs an items row; the generator sets its `allowable_class` to -1).
+  `unlock`: a stock reward choice that loses its class lock (the item needs an items row; the generator sets its
+  `allowable_class` to -1).
   A `stock` items row of an item that is not in the stock gear file (a white stock item that Forever makes blue,
   #244) can name its `class`: it gives the disenchant ID.
 - Every row has `status`, `source` and `date`. `status`: `confirmed` (the source shows it), `unconfirmed` or
