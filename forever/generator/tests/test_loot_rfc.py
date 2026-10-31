@@ -19,6 +19,9 @@ pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no 
 
 ITEMS, LOOT = "loot_ragefire_chasm_items.tsv", "loot_ragefire_chasm.tsv"
 OGGLEFLINT, JERGOSH, BAZZALAN, TARAGAMAN = 11517, 11518, 11519, 11520
+# The other dungeon files add their own rows to the same output (#243-#247): the RFC tests look at the RFC rows.
+RFC_BOSSES = {OGGLEFLINT, JERGOSH, BAZZALAN, TARAGAMAN}
+RFC_QUESTS = {5722, 5723, 5724, 5725, 5728, 5730, 5761}
 # The stock boss drops of Taragaman and Jergosh with their Forever values (Wowhead): quality, armor, base stats,
 # (damage, delay) of a weapon.
 STOCK_DROPS = {
@@ -162,8 +165,9 @@ def test_a_new_or_now_blue_item_disenchants_as_a_stock_blue_item_of_its_level(ou
 def test_each_new_drop_is_a_row_outside_the_stock_groups_on_a_copy_of_the_boss_loot(out):
     text = sql(out)
     # Group 0 (no equal-chance group), one item, from patch 0 (Ragefire Chasm is open from the first patch) to 10.
-    assert loot_rows(text) == {key: (chance, 0, 1, 1, 0, 10) for key, chance in DROPS.items()}
-    assert copied_entries(text) == {OGGLEFLINT, BAZZALAN}
+    assert {k: v for k, v in loot_rows(text).items() if k[0] in RFC_BOSSES} == {
+        key: (chance, 0, 1, 1, 0, 10) for key, chance in DROPS.items()}
+    assert copied_entries(text) & RFC_BOSSES == {OGGLEFLINT, BAZZALAN}
     for entry, item in DROPS:
         copy = text.index("INSERT INTO `%s` SELECT * FROM `creature_loot_template` WHERE `entry`=%d;" % (CREATURE_LOOT, entry))
         assert text.index("VALUES (%d, %d, " % (entry, item)) > copy
@@ -195,7 +199,8 @@ def quest_changes(out):
 
 
 def test_quest_5724_offers_garrison_cuffs_as_its_third_choice(out):
-    assert quest_changes(out) == {SATCHEL: {"RewChoiceItemId3": str(GARRISON_CUFFS), "RewChoiceItemCount3": "1"}}
+    changes = {q: c for q, c in quest_changes(out).items() if q in RFC_QUESTS}
+    assert changes == {SATCHEL: {"RewChoiceItemId3": str(GARRISON_CUFFS), "RewChoiceItemCount3": "1"}}
 
 
 def test_the_quest_copy_takes_every_stock_row_of_the_quest_and_fails_on_other_stock_choices(out):
@@ -226,7 +231,8 @@ def loot_list(out):
 
 def test_the_loot_list_names_each_left_out_forever_effect(out):
     listed = loot_list(out)
-    assert {key for key in listed if key[0] == "left-out"} == {
+    rfc_items = {str(e) for e in list(STOCK_DROPS) + list(NEW_ITEMS) + [15453, 15449, 15450, 15451, 15443, 15445, 15424, 15444]}
+    assert {key for key in listed if key[0] == "left-out" and key[2] in rfc_items} == {
         ("left-out", "item", "14145"), ("left-out", "item", "71001"), ("left-out", "item", "71002"),
         ("left-out", "item", "71003")}
     assert "Attack Power against Beasts" in listed[("left-out", "item", "71001")]
