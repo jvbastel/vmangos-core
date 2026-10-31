@@ -12,6 +12,7 @@ import re
 
 import pytest
 
+from test_blacksmithing import spec_rows
 from test_new_recipes import refused, run, spec_folder
 from test_pipeline import STOCK, pytestmark, read_dbc  # noqa: F401  (pytestmark: skip without stock data)
 
@@ -21,6 +22,8 @@ NAME, ITEMS, SPELLS, THRESHOLDS = 1, 10, 27, 35
 MAX_PIECES, MAX_SET_SPELLS = 17, 8
 
 BLESSED, IMPERIAL = 1968, 321
+# The item sets of the dungeon loot (#248).
+DUNGEON_SETS = {int(row["set"]) for row in spec_rows("loot_item_sets.tsv")}
 EXPECTED = {
     BLESSED: {
         "name": "Blessed Plate",
@@ -72,8 +75,8 @@ def test_the_other_stock_item_sets_stay_byte_for_byte(out):
     stock, stock_text = read_dbc(STOCK / "ItemSet.dbc")
     assert set(rows) == set(stock) | {BLESSED}
     for set_id, row in stock.items():
-        # The dungeon sets 161 and 162 of #248 change too (test_loot_item_sets.py).
-        if set_id not in (IMPERIAL, 161, 162):
+        # The dungeon sets of #248 change too (loot_item_sets.tsv, test_loot_item_sets.py).
+        if set_id != IMPERIAL and set_id not in DUNGEON_SETS:
             assert row[:1] + row[2:] == rows[set_id][:1] + rows[set_id][2:]
             assert text(rows[set_id][NAME]) == stock_text(row[NAME])
 
