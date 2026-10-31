@@ -34,7 +34,8 @@ LOOT_COLUMNS = ("kind", "item", "name", "target", "targetName", "loot", "chance"
 STOCK, TWIN, NEW = "stock", "item", "new"
 ITEM_KINDS = (STOCK, TWIN, NEW)
 DROP, REWARD, UNLOCK = "drop", "reward", "unlock"
-# The `replaces` value of a reward row whose item is a stock fixed reward that becomes a choice (#245).
+# The `replaces` value of a reward row whose item is a stock fixed reward that becomes a choice (#244 quest 167,
+# #245 quest 1098).
 FIXED = "fixed"
 # The fixed reward slots of quest_template (RewItemId1-4).
 FIXED_REWARD_SLOTS = 4
@@ -378,9 +379,9 @@ def _quest_sql(spec, stock):
 
 def _fixed_reward_sql(spec, quest, temp):
     """SQL that takes each item of a `replaces` FIXED reward row of `quest` out of the fixed rewards of the quest copy
-    `temp` (#245: Forever offers a stock fixed reward as one of the choices). The generator's stock data has no fixed
-    rewards, so the SQL fails unless every stock row gives the item as a fixed reward. The count is set before the ID:
-    MySQL applies the assignments of an UPDATE from left to right."""
+    `temp` (#244 quest 167, #245 quest 1098: Forever offers a stock fixed reward as one of the choices). The
+    generator's stock data has no fixed rewards, so the SQL fails unless every stock row gives the item as a fixed
+    reward. The count is set before the ID: MySQL applies the assignments of an UPDATE from left to right."""
     lines = []
     for item in sorted(r.item for r in spec.loot_rewards if r.kind == REWARD and r.quest == quest and r.replaces == FIXED):
         slots = range(1, FIXED_REWARD_SLOTS + 1)
