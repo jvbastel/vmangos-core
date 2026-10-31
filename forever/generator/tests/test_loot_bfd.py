@@ -20,6 +20,7 @@ pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no 
 
 ITEMS, LOOT = "loot_blackfathom_deeps_items.tsv", "loot_blackfathom_deeps.tsv"
 GHAMOORA, SAREVESS, GELIHAST, LORGUS, KELRIS, SERRAKIS, AKUMAI = 4887, 4831, 6243, 12902, 4832, 4830, 4829
+AQUANIS = 12876  # Baron Aquanis: no new drop, no stock drop row
 # The boss references of the stock unique drops (one equal-chance group each, stock world DB).
 BOSS_REFERENCES = (30156, 30152, 30178, 30153, 30151, 30150)
 BLOCK = (71400, 71499)
@@ -108,7 +109,7 @@ def ours(rows, entries):
     return {k: v for k, v in rows.items() if (k[0] if isinstance(k, tuple) else k) in entries}
 
 
-BOSSES = {GHAMOORA, SAREVESS, GELIHAST, LORGUS, KELRIS, SERRAKIS, AKUMAI, 12876}
+BOSSES = {GHAMOORA, SAREVESS, GELIHAST, LORGUS, KELRIS, SERRAKIS, AKUMAI, AQUANIS}
 
 
 # --- The spec files.
