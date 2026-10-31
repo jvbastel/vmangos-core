@@ -1,0 +1,88 @@
+# Forever loot of the Deadmines (map 36): the item rows (spec jvbastel/WOWAI#240, ticket #244). forever/generator
+# writes each confirmed row into forever_item_template (world database). The drop and quest reward rows are in
+# loot_deadmines.tsv. The layout of the loot files is in forever/REFRESH.md, "Dungeon loot".
+# Never edit a generated file by hand.
+#
+# Sources, read 2026-10-31: the Forever client build 1.60.1.70685 (Item.db2: class, subclass and slot of each new
+# item; ItemSparse holds every gear row of this file in encrypted data) and Wowhead's Forever tooltip data
+# (https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0, raw answers cached in
+# notes/forever/wowhead-cache/item, read with forever/generator/tools/wowhead_tooltips.py). Only numbers and names.
+# The data notes: notes/forever/loot-data-deadmines.md.
+#
+# Item ID block: 71200-71299. Next free item ID: 71212.
+#
+# Rows: the 19 changed stock boss drops of the nine bosses (all blue in Forever, all bind on pickup); the 6 new boss
+# drops; the 6 new quest reward choices (quests 167, 168, 214, 2040); the 6 changed stock quest rewards (quests 166,
+# 214, 2040).
+# Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
+# healing) plus Healing X-Y. The Forever bonus armor of a weapon (Goblin Hammer) is the item armor.
+#
+# Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
+# of the source row.
+#   kind           stock: a changed stock item (entry = sourceItem, its own stock ID)
+#                  item: a new item with a stock twin (sourceItem: the stock item whose row is copied)
+#                  new: a new item with no stock twin: class, subclass and inventoryType from Item.db2; the
+#                       generator copies the stock item of that class, subclass and slot nearest in item level
+#                       (forever_gen/loot.py) and takes its display
+#   entry          the item ID: a stock ID (stock), else from the item ID block of this file
+#   foreverItem    the item ID in the Forever client and on Wowhead
+#   sourceItem     the stock item whose row is copied (stock, item), "-" for new
+#   name, quality (poor, common, uncommon, rare, epic), itemLevel, requiredLevel, bonding (none, pickup, equip, use)
+#   class, subclass  the item class and subclass (new), else "-". A stock row whose item is not in the stock gear
+#                  file (a white stock item) can name its class: it gives the disenchant ID
+#   inventoryType  the slot as a number (13 one-hand, 21 main hand, 26 ranged right, 16 back, ...), "-" keeps it
+#   delay          the weapon speed in ms; damage: "<min>-<max>"; armor; resistances: "Fire 5, ..." or "none"
+#   stats          the base stats: "Str 2, Spi 3" (Str, Agi, Sta, Int, Spi, Health, Mana)
+#   bonuses        the other stats as stock equip spells (forever_gen/equip_stats.py): "SpellPower 11, Healing 22"
+#   equipSpells    more stock equip spells by ID
+#   displayId      a stock ItemDisplayInfo.dbc ID (it also gives the icon); "-" for new: the display of the copied item
+#   sellPrice      in copper
+#   foreverStats   the Forever stats as the source shows them
+#   leftOut        the Forever stats and effects that 1.12 cannot show or that have no stock equip spell, "-" if none.
+#                  The generator lists them (loot-list.tsv)
+#   status         confirmed (the source shows it), unconfirmed or unreadable (the generator leaves the row out and
+#                  lists it)
+#   source         where the values come from: a Wowhead URL, or "client <build>"
+#   date           the day the source was read, YYYY-MM-DD
+#   notes
+kind	entry	foreverItem	sourceItem	name	quality	itemLevel	requiredLevel	bonding	class	subclass	inventoryType	delay	damage	armor	resistances	stats	bonuses	equipSpells	displayId	sellPrice	foreverStats	leftOut	status	source	date	notes
+# --- #244 stock boss drops. They keep their stock chance and their stock equal-chance group (one boss reference each, groupid 1): they need no drop row. Lavishly Jeweled Ring (1156), Smite's Mighty Hammer (7230) and Cruel Barb (5191, stock equip spell 9141 = +12 Attack Power) have no row: their Forever tooltip equals the stock item.
+stock	872	872	872	Rockslicer	rare	23	18	pickup	-	-	-	3300	52-78	0	Nature 7	Str 7	-	-	19242	3189	Two-Hand Axe, 52-78 damage, speed 3.30, +7 Str, +7 Nature Resistance; Use: slice open and gather from a target Copper, Tin, Silver or Iron Vein (does not require Mining)	Use: gather from a Copper, Tin, Silver or Iron Vein (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/872?dataEnv=16&locale=0	2026-10-31	Rhahk'Zor; stock: green, i21 r16, 36-55
+stock	5187	5187	5187	Rhahk'Zor's Hammer	rare	21	16	pickup	2	-	-	3200	47-71	0	-	Sta 8	SpellPower 8	-	8600	2454	Two-Hand Mace, 47-71 damage, speed 3.20, +8 Sta; Equip: damage and healing up to 8	-	confirmed	https://nether.wowhead.com/tooltip/item/5187?dataEnv=16&locale=0	2026-10-31	Rhahk'Zor; stock: white, i20 r15, 30-46, no stats, binds on nothing; class 2 (weapon) gives the disenchant ID of a blue weapon: the stock white item is not in the stock gear file
+stock	5443	5443	5443	Gold-plated Buckler	rare	22	17	pickup	-	-	-	-	-	509	-	Agi 2, Sta 5	-	-	18523	1445	Shield, 509 armor, +2 Agi, +5 Sta; Equip: after entering combat, reduce the next instance of Physical damage taken within 20 sec by 15	Equip: after entering combat, the next Physical damage taken within 20 sec is 15 lower (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/5443?dataEnv=16&locale=0	2026-10-31	Miner Johnson; stock: i20 r15, 471 armor
+stock	5444	5444	5444	Miner's Cape	rare	22	17	pickup	-	-	-	-	-	20	-	Sta 5	AP 4	13611	15089	677	Back, 20 armor, +5 Sta; Equip: Increased Mining +2; Equip: +4 Attack Power; Equip: +6 Attack Power against Elementals	Equip: +6 Attack Power against Elementals (the lowest stock Elemental Slaying spell gives 36)	confirmed	https://nether.wowhead.com/tooltip/item/5444?dataEnv=16&locale=0	2026-10-31	Miner Johnson; Mining +2 is the stock spell 13611 (aura mod skill 186, +2); stock: green, i19 r14, 16 armor, +3 Sta
+stock	1937	1937	1937	Buzz Saw	rare	23	18	pickup	-	-	-	2300	24-46	0	-	Agi 3, Sta 3	-	-	5040	2551	One-Hand Sword, 24-46 damage, speed 2.30, +3 Agi, +3 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/1937?dataEnv=16&locale=0	2026-10-31	Sneed's Shredder; stock: green, i21 r16, 17-33, speed 2.40, +2 Agi, +2 Str
+stock	2169	2169	2169	Buzzer Blade	rare	21	16	pickup	2	-	-	1500	9-18	0	-	-	SpellPower 22	-	20347	1963	Main Hand Dagger, 9-18 damage, speed 1.50; Equip: damage and healing up to 22; Equip: spell damage against Elementals up to 9	Equip: spell damage against Elementals up to 9 (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/2169?dataEnv=16&locale=0	2026-10-31	Sneed's Shredder; stock: white, 10-19, binds on nothing; class 2 (weapon) gives the disenchant ID of a blue weapon: the stock white item is not in the stock gear file
+stock	5194	5194	5194	Taskmaster Axe	rare	23	18	pickup	-	-	-	2700	31-48	0	-	Sta 8, Spi 8	SpellPower 15, Healing 30	-	19296	3189	Two-Hand Axe, 31-48 damage, speed 2.70, +8 Sta, +8 Spi; Equip: healing up to 45 and damage up to 15	-	confirmed	https://nether.wowhead.com/tooltip/item/5194?dataEnv=16&locale=0	2026-10-31	Sneed; stock: 42-64
+stock	5195	5195	5195	Gold-flecked Gloves	rare	22	17	pickup	-	-	-	-	-	25	Fire 5	Str 7	-	-	16966	451	Hands Cloth, 25 armor, +7 Str, +5 Fire Resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/5195?dataEnv=16&locale=0	2026-10-31	Sneed; stock: green, 22 armor, +4 Str, +3 Int
+stock	5199	5199	5199	Smelting Pants	rare	21	16	pickup	-	-	-	-	-	76	-	Sta 7, Spi 5	-	-	1978	981	Legs Leather, 76 armor, +7 Sta, +5 Spi; Equip: reduces the crafting time of Smelt Copper, Smelt Tin, Smelt Bronze and Smelt Silver by 25%	Equip: Smelt Copper, Tin, Bronze and Silver 25% faster (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/5199?dataEnv=16&locale=0	2026-10-31	Gilnid; stock: green, 69 armor, +5 Sta, +4 Spi
+stock	5192	5192	5192	Thief's Blade	rare	22	17	pickup	-	-	-	1700	17-32	0	-	Agi 4	-	-	5144	2258	One-Hand Sword, 17-32 damage, speed 1.70, +4 Agi; Equip: Pick Pocket and Distract succeed 1% more often	Equip: Pick Pocket and Distract succeed 1% more often (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/5192?dataEnv=16&locale=0	2026-10-31	Mr. Smite; stock: green, 13-25, +3 Agi
+stock	5196	5196	5196	Smite's Reaver	rare	21	17	pickup	-	-	-	1900	18-35	0	-	Str 3, Spi 3	-	-	13913	1963	One-Hand Axe, 18-35 damage, speed 1.90, +3 Str, +3 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/5196?dataEnv=16&locale=0	2026-10-31	Mr. Smite; stock: green, i22, 14-28, +2 Str, +1 Spi, +1 Sta
+stock	5200	5200	5200	Impaling Harpoon	rare	22	17	pickup	-	-	-	2400	36-55	0	-	Agi 9, Int 5	-	-	5949	2822	Two-Hand Polearm, 36-55 damage, speed 2.40, +9 Agi, +5 Int	-	confirmed	https://nether.wowhead.com/tooltip/item/5200?dataEnv=16&locale=0	2026-10-31	Captain Greenskin; stock: green, r20, 27-42, +7 Agi
+stock	5201	5201	5201	Emberstone Staff	rare	22	17	pickup	-	-	-	3000	34-51	0	Fire 8	Sta 8	SpellPower 24	-	20340	2822	Two-Hand Staff, 34-51 damage, speed 3.00, +8 Sta, +8 Fire Resistance; Equip: damage and healing up to 24	-	confirmed	https://nether.wowhead.com/tooltip/item/5201?dataEnv=16&locale=0	2026-10-31	Captain Greenskin; stock: i23 r18, 47-71, +8 Int, +5 Spi, +5 Sta
+stock	10403	10403	10403	Blackened Defias Belt	rare	22	17	pickup	-	-	-	-	-	50	Arcane 5	-	AP 18	-	14389	569	Waist Leather, 50 armor, +5 Arcane Resistance; Equip: +18 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/10403?dataEnv=16&locale=0	2026-10-31	Captain Greenskin; Defias Leather set piece (set 161, #248); stock: green, binds when equipped, 45 armor, +5 Str
+stock	5193	5193	5193	Cape of the Brotherhood	rare	24	19	pickup	-	-	-	-	-	21	-	Agi 5, Sta 3	-	-	22998	865	Back, 21 armor, +5 Agi, +3 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/5193?dataEnv=16&locale=0	2026-10-31	Edwin VanCleef; stock: i25 r20, +6 Agi
+stock	5202	5202	5202	Corsair's Overshirt	rare	22	17	pickup	-	-	-	-	-	40	-	Sta 5, Spi 8	SpellPower 4 (Forever 3), Healing 9 (Forever 8)	-	12803	903	Chest Cloth, 40 armor, +5 Sta, +8 Spi; Equip: healing up to 11 and damage up to 3	-	confirmed	https://nether.wowhead.com/tooltip/item/5202?dataEnv=16&locale=0	2026-10-31	Edwin VanCleef; stock: i24 r19, 42 armor, +11 Spi
+stock	10399	10399	10399	Blackened Defias Armor	rare	22	17	pickup	-	-	-	-	-	89	Arcane 5	Str 4, Agi 3, Sta 10	-	-	9123	1129	Chest Leather, 89 armor, +4 Str, +3 Agi, +10 Sta, +5 Arcane Resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/10399?dataEnv=16&locale=0	2026-10-31	Edwin VanCleef; Defias Leather set piece (set 161, #248); stock: i24 r19, 92 armor, +11 Sta
+stock	5197	5197	5197	Cookie's Tenderizer	rare	21	16	pickup	-	-	-	2800	27-51	0	-	Spi 4	-	-	20953	1963	One-Hand Mace, 27-51 damage, speed 2.80, +4 Spi; Chance on hit: Tenderize the target, physical damage taken +1 for 1 min	Chance on hit: Tenderize, physical damage taken +1 for 1 min (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/5197?dataEnv=16&locale=0	2026-10-31	Cookie; stock: green, 20-39, +3 Str
+stock	5198	5198	5198	Cookie's Stirring Rod	rare	22	17	pickup	-	-	-	-	-	0	-	-	-	-	21011	1693	Ranged Wand, 20-38 Arcane damage, speed 1.30; Equip: Cooking speed +25%	Equip: Cooking speed +25% (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/5198?dataEnv=16&locale=0	2026-10-31	Cookie; stock: sell price 1660
+# --- #244 new boss drops: one new blue item on six bosses (Wowhead Forever "Dropped by" and "Drop Chance"). The two Forever camp blueprints of Gilnid (273086 Blueprint: Anvil) and Cookie (273102 Blueprint: Cookie's Feast) have no row: Forever camp features have no 1.12 meaning.
+new	71200	273289	-	Ogre Loincloth	rare	22	17	pickup	4	1	7	-	-	35	-	Str 4, Sta 6	SpellPower 6, Healing 13 (Forever 12)	-	-	895	Legs Cloth, 35 armor, +4 Str, +6 Sta; Equip: healing up to 18 and damage up to 6	-	confirmed	https://nether.wowhead.com/tooltip/item/273289?dataEnv=16&locale=0	2026-10-31	Dropped by Rhahk'Zor 1.56%
+new	71201	273293	-	Bandsaw Wristbands	rare	21	16	pickup	4	3	9	-	-	82	-	Sta 5	-	-	-	592	Wrist Mail, 82 armor, +5 Sta; Equip: deals 5 to 7 Physical damage every time you block	Equip: 5 to 7 Physical damage on each block (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/273293?dataEnv=16&locale=0	2026-10-31	Dropped by Sneed 0.95%
+new	71202	273297	-	Goblin Hammer	rare	23	18	pickup	2	4	21	2000	21-40	20	-	Sta 4	-	-	-	2605	Main Hand Mace, 21-40 damage, speed 2.00, +4 Sta, +20 bonus armor	-	confirmed	https://nether.wowhead.com/tooltip/item/273297?dataEnv=16&locale=0	2026-10-31	Dropped by Gilnid 1.30%; the Forever bonus armor (stat 50) is the item armor
+new	71203	273298	-	Lookie's Spyglass	rare	23	18	pickup	4	0	12	-	-	0	-	Spi 1	-	-	-	1045	Trinket, +1 Spi; Use: allows you to look far into the distance	Use: look far into the distance (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/273298?dataEnv=16&locale=0	2026-10-31	Dropped by Cookie 1.04%
+new	71204	284715	-	First Mate Band	rare	22	17	pickup	4	0	11	-	-	0	-	Str 4, Sta 5	-	-	-	944	Finger, +4 Str, +5 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/284715?dataEnv=16&locale=0	2026-10-31	Dropped by Mr. Smite 1.01%; Partners in Crime set piece (set 2131, #248)
+new	71205	285292	-	Dull Sawblade	rare	21	16	pickup	2	16	25	1700	15-28	0	-	Sta 2	AP 6	-	-	1472	Thrown, 15-28 damage, speed 1.70, +2 Sta; Equip: +6 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/285292?dataEnv=16&locale=0	2026-10-31	Dropped by Sneed's Shredder 1.82%
+# --- #244 quest rewards: the new choices of quests 167, 168, 214 and 2040 and the Forever stats of the stock rewards. Unchanged on Wowhead Forever (no row): 1893, 2036, 2037, 2041 and 6087.
+new	71206	270005	-	Monastic Hammer	uncommon	19	0	pickup	2	4	21	2100	9-18	0	-	Int 2	SpellPower 12	-	-	1253	Main Hand Mace, 9-18 damage, speed 2.10, +2 Int; Equip: damage and healing up to 12	-	confirmed	https://nether.wowhead.com/tooltip/item/270005?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 214
+new	71207	270007	-	Worn Miner's Waistcord	uncommon	18	0	pickup	4	1	6	-	-	18	-	Sta 2, Int 3	-	-	-	281	Waist Cloth, 18 armor, +2 Sta, +3 Int	-	confirmed	https://nether.wowhead.com/tooltip/item/270007?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 168
+new	71208	270012	-	Miner's Workgloves	uncommon	20	0	pickup	4	1	10	-	-	21	-	Sta 5	-	-	-	275	Hands Cloth, 21 armor, +5 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/270012?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 167
+new	71209	270013	-	Miner's Workboots	uncommon	20	0	pickup	4	2	8	-	-	53	-	Spi 5	-	-	-	547	Feet Leather, 53 armor, +5 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/270013?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 167
+new	71210	270015	-	Bravo's Armbands	uncommon	22	0	pickup	4	2	9	-	-	35	-	Str 3, Agi 3	-	-	-	462	Wrist Leather, 35 armor, +3 Str, +3 Agi	-	confirmed	https://nether.wowhead.com/tooltip/item/270015?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 2040
+new	71211	270016	-	Dreamer's Leggings	uncommon	22	0	pickup	4	2	7	-	-	71	-	Int 6	SpellPower 2	-	-	921	Legs Leather, 71 armor, +6 Int; Equip: damage and healing up to 2	-	confirmed	https://nether.wowhead.com/tooltip/item/270016?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 2040
+stock	2042	2042	2042	Staff of Westfall	rare	24	0	pickup	-	-	-	3000	36-55	0	-	Int 5, Spi 6	SpellPower 16, Healing 33 (Forever 32)	-	20379	3604	Two-Hand Staff, 36-55 damage, speed 3.00, +5 Int, +6 Spi; Equip: healing up to 48 and damage up to 16; Equip: movement speed +2% in Elwynn Forest, Westfall, Redridge Mountains and the Deadmines	Equip: movement speed +2% in four zones (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/2042?dataEnv=16&locale=0	2026-10-31	quest 166; stock: 49-74, +11 Spi
+stock	2074	2074	2074	Solid Shortblade	uncommon	19	0	pickup	-	-	-	2500	16-31	0	-	Str 1, Sta 1	-	-	20168	1237	One-Hand Sword, 16-31 damage, speed 2.50, +1 Str, +1 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/2074?dataEnv=16&locale=0	2026-10-31	quest 214; stock: i18, 16-30
+stock	2089	2089	2089	Scrimshaw Dagger	uncommon	19	0	pickup	-	-	-	1800	12-23	0	-	Sta 2	-	-	20407	1237	One-Hand Dagger, 12-23 damage, speed 1.80, +2 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/2089?dataEnv=16&locale=0	2026-10-31	quest 214; stock: i18, 11-21
+stock	6094	6094	6094	Piercing Axe	uncommon	19	0	pickup	-	-	-	3300	33-50	0	-	Agi 6	-	-	19390	1546	Two-Hand Axe, 33-50 damage, speed 3.30, +6 Agi	-	confirmed	https://nether.wowhead.com/tooltip/item/6094?dataEnv=16&locale=0	2026-10-31	quest 214; stock: i18, 31-47, +5 Agi
+stock	7606	7606	7606	Polar Gauntlets	uncommon	22	0	pickup	-	-	-	-	-	109	-	Str 4, Spi 2	-	-	15721	564	Hands Mail, 109 armor, +4 Str, +2 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/7606?dataEnv=16&locale=0	2026-10-31	quest 2040; stock: +5 Str
+stock	7607	7607	7607	Sable Wand	uncommon	22	0	pickup	-	-	-	-	-	0	-	Spi 2	-	-	20920	1411	Ranged Wand, 21-40 Shadow damage, speed 1.80, +2 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/7607?dataEnv=16&locale=0	2026-10-31	quest 2040; stock: no stats

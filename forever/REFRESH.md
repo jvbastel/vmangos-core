@@ -184,19 +184,28 @@ Row kinds:
   is encrypted. The generator copies the stock weapon or armor item of that class, subclass and slot nearest in
   item level (then of the same quality, then the lowest ID) from `generator/forever_gen/stock_world/gear.tsv`, and
   takes its display; a `displayId` overrides it (a stock `ItemDisplayInfo.dbc` ID). Stats and bonuses work as in
-  `items.tsv`. A Forever stat or effect with no 1.12 meaning or no stock equip spell (Haste, Expertise, a proc
+  `items.tsv`; `stats` can also hold `Block <value>`, the shield block value (item_template `block`; without it
+  the stock block stays). A Forever stat or effect with no 1.12 meaning or no stock equip spell (Haste, Expertise, a proc
   that 1.12 has no spell for, "+6 Attack Power against Beasts") goes into `leftOut` and stays off the item. Each
   new item, and each stock item that the gear file has, takes the disenchant ID of the stock gear of its class
-  and quality nearest in item level.
-- Loot file. `drop`: a new item on a boss (creature entry and stock name), with its Forever chance; `loot` is
+  and quality nearest in item level. A stock item that the gear file does not have (a stock common item that
+  Forever makes uncommon or better) takes its class from its `class` column; a `class` that differs from the gear
+  file is refused.
+- Loot file. `drop`: a new item on a boss (creature entry and stock name), with its Forever chance (an
+  `unconfirmed` drop whose source names no chance has `-`; a confirmed one without a chance is refused); `loot` is
   `creature` (the boss's creature loot) or `reference <ID>` (a reference that only this boss uses). The
   generator copies every stock row of that loot entry into `forever_creature_loot_template` (or
   `forever_reference_loot_template`) and adds the new row with group 0 (outside every stock equal-chance group),
   patch_min 0 and patch_max 10: the six dungeons are open from the first content patch. A stock boss drop keeps
   its stock row, chance and group: it needs only its items row. `reward`: a new reward choice of a quest
-  (`replaces` "-": the first empty choice slot) or a swapped one (`replaces` the stock choice). The generator
-  copies every stock row of the quest into `forever_quest_template` with the new choices. `unlock`: a stock reward
-  choice that loses its class lock (the item needs an items row; the generator sets its `allowable_class` to -1).
+  (`replaces` "-": the first empty choice slot), a swapped one (`replaces` the stock choice), or a stock
+  fixed reward that becomes a choice (`replaces` "fixed", quests 167 and 1098: the first empty choice slot, and the
+  SQL takes the item out of the fixed rewards; it fails unless every stock row of the quest gives the item as a fixed
+  reward). The generator copies every stock row of the quest into `forever_quest_template` with the new choices.
+  `unlock`: a stock reward choice that loses its class lock (the item needs an items row; the generator sets its
+  `allowable_class` to -1).
+  A `stock` items row of an item that is not in the stock gear file (a white stock item that Forever makes blue,
+  #244) can name its `class`: it gives the disenchant ID.
 - Every row has `status`, `source` and `date`. `status`: `confirmed` (the source shows it), `unconfirmed` or
   `unreadable` (the source cannot be read by script). A row that is not confirmed is left out, and so are the drops
   and rewards of its item. `source`: a Wowhead Forever URL (the tooltip service
