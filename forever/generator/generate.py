@@ -7,7 +7,7 @@
 Writes <folder>/dbc (the Forever DBC folder, Forever.DataDir), <folder>/client/DBFilesClient (the DBCs of
 the client data patch), <folder>/client/client-data-patch.MPQ (the client data patch) and
 <folder>/sql/forever_world.sql (the Forever server tables), and prints the dead-content cut list, also in
-<folder>/cut-list.tsv. The same spec and stock files give the same bytes. A spec that breaks a rule stops it with an error and no output.
+<folder>/cut-list.tsv. The dungeon loot list (left-out stats, unconfirmed rows, #242) goes to <folder>/loot-list.tsv. The same spec and stock files give the same bytes. A spec that breaks a rule stops it with an error and no output.
 Standard library only, so that the test realm kit runs it with the system Python.
 """
 import argparse
@@ -37,7 +37,7 @@ def main():
         sys.exit("generate.py: %s" % error)
     except (OSError, ValueError) as error:
         sys.exit("generate.py: cannot read the input: %s" % error)
-    # The dead-content cut list, for review (#230). The same list is in <folder>/cut-list.tsv.
+    # The dead-content cut list, for review (#230). The same list is in <folder>/cut-list.tsv. The dungeon loot list (left-out stats, unconfirmed rows, #242) goes to <folder>/loot-list.tsv.
     sys.stdout.write(dead_content.cut_list_text(cuts))
 
 

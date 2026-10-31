@@ -99,11 +99,12 @@ void Forever::LoadConfig(bool reload)
     if (rulesOn)
     {
         // Without one of the forever_* tables, the union of Table() fails and the stock table loads 0 rows
-        // (spell IDs, chains, proc events, skill lines, threat, items, trainers, gameobject loot). Stop before
-        // any of them loads.
+        // (spell IDs, chains, proc events, skill lines, threat, items, trainers, gameobject, creature and reference
+        // loot, quests). Stop before any of them loads.
         static char const* const foreverTables[] = { "forever_spell_template", "forever_spell_chain",
             "forever_spell_proc_event", "forever_skill_line_ability", "forever_spell_threat", "forever_baseline_spell",
-            "forever_item_template", "forever_npc_trainer", "forever_gameobject_loot_template" };
+            "forever_item_template", "forever_npc_trainer", "forever_gameobject_loot_template",
+            "forever_creature_loot_template", "forever_reference_loot_template", "forever_quest_template" };
         for (char const* table : foreverTables)
         {
             std::unique_ptr<QueryResult> found(WorldDatabase.PQuery("SELECT 1 FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = '%s'", table));

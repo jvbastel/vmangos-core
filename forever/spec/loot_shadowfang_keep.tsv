@@ -1,0 +1,56 @@
+# Forever loot of Shadowfang Keep (map 33): the boss drop and quest reward rows (spec jvbastel/WOWAI#240, ticket
+# #245). The items are in loot_shadowfang_keep_items.tsv. The layout of the loot files is in forever/REFRESH.md,
+# "Dungeon loot". forever/generator writes a drop row into forever_creature_loot_template: a copy of every stock row
+# of the boss's creature loot plus the new row, outside the stock equal-chance group, with patch_min 0 (Shadowfang
+# Keep is open from patch 0). A reward row becomes a forever_quest_template copy of the stock quest with the Forever
+# reward choices.
+#
+# Sources, read 2026-10-31: Wowhead's Forever tooltip data ("Dropped by" and "Drop Chance" of each item,
+# https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0) and the Forever quest pages
+# (https://www.wowhead.com/forever/quest=<id>, read with a web-fetch tool: notes/forever/dungeon-loot-research.md 7.3).
+# A drop is confirmed when the tooltip's "Dropped by" names the boss; its chance is the tooltip's "Drop Chance".
+# Quests 1014 (Arugal Must Die) and 1740 (The Orb of Soran'ruk) show the stock rewards on Wowhead Forever: no row
+# (their reward items have Forever stats in the items file; 1740 keeps its Warlock lock). 95036 A Moon-Kissed Blade is
+# a Forever-only quest with no reward items shown: out of scope.
+# Stock boss drops keep their stock chance (spec #240): their references and Rethilgore's Rugged Spaulders have no row.
+# Not built: Blueprint: Tanning Rack (273096, Razorclaw the Butcher 0.34 %) and Blueprint: Toxin Study (273105,
+# Commander Springvale 0.32 %), confirmed drops of Forever campsite features that 1.12 has no meaning for: they are
+# left-out drop rows at the end of this file, which the loot list names.
+#
+# Columns (tab-separated):
+#   kind        drop: a new item on a boss; reward: a new reward choice of a quest (replaces "-") or a swapped one;
+#               unlock: the quest reward item loses its class lock (the item needs a row in the items file)
+#   item        the item ID (a row of a loot items file, or a stock item)
+#   name        the item name
+#   target      drop: the boss (creature entry); reward, unlock: the quest ID
+#   targetName  the stock name of the boss or the title of the quest (the generator compares it)
+#   loot        drop: "creature" (the boss's creature loot entry) or "reference <ID>" (a reference loot entry that only
+#               this boss uses); else "-"
+#   chance      drop: the drop chance in percent; else "-"
+#   replaces    reward: the stock reward choice it replaces, "-" to add it in the first empty choice slot, or "fixed":
+#               the stock fixed reward item becomes a choice (first empty choice slot) and leaves the fixed rewards;
+#               else "-"
+#   count       reward: the number of items; else "-"
+#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it); a drop can
+#               also be left-out: confirmed, but kept out on purpose (a Forever camp blueprint), listed with its boss,
+#               chance and `notes` as the reason
+#   source      a Wowhead URL, or "client <build>"
+#   date        the day the source was read, YYYY-MM-DD
+#   notes
+kind	item	name	target	targetName	loot	chance	replaces	count	status	source	date	notes
+# --- #245 new boss drops.
+drop	71300	Cell Keeper's Claws	3914	Rethilgore	creature	1.68	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273456?dataEnv=16&locale=0	2026-10-31	Forever item 273456
+drop	71301	Sorcerer Collar	3914	Rethilgore	creature	2.09	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273457?dataEnv=16&locale=0	2026-10-31	Forever item 273457
+drop	71302	Blade of Silverlaine	3887	Baron Silverlaine	creature	1.72	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273637?dataEnv=16&locale=0	2026-10-31	Forever item 273637
+drop	71303	Worgenbane Talisman	4278	Commander Springvale	creature	1.67	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273643?dataEnv=16&locale=0	2026-10-31	Forever item 273643
+drop	71304	Blindwatcher's Sight	4279	Odo the Blindwatcher	creature	1.72	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273645?dataEnv=16&locale=0	2026-10-31	Forever item 273645
+drop	71305	Half-Eaten Boots	4274	Fenrus the Devourer	creature	1.99	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273646?dataEnv=16&locale=0	2026-10-31	Forever item 273646
+drop	71306	Worgpelt Leggings	3927	Wolf Master Nandos	creature	1.75	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273647?dataEnv=16&locale=0	2026-10-31	Forever item 273647
+# --- #245 quest rewards.
+reward	71309	Tattered Mittens	1013	The Book of Ur	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=1013	2026-10-31	Forever item 270030, a third choice next to 6335 and 4534
+reward	3324	Ghostly Mantle	1098	Deathstalkers in Shadowfang	-	-	fixed	1	confirmed	https://www.wowhead.com/forever/quest=1098	2026-10-31	the stock fixed reward, a choice in Forever (no fixed reward shown)
+reward	71307	Tanned Shoulderpads	1098	Deathstalkers in Shadowfang	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=1098	2026-10-31	Forever item 270023
+reward	71308	Bronzed Shoulderguards	1098	Deathstalkers in Shadowfang	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=1098	2026-10-31	Forever item 270024
+# --- #240 final fix pass: the Forever camp blueprints (status left-out: listed with boss and chance, no SQL).
+drop	273096	Blueprint: Tanning Rack	3886	Razorclaw the Butcher	creature	0.34	-	-	left-out	https://nether.wowhead.com/tooltip/item/273096?dataEnv=16&locale=0	2026-10-31	a Forever camp feature (Forever item 273096): camps have no 1.12 meaning
+drop	273105	Blueprint: Toxin Study	4278	Commander Springvale	creature	0.32	-	-	left-out	https://nether.wowhead.com/tooltip/item/273105?dataEnv=16&locale=0	2026-10-31	a Forever camp feature (Forever item 273105): camps have no 1.12 meaning

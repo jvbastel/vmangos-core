@@ -13,7 +13,7 @@ from collections import Counter
 import pytest
 
 from test_blacksmithing import BLACKSMITHING, counted, spec_rows, sql_rows
-from test_pipeline import STOCK, generate, read_dbc, removed_stock_abilities
+from test_pipeline import STOCK, read_dbc, removed_stock_abilities
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -44,11 +44,6 @@ def stock_abilities():
     """{spell: SkillLineAbility.dbc row} of the stock Blacksmithing recipes."""
     abilities, _ = read_dbc(STOCK / "SkillLineAbility.dbc")
     return {row[SLA_SPELL]: row for row in abilities.values() if row[1] == BLACKSMITHING}
-
-
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever228"))
 
 
 def test_the_spec_shifts_185_stock_colour_ranges():

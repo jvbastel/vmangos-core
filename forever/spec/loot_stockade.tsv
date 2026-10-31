@@ -1,0 +1,56 @@
+# Forever loot of the Stockade (The Stockade, map 34): the boss drop and quest reward rows (spec jvbastel/WOWAI#240,
+# ticket #247). The items are in loot_stockade_items.tsv. The layout of the loot files is in forever/REFRESH.md,
+# "Dungeon loot". forever/generator writes a drop row into forever_creature_loot_template: a copy of every stock row
+# of the loot entry plus the new row, outside the stock equal-chance group, with patch_min 0 (the Stockade is open
+# from patch 0). A reward row becomes a forever_quest_template copy of the stock quest with the Forever reward choices.
+#
+# Sources, read 2026-10-31: Wowhead's Forever tooltip data ("Dropped by" and "Drop Chance" of each item,
+# https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0) and the Forever quest pages
+# (https://www.wowhead.com/forever/quest=<id>, read with a web-fetch tool: notes/forever/dungeon-loot-research.md 7.3,
+# summaries in notes/forever/wowhead-cache/quest). A drop is confirmed when the tooltip's "Dropped by" names the boss;
+# its chance is the tooltip's "Drop Chance". Every new drop of the Stockade is confirmed.
+# Quests 387, 388 and 391 have no item reward in stock or on Wowhead Forever: no row. No Stockade quest reward
+# lost a class lock (the stock items have allowable_class -1).
+# Stock boss drops keep their stock chance (spec #240): Bruegal Ironknuckle has no drop row, and Kam Deepfury's
+# reference loot 30098 stays stock (his new drops go into his creature loot).
+# Each boss's loot entry is its creature entry (stock creature_template.loot_id).
+#
+# Columns (tab-separated):
+#   kind        drop: a new item on a boss; reward: a new reward choice of a quest (replaces "-") or a swapped one;
+#               unlock: the quest reward item loses its class lock (the item needs a row in the items file)
+#   item        the item ID (a row of a loot items file, or a stock item)
+#   name        the item name
+#   target      drop: the boss (creature entry); reward, unlock: the quest ID
+#   targetName  the stock name of the boss or the title of the quest (the generator compares it)
+#   loot        drop: "creature" (the boss's creature loot entry) or "reference <ID>" (a reference loot entry that only
+#               this boss uses); else "-"
+#   chance      drop: the drop chance in percent; else "-"
+#   replaces    reward: the stock reward choice it replaces, or "-" to add it in the first empty choice slot; else "-"
+#   count       reward: the number of items; else "-"
+#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it); a drop can
+#               also be left-out: confirmed, but kept out on purpose (a Forever camp blueprint), listed with its boss,
+#               chance and `notes` as the reason
+#   source      a Wowhead URL, or "client <build>"
+#   date        the day the source was read, YYYY-MM-DD
+#   notes
+kind	item	name	target	targetName	loot	chance	replaces	count	status	source	date	notes
+# --- #247 new boss drops.
+drop	71500	Executioner Mantle	1696	Targorr the Dread	creature	1.50	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273804?dataEnv=16&locale=0	2026-10-31	Forever item 273804
+drop	71501	Blackrock Harness	1696	Targorr the Dread	creature	1.70	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273805?dataEnv=16&locale=0	2026-10-31	Forever item 273805
+drop	71502	Dark Horde Band	1696	Targorr the Dread	creature	1.68	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273806?dataEnv=16&locale=0	2026-10-31	Forever item 273806
+drop	71503	Demolition Girdle	1666	Kam Deepfury	creature	2.19	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273807?dataEnv=16&locale=0	2026-10-31	Forever item 273807
+drop	71504	Bridgebreaker Bindings	1666	Kam Deepfury	creature	1.83	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273808?dataEnv=16&locale=0	2026-10-31	Forever item 273808
+drop	71505	Hamhock's Cleaver	1717	Hamhock	creature	1.75	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273809?dataEnv=16&locale=0	2026-10-31	Forever item 273809
+drop	71506	Ogre Grips	1717	Hamhock	creature	1.47	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273810?dataEnv=16&locale=0	2026-10-31	Forever item 273810
+drop	71507	Repurposed Rack	1717	Hamhock	creature	1.79	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273811?dataEnv=16&locale=0	2026-10-31	Forever item 273811
+drop	71508	Graverobber's Shovel	1663	Dextren Ward	creature	2.00	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273817?dataEnv=16&locale=0	2026-10-31	Forever item 273817
+drop	71509	Boneslicer	1663	Dextren Ward	creature	1.76	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273819?dataEnv=16&locale=0	2026-10-31	Forever item 273819
+drop	71510	Nightskulker Ring	1663	Dextren Ward	creature	1.36	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273820?dataEnv=16&locale=0	2026-10-31	Forever item 273820
+drop	71511	Defias Jailbreakers	1716	Bazil Thredd	creature	0.98	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273824?dataEnv=16&locale=0	2026-10-31	Forever item 273824
+drop	71512	Red Wool Cloak	1716	Bazil Thredd	creature	0.92	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273825?dataEnv=16&locale=0	2026-10-31	Forever item 273825
+drop	71513	Debt Collector	1716	Bazil Thredd	creature	1.23	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273827?dataEnv=16&locale=0	2026-10-31	Forever item 273827
+drop	71514	Concealed Hand Crossbow	1716	Bazil Thredd	creature	0.94	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273829?dataEnv=16&locale=0	2026-10-31	Forever item 273829
+# --- #247 quest rewards.
+reward	71515	Ursine Hammer	386	What Comes Around...	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=386	2026-10-31	Forever item 270027, a third choice next to 3400 and 1317
+reward	71516	Town Clerk's Mittens	377	Crime and Punishment	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=377	2026-10-31	Forever item 270029, a third choice next to 2033 and 2906
+reward	71517	Magistrate's Pantaloons	378	The Fury Runs Deep	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=378	2026-10-31	Forever item 270036, a third choice next to 3562 and 1264

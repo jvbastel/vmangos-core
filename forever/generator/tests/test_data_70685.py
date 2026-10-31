@@ -12,7 +12,7 @@ import struct
 
 import pytest
 
-from test_pipeline import STOCK, generate, int32, read_dbc, server_spells
+from test_pipeline import STOCK, int32, read_dbc, server_spells
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -23,11 +23,6 @@ START_RECOVERY_CATEGORY, START_RECOVERY_TIME = 157, 158
 GLOBAL_COOLDOWN_CATEGORY = 133
 
 VICTORY_RUSH = 60123
-
-
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever70685"))
 
 
 @pytest.fixture(scope="module")

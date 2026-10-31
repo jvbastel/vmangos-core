@@ -1,0 +1,55 @@
+# Forever loot of the Deadmines (map 36): the boss drop and quest reward rows (spec jvbastel/WOWAI#240, ticket #244).
+# The items are in loot_deadmines_items.tsv. The layout of the loot files is in forever/REFRESH.md, "Dungeon loot".
+# forever/generator writes a drop row into forever_creature_loot_template: a copy of every stock row of the boss's
+# loot entry plus the new row, outside the stock equal-chance group, with patch_min 0 (the Deadmines are open from
+# patch 0). A reward row becomes a forever_quest_template copy of the stock quest with the Forever reward choices.
+#
+# Sources, read 2026-10-31: Wowhead's Forever tooltip data ("Dropped by" and "Drop Chance" of each item,
+# https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0) and the Forever quest pages
+# (https://www.wowhead.com/forever/quest=<id>, read with a web-fetch tool, summaries in
+# notes/forever/wowhead-cache/quest). A drop is confirmed when the tooltip's "Dropped by" names the boss; its chance
+# is the tooltip's "Drop Chance".
+# Quests 166 (The Defias Brotherhood) and 373 (The Unsent Letter) show the stock rewards on Wowhead Forever: no row.
+# 92753 (Destruction in Deadmines) is a Forever-only quest with no stock row and no reward item: no row.
+# No Forever page shows a lifted class lock: no unlock row.
+# Stock boss drops keep their stock chance (spec #240): they have no drop row.
+#
+# Columns (tab-separated):
+#   kind        drop: a new item on a boss; reward: a new reward choice of a quest (replaces "-") or a swapped one;
+#               unlock: the quest reward item loses its class lock (the item needs a row in the items file)
+#   item        the item ID (a row of a loot items file, or a stock item)
+#   name        the item name
+#   target      drop: the boss (creature entry); reward, unlock: the quest ID
+#   targetName  the stock name of the boss or the title of the quest (the generator compares it)
+#   loot        drop: "creature" (the boss's creature loot entry) or "reference <ID>" (a reference loot entry that only
+#               this boss uses); else "-"
+#   chance      drop: the drop chance in percent; else "-"
+#   replaces    reward: the stock reward choice it replaces, "-" to add it in the first empty choice slot, or "fixed"
+#               (the item is a stock fixed reward of the quest: it becomes a choice in the first empty slot and
+#               leaves the fixed rewards); else "-"
+#   count       reward: the number of items; else "-"
+#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it); a drop can
+#               also be left-out: confirmed, but kept out on purpose (a Forever camp blueprint), listed with its boss,
+#               chance and `notes` as the reason
+#   source      a Wowhead URL, or "client <build>"
+#   date        the day the source was read, YYYY-MM-DD
+#   notes
+kind	item	name	target	targetName	loot	chance	replaces	count	status	source	date	notes
+# --- #244 new boss drops.
+drop	71200	Ogre Loincloth	644	Rhahk'Zor	creature	1.56	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273289?dataEnv=16&locale=0	2026-10-31	Forever item 273289
+drop	71201	Bandsaw Wristbands	643	Sneed	creature	0.95	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273293?dataEnv=16&locale=0	2026-10-31	Forever item 273293
+drop	71202	Goblin Hammer	1763	Gilnid	creature	1.30	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273297?dataEnv=16&locale=0	2026-10-31	Forever item 273297
+drop	71203	Lookie's Spyglass	645	Cookie	creature	1.04	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273298?dataEnv=16&locale=0	2026-10-31	Forever item 273298
+drop	71204	First Mate Band	646	Mr. Smite	creature	1.01	-	-	confirmed	https://nether.wowhead.com/tooltip/item/284715?dataEnv=16&locale=0	2026-10-31	Forever item 284715
+drop	71205	Dull Sawblade	642	Sneed's Shredder	creature	1.82	-	-	confirmed	https://nether.wowhead.com/tooltip/item/285292?dataEnv=16&locale=0	2026-10-31	Forever item 285292
+# --- #244 quest rewards.
+reward	1893	Miner's Revenge	167	Oh Brother. . .	-	-	fixed	1	confirmed	https://www.wowhead.com/forever/quest=167	2026-10-31	the stock fixed reward of 167 becomes its first choice (Forever: three choices, no fixed reward)
+reward	71208	Miner's Workgloves	167	Oh Brother. . .	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=167	2026-10-31	Forever item 270012, a choice next to 1893
+reward	71209	Miner's Workboots	167	Oh Brother. . .	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=167	2026-10-31	Forever item 270013, a choice next to 1893
+reward	71207	Worn Miner's Waistcord	168	Collecting Memories	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=168	2026-10-31	Forever item 270007, a third choice next to 2037 and 2036
+reward	71206	Monastic Hammer	214	Red Silk Bandanas	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=214	2026-10-31	Forever item 270005, a fourth choice next to 2074, 2089 and 6094
+reward	71210	Bravo's Armbands	2040	Underground Assault	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=2040	2026-10-31	Forever item 270015, a third choice next to 7606 and 7607
+reward	71211	Dreamer's Leggings	2040	Underground Assault	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=2040	2026-10-31	Forever item 270016, a fourth choice
+# --- #240 final fix pass: the Forever camp blueprints (status left-out: listed with boss and chance, no SQL).
+drop	273086	Blueprint: Anvil	1763	Gilnid	creature	0.2	-	-	left-out	https://nether.wowhead.com/tooltip/item/273086?dataEnv=16&locale=0	2026-10-31	a Forever camp feature (Forever item 273086): camps have no 1.12 meaning
+drop	273102	Blueprint: Cookie's Feast	645	Cookie	creature	0.26	-	-	left-out	https://nether.wowhead.com/tooltip/item/273102?dataEnv=16&locale=0	2026-10-31	a Forever camp feature (Forever item 273102): camps have no 1.12 meaning

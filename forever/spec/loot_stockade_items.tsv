@@ -1,0 +1,85 @@
+# Forever loot of the Stockade (The Stockade, map 34): the item rows (spec jvbastel/WOWAI#240, ticket #247).
+# forever/generator writes each confirmed row into forever_item_template (world database). The drop and quest reward
+# rows are in loot_stockade.tsv. The layout of the loot files is in forever/REFRESH.md, "Dungeon loot".
+# Never edit a generated file by hand.
+#
+# Sources, read 2026-10-31: the Forever client build 1.60.1.70685 (Item.db2: class, subclass and slot of each new item;
+# ItemSparse holds every row of this file in encrypted data) and Wowhead's Forever tooltip data
+# (https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0, raw answers cached in
+# notes/forever/wowhead-cache/item, read with forever/generator/tools/wowhead_tooltips.py). Only numbers and names.
+# The data notes: notes/forever/loot-data-stockade.md.
+#
+# Item ID block: 71500-71599. Next free item ID: 71518.
+#
+# Rows: the 4 stock boss drops (Kam Deepfury, Bruegal Ironknuckle) with their Forever stats; the 15 new boss drops of
+# Targorr the Dread, Kam Deepfury, Hamhock, Dextren Ward and Bazil Thredd; the new third reward choices of quests 377,
+# 378 and 386; the stock reward choices of those quests with their Forever stats. Quests 387, 388 and 391 have no
+# item reward in stock or in Forever: no row.
+# Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
+# healing) plus Healing X-Y.
+# Demolition Girdle's "damage done by magical spells up to 9" (damage without healing) has no stock equip spell of
+# all schools: it is left out (leftOut).
+# Required level: Wowhead shows none on the quest rewards, so they keep 0 as in stock.
+# Rounding: every Forever stat whose kind has stock equip spells takes the nearest one, up on a tie, and keeps
+# its Forever value ("SpellPower 4 (Forever 3)"); Unique-Equipped is left out; a shield writes "Block <value>" in
+# `stats`. The rules are in forever/REFRESH.md, "Dungeon loot".
+#
+# Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
+# of the source row.
+#   kind           stock: a changed stock item (entry = sourceItem, its own stock ID)
+#                  item: a new item with a stock twin (sourceItem: the stock item whose row is copied)
+#                  new: a new item with no stock twin: class, subclass and inventoryType from Item.db2; the
+#                       generator copies the stock item of that class, subclass and slot nearest in item level
+#                       (forever_gen/loot.py) and takes its display
+#   entry          the item ID: a stock ID (stock), else from the item ID block of this file
+#   foreverItem    the item ID in the Forever client and on Wowhead
+#   sourceItem     the stock item whose row is copied (stock, item), "-" for new
+#   name, quality (poor, common, uncommon, rare, epic), itemLevel, requiredLevel, bonding (none, pickup, equip, use)
+#   class, subclass  the item class and subclass (new), else "-"
+#   inventoryType  the slot as a number (13 one-hand, 21 main hand, 26 ranged right, 16 back, ...), "-" keeps it
+#   delay          the weapon speed in ms; damage: "<min>-<max>"; armor; resistances: "Fire 5, ..." or "none"
+#   stats          the base stats: "Str 2, Spi 3" (Str, Agi, Sta, Int, Spi, Health, Mana)
+#   bonuses        the other stats as stock equip spells (forever_gen/equip_stats.py): "SpellPower 11, Healing 22"
+#   equipSpells    more stock equip spells by ID
+#   displayId      a stock ItemDisplayInfo.dbc ID (it also gives the icon); "-" for new: the display of the copied item
+#   sellPrice      in copper
+#   foreverStats   the Forever stats as the source shows them
+#   leftOut        the Forever stats and effects that 1.12 cannot show or that have no stock equip spell, "-" if none.
+#                  The generator lists them (loot-list.tsv)
+#   status         confirmed (the source shows it), unconfirmed or unreadable (the generator leaves the row out and
+#                  lists it)
+#   source         where the values come from: a Wowhead URL, or "client <build>"
+#   date           the day the source was read, YYYY-MM-DD
+#   notes
+kind	entry	foreverItem	sourceItem	name	quality	itemLevel	requiredLevel	bonding	class	subclass	inventoryType	delay	damage	armor	resistances	stats	bonuses	equipSpells	displayId	sellPrice	foreverStats	leftOut	status	source	date	notes
+# --- #247 stock boss drops: Kam Deepfury (1666, reference loot 30098) and Bruegal Ironknuckle (1720, reference loot 30101). They keep their stock chance and their stock equal-chance group.
+stock	2280	2280	2280	Kam's Walking Stick	rare	29	24	pickup	-	-	-	2800	39-60	0	-	Agi 10, Int 3	SpellPower 32	-	20370	6125	Two-Hand Staff, 39-60 damage, speed 2.80, +10 Agi, +3 Int; Equip: damage and healing up to 32; Equip: reduces the duration of movement impairing effects by 10%	Equip: reduces the duration of all movement impairing effects on you by 10% (no 1.12 equip effect)	confirmed	https://nether.wowhead.com/tooltip/item/2280?dataEnv=16&locale=0	2026-10-31	Kam Deepfury, reference loot 30098, Drop Chance 2.93%; stock: green, i27 r22, 41-62, +3 Agi, +8 Int
+stock	2941	2941	2941	Prison Shank	rare	28	23	pickup	-	-	-	1800	22-42	0	-	Agi 6, Sta 2	-	-	20359	4455	One-Hand Dagger, 22-42 damage, speed 1.80, +6 Agi, +2 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/2941?dataEnv=16&locale=0	2026-10-31	Bruegal Ironknuckle, reference loot 30101, Drop Chance 19.82%; stock: i26 r21, 21-39, +5 Agi, +2 Sta
+stock	2942	2942	2942	Iron Knuckles	rare	28	23	pickup	-	-	-	1700	21-39	0	-	-	-	-	3007	4455	One-Hand Fist Weapon, 21-39 damage, speed 1.70; Chance on hit: Pummel the target for 25 damage and interrupt the spell being cast for 5 sec	Chance on hit: Pummel for 25 damage (the stock spell 13491 gives 4 damage and stays)	confirmed	https://nether.wowhead.com/tooltip/item/2942?dataEnv=16&locale=0	2026-10-31	Bruegal Ironknuckle, reference loot 30101, Drop Chance 18.50%; stock: i26 r21, 19-37
+stock	3228	3228	3228	Jimmied Handcuffs	rare	28	23	pickup	-	-	-	-	-	92	-	Str 3, Sta 8	-	-	10402	1336	Wrist Mail, 92 armor, +3 Str, +8 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/3228?dataEnv=16&locale=0	2026-10-31	Bruegal Ironknuckle, reference loot 30101, Drop Chance 54.51%; stock: i26 r21, 89 armor, +3 Str, +7 Sta
+# --- #247 new boss drops: Targorr the Dread (1696), Kam Deepfury (1666), Hamhock (1717), Dextren Ward (1663) and Bazil Thredd (1716).
+new	71500	273804	-	Executioner Mantle	rare	26	21	pickup	4	2	3	-	-	72	-	Spi 9	AP 10	-	-	1424	Shoulder Leather, 72 armor, +9 Spi; Equip: +10 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/273804?dataEnv=16&locale=0	2026-10-31	Dropped by Targorr the Dread 1.50%
+new	71501	273805	-	Blackrock Harness	rare	26	21	pickup	4	2	5	-	-	96	-	Sta 8	Defense 4, AP 14	-	-	1900	Chest Leather, 96 armor, +8 Sta; Equip: Increased Defense +4; Equip: +14 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/273805?dataEnv=16&locale=0	2026-10-31	Dropped by Targorr the Dread 1.70%
+new	71502	273806	-	Dark Horde Band	rare	26	21	pickup	4	0	11	-	-	0	-	Sta 6	SpellPower 6	-	-	1525	Finger, +6 Sta; Equip: damage and healing up to 6	Unique-Equipped (no 1.12 meaning)	confirmed	https://nether.wowhead.com/tooltip/item/273806?dataEnv=16&locale=0	2026-10-31	Dropped by Targorr the Dread 1.68%
+new	71503	273807	-	Demolition Girdle	rare	29	24	pickup	4	2	6	-	-	57	-	Str 8	-	-	-	1284	Waist Leather, 57 armor, +8 Str; Equip: damage done by magical spells and effects up to 9	Equip: damage done by magical spells and effects up to 9 (no stock equip spell gives spell damage of all schools without healing)	confirmed	https://nether.wowhead.com/tooltip/item/273807?dataEnv=16&locale=0	2026-10-31	Dropped by Kam Deepfury 2.19%
+new	71504	273808	-	Bridgebreaker Bindings	rare	29	24	pickup	4	1	9	-	-	20	Fire 7	-	SpellPower 4 (Forever 3), Healing 7 (Forever 6)	-	-	1022	Wrist Cloth, 20 armor, +7 Fire Resistance; Equip: healing up to 9 and damage up to 3	-	confirmed	https://nether.wowhead.com/tooltip/item/273808?dataEnv=16&locale=0	2026-10-31	Dropped by Kam Deepfury 1.83%
+new	71505	273809	-	Hamhock's Cleaver	rare	30	25	pickup	2	0	21	2200	29-54	0	-	Str 4	AP 8	-	-	5644	Main Hand Axe, 29-54 damage, speed 2.20, +4 Str; Equip: +8 Attack Power; Equip: +9 Attack Power against Humanoids	Equip: +9 Attack Power against Humanoids (no stock equip spell)	confirmed	https://nether.wowhead.com/tooltip/item/273809?dataEnv=16&locale=0	2026-10-31	Dropped by Hamhock 1.75%
+new	71506	273810	-	Ogre Grips	rare	30	25	pickup	4	3	10	-	-	136	-	Str 4, Sta 10	-	-	-	1537	Hands Mail, 136 armor, +4 Str, +10 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/273810?dataEnv=16&locale=0	2026-10-31	Dropped by Hamhock 1.47%
+new	71507	273811	-	Repurposed Rack	rare	30	25	pickup	4	6	14	-	-	661	-	Str 6, Block 14	SpellPower 7	-	-	3292	Off Hand Shield, 661 armor, 14 Block, +6 Str; Equip: damage and healing up to 7	-	confirmed	https://nether.wowhead.com/tooltip/item/273811?dataEnv=16&locale=0	2026-10-31	Dropped by Hamhock 1.79%
+new	71508	273817	-	Graverobber's Shovel	rare	28	23	pickup	2	5	17	3700	68-102	0	-	Sta 10	AP 12	-	-	5584	Two-Hand Mace, 68-102 damage, speed 3.70, +10 Sta; Equip: +12 Attack Power, doubled against Undead targets; Use: Dig up a grave (Raven Hill Cemetery, Scarlet Monastery Graveyard, 2 min cooldown)	Equip: the Attack Power is doubled against Undead targets (no stock equip spell); Use: Dig up a grave (a Forever spell)	confirmed	https://nether.wowhead.com/tooltip/item/273817?dataEnv=16&locale=0	2026-10-31	Dropped by Dextren Ward 2.00%
+new	71509	273819	-	Boneslicer	rare	28	23	pickup	2	6	17	2000	36-55	0	-	-	-	-	-	5625	Two-Hand Polearm, 36-55 damage, speed 2.00; Chance on hit: Wounds the target for 70 Physical damage	Chance on hit: wounds the target for 70 Physical damage (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/273819?dataEnv=16&locale=0	2026-10-31	Dropped by Dextren Ward 1.76%
+new	71510	273820	-	Nightskulker Ring	rare	28	23	pickup	4	0	11	-	-	0	-	-	FearRes 4	-	-	1806	Finger; Equip: reduces the hit chance of Fear effects against you by 4%; Equip: movement speed +2% in Duskwood	Equip: movement speed +2% in Duskwood (no 1.12 equip effect); Unique-Equipped (no 1.12 meaning)	confirmed	https://nether.wowhead.com/tooltip/item/273820?dataEnv=16&locale=0	2026-10-31	Dropped by Dextren Ward 1.36%
+new	71511	273824	-	Defias Jailbreakers	rare	31	26	pickup	4	2	10	-	-	65	-	Agi 6, Sta 7	Lockpicking 5 (Forever 4)	-	-	1536	Hands Leather, 65 armor, +6 Agi, +7 Sta; Equip: Lockpicking +4	-	confirmed	https://nether.wowhead.com/tooltip/item/273824?dataEnv=16&locale=0	2026-10-31	Dropped by Bazil Thredd 0.98%
+new	71512	273825	-	Red Wool Cloak	rare	31	26	pickup	4	1	16	-	-	24	-	-	SpellPower 4 (Forever 3), Healing 7 (Forever 6), Mp5 3	-	-	1836	Back, 24 armor; +3 mana per 5 sec; Equip: healing up to 9 and damage up to 3	-	confirmed	https://nether.wowhead.com/tooltip/item/273825?dataEnv=16&locale=0	2026-10-31	Dropped by Bazil Thredd 0.92%
+new	71513	273827	-	Debt Collector	rare	31	26	pickup	2	7	21	2300	21-39	0	-	-	SpellPower 34	-	-	6164	Main Hand Sword, 21-39 damage, speed 2.30; Equip: damage and healing up to 34; Equip: grants 6 health and 2 mana every 5 sec for 15 sec when one of your spells is resisted	Equip: 6 health and 2 mana every 5 sec for 15 sec when one of your spells is resisted (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/273827?dataEnv=16&locale=0	2026-10-31	Dropped by Bazil Thredd 1.23%
+new	71514	273829	-	Concealed Hand Crossbow	rare	31	26	pickup	2	18	26	2000	24-37	0	-	-	RangedAP 12	-	-	4656	Ranged Crossbow, 24-37 damage, speed 2.00; +12 Ranged Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/273829?dataEnv=16&locale=0	2026-10-31	Dropped by Bazil Thredd 0.94%
+# --- #247 quest rewards: the new third choice of quests 377, 378 and 386 and the Forever stats of their stock choices.
+new	71515	270027	-	Ursine Hammer	uncommon	27	0	pickup	2	5	17	3200	47-71	0	-	Agi 5, Int 5, Spi 5	-	-	-	4416	Two-Hand Mace, 47-71 damage, speed 3.20, +5 Agi, +5 Int, +5 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/270027?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 386
+new	71516	270029	-	Town Clerk's Mittens	uncommon	28	0	pickup	4	1	10	-	-	26	-	Int 7	SpellPower 4 (Forever 3)	-	-	708	Hands Cloth, 26 armor, +7 Int; Equip: damage and healing up to 3	-	confirmed	https://nether.wowhead.com/tooltip/item/270029?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 377
+new	71517	270036	-	Magistrate's Pantaloons	rare	29	0	pickup	4	1	7	-	-	41	-	Int 13	SpellPower 7	-	-	1920	Legs Cloth, 41 armor, +13 Int; Equip: damage and healing up to 7	-	confirmed	https://nether.wowhead.com/tooltip/item/270036?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 378
+stock	1264	1264	1264	Headbasher	rare	29	0	pickup	-	-	-	2300	43-66	0	-	Str 9, Sta 5, Int 10	-	-	5530	6125	Two-Hand Mace, 43-66 damage, speed 2.30, +9 Str, +5 Sta, +10 Int	-	confirmed	https://nether.wowhead.com/tooltip/item/1264?dataEnv=16&locale=0	2026-10-31	quest 378; stock: green, i26, 32-49, +8 Str, +3 Sta
+stock	3562	3562	3562	Belt of Vindication	rare	29	0	pickup	-	-	-	-	-	57	-	Agi 7, Sta 3	-	-	16910	1234	Waist Leather, 57 armor, +7 Agi, +3 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/3562?dataEnv=16&locale=0	2026-10-31	quest 378; stock: green, i27, 50 armor, +4 Agi, +2 Sta
+stock	2033	2033	2033	Ambassador's Boots	uncommon	28	0	pickup	-	-	-	-	-	62	-	Agi 3, Sta 5, Spi 4	-	-	10711	1395	Feet Leather, 62 armor, +3 Agi, +5 Sta, +4 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/2033?dataEnv=16&locale=0	2026-10-31	quest 377; stock: i25, 59 armor, +4 Agi, +4 Sta
+stock	2906	2906	2906	Darkshire Mail Leggings	uncommon	28	0	pickup	-	-	-	-	-	168	-	Str 7, Spi 7	-	-	2922	2227	Legs Mail, 168 armor, +7 Str, +7 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/2906?dataEnv=16&locale=0	2026-10-31	quest 377; stock: i26, 163 armor, +6 Str, +6 Spi
+stock	3400	3400	3400	Lucine Longsword	uncommon	27	0	pickup	-	-	-	2500	24-46	0	-	Sta 3, Spi 3	-	-	20110	3375	Main Hand Sword, 24-46 damage, speed 2.50, +3 Sta, +3 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/3400?dataEnv=16&locale=0	2026-10-31	quest 386; stock: i25, 22-42, +4 Sta
+stock	1317	1317	1317	Hardened Root Staff	uncommon	27	0	pickup	-	-	-	3300	36-54	0	-	Str 1, Spi 9	SpellPower 20	-	20377	4218	Two-Hand Staff, 36-54 damage, speed 3.30, +1 Str, +9 Spi; Equip: damage and healing up to 20	-	confirmed	https://nether.wowhead.com/tooltip/item/1317?dataEnv=16&locale=0	2026-10-31	quest 386; stock: i25, 44-67, +1 Str, +8 Spi

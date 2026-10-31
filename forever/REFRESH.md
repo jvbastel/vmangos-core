@@ -22,6 +22,9 @@ The spec is the folder `forever/spec`, one file per area. The generator in `fore
   The spec has no row from them, and the generator writes them into `encrypted-list.tsv` next to the cut
   list. At a refresh, try them again: a row that the client can now read leaves this file for its own file.
 
+- `loot_<dungeon>.tsv` and `loot_<dungeon>_items.tsv` hold the Forever loot of one dungeon (spec #240): the boss
+  drops and quest rewards, and the items. Section "Dungeon loot" below has the layout.
+
 Each header names the sources, the Forever build, the date, its free ID range, the next free IDs and each
 column. Within a file, the rows of one ticket stay in a block under a comment line that names the ticket.
 
@@ -32,6 +35,8 @@ column. Within a file, the rows of one ticket stay in a block under a comment li
 | Spells, talents, skill line abilities | 60000-65535 | `warrior.tsv` | spell IDs are SMALLINT UNSIGNED in the world database |
 | Profession spells (recipes) | 61000-61999 | `blacksmithing.tsv` | a block of the spell range; the core can tell a profession spell from a Warrior spell by its ID, even with the rules off. The generator refuses a recipe outside it |
 | Items | 70000-79999 | `items.tsv` | the stock 1.12 world database ends at item 25818. A changed stock item keeps its own ID |
+| Dungeon loot items | 71000-71699 | each `loot_*_items.tsv` (`# Item ID block:`) | a block of the item range, one block of 100 per ticket (below) |
+| Dungeon loot references | 31000-31699 | REFRESH.md | reserved for new `reference_loot_template` IDs, above every stock reference (the stock world database ends at 30576); no code writes one yet |
 
 A new row takes the next free ID of its range, and the header then moves "Next free" on. Never use again an
 ID that an older spec gave out: a character can still know the spell or own the item.
@@ -150,6 +155,123 @@ column is there. A new kind of removal (items, loot, item sets) adds its overrid
 `build.server_sql`; the module docstring of `generator/forever_gen/removals.py` says how. Spells cannot be
 removed: the core would delete them from every character who knows them.
 
+## Dungeon loot (spec #240)
+
+The Forever loot of the six dungeons of the Forever beta. Each dungeon has two files in `forever/spec`, named
+`loot_<slug>.tsv` (drops and quest rewards) and `loot_<slug>_items.tsv` (items). Two files, not one, because the
+item rows and the drop rows have different columns; the generator tells them apart by their column line
+(`generator/forever_gen/loot.py`, `ITEM_COLUMNS` and `LOOT_COLUMNS`). The header of each file explains every column.
+
+| Dungeon | Slug | Ticket | Item ID block |
+|---|---|---|---|
+| Ragefire Chasm | `ragefire_chasm` | #242 | 71000-71099 |
+| Wailing Caverns | `wailing_caverns` | #243 | 71100-71199 |
+| The Deadmines | `deadmines` | #244 | 71200-71299 |
+| Shadowfang Keep | `shadowfang_keep` | #245 | 71300-71399 |
+| Blackfathom Deeps | `blackfathom_deeps` | #246 | 71400-71499 |
+| The Stockade | `stockade` | #247 | 71500-71599 |
+| Item sets (`loot_item_sets.tsv`) | - | #248 | 71600-71699 |
+
+An items file names its block in the header (`# Item ID block: 71000-71099.`) and its next free ID. The generator
+refuses a new item outside the block of its file and two files whose blocks overlap. The generator writes no new
+reference entries: a ticket that needs one takes IDs from 31000-31699 and adds that in its own function of `loot.py`.
+
+Row kinds:
+- Items file. `stock`: a stock boss drop or quest reward with its Forever values (it keeps its ID). `item`: a new
+  item with a stock twin (`sourceItem`). `new`: a new item with no stock twin: `class`, `subclass` and
+  `inventoryType` come from the client table `Item.db2`, which the Forever client can read even where ItemSparse
+  is encrypted. The generator refuses a `new` row whose class, subclass or slot is not the one of Item.db2 in
+  `generator/forever_gen/item_classes.tsv` (written outside git by
+  `notes/forever/client-data/tools/t240/item_classes.py <worktree>`: run it again after adding a `new` row or a new
+  client build). The generator copies the stock weapon or armor item of that class, subclass and slot nearest in
+  item level (then of the same quality, then the lowest ID) from `generator/forever_gen/stock_world/gear.tsv`, and
+  takes its display; a `displayId` overrides it (a stock `ItemDisplayInfo.dbc` ID). The copied item can be of a much
+  higher level (a fist weapon at item level 18 copies the level-51 Vilerend Slicer): a `new` or `item` row costs 5
+  times its sell price (as 6401 of the 7140 stock weapons and armor of quality 2-3), and keeps the durability of the
+  copy (the stock durability of a slot and quality does not change with the level). The icon comes with the display
+  (1.12 has no icon column), so the display check is the icon check.
+- Stats of an items row. Stats and bonuses work as in `items.tsv`. A shield writes its Forever block value as
+  `Block <value>` in `stats` (item_template `block`; without it the stock block stays): every shield row with
+  "N Block" in `foreverStats` has it (a test checks this). Rounding (spec story 12): every Forever stat whose kind has
+  stock equip spells in `generator/forever_gen/equip_stats.py` (BONUSES) takes the nearest one, up on a tie, and
+  keeps its Forever value: "BeastSlaying 15 (Forever 6)", "BlockValue 10 (Forever 6)". Only a stat or effect with no
+  stock equip spell of its kind at all (Haste, Expertise, a proc that 1.12 has no spell for, "+6 Attack Power against
+  Humanoids") goes into `leftOut` and stays off the item. Unique-Equipped has no 1.12 meaning, and `max_count` 1 is
+  stricter: it goes into `leftOut` as "Unique-Equipped (no 1.12 meaning)", and the row sets no `max_count` (a new item
+  keeps the one of its copy). Each
+  new item, and each stock item that the gear file has, takes the disenchant ID of the stock gear of its class
+  and quality nearest in item level. A stock item that the gear file does not have (a stock common item that
+  Forever makes uncommon or better) takes its class from its `class` column; a `class` that differs from the gear
+  file is refused.
+- Loot file. `drop`: a new item on a boss (creature entry and stock name), with its Forever chance (an
+  `unconfirmed` drop whose source names no chance has `-`; a confirmed one without a chance is refused); `loot` is
+  `creature` (the boss's creature loot) or `reference <ID>` (a reference that only this boss uses). The
+  generator copies every stock row of that loot entry into `forever_creature_loot_template` (or
+  `forever_reference_loot_template`) and adds the new row with group 0 (outside every stock equal-chance group),
+  patch_min 0 and patch_max 10: the six dungeons are open from the first content patch. A stock boss drop keeps
+  its stock row, chance and group: it needs only its items row. `reward`: a new reward choice of a quest
+  (`replaces` "-": the first empty choice slot), a swapped one (`replaces` the stock choice), or a stock
+  fixed reward that becomes a choice (`replaces` "fixed", quests 167 and 1098: the first empty choice slot, and the
+  SQL takes the item out of the fixed rewards; it fails unless every stock row of the quest gives the item as a fixed
+  reward). The generator copies every stock row of the quest into `forever_quest_template` with the new choices.
+  `unlock`: a stock reward choice that loses its class lock (the item needs an items row; the generator sets its
+  `allowable_class` to -1).
+  A `stock` items row of an item that is not in the stock gear file (a white stock item that Forever makes blue,
+  #244) can name its `class`: it gives the disenchant ID.
+- Every row has `status`, `source` and `date`. `status`: `confirmed` (the source shows it), `unconfirmed` or
+  `unreadable` (the source cannot be read by script), or for a drop `left-out` (confirmed, but kept out on purpose:
+  the Forever camp blueprints, whose camps have no 1.12 meaning; `notes` gives the reason). A row that is not
+  confirmed is left out, and so are the drops and rewards of its item. A confirmed `new` or `item` row that no
+  confirmed drop, reward or item set names is left out and listed as unconfirmed (spec story 22). `source`: a Wowhead Forever URL (the tooltip service
+  `https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0` or a `https://www.wowhead.com/forever/...`
+  page) or `client <build>`. `date`: the day the source was read (YYYY-MM-DD).
+
+The confirmed rule (spec #240): a new boss drop is confirmed when the Wowhead tooltip's "Dropped by" names the boss;
+its chance is the tooltip's "Drop Chance". A quest reward change is confirmed when the Wowhead Forever quest page
+shows it (read it with a web-fetch tool: `www.wowhead.com` answers 403 to scripts; never work around that). A lifted
+class lock is confirmed when the tooltip shows it. Item stats come from the client where it can read them, else from
+the tooltip. `generator/tools/wowhead_tooltips.py <item ID> ...` reads the tooltips with a pause between requests,
+keeps each raw answer in `notes/forever/wowhead-cache/item/` (outside git) and prints the fields the rows need.
+
+The generator writes `loot-list.tsv` next to the cut list: each `leftOut` value (list `left-out`, kind `item`), each
+`left-out` drop with its boss, chance and reason (list `left-out`, kind `drop`), each row that is not confirmed (list
+`unconfirmed` or `unreadable`), and each confirmed row whose source is a `www.wowhead.com` page, which only a
+web-fetch tool reads (list `manual-source`, spec story 23). Review it at each refresh.
+
+The copied loot entries and quests keep the stock `patch_min` and `patch_max` of their stock rows (so a stock row
+still loads at its own patch); only the new drop rows get 0-10.
+
+Item sets of the dungeons (`loot_item_sets.tsv`, #248): the rows of `item_sets.tsv` (same kinds, bonus names and
+rules, `generator/forever_gen/item_sets.py`) plus `leftOut`, `source` and `date`. A set is in it when a piece is an
+item row of a `loot_*_items.tsv` file (its `entry` or `foreverItem`, in the Forever client table ItemSet) or a stock
+drop or quest reward of the six dungeons with a stock `item_template.set_id`. At 70685 these are 161 Defias Leather,
+162 Embrace of the Viper and 2131 Partners in Crime; Dungeon Set 1 and the other sets stay stock. A bonus with no
+stock equip spell (a new Forever proc, Attack Power against Humanoids) has `bonuses` "none" and its Forever value in
+`leftOut`: the generator refuses a "none" bonus without it. A set whose `leftOut` names a reason stays out of
+ItemSet.dbc (2131: its other piece has no source). The generator lists each left-out set and set bonus in
+`loot-list.tsv` (kinds `set` and `set bonus`). At a refresh, run the set search again over the merged item rows.
+
+The generator has no world database. It reads the stock creatures (entry, loot ID, name), quests (title, reward
+choices), references (the creature loot entries that use each) and gear from `generator/forever_gen/stock_world/`,
+which `generator/tools/stock_world_rows.py` writes from the shared test realm (SELECT only). Run it again after an
+upstream merge. The generated SQL also fails at load when a boss does not use its loot entry, a reference has other
+users, or a quest's stock choices are not those of the stock data.
+
+It refuses a row with no source or date, an item ID clash (an entry twice, outside its block, a block overlap), a
+non-stock display or equip spell, an unknown boss (or a boss under another name), an unknown quest (or another
+title), an unknown item, a reference that other creatures use, a replaced choice that the quest does not have, and
+a quest with no free choice slot.
+
+The core reads `forever_creature_loot_template`, `forever_reference_loot_template` and `forever_quest_template` only
+with the rules on, over the stock tables by `entry` (`Forever::Table` in `LootStore::LoadLootTable`,
+`Forever::SelectWithForeverRows` in `ObjectMgr::LoadQuests`). With the rules on it stops at startup when one of them
+is missing (migration `sql/migrations/20261031120000_world.sql` makes them).
+
+At the refresh after the Forever launch: extract the client again; for each `source` that is a Wowhead URL whose item
+the client can now read, put the client values in, set `source` to `client <build>`, and list every value that
+changed in the PR. No tool makes that list yet: the rows are few, so the PR diff of the spec files is the list. A
+compare script (Wowhead row against client row per item) is post-launch work, when a client can read the rows.
+
 ## 3. Pick a stock icon
 
 A new talent or spell takes a stock 1.12 icon, an ID of `SpellIcon.dbc` of the stock client data. List the
@@ -165,6 +287,7 @@ marker (for example 108 for Flurry), unless the stock spell already has it. It r
 2. On a test server slot with the Forever rules (`wowai/test-realm/realm.sh --ticket <N> acquire --forever`),
    run the in-game checks of the Forever tickets, at least
    `wowai/test-realm/realm.sh --ticket <N> check wowai/test-realm/checks/t206_forever_talent.py forever`.
+   For the dungeon loot, the three steps of `wowai/test-realm/checks/t242_rfc_loot.py` (its docstring).
 3. Install the new client data patch into the second client copy (`wowai/forever-client.sh`) and look at
    the talent window: positions, arrows, tooltips and icons.
 

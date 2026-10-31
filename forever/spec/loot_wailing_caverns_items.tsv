@@ -1,0 +1,90 @@
+# Forever loot of Wailing Caverns (map 43): the item rows (spec jvbastel/WOWAI#240, ticket #243). forever/generator
+# writes each confirmed row into forever_item_template (world database). The drop and quest reward rows are in
+# loot_wailing_caverns.tsv. The layout of the loot files is in forever/REFRESH.md, "Dungeon loot".
+# Never edit a generated file by hand.
+#
+# Sources, read 2026-10-31: Wowhead's Forever tooltip data
+# (https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0, raw answers cached in
+# notes/forever/wowhead-cache/item, read with forever/generator/tools/wowhead_tooltips.py) and the Forever client
+# build 1.60.1.70685 (Item.db2: class, subclass and slot of each new item). The client cannot read the stats of any
+# row of this file (ItemSparse holds them in encrypted data). Only numbers and names. Display IDs of stock rows are
+# the stock ones.
+#
+# Item ID block: 71100-71199. Next free item ID: 71107.
+#
+# Rows: the 24 stock boss drops of the nine bosses, with their Forever quality, levels and stats; the 4 new boss drops
+# of Kresh, Lady Anacondra, Lord Pythas and Skum; the new quest rewards of 914 and 962; the stock quest rewards of 914,
+# 962 and 1487 with their Forever stats. The world-style greens on the bosses (14367, 15506, 9812) have no row: their
+# tooltips name no WC boss.
+# Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
+# healing) plus Healing X-Y. Health per 5 sec is the bonus HealthRegen (the stock "Vitality" spells).
+# Rounding: every Forever stat whose kind has stock equip spells takes the nearest one, up on a tie, and keeps
+# its Forever value ("SpellPower 4 (Forever 3)"); Unique-Equipped is left out; a shield writes "Block <value>" in
+# `stats`. The rules are in forever/REFRESH.md, "Dungeon loot".
+#
+# Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
+# of the source row.
+#   kind           stock: a changed stock item (entry = sourceItem, its own stock ID)
+#                  item: a new item with a stock twin (sourceItem: the stock item whose row is copied)
+#                  new: a new item with no stock twin: class, subclass and inventoryType from Item.db2; the
+#                       generator copies the stock item of that class, subclass and slot nearest in item level
+#                       (forever_gen/loot.py) and takes its display
+#   entry          the item ID: a stock ID (stock), else from the item ID block of this file
+#   foreverItem    the item ID in the Forever client and on Wowhead
+#   sourceItem     the stock item whose row is copied (stock, item), "-" for new
+#   name, quality (poor, common, uncommon, rare, epic), itemLevel, requiredLevel, bonding (none, pickup, equip, use)
+#   class, subclass  the item class and subclass (new); on a stock row whose item is not in the stock gear file
+#                  (stock common, Forever uncommon or better) the class gives the disenchant ID; else "-"
+#   inventoryType  the slot as a number (13 one-hand, 21 main hand, 26 ranged right, 16 back, ...), "-" keeps it
+#   delay          the weapon speed in ms; damage: "<min>-<max>"; armor; resistances: "Fire 5, ..." or "none"
+#   stats          the base stats: "Str 2, Spi 3" (Str, Agi, Sta, Int, Spi, Health, Mana); "Block 9": the shield block value
+#   bonuses        the other stats as stock equip spells (forever_gen/equip_stats.py): "SpellPower 11, Healing 22"
+#   equipSpells    more stock equip spells by ID
+#   displayId      a stock ItemDisplayInfo.dbc ID (it also gives the icon); "-" for new: the display of the copied item
+#   sellPrice      in copper
+#   foreverStats   the Forever stats as the source shows them
+#   leftOut        the Forever stats and effects that 1.12 cannot show or that have no stock equip spell, "-" if none.
+#                  The generator lists them (loot-list.tsv)
+#   status         confirmed (the source shows it), unconfirmed or unreadable (the generator leaves the row out and
+#                  lists it)
+#   source         where the values come from: a Wowhead URL, or "client <build>"
+#   date           the day the source was read, YYYY-MM-DD
+#   notes
+kind	entry	foreverItem	sourceItem	name	quality	itemLevel	requiredLevel	bonding	class	subclass	inventoryType	delay	damage	armor	resistances	stats	bonuses	equipSpells	displayId	sellPrice	foreverStats	leftOut	status	source	date	notes
+# --- #243 stock boss drops. They keep their stock chance and their stock equal-chance group (the boss references 30122-30128, 30162, 30163, 30169).
+stock	5404	5404	5404	Serpent's Shoulders	rare	23	18	pickup	4	-	-	-	-	68	-	Agi 5, Spi 7	-	-	6729	959	Shoulder Leather, 68 armor, +5 Agi, +7 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/5404?dataEnv=16&locale=0	2026-10-31	Lady Anacondra; stock: common, 59 armor, no stats, no bonding
+stock	6446	6446	6446	Snakeskin Bag	uncommon	25	0	pickup	-	-	-	-	-	0	-	-	-	-	2593	532	10 Slot Bag, unique	-	confirmed	https://nether.wowhead.com/tooltip/item/6446?dataEnv=16&locale=0	2026-10-31	Lady Anacondra; stock: common, no bonding
+stock	10412	10412	10412	Belt of the Fang	rare	21	16	pickup	-	-	-	-	-	49	-	Agi 3, Sta 5	-	-	28384	494	Waist Leather, 49 armor, +3 Agi, +5 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/10412?dataEnv=16&locale=0	2026-10-31	Lady Anacondra; stock: green, 45 armor, +2 Agi, +3 Sta; item set 162 (#248)
+stock	6460	6460	6460	Cobrahn's Grasp	rare	22	17	pickup	-	-	-	-	-	107	-	Str 7, Agi 3	-	-	11945	677	Waist Mail, 107 armor, +7 Str, +3 Agi	-	confirmed	https://nether.wowhead.com/tooltip/item/6460?dataEnv=16&locale=0	2026-10-31	Lord Cobrahn; stock: level 24, 111 armor, +8 Str
+stock	6465	6465	6465	Robe of the Moccasin	rare	22	17	pickup	-	-	-	-	-	40	-	Str 3, Spi 10	SpellPower 4 (Forever 3), Healing 7 (Forever 6)	-	12693	903	Chest Cloth, 40 armor, +3 Str, +10 Spi; Equip: healing up to 9 and damage up to 3	-	confirmed	https://nether.wowhead.com/tooltip/item/6465?dataEnv=16&locale=0	2026-10-31	Lord Cobrahn; stock: green, 36 armor, +2 Str, +6 Spi, +2 Sta
+stock	10410	10410	10410	Leggings of the Fang	rare	22	17	pickup	-	-	-	-	-	78	-	Str 5, Agi 9, Sta 4	-	-	28385	1129	Legs Leather, 78 armor, +5 Str, +9 Agi, +4 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/10410?dataEnv=16&locale=0	2026-10-31	Lord Cobrahn; stock: level 23, 79 armor; item set 162 (#248)
+stock	6447	6447	6447	Worn Turtle Shell Shield	rare	21	16	pickup	4	-	-	-	-	490	-	Block 9	Mp5 2	-	22805	1256	Shield, 490 armor, 9 Block, +40 Armor, Restores 2 mana per 5 sec	+40 Armor (a bonus armor line next to the 490 armor line, not added)	confirmed	https://nether.wowhead.com/tooltip/item/6447?dataEnv=16&locale=0	2026-10-31	Kresh; stock: common, level 20, 412 armor, no bonding
+stock	13245	13245	13245	Kresh's Back	rare	23	18	pickup	-	-	-	-	-	528	-	Block 10	Defense 5	-	23835	1632	Shield, 528 armor, 10 Block; Equip: Increased Defense +5	-	confirmed	https://nether.wowhead.com/tooltip/item/13245?dataEnv=16&locale=0	2026-10-31	Kresh; stock: level 20, 471 armor, Defense +4 (7517)
+stock	6472	6472	6472	Stinging Viper	rare	24	19	pickup	-	-	-	2800	30-57	0	-	-	-	-	24741	2883	One-Hand Mace, 30-57 damage, speed 2.80; Chance on hit: Poisons target for 7 Nature damage every 3 sec for 12 sec	-	confirmed	https://nether.wowhead.com/tooltip/item/6472?dataEnv=16&locale=0	2026-10-31	Lord Pythas; the stock chance on hit 18197 stays; stock: sell price 3018
+stock	6473	6473	6473	Armor of the Fang	rare	23	18	pickup	-	-	-	-	-	91	-	Str 3, Int 3, Spi 10	-	-	17091	1275	Chest Leather, 91 armor, +3 Str, +3 Int, +10 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/6473?dataEnv=16&locale=0	2026-10-31	Lord Pythas; stock: green, 82 armor, +2 Str, +7 Spi; item set 162 (#248)
+stock	6448	6448	6448	Tail Spike	rare	21	16	pickup	-	-	-	1800	17-33	0	-	Str 3, Agi 3	-	-	20349	1963	One-Hand Dagger, 17-33 damage, speed 1.80, +3 Str, +3 Agi	-	confirmed	https://nether.wowhead.com/tooltip/item/6448?dataEnv=16&locale=0	2026-10-31	Skum; stock: green, level 22, 14-26, +2 Str, +2 Agi
+stock	6449	6449	6449	Glowing Lizardscale Cloak	rare	23	18	pickup	-	-	-	-	-	20	Nature 2	Agi 6	-	-	23001	765	Back, 20 armor, +6 Agi, +2 Nature Resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/6449?dataEnv=16&locale=0	2026-10-31	Skum; stock: level 22, +6 Agi, +2 Spi
+stock	5970	5970	5970	Serpent Gloves	rare	23	18	pickup	-	-	-	-	-	25	-	Agi 6	SpellPower 7	-	19128	510	Hands Cloth, 25 armor, +6 Agi; Equip: damage and healing up to 7	-	confirmed	https://nether.wowhead.com/tooltip/item/5970?dataEnv=16&locale=0	2026-10-31	Lord Serpentis; stock: green, 23 armor, +4 Agi, +4 Int
+stock	6459	6459	6459	Savage Trodders	rare	23	18	pickup	-	-	-	-	-	134	-	Sta 7	HealthRegen 6	-	11935	1153	Feet Mail, 134 armor, +7 Sta, Restores 6 health per 5 sec	-	confirmed	https://nether.wowhead.com/tooltip/item/6459?dataEnv=16&locale=0	2026-10-31	Lord Serpentis; 21348: the stock spell of 6 health per 5 sec that most stock items use; stock: green, 122 armor, +6 Sta
+stock	6469	6469	6469	Venomstrike	rare	24	19	pickup	-	-	-	2400	20-38	0	-	-	-	-	20652	2162	Bow, 20-38 damage, speed 2.40; Chance on hit: Venom Shot the target for 23 to 33 Nature damage	Venom Shot for 23 to 33 Nature damage (the stock equip spell 29636 Venom Shot stays)	confirmed	https://nether.wowhead.com/tooltip/item/6469?dataEnv=16&locale=0	2026-10-31	Lord Serpentis; stock: 16-30
+stock	10411	10411	10411	Footpads of the Fang	rare	22	17	pickup	-	-	-	-	-	61	-	Agi 6, Sta 6	-	-	27949	849	Feet Leather, 61 armor, +6 Agi, +6 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/10411?dataEnv=16&locale=0	2026-10-31	Lord Serpentis; stock: green, level 23, 57 armor, +4 Agi, +4 Sta; item set 162 (#248)
+stock	6629	6629	6629	Sporid Cape	rare	22	17	pickup	-	-	-	-	-	20	-	Sta 6	NatureThorns 4 (Forever 1)	-	23141	677	Back, 20 armor, +6 Sta; Equip: When struck in combat, inflicts 1 Nature damage to the attacker	-	confirmed	https://nether.wowhead.com/tooltip/item/6629?dataEnv=16&locale=0	2026-10-31	Verdan the Everliving; stock: green, level 23, 18 armor, +2 Spi, +3 Sta
+stock	6630	6630	6630	Seedcloud Buckler	rare	24	19	pickup	-	-	-	-	-	547	-	Int 5, Block 11	SpellPower 5	-	6274	1845	Shield, 547 armor, 11 Block, +5 Int; Equip: damage and healing up to 5	-	confirmed	https://nether.wowhead.com/tooltip/item/6630?dataEnv=16&locale=0	2026-10-31	Verdan the Everliving; stock: level 25, 566 armor, +6 Int, +3 Spi
+stock	6631	6631	6631	Living Root	rare	23	18	pickup	-	-	-	2900	34-51	0	Nature 9	Sta 2, Spi 5	SpellPower 15, Healing 30	-	20336	3189	Two-Hand Staff, 34-51 damage, speed 2.90, +2 Sta, +5 Spi, +9 Nature Resistance; Equip: healing up to 45 and damage up to 15	-	confirmed	https://nether.wowhead.com/tooltip/item/6631?dataEnv=16&locale=0	2026-10-31	Verdan the Everliving; stock: level 25, 49-74, +12 Spi, +2 Sta, +5 Nature Resistance
+stock	6461	6461	6461	Slime-encrusted Pads	rare	25	20	pickup	-	-	-	-	-	32	-	-	Mp5 3, HealthRegen 10	-	11946	977	Shoulder Cloth, 32 armor, Restores 3 mana per 5 sec, Restores 10 health per 5 sec	-	confirmed	https://nether.wowhead.com/tooltip/item/6461?dataEnv=16&locale=0	2026-10-31	Mutanus the Devourer; 21607: a stock spell of 10 health per 5 sec; the stock equip spell 18764 (Fungal Regrowth) goes; stock: level 27, 34 armor
+stock	6463	6463	6463	Deep Fathom Ring	rare	24	19	pickup	-	-	-	-	-	0	-	Sta 3	SpellPen 6 (Forever 2)	-	9846	1153	Finger, unique-equipped, +3 Sta, +2 Spell Penetration	Unique-Equipped (no 1.12 meaning)	confirmed	https://nether.wowhead.com/tooltip/item/6463?dataEnv=16&locale=0	2026-10-31	Mutanus the Devourer; stock: level 26, +3 Int, +6 Spi, +3 Sta
+stock	6627	6627	6627	Mutant Scale Breastplate	rare	23	18	pickup	-	-	-	-	-	194	-	Str 10, Sta 4	-	-	12595	1530	Chest Mail, 194 armor, +10 Str, +4 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/6627?dataEnv=16&locale=0	2026-10-31	Mutanus the Devourer; stock: level 28, 211 armor, +13 Str, +5 Sta
+stock	5243	5243	5243	Firebelcher	rare	23	18	pickup	-	-	-	1700	27-52	0	-	-	-	-	12601	1913	Wand, 27-52 Fire damage, speed 1.70; Equip: Chance on hit to blast the target for 25 to 31 Fire damage	Equip: Chance on hit to blast the target for 25 to 31 Fire damage (the generator places on-equip spells only, no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/5243?dataEnv=16&locale=0	2026-10-31	Deviate Faerie Dragon; stock: level 20, 24-45
+stock	6632	6632	6632	Feyscale Cloak	rare	21	16	pickup	-	-	-	-	-	19	-	Sta 5	SpellPower 4 (Forever 3)	-	15156	589	Back, 19 armor, +5 Sta; Equip: damage and healing up to 3	-	confirmed	https://nether.wowhead.com/tooltip/item/6632?dataEnv=16&locale=0	2026-10-31	Deviate Faerie Dragon; stock: green, level 20, 17 armor, +2 Spi, +3 Sta
+# --- #243 new boss drops (the tooltip's "Dropped by" names the boss). Blueprint: Journeyman Campfire (273087, Lord Serpentis 0.39%) and Blueprint: Field Guide (273098, Lady Anacondra 0.32%) have no item row: they teach Forever camp features, which 1.12 does not have (left-out drop rows in loot_wailing_caverns.tsv).
+new	71100	273084	-	Cloak of Hermitic Bliss	rare	22	17	pickup	4	1	16	-	-	20	none	-	-	-	-	674	Back, 20 armor; Equip: Movement speed reduced by 25%; Equip: Swim speed increased by 33%	Equip: Movement speed reduced by 25%; Equip: Swim speed increased by 33% (no stock equip spells)	confirmed	https://nether.wowhead.com/tooltip/item/273084?dataEnv=16&locale=0	2026-10-31	Dropped by Kresh 1.17%
+new	71101	273088	-	Snake Eye Kaleidoscope	rare	22	17	pickup	4	0	2	-	-	0	Fire 1, Nature 1, Frost 1, Shadow 1, Arcane 1	Str 1, Agi 1, Sta 1, Int 1, Spi 1	-	-	-	912	Neck, +1 Str, +1 Agi, +1 Sta, +1 Int, +1 Spi, +1 Arcane, Fire, Nature, Frost and Shadow Resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/273088?dataEnv=16&locale=0	2026-10-31	Dropped by Lady Anacondra 2.04%
+new	71102	273089	-	Slither Cord	rare	22	17	pickup	4	1	6	-	-	22	none	-	Mp5 3	-	-	457	Waist Cloth, 22 armor, Restores 3 mana per 5 sec; Use: Escape all immobilizing effects (30 Min Cooldown)	Use: Escape all immobilizing effects (30 Min Cooldown) (the generator places on-equip spells only)	confirmed	https://nether.wowhead.com/tooltip/item/273089?dataEnv=16&locale=0	2026-10-31	Dropped by Lord Pythas 1.71%
+new	71103	273137	-	Skum's Bucket	rare	22	17	pickup	4	0	23	-	-	0	none	Sta 3	SpellPower 4 (Forever 3), Healing 7	-	-	875	Held In Off-hand, +3 Sta; Equip: healing up to 10 and damage up to 3; Use: Restores 835 mana over 24 sec (10 Min Cooldown)	Use: Restores 835 mana over 24 sec, must remain seated (10 Min Cooldown) (the generator places on-equip spells only)	confirmed	https://nether.wowhead.com/tooltip/item/273137?dataEnv=16&locale=0	2026-10-31	Dropped by Skum 2.63%
+# --- #243 quest rewards: the new choices of quests 914 and 962, and the Forever stats of the stock rewards of 914 (6505), 962 (10919) and 1487 (8071). 6504, 6476, 6481, 6480 and 918 have no row: their Forever tooltips equal the stock items.
+new	71104	270008	-	Heat Resistant Mitts	uncommon	20	0	pickup	4	2	10	-	-	48	none	Agi 4, Sta 1	-	-	-	340	Hands Leather, 48 armor, +4 Agi, +1 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/270008?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 962
+new	71105	270009	-	Safety Boots	uncommon	20	0	pickup	4	3	8	-	-	115	none	Str 4, Sta 2	-	-	-	613	Feet Mail, 115 armor, +4 Str, +2 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/270009?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 962
+new	71106	270018	-	Hammerbone	rare	24	0	pickup	2	5	17	3400	55-84	0	none	Str 7, Spi 10	-	-	-	3558	Two-Hand Mace, 55-84 damage, speed 3.40, +7 Str, +10 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/270018?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 914
+stock	6505	6505	6505	Crescent Staff	rare	24	0	pickup	-	-	-	2900	35-53	0	-	Agi 7, Sta 7, Int 7	SpellPower 26	-	12286	3604	Two-Hand Staff, 35-53 damage, speed 2.90, +7 Agi, +7 Sta, +7 Int; Equip: damage and healing up to 26	-	confirmed	https://nether.wowhead.com/tooltip/item/6505?dataEnv=16&locale=0	2026-10-31	quest 914; stock: 47-71, +7 Int, +7 Spi, +7 Sta
+stock	8071	8071	8071	Sizzle Stick	uncommon	23	0	pickup	-	-	-	1700	21-39	0	-	-	SpellPower 2	-	6093	1594	Wand, 21-39 Fire damage, speed 1.70; Equip: damage and healing up to 2	-	confirmed	https://nether.wowhead.com/tooltip/item/8071?dataEnv=16&locale=0	2026-10-31	quest 1487; stock: no equip spell, sell price 1534
+stock	10919	10919	10919	Apothecary Gloves	uncommon	20	0	pickup	-	-	-	-	-	21	-	-	SpellPower 4, Herbalism 2	-	20476	284	Hands Cloth, 21 armor; Equip: damage and healing up to 4; Equip: Increased Herbalism +2	-	confirmed	https://nether.wowhead.com/tooltip/item/10919?dataEnv=16&locale=0	2026-10-31	quest 962; stock: level 18, 20 armor, +3 Int, +2 Spi

@@ -1,0 +1,96 @@
+# Forever loot of Blackfathom Deeps (map 48): the item rows (spec jvbastel/WOWAI#240, ticket #246). forever/generator
+# writes each confirmed row into forever_item_template (world database). The drop and quest reward rows are in
+# loot_blackfathom_deeps.tsv. The layout of the loot files is in forever/REFRESH.md, "Dungeon loot".
+# Never edit a generated file by hand.
+#
+# Sources, read 2026-10-31: the Forever client build 1.60.1.70685 (Item.db2: class, subclass and slot of each new
+# item; ItemSparse holds every row of this file in encrypted data) and Wowhead's Forever tooltip data
+# (https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0, raw answers cached in
+# notes/forever/wowhead-cache/item, read with forever/generator/tools/wowhead_tooltips.py). Only numbers and names.
+# The data notes: notes/forever/loot-data-blackfathom_deeps.md. Where the notes and the raw tooltip differ, the raw
+# tooltip wins (Leech Pants and Sustaining Ring have a health and mana regen line, Twilight Lord Girdle a Block Value).
+#
+# Item ID block: 71400-71499. Next free item ID: 71411.
+#
+# Rows: the 15 stock boss drops of Ghamoo-ra, Lady Sarevess, Gelihast, Twilight Lord Kelris, Old Serra'kis and
+# Aku'mai with their Forever values; the 6 new boss drops of Ghamoo-ra, Gelihast, Lorgus Jett and Twilight Lord Kelris;
+# the 5 new quest reward choices; the 11 stock quest rewards of the BFD quests with their Forever stats.
+# No item row: Blueprint: Fishing Rack (273141, Gelihast 1.09%), a Forever camp recipe with no 1.12 meaning (a
+# left-out drop row in loot_blackfathom_deeps.tsv); Pathfinder
+# Cloak (15340, Aku'mai), a stock world drop that the Forever tooltip does not show for a boss.
+# Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
+# healing) plus Healing X-Y. "Increases damage done by magical spells" with no healing (Moss Cinch) has no stock
+# equip spell of its kind (only Wand Specialization 10 and 12): it goes into leftOut. Bonus armor ("+40 Armor") is added to the armor.
+# A stock chance-on-hit spell stays (items.py changes only the on-equip slots); a different Forever proc is leftOut.
+# Rounding: every Forever stat whose kind has stock equip spells takes the nearest one, up on a tie, and keeps
+# its Forever value ("SpellPower 4 (Forever 3)"); Unique-Equipped is left out; a shield writes "Block <value>" in
+# `stats`. The rules are in forever/REFRESH.md, "Dungeon loot".
+#
+# Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
+# of the source row.
+#   kind           stock: a changed stock item (entry = sourceItem, its own stock ID)
+#                  item: a new item with a stock twin (sourceItem: the stock item whose row is copied)
+#                  new: a new item with no stock twin: class, subclass and inventoryType from Item.db2; the
+#                       generator copies the stock item of that class, subclass and slot nearest in item level
+#                       (forever_gen/loot.py) and takes its display
+#   entry          the item ID: a stock ID (stock), else from the item ID block of this file
+#   foreverItem    the item ID in the Forever client and on Wowhead
+#   sourceItem     the stock item whose row is copied (stock, item), "-" for new
+#   name, quality (poor, common, uncommon, rare, epic), itemLevel, requiredLevel, bonding (none, pickup, equip, use)
+#   class, subclass  the item class and subclass (new), else "-"
+#   inventoryType  the slot as a number (13 one-hand, 21 main hand, 15 ranged, 16 back, ...), "-" keeps it
+#   delay          the weapon speed in ms; damage: "<min>-<max>"; armor; resistances: "Fire 5, ..." or "none"
+#   stats          the base stats: "Str 2, Spi 3" (Str, Agi, Sta, Int, Spi, Health, Mana)
+#   bonuses        the other stats as stock equip spells (forever_gen/equip_stats.py): "SpellPower 11, Healing 22"
+#   equipSpells    more stock equip spells by ID
+#   displayId      a stock ItemDisplayInfo.dbc ID (it also gives the icon); "-" for new: the display of the copied item
+#   sellPrice      in copper
+#   foreverStats   the Forever stats as the source shows them
+#   leftOut        the Forever stats and effects that 1.12 cannot show or that have no stock equip spell, "-" if none.
+#                  The generator lists them (loot-list.tsv)
+#   status         confirmed (the source shows it), unconfirmed or unreadable (the generator leaves the row out and
+#                  lists it)
+#   source         where the values come from: a Wowhead URL, or "client <build>"
+#   date           the day the source was read, YYYY-MM-DD
+#   notes
+kind	entry	foreverItem	sourceItem	name	quality	itemLevel	requiredLevel	bonding	class	subclass	inventoryType	delay	damage	armor	resistances	stats	bonuses	equipSpells	displayId	sellPrice	foreverStats	leftOut	status	source	date	notes
+# --- #246 stock boss drops: Ghamoo-ra (4887, reference loot 30156), Lady Sarevess (4831, 30152), Gelihast (6243, 30178), Twilight Lord Kelris (4832, 30153), Old Serra'kis (4830, 30151) and Aku'mai (4829, 30150). They keep their stock chance and their stock equal-chance group.
+stock	6907	6907	6907	Tortoise Armor	rare	27	22	pickup	-	-	-	-	-	248	-	-	SpellDamageReduction 10 (Forever 5)	-	16903	2430	Chest Mail, 208 armor, +40 armor; Equip: Spell Damage received is reduced by 5	-	confirmed	https://nether.wowhead.com/tooltip/item/6907?dataEnv=16&locale=0	2026-10-31	stock: ilvl 25, req 20, 311 armor
+stock	6908	6908	6908	Ghamoo-ra's Bind	rare	27	22	pickup	-	-	-	-	-	25	-	Sta 7	SpellPower 8	-	16723	810	Waist Cloth, 25 armor, +7 Sta; Equip: damage and healing up to 8	-	confirmed	https://nether.wowhead.com/tooltip/item/6908?dataEnv=16&locale=0	2026-10-31	stock: green, ilvl 25, req 20, 22 armor, +4 Int, +4 Sta
+stock	888	888	888	Naga Battle Gloves	rare	27	22	pickup	-	-	-	-	-	61	-	Str 4, Sta 4	SpellPower 5, Healing 11 (Forever 10)	-	17182	1020	Hands Leather, 61 armor, +4 Str, +4 Sta; Equip: healing up to 15 and damage up to 5	-	confirmed	https://nether.wowhead.com/tooltip/item/888?dataEnv=16&locale=0	2026-10-31	stock: +4 Str, +7 Spi, +4 Sta
+stock	3078	3078	3078	Naga Heartpiercer	rare	27	22	pickup	-	-	-	2400	22-42	0	-	-	-	-	20669	3037	Ranged Bow, 22-42 damage, speed 2.40; Chance on hit: Wounds the target for 42 damage. Naga are Stunned for 2 sec.	Chance on hit: Wounds the target for 42 damage. Naga are Stunned for 2 sec. (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/3078?dataEnv=16&locale=0	2026-10-31	stock: green, ilvl 26, req 21, 13-25, speed 1.80
+stock	11121	11121	11121	Darkwater Talwar	rare	27	22	pickup	-	-	-	2200	26-49	0	-	-	-	-	20094	4050	Main Hand Sword, 26-49 damage, speed 2.20; Chance on hit: shadowy bolt for 28 Shadow damage	Chance on hit: 28 Shadow damage (the stock spell 16408 gives 25 and stays)	confirmed	https://nether.wowhead.com/tooltip/item/11121?dataEnv=16&locale=0	2026-10-31	stock: green, ilvl 26, req 21, 20-39
+stock	6905	6905	6905	Reef Axe	rare	27	22	pickup	-	-	-	3300	59-89	0	-	Str 8	SpellPower 8, Healing 15 (Forever 16)	-	22222	5062	Two-Hand Axe, 59-89 damage, speed 3.30, +8 Str; Equip: healing up to 24 and damage up to 8	-	confirmed	https://nether.wowhead.com/tooltip/item/6905?dataEnv=16&locale=0	2026-10-31	stock: green, 48-73, +7 Spi, +5 Sta
+stock	6906	6906	6906	Algae Fists	rare	28	23	pickup	-	-	-	-	-	132	Nature 5	Str 8, Sta 5	-	-	13361	1336	Hands Mail, 132 armor, +8 Str, +5 Sta, +5 Nature Resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/6906?dataEnv=16&locale=0	2026-10-31	stock: +10 Str, +4 Sta
+stock	1155	1155	1155	Rod of the Sleepwalker	rare	29	24	pickup	-	-	-	2800	39-60	0	-	Spi 11	SpellPower 32	-	20327	6125	Two-Hand Staff, 39-60 damage, speed 2.80, +11 Spi; Equip: damage and healing up to 32; Equip: Reduces the hit chance of Sleep effects against you by 5%	Equip: Reduces the hit chance of Sleep effects against you by 5% (no stock equip spell)	confirmed	https://nether.wowhead.com/tooltip/item/1155?dataEnv=16&locale=0	2026-10-31	stock: 53-80, +11 Int, +10 Spi
+stock	6903	6903	6903	Gaze Dreamer Pants	rare	28	23	pickup	-	-	-	-	-	40	-	Spi 9	SpellPower 12	-	13357	1782	Legs Cloth, 40 armor, +9 Spi; Equip: damage and healing up to 12	-	confirmed	https://nether.wowhead.com/tooltip/item/6903?dataEnv=16&locale=0	2026-10-31	stock: green, 36 armor, +7 Int, +6 Spi
+stock	6901	6901	6901	Glowing Thresher Cape	rare	29	24	pickup	-	-	-	-	-	23	-	Spi 8	SpellPower 4 (Forever 3), Healing 4	-	23002	1470	Back, 23 armor, +8 Spi; Equip: healing up to 7 and damage up to 3	-	confirmed	https://nether.wowhead.com/tooltip/item/6901?dataEnv=16&locale=0	2026-10-31	stock: +3 Str, +8 Spi
+stock	6902	6902	6902	Bands of Serra'kis	rare	27	22	pickup	-	-	-	-	-	43	-	Str 6, Sta 3	-	-	17001	1020	Wrist Leather, 43 armor, +6 Str, +3 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/6902?dataEnv=16&locale=0	2026-10-31	stock: green, 39 armor, +4 Str, +2 Sta
+stock	6904	6904	6904	Bite of Serra'kis	rare	28	23	pickup	-	-	-	1300	16-30	0	Nature 2	-	-	-	20575	4455	One-Hand Dagger, 16-30 damage, speed 1.30, +2 Nature Resistance; Chance on hit: Poisons target for 14 Nature damage every 3 sec for 9 sec	Chance on hit: 14 Nature damage every 3 sec for 9 sec (the stock spell 8313 stays)	confirmed	https://nether.wowhead.com/tooltip/item/6904?dataEnv=16&locale=0	2026-10-31	stock: no resistance
+stock	6909	6909	6909	Strike of the Hydra	rare	31	26	pickup	-	-	-	3300	67-102	0	-	-	-	-	20185	7412	Two-Hand Sword, 67-102 damage, speed 3.30; Chance on hit: Inflict 42 Fire and 14 Frost damage, slow the target by 50% for 5 sec, reduce armor by 50, and inflict 7 Nature damage every 3 sec for 12 sec	Chance on hit: 42 Fire and 14 Frost damage, slow 50% for 5 sec, armor -50, 7 Nature damage every 3 sec for 12 sec (the stock spell 13526 Corrosive Poison stays)	confirmed	https://nether.wowhead.com/tooltip/item/6909?dataEnv=16&locale=0	2026-10-31	stock: same damage; sell price 7155
+stock	6910	6910	6910	Leech Pants	rare	29	24	pickup	-	-	-	-	-	41	-	Sta 5	SpellPower 5, Mp5 5, HealthRegen 5	-	13365	1960	Legs Cloth, 41 armor, +5 Sta; Restores 5 mana per 5 sec; Restores 5 health per 5 sec; Equip: damage and healing up to 5	-	confirmed	https://nether.wowhead.com/tooltip/item/6910?dataEnv=16&locale=0	2026-10-31	stock: ilvl 31, req 26, 42 armor, +5 Int, +15 Spi, +1 Sta
+stock	6911	6911	6911	Moss Cinch	rare	30	25	pickup	-	-	-	-	-	58	-	Sta 5	-	-	16931	1358	Waist Leather, 58 armor, +5 Sta; Equip: Increases damage done by magical spells and effects by up to 12	Equip: spell damage up to 12, no healing (no stock damage-only spell of that value)	confirmed	https://nether.wowhead.com/tooltip/item/6911?dataEnv=16&locale=0	2026-10-31	stock: ilvl 31, req 26, 59 armor, +11 Int, +5 Sta
+# --- #246 new boss drops: Ghamoo-ra, Gelihast, Lorgus Jett (12902, a rare with no boss reference) and Twilight Lord Kelris.
+new	71400	273839	-	Spiked Shell Band	rare	27	22	pickup	4	0	11	-	-	0	-	Sta 5	NatureThorns 4 (Forever 2)	-	-	1636	Finger, Unique-Equipped, +5 Sta; Equip: When struck in combat, inflicts 2 Nature damage to the attacker	Unique-Equipped (no 1.12 meaning)	confirmed	https://nether.wowhead.com/tooltip/item/273839?dataEnv=16&locale=0	2026-10-31	Dropped by Ghamoo-ra 4.19%
+new	71401	273840	-	Cursed Murloc Eye	rare	29	24	pickup	4	0	12	-	-	0	-	-	-	-	-	1987	Trinket, Unique-Equipped; Equip: Spells and attacks deal 2 Shadow damage. Deals 4 times as much damage to Murlocs.	Equip: Spells and attacks deal 2 Shadow damage, 4 times as much to Murlocs (no 1.12 equip effect); Unique-Equipped (no 1.12 meaning)	confirmed	https://nether.wowhead.com/tooltip/item/273840?dataEnv=16&locale=0	2026-10-31	Dropped by Gelihast 4.33%
+new	71402	273841	-	Twilight Maul	rare	28	23	pickup	2	5	17	3300	60-91	0	-	-	SpellPower 12	-	-	5666	Two-Hand Mace, 60-91 damage, speed 3.30; Equip: damage and healing up to 12; Chance on hit: Blasts a target for 70 Nature damage	Chance on hit: Blasts a target for 70 Nature damage (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/273841?dataEnv=16&locale=0	2026-10-31	Dropped by Lorgus Jett 14.00%
+new	71403	273842	-	Treacherous Treads	rare	28	23	pickup	4	3	8	-	-	145	-	Str 5, Sta 7	-	-	-	2056	Feet Mail, 145 armor, +5 Str, +7 Sta; Equip: Increases all threat generated by 1%	Equip: Increases all threat generated by 1% (no stock equip spell)	confirmed	https://nether.wowhead.com/tooltip/item/273842?dataEnv=16&locale=0	2026-10-31	Dropped by Lorgus Jett 9.90%
+new	71404	273843	-	Fallenroot Longbow	rare	28	23	pickup	2	2	15	2200	21-40	0	-	Agi 2, Sta 4	-	-	-	3424	Ranged Bow, 21-40 damage, speed 2.20, +2 Agi, +4 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/273843?dataEnv=16&locale=0	2026-10-31	Dropped by Lorgus Jett 9.96%
+new	71405	273846	-	Twilight Lord Girdle	rare	30	25	pickup	4	3	6	-	-	123	Shadow 5	Str 8	BlockValue 10 (Forever 6)	-	-	1675	Waist Mail, 123 armor, +8 Str, +6 Block Value, +5 Shadow Resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/273846?dataEnv=16&locale=0	2026-10-31	Dropped by Twilight Lord Kelris 3.15%
+# --- #246 quest rewards: the new choices of quests 1199, 1200, 6561, 1275 and 6922 and the Forever stats of the stock rewards of 971, 1199, 1200, 6561, 1275, 6922 and 6565.
+new	71406	270021	-	Staghide Armguards	uncommon	26	0	pickup	4	2	9	-	-	38	-	Agi 3, Sta 3	-	-	-	771	Wrist Leather, 38 armor, +3 Agi, +3 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/270021?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 1275
+new	71407	270025	-	Silvered Gauntlets	uncommon	27	0	pickup	4	3	10	-	-	118	-	Sta 5	SpellPower 4 (Forever 3), Healing 7 (Forever 6)	-	-	1052	Hands Mail, 118 armor, +5 Sta; Equip: healing up to 9 and damage up to 3	-	unconfirmed	https://nether.wowhead.com/tooltip/item/270025?dataEnv=16&locale=0	2026-10-31	new reward of quest 1199, its only source, whose reward row is unconfirmed: the item stays out (#240 lead decision)
+new	71408	270031	-	Dark Ritual Leggings	rare	29	0	pickup	4	2	7	-	-	88	-	Sta 9	SpellPower 14	-	-	2355	Legs Leather, 88 armor, +9 Sta; Equip: damage and healing up to 14	-	confirmed	https://nether.wowhead.com/tooltip/item/270031?dataEnv=16&locale=0	2026-10-31	new reward choice of quests 1200 and 6561
+new	71409	270032	-	Cultist's Armguards	rare	29	0	pickup	4	2	9	-	-	44	-	Sta 7	AP 10	-	-	1191	Wrist Leather, 44 armor, +7 Sta; Equip: +10 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/270032?dataEnv=16&locale=0	2026-10-31	new reward choice of quests 1200 and 6561
+new	71410	270043	-	Dreamer's Chestguard	rare	32	0	pickup	4	2	5	-	-	106	-	Str 10, Sta 5, Spi 11	-	-	-	3365	Chest Leather, 106 armor, +10 Str, +5 Sta, +11 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/270043?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 6922
+stock	6743	6743	6743	Sustaining Ring	uncommon	25	0	pickup	-	-	-	-	-	0	-	Sta 4	HealthRegen 4	-	12984	1086	Finger, +4 Sta; Restores 4 health per 5 sec	-	confirmed	https://nether.wowhead.com/tooltip/item/6743?dataEnv=16&locale=0	2026-10-31	quest 971; stock: +4 Spi, +1 Sta
+stock	6998	6998	6998	Nimbus Boots	uncommon	27	0	pickup	-	-	-	-	-	28	-	Agi 5	SpellPower 4 (Forever 3), Healing 7	-	13500	1012	Feet Cloth, 28 armor, +5 Agi; Equip: healing up to 10 and damage up to 3	-	confirmed	https://nether.wowhead.com/tooltip/item/6998?dataEnv=16&locale=0	2026-10-31	quest 1199; stock: ilvl 25, 27 armor, +3 Agi, +5 Spi
+stock	7000	7000	7000	Heartwood Girdle	uncommon	27	0	pickup	-	-	-	-	-	50	-	Sta 5	SpellPower 6	-	16919	850	Waist Leather, 50 armor, +5 Sta; Equip: damage and healing up to 6	-	confirmed	https://nether.wowhead.com/tooltip/item/7000?dataEnv=16&locale=0	2026-10-31	quest 1199; stock: ilvl 25, 48 armor, +4 Spi, +4 Sta
+stock	7001	7001	7001	Gravestone Scepter	rare	29	0	pickup	-	-	-	1500	30-57	0	none	Spi 3	ShadowDamage 6	-	20824	3675	Ranged Wand, 30-57 Shadow damage, speed 1.50, +3 Spi; Equip: Shadow damage up to 6	-	confirmed	https://nether.wowhead.com/tooltip/item/7001?dataEnv=16&locale=0	2026-10-31	quests 1200 and 6561; stock: +1 Spi, +5 Shadow Resistance
+stock	7002	7002	7002	Arctic Buckler	rare	29	0	pickup	-	-	-	-	-	642	Frost 5	Sta 8, Spi 3, Block 13	-	-	4743	3136	Off Hand Shield, 642 armor, 13 block, +8 Sta, +3 Spi, +5 Frost Resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/7002?dataEnv=16&locale=0	2026-10-31	quests 1200 and 6561; stock: +8 Spi, +3 Sta
+stock	7003	7003	7003	Beetle Clasps	uncommon	26	0	pickup	-	-	-	-	-	81	-	Sta 3	AP 6	-	13508	920	Wrist Mail, 81 armor, +3 Sta; Equip: +6 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/7003?dataEnv=16&locale=0	2026-10-31	quest 1275; stock: ilvl 27, 83 armor, +2 Agi, +5 Sta
+stock	7004	7004	7004	Prelacy Cape	uncommon	26	0	pickup	-	-	-	-	-	20	-	Spi 3	SpellPower 2, Healing 4 (Forever 5)	-	15042	920	Back, 20 armor, +3 Spi; Equip: healing up to 7 and damage up to 2	-	confirmed	https://nether.wowhead.com/tooltip/item/7004?dataEnv=16&locale=0	2026-10-31	quest 1275; stock: ilvl 27, +5 Spi
+stock	16886	16886	16886	Outlaw Sabre	rare	32	0	pickup	-	-	-	2700	38-72	0	-	-	AP 16	-	28586	6522	One-Hand Sword, 38-72 damage, speed 2.70; Equip: +16 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/16886?dataEnv=16&locale=0	2026-10-31	quest 6922; stock: ilvl 30, 35-67, +15 Attack Power (spell 20732)
+stock	16887	16887	16887	Witch's Finger	rare	32	0	pickup	-	-	-	-	-	0	-	Sta 4, Int 8	-	-	28588	2609	Held In Off-hand, +4 Sta, +8 Int	-	confirmed	https://nether.wowhead.com/tooltip/item/16887?dataEnv=16&locale=0	2026-10-31	quest 6922; stock: ilvl 30, +7 Int, +4 Sta
+stock	17694	17694	17694	Band of the Fist	uncommon	28	0	pickup	-	-	-	-	-	0	-	Str 4, Agi 4	-	-	4284	1485	Finger, +4 Str, +4 Agi	-	confirmed	https://nether.wowhead.com/tooltip/item/17694?dataEnv=16&locale=0	2026-10-31	quest 6565; stock: ilvl 25, +3 Agi, +3 Str
+stock	17695	17695	17695	Chestnut Mantle	uncommon	28	0	pickup	-	-	-	-	-	31	-	Sta 3	SpellPower 5	-	16572	1113	Shoulder Cloth, 31 armor, +3 Sta; Equip: damage and healing up to 5	-	confirmed	https://nether.wowhead.com/tooltip/item/17695?dataEnv=16&locale=0	2026-10-31	quest 6565; stock: ilvl 26, 30 armor, +6 Int, +2 Sta

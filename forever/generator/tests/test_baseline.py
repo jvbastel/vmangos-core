@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from test_pipeline import STOCK, changed_stock_spells, generate, int32, read_dbc, removed_stock_abilities, server_spells
+from test_pipeline import STOCK, changed_stock_spells, int32, read_dbc, removed_stock_abilities, server_spells
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -22,11 +22,6 @@ WARRIOR_MASK = 1
 # Spell.dbc column 6 (Attributes); 0x80 SPELL_ATTR_DO_NOT_DISPLAY. New spells start at the free ID range.
 SPELL_ATTRIBUTES, DO_NOT_DISPLAY = 6, 0x80
 PARRY, FIRST_NEW_SPELL = 3127, 60000
-
-
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever212"))
 
 
 def sql(out):
