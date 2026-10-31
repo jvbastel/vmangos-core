@@ -37,6 +37,7 @@
 #include "Config/Config.h"
 #include "Database/DatabaseEnv.h"
 #include "CliRunnable.h"
+#include "LoginDatabaseInfo.h"
 #include "remote/RemoteAccess/RASocket.h"
 #include "remote/soap/MaNGOSsoap.h"
 #include "Util.h"
@@ -416,6 +417,9 @@ bool StartDB(const std::string& name, DatabaseType& database, char const** migra
 {
     // Get database info from configuration file
     std::string dbstring = sConfig.GetStringDefault((name + "Database.Info").c_str(), "");
+    // WOWAI shared login server (#236): VMANGOS_LOGIN_DATABASE_INFO overrides the login database.
+    if (name == "Login")
+        dbstring = Bots::LoginDatabaseInfo(dbstring);
     int nConnections = sConfig.GetIntDefault((name + "Database.Connections").c_str(), 1);
     int nAsyncConnections = sConfig.GetIntDefault((name + "Database.WorkerThreads").c_str(), 1);
     if (dbstring.empty())

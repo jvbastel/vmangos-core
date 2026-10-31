@@ -120,3 +120,7 @@ src/game/Objects/Item.cpp
 # Spec hook 23, #225 final review: the GM item commands find a Forever item by its name (.additem and
 # .deleteitem in CharacterCommands.cpp read item_template through Forever::Table).
 src/game/Commands/CharacterCommands.cpp
+# Spec hook 24, #236 (one login server for the play realm and the test realm): VMANGOS_LOGIN_DATABASE_INFO
+# overrides the login database through Bots::LoginDatabaseInfo (src/bots/LoginDatabaseInfo.h), where the core
+# reads it: StartDB in Master.cpp and the .service delete characters command (CharacterCommands.cpp, above).
+src/mangosd/Master.cpp

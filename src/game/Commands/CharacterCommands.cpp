@@ -35,6 +35,7 @@
 #include "CharacterDatabaseCache.h"
 #include "Config/Config.h"
 #include "Forever.h"
+#include "LoginDatabaseInfo.h"
 
 #include <regex>
 #include <iterator>
@@ -5463,7 +5464,8 @@ bool ChatHandler::HandleServiceDeleteCharacters(char* args)
     if (!ExtractUInt32(&args, flags))
         return false;
 
-    Tokens tokens = StrSplit(sConfig.GetStringDefault("LoginDatabase.Info", ""), ";");
+    // WOWAI shared login server (#236): VMANGOS_LOGIN_DATABASE_INFO overrides the login database.
+    Tokens tokens = StrSplit(Bots::LoginDatabaseInfo(sConfig.GetStringDefault("LoginDatabase.Info", "")), ";");
 
     std::string dblogon;
     auto i = 0;
