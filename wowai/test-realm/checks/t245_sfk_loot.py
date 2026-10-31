@@ -142,7 +142,7 @@ if mode not in ("forever", "vanilla"):
 realm = Realm()
 results = Results()
 realm.mark("t245 %s" % mode)
-c = realm.login("PLAYER245", "Shadowfangrog", race=5, cls=4, client_class=LootClient)
+c = realm.login("PLAYER245", "Sfkrogue", race=5, cls=4, client_class=LootClient)
 
 if mode == "forever":
     loaded = {}
