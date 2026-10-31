@@ -34,6 +34,11 @@ LOOT_COLUMNS = ("kind", "item", "name", "target", "targetName", "loot", "chance"
 STOCK, TWIN, NEW = "stock", "item", "new"
 ITEM_KINDS = (STOCK, TWIN, NEW)
 DROP, REWARD, UNLOCK = "drop", "reward", "unlock"
+# The `replaces` value of a reward row whose item is a stock fixed reward that becomes a choice (#244 quest 167,
+# #245 quest 1098).
+FIXED = "fixed"
+# The fixed reward slots of quest_template (RewItemId1-4).
+FIXED_REWARD_SLOTS = 4
 LOOT_KINDS = (DROP, REWARD, UNLOCK)
 CONFIRMED = "confirmed"
 STATUSES = (CONFIRMED, "unconfirmed", "unreadable")
@@ -44,9 +49,6 @@ TABLES = (CREATURE_TABLE, REFERENCE_TABLE, QUEST_TABLE)
 # The six dungeons of spec #240 are open from the first content patch: a new drop loads from patch 0 to 10.
 DUNGEON_PATCH_MIN, PATCH_MAX = 0, 10
 QUEST_CHOICES = 6
-# The fixed reward slots of quest_template (RewItemId1-4), and the `replaces` value of a reward row whose item is a
-# stock fixed reward that Forever offers as a choice (#244, quest 167).
-QUEST_FIXED_REWARDS, FIXED = 4, "fixed"
 # Every class (item_template allowable_class): a lifted class lock.
 ALL_CLASSES = -1
 SOURCE = re.compile(r"(https://nether\.wowhead\.com/tooltip/\w+/\d+\?dataEnv=16&locale=0|https://www\.wowhead\.com/forever/\S+"
@@ -59,7 +61,8 @@ LIST_FILE = "loot-list.tsv"
 LootItem = namedtuple("LootItem", "kind entry name status source date left_out raw block path where")
 # A new boss drop. loot: CREATURE or REFERENCE; reference: the reference ID or None.
 Drop = namedtuple("Drop", "item name boss boss_name loot reference chance status source date where")
-# A quest reward row (kind reward or unlock). replaces: the stock choice it replaces or None; count: the item count.
+# A quest reward row (kind reward or unlock). replaces: the stock choice it replaces, FIXED (the item leaves the fixed
+# rewards and is added as a choice) or None; count: the item count.
 Reward = namedtuple("Reward", "kind item name quest title replaces count status source date where")
 # One line of the loot list: list (left-out, unconfirmed, unreadable), kind, id, name, detail.
 Listed = namedtuple("Listed", "list kind id name detail")
@@ -110,19 +113,11 @@ def read_loot_rows(path, lines):
             drops.append(Drop(boss=int(raw["target"]), boss_name=raw["targetName"], loot=loot,
                               reference=int(reference) if reference else None, chance=chance, **common))
         else:
-            replaces = _replaces(raw["replaces"])
+            replaces = None if raw["replaces"] == NO_VALUE else FIXED if raw["replaces"] == FIXED else int(raw["replaces"])
             count = 1 if raw["count"] == NO_VALUE else int(raw["count"])
             rewards.append(Reward(kind=kind, quest=int(raw["target"]), title=raw["targetName"], replaces=replaces,
                                   count=count, **common))
     return {"loot_drops": drops, "loot_rewards": rewards}
-
-
-def _replaces(raw):
-    """The `replaces` value of a reward row: None ("-": the first empty choice slot), FIXED (a stock fixed reward that
-    becomes a choice in the first empty slot) or the stock choice it replaces."""
-    if raw in (NO_VALUE, FIXED):
-        return None if raw == NO_VALUE else FIXED
-    return int(raw)
 
 
 def _number(raw, column):
@@ -151,14 +146,14 @@ def _disenchant(item_class, quality, item_level, world):
     return min(candidates, key=lambda g: (abs(g.item_level - item_level), g.entry)).disenchant_id
 
 
-def _stock_class(row, source, world):
+def _stock_class(raw, source, world):
     """The item class of the stock source item of a stock or twin row, for its disenchant ID: from the stock gear
     file, or else from the row's `class` (#244: a stock white item that is blue in Forever, such as Buzzer Blade, is
     not in the gear file of uncommon to epic items). None: the disenchant ID stays stock."""
     gear = [g for g in world.gear if g.entry == source]
     if gear:
         return gear[0].item_class
-    return _number(row.raw, "class")
+    return _number(raw, "class")
 
 
 def _item(row, world):
@@ -177,7 +172,7 @@ def _item(row, world):
             raise SpecError("%s: a new item with no stock twin has no sourceItem" % where)
     else:
         source, display = int(raw["sourceItem"]), None
-        item_class = _stock_class(row, source, world)
+        item_class = _stock_class(raw, source, world)
     if raw["displayId"] != NO_VALUE:
         display = int(raw["displayId"])
     if display is None:
@@ -345,9 +340,7 @@ def _quest_sql(spec, stock):
                         "forever_quest"),
             "UPDATE `%s` SET %s;" % (temp, ", ".join("`RewChoiceItemId%d`=%d, `RewChoiceItemCount%d`=%d" % (slot, item, slot, count)
                                                      for slot, (item, count) in sorted(changed.items()))),
-        ]
-        lines += _fixed_reward_sql(spec, quest, temp)
-        lines += [
+            *_fixed_reward_sql(spec, quest, temp),
             "INSERT INTO `%s` SELECT * FROM `%s`;" % (QUEST_TABLE, temp),
             "DROP TEMPORARY TABLE `%s`;" % temp,
         ]
@@ -355,17 +348,20 @@ def _quest_sql(spec, stock):
 
 
 def _fixed_reward_sql(spec, quest, temp):
-    """The SQL that takes each stock fixed reward of `quest` that a reward row (replaces FIXED) makes a choice out of
-    the fixed reward slots of the quest copy `temp`. The generator's stock data has no fixed rewards: the SQL fails
-    when a stock row of the quest does not have the item as a fixed reward."""
+    """SQL that takes each item of a `replaces` FIXED reward row of `quest` out of the fixed rewards of the quest copy
+    `temp` (#244 quest 167, #245 quest 1098: Forever offers a stock fixed reward as one of the choices). The
+    generator's stock data has no fixed rewards, so the SQL fails unless every stock row gives the item as a fixed
+    reward. The count is set before the ID: MySQL applies the assignments of an UPDATE from left to right."""
     lines = []
-    for reward in sorted((r for r in spec.loot_rewards if r.kind == REWARD and r.quest == quest and r.replaces == FIXED),
-                         key=lambda r: r.item):
-        slots = range(1, QUEST_FIXED_REWARDS + 1)
-        lines.append(fail_unless("(SELECT COUNT(*) FROM `%s` WHERE NOT (%s))=0" % (temp, " OR ".join(
-            "`RewItemId%d`=%d" % (k, reward.item) for k in slots)), "forever_quest"))
-        lines += ["UPDATE `%s` SET `RewItemId%d`=0, `RewItemCount%d`=0 WHERE `RewItemId%d`=%d;" % (temp, k, k, k, reward.item)
-                  for k in slots]
+    for item in sorted(r.item for r in spec.loot_rewards if r.kind == REWARD and r.quest == quest and r.replaces == FIXED):
+        slots = range(1, FIXED_REWARD_SLOTS + 1)
+        lines += [
+            fail_unless("(SELECT COUNT(*) FROM `%s` WHERE NOT (%s))=0" % (
+                temp, " OR ".join("`RewItemId%d`=%d" % (k, item) for k in slots)), "forever_fixed"),
+            "UPDATE `%s` SET %s;" % (temp, ", ".join(
+                "`RewItemCount{k}`=IF(`RewItemId{k}`={i}, 0, `RewItemCount{k}`), "
+                "`RewItemId{k}`=IF(`RewItemId{k}`={i}, 0, `RewItemId{k}`)".format(k=k, i=item) for k in slots)),
+        ]
     return lines
 
 

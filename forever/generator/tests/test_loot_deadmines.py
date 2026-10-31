@@ -234,13 +234,16 @@ def test_oh_brother_loses_its_fixed_reward_and_fails_on_a_stock_row_without_it(o
     block = text[text.index("-- Quest %d " % OH_BROTHER):]
     block = block[:block.index("DROP TEMPORARY TABLE")]
     assert ("SELECT IF((SELECT COUNT(*) FROM `forever_quest_new` WHERE NOT (`RewItemId1`=1893 OR `RewItemId2`=1893 OR "
-            "`RewItemId3`=1893 OR `RewItemId4`=1893))=0, 0, (SELECT 1 UNION SELECT 2)) INTO @forever_quest;") in block
-    for k in range(1, 5):
-        assert ("UPDATE `forever_quest_new` SET `RewItemId%d`=0, `RewItemCount%d`=0 WHERE `RewItemId%d`=%d;"
-                % (k, k, k, MINERS_REVENGE)) in block
-    assert block.index("SET `RewItemId1`=0") < block.index("INSERT INTO `forever_quest_template`")
-    # No other quest clears a fixed reward.
-    assert text.count("SET `RewItemId1`=0") == 1
+            "`RewItemId3`=1893 OR `RewItemId4`=1893))=0, 0, (SELECT 1 UNION SELECT 2)) INTO @forever_fixed;") in block
+    clear = "UPDATE `forever_quest_new` SET %s;" % ", ".join(
+        "`RewItemCount{k}`=IF(`RewItemId{k}`={i}, 0, `RewItemCount{k}`), "
+        "`RewItemId{k}`=IF(`RewItemId{k}`={i}, 0, `RewItemId{k}`)".format(k=k, i=MINERS_REVENGE) for k in range(1, 5))
+    assert clear in block
+    assert block.index(clear) < block.index("INSERT INTO `forever_quest_template`")
+    # The other Deadmines quests clear no fixed reward.
+    for quest in set(QUEST_CHANGES) - {OH_BROTHER}:
+        other = text[text.index("-- Quest %d " % quest):]
+        assert "RewItemId1`=IF(" not in other[:other.index("DROP TEMPORARY TABLE")]
 
 
 def test_a_fixed_reward_row_needs_a_free_choice_slot_and_must_not_be_a_choice(tmp_path):

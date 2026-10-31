@@ -194,13 +194,13 @@ Row kinds:
   `forever_reference_loot_template`) and adds the new row with group 0 (outside every stock equal-chance group),
   patch_min 0 and patch_max 10: the six dungeons are open from the first content patch. A stock boss drop keeps
   its stock row, chance and group: it needs only its items row. `reward`: a new reward choice of a quest
-  (`replaces` "-": the first empty choice slot) or a swapped one (`replaces` the stock choice). The generator
-  copies every stock row of the quest into `forever_quest_template` with the new choices. `unlock`: a stock reward
-  choice that loses its class lock (the item needs an items row; the generator sets its `allowable_class` to -1).
-  A reward row with `replaces` `fixed` (#244, quest 167): the item is a stock fixed reward that Forever offers as a
-  choice; it goes into the first empty choice slot and out of the fixed reward slots (the SQL fails when a stock row
-  of the quest does not have it as a fixed reward). A `stock` items row of an item that is not in the stock gear
-  file (a white stock item that Forever makes blue) can name its `class`: it gives the disenchant ID.
+  (`replaces` "-": the first empty choice slot), a swapped one (`replaces` the stock choice), or a stock
+  fixed reward that becomes a choice (`replaces` "fixed", quests 167 and 1098: the first empty choice slot, and the
+  SQL takes the item out of the fixed rewards; it fails unless every stock row of the quest gives the item as a fixed
+  reward). The generator copies every stock row of the quest into `forever_quest_template` with the new choices.
+  `unlock`: a stock reward choice that loses its class lock (the item needs an items row; the generator sets its `allowable_class` to -1).
+  A `stock` items row of an item that is not in the stock gear file (a white stock item that Forever makes blue,
+  #244) can name its `class`: it gives the disenchant ID.
 - Every row has `status`, `source` and `date`. `status`: `confirmed` (the source shows it), `unconfirmed` or
   `unreadable` (the source cannot be read by script). A row that is not confirmed is left out, and so are the drops
   and rewards of its item. `source`: a Wowhead Forever URL (the tooltip service
