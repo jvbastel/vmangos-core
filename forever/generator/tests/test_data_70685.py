@@ -12,7 +12,7 @@ import struct
 
 import pytest
 
-from test_pipeline import STOCK, generate, int32, read_dbc, server_spells
+from test_pipeline import STOCK, int32, read_dbc, server_spells
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 

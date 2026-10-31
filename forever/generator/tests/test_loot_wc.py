@@ -10,10 +10,11 @@ import re
 
 import pytest
 
+from loot_helpers import (CREATURE_LOOT, REFERENCE_LOOT, bonus_of, changed, copied_entries, emptied_equip_slots,
+                          item_rows, loot_list, loot_rows, new_equip_spells, quest_changes, refused, spec_drops, sql,
+                          stats_of, stock_equip_spells, stock_gear)
 from test_blacksmithing import spec_rows
-from test_loot_rfc import (CREATURE_LOOT, ON_EQUIP, REFERENCE_LOOT, changed, copied_entries, item_rows, loot_list,
-                           loot_rows, quest_changes, refused, sql, stats_of, stock_gear)
-from test_pipeline import STOCK, bonus_of, generate, read_dbc
+from test_pipeline import STOCK, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -65,7 +66,9 @@ STOCK_EQUIP = {
     6632: [9394],                           # SpellPower 4 (Forever 3)
     6505: [18049],                          # SpellPower 26
     8071: [9393],                           # SpellPower 2
-    10919: [9394],                          # SpellPower 4
+    10919: [9394, 13614],                   # SpellPower 4, Herbalism 2
+    6629: [21991],                          # 1 Nature damage to the attacker: NatureThorns 4 (Forever 1)
+    6463: [27516],                          # +2 Spell Penetration: SpellPen 6 (Forever 2)
 }
 # Stock items whose stock on-equip spell stays (no SQL on their spell slots): Stinging Viper (18197, chance on hit)
 # and Venomstrike (29636 Venom Shot).
@@ -83,8 +86,8 @@ NEW_ITEMS = {
     71105: ("Safety Boots", 270009, (4, 3, 8), 2, {"Str": 4, "Sta": 2}, set(), None),
     71106: ("Hammerbone", 270018, (2, 5, 17), 3, {"Str": 7, "Spi": 10}, set(), ((55, 84), 3400)),
 }
-# The new boss drops (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance.
-DROPS = {(KRESH, 71100): 1.17, (ANACONDRA, 71101): 2.04, (PYTHAS, 71102): 1.71, (SKUM, 71103): 2.63}
+# The new boss drops of the spec (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance.
+DROPS = spec_drops(LOOT)
 # Quest 914 Leaders of the Fang: stock choices 6505 and 6504, Forever adds Hammerbone. Quest 962 Serpentbloom: no
 # stock choice (fixed reward 10919), Forever shows the choices 10919, Heat Resistant Mitts and Safety Boots.
 LEADERS, SERPENTBLOOM = 914, 962
@@ -96,27 +99,19 @@ RESISTANCES = {6449: {"nature_res": "2"}, 6631: {"nature_res": "9"},
 
 def stock_spells_put(out, entry):
     """The on-equip spells, in order, that the SQL puts on the changed stock item `entry` (None: no spell SQL)."""
-    block = re.search(r"^-- Changed stock item [^\n]* \(%d\)\.$(.*?)^DROP TEMPORARY TABLE" % entry, sql(out), re.M | re.S)
-    assert block, entry
-    if "SET @forever_slot" not in block.group(1) and "`spellid_1`=0" not in block.group(1):
+    name = STOCK_DROPS[entry][0] if entry in STOCK_DROPS else spec_name(entry)
+    text = sql(out)
+    if not emptied_equip_slots(text, name, entry):
         return None
-    return [int(s) for s in re.findall(r"`spellid_1`=IF\(@forever_slot=1, (\d+), `spellid_1`\)", block.group(1))]
+    return stock_equip_spells(text, name, entry)
 
 
-# --- The spec files.
-
-def test_every_wc_loot_row_names_its_source_and_date():
-    for name in (ITEMS, LOOT):
-        rows = spec_rows(name)
-        assert rows
-        for row in rows:
-            assert row["source"].startswith(("https://nether.wowhead.com/", "https://www.wowhead.com/forever/", "client "))
-            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["date"])
+def spec_name(entry):
+    return next(r["name"] for r in spec_rows(ITEMS) if int(r["entry"]) == entry)
 
 
-def test_the_new_wc_items_come_from_the_wc_item_id_block():
+def test_the_new_wc_items_are_the_new_rows_of_the_wc_file():
     assert {int(r["entry"]) for r in spec_rows(ITEMS) if r["kind"] != "stock"} == set(NEW_ITEMS)
-    assert all(71100 <= entry <= 71199 for entry in NEW_ITEMS)
 
 
 # --- Items.
@@ -138,7 +133,7 @@ BLOCKS = {6447: "9", 13245: "10", 6630: "11"}
 
 def test_the_wc_shields_get_their_forever_block_value(out):
     rows = item_rows(out, "forever_item_stock")
-    assert {entry: row["block"] for entry, row in rows.items() if "block" in row} == BLOCKS
+    assert {entry: row["block"] for entry, row in rows.items() if "block" in row and entry in STOCK_DROPS} == BLOCKS
 
 
 def test_a_block_value_that_is_no_number_is_refused(tmp_path):
@@ -176,8 +171,7 @@ def test_the_new_wc_items_have_their_forever_stats_as_stock_equip_spells(out):
     for entry, (name, _, _, _, stats, bonuses, weapon) in NEW_ITEMS.items():
         row = rows[entry]
         assert stats_of(row) == stats, name
-        equip = {bonus_of(spells, int(row["spellid_%d" % k])) for k in range(1, 6)
-                 if row["spelltrigger_%d" % k] == ON_EQUIP}
+        equip = {bonus_of(spells, spell) for spell in new_equip_spells(row)}
         assert equip == bonuses, name
         if weapon:
             assert ((int(row["dmg_min1"]), int(row["dmg_max1"])), int(row["delay"])) == weapon
@@ -237,11 +231,10 @@ def test_the_reward_items_of_the_wc_quests_get_their_forever_stats(out):
 def test_the_loot_list_names_each_left_out_wc_stat_and_unconfirmed_row(out):
     listed = loot_list(out)
     wc_items = {str(e) for e in list(STOCK_DROPS) + list(NEW_ITEMS) + [6505, 8071, 10919]}
-    left_out = {"5243", "6447", "6463", "6469", "6629", "10919", "71100", "71102", "71103"}
+    left_out = {"5243", "6447", "6463", "6469", "71100", "71102", "71103"}
     assert {key for key in listed if key[0] == "left-out" and key[2] in wc_items} == {("left-out", "item", e) for e in left_out}
     assert "Movement speed reduced by 25%" in listed[("left-out", "item", "71100")]
-    assert "Spell Penetration" in listed[("left-out", "item", "6463")]
-    assert "Herbalism" in listed[("left-out", "item", "10919")]
+    assert listed[("left-out", "item", "6463")] == "Unique-Equipped (no 1.12 meaning)"
     assert "+40 Armor" in listed[("left-out", "item", "6447")] and "Block" not in listed[("left-out", "item", "6447")]
     # Night Watch Shortsword on Verdan: Method.gg lists it, the tooltip names no source. Apothecary Gloves as a
     # choice of Serpentbloom: the quest page shows it as a choice and as a fixed reward.

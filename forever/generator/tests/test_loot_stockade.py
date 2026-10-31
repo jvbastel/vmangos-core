@@ -10,17 +10,18 @@ import re
 
 import pytest
 
+from loot_helpers import (CREATURE_LOOT, REFERENCE_LOOT, bonus_of, changed, copied_entries, emptied_equip_slots,
+                          item_block, item_rows, loot_list, loot_rows, new_equip_spells, quest_changes, refused,
+                          spec_drops, sql, stats_of, stock_equip_spells, stock_gear, weapon_of)
 from test_blacksmithing import spec_rows
-from test_loot_rfc import (CREATURE_LOOT, REFERENCE_LOOT, ON_EQUIP, changed, copied_entries, item_rows, loot_list,
-                           loot_rows, quest_changes, refused, sql, stats_of, stock_gear)
-from test_pipeline import STOCK, bonus_of, generate, read_dbc
+from test_pipeline import STOCK, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
 ITEMS, LOOT = "loot_stockade_items.tsv", "loot_stockade.tsv"
 DEXTREN, KAM, BAZIL, TARGORR, HAMHOCK, BRUEGAL = 1663, 1666, 1716, 1696, 1717, 1720
 BOSSES = {DEXTREN, KAM, BAZIL, TARGORR, HAMHOCK, BRUEGAL}
-BLOCK = range(71500, 71600)
+BLOCK = range(item_block(ITEMS)[0], item_block(ITEMS)[1] + 1)
 # The stock boss drops of Kam Deepfury (2280) and Bruegal Ironknuckle with their Forever values (Wowhead): quality,
 # item level, required level, armor, base stats, on-equip bonuses, (damage, delay) of a weapon.
 STOCK_DROPS = {
@@ -42,8 +43,8 @@ NEW_ITEMS = {
     71507: ("Repurposed Rack", 273811, (4, 6, 14), 3, {"Str": 6}, {("SpellPower", 7)}, None),
     71508: ("Graverobber's Shovel", 273817, (2, 5, 17), 3, {"Sta": 10}, {("AP", 12)}, ((68, 102), 3700)),
     71509: ("Boneslicer", 273819, (2, 6, 17), 3, {}, set(), ((36, 55), 2000)),
-    71510: ("Nightskulker Ring", 273820, (4, 0, 11), 3, {}, set(), None),
-    71511: ("Defias Jailbreakers", 273824, (4, 2, 10), 3, {"Agi": 6, "Sta": 7}, set(), None),
+    71510: ("Nightskulker Ring", 273820, (4, 0, 11), 3, {}, {("FearRes", 4)}, None),
+    71511: ("Defias Jailbreakers", 273824, (4, 2, 10), 3, {"Agi": 6, "Sta": 7}, {("Lockpicking", 5)}, None),
     71512: ("Red Wool Cloak", 273825, (4, 1, 16), 3, {}, {("SpellPower", 4), ("Healing", 7), ("Mp5", 3)}, None),
     71513: ("Debt Collector", 273827, (2, 7, 21), 3, {}, {("SpellPower", 34)}, ((21, 39), 2300)),
     71514: ("Concealed Hand Crossbow", 273829, (2, 18, 26), 3, {}, {("RangedAP", 12)}, ((24, 37), 2000)),
@@ -51,15 +52,9 @@ NEW_ITEMS = {
     71516: ("Town Clerk's Mittens", 270029, (4, 1, 10), 2, {"Int": 7}, {("SpellPower", 4)}, None),
     71517: ("Magistrate's Pantaloons", 270036, (4, 1, 7), 3, {"Int": 13}, {("SpellPower", 7)}, None),
 }
-# The new boss drops (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance. The loot
-# entry of each Stockade boss is its creature entry (stock creature_template.loot_id).
-DROPS = {
-    (TARGORR, 71500): 1.5, (TARGORR, 71501): 1.7, (TARGORR, 71502): 1.68,
-    (KAM, 71503): 2.19, (KAM, 71504): 1.83,
-    (HAMHOCK, 71505): 1.75, (HAMHOCK, 71506): 1.47, (HAMHOCK, 71507): 1.79,
-    (DEXTREN, 71508): 2.0, (DEXTREN, 71509): 1.76, (DEXTREN, 71510): 1.36,
-    (BAZIL, 71511): 0.98, (BAZIL, 71512): 0.92, (BAZIL, 71513): 1.23, (BAZIL, 71514): 0.94,
-}
+# The new boss drops of the spec (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance.
+# The loot entry of each Stockade boss is its creature entry (stock creature_template.loot_id).
+DROPS = spec_drops(LOOT)
 # The stock references of the bosses (stock world DB): Bruegal's equal-chance group of three blues and Kam's staff.
 STOCK_REFERENCES = {30094, 30095, 30096, 30097, 30098, 30099, 30100, 30101}
 # Quests (Wowhead Forever quest pages): the stock choices fill slots 1 and 2; Forever adds a third choice.
@@ -82,49 +77,23 @@ QUEST_ITEMS = {
 }
 # The Forever effects with no 1.12 equip spell (or none of the Forever value): item: a word of its loot list detail.
 LEFT_OUT = {
-    2280: "movement impairing", 2942: "25 damage", 71503: "damage done by magical spells", 71505: "Humanoids", 71507: "Block",
-    71508: "Undead", 71509: "70 Physical damage", 71510: "Fear", 71511: "Lockpicking", 71513: "resisted",
+    2280: "movement impairing", 2942: "25 damage", 71502: "Unique-Equipped", 71503: "damage done by magical spells",
+    71505: "Humanoids", 71508: "Undead", 71509: "70 Physical damage", 71510: "Duskwood", 71513: "resisted",
 }
 
 
 def equip_bonuses(spells, row):
     """The on-equip bonuses of a generated new item row."""
-    return {bonus_of(spells, int(row["spellid_%d" % k])) for k in range(1, 6) if row["spelltrigger_%d" % k] == ON_EQUIP}
+    return {bonus_of(spells, s) for s in new_equip_spells(row)}
 
 
 def stock_equip_bonuses(spells, text, name, entry):
     """The on-equip bonuses that the SQL puts into the first empty spell slot of a changed stock item."""
-    block = text[text.index("-- Changed stock item %s (%d)." % (name, entry)):]
-    block = block[:block.index("\n-- ", 1)]
-    return {bonus_of(spells, int(s)) for s in re.findall(r"`spellid_1`=IF\(@forever_slot=1, (\d+),", block)}
+    return {bonus_of(spells, s) for s in stock_equip_spells(text, name, entry)}
 
 
-def emptied_equip_slots(text, name, entry):
-    """True when the SQL of a changed stock item empties its on-equip spell slots (the other slots stay)."""
-    block = text[text.index("-- Changed stock item %s (%d)." % (name, entry)):]
-    block = block[:block.index("\n-- ", 1)]
-    return "WHERE `spelltrigger_1`=%s;" % ON_EQUIP in block
-
-
-def weapon_of(row):
-    return (int(row["dmg_min1"]), int(row["dmg_max1"])), int(row["delay"])
-
-
-# --- The spec files.
-
-def test_every_stockade_row_names_its_source_and_date():
-    for name in (ITEMS, LOOT):
-        rows = spec_rows(name)
-        assert rows
-        for row in rows:
-            assert row["source"].startswith(("https://nether.wowhead.com/", "https://www.wowhead.com/forever/", "client "))
-            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["date"])
-
-
-def test_the_new_items_take_ids_of_the_stockade_block():
-    rows = spec_rows(ITEMS)
-    assert {int(r["entry"]) for r in rows if r["kind"] != "stock"} == set(NEW_ITEMS)
-    assert all(int(r["entry"]) in BLOCK for r in rows if r["kind"] != "stock")
+def test_the_new_items_are_the_new_rows_of_the_stockade_file():
+    assert {int(r["entry"]) for r in spec_rows(ITEMS) if r["kind"] != "stock"} == set(NEW_ITEMS)
 
 
 # --- Items.
@@ -229,7 +198,7 @@ def test_the_loot_list_names_each_left_out_forever_effect_of_the_stockade(out):
 
 def test_the_stockade_has_no_unconfirmed_or_unreadable_row(out):
     listed = loot_list(out)
-    assert not {key for key in listed if key[0] != "left-out" and int(key[2]) in BLOCK}
+    assert not {key for key in listed if key[0] not in ("left-out", "manual-source") and int(key[2]) in BLOCK}
 
 
 def test_an_unconfirmed_stockade_drop_is_left_out_and_listed(tmp_path):

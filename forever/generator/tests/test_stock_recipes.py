@@ -13,7 +13,7 @@ from collections import Counter
 import pytest
 
 from test_blacksmithing import BLACKSMITHING, counted, spec_rows, sql_rows
-from test_pipeline import STOCK, generate, read_dbc, removed_stock_abilities
+from test_pipeline import STOCK, read_dbc, removed_stock_abilities
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 

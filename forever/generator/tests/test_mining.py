@@ -14,7 +14,7 @@ import pytest
 
 from test_blacksmithing import refused as refused_in, spec_rows
 from test_new_recipes import cut_list, run, spec_folder
-from test_pipeline import ROOT, STOCK, generate
+from test_pipeline import ROOT, STOCK
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 

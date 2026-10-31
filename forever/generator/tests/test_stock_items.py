@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from test_blacksmithing import loot_item_rows, refused, spec_rows
-from test_pipeline import DUMP, STAT_TYPES, STOCK, bonus_of, generate, int32, read_dbc  # noqa: F401
+from test_pipeline import DUMP, STAT_TYPES, STOCK, bonus_of, int32, read_dbc  # noqa: F401
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 

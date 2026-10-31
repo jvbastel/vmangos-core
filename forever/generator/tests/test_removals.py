@@ -11,7 +11,7 @@ import re
 import pytest
 
 from test_blacksmithing import BLACKSMITHING, refused as refused_in, spec_rows
-from test_pipeline import ROOT, STOCK, generate, read_dbc
+from test_pipeline import ROOT, STOCK, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "SkillLineAbility.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 

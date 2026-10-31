@@ -48,3 +48,6 @@ reward	71207	Worn Miner's Waistcord	168	Collecting Memories	-	-	-	1	confirmed	ht
 reward	71206	Monastic Hammer	214	Red Silk Bandanas	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=214	2026-10-31	Forever item 270005, a fourth choice next to 2074, 2089 and 6094
 reward	71210	Bravo's Armbands	2040	Underground Assault	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=2040	2026-10-31	Forever item 270015, a third choice next to 7606 and 7607
 reward	71211	Dreamer's Leggings	2040	Underground Assault	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=2040	2026-10-31	Forever item 270016, a fourth choice
+# --- #240 final fix pass: the Forever camp blueprints (status left-out: listed with boss and chance, no SQL).
+drop	273086	Blueprint: Anvil	1763	Gilnid	creature	0.2	-	-	left-out	https://nether.wowhead.com/tooltip/item/273086?dataEnv=16&locale=0	2026-10-31	a Forever camp feature (Forever item 273086): camps have no 1.12 meaning
+drop	273102	Blueprint: Cookie's Feast	645	Cookie	creature	0.26	-	-	left-out	https://nether.wowhead.com/tooltip/item/273102?dataEnv=16&locale=0	2026-10-31	a Forever camp feature (Forever item 273102): camps have no 1.12 meaning

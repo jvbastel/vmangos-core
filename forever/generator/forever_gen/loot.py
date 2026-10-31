@@ -41,7 +41,10 @@ FIXED = "fixed"
 FIXED_REWARD_SLOTS = 4
 LOOT_KINDS = (DROP, REWARD, UNLOCK)
 CONFIRMED = "confirmed"
-STATUSES = (CONFIRMED, "unconfirmed", "unreadable")
+# A drop row that a source confirms but that stays out on purpose (a Forever camp blueprint, #240 lead decision): the
+# loot list names its boss, chance and reason (`notes`). Only a drop row can have it.
+LEFT_OUT = "left-out"
+STATUSES = (CONFIRMED, "unconfirmed", "unreadable", LEFT_OUT)
 CREATURE, REFERENCE = "creature", "reference"
 CREATURE_TABLE, REFERENCE_TABLE, QUEST_TABLE = ("forever_creature_loot_template", "forever_reference_loot_template",
                                                 "forever_quest_template")
@@ -58,15 +61,19 @@ SOURCE = re.compile(r"(https://nether\.wowhead\.com/tooltip/\w+/\d+\?dataEnv=16&
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
 BLOCK = re.compile(r"^# Item ID block: (\d+)-(\d+)\.", re.M)
 LIST_FILE = "loot-list.tsv"
+# The loot list of the confirmed rows whose source a script cannot read (a wowhead.com page, which answers 403 to
+# scripts): a refresh reads them with a web-fetch tool and places them by hand (spec story 23).
+MANUAL_SOURCE = "manual-source"
+SCRIPT_SOURCE = re.compile(r"https://nether\.wowhead\.com/|client ")
 
 # One row of an items file. raw: {column: value}; block: (low, high) of its file; where: the row for an error.
 LootItem = namedtuple("LootItem", "kind entry name status source date left_out raw block path where")
 # A new boss drop. loot: CREATURE or REFERENCE; reference: the reference ID or None; chance: None on a drop that is
 # not confirmed and names no chance.
-Drop = namedtuple("Drop", "item name boss boss_name loot reference chance status source date where")
+Drop = namedtuple("Drop", "item name boss boss_name loot reference chance status source date notes where")
 # A quest reward row (kind reward or unlock). replaces: the stock choice it replaces, FIXED (the item leaves the fixed
 # rewards and is added as a choice) or None; count: the item count.
-Reward = namedtuple("Reward", "kind item name quest title replaces count status source date where")
+Reward = namedtuple("Reward", "kind item name quest title replaces count status source date notes where")
 # One line of the loot list: list (left-out, unconfirmed, unreadable), kind, id, name, detail.
 Listed = namedtuple("Listed", "list kind id name detail")
 
@@ -91,6 +98,8 @@ def read_item_rows(path, lines):
         where = "loot item %s" % where
         check_kind(where, raw["kind"], ITEM_KINDS)
         _source(where, raw)
+        if raw["status"] == LEFT_OUT:
+            raise SpecError("%s: only a drop row can be %s" % (where, LEFT_OUT))
         rows.append(LootItem(kind=raw["kind"], entry=int(raw["entry"]), name=raw["name"], status=raw["status"],
                              source=raw["source"], date=raw["date"], left_out=raw["leftOut"], raw=raw, block=block,
                              path=path, where=where))
@@ -100,7 +109,7 @@ def read_item_rows(path, lines):
 def _drop_chance(where, raw):
     """The chance of a drop row in percent. A drop that is not confirmed may have none ("-", #243): its source can
     name the boss without a chance (a guide), and the row is only listed, never written."""
-    if raw["chance"] == NO_VALUE and raw["status"] != CONFIRMED:
+    if raw["chance"] == NO_VALUE and raw["status"] not in (CONFIRMED, LEFT_OUT):
         return None
     try:
         chance = float(raw["chance"])
@@ -118,8 +127,10 @@ def read_loot_rows(path, lines):
         where = "loot %s %s" % (kind, where)
         check_kind(where, kind, LOOT_KINDS)
         _source(where, raw)
+        if raw["status"] == LEFT_OUT and kind != DROP:
+            raise SpecError("%s: only a drop row can be %s" % (where, LEFT_OUT))
         common = dict(item=int(raw["item"]), name=raw["name"], status=raw["status"], source=raw["source"],
-                      date=raw["date"], where=where)
+                      date=raw["date"], notes=raw["notes"], where=where)
         if kind == DROP:
             loot, _, reference = raw["loot"].partition(" ")
             if loot not in (CREATURE, REFERENCE) or (loot == REFERENCE) != reference.isdigit():
@@ -250,17 +261,23 @@ def resolve(spec, stock):
         if row.kind != NEW and int(row.raw["sourceItem"]) not in stock.item_ids:
             raise SpecError("%s: sourceItem %s is no stock item" % (row.where, row.raw["sourceItem"]))
         new_items.append(_item(row, stock.world))
+        _list_manual(listed, "item", row.entry, row)
         if row.left_out != NO_VALUE:
-            listed.append(Listed("left-out", "item", row.entry, row.name, row.left_out))
+            listed.append(Listed(LEFT_OUT, "item", row.entry, row.name, row.left_out))
     drops, rewards = [], []
     for kind, rows, kept in (("drop", spec.loot_drops, drops), ("reward", spec.loot_rewards, rewards)):
         for row in rows:
-            if row.status != CONFIRMED:
+            if row.status == LEFT_OUT:
+                _check_boss(row, stock.world)
+                listed.append(Listed(LEFT_OUT, kind, row.item, row.name, "boss %d %s, chance %s%%: %s" % (
+                    row.boss, row.boss_name, number_text(row.chance), row.notes)))
+            elif row.status != CONFIRMED:
                 listed.append(Listed(row.status, kind, row.item, row.name, row.source))
             elif row.item in left:
                 listed.append(Listed(left[row.item], kind, row.item, row.name, "its item row is %s" % left[row.item]))
             else:
                 kept.append(row)
+                _list_manual(listed, getattr(row, "kind", kind), row.item, row)
     all_items = list(spec.items) + new_items
     for reward in rewards:
         if reward.kind == UNLOCK:
@@ -272,9 +289,17 @@ def resolve(spec, stock):
     return spec, sorted(listed, key=lambda r: (r.list, r.kind, r.id))
 
 
+def _list_manual(listed, kind, ident, row):
+    """Lists a confirmed row whose source no script can read (MANUAL_SOURCE)."""
+    if not SCRIPT_SOURCE.match(row.source):
+        listed.append(Listed(MANUAL_SOURCE, kind, ident, row.name, row.source))
+
+
 def list_text(listed):
-    """The loot list (loot-list.tsv): the left-out stats and the rows that are not confirmed."""
-    lines = ["# The dungeon loot list (forever/generator, #242): left-out stats and effects, unconfirmed and unreadable rows.",
+    """The loot list (loot-list.tsv): the left-out stats and rows, the rows that are not confirmed, and the confirmed
+    rows whose source no script can read."""
+    lines = ["# The dungeon loot list (forever/generator, #242): left-out stats, effects and rows, unconfirmed and "
+             "unreadable rows, and sources that only a web-fetch tool reads (manual-source).",
              "list\tkind\tid\tname\tdetail"]
     lines += ["%s\t%s\t%d\t%s\t%s" % row for row in listed]
     return "\n".join(lines) + "\n"
@@ -291,6 +316,14 @@ def _loot_entry(drop, stock):
     return CREATURE_TABLE, "creature_loot_template", stock.world.creatures[drop.boss][0]
 
 
+def _check_boss(drop, world):
+    """Refuses a drop whose boss is no stock creature with loot, or has another stock name."""
+    if drop.boss not in world.creatures:
+        raise SpecError("%s: boss %d is no stock creature with loot (unknown boss)" % (drop.where, drop.boss))
+    if world.creatures[drop.boss][1] != drop.boss_name:
+        raise SpecError("%s: boss %d is '%s', not '%s'" % (drop.where, drop.boss, world.creatures[drop.boss][1], drop.boss_name))
+
+
 def check(spec, stock):
     """The rules of the drop and reward rows: a known boss with its stock name, a known item, a reference that only
     the boss uses, an item once per loot entry; a known quest with its stock title, a stock choice to replace, a free
@@ -298,10 +331,7 @@ def check(spec, stock):
     world = stock.world
     seen = set()
     for drop in spec.loot_drops:
-        if drop.boss not in world.creatures:
-            raise SpecError("%s: boss %d is no stock creature with loot (unknown boss)" % (drop.where, drop.boss))
-        if world.creatures[drop.boss][1] != drop.boss_name:
-            raise SpecError("%s: boss %d is '%s', not '%s'" % (drop.where, drop.boss, world.creatures[drop.boss][1], drop.boss_name))
+        _check_boss(drop, world)
         if not _known_item(spec, stock, drop.item):
             raise SpecError("%s: item %d is no item (no spec item and no stock item)" % (drop.where, drop.item))
         if drop.loot == REFERENCE:

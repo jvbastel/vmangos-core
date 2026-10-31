@@ -9,10 +9,11 @@ import re
 
 import pytest
 
+from loot_helpers import (CREATURE_LOOT, REFERENCE_LOOT, bonus_of, changed, copied_entries, item_rows, loot_list,
+                          loot_rows, new_equip_spells, quest_changes, refused, spec_drops, sql, stats_of,
+                          stock_equip_spells, stock_gear, weapon_of)
 from test_blacksmithing import spec_rows
-from test_loot_rfc import (CREATURE_LOOT, REFERENCE_LOOT, changed, copied_entries, item_rows, loot_list, loot_rows,
-                           quest_changes, refused, sql, stats_of, stock_gear)
-from test_pipeline import STOCK, bonus_of, generate, read_dbc
+from test_pipeline import STOCK, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -22,7 +23,6 @@ RHAHKZOR, MINER_JOHNSON, SHREDDER, SNEED, GILNID = 644, 3586, 642, 643, 1763
 SMITE, GREENSKIN, VANCLEEF, COOKIE = 646, 647, 639, 645
 # The stock boss references (one equal-chance group each, groupid 1): they stay stock.
 BOSS_REFERENCES = {30065, 30066, 30067, 30068, 30069, 30070, 30071, 30102, 30120}
-ON_EQUIP = "1"
 
 # The changed stock boss drops with their Forever values (Wowhead): name, quality, item level, required level,
 # armor, base stats, resistances as {column: value}, on-equip bonuses as (bonus, value), (damage, delay) of a
@@ -31,7 +31,7 @@ STOCK_DROPS = {
     872: ("Rockslicer", 3, 23, 18, 0, {"Str": 7}, {"nature_res": 7}, set(), ((52, 78), 3300)),
     5187: ("Rhahk'Zor's Hammer", 3, 21, 16, 0, {"Sta": 8}, {}, {("SpellPower", 8)}, ((47, 71), 3200)),
     5443: ("Gold-plated Buckler", 3, 22, 17, 509, {"Agi": 2, "Sta": 5}, {}, set(), None),
-    5444: ("Miner's Cape", 3, 22, 17, 20, {"Sta": 5}, {}, {("AP", 4), ("Mining", 2)}, None),
+    5444: ("Miner's Cape", 3, 22, 17, 20, {"Sta": 5}, {}, {("AP", 4), ("Mining", 2), ("ElementalSlaying", 36)}, None),
     1937: ("Buzz Saw", 3, 23, 18, 0, {"Agi": 3, "Sta": 3}, {}, set(), ((24, 46), 2300)),
     2169: ("Buzzer Blade", 3, 21, 16, 0, {}, {}, {("SpellPower", 22)}, ((9, 18), 1500)),
     5194: ("Taskmaster Axe", 3, 23, 18, 0, {"Sta": 8, "Spi": 8}, {}, {("SpellPower", 15), ("Healing", 30)},
@@ -52,8 +52,6 @@ STOCK_DROPS = {
 }
 # Stock boss drops whose Forever tooltip equals the stock item: no items row.
 UNCHANGED_DROPS = {1156, 7230, 5191}
-# The stock 1.12 equip spell of +2 Mining (Spell.dbc 13611: apply aura mod skill 186, value 2).
-MINING_2 = 13611
 
 # The new items (Wowhead Forever tooltips): entry: (name, Forever item, (class, subclass, slot) of Item.db2, quality,
 # armor, base stats, on-equip bonuses as (bonus, value), (damage, delay) of a weapon or None).
@@ -71,9 +69,8 @@ NEW_ITEMS = {
     71210: ("Bravo's Armbands", 270015, (4, 2, 9), 2, 35, {"Str": 3, "Agi": 3}, set(), None),
     71211: ("Dreamer's Leggings", 270016, (4, 2, 7), 2, 71, {"Int": 6}, {("SpellPower", 2)}, None),
 }
-# The new boss drops (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance.
-DROPS = {(RHAHKZOR, 71200): 1.56, (SNEED, 71201): 0.95, (GILNID, 71202): 1.30, (COOKIE, 71203): 1.04,
-         (SMITE, 71204): 1.01, (SHREDDER, 71205): 1.82}
+# The new boss drops of the spec (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance.
+DROPS = spec_drops(LOOT)
 
 # The quest reward changes (Wowhead Forever quest pages against the stock quest_template rows).
 OH_BROTHER, MEMORIES, BANDANAS, ASSAULT = 167, 168, 214, 2040
@@ -96,46 +93,23 @@ QUEST_ITEMS = {
     7606: (2, 22, {"Str": 4, "Spi": 2}, None),
     7607: (2, 22, {"Spi": 2}, None),
 }
-# The rows with a Forever stat or effect that 1.12 has no stock spell for.
-LEFT_OUT = {872, 5443, 5444, 2169, 5199, 5192, 5197, 5198, 2042, 71201, 71203}
+# The rows with a Forever stat or effect that 1.12 has no stock spell for (or Unique-Equipped: 5192, 71203, 71204).
+LEFT_OUT = {872, 5443, 2169, 5199, 5192, 5197, 5198, 2042, 71201, 71203, 71204}
 
 
 def equip_bonuses(spells, row):
-    """{(bonus, value)} of the on-equip spells of a generated item row; ("Mining", 2) for MINING_2."""
-    ids = [int(row["spellid_%d" % k]) for k in range(1, 6) if row["spelltrigger_%d" % k] == ON_EQUIP]
-    return {("Mining", 2) if s == MINING_2 else bonus_of(spells, s) for s in ids}
+    """{(bonus, value)} of the on-equip spells of a generated new item row."""
+    return {bonus_of(spells, s) for s in new_equip_spells(row)}
 
 
-def stock_equip_bonuses(spells, text, entry):
-    """{(bonus, value)} of the on-equip spells that the SQL of a changed stock item puts on it. The SQL empties each
-    on-equip slot of the stock row first; the stock rows of these items have no other spell (stock world DB), so
-    the item ends with exactly these spells."""
-    block = re.search(r"^-- Changed stock item .* \(%d\)\.\n((?:.+\n)*)" % entry, text, re.M).group(1)
-    ids = [int(s) for s in re.findall(r"`spellid_1`=IF\(@forever_slot=1, (\d+), ", block)]
-    if ids:
-        assert "SET `spellid_1`=0, `spelltrigger_1`=0" in block
-    return {("Mining", 2) if s == MINING_2 else bonus_of(spells, s) for s in ids}
+def stock_equip_bonuses(spells, text, name, entry):
+    """{(bonus, value)} of the on-equip spells that the SQL of a changed stock item puts on it."""
+    return {bonus_of(spells, s) for s in stock_equip_spells(text, name, entry)}
 
 
-def weapon_of(row):
-    return (int(row["dmg_min1"]), int(row["dmg_max1"])), int(row["delay"])
-
-
-# --- The spec files.
-
-def test_every_deadmines_row_names_its_source_and_date():
-    for name in (ITEMS, LOOT):
-        rows = spec_rows(name)
-        assert rows
-        for row in rows:
-            assert row["source"].startswith(("https://nether.wowhead.com/", "https://www.wowhead.com/forever/", "client "))
-            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["date"])
-
-
-def test_the_new_items_take_their_ids_from_the_deadmines_block():
+def test_the_new_items_are_the_new_rows_of_the_deadmines_file():
     rows = spec_rows(ITEMS)
     assert {int(r["entry"]) for r in rows if r["kind"] != "stock"} == set(NEW_ITEMS)
-    assert all(71200 <= e <= 71299 for e in NEW_ITEMS)
     assert not UNCHANGED_DROPS & {int(r["entry"]) for r in rows}
 
 
@@ -150,7 +124,7 @@ def test_the_stock_boss_drops_get_their_forever_stats_as_stock_equip_spells(out)
                 int(row["armor"]), stats_of(row)) == (name, quality, level, required, armor, stats), name
         resistances = {k: int(v) for k, v in row.items() if k.endswith("_res") and v != "0"}
         assert resistances == res, name
-        assert stock_equip_bonuses(spells, text, entry) == bonuses, name
+        assert stock_equip_bonuses(spells, text, name, entry) == bonuses, name
         if weapon:
             assert weapon_of(row) == weapon, name
 
@@ -255,7 +229,7 @@ def test_the_quest_reward_items_get_their_forever_stats(out):
         if weapon:
             assert weapon_of(row) == weapon, entry
     spells, _ = read_dbc(STOCK / "Spell.dbc")
-    assert stock_equip_bonuses(spells, sql(out), 2042) == {("SpellPower", 16), ("Healing", 33)}
+    assert stock_equip_bonuses(spells, sql(out), "Staff of Westfall", 2042) == {("SpellPower", 16), ("Healing", 33)}
 
 
 # --- The lists.
@@ -264,8 +238,8 @@ def test_the_loot_list_names_each_left_out_forever_effect_of_the_deadmines(out):
     listed = loot_list(out)
     ours = set(STOCK_DROPS) | set(NEW_ITEMS) | set(QUEST_ITEMS)
     assert {int(k[2]) for k in listed if k[0] == "left-out" and int(k[2]) in ours} == LEFT_OUT
-    assert "Attack Power against Elementals" in listed[("left-out", "item", "5444")]
-    assert not {k for k in listed if k[0] != "left-out" and int(k[2]) in ours}
+    assert "Unique-Equipped" in listed[("left-out", "item", "71204")]
+    assert not {k for k in listed if k[0] not in ("left-out", "manual-source") and int(k[2]) in ours}
 
 
 def test_an_unconfirmed_drop_and_an_unreadable_item_are_left_out_and_listed(tmp_path):

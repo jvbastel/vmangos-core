@@ -10,10 +10,11 @@ import re
 
 import pytest
 
+from loot_helpers import (CREATURE_LOOT, REFERENCE_LOOT, bonus_of, changed, copied_entries, item_rows, loot_list,
+                          loot_rows, new_equip_spells, quest_changes, refused, spec_drops, sql, stats_of,
+                          stock_equip_spells, stock_gear)
 from test_blacksmithing import spec_rows
-from test_loot_rfc import (CREATURE_LOOT, ON_EQUIP, REFERENCE_LOOT, changed, copied_entries, item_rows, loot_list,
-                           loot_rows, quest_changes, refused, sql, stats_of, stock_gear)
-from test_pipeline import AURA, MISC, STOCK, bonus_of, generate, read_dbc
+from test_pipeline import STOCK, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -42,7 +43,7 @@ STOCK_DROPS = {
     3230: ("Black Wolf Bracers", 3, 63, {"Sta": 7}, {("AP", 4)}, None, {}),
     6340: ("Fenrus' Hide", 3, 22, {"Agi": 4, "Sta": 6}, set(), None, {}),
     3748: ("Feline Mantle", 3, 34, {"Agi": 2, "Int": 8}, {("SpellPower", 4)}, None, {}),
-    6314: ("Wolfmaster Cape", 3, 22, {"Sta": 3}, {("AP", 10)}, None, {}),
+    6314: ("Wolfmaster Cape", 3, 22, {"Sta": 3}, {("AP", 10), ("BeastSlaying", 15)}, None, {}),
     6220: ("Meteor Shard", 3, 0, {}, set(), ((22, 42), 1800), {"fire_res": 3}),
     6324: ("Robes of Arugal", 3, 46, {"Sta": 5, "Spi": 6}, {("SpellPower", 6), ("Healing", 13)}, None, {"shadow_res": 8}),
     6392: ("Belt of Arugal", 3, 26, {"Agi": 2, "Int": 3, "Spi": 5}, {("SpellPower", 9)}, None, {}),
@@ -63,7 +64,7 @@ QUEST_ITEMS = {
 # base stats, on-equip bonuses as (bonus, value), (damage, delay) of a weapon, armor).
 NEW_ITEMS = {
     71300: ("Cell Keeper's Claws", 273456, (2, 13, 21), 3, {"Agi": 2}, {("AP", 6)}, ((25, 48), 2500), 0),
-    71301: ("Sorcerer Collar", 273457, (4, 0, 2), 3, {"Int": 2, "Spi": 2}, set(), None, 0),
+    71301: ("Sorcerer Collar", 273457, (4, 0, 2), 3, {"Int": 2, "Spi": 2}, {("SilenceRes", 5)}, None, 0),
     71302: ("Blade of Silverlaine", 273637, (2, 7, 21), 3, {}, {("SpellPower", 28)}, ((17, 33), 2300), 0),
     71303: ("Worgenbane Talisman", 273643, (4, 0, 12), 3, {}, set(), None, 0),
     71304: ("Blindwatcher's Sight", 273645, (4, 1, 1), 3, {}, set(), None, 35),
@@ -74,56 +75,26 @@ NEW_ITEMS = {
     71308: ("Bronzed Shoulderguards", 270024, (4, 3, 3), 2, {"Sta": 4, "Spi": 5}, set(), None, 142),
     71309: ("Tattered Mittens", 270030, (4, 1, 10), 2, {"Sta": 6}, {("SpellPower", 4), ("Healing", 7)}, None, 26),
 }
-# The new boss drops (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance.
-DROPS = {(RETHILGORE, 71300): 1.68, (RETHILGORE, 71301): 2.09, (SILVERLAINE, 71302): 1.72,
-         (SPRINGVALE, 71303): 1.67, (ODO, 71304): 1.72, (FENRUS, 71305): 1.99, (NANDOS, 71306): 1.75}
+# The new boss drops of the spec (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance.
+DROPS = spec_drops(LOOT)
 # Quest 1013 The Book of Ur: stock choices 6335 and 4534, Forever adds Tattered Mittens. Quest 1098 Deathstalkers in
 # Shadowfang: stock gives Ghostly Mantle (3324) as its fixed reward and has no choices; Forever offers Ghostly Mantle,
 # Tanned Shoulderpads and Bronzed Shoulderguards as three choices and no fixed reward.
 BOOK_OF_UR, DEATHSTALKERS, GHOSTLY_MANTLE = 1013, 1098, 3324
-# The Forever effects that 1.12 has no stock spell for (or a stock spell of another value).
-LEFT_OUT = {6321, 6323, 6319, 3748, 6314, 6220, 6898, 71300, 71301, 71303, 71304}
+# The Forever effects that 1.12 has no stock spell for (or a stock spell of another value), and Unique-Equipped.
+LEFT_OUT = {6321, 6323, 6319, 3748, 6220, 6898, 71300, 71303, 71304}
 
 
 def stock_item_spells(text, name, entry):
-    """The on-equip spells that the SQL puts on the changed stock item `entry`."""
-    start = text.index("-- Changed stock item %s (%d)." % (name, entry))
-    block = text[start:text.index("\n\n", start)]
-    return [int(s) for s in re.findall(r"`spellid_1`=IF\(@forever_slot=1, (\d+), `spellid_1`\)", block)]
-
-
-# The spell damage of one school: aura 13 (mod damage done) with the school mask as its misc value (Spell.dbc 1.12.1).
-SCHOOL_DAMAGE = {4: "FireDamage", 32: "ShadowDamage"}
-
-
-def equip_bonus(spells, spell):
-    """(name, value) of a stock equip spell; a school damage spell by its school."""
-    name, value = bonus_of(spells, spell)
-    row = spells[spell]
-    if name.startswith("spell ") and row[AURA] == 13 and row[MISC] in SCHOOL_DAMAGE:
-        name = SCHOOL_DAMAGE[row[MISC]]
-    return name, value
+    return stock_equip_spells(text, name, entry)
 
 
 def equip_bonuses(spells, ids):
-    return {equip_bonus(spells, spell) for spell in ids}
+    return {bonus_of(spells, spell) for spell in ids}
 
 
-# --- The spec files.
-
-def test_every_sfk_row_names_its_source_and_date():
-    for name in (ITEMS, LOOT):
-        rows = spec_rows(name)
-        assert rows
-        for row in rows:
-            assert row["source"].startswith(("https://nether.wowhead.com/", "https://www.wowhead.com/forever/", "client "))
-            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["date"])
-
-
-def test_the_new_items_are_in_the_sfk_block():
-    rows = spec_rows(ITEMS)
-    assert {int(r["entry"]) for r in rows if r["kind"] != "stock"} == set(NEW_ITEMS)
-    assert all(71300 <= e <= 71399 for e in NEW_ITEMS)
+def test_the_new_items_are_the_new_rows_of_the_sfk_file():
+    assert {int(r["entry"]) for r in spec_rows(ITEMS) if r["kind"] != "stock"} == set(NEW_ITEMS)
 
 
 # --- Items.
@@ -166,8 +137,7 @@ def test_the_new_items_have_their_forever_stats_as_stock_equip_spells(out):
     for entry, (name, _, _, _, stats, bonuses, weapon, _) in NEW_ITEMS.items():
         row = rows[entry]
         assert stats_of(row) == stats, name
-        equip = {bonus_of(spells, int(row["spellid_%d" % k])) for k in range(1, 6)
-                 if row["spelltrigger_%d" % k] == ON_EQUIP}
+        equip = {bonus_of(spells, spell) for spell in new_equip_spells(row)}
         assert equip == bonuses, name
         if weapon:
             assert ((int(row["dmg_min1"]), int(row["dmg_max1"])), int(row["delay"])) == weapon, name
@@ -228,7 +198,7 @@ def test_a_fixed_reward_that_is_no_stock_item_is_refused(tmp_path):
 def test_the_loot_list_names_each_left_out_sfk_effect_and_nothing_unconfirmed(out):
     ours = set(STOCK_DROPS) | set(QUEST_ITEMS) | set(NEW_ITEMS)
     listed = {key: detail for key, detail in loot_list(out).items() if int(key[2]) in ours}
-    assert set(listed) == {("left-out", "item", str(e)) for e in LEFT_OUT}
+    assert {key for key in listed if key[0] != "manual-source"} == {("left-out", "item", str(e)) for e in LEFT_OUT}
     assert "Attack Power against Humanoids" in listed[("left-out", "item", "71300")]
     assert "Worgen" in listed[("left-out", "item", "71303")]
 

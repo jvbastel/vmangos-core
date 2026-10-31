@@ -49,3 +49,5 @@ reward	71409	Cultist's Armguards	1200	Blackfathom Villainy	-	-	-	1	confirmed	htt
 reward	71408	Dark Ritual Leggings	6561	Blackfathom Villainy	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=6561	2026-10-31	Forever item 270031, a third choice next to 7001 and 7002 (Horde)
 reward	71409	Cultist's Armguards	6561	Blackfathom Villainy	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=6561	2026-10-31	Forever item 270032, a fourth choice next to 7001 and 7002 (Horde)
 reward	71410	Dreamer's Chestguard	6922	Baron Aquanis	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=6922	2026-10-31	Forever item 270043, a third choice next to 16886 and 16887
+# --- #240 final fix pass: the Forever camp blueprints (status left-out: listed with boss and chance, no SQL).
+drop	273141	Blueprint: Fishing Rack	6243	Gelihast	creature	1.09	-	-	left-out	https://nether.wowhead.com/tooltip/item/273141?dataEnv=16&locale=0	2026-10-31	a Forever camp feature (Forever item 273141): camps have no 1.12 meaning

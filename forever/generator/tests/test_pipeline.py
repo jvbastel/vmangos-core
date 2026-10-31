@@ -32,7 +32,13 @@ STAT_TYPES = {"Mana": 0, "Health": 1, "Agi": 3, "Str": 4, "Int": 5, "Spi": 6, "S
 # The spell effect of each bonus: (aura, misc value) of each "apply aura" effect (Spell.dbc 1.12.1).
 BONUS_AURAS = {((52, 0),): "Crit", ((54, 0),): "Hit", ((49, 0),): "Dodge", ((47, 0),): "Parry", ((51, 0),): "Block",
                ((30, 95),): "Defense", ((99, 0), (124, 0)): "AP", ((13, 126), (135, 126)): "SpellPower",
-               ((135, 126),): "Healing", ((22, 126),): "AllRes", ((85, 0),): "Mp5", ((124, 0),): "RangedAP"}
+               ((135, 126),): "Healing", ((22, 126),): "AllRes", ((85, 0),): "Mp5", ((124, 0),): "RangedAP",
+               ((158, 0),): "BlockValue", ((13, 2),): "HolyDamage", ((13, 4),): "FireDamage", ((13, 8),): "NatureDamage",
+               ((13, 16),): "FrostDamage", ((13, 32),): "ShadowDamage", ((13, 64),): "ArcaneDamage",
+               ((161, 0),): "HealthRegen", ((15, 0),): "NatureThorns", ((123, 124),): "SpellPen",
+               ((102, 1), (131, 1)): "BeastSlaying", ((102, 8), (131, 8)): "ElementalSlaying", ((30, 182),): "Herbalism",
+               ((30, 186),): "Mining", ((30, 633),): "Lockpicking", ((117, 5),): "FearRes", ((117, 9),): "SilenceRes",
+               ((14, 126),): "SpellDamageReduction"}
 # Spell.dbc 1.12.1: 61-63 Effect, 64-66 EffectDieSides, 76-78 EffectBasePoints, 91-93 aura, 106-108 misc value.
 EFFECT, DIE_SIDES, BASE_POINTS, AURA, MISC = 61, 64, 76, 91, 106
 
@@ -404,4 +410,6 @@ def bonus_of(spells, spell):
     auras = tuple((row[AURA + k], row[MISC + k]) for k in effects)
     values = {int32(row[BASE_POINTS + k]) + row[DIE_SIDES + k] for k in effects}
     assert all(row[EFFECT + k] == 6 for k in effects) and len(values) == 1, spell
-    return BONUS_AURAS.get(auras, "spell %d" % spell), values.pop()
+    name = BONUS_AURAS.get(auras, "spell %d" % spell)
+    # A penetration or a damage reduction has negative spell points (equip_stats.SIGNS).
+    return name, -values.pop() if name in ("SpellPen", "SpellDamageReduction") else values.pop()

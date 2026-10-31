@@ -43,10 +43,6 @@ SET_BONUSES = dict(equip_stats.BONUSES, **{
     "ArcaneRes": (((22, 64),), {5: 14707}),
     "DaggerSkill": (((30, 173),), {1: 7534}),
     "ShadowRes": (((22, 32),), {10: 14673, 12: 14675, 14: 14677}),
-    # Vitality: health every 5 seconds, also in combat.
-    "HealthRegen": (((161, 0),), {
-        2: 21346, 3: 21593, 4: 21347, 5: 21596, 6: 21348, 7: 21601, 8: 20885, 10: 21607, 16: 23210
-    }),
 })
 
 # ItemSet.dbc 1.12.1: 0 ID, 1-8 Name (enUS first), 9 the name flags, 10-26 ItemID[17], 27-34 SetSpellID[8],

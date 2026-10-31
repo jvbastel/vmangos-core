@@ -5,15 +5,18 @@ The spec rows are in forever/spec/loot_ragefire_chasm.tsv (drops, quest rewards)
 outside. The expected values come from Wowhead's Forever tooltips (read 2026-10-31, notes/forever/wowhead-cache) and
 the stock world database (notes/forever/dungeon-loot-research.md section 2: the RFC boss loot entries and references).
 
-Copy this file for a new dungeon: change the file names and the expected rows, keep the tests.
+The rules over every dungeon (sources, ID blocks, rounding, shields, lists) are in test_loot_rules.py; the shared
+row cases, refusals and core reads are here. The helpers are in loot_helpers.py.
 """
 import re
 
 import pytest
 
-from test_blacksmithing import spec_rows, sql_rows
-from test_new_recipes import run, spec_folder
-from test_pipeline import ROOT, STAT_TYPES, STOCK, bonus_of, generate, read_dbc
+from loot_helpers import (CREATURE_LOOT, QUEST, REFERENCE_LOOT, bonus_of, changed, copied_entries, item_rows,
+                          loot_list, loot_rows, new_equip_spells, quest_changes, refused, spec_drops, sql, stats_of,
+                          stock_gear)
+from test_blacksmithing import spec_rows
+from test_pipeline import ROOT, STOCK, generate, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -34,18 +37,16 @@ STOCK_DROPS = {
 # base stats, on-equip bonuses as (bonus, value), (damage, delay) of a weapon).
 NEW_ITEMS = {
     71000: ("Trogg Scepter", 272996, (2, 4, 21), 3, {"Spi": 4}, {("SpellPower", 11), ("Healing", 22)}, ((13, 26), 2400)),
-    71001: ("Bone Knuckles", 272998, (2, 13, 21), 3, {}, {("AP", 6)}, ((17, 32), 2000)),
+    71001: ("Bone Knuckles", 272998, (2, 13, 21), 3, {}, {("AP", 6), ("BeastSlaying", 15)}, ((17, 32), 2000)),
     71002: ("Barbaric Crossbow", 272999, (2, 18, 26), 3, {}, set(), ((15, 23), 2000)),
     71003: ("Searing Dagger", 273003, (2, 15, 21), 3, {"Spi": 4}, set(), ((9, 17), 1600)),
     71004: ("Satyrskin Cloak", 273005, (4, 1, 16), 3, {"Sta": 3}, set(), None),
     71005: ("Chasm Walkers", 273007, (4, 2, 8), 3, {"Spi": 5}, {("AP", 4)}, None),
     71006: ("Garrison Cuffs", 270003, (4, 3, 9), 2, {"Spi": 2}, {("SpellPower", 1), ("Healing", 2)}, None),
 }
-ON_EQUIP = "1"
-# The new boss drops (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance. The loot
-# entry of each RFC boss is its creature entry (stock creature_template.loot_id).
-DROPS = {(OGGLEFLINT, 71000): 3.22, (OGGLEFLINT, 71001): 2.65, (OGGLEFLINT, 71002): 2.93,
-         (BAZZALAN, 71003): 2.84, (BAZZALAN, 71004): 2.89, (BAZZALAN, 71005): 2.82}
+# The new boss drops of the spec (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance.
+# The loot entry of each RFC boss is its creature entry (stock creature_template.loot_id).
+DROPS = spec_drops(LOOT)
 # The stock unique drops of Taragaman and Jergosh: one equal-chance group (groupid 1) in a reference loot entry.
 TARAGAMAN_REFERENCE, JERGOSH_REFERENCE = 30332, 30331
 # Quest 5724 Returning the Lost Satchel: stock choices 15452 and 15453 (stock world DB), Forever adds Garrison Cuffs
@@ -56,61 +57,6 @@ SATCHEL, GARRISON_CUFFS = 5724, 71006
 RFC_BOSSES = {OGGLEFLINT, JERGOSH, BAZZALAN, TARAGAMAN}
 RFC_QUESTS = {5722, 5723, 5724, 5725, 5728, 5730, 5761}
 RFC_ITEMS = {int(row["entry"]) for row in spec_rows(ITEMS)}
-QUEST = "forever_quest_template"
-CREATURE_LOOT, REFERENCE_LOOT = "forever_creature_loot_template", "forever_reference_loot_template"
-LOOT_ROW = (r"^INSERT INTO `%s` \(`entry`, `item`, `ChanceOrQuestChance`, `groupid`, `mincountOrRef`, `maxcount`, "
-            r"`patch_min`, `patch_max`\) VALUES \(([^)]*)\);$")
-# The stock world data of the generator: the stock gear that a new item may copy.
-GEAR = ROOT / "forever" / "generator" / "forever_gen" / "stock_world" / "gear.tsv"
-
-
-def stock_gear():
-    """{entry: (class, subclass, slot, display)} of the stock gear file."""
-    rows = [line.split("\t") for line in GEAR.read_text(encoding="utf-8").splitlines()[2:]]
-    return {int(r[0]): (int(r[1]), int(r[2]), int(r[3]), int(r[6])) for r in rows}
-
-
-def sql(out):
-    return (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
-
-
-def item_rows(out, temp):
-    """{entry: {column: value}} of the item rows on the temporary copy table `temp` (forever_item_stock: changed
-    stock items, forever_item_new: new items)."""
-    return {int(r["entry"]): r for r in sql_rows(out, temp) if "entry" in r}
-
-
-def loot_rows(text, table=CREATURE_LOOT):
-    """{(entry, item): (chance, group, min count, max count, patch_min, patch_max)} of the new loot rows."""
-    rows = {}
-    for values in re.findall(LOOT_ROW % table, text, re.M):
-        entry, item, chance, *rest = values.split(", ")
-        rows[(int(entry), int(item))] = (float(chance),) + tuple(int(v) for v in rest)
-    return rows
-
-
-def copied_entries(text, table=CREATURE_LOOT):
-    """The loot entries whose stock rows the SQL copies into `table`."""
-    return {int(e) for e in re.findall(r"^INSERT INTO `%s` SELECT \* FROM `%s` WHERE `entry`=(\d+);$"
-                                       % (table, table[len("forever_"):]), text, re.M)}
-
-
-def stats_of(row):
-    """{stat name: value} of the stat slots of a generated item row."""
-    names = {str(v): k for k, v in STAT_TYPES.items()}
-    return {names[row["stat_type%d" % k]]: int(row["stat_value%d" % k]) for k in range(1, 11)
-            if row["stat_type%d" % k] != "0"}
-
-
-# --- The spec files.
-
-def test_every_loot_row_names_its_source_and_date():
-    for name in (ITEMS, LOOT):
-        rows = spec_rows(name)
-        assert rows
-        for row in rows:
-            assert row["source"].startswith(("https://nether.wowhead.com/", "https://www.wowhead.com/forever/", "client "))
-            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["date"])
 
 
 # --- Items.
@@ -141,8 +87,7 @@ def test_the_new_items_have_their_forever_stats_as_stock_equip_spells(out):
     for entry, (name, _, _, _, stats, bonuses, weapon) in NEW_ITEMS.items():
         row = rows[entry]
         assert stats_of(row) == stats, name
-        equip = {bonus_of(spells, int(row["spellid_%d" % k])) for k in range(1, 6)
-                 if row["spelltrigger_%d" % k] == ON_EQUIP}
+        equip = {bonus_of(spells, spell) for spell in new_equip_spells(row)}
         assert equip == bonuses, name
         if weapon:
             assert ((int(row["dmg_min1"]), int(row["dmg_max1"])), int(row["delay"])) == weapon
@@ -187,14 +132,6 @@ def test_the_sql_fails_when_a_boss_does_not_use_its_loot_entry(out):
 
 # --- Quest rewards.
 
-def quest_changes(out):
-    """{quest: {column: value}} of the reward changes on the quest copies."""
-    changes = {}
-    for m in re.finditer(r"^-- Quest (\d+) .*\n(?:.*\n)*?UPDATE `forever_quest_new` SET (.*);$", sql(out), re.M):
-        changes[int(m.group(1))] = dict(re.findall(r"`(\w+)`=(\d+)", m.group(2)))
-    return changes
-
-
 def test_quest_5724_offers_garrison_cuffs_as_its_third_choice(out):
     assert {q: c for q, c in quest_changes(out).items() if q in RFC_QUESTS} == {
         SATCHEL: {"RewChoiceItemId3": str(GARRISON_CUFFS), "RewChoiceItemCount3": "1"}}
@@ -221,28 +158,11 @@ def test_the_reward_items_of_the_rfc_quests_get_their_forever_stats(out):
 
 # --- The lists and the same bytes.
 
-def loot_list(out):
-    lines = (out / "loot-list.tsv").read_text(encoding="utf-8").splitlines()[2:]
-    return {tuple(line.split("\t")[:3]): line.split("\t")[4] for line in lines}
-
-
 def test_the_loot_list_names_each_left_out_forever_effect(out):
     listed = loot_list(out)
     assert {key for key in listed if key[0] == "left-out" and int(key[2]) in RFC_ITEMS} == {
-        ("left-out", "item", "14145"), ("left-out", "item", "71001"), ("left-out", "item", "71002"),
-        ("left-out", "item", "71003")}
-    assert "Attack Power against Beasts" in listed[("left-out", "item", "71001")]
-
-
-def changed(tmp_path, *changes, extra=()):
-    """The output folder of the generator on the spec folder with the (file, old, new) text changes and the extra
-    (file, line) lines, and its run."""
-    folder = spec_folder(tmp_path, changes=changes)
-    for name, line in extra:
-        with open(folder / name, "a", encoding="utf-8") as handle:
-            handle.write(line + "\n")
-    out = tmp_path / "out"
-    return out, run(folder, out)
+        ("left-out", "item", "14145"), ("left-out", "item", "71002"), ("left-out", "item", "71003")}
+    assert "the stock spell 18381 gives -15" in listed[("left-out", "item", "14145")]
 
 
 def test_an_unconfirmed_drop_and_an_unreadable_item_are_left_out_and_listed(tmp_path):
@@ -290,13 +210,6 @@ def test_a_swapped_choice_and_a_lifted_class_lock(tmp_path):
 
 
 # --- Refusals: the generator stops with an error and writes nothing.
-
-def refused(tmp_path, *changes, extra=()):
-    out, done = changed(tmp_path, *changes, extra=extra)
-    assert done.returncode != 0 and "Traceback" not in done.stderr, done.stderr
-    assert not out.exists() or not any(out.rglob("*")), "the generator wrote output"
-    return done.stderr
-
 
 def test_a_drop_with_no_source_is_refused(tmp_path):
     error = refused(tmp_path, (LOOT, "\thttps://nether.wowhead.com/tooltip/item/272996?dataEnv=16&locale=0\t", "\t-\t"))

@@ -41,3 +41,6 @@ reward	71106	Hammerbone	914	Leaders of the Fang	-	-	-	1	confirmed	https://www.wo
 reward	71104	Heat Resistant Mitts	962	Serpentbloom	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=962	2026-10-31	Forever item 270008; stock 962 has no choice
 reward	71105	Safety Boots	962	Serpentbloom	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=962	2026-10-31	Forever item 270009
 reward	10919	Apothecary Gloves	962	Serpentbloom	-	-	-	1	unconfirmed	https://www.wowhead.com/forever/quest=962	2026-10-31	the page shows it as a choice and under "You will also receive" (the stock fixed reward, which stays); the page of 1486 shows its two choices under both headings too, so the choice is unsure
+# --- #240 final fix pass: the Forever camp blueprints (status left-out: listed with boss and chance, no SQL).
+drop	273087	Blueprint: Journeyman Campfire	3673	Lord Serpentis	creature	0.39	-	-	left-out	https://nether.wowhead.com/tooltip/item/273087?dataEnv=16&locale=0	2026-10-31	a Forever camp feature (Forever item 273087): camps have no 1.12 meaning
+drop	273098	Blueprint: Field Guide	3671	Lady Anacondra	creature	0.32	-	-	left-out	https://nether.wowhead.com/tooltip/item/273098?dataEnv=16&locale=0	2026-10-31	a Forever camp feature (Forever item 273098): camps have no 1.12 meaning

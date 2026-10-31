@@ -13,7 +13,7 @@ import re
 import pytest
 
 from test_new_recipes import refused, run, spec_folder
-from test_pipeline import STOCK, generate, pytestmark, read_dbc  # noqa: F401  (pytestmark: skip without stock data)
+from test_pipeline import STOCK, pytestmark, read_dbc  # noqa: F401  (pytestmark: skip without stock data)
 
 # ItemSet.dbc 1.12.1: 0 ID, 1-8 Name, 9 the name flags, 10-26 ItemID[17], 27-34 SetSpellID[8],
 # 35-42 SetThreshold[8], 43 RequiredSkill, 44 RequiredSkillRank.

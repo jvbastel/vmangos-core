@@ -11,10 +11,10 @@ import re
 
 import pytest
 
-from test_blacksmithing import spec_rows
-from test_loot_rfc import (CREATURE_LOOT, ON_EQUIP, REFERENCE_LOOT, changed, copied_entries, item_rows, loot_list,
-                           loot_rows, quest_changes, sql, stats_of, stock_gear)
-from test_pipeline import AURA, EFFECT, MISC, STOCK, bonus_of as stock_bonus_of, generate, read_dbc
+from loot_helpers import (CREATURE_LOOT, REFERENCE_LOOT, bonus_of, changed, copied_entries, item_rows, loot_list,
+                          loot_rows, new_equip_spells, ours, quest_changes, spec_drops, sql, stats_of, stock_equip_spells,
+                          stock_gear)
+from test_pipeline import STOCK, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -23,12 +23,11 @@ GHAMOORA, SAREVESS, GELIHAST, LORGUS, KELRIS, SERRAKIS, AKUMAI = 4887, 4831, 624
 AQUANIS = 12876  # Baron Aquanis: no new drop, no stock drop row
 # The boss references of the stock unique drops (one equal-chance group each, stock world DB).
 BOSS_REFERENCES = (30156, 30152, 30178, 30153, 30151, 30150)
-BLOCK = (71400, 71499)
 
 # The stock boss drops with their Forever values (Wowhead): quality, armor, base stats, resistances (only the ones
 # that are not 0), (damage, delay) of a weapon, on-equip bonuses as (bonus, value).
 STOCK_DROPS = {
-    6907: ("Tortoise Armor", 3, 248, {}, {}, None, set()),
+    6907: ("Tortoise Armor", 3, 248, {}, {}, None, {("SpellDamageReduction", 10)}),
     6908: ("Ghamoo-ra's Bind", 3, 25, {"Sta": 7}, {}, None, {("SpellPower", 8)}),
     888: ("Naga Battle Gloves", 3, 61, {"Str": 4, "Sta": 4}, {}, None, {("SpellPower", 5), ("Healing", 11)}),
     3078: ("Naga Heartpiercer", 3, 0, {}, {}, ((22, 42), 2400), set()),
@@ -41,12 +40,12 @@ STOCK_DROPS = {
     6902: ("Bands of Serra'kis", 3, 43, {"Str": 6, "Sta": 3}, {}, None, set()),
     6904: ("Bite of Serra'kis", 3, 0, {}, {"nature_res": 2}, ((16, 30), 1300), set()),
     6909: ("Strike of the Hydra", 3, 0, {}, {}, ((67, 102), 3300), set()),
-    6910: ("Leech Pants", 3, 41, {"Sta": 5}, {}, None, {("SpellPower", 5), ("Mp5", 5)}),
+    6910: ("Leech Pants", 3, 41, {"Sta": 5}, {}, None, {("SpellPower", 5), ("Mp5", 5), ("HealthRegen", 5)}),
     6911: ("Moss Cinch", 3, 58, {"Sta": 5}, {}, None, set()),
 }
 # The stock reward items of the BFD quests with their Forever values, as STOCK_DROPS.
 STOCK_REWARDS = {
-    6743: ("Sustaining Ring", 2, 0, {"Sta": 4}, {}, None, set()),
+    6743: ("Sustaining Ring", 2, 0, {"Sta": 4}, {}, None, {("HealthRegen", 4)}),
     6998: ("Nimbus Boots", 2, 28, {"Agi": 5}, {}, None, {("SpellPower", 4), ("Healing", 7)}),
     7000: ("Heartwood Girdle", 2, 50, {"Sta": 5}, {}, None, {("SpellPower", 6)}),
     7001: ("Gravestone Scepter", 3, 0, {"Spi": 3}, {}, ((30, 57), 1500), {("ShadowDamage", 6)}),
@@ -62,65 +61,30 @@ STOCK_REWARDS = {
 # The new items (Wowhead Forever tooltips): entry: (name, Forever item, (class, subclass, slot) of Item.db2, quality,
 # base stats, on-equip bonuses as (bonus, value), (damage, delay) of a weapon).
 NEW_ITEMS = {
-    71400: ("Spiked Shell Band", 273839, (4, 0, 11), 3, {"Sta": 5}, set(), None),
+    71400: ("Spiked Shell Band", 273839, (4, 0, 11), 3, {"Sta": 5}, {("NatureThorns", 4)}, None),
     71401: ("Cursed Murloc Eye", 273840, (4, 0, 12), 3, {}, set(), None),
     71402: ("Twilight Maul", 273841, (2, 5, 17), 3, {}, {("SpellPower", 12)}, ((60, 91), 3300)),
     71403: ("Treacherous Treads", 273842, (4, 3, 8), 3, {"Str": 5, "Sta": 7}, set(), None),
     71404: ("Fallenroot Longbow", 273843, (2, 2, 15), 3, {"Agi": 2, "Sta": 4}, set(), ((21, 40), 2200)),
-    71405: ("Twilight Lord Girdle", 273846, (4, 3, 6), 3, {"Str": 8}, set(), None),
+    71405: ("Twilight Lord Girdle", 273846, (4, 3, 6), 3, {"Str": 8}, {("BlockValue", 10)}, None),
     71406: ("Staghide Armguards", 270021, (4, 2, 9), 2, {"Agi": 3, "Sta": 3}, set(), None),
-    71407: ("Silvered Gauntlets", 270025, (4, 3, 10), 2, {"Sta": 5}, {("SpellPower", 4), ("Healing", 7)}, None),
     71408: ("Dark Ritual Leggings", 270031, (4, 2, 7), 3, {"Sta": 9}, {("SpellPower", 14)}, None),
     71409: ("Cultist's Armguards", 270032, (4, 2, 9), 3, {"Sta": 7}, {("AP", 10)}, None),
     71410: ("Dreamer's Chestguard", 270043, (4, 2, 5), 3, {"Str": 10, "Sta": 5, "Spi": 11}, set(), None),
 }
-# The new boss drops (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance. The loot
-# entry of each BFD boss is its creature entry (stock creature_template.loot_id).
-DROPS = {(GHAMOORA, 71400): 4.19, (GELIHAST, 71401): 4.33, (LORGUS, 71402): 14.0, (LORGUS, 71403): 9.9,
-         (LORGUS, 71404): 9.96, (KELRIS, 71405): 3.15}
+# The new boss drops of the spec (Wowhead Forever "Dropped by" and "Drop Chance"): (creature loot entry, item): chance.
+# The loot entry of each BFD boss is its creature entry (stock creature_template.loot_id).
+DROPS = spec_drops(LOOT)
 # The quests (stock choices from the stock world DB, Forever choices from the Wowhead Forever quest pages):
 # {quest: {changed choice slot: item}}.
 QUESTS = {1200: {3: 71408, 4: 71409}, 6561: {3: 71408, 4: 71409}, 1275: {3: 71406}, 6922: {3: 71410}}
 # Quest 1199 Twilight Falls: stock gives 6998 and 7000 as fixed rewards; the Forever page lists 6998, 7000 and
-# Silvered Gauntlets as choices and Silvered Gauntlets once more as a fixed reward. The row is unconfirmed.
+# Silvered Gauntlets as choices and Silvered Gauntlets once more as a fixed reward. The row is unconfirmed, and so is
+# the item: the quest is its only source (#240 lead decision).
 TWILIGHT_FALLS, SILVERED_GAUNTLETS = 1199, 71407
 
 
-# The (aura, misc value) of the bonuses that test_pipeline.BONUS_AURAS does not name: mana per 5 sec, Shadow
-# spell damage (Spell.dbc 1.12.1).
-MORE_AURAS = {(85, 0): "Mp5", (13, 32): "ShadowDamage"}
-
-
-def bonus_of(spells, spell):
-    """(name, value) of the bonus of a stock equip spell, as test_pipeline.bonus_of, with MORE_AURAS named."""
-    name, value = stock_bonus_of(spells, spell)
-    if name.startswith("spell ") and not spells[spell][EFFECT + 1]:
-        name = MORE_AURAS.get((spells[spell][AURA], spells[spell][MISC]), name)
-    return name, value
-
-
-def ours(rows, entries):
-    """The rows of `rows` (a dict keyed by loot entry or by (loot entry, item)) whose loot entry is in `entries`."""
-    return {k: v for k, v in rows.items() if (k[0] if isinstance(k, tuple) else k) in entries}
-
-
 BOSSES = {GHAMOORA, SAREVESS, GELIHAST, LORGUS, KELRIS, SERRAKIS, AKUMAI, AQUANIS}
-
-
-# --- The spec files.
-
-def test_every_bfd_loot_row_names_its_source_and_date():
-    for name in (ITEMS, LOOT):
-        rows = spec_rows(name)
-        assert rows
-        for row in rows:
-            assert row["source"].startswith(("https://nether.wowhead.com/", "https://www.wowhead.com/forever/", "client "))
-            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["date"])
-
-
-def test_the_new_bfd_items_take_their_ids_from_the_bfd_block():
-    new = {int(r["entry"]) for r in spec_rows(ITEMS) if r["kind"] != "stock"}
-    assert new == set(NEW_ITEMS) and all(BLOCK[0] <= e <= BLOCK[1] for e in new)
 
 
 # --- Items.
@@ -150,11 +114,7 @@ def test_a_changed_stock_item_with_bonuses_gets_them_as_stock_equip_spells(out):
     text = sql(out)
     spells, _ = read_dbc(STOCK / "Spell.dbc")
     for entry, item in {**STOCK_DROPS, **STOCK_REWARDS}.items():
-        block = text[text.index("-- Changed stock item %s (%d)." % (item[0], entry)):]
-        block = block[:block.index("INSERT INTO `forever_item_template`")]
-        added = {int(s) for s in re.findall(r"`spellid_1`=IF\(@forever_slot=1, (\d+),", block)}
-        assert {bonus_of(spells, s) for s in added} == item[6], item[0]
-        assert ("WHERE `spelltrigger_1`=1;" in block) == bool(item[6]), item[0]
+        assert {bonus_of(spells, s) for s in stock_equip_spells(text, item[0], entry)} == item[6], item[0]
 
 
 def test_a_new_bfd_item_copies_a_stock_item_of_its_class_subclass_and_slot_and_takes_its_display(out):
@@ -174,8 +134,7 @@ def test_the_new_bfd_items_have_their_forever_stats_as_stock_equip_spells(out):
     for entry, (name, _, _, _, stats, bonuses, weapon) in NEW_ITEMS.items():
         row = rows[entry]
         assert stats_of(row) == stats, name
-        equip = {bonus_of(spells, int(row["spellid_%d" % k])) for k in range(1, 6)
-                 if row["spelltrigger_%d" % k] == ON_EQUIP}
+        equip = {bonus_of(spells, spell) for spell in new_equip_spells(row)}
         assert equip == bonuses, name
         if weapon:
             assert ((int(row["dmg_min1"]), int(row["dmg_max1"])), int(row["delay"])) == weapon, name
@@ -216,12 +175,10 @@ def test_the_loot_list_names_each_left_out_forever_effect_and_the_unconfirmed_re
     listed = loot_list(out)
     ids = {str(e) for e in list(STOCK_DROPS) + list(STOCK_REWARDS) + list(NEW_ITEMS)}
     assert {key for key in listed if key[0] == "left-out" and key[2] in ids} == {
-        ("left-out", "item", str(e)) for e in (6907, 3078, 11121, 1155, 6904, 6909, 6910, 6911, 6743,
-                                               71400, 71401, 71402, 71403, 71405)}
-    assert "Block Value" in listed[("left-out", "item", "71405")]
-    assert ("unconfirmed", "reward", str(SILVERED_GAUNTLETS)) in listed
-    assert not {key for key in listed if key[0] != "left-out" and key[2] in ids} - {
-        ("unconfirmed", "reward", str(SILVERED_GAUNTLETS))}
+        ("left-out", "item", str(e)) for e in (3078, 11121, 1155, 6904, 6909, 6911, 71400, 71401, 71402, 71403)}
+    gauntlets = {("unconfirmed", "reward", str(SILVERED_GAUNTLETS)), ("unconfirmed", "item", str(SILVERED_GAUNTLETS))}
+    assert gauntlets <= set(listed)
+    assert not {key for key in listed if key[0] not in ("left-out", "manual-source") and key[2] in ids} - gauntlets
 
 
 def test_an_unconfirmed_bfd_drop_is_left_out_and_listed(tmp_path):

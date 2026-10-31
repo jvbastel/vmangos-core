@@ -13,8 +13,8 @@ read 2026-10-31): only the stock sets 161 and 162 and the new Forever set 2131 h
 import pytest
 
 from test_item_sets import item_set, set_ids
-from test_loot_rfc import changed, loot_list, refused  # noqa: F401
-from test_pipeline import STOCK, generate, read_dbc
+from loot_helpers import changed, loot_list, refused  # noqa: F401
+from test_pipeline import STOCK, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 

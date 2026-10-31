@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from test_pipeline import ROOT, STOCK, generate, read_dbc, server_spells
+from test_pipeline import ROOT, STOCK, read_dbc, server_spells
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
