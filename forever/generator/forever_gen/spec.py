@@ -9,7 +9,7 @@ import os
 import re
 from collections import namedtuple
 
-from . import encrypted, item_sets, items, mining, recipes
+from . import encrypted, item_sets, items, mining, recipes, trainers
 from .common import SpecError, check_kind, rows_of  # noqa: F401 (SpecError: the error of the spec, for build and generate)
 
 # kind: talent, ability (a new spell that no talent teaches) or base (a changed stock spell).
@@ -25,9 +25,10 @@ Row = namedtuple("Row", "kind talent_id tree tier column ranks required_talents 
 # stock_recipes: the stock rows of the recipe files (recipes.Recipe of kind stock, #228).
 # removed_recipes: the removal rows of the recipe files (removed_recipes.RemovedRecipe, #229).
 # drops: the ore drops of mining.tsv (mining.Drop, #232); mining_cuts: its cut rows (mining.MiningCut).
+# trainers: the rows of the trainer files (trainers.Trainer, #239).
 Spec = namedtuple("Spec", "id_range rows recipes items item_id_range profession_id_range stock_recipes removed_recipes "
-                          "item_sets drops mining_cuts encrypted",
-                  defaults=((), (), None, None, (), (), (), (), (), ()))
+                          "item_sets drops mining_cuts encrypted trainers",
+                  defaults=((), (), None, None, (), (), (), (), (), (), ()))
 # The free ID range lines of a spec file header: "# Free <label> range: <low>-<high>.", by Spec field.
 RANGE_LABELS = {"id_range": "ID", "item_id_range": "item ID", "profession_id_range": "profession spell ID"}
 
@@ -144,9 +145,9 @@ def read(path):
         files = [path]
     readers = {COLUMNS: _read_spell_rows, recipes.COLUMNS: recipes.read_rows, items.COLUMNS: items.read_rows,
                item_sets.COLUMNS: item_sets.read_rows, mining.COLUMNS: mining.read_rows,
-               encrypted.COLUMNS: encrypted.read_rows}
+               encrypted.COLUMNS: encrypted.read_rows, trainers.COLUMNS: trainers.read_rows}
     found = {"rows": [], "recipes": [], "items": [], "stock_recipes": [], "removed_recipes": [], "item_sets": [],
-             "drops": [], "mining_cuts": [], "encrypted": []}
+             "drops": [], "mining_cuts": [], "encrypted": [], "trainers": []}
     ranges = {}
     for file in files:
         with open(file, encoding="utf-8") as handle:
@@ -165,7 +166,7 @@ def read(path):
         raise SpecError("%s: no '# Free ID range: <low>-<high>.' line in the header" % path)
     return Spec(ranges["id_range"], found["rows"], found["recipes"], found["items"], ranges.get("item_id_range"),
                 ranges.get("profession_id_range"), found["stock_recipes"], found["removed_recipes"], found["item_sets"],
-                found["drops"], found["mining_cuts"], found["encrypted"])
+                found["drops"], found["mining_cuts"], found["encrypted"], found["trainers"])
 
 
 def _read_spell_rows(path, lines):

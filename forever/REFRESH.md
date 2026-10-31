@@ -8,6 +8,10 @@ The spec is the folder `forever/spec`, one file per area. The generator in `fore
 - `blacksmithing.tsv` holds the Blacksmithing recipes (spec #225): one row per new recipe spell (kind
   `recipe`), one row per stock recipe that Forever changes in place (kind `stock`, #228), and one row per
   stock recipe that Forever took away (kind `removed`, #229).
+- `blacksmithing_trainers.tsv` says how a character learns the new recipes that the Forever trainers teach
+  (#239): one row per recipe, kind `trainer` (the trainers teach it) or `auto` (it comes with the profession
+  skill). It is a file of its own, not a column of `blacksmithing.tsv`, because `tools/new_recipe_rows.py`
+  writes the #230 rows there and would drop a hand-filled column on a rerun.
 - `items.tsv` holds the new and changed items (spec #225): one row per item.
 - `item_sets.tsv` holds the new and changed item sets (#231): a `set` row (a new set) or a `stockset` row (a
   changed stock set), each with ID, name and pieces, and one `bonus` row per set bonus.
@@ -99,6 +103,18 @@ merges it.
 - A new recipe with plans names them as `<item>/<learn spell>`: the plans item is an `items.tsv` row, and the
   learn spell (a copy of stock spell 2760) takes the next free ID of the profession spell range. The plans
   need the recipe's `minRank`.
+- Trainers of new recipes (`blacksmithing_trainers.tsv`, #239): the client has no trainer data, so the source is
+  a fan source that marks a recipe as a trainer recipe (the header names them). A `trainer` row names the
+  recipe, the learn spell of its plans (the trainer casts it; the plans stay), and `trainersFrom`: a stock
+  recipe that the stock trainers teach at about the recipe's skill, never below it. The generator copies the
+  stock npc_trainer rows of that recipe's learn spell into forever_npc_trainer with the new learn spell, the
+  recipe's `minRank` and `cost`. So every trainer that teaches the stock recipe teaches the new one, and a
+  trainer whose rank caps below the skill does not. The generated SQL fails when no trainer teaches the stock
+  recipe, when one teaches it below the skill, or when a trainer template teaches it. No Forever source gives
+  the cost: take the stock `spellcost` of `trainersFrom` and say in the notes that it is a guess. An `auto`
+  row (a recipe that comes with Apprentice, as stock Rough Copper Vest 12260) sets AcquireMethod 1 on the
+  recipe's skill line ability, in the client and the server. The #230 note "trainer: a later ticket" of a
+  recipe is the row writer's text: the trainer file is what holds.
 - The generator refuses a new recipe or item without its Forever source (`foreverSpell`, `foreverItem`), a
   reagent or made item that is neither a stock item nor an `items.tsv` row, and a new item whose
   `sourceItem` is no stock item.

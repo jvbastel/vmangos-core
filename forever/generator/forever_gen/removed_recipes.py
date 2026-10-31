@@ -60,7 +60,7 @@ def check(spec, stock):
             raise SpecError("%s has no stock skill line ability in skill line %d" % (where, recipe.skill_line))
         if recipe.plans is None:
             continue
-        if not stock_learn_spells(recipe, stock):
+        if not stock_learn_spells(recipe.spell, stock):
             raise SpecError("%s: no stock spell learns it, so its plans %d cannot be emptied" % (where, recipe.plans))
         # The generator writes a forever_item_template copy of the plans (server_sql): no other row may.
         if recipe.plans in item_rows:
@@ -110,7 +110,7 @@ def plans_server_sql(spec, stock):
     lines = []
     for recipe in sorted(spec.removed_recipes, key=lambda r: r.spell):
         if recipe.plans is not None:
-            lines += [""] + plans_sql(recipe, stock_learn_spells(recipe, stock))
+            lines += [""] + plans_sql(recipe, stock_learn_spells(recipe.spell, stock))
     return lines
 
 
@@ -120,10 +120,10 @@ def server_sql(spec, stock):
     lines = []
     for recipe in sorted(spec.removed_recipes, key=lambda r: r.spell):
         lines += [""]
-        if stock_learn_spells(recipe, stock):
-            lines.append(no_trainer_template_sql(", ".join(str(s) for s in stock_learn_spells(recipe, stock))))
+        if stock_learn_spells(recipe.spell, stock):
+            lines.append(no_trainer_template_sql(", ".join(str(s) for s in stock_learn_spells(recipe.spell, stock))))
         lines += removals.remove_rows("skill_line_ability", "id", [row[0] for row in stock_abilities(recipe, stock)],
                                       "Removed recipe %s (%d): its skill line ability." % (recipe.name, recipe.spell))
-        lines += removals.remove_rows("npc_trainer", "spell", stock_learn_spells(recipe, stock),
+        lines += removals.remove_rows("npc_trainer", "spell", stock_learn_spells(recipe.spell, stock),
                                       "Removed recipe %s (%d): the trainer rows of its learn spells." % (recipe.name, recipe.spell))
     return lines

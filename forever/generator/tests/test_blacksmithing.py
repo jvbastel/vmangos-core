@@ -128,7 +128,9 @@ def test_each_recipe_has_its_skill_line_and_colour_range_in_the_client(out):
     for recipe in new_recipes(out):
         row = by_spell[int(recipe["spell"])]
         assert (row[1], row[3], row[4]) == (int(recipe["skillLine"]), 0, 0)
-        assert (row[7], row[9], row[11], row[10]) == (int(recipe["minRank"]), 0, int(recipe["yellow"]), int(recipe["grey"]))
+        # AcquireMethod 1: Copper Rod comes with the profession skill (#239, blacksmithing_trainers.tsv).
+        acquire = 1 if recipe["spell"] == "61001" else 0
+        assert (row[7], row[9], row[11], row[10]) == (int(recipe["minRank"]), acquire, int(recipe["yellow"]), int(recipe["grey"]))
     assert (by_spell[61000][1], by_spell[61000][11], by_spell[61000][10]) == (BLACKSMITHING, 40, 40)
 
 

@@ -17,7 +17,7 @@ import os
 import struct
 from collections import namedtuple
 
-from . import client_patch, dead_content, encrypted, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, sources, stock_recipes
+from . import client_patch, dead_content, encrypted, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, sources, stock_recipes, trainers
 from .common import CLIENT_BUILD, focus_ids, sql_text
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
@@ -46,7 +46,8 @@ FOREVER_TABLES = ("forever_spell_template", "forever_spell_chain", "forever_spel
 BASELINE_TABLE = "forever_baseline_spell"
 BASELINE_COLUMNS = "(`spell_id` SMALLINT UNSIGNED NOT NULL, PRIMARY KEY (`spell_id`))"
 # SkillLineAbility.dbc 1.12.1: 0 ID, 1 SkillLine, 2 Spell, 3 RaceMask, 4 ClassMask, 5-6 exclude masks,
-# 7 MinSkillRank, 8 SupersededBy, 9 AcquireMethod (0: a trainer or the core teaches it), 10 the skill from
+# 7 MinSkillRank, 8 SupersededBy, 9 AcquireMethod (0: a trainer, plans or the core teach it; 1: learned with
+# the profession skill, trainers.py), 10 the skill from
 # which a recipe is grey (TrivialSkillLineRankHigh), 11 the skill from which it is yellow (...RankLow), 12-14 0.
 WARRIOR_CLASS_MASK = 1
 
@@ -55,8 +56,9 @@ WARRIOR_CLASS_MASK = 1
 # description and script_name None: keep the source one. comment: the SQL comment line.
 SpellEdit = namedtuple("SpellEdit", "spell source changes name rank_text description script_name comment")
 # One skill line ability (client SkillLineAbility.dbc and forever_skill_line_ability). The ID is the spell ID.
-# grey and yellow: the colour range of a recipe (0 for the Warrior spells).
-Ability = namedtuple("Ability", "id skill spell race_mask class_mask req_skill superseded grey yellow")
+# grey and yellow: the colour range of a recipe (0 for the Warrior spells). acquire: the AcquireMethod (1: a
+# recipe that a character learns with its profession skill, trainers.py).
+Ability = namedtuple("Ability", "id skill spell race_mask class_mask req_skill superseded grey yellow acquire")
 
 
 class Stock:
@@ -112,8 +114,10 @@ def spell_changes(row, rank):
 def skill_line_abilities(spec):
     """The Ability of each spell of a row with a skill line, and of each recipe, by ID. The ID is the
     spell ID: a new spell is in the free range, so its ID is free in SkillLineAbility.dbc too."""
+    auto = trainers.auto_learned(spec)
     abilities = [Ability(id=r.spell, skill=r.skill_line, spell=r.spell, race_mask=0, class_mask=0, req_skill=r.min_rank,
-                         superseded=0, grey=r.grey, yellow=r.yellow) for r in spec.recipes]
+                         superseded=0, grey=r.grey, yellow=r.yellow,
+                         acquire=trainers.LEARNED_WITH_SKILL if r.spell in auto else 0) for r in spec.recipes]
     for row in spec.rows:
         if SKILL_LINE not in row.fields:
             continue
@@ -123,7 +127,8 @@ def skill_line_abilities(spec):
             else:
                 superseded = row.spells[rank + 1] if rank + 1 < len(row.spells) else 0
             abilities.append(Ability(id=spell, skill=row.fields[SKILL_LINE][rank], spell=spell, race_mask=0,
-                                     class_mask=WARRIOR_CLASS_MASK, req_skill=1, superseded=superseded, grey=0, yellow=0))
+                                     class_mask=WARRIOR_CLASS_MASK, req_skill=1, superseded=superseded, grey=0, yellow=0,
+                                     acquire=0))
     return sorted(abilities)
 
 
@@ -138,7 +143,7 @@ def client_skill_line_ability_table(abilities, stock):
     for a in abilities:
         row = [0] * table.fields
         row[0], row[1], row[2], row[3], row[4], row[7], row[8] = a.id, a.skill, a.spell, a.race_mask, a.class_mask, a.req_skill, a.superseded
-        row[10], row[11] = a.grey, a.yellow
+        row[9], row[10], row[11] = a.acquire, a.grey, a.yellow
         table.rows.append(row)
     return table
 
@@ -281,6 +286,7 @@ def server_sql(spec, edits, stock):
     lines += item_sets.server_sql(spec, items.TABLE)
     lines += new_recipes.server_sql(spec)
     lines += stock_recipes.server_sql(spec, stock)
+    lines += trainers.server_sql(spec, stock)
     lines += mining.server_sql(spec)
     lines += removed_recipes.plans_server_sql(spec, stock)
     # Last: the removal marker column of each override table, then the rows that it removes (#229). A row
@@ -309,7 +315,7 @@ def _server_skill_line_abilities(abilities):
     for a in abilities:
         values = [("id", a.id), ("build", CLIENT_BUILD), ("skill_id", a.skill), ("spell_id", a.spell),
                   ("race_mask", a.race_mask), ("class_mask", a.class_mask), ("req_skill_value", a.req_skill),
-                  ("superseded_by_spell", a.superseded), ("learn_on_get_skill", 0), ("max_value", a.grey),
+                  ("superseded_by_spell", a.superseded), ("learn_on_get_skill", a.acquire), ("max_value", a.grey),
                   ("min_value", a.yellow), ("req_train_points", 0)]
         lines += [
             "",
@@ -382,6 +388,7 @@ def generate(spec, stock_folder, out, marker_icons):
     recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
     stock_recipes.check(spec, stock)
     removed_recipes.check(spec, stock)
+    trainers.check(spec, stock)
     item_sets.check(spec, stock)
     edits = spell_edits(spec, stock)
     talents = in_client_order(talent_table(spec, stock))

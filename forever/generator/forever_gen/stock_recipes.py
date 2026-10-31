@@ -88,11 +88,11 @@ def apply_colours(table, spec, stock):
     return table
 
 
-def stock_learn_spells(recipe, stock):
-    """The stock spells that teach the recipe (Effect1 Learn Spell on it): the spells of its trainer rows.
+def stock_learn_spells(spell, stock):
+    """The stock spells that teach the recipe `spell` (Effect1 Learn Spell on it): the spells of its trainer rows.
     The core takes a trainer row only for a spell whose first effect is Learn Spell."""
     return sorted(row[0] for row in stock.spell.rows
-                  if row[SPELL_EFFECT1] == SPELL_EFFECT_LEARN_SPELL and row[SPELL_TRIGGER1] == recipe.spell)
+                  if row[SPELL_EFFECT1] == SPELL_EFFECT_LEARN_SPELL and row[SPELL_TRIGGER1] == spell)
 
 
 def no_trainer_template_sql(teaching):
@@ -127,7 +127,7 @@ def server_sql(spec, stock):
                 "INSERT INTO `forever_skill_line_ability` SELECT * FROM `forever_sla_stock`;",
                 "DROP TEMPORARY TABLE `forever_sla_stock`;",
             ]
-        teaching = ", ".join(str(spell) for spell in stock_learn_spells(recipe, stock))
+        teaching = ", ".join(str(spell) for spell in stock_learn_spells(recipe.spell, stock))
         if teaching:
             # Every stock trainer row of the learn spells: the core reads forever_npc_trainer over npc_trainer
             # by `spell`, so the copy must hold all of them. npc_trainer_template has no Forever override

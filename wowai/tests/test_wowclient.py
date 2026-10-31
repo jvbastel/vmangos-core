@@ -123,6 +123,36 @@ class LanguageTest(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<II", body), (wowclient.CHAT_MSG_SAY, wowclient.LANG_COMMON))
 
 
+TRAINER = 0xF130000D9E000042
+
+
+def trainer_list_packet(spells, title="Hello!"):
+    """An SMSG_TRAINER_LIST body, as WorldSession::SendTrainerList writes it: the trainer guid, its type, the
+    count, one 38-byte block per (spell, state, cost, required skill, skill value), then the title."""
+    body = struct.pack("<QII", TRAINER, 2, len(spells))
+    for spell, state, cost, skill, value in spells:
+        body += struct.pack("<IBIIIBIIIII", spell, state, cost, 0, 0, 5, skill, value, 0, 0, 0)
+    return body + title.encode() + b"\0"
+
+
+class TrainerClientTest(unittest.TestCase):
+    def test_the_trainer_list_keeps_state_skill_and_skill_value_of_each_spell(self):
+        c = client(self, client_class=wowclient.TrainerClient)
+        c.client._observe(wowclient.SMSG_TRAINER_LIST,
+                          trainer_list_packet([(61197, 0, 90, 164, 35), (2745, 1, 450, 164, 65)]))
+        self.assertEqual(c.client.trainer_spells, {61197: (0, 164, 35), 2745: (1, 164, 65)})
+
+    def test_a_buy_sends_the_trainer_and_spell_and_keeps_the_answers(self):
+        c = client(self, client_class=wowclient.TrainerClient)
+        c.client.pump = lambda wait: None
+        c.client._observe(wowclient.SMSG_TRAINER_BUY_FAILED, struct.pack("<QII", TRAINER, 61196, 2))
+        self.assertEqual(c.client.buy_spell(TRAINER, 61197), [])
+        (opcode, body), = c.sent()
+        self.assertEqual((opcode, struct.unpack("<QI", body)), (wowclient.CMSG_TRAINER_BUY_SPELL, (TRAINER, 61197)))
+        c.client._observe(wowclient.SMSG_TRAINER_BUY_SUCCEEDED, struct.pack("<QI", TRAINER, 61197))
+        self.assertEqual(c.client.trainer_buys, [(61196, 2), (61197, True)])
+
+
 class TeleportAckTest(unittest.TestCase):
     def test_far_teleport_is_acked(self):
         c = client(self)
