@@ -8,7 +8,7 @@
 // the play realm's login database, which the environment variable names in
 // the format `host;port;user;password;database`. The vmangos-deploy image pins
 // `LoginDatabase.Info` in the config, so the override happens where the core
-// uses the value: Master::_StartDB and the .service delete characters command.
+// uses the value: StartDB in Master.cpp and the .service delete characters command.
 // It is here, outside the game layer, so that GoogleTest reaches it.
 namespace Bots
 {
