@@ -5541,8 +5541,8 @@ void ObjectMgr::LoadQuests()
     }
     m_ExclusiveQuestGroups.clear();
 
-    //                                                                0        1         2             3           4             5       6                  7                8                9
     // WOWAI Forever rules (#242): the forever_quest_template rows replace the stock rows of their quest.
+    //                                                                0        1         2             3           4             5       6                  7                8                9
     std::unique_ptr<QueryResult> result(WorldDatabase.Query(Forever::SelectWithForeverRows("quest_template", "entry", [](std::string const& table)
     {
         return std::string("SELECT `entry`, `Method`, `ZoneOrSort`, `MinLevel`, `QuestLevel`, `Type`, `RequiredClasses`, `RequiredRaces`, `RequiredSkill`, `RequiredSkillValue`,"

@@ -280,8 +280,13 @@ def check(spec, stock):
             raise SpecError("%s: item %d is no item (no spec item and no stock item)" % (where, reward.item))
         if reward.kind == UNLOCK and reward.item not in world.quests[reward.quest][1]:
             raise SpecError("%s: item %d is no stock reward choice of quest %d" % (where, reward.item, reward.quest))
-    for quest in sorted({r.quest for r in spec.loot_rewards if r.kind == REWARD}):
+    for quest in _reward_quests(spec):
         quest_choices(spec, stock, quest)
+
+
+def _reward_quests(spec):
+    """The quests with a reward row, in order."""
+    return sorted({r.quest for r in spec.loot_rewards if r.kind == REWARD})
 
 
 def quest_choices(spec, stock, quest):
@@ -304,7 +309,7 @@ def quest_choices(spec, stock, quest):
 
 def _quest_sql(spec, stock):
     lines = []
-    for quest in sorted({r.quest for r in spec.loot_rewards if r.kind == REWARD}):
+    for quest in _reward_quests(spec):
         title, stock_choices = stock.world.quests[quest]
         changed = quest_choices(spec, stock, quest)
         temp = "forever_quest_new"
