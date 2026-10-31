@@ -1,0 +1,51 @@
+# Forever loot of Blackfathom Deeps (map 48): the boss drop and quest reward rows (spec jvbastel/WOWAI#240, ticket
+# #246). The items are in loot_blackfathom_deeps_items.tsv. The layout of the loot files is in forever/REFRESH.md,
+# "Dungeon loot". forever/generator writes a drop row into forever_creature_loot_template: a copy of every stock row of
+# the boss's creature loot entry plus the new row, outside the stock equal-chance group, with patch_min 0. A reward
+# row becomes a forever_quest_template copy of the stock quest with the Forever reward choices.
+#
+# Sources, read 2026-10-31: Wowhead's Forever tooltip data ("Dropped by" and "Drop Chance" of each item,
+# https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0) and the Forever quest pages
+# (https://www.wowhead.com/forever/quest=<id>, read with a web-fetch tool, summaries in notes/forever/wowhead-cache/quest).
+# A drop is confirmed when the tooltip's "Dropped by" names the boss; its chance is the tooltip's "Drop Chance".
+# Quests with an objective in Blackfathom Deeps that show the stock rewards on Wowhead Forever, no row: 971, 1198,
+# 1654, 6563, 6565, 6921 (their stock reward items with Forever stats are in the items file). No Forever source lifts
+# a class lock of a BFD quest reward. Baron Aquanis (12876) has no new drop.
+# Quest 1199 Twilight Falls: stock gives 6998 and 7000 both as fixed rewards (RewItemId). The Forever page (read again
+# 2026-10-31) lists 6998, 7000 and 270025 under "You will be able to choose one of these rewards" and 270025 once more
+# under "You will also receive". The page contradicts itself, and the generator has no row kind that turns fixed
+# rewards into choices: the row is unconfirmed (left out and listed).
+# Stock boss drops keep their stock chance (spec #240): they have no drop row.
+#
+# Columns (tab-separated):
+#   kind        drop: a new item on a boss; reward: a new reward choice of a quest (replaces "-") or a swapped one;
+#               unlock: the quest reward item loses its class lock (the item needs a row in the items file)
+#   item        the item ID (a row of a loot items file, or a stock item)
+#   name        the item name
+#   target      drop: the boss (creature entry); reward, unlock: the quest ID
+#   targetName  the stock name of the boss or the title of the quest (the generator compares it)
+#   loot        drop: "creature" (the boss's creature loot entry) or "reference <ID>" (a reference loot entry that only
+#               this boss uses); else "-"
+#   chance      drop: the drop chance in percent; else "-"
+#   replaces    reward: the stock reward choice it replaces, or "-" to add it in the first empty choice slot; else "-"
+#   count       reward: the number of items; else "-"
+#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it)
+#   source      a Wowhead URL, or "client <build>"
+#   date        the day the source was read, YYYY-MM-DD
+#   notes
+kind	item	name	target	targetName	loot	chance	replaces	count	status	source	date	notes
+# --- #246 new boss drops.
+drop	71400	Spiked Shell Band	4887	Ghamoo-ra	creature	4.19	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273839?dataEnv=16&locale=0	2026-10-31	Forever item 273839
+drop	71401	Cursed Murloc Eye	6243	Gelihast	creature	4.33	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273840?dataEnv=16&locale=0	2026-10-31	Forever item 273840
+drop	71402	Twilight Maul	12902	Lorgus Jett	creature	14	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273841?dataEnv=16&locale=0	2026-10-31	Forever item 273841
+drop	71403	Treacherous Treads	12902	Lorgus Jett	creature	9.9	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273842?dataEnv=16&locale=0	2026-10-31	Forever item 273842
+drop	71404	Fallenroot Longbow	12902	Lorgus Jett	creature	9.96	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273843?dataEnv=16&locale=0	2026-10-31	Forever item 273843
+drop	71405	Twilight Lord Girdle	4832	Twilight Lord Kelris	creature	3.15	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273846?dataEnv=16&locale=0	2026-10-31	Forever item 273846
+# --- #246 quest rewards.
+reward	71406	Staghide Armguards	1275	Researching the Corruption	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=1275	2026-10-31	Forever item 270021, a third choice next to 7003 and 7004
+reward	71407	Silvered Gauntlets	1199	Twilight Falls	-	-	-	1	unconfirmed	https://www.wowhead.com/forever/quest=1199	2026-10-31	Forever item 270025, the page shows it as a choice and as a fixed reward; stock 1199 has no choices (header)
+reward	71408	Dark Ritual Leggings	1200	Blackfathom Villainy	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=1200	2026-10-31	Forever item 270031, a third choice next to 7001 and 7002 (Alliance)
+reward	71409	Cultist's Armguards	1200	Blackfathom Villainy	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=1200	2026-10-31	Forever item 270032, a fourth choice next to 7001 and 7002 (Alliance)
+reward	71408	Dark Ritual Leggings	6561	Blackfathom Villainy	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=6561	2026-10-31	Forever item 270031, a third choice next to 7001 and 7002 (Horde)
+reward	71409	Cultist's Armguards	6561	Blackfathom Villainy	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=6561	2026-10-31	Forever item 270032, a fourth choice next to 7001 and 7002 (Horde)
+reward	71410	Dreamer's Chestguard	6922	Baron Aquanis	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=6922	2026-10-31	Forever item 270043, a third choice next to 16886 and 16887
