@@ -49,11 +49,21 @@ src/game/Objects/TemporarySummon.h
 # Spec hook 11: the Forever rules (spec jvbastel/WOWAI#204, WOWAI#206). The spec file and its
 # generator, the fork's own Forever folder, the migration of the forever_* world tables, and one
 # call into Forever.h in each loader that reads Forever data: the config (World.cpp, above), the
-# talent tables (DBCStores.cpp), and the spell rows (SpellMgr.cpp: spell_template, spell_chain,
+# talent tables and the item sets (DBCStores.cpp, #231), and the spell rows (SpellMgr.cpp: spell_template, spell_chain,
 # spell_proc_event, spell_threat; ObjectMgr.cpp: skill_line_ability).
 forever/**
 src/game/Forever/**
 sql/migrations/20261029120000_world.sql
+# The Forever item override table forever_item_template (WOWAI#226, spec #225); ObjectMgr.cpp reads it in
+# LoadAllIdentifiers and LoadItemPrototypes.
+sql/migrations/20261030120000_world.sql
+# The Forever trainer override table forever_npc_trainer (WOWAI#228, spec #225); ObjectMgr.cpp reads it in
+# LoadTrainers (npc_trainer only).
+sql/migrations/20261030122800_world.sql
+# The Forever gameobject loot override table forever_gameobject_loot_template (WOWAI#232, spec #225); LootMgr.cpp
+# reads it in LootStore::LoadLootTable (gameobject_loot_template only).
+sql/migrations/20261030140000_world.sql
+src/game/LootMgr.cpp
 src/game/Database/DBCStores.cpp
 src/game/Spells/SpellMgr.cpp
 src/game/ObjectMgr.cpp
@@ -99,3 +109,14 @@ src/game/Database/CharacterDatabaseCleaner.cpp
 # Spec hook 21, #204 final fix pass (client 70685): the Anger Management rage tick (Aura::PeriodicTick,
 # SpellAuras.cpp), the out-of-combat rage loss (Player::Regenerate, Player.cpp) and the Revenge attack
 # power (Spell::EffectSchoolDMG, SpellEffects.cpp). All files are listed above.
+# Spec hook 22, #233 (spec #225, the rules switch keeps recipes and Forever-only items): Player::_LoadInventory
+# keeps the rows of a Forever-only item with the rules off, and Player::_LoadSpells does not load a stock recipe
+# that the Forever rules remove (Player.cpp, above).
+# #233 merger: the mail, auction and item loot loads keep the rows of a Forever-only item with the rules off,
+# like Player::_LoadInventory, and Player::_SaveSpells saves a hidden removed recipe that is learned again.
+src/game/Chat/MasterPlayer.cpp
+src/game/AuctionHouse/AuctionHouseMgr.cpp
+src/game/Objects/Item.cpp
+# Spec hook 23, #225 final review: the GM item commands find a Forever item by its name (.additem and
+# .deleteitem in CharacterCommands.cpp read item_template through Forever::Table).
+src/game/Commands/CharacterCommands.cpp

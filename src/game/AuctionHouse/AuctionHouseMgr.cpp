@@ -36,6 +36,7 @@
 #include "Mail.h"
 #include "TransactionLog.h"
 #include "Policies/SingletonImp.h"
+#include "Forever.h"
 
 INSTANTIATE_SINGLETON_1(AuctionHouseMgr);
 
@@ -436,6 +437,13 @@ void AuctionHouseMgr::LoadAuctions()
         // check if sold item exists for guid
         // and item_template in fact (GetAItem will fail if problematic in result check in AuctionHouseMgr::LoadAuctionItems)
         Item* pItem = GetAItem(auction->itemGuidLow);
+        // WOWAI Forever rules (#233): a Forever-only item with the rules off. The auction is not loaded, and
+        // its row stays.
+        if (!pItem && Forever::KeepsRowsOfUnknownItem(auction->itemTemplate))
+        {
+            delete auction;
+            continue;
+        }
         if (!pItem)
         {
             auction->DeleteFromDB();

@@ -11,7 +11,7 @@
 // The pure rules of the Forever Protection talents (jvbastel/WOWAI#219): which spells they are, when the
 // shield talents are active, when Master of Defense can give Rage, and the Iron Will duration. No game
 // header, so wowai/tests/forever-rules.test.sh tests it on the host. ForeverProtection.cpp
-// calls it from the core hooks. The spell IDs and values are the rows of forever/warrior.tsv.
+// calls it from the core hooks. The spell IDs and values are the rows of forever/spec/warrior.tsv.
 
 #include "ForeverSpellIds.h"
 

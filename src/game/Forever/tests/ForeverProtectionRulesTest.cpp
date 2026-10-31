@@ -14,7 +14,7 @@ int main()
 
     using namespace Forever::ProtectionRules;
 
-    // The talent ranks, from forever/warrior.tsv.
+    // The talent ranks, from forever/spec/warrior.tsv.
     Check("each Defiance rank is shield gated", IsShieldTalentSpell(12303) && IsShieldTalentSpell(12788) &&
           IsShieldTalentSpell(12789));
     Check("each Bastion rank is shield gated", IsShieldTalentSpell(16538) && IsShieldTalentSpell(16539) &&

@@ -133,3 +133,25 @@ def test_a_skill_line_on_a_stock_spell(tmp_path):
     # A skill line ability takes the ID of its spell: only a new spell's ID is free in SkillLineAbility.dbc.
     error = refused(tmp_path, change_row(spec_lines(), "Berserker Rage", set="skillLine=256"))
     assert "skill line" in error and "18499" in error
+
+
+def test_a_recipe_that_the_dead_content_rule_cuts_still_gets_the_id_checks(tmp_path):
+    # Review L2: Enriched Thorium Breastplate needs a Master Forge, so the rule cuts it; its spell ID must
+    # still be in the profession range, or the bad ID comes back when a refresh keeps the recipe.
+    from test_blacksmithing import refused
+    error = refused(tmp_path, "blacksmithing.tsv", ("recipe\t61117\t16731\t", "recipe\t60500\t16731\t"))
+    assert "recipe Enriched Thorium Breastplate: spell 60500 is outside the free profession spell ID range" in error
+
+
+def test_an_item_entry_twice_is_refused(tmp_path):
+    # Review L3: Gemmed Copper Boots take the entry of Strange Copper Boots (70000).
+    from test_blacksmithing import refused
+    error = refused(tmp_path, "items.tsv", ("item\t70003\t6350\tGemmed Copper Boots", "item\t70000\t6350\tGemmed Copper Boots"))
+    assert "item Gemmed Copper Boots: entry 70000 is in the spec twice" in error
+
+
+def test_a_learn_spell_that_clashes_is_refused(tmp_path):
+    # Review L3: the plans of Gemmed Copper Boots take the learn spell of Glowing Copper Boots (61198).
+    from test_blacksmithing import refused
+    error = refused(tmp_path, "blacksmithing.tsv", ("70004/61196", "70004/61198"))
+    assert "the learn spell 61198 clashes with another spell of the same ID" in error

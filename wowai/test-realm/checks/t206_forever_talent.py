@@ -9,7 +9,7 @@
     wowai/test-realm/realm.sh --ticket N check wowai/test-realm/checks/t206_forever_talent.py vanilla
 
 A player Warrior at level 20 learns talents with CMSG_LEARN_TALENT, as the talent window does. The talent
-IDs and spells come from forever/warrior.tsv (the full spec of #210) and from the stock Talent.dbc. Fury
+IDs and spells come from forever/spec/warrior.tsv (the full spec of #210) and from the stock Talent.dbc. Fury
 tier 2 column 2 is a new Forever talent, Lingering Rage (talent 60002, rank 1 spell 60106), in the place
 of the stock Improved Demoralizing Shout (talent 161, rank 1 spell 12324). Cruelty (talent 157, ranks
 12320-12856 in both rule sets) gives the 5 Fury points that tier 2 needs.

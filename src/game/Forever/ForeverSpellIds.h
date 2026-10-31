@@ -9,7 +9,7 @@
 #define WOWAI_GAME_FOREVER_SPELL_IDS_H
 
 // The spell IDs that the server code of the Forever rules (spec jvbastel/WOWAI#204) knows by number, in one
-// place. The spec file forever/warrior.tsv is the source of truth: each constant names its row with a
+// place. The spec file forever/spec/warrior.tsv is the source of truth: each constant names its row with a
 // "spec:" comment (the kind and the name of the row; "sources" for the sourceSpells column, else the
 // spells column), and forever/generator/tests/test_spell_ids.py fails when a constant and its row differ.
 // So keep the comment format when you add a constant. A talent array lists rank 1 first.

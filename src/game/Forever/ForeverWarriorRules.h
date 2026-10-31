@@ -12,7 +12,7 @@
 // of Anger Management and Dual Wield Specialization, the Deep Wounds bleed and the attack power part of
 // Revenge. No game header, so wowai/tests/forever-rules.test.sh tests it on the host.
 // ForeverWarrior.cpp calls it from the core hooks. The chosen formulas and their sources are in the
-// header of forever/warrior.tsv ("Warrior mechanics").
+// header of forever/spec/warrior.tsv ("Warrior mechanics").
 
 #include "ForeverSpellIds.h"
 

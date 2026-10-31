@@ -1,17 +1,24 @@
 """Builds the Forever data from the spec and the stock 1.12.1 DBC files.
 
 Three outputs, all from the same rows, so that the client and the server never drift apart:
-  dbc/                  the Forever DBC folder of the server core (Forever.DataDir): the talent tables
+  dbc/                  the Forever DBC folder of the server core (Forever.DataDir): the talent tables and
+                        the item sets (ItemSet.dbc, item_sets.py)
   client/DBFilesClient/ the DBCs of the client data patch
   client/client-data-patch.MPQ  the client data patch: those DBCs in one MPQ
   sql/forever_world.sql the Forever server tables (forever_spell_template, ...) of the world database, and
                         forever_baseline_spell: the spells that the core teaches at their level (#212)
-The client data patch holds the talent tables, the spell table and the skill line abilities.
+The client data patch holds the talent tables, the spell table, the skill line abilities and the item sets.
+
+Each row kind of the spec has its own functions: the spell rows here, the recipes in recipes.py and the
+items in items.py. The spell rows and the recipes both become SpellEdits and Abilities, which the table
+writers here turn into the client tables and the server SQL.
 """
 import os
 import struct
+from collections import namedtuple
 
-from . import client_patch, rules
+from . import client_patch, dead_content, encrypted, item_sets, items, mining, new_recipes, recipes, removals, removed_recipes, rules, sources, stock_recipes
+from .common import CLIENT_BUILD, focus_ids, sql_text
 from .dbc import Dbc
 from .spec import (BASELINE, FIELDS, FLOAT_FIELDS, GENERATOR_KEYS, NAME_SUBTEXT, PROC_EVENT, SCRIPT_NAME, SKILL_LINE,
                    SUPERSEDED_BY, THREAT, proc_event, talents)
@@ -30,29 +37,46 @@ SPELL_ATTR_PASSIVE = 0x40
 # The one 64-bit `set` column: the generator writes its high word into the next Spell.dbc field.
 SPELL_FAMILY_FLAGS = "spellFamilyFlags"
 
-# The world database build of the Forever rows (SUPPORTED_CLIENT_BUILD of the core).
-CLIENT_BUILD = 5875
 FOREVER_TABLES = ("forever_spell_template", "forever_spell_chain", "forever_spell_proc_event",
-                  "forever_skill_line_ability", "forever_spell_threat")
+                  "forever_skill_line_ability", "forever_spell_threat", items.TABLE, stock_recipes.TRAINER_TABLE,
+                  mining.TABLE)
 # The spells that the core teaches a Warrior at their spellLevel, with no trainer (#212). The core reads it only
 # with Forever.Rules = 1. The migration sql/migrations/20261029120000_world.sql makes it too, with the same
 # columns (tests/test_spell_ids.py checks it), so that a realm without the generated SQL fails at startup, not quietly.
 BASELINE_TABLE = "forever_baseline_spell"
 BASELINE_COLUMNS = "(`spell_id` SMALLINT UNSIGNED NOT NULL, PRIMARY KEY (`spell_id`))"
 # SkillLineAbility.dbc 1.12.1: 0 ID, 1 SkillLine, 2 Spell, 3 RaceMask, 4 ClassMask, 5-6 exclude masks,
-# 7 MinSkillRank, 8 SupersededBy, 9 AcquireMethod (0: a trainer or the core teaches it), 10-14 0.
+# 7 MinSkillRank, 8 SupersededBy, 9 AcquireMethod (0: a trainer or the core teaches it), 10 the skill from
+# which a recipe is grey (TrivialSkillLineRankHigh), 11 the skill from which it is yellow (...RankLow), 12-14 0.
 WARRIOR_CLASS_MASK = 1
+
+# One spell of the client spell table and of forever_spell_template: a copy of the stock spell `source`
+# with `changes` [(spell_template column, value)] set. rank_text None: no rank text change on a kept spell;
+# description and script_name None: keep the source one. comment: the SQL comment line.
+SpellEdit = namedtuple("SpellEdit", "spell source changes name rank_text description script_name comment")
+# One skill line ability (client SkillLineAbility.dbc and forever_skill_line_ability). The ID is the spell ID.
+# grey and yellow: the colour range of a recipe (0 for the Warrior spells).
+Ability = namedtuple("Ability", "id skill spell race_mask class_mask req_skill superseded grey yellow")
 
 
 class Stock:
     """The stock DBC files that the generator reads."""
 
     def __init__(self, folder):
+        self.spell_focus = Dbc.read(os.path.join(folder, "SpellFocusObject.dbc"))
+        # {name: ID} of the spell foci, built once (recipes and stock recipes look each focus up by name).
+        self.focus_ids = focus_ids(self)
         self.talent = Dbc.read(os.path.join(folder, "Talent.dbc"))
         self.talent_tab = Dbc.read(os.path.join(folder, "TalentTab.dbc"))
         self.spell = Dbc.read(os.path.join(folder, "Spell.dbc"))
         self.spell_icon = Dbc.read(os.path.join(folder, "SpellIcon.dbc"))
         self.skill_line_ability = Dbc.read(os.path.join(folder, "SkillLineAbility.dbc"))
+        # The item models and icons (#227: an item takes a stock display).
+        self.item_display_info = Dbc.read(os.path.join(folder, "ItemDisplayInfo.dbc"))
+        # The item sets (#231).
+        self.item_set = Dbc.read(os.path.join(folder, "ItemSet.dbc"))
+        # The stock item IDs of the world database (#230), from the generator's own list.
+        self.item_ids = new_recipes.ItemIds.read()
 
 
 def spell_ranks(spec):
@@ -86,9 +110,10 @@ def spell_changes(row, rank):
 
 
 def skill_line_abilities(spec):
-    """(ID, skill line, spell, superseded by) of each spell of a row with a skill line. The ID is the
+    """The Ability of each spell of a row with a skill line, and of each recipe, by ID. The ID is the
     spell ID: a new spell is in the free range, so its ID is free in SkillLineAbility.dbc too."""
-    abilities = []
+    abilities = [Ability(id=r.spell, skill=r.skill_line, spell=r.spell, race_mask=0, class_mask=0, req_skill=r.min_rank,
+                         superseded=0, grey=r.grey, yellow=r.yellow) for r in spec.recipes]
     for row in spec.rows:
         if SKILL_LINE not in row.fields:
             continue
@@ -97,7 +122,8 @@ def skill_line_abilities(spec):
                 superseded = row.fields[SUPERSEDED_BY][rank]
             else:
                 superseded = row.spells[rank + 1] if rank + 1 < len(row.spells) else 0
-            abilities.append((spell, row.fields[SKILL_LINE][rank], spell, superseded))
+            abilities.append(Ability(id=spell, skill=row.fields[SKILL_LINE][rank], spell=spell, race_mask=0,
+                                     class_mask=WARRIOR_CLASS_MASK, req_skill=1, superseded=superseded, grey=0, yellow=0))
     return sorted(abilities)
 
 
@@ -109,9 +135,10 @@ def baseline_spells(spec):
 def client_skill_line_ability_table(abilities, stock):
     """SkillLineAbility.dbc: every stock row byte for byte, then the new rows."""
     table = stock.skill_line_ability.copy()
-    for ability_id, skill, spell, superseded in abilities:
+    for a in abilities:
         row = [0] * table.fields
-        row[0], row[1], row[2], row[4], row[7], row[8] = ability_id, skill, spell, WARRIOR_CLASS_MASK, 1, superseded
+        row[0], row[1], row[2], row[3], row[4], row[7], row[8] = a.id, a.skill, a.spell, a.race_mask, a.class_mask, a.req_skill, a.superseded
+        row[10], row[11] = a.grey, a.yellow
         table.rows.append(row)
     return table
 
@@ -119,6 +146,40 @@ def client_skill_line_ability_table(abilities, stock):
 def spell_texts(row, rank, stock_rank_text):
     """(name, rank text, description or None to keep the stock one) of one rank."""
     return row.name, _rank_text(row, rank, stock_rank_text), row.tooltip
+
+
+def spell_edits(spec, stock):
+    """The SpellEdit of each spell of the spec, by spell ID: the ranks of the spell rows, the recipes, and
+    the stock recipes whose reagents, name or focus change (#228)."""
+    stock_by_id = stock.spell.by_id()
+    edits = []
+    for spell, source, row, rank in spell_ranks(spec):
+        stock_rank_text = stock.spell.text(stock_by_id[spell][SPELL_RANK]) if spell in stock_by_id else ""
+        name, rank_text, description = spell_texts(row, rank, stock_rank_text)
+        comment = "-- %s rank %d, %s." % (row.name, rank + 1,
+                                          "from spell %d" % source if spell != source else "changes the stock spell")
+        script = row.fields[SCRIPT_NAME][rank] if SCRIPT_NAME in row.fields else None
+        edits.append(SpellEdit(spell=spell, source=source, changes=spell_changes(row, rank), name=name, rank_text=rank_text,
+                               description=description, script_name=script, comment=comment))
+    for recipe in spec.recipes:
+        # A source with a description (a stock smelt: "... smelt thorium ...") would describe another recipe.
+        description = "" if stock.spell.text(stock_by_id[recipe.source_spell][SPELL_DESCRIPTION]) else None
+        edits.append(SpellEdit(spell=recipe.spell, source=recipe.source_spell, changes=recipes.spell_changes(recipe, stock),
+                               name=recipe.name, rank_text="", description=description, script_name=None,
+                               comment="-- Recipe %s, from spell %d." % (recipe.name, recipe.source_spell)))
+    for learn in new_recipes.plans_learns(spec):
+        edits.append(SpellEdit(spell=learn.spell, source=new_recipes.LEARN_SOURCE, changes=[("effectTriggerSpell1", learn.recipe)],
+                               name=learn.name, rank_text="", description=learn.description, script_name=None,
+                               comment="-- %s, teaches recipe %d, from spell %d." % (learn.name, learn.recipe,
+                                                                                    new_recipes.LEARN_SOURCE)))
+    for recipe in spec.stock_recipes:
+        changed = stock_recipes.spell_changes(recipe, stock)
+        if changed:
+            changes, name, rank_text = changed
+            edits.append(SpellEdit(spell=recipe.spell, source=recipe.spell, changes=changes, name=name, rank_text=rank_text,
+                                   description=None, script_name=None,
+                                   comment="-- Stock recipe %s, changes the stock spell." % recipe.name))
+    return sorted(edits, key=lambda e: e.spell)
 
 
 def talent_table(spec, stock):
@@ -153,22 +214,22 @@ def in_client_order(talents):
     return talents
 
 
-def client_spell_table(spells, stock):
+def client_spell_table(edits, stock):
     """Spell.dbc: every stock row, the spec changes on the stock spells that the spec names, and the new
     spell rows, sorted by ID. A stock row whose values the spec does not change stays byte for byte."""
     table = stock.spell.copy()
     by_id = table.by_id()
     stock_by_id = stock.spell.by_id()
-    for spell, source, row, rank in spells:
+    for edit in edits:
+        spell = edit.spell
         new = spell not in stock_by_id
-        target = list(stock_by_id[source]) if new else by_id[spell]
+        target = list(stock_by_id[edit.source]) if new else by_id[spell]
         target[0] = spell
-        for name, value in spell_changes(row, rank):
+        for name, value in edit.changes:
             target[FIELDS[name] if name != "spellIconId" else SPELL_ICON] = _dbc_value(name, value)
             if name == SPELL_FAMILY_FLAGS:
                 target[FIELDS[name] + 1] = (value >> 32) & 0xFFFFFFFF
-        stock_rank_text = "" if new else table.text(target[SPELL_RANK])
-        for first, value in zip((SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION), spell_texts(row, rank, stock_rank_text)):
+        for first, value in zip((SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION), (edit.name, edit.rank_text, edit.description)):
             # enUS only: the other locale strings of the stock row would be stale.
             if value is not None and (new or table.text(target[first]) != value):
                 target[first:first + 8] = [table.add_text(value)] + [0] * 7
@@ -185,36 +246,28 @@ def _dbc_value(name, value):
     return value & 0xFFFFFFFF
 
 
-def _sql_text(value):
-    return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
-
-
-def server_sql(spec, spells, stock):
+def server_sql(spec, edits, stock):
     """The Forever server tables. Each spec spell is a copy of the stock server row of its source spell
     (with the core's own fixes), with the spec values set on top. The tables are made again in the shape
     of the stock tables first, so that a new column of a stock table cannot break the copies."""
     lines = ["-- The Forever server tables of the world database. Generated by forever/generator from",
-             "-- forever/warrior.tsv: never edit by hand. The core reads them only with Forever.Rules = 1.", ""]
+             "-- the spec folder forever/spec: never edit by hand. The core reads them only with Forever.Rules = 1.", ""]
     for table in FOREVER_TABLES:
         lines += ["DROP TABLE IF EXISTS `%s`;" % table,
                   "CREATE TABLE `%s` LIKE `%s`;" % (table, table[len("forever_"):])]
-    stock_by_id = stock.spell.by_id()
-    for spell, source, row, rank in spells:
-        stock_rank_text = stock.spell.text(stock_by_id[spell][SPELL_RANK]) if spell in stock_by_id else ""
-        name, rank_text, description = spell_texts(row, rank, stock_rank_text)
-        values = [("entry", str(spell)), ("build", str(CLIENT_BUILD)), ("name", _sql_text(name)),
-                  ("nameSubtext", _sql_text(rank_text))]
-        if description is not None:
-            values.append(("description", _sql_text(description)))
-        values += [(column, str(value)) for column, value in spell_changes(row, rank)]
-        if SCRIPT_NAME in row.fields:
-            values.append(("script_name", _sql_text(row.fields[SCRIPT_NAME][rank])))
+    for edit in edits:
+        values = [("entry", str(edit.spell)), ("build", str(CLIENT_BUILD)), ("name", sql_text(edit.name)),
+                  ("nameSubtext", sql_text(edit.rank_text))]
+        if edit.description is not None:
+            values.append(("description", sql_text(edit.description)))
+        values += [(column, str(value)) for column, value in edit.changes]
+        if edit.script_name is not None:
+            values.append(("script_name", sql_text(edit.script_name)))
         lines += [
             "",
-            "-- %s rank %d, %s." % (row.name, rank + 1,
-                                    "from spell %d" % source if spell != source else "changes the stock spell"),
+            edit.comment,
             "CREATE TEMPORARY TABLE `forever_spell_new` SELECT * FROM `spell_template` WHERE `entry`=%d "
-            "AND `build`<=%d ORDER BY `build` DESC LIMIT 1;" % (source, CLIENT_BUILD),
+            "AND `build`<=%d ORDER BY `build` DESC LIMIT 1;" % (edit.source, CLIENT_BUILD),
             "UPDATE `forever_spell_new` SET %s;" % ", ".join("`%s`=%s" % kv for kv in values),
             "INSERT INTO `forever_spell_template` SELECT * FROM `forever_spell_new`;",
             "DROP TEMPORARY TABLE `forever_spell_new`;",
@@ -224,6 +277,16 @@ def server_sql(spec, spells, stock):
     lines += _server_threat(spec)
     lines += _server_skill_line_abilities(skill_line_abilities(spec))
     lines += _server_baseline(baseline_spells(spec))
+    lines += items.server_sql(spec.items)
+    lines += item_sets.server_sql(spec, items.TABLE)
+    lines += new_recipes.server_sql(spec)
+    lines += stock_recipes.server_sql(spec, stock)
+    lines += mining.server_sql(spec)
+    lines += removed_recipes.plans_server_sql(spec, stock)
+    # Last: the removal marker column of each override table, then the rows that it removes (#229). A row
+    # copied with SELECT * after it would have one column too few (removals.py). Add removal lines here.
+    removed = removed_recipes.server_sql(spec, stock)
+    lines += removals.marker_sql(FOREVER_TABLES) + removed
     return "\n".join(lines) + "\n"
 
 
@@ -243,14 +306,14 @@ def _server_threat(spec):
 def _server_skill_line_abilities(abilities):
     """The forever_skill_line_ability rows: each a copy of a stock row (for the shape) with every column set."""
     lines = []
-    for ability_id, skill, spell, superseded in abilities:
-        values = [("id", ability_id), ("build", CLIENT_BUILD), ("skill_id", skill), ("spell_id", spell),
-                  ("race_mask", 0), ("class_mask", WARRIOR_CLASS_MASK), ("req_skill_value", 1),
-                  ("superseded_by_spell", superseded), ("learn_on_get_skill", 0), ("max_value", 0),
-                  ("min_value", 0), ("req_train_points", 0)]
+    for a in abilities:
+        values = [("id", a.id), ("build", CLIENT_BUILD), ("skill_id", a.skill), ("spell_id", a.spell),
+                  ("race_mask", a.race_mask), ("class_mask", a.class_mask), ("req_skill_value", a.req_skill),
+                  ("superseded_by_spell", a.superseded), ("learn_on_get_skill", 0), ("max_value", a.grey),
+                  ("min_value", a.yellow), ("req_train_points", 0)]
         lines += [
             "",
-            "-- The skill line ability of spell %d." % spell,
+            "-- The skill line ability of spell %d." % a.spell,
             "CREATE TEMPORARY TABLE `forever_sla_new` SELECT * FROM `skill_line_ability` WHERE `build`=%d "
             "ORDER BY `id` LIMIT 1;" % CLIENT_BUILD,
             "UPDATE `forever_sla_new` SET %s;" % ", ".join("`%s`=%d" % kv for kv in values),
@@ -296,15 +359,37 @@ def proc_event_sql(row):
 
 
 def generate(spec, stock_folder, out, marker_icons):
-    """Checks the spec against the stock data and the core's marker icons, then writes the three outputs
-    into `out`. A spec that breaks a rule raises a SpecError before anything is written."""
+    """Checks the spec against the stock data and the core's marker icons, leaves out the dead content
+    (dead_content.py), then writes the three outputs, the cut list (cut-list.tsv) and the encrypted list
+    (encrypted-list.tsv, encrypted.py) into `out`. A spec that breaks a rule raises a SpecError before
+    anything is written. Returns the cut list."""
     stock = Stock(stock_folder)
+    # The item rules and the rules of the new rows hold for every row, also the ones the rule then cuts.
+    items.check(spec, stock)
+    encrypted.check(spec)
+    sources.check(spec)
+    new_recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
+    mining.check(spec, stock)
+    # The ID rules hold for the rows that the rule cuts too: a refresh can bring a cut row back (review L2).
     rules.check(spec, stock, marker_icons)
-    spells = spell_ranks(spec)
+    recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)], check_focus=False)
+    full_items = spec.items
+    spec, cuts = dead_content.cut(spec)
+    # The drops of a cut ore go too (#232), and the mining content that is not ported joins the cut list.
+    spec, mining_cuts = mining.cut(spec, full_items)
+    cuts = sorted(cuts + mining_cuts, key=lambda c: (c.kind, c.id))
+    rules.check(spec, stock, marker_icons)
+    recipes.check(spec, stock, [spell for spell, _, _, _ in spell_ranks(spec)])
+    stock_recipes.check(spec, stock)
+    removed_recipes.check(spec, stock)
+    item_sets.check(spec, stock)
+    edits = spell_edits(spec, stock)
     talents = in_client_order(talent_table(spec, stock))
-    spell_table = client_spell_table(spells, stock)
-    sql = server_sql(spec, spells, stock)
-    abilities = client_skill_line_ability_table(skill_line_abilities(spec), stock)
+    spell_table = client_spell_table(edits, stock)
+    sql = server_sql(spec, edits, stock)
+    abilities = stock_recipes.apply_colours(client_skill_line_ability_table(skill_line_abilities(spec), stock), spec, stock)
+    abilities = removed_recipes.apply(abilities, spec, stock)
+    sets = item_sets.client_table(spec, stock)
 
     server_dbc = os.path.join(out, "dbc")
     client_dbc = os.path.join(out, "client", "DBFilesClient")
@@ -314,8 +399,14 @@ def generate(spec, stock_folder, out, marker_icons):
     for folder in (server_dbc, client_dbc):
         talents.write(os.path.join(folder, "Talent.dbc"))
         stock.talent_tab.write(os.path.join(folder, "TalentTab.dbc"))
+        sets.write(os.path.join(folder, "ItemSet.dbc"))
     spell_table.write(os.path.join(client_dbc, "Spell.dbc"))
     abilities.write(os.path.join(client_dbc, "SkillLineAbility.dbc"))
     with open(os.path.join(sql_dir, "forever_world.sql"), "w", encoding="utf-8", newline="\n") as file:
         file.write(sql)
+    with open(os.path.join(out, "cut-list.tsv"), "w", encoding="utf-8", newline="\n") as file:
+        file.write(dead_content.cut_list_text(cuts))
+    with open(os.path.join(out, "encrypted-list.tsv"), "w", encoding="utf-8", newline="\n") as file:
+        file.write(encrypted.list_text(spec))
     client_patch.write(os.path.join(out, "client"))
+    return cuts

@@ -1,5 +1,5 @@
 """The spell IDs that the server code knows by number (src/game/Forever/ForeverSpellIds.h) against the spec
-file forever/warrior.tsv (review T3 of jvbastel/WOWAI#204).
+file forever/spec/warrior.tsv (review T3 of jvbastel/WOWAI#204).
 
 Each constant of the header names its spec row in a "// spec: <kind> <name>[ sources]" comment. A constant
 must hold the spell IDs of that row (rank 1 first), or its source spells with "sources". So a refresh of the
@@ -14,6 +14,8 @@ from test_pipeline import ROOT
 
 HEADER = ROOT / "src" / "game" / "Forever" / "ForeverSpellIds.h"
 FOREVER_SRC = ROOT / "src" / "game" / "Forever"
+# The profession block of the spell range (#233); tests/test_profession_ids.py checks it against the spec.
+PROFESSION_HEADER = FOREVER_SRC / "ForeverProfessionIds.h"
 CONSTANT = re.compile(r"constexpr uint32_t (\w+)(\[\])?\s*=\s*(\{[^}]*\}|\d+)\s*;\s*//\s*spec:\s*(.+?)\s*$", re.M)
 
 
@@ -25,7 +27,7 @@ def constants():
 
 @pytest.fixture(scope="module")
 def the_spec():
-    return spec.read(ROOT / "forever" / "warrior.tsv")
+    return spec.read(ROOT / "forever" / "spec" / "warrior.tsv")
 
 
 def test_the_header_names_a_row_for_its_constants():
@@ -56,7 +58,7 @@ def test_no_other_forever_file_writes_a_forever_spell_id(the_spec):
     low, high = the_spec.id_range
     offenders = []
     for path in sorted(FOREVER_SRC.glob("*.[ch]*")):
-        if path == HEADER:
+        if path in (HEADER, PROFESSION_HEADER):
             continue
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             code = line.split("//")[0]
@@ -73,9 +75,21 @@ def test_the_migration_makes_the_baseline_table_with_the_columns_of_the_generato
     assert "CREATE TABLE IF NOT EXISTS `forever_baseline_spell` %s;" % build.BASELINE_COLUMNS in migration
 
 
-def test_the_migration_makes_every_forever_table_that_the_core_reads():
-    """Review S2: with the rules on, the core reads each forever_* table; the migration makes them, so that a
-    realm without the generated SQL stops at startup (empty forever_spell_template) instead of a failed query."""
-    migration = (ROOT / "sql" / "migrations" / "20261029120000_world.sql").read_text(encoding="utf-8")
+def test_the_migrations_make_every_forever_table_that_the_core_reads():
+    """Review S2: with the rules on, the core reads each forever_* table; the world migrations make them (the
+    spell tables 20261029120000, forever_item_template #226), so that a realm without the generated SQL stops at
+    startup (empty forever_spell_template) instead of a failed query."""
+    migrations = "".join(path.read_text(encoding="utf-8")
+                         for path in sorted((ROOT / "sql" / "migrations").glob("2026*_world.sql")))
     for table in build.FOREVER_TABLES:
-        assert "CREATE TABLE IF NOT EXISTS `%s` LIKE `%s`;" % (table, table[len("forever_"):]) in migration, table
+        assert "CREATE TABLE IF NOT EXISTS `%s` LIKE `%s`;" % (table, table[len("forever_"):]) in migrations, table
+
+
+def test_the_core_refuses_to_start_without_a_forever_table():
+    """With the rules on, Forever::LoadConfig stops the server when one of the forever_* tables is missing
+    (the list foreverTables of Forever.cpp). Each table of the generated SQL must be on it."""
+    source = (FOREVER_SRC / "Forever.cpp").read_text(encoding="utf-8")
+    listed = re.search(r"foreverTables\[\] = \{([^}]*)\}", source)
+    assert listed, "no foreverTables list in Forever.cpp"
+    names = set(re.findall(r'"(\w+)"', listed.group(1)))
+    assert set(build.FOREVER_TABLES) | {build.BASELINE_TABLE} <= names, set(build.FOREVER_TABLES) - names

@@ -23,6 +23,7 @@
 # Free ID range: 60000-65535. A new talent, spell or skill line ability takes its ID from here. The stock
 # 1.12.1 data ends at spell 33392, talent 1703 and skill line ability 15030, and spell IDs are SMALLINT
 # UNSIGNED in the world database. Next free IDs: talent 60009, spell 60133.
+# The block 61000-61999 of this range belongs to the profession spells (blacksmithing.tsv names it).
 #
 # IDs:
 #   A talent that survives in Forever keeps its 1.12 talent ID, and each of its ranks keeps the stock spell of

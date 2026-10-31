@@ -1,7 +1,7 @@
 // Tests of the pure rules of the Forever Fury talents (ForeverFuryRules.h, jvbastel/WOWAI#218).
 // No GoogleTest and no core: wowai/tests/forever-rules.test.sh builds this file with the host
 // compiler and runs it. The glob of src/game/Forever does not take this subfolder into the core.
-// Expected values come from the spec rows of forever/warrior.tsv and the tooltips of build 1.60.1.70685.
+// Expected values come from the spec rows of forever/spec/warrior.tsv and the tooltips of build 1.60.1.70685.
 
 #include "../ForeverFuryRules.h"
 #include "TestCheck.h"

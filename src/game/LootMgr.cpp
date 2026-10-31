@@ -29,6 +29,7 @@
 #include "Group.h"
 #include "BattleGroundMgr.h"
 #include "Utilities/Random.h"
+#include "Forever.h"
 
 static eConfigFloatValues const qualityToRate[MAX_ITEM_QUALITY] =
 {
@@ -101,8 +102,10 @@ void LootStore::LoadLootTable()
 
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "%s :", GetName());
 
+    // WOWAI Forever rules (#232): the forever_gameobject_loot_template rows replace the stock rows of their loot ID.
+    std::string const fromTable = this == &LootTemplates_Gameobject ? Forever::Table(GetName(), "entry") : GetName();
     //                                                                 0      1     2                    3        4              5         6
-    std::unique_ptr<QueryResult> result = WorldDatabase.PQuery("SELECT entry, item, ChanceOrQuestChance, groupid, mincountOrRef, maxcount, condition_id FROM %s WHERE ((%u >= patch_min) && (%u <= patch_max)) && ((mincountOrRef < 0) || (item NOT IN (SELECT entry FROM forbidden_items WHERE (after_or_before = 0 && patch <= %u) || (after_or_before = 1 && patch >= %u))))", GetName(), sWorld.GetWowPatch(), sWorld.GetWowPatch(), sWorld.GetWowPatch(), sWorld.GetWowPatch());
+    std::unique_ptr<QueryResult> result = WorldDatabase.PQuery("SELECT entry, item, ChanceOrQuestChance, groupid, mincountOrRef, maxcount, condition_id FROM %s WHERE ((%u >= patch_min) && (%u <= patch_max)) && ((mincountOrRef < 0) || (item NOT IN (SELECT entry FROM forbidden_items WHERE (after_or_before = 0 && patch <= %u) || (after_or_before = 1 && patch >= %u))))", fromTable.c_str(), sWorld.GetWowPatch(), sWorld.GetWowPatch(), sWorld.GetWowPatch(), sWorld.GetWowPatch());
 
     if (result)
     {

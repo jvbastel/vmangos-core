@@ -1,6 +1,6 @@
 """The data pipeline test of the Forever rules (spec jvbastel/WOWAI#204, testing decision 1).
 
-It runs the generator on the spec file, as the test realm kit does, and reads what it wrote from the
+It runs the generator on the spec folder forever/spec, as the test realm kit does, and reads what it wrote from the
 outside: the talent tables through the talent exporter of the bot tools, the client spell rows as a
 DBC file, and the server spell data as the SQL that the world database runs.
 
@@ -19,15 +19,28 @@ import pytest
 from forever_gen import client_patch
 
 ROOT = Path(__file__).resolve().parents[3]
-SPEC = ROOT / "forever" / "warrior.tsv"
+# The spec folder (one file per area, #226) and its Warrior file, whose rows these tests check.
+SPEC_DIR = ROOT / "forever" / "spec"
+SPEC = SPEC_DIR / "warrior.tsv"
 GENERATOR = ROOT / "forever" / "generator" / "generate.py"
 EXPORTER = ROOT / "bots" / "tools" / "talents" / "export_talents.py"
 STOCK = Path(os.environ.get("FOREVER_STOCK_DBC", "/mnt/c/Games/vmangos-deploy/storage/mangosd/extracted-data/5875/dbc"))
+# The dump of the Forever client (outside git); the tests that read it skip without it.
+DUMP = Path(os.environ.get("FOREVER_CLIENT_DUMP", "/home/jvbastel/wowai/notes/forever/client-data/out/professions"))
+# The 1.12 item stat types of the spec's base stats (item_template stat_type).
+STAT_TYPES = {"Mana": 0, "Health": 1, "Agi": 3, "Str": 4, "Int": 5, "Spi": 6, "Sta": 7}
+# The spell effect of each bonus: (aura, misc value) of each "apply aura" effect (Spell.dbc 1.12.1).
+BONUS_AURAS = {((52, 0),): "Crit", ((54, 0),): "Hit", ((49, 0),): "Dodge", ((47, 0),): "Parry", ((51, 0),): "Block",
+               ((30, 95),): "Defense", ((99, 0), (124, 0)): "AP", ((13, 126), (135, 126)): "SpellPower",
+               ((135, 126),): "Healing", ((22, 126),): "AllRes"}
+# Spell.dbc 1.12.1: 61-63 Effect, 64-66 EffectDieSides, 76-78 EffectBasePoints, 91-93 aura, 106-108 misc value.
+EFFECT, DIE_SIDES, BASE_POINTS, AURA, MISC = 61, 64, 76, 91, 106
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
 # Spell.dbc 1.12.1: 0 ID, 117 SpellIconID, 120 Name (enUS), 129 Rank (enUS), 138 Description (enUS).
 SPELL_ID, SPELL_ICON, SPELL_NAME, SPELL_RANK, SPELL_DESCRIPTION = 0, 117, 120, 129, 138
+SPELL_STRING_FIELDS = {first + k for first in (120, 129, 138, 147) for k in range(8)}
 
 
 def spec_rows(kind=None):
@@ -51,6 +64,22 @@ def set_values(row, name):
     return None
 
 
+def changed_stock_spells(kinds=("stock",)):
+    """The stock spells that the stock rows of the profession files change in place (#228), or the rows of
+    the other `kinds` (removed: the removal rows of #229)."""
+    spells = set()
+    for path in SPEC_DIR.glob("*.tsv"):
+        lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")]
+        spells |= {int(line.split("\t")[1]) for line in lines[1:] if line.split("\t")[0] in kinds}
+    return spells
+
+
+def removed_stock_abilities():
+    """The stock SkillLineAbility.dbc IDs of the recipes that the removal rows take away (#229)."""
+    removed = changed_stock_spells(("removed",))
+    return {key for key, row in read_dbc(STOCK / "SkillLineAbility.dbc")[0].items() if row[2] in removed}
+
+
 def int32(value):
     return value - (1 << 32) if value >= 1 << 31 else value
 
@@ -72,8 +101,8 @@ def read_dbc(path):
     return rows, lambda offset: strings[offset:strings.index(b"\0", offset)].decode("utf-8")
 
 
-def generate(out):
-    subprocess.run([sys.executable, "-I", str(GENERATOR), "--spec", str(SPEC), "--stock", str(STOCK),
+def generate(out, spec=SPEC_DIR):
+    subprocess.run([sys.executable, "-I", str(GENERATOR), "--spec", str(spec), "--stock", str(STOCK),
                     "--out", str(out)], check=True)
     return out
 
@@ -203,7 +232,7 @@ def test_a_new_spell_is_a_copy_of_its_source_with_the_spec_values(out):
 def test_the_stock_spell_rows_that_the_spec_does_not_name_stay_in_the_client_table(out):
     client, text = read_dbc(out / "client" / "DBFilesClient" / "Spell.dbc")
     stock, stock_text = read_dbc(STOCK / "Spell.dbc")
-    named = {spell for row in spec_rows() for spell in spells_of(row)}
+    named = {spell for row in spec_rows() for spell in spells_of(row)} | changed_stock_spells()
     assert set(stock) <= set(client)
     for spell, row in stock.items():
         if spell not in named:
@@ -256,8 +285,8 @@ def test_the_client_data_patch_holds_the_client_tables(out):
     import mpyq
     archive = mpyq.MPQArchive(str(out / "client" / client_patch.PATCH_NAME), listfile=True)
     names = sorted(name.decode() for name in archive.files)
-    assert names == ["DBFilesClient\\SkillLineAbility.dbc", "DBFilesClient\\Spell.dbc", "DBFilesClient\\Talent.dbc",
-                     "DBFilesClient\\TalentTab.dbc"]
+    assert names == ["DBFilesClient\\ItemSet.dbc", "DBFilesClient\\SkillLineAbility.dbc", "DBFilesClient\\Spell.dbc",
+                     "DBFilesClient\\Talent.dbc", "DBFilesClient\\TalentTab.dbc"]
     for name in names:
         assert archive.read_file(name) == (out / "client" / name.replace("\\", "/")).read_bytes(), name
 
@@ -335,3 +364,49 @@ def test_no_new_forever_spell_is_a_channel(out):
     server = server_spells(out)
     channels = sorted(i for i, row in server.items() if i >= 60100 and int(row.get("attributesEx", 0)) & CHANNELED)
     assert channels == []
+
+
+def test_the_other_spec_files_leave_the_warrior_output_as_it_is(out, tmp_path):
+    # #226: the spec is a folder with one file per area. The Warrior file alone gives the Warrior output;
+    # the other files add their own rows and change no Warrior byte: the talent tables are the same, and
+    # each row of the Warrior-only spell and skill line ability tables is in the full tables as it is.
+    alone = tmp_path / "warrior-only"
+    alone.mkdir()
+    (alone / "warrior.tsv").write_bytes(SPEC.read_bytes())
+    warrior = generate(tmp_path / "warrior-out", alone)
+    assert sorted(p.name for p in SPEC_DIR.glob("*.tsv")) != ["warrior.tsv"], "the spec folder has only the Warrior file"
+    # The stock recipes that a profession file changes in place (#228) are not Warrior rows.
+    changed = changed_stock_spells()
+    for name in ("dbc/Talent.dbc", "dbc/TalentTab.dbc", "client/DBFilesClient/Talent.dbc"):
+        assert (out / name).read_bytes() == (warrior / name).read_bytes(), name
+    for name in ("Spell.dbc", "SkillLineAbility.dbc"):
+        full, full_text = read_dbc(out / "client" / "DBFilesClient" / name)
+        only, only_text = read_dbc(warrior / "client" / "DBFilesClient" / name)
+        gone = removed_stock_abilities() if name == "SkillLineAbility.dbc" else set()
+        assert set(only) - gone < set(full), name
+        for key, row in only.items():
+            if (key if name == "Spell.dbc" else row[2]) in changed or key in gone:
+                continue
+            if name == "Spell.dbc":
+                # Every field: the string fields (8 locales of name, rank, description, tooltip) by text.
+                for field, value in enumerate(row):
+                    if field in SPELL_STRING_FIELDS:
+                        assert full_text(full[key][field]) == only_text(value), (key, field)
+                    else:
+                        assert full[key][field] == value, (key, field)
+            else:
+                assert full[key] == row, key
+    sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
+    for line in (warrior / "sql" / "forever_world.sql").read_text(encoding="utf-8").splitlines():
+        if line.startswith(("UPDATE", "INSERT")):
+            assert line in sql, line
+
+
+def bonus_of(spells, spell):
+    """(name, value) of the bonus that a stock equip spell gives, from its Spell.dbc effects."""
+    row = spells[spell]
+    effects = [k for k in range(3) if row[EFFECT + k]]
+    auras = tuple((row[AURA + k], row[MISC + k]) for k in effects)
+    values = {int32(row[BASE_POINTS + k]) + row[DIE_SIDES + k] for k in effects}
+    assert all(row[EFFECT + k] == 6 for k in effects) and len(values) == 1, spell
+    return BONUS_AURAS.get(auras, "spell %d" % spell), values.pop()

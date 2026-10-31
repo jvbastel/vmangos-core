@@ -8,6 +8,7 @@
 #include "ObjectAccessor.h"
 #include "WorldPacket.h"
 #include "Opcodes.h"
+#include "Forever.h"
 
 MasterPlayer::MasterPlayer(WorldSession* s):
     m_session(s)
@@ -234,6 +235,23 @@ void MasterPlayer::LoadMailedItems(std::unique_ptr<QueryResult> result)
 
         if (!proto)
         {
+            // WOWAI Forever rules (#233): a Forever-only item with the rules off. Its rows stay, and the whole
+            // mail is not loaded, so that no mail action (take, return, delete) can lose the item. The items of
+            // the mail that loaded before this one leave memory too (their rows stay): no item without a mail.
+            if (Forever::KeepsRowsOfUnknownItem(itemId))
+            {
+                for (MailItemInfo const& info : mail->items)
+                {
+                    if (Item* loaded = GetMItem(info.itemGuid))
+                    {
+                        RemoveMItem(info.itemGuid);
+                        delete loaded;
+                    }
+                }
+                RemoveMail(mail_id);
+                delete mail;
+                continue;
+            }
             sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "Player %u has unknown item Id (ProtoType) in mailed items (GUID: %u Id: %u) in mail (%u), deleted.", GetGUIDLow(), itemGuidLow, itemId, mail->messageID);
             CharacterDatabase.PExecute("INSERT INTO `character_deleted_items` (`player_guid`, `item_id`, `stack_count`) VALUES ('%u', '%u', '%u')", GetGUIDLow(), itemId, fields[2].GetUInt32());
             CharacterDatabase.PExecute("DELETE FROM `mail_items` WHERE `item_guid` = '%u'", itemGuidLow);

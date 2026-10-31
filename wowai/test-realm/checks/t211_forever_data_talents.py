@@ -10,7 +10,7 @@
 A level 60 player Warrior learns talents with CMSG_LEARN_TALENT, as the talent window does. A spell
 modifier talent (aura 107/108) makes the server send the client the total modifier of each family flag bit
 (SMSG_SET_FLAT/PCT_SPELL_MODIFIER: uint8 bit, uint8 op, int32 value), so the check reads the effect that
-the character has. The values come from forever/warrior.tsv (client build 1.60.1.70685).
+the character has. The values come from forever/spec/warrior.tsv (client build 1.60.1.70685).
 
 Arms:       Improved Rend 1/3: Rend (bit 5) bleed +12% (op 8, all effects). Stock +15%.
 Fury:       Booming Voice 1/5: shouts (bits 16-19) radius +10% (op 6) and Rage cost -5% (op 14). Stock: no

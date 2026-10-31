@@ -1,0 +1,61 @@
+# Forever Mining: the new ores and their vein drops of spec jvbastel/WOWAI#225 (ticket #232). forever/generator writes
+# the ores into forever_item_template and the drops into forever_gameobject_loot_template (world database). The core
+# reads both only with Forever.Rules = 1. Smelting does not change. Never edit a generated file by hand. To gather
+# the data again, see forever/REFRESH.md.
+#
+# Source: WoW Forever build 1.60.1.70685, recorded 2026-10-30: the local Forever client (items.tsv and locks.tsv of
+# the #224 dump: Pyrite 249391, Bauxite 249425 and Pitchblende 249426 are "Scarce" uncommon ores, stack 20), and the
+# stock 1.12 world DB of the batch slot (gameobject_template, gameobject_loot_template; notes/forever/
+# explore-professions.md 5a). The client has no drop rates and no spawns: the rates below are the spec's choice.
+# Only numbers and names.
+#
+# Free item ID range: 70000-79999. The ores take their IDs from here; items.tsv keeps the next free item ID.
+#
+# Rates (the `rate` column):
+#   spec      the spec's rate: Pyrite drops from the Copper and Tin Veins at the stock Malachite/Tigerseye rate, 1%
+#             in loot group 1 with the stock gems (one gem of the group at most per vein).
+#   fallback  a stand-in until launch data gives a rate (a later ticket after 4 November): the stock gem rate of
+#             the vein (group 0). Bauxite: Iron 1% (Lesser Moonstone), Mithril 0.7% (Aquamarine, Star Ruby).
+#             Pitchblende: Small Thorium 0.7% (Blue Sapphire, Huge Emerald), Rich Thorium 0.8% (Huge Emerald).
+# Pitchblende is the #230 item 70002 (items.tsv): it survives the dead-content rule because Smelt Azerothium uses
+# it. If the rule cuts it, the generator leaves its drops out and lists them in the cut list.
+#
+# Not ported (Forever mining content with no 1.12 home, spec #225 "Out of Scope"):
+#   - the Heavy Thorium Vein and its lock 4170 (Mining 300): a `cut` row, so the cut list shows it. Its ore
+#     (Heavy Thorium Ore, items.tsv) and Smelt Heavy Thorium (Molten Foundry) are cut by the dead-content rule.
+#   - lock 38 (Copper Vein) needs Mining 1 in Forever, 0 in stock: Lock.dbc is not patched, the stock value stays.
+#   - the ore stack size 20 (stock 10): the ores copy their stock source row.
+#
+# Columns (tab-separated); "-" where a column does not apply to the kind.
+#   kind         ore: a new ore item, from the free item range (items.tsv names it), a copy of sourceItem
+#                drop: an ore in the loot of one vein loot ID
+#                cut: Forever mining content that is not ported; the generator lists it in the cut list
+#   item         ore and drop: the item ID of the ore. cut: the Forever ID that the row names (a lock)
+#   name         the ore name, or what a cut row names
+#   sourceItem, quality, itemLevel, displayId, sellPrice, foreverItem
+#                ore only: as in items.tsv (displayId: a stock ItemDisplayInfo.dbc ID; sellPrice in copper)
+#   vein         drop: the vein name
+#   gameobjects  drop: the stock gameobject_template entries that use the loot ID (data1); the SQL fails if one
+#                does not
+#   lootId       drop: the gameobject_loot_template entry
+#   chance       drop: the drop chance in percent
+#   groupid      drop: the loot group (0: an own roll)
+#   rate         drop: spec or fallback (see above)
+#   notes        free text
+kind	item	name	sourceItem	quality	itemLevel	displayId	sellPrice	foreverItem	vein	gameobjects	lootId	chance	groupid	rate	notes
+# --- #232 ores, drops and the cut row.
+ore	70382	Pyrite	2776	uncommon	25	4681	100	249391	-	-	-	-	-	-	Copy of Gold Ore (2776): uncommon ore, its model and icon.
+ore	70383	Bauxite	7911	uncommon	45	20657	250	249425	-	-	-	-	-	-	Copy of Truesilver Ore (7911): uncommon ore, its model and icon.
+drop	70382	Pyrite	-	-	-	-	-	-	Copper Vein	1731,103713	1502	1	1	spec	Group 1 with Malachite, Tigerseye and Shadowgem (1% each).
+drop	70382	Pyrite	-	-	-	-	-	-	Copper Vein	2055	1735	1	1	spec	Group 1 with Malachite, Tigerseye and Shadowgem (1% each).
+drop	70382	Pyrite	-	-	-	-	-	-	Copper Vein	3763	2626	1	1	spec	Group 1 with Malachite, Tigerseye and Shadowgem (1% each).
+drop	70382	Pyrite	-	-	-	-	-	-	Tin Vein	1732,103711	1503	1	1	spec	Group 1 with Moss Agate, Shadowgem, Jade and Lesser Moonstone (1% each).
+drop	70382	Pyrite	-	-	-	-	-	-	Tin Vein	2054	1736	1	1	spec	Group 1 with Moss Agate, Shadowgem, Jade and Lesser Moonstone (1% each).
+drop	70382	Pyrite	-	-	-	-	-	-	Tin Vein	3764	2627	1	1	spec	Group 1 with Moss Agate, Shadowgem, Jade and Lesser Moonstone (1% each).
+drop	70383	Bauxite	-	-	-	-	-	-	Iron Deposit	1735	1505	1	0	fallback	Stock gems: Jade 1.3%, Lesser Moonstone 1%, Citrine 0.7%, Aquamarine 0.2%.
+drop	70383	Bauxite	-	-	-	-	-	-	Mithril Deposit, Ooze Covered Mithril Deposit	2040,150079,123310	1742	0.7	0	fallback	Stock gems: Citrine 0.8%, Aquamarine 0.7%, Star Ruby 0.7%.
+drop	70383	Bauxite	-	-	-	-	-	-	Mithril Deposit	176645	13961	0.7	0	fallback	Loot 1742 plus Tainted Vitriol.
+drop	70002	Pitchblende	-	-	-	-	-	-	Small Thorium Vein, Ooze Covered Thorium Vein	324,150082,123848	9597	0.7	0	fallback	Stock gems: Star Ruby 0.8%, five more at 0.7%.
+drop	70002	Pitchblende	-	-	-	-	-	-	Small Thorium Vein	176643	13960	0.7	0	fallback	Loot 9597 plus Tainted Vitriol.
+drop	70002	Pitchblende	-	-	-	-	-	-	Rich Thorium Vein, Ooze Covered Rich Thorium Vein	175404,177388	12883	0.8	0	fallback	Stock gems: 0.7-0.8%, Arcane Crystal 2.9%.
+cut	4170	Heavy Thorium Vein (lock 4170, Mining 300)	-	-	-	-	-	-	-	-	-	-	-	-	A Forever-only vein in Mount Hyjal, which 1.12 does not have; out of scope in spec #225.
