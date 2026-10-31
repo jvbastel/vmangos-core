@@ -1,0 +1,43 @@
+# Forever loot of Wailing Caverns (map 43): the boss drop and quest reward rows (spec jvbastel/WOWAI#240, ticket
+# #243). The items are in loot_wailing_caverns_items.tsv. The layout of the loot files is in forever/REFRESH.md,
+# "Dungeon loot". forever/generator writes a drop row into forever_creature_loot_template: a copy of every stock row
+# of the loot entry plus the new row, outside the stock equal-chance group, with patch_min 0 (Wailing Caverns is open
+# from patch 0). A reward row becomes a forever_quest_template copy of the stock quest with the Forever reward choices.
+#
+# Sources, read 2026-10-31: Wowhead's Forever tooltip data ("Dropped by" and "Drop Chance" of each item,
+# https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0) and the Forever quest pages
+# (https://www.wowhead.com/forever/quest=<id>, read with a web-fetch tool: notes/forever/dungeon-loot-research.md 7.3).
+# A drop is confirmed when the tooltip's "Dropped by" names the boss; its chance is the tooltip's "Drop Chance".
+# Quests 959, 1486, 1487, 1491, 3366 and 6981 show the stock reward choices on Wowhead Forever: no row.
+# Stock boss drops keep their stock chance (spec #240): Lord Cobrahn, Lord Serpentis, Verdan the Everliving, Mutanus
+# the Devourer and the Deviate Faerie Dragon have no confirmed drop row.
+#
+# Columns (tab-separated):
+#   kind        drop: a new item on a boss; reward: a new reward choice of a quest (replaces "-") or a swapped one;
+#               unlock: the quest reward item loses its class lock (the item needs a row in the items file)
+#   item        the item ID (a row of a loot items file, or a stock item)
+#   name        the item name
+#   target      drop: the boss (creature entry); reward, unlock: the quest ID
+#   targetName  the stock name of the boss or the title of the quest (the generator compares it)
+#   loot        drop: "creature" (the boss's creature loot entry) or "reference <ID>" (a reference loot entry that only
+#               this boss uses); else "-"
+#   chance      drop: the drop chance in percent ("-" only on a drop that is not confirmed and whose source shows
+#               no chance); else "-"
+#   replaces    reward: the stock reward choice it replaces, or "-" to add it in the first empty choice slot; else "-"
+#   count       reward: the number of items; else "-"
+#   status      confirmed, unconfirmed or unreadable (the generator leaves the row out and lists it)
+#   source      a Wowhead URL, or "client <build>"
+#   date        the day the source was read, YYYY-MM-DD
+#   notes
+kind	item	name	target	targetName	loot	chance	replaces	count	status	source	date	notes
+# --- #243 new boss drops.
+drop	71100	Cloak of Hermitic Bliss	3653	Kresh	creature	1.17	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273084?dataEnv=16&locale=0	2026-10-31	Forever item 273084
+drop	71101	Snake Eye Kaleidoscope	3671	Lady Anacondra	creature	2.04	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273088?dataEnv=16&locale=0	2026-10-31	Forever item 273088
+drop	71102	Slither Cord	3670	Lord Pythas	creature	1.71	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273089?dataEnv=16&locale=0	2026-10-31	Forever item 273089
+drop	71103	Skum's Bucket	3674	Skum	creature	2.63	-	-	confirmed	https://nether.wowhead.com/tooltip/item/273137?dataEnv=16&locale=0	2026-10-31	Forever item 273137
+drop	935	Night Watch Shortsword	5775	Verdan the Everliving	creature	-	-	-	unconfirmed	https://nether.wowhead.com/tooltip/item/935?dataEnv=16&locale=0	2026-10-31	Method.gg (beta guide) lists it on Verdan; the Forever tooltip names no source and no chance
+# --- #243 quest rewards.
+reward	71106	Hammerbone	914	Leaders of the Fang	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=914	2026-10-31	Forever item 270018, a third choice next to 6505 and 6504
+reward	71104	Heat Resistant Mitts	962	Serpentbloom	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=962	2026-10-31	Forever item 270008; stock 962 has no choice
+reward	71105	Safety Boots	962	Serpentbloom	-	-	-	1	confirmed	https://www.wowhead.com/forever/quest=962	2026-10-31	Forever item 270009
+reward	10919	Apothecary Gloves	962	Serpentbloom	-	-	-	1	unconfirmed	https://www.wowhead.com/forever/quest=962	2026-10-31	the page shows it as a choice and under "You will also receive" (the stock fixed reward, which stays); the page of 1486 shows its two choices under both headings too, so the choice is unsure

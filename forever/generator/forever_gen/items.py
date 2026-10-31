@@ -19,10 +19,11 @@ from .common import NO_VALUE, SpecError, check_kind, copy_item_sql, fail_unless,
 # quality, bonding and inventory_type: the numbers. inventory_type, delay, damage (min, max) and resistances
 # ({column: value}): None keeps the source value. allowable_class: the class mask, and disenchant_id: the disenchant
 # loot ID; None keeps the source value (loot.py: a lifted class lock of a quest reward, and the disenchant ID of the
-# item's class, quality and level).
+# item's class, quality and level). block: the shield block value; None keeps the source value (loot.py, #243).
 Item = namedtuple("Item", "kind entry source_item name quality item_level required_level bonding inventory_type "
                           "delay damage armor resistances stats bonuses equip_spells display_id sell_price "
-                          "forever_item forever_stats notes allowable_class disenchant_id", defaults=(None, None))
+                          "forever_item forever_stats notes allowable_class disenchant_id block",
+                  defaults=(None, None, None))
 
 COLUMNS = ("kind", "entry", "sourceItem", "name", "quality", "itemLevel", "requiredLevel", "bonding", "inventoryType",
            "delay", "damage", "armor", "resistances", "stats", "bonuses", "equipSpells", "displayId", "sellPrice",
@@ -169,6 +170,8 @@ def item_columns(item):
         columns.append(("allowable_class", str(item.allowable_class)))
     if item.disenchant_id is not None:
         columns.append(("disenchant_id", str(item.disenchant_id)))
+    if item.block is not None:
+        columns.append(("block", str(item.block)))
     if item.delay is not None:
         columns.append(("delay", str(item.delay)))
     if item.damage is not None:

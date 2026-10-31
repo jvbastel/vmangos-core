@@ -184,11 +184,15 @@ Row kinds:
   is encrypted. The generator copies the stock weapon or armor item of that class, subclass and slot nearest in
   item level (then of the same quality, then the lowest ID) from `generator/forever_gen/stock_world/gear.tsv`, and
   takes its display; a `displayId` overrides it (a stock `ItemDisplayInfo.dbc` ID). Stats and bonuses work as in
-  `items.tsv`. A Forever stat or effect with no 1.12 meaning or no stock equip spell (Haste, Expertise, a proc
+  `items.tsv`; `stats` can also hold `Block <value>`, the shield block value (item_template `block`; without it
+  the stock block stays). A Forever stat or effect with no 1.12 meaning or no stock equip spell (Haste, Expertise, a proc
   that 1.12 has no spell for, "+6 Attack Power against Beasts") goes into `leftOut` and stays off the item. Each
   new item, and each stock item that the gear file has, takes the disenchant ID of the stock gear of its class
-  and quality nearest in item level.
-- Loot file. `drop`: a new item on a boss (creature entry and stock name), with its Forever chance; `loot` is
+  and quality nearest in item level. A stock item that the gear file does not have (a stock common item that
+  Forever makes uncommon or better) takes its class from its `class` column; a `class` that differs from the gear
+  file is refused.
+- Loot file. `drop`: a new item on a boss (creature entry and stock name), with its Forever chance (an
+  `unconfirmed` drop whose source names no chance has `-`; a confirmed one without a chance is refused); `loot` is
   `creature` (the boss's creature loot) or `reference <ID>` (a reference that only this boss uses). The
   generator copies every stock row of that loot entry into `forever_creature_loot_template` (or
   `forever_reference_loot_template`) and adds the new row with group 0 (outside every stock equal-chance group),
