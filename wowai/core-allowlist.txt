@@ -63,6 +63,10 @@ sql/migrations/20261030122800_world.sql
 # The Forever gameobject loot override table forever_gameobject_loot_template (WOWAI#232, spec #225); LootMgr.cpp
 # reads it in LootStore::LoadLootTable (gameobject_loot_template only).
 sql/migrations/20261030140000_world.sql
+# The Forever dungeon loot override tables forever_creature_loot_template, forever_reference_loot_template and
+# forever_quest_template (WOWAI#242, spec #240); LootMgr.cpp reads the loot tables in LootStore::LoadLootTable,
+# ObjectMgr.cpp reads quest_template in LoadQuests.
+sql/migrations/20261031120000_world.sql
 src/game/LootMgr.cpp
 src/game/Database/DBCStores.cpp
 src/game/Spells/SpellMgr.cpp

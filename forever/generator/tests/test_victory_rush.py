@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from test_pipeline import ROOT, STOCK, generate, read_dbc, server_spells
+from test_pipeline import ROOT, STOCK, read_dbc, server_spells
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -23,11 +23,6 @@ SCHOOL_DAMAGE, DUMMY, APPLY_AURA, AURA_DUMMY = 2, 3, 6, 4
 DURATION_20_SEC = 18  # SpellDuration.dbc: 20000 ms
 RULES = ROOT / "src" / "game" / "Forever" / "VictoryRushRules.h"
 IDS = ROOT / "src" / "game" / "Forever" / "ForeverSpellIds.h"
-
-
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever213"))
 
 
 def client_spells(out):

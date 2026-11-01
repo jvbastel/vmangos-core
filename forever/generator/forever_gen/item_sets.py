@@ -13,27 +13,35 @@ only be named in its own stock set.
 Every bonus is a stock 1.12 equip spell, named as in items.tsv (equip_stats.py) plus the set bonuses of
 SET_BONUSES. A Forever bonus with no 1.12 aura is a bonus row with the bonuses "none": the spec keeps it, the
 generator leaves it out.
+
+The item sets of the dungeon loot (loot_item_sets.tsv, #248, spec #240) have the same rows plus `leftOut`, `source`
+and `date` (DUNGEON_COLUMNS). A bonus that is not ported, or only in part, names its Forever value in `leftOut`; a set
+whose `leftOut` names a reason stays out as a whole (resolve). The generator lists each in the loot list.
 """
 from collections import namedtuple
 
 from . import equip_stats
-from .common import NO_VALUE, SpecError, rows_of
+from .common import NO_VALUE, Listed, SpecError, check_source, rows_of
 
 COLUMNS = ("kind", "set", "name", "threshold", "pieces", "bonuses", "foreverSpell", "notes")
+# loot_item_sets.tsv (#248): every row names its source and date, and what stays off.
+DUNGEON_COLUMNS = ("kind", "set", "name", "threshold", "pieces", "bonuses", "foreverSpell", "leftOut", "source", "date",
+                "notes")
 # set: a new set (an ID that is no stock set); stockset: a changed stock set (a stock ID); bonus: a set bonus.
 SET, STOCK_SET, BONUS = "set", "stockset", "bonus"
 NOT_PORTED = "none"
 
 # The bonuses of the sets that no item uses as a bonus (equip_stats.BONUSES has the others). The spell of a
 # value is the one that most stock items use for it, then the lowest ID. No stock item gives Strength by a
-# spell; 14492 "Increased Strength 20" is the stock equip-style spell (passive, no duration).
+# spell; 14492 "Increased Strength 20" is the stock equip-style spell (passive, no duration). 14494 "Increased
+# Strength 22" is the same kind (#248, set 2131).
 SET_BONUSES = dict(equip_stats.BONUSES, **{
-    "Strength": (((29, 0),), {20: 14492}),
+    "Strength": (((29, 0),), {20: 14492, 22: 14494}),
+    # The stock spells of the dungeon sets (#248): the Forever bonus is the stock spell itself.
+    "Intellect": (((29, 3),), {10: 9106}),
+    "ArcaneRes": (((22, 64),), {5: 14707}),
+    "DaggerSkill": (((30, 173),), {1: 7534}),
     "ShadowRes": (((22, 32),), {10: 14673, 12: 14675, 14: 14677}),
-    # Vitality: health every 5 seconds, also in combat.
-    "HealthRegen": (((161, 0),), {
-        2: 21346, 3: 21593, 4: 21347, 5: 21596, 6: 21348, 7: 21601, 8: 20885, 10: 21607, 16: 23210
-    }),
 })
 
 # ItemSet.dbc 1.12.1: 0 ID, 1-8 Name (enUS first), 9 the name flags, 10-26 ItemID[17], 27-34 SetSpellID[8],
@@ -42,26 +50,37 @@ NAME, NAME_FLAGS, ITEMS, SPELLS, THRESHOLDS = 1, 9, 10, 27, 35
 MAX_PIECES, MAX_SET_SPELLS = 17, 8
 
 # set_id: the ItemSet.dbc ID; pieces: [item entry]; bonuses: [SetBonus]; notes: the set row's notes;
-# kind: SET or STOCK_SET.
-ItemSet = namedtuple("ItemSet", "set_id name pieces bonuses notes kind")
-# threshold: the number of worn pieces; bonuses: [equip_stats.Bonus] ([] when not ported).
-SetBonus = namedtuple("SetBonus", "threshold bonuses forever_spell notes")
+# kind: SET or STOCK_SET; left_out: why the whole set stays out, else None (#248).
+ItemSet = namedtuple("ItemSet", "set_id name pieces bonuses notes kind left_out", defaults=(None,))
+# threshold: the number of worn pieces; bonuses: [equip_stats.Bonus] ([] when not ported); name: the label;
+# left_out: the Forever value that stays off, else None (#248).
+SetBonus = namedtuple("SetBonus", "threshold bonuses forever_spell notes name left_out", defaults=("", None))
 
 
-def read_rows(path, lines):
+def _twice(where, set_id):
+    return SpecError("%s: item set %d is in the spec twice" % (where, set_id))
+
+
+def read_rows(path, lines, columns=COLUMNS, check_row=None):
+    """The item sets of an item sets file. check_row(where, raw): the extra rules of the file kind, or None."""
     sets, bonuses = {}, []
-    for where, raw in rows_of(path, lines, COLUMNS):
+    for where, raw in rows_of(path, lines, columns):
         set_id = int(raw["set"])
+        left_out = raw.get("leftOut", NO_VALUE)
+        left_out = None if left_out == NO_VALUE else left_out
+        if check_row:
+            check_row(where, raw)
         if raw["kind"] in (SET, STOCK_SET):
             if set_id in sets:
-                raise SpecError("%s: item set %d is in the spec twice" % (where, set_id))
+                raise _twice(where, set_id)
             pieces = [int(p) for p in raw["pieces"].split(",")]
-            sets[set_id] = ItemSet(set_id, raw["name"], pieces, [], raw["notes"], raw["kind"])
+            sets[set_id] = ItemSet(set_id, raw["name"], pieces, [], raw["notes"], raw["kind"], left_out)
         elif raw["kind"] == BONUS:
             parts = [] if raw["bonuses"] == NOT_PORTED else equip_stats.parse(where, raw["bonuses"], SET_BONUSES)
             if raw["foreverSpell"] == NO_VALUE:
                 raise SpecError("%s: a set bonus has no source (foreverSpell)" % where)
-            bonuses.append((where, set_id, SetBonus(int(raw["threshold"]), parts, int(raw["foreverSpell"]), raw["notes"])))
+            bonuses.append((where, set_id, SetBonus(int(raw["threshold"]), parts, int(raw["foreverSpell"]), raw["notes"],
+                                                    raw["name"], left_out)))
         else:
             raise SpecError("%s: unknown kind '%s'" % (where, raw["kind"]))
     for where, set_id, bonus in bonuses:
@@ -69,6 +88,34 @@ def read_rows(path, lines):
             raise SpecError("%s: a bonus of item set %d, which has no set row" % (where, set_id))
         sets[set_id].bonuses.append(bonus)
     return {"item_sets": [sets[k] for k in sorted(sets)]}
+
+
+def _check_dungeon_row(where, raw):
+    """The rules of a row of loot_item_sets.tsv: a source and date, and a Forever value for a bonus left off."""
+    check_source("item set row %s" % where, raw)
+    if raw["kind"] == BONUS and raw["bonuses"] == NOT_PORTED and raw["leftOut"] == NO_VALUE:
+        raise SpecError("%s: the set bonus %s is left off (none) and names no Forever value (leftOut)" % (where, raw["name"]))
+
+
+def read_dungeon_rows(path, lines):
+    """The rows of loot_item_sets.tsv (#248)."""
+    return read_rows(path, lines, DUNGEON_COLUMNS, _check_dungeon_row)
+
+
+def resolve(spec):
+    """(the spec without the left-out sets, the Listed rows): each left-out set with every bonus, and each bonus of
+    a kept set that leaves a Forever value off."""
+    listed, kept = [], []
+    for item_set in spec.item_sets:
+        if item_set.left_out is not None:
+            listed.append(Listed("left-out", "set", item_set.set_id, item_set.name, item_set.left_out))
+        else:
+            kept.append(item_set)
+        for bonus in item_set.bonuses:
+            if bonus.left_out is not None or item_set.left_out is not None:
+                detail = bonus.left_out or "Forever %d (the set is left out)" % bonus.forever_spell
+                listed.append(Listed("left-out", "set bonus", item_set.set_id, bonus.name, detail))
+    return spec._replace(item_sets=kept), listed
 
 
 def spells(item_set):
@@ -85,9 +132,12 @@ def check(spec, stock):
     equip_stats.check(stock, SET_BONUSES)
     stock_sets = stock.item_set.by_id()
     spec_items = {item.entry for item in spec.items}
-    owner = {}
+    owner, seen = {}, set()
     for item_set in spec.item_sets:
         where = "item set %s (%d)" % (item_set.name, item_set.set_id)
+        if item_set.set_id in seen:
+            raise _twice(where, item_set.set_id)
+        seen.add(item_set.set_id)
         if item_set.kind == SET and item_set.set_id in stock_sets:
             raise SpecError("%s: a new set (kind set) has the ID of a stock set" % where)
         if item_set.kind == STOCK_SET and item_set.set_id not in stock_sets:

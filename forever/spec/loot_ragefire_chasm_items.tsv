@@ -1,0 +1,74 @@
+# Forever loot of Ragefire Chasm (map 389): the item rows (spec jvbastel/WOWAI#240, ticket #242). forever/generator
+# writes each confirmed row into forever_item_template (world database). The drop and quest reward rows are in
+# loot_ragefire_chasm.tsv. The layout of the loot files is in forever/REFRESH.md, "Dungeon loot".
+# Never edit a generated file by hand.
+#
+# Sources, read 2026-10-31: the Forever client build 1.60.1.70685 (Item.db2: class, subclass and slot of each item;
+# ItemSparse holds every row of this file in encrypted data) and Wowhead's Forever tooltip data
+# (https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0, raw answers cached in
+# notes/forever/wowhead-cache/item, read with forever/generator/tools/wowhead_tooltips.py). Only numbers and names.
+#
+# Item ID block: 71000-71099. Next free item ID: 71007.
+#
+# Rows: the 6 stock boss drops (Taragaman the Hungerer, Jergosh the Invoker) are blue in Forever, with new stats; the
+# 6 new boss drops of Oggleflint and Bazzalan; the new quest reward Garrison Cuffs (quest 5724); the stock quest
+# rewards of 5724, 5725 and 5730 with their Forever stats. Featherbead Bracers (15452, quest 5724) has no row: its
+# Forever tooltip equals the stock item.
+# Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
+# healing) plus Healing X-Y.
+# Rounding: every Forever stat whose kind has stock equip spells takes the nearest one, up on a tie, and keeps
+# its Forever value ("SpellPower 4 (Forever 3)"); Unique-Equipped is left out; a shield writes "Block <value>" in
+# `stats`. The rules are in forever/REFRESH.md, "Dungeon loot".
+#
+# Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
+# of the source row.
+#   kind           stock: a changed stock item (entry = sourceItem, its own stock ID)
+#                  item: a new item with a stock twin (sourceItem: the stock item whose row is copied)
+#                  new: a new item with no stock twin: class, subclass and inventoryType from Item.db2; the
+#                       generator copies the stock item of that class, subclass and slot nearest in item level
+#                       (forever_gen/loot.py) and takes its display
+#   entry          the item ID: a stock ID (stock), else from the item ID block of this file
+#   foreverItem    the item ID in the Forever client and on Wowhead
+#   sourceItem     the stock item whose row is copied (stock, item), "-" for new
+#   name, quality (poor, common, uncommon, rare, epic), itemLevel, requiredLevel, bonding (none, pickup, equip, use)
+#   class, subclass  the item class and subclass (new), else "-"
+#   inventoryType  the slot as a number (13 one-hand, 21 main hand, 26 ranged right, 16 back, ...), "-" keeps it
+#   delay          the weapon speed in ms; damage: "<min>-<max>"; armor; resistances: "Fire 5, ..." or "none"
+#   stats          the base stats: "Str 2, Spi 3" (Str, Agi, Sta, Int, Spi, Health, Mana)
+#   bonuses        the other stats as stock equip spells (forever_gen/equip_stats.py): "SpellPower 11, Healing 22"
+#   equipSpells    more stock equip spells by ID
+#   displayId      a stock ItemDisplayInfo.dbc ID (it also gives the icon); "-" for new: the display of the copied item
+#   sellPrice      in copper
+#   foreverStats   the Forever stats as the source shows them
+#   leftOut        the Forever stats and effects that 1.12 cannot show or that have no stock equip spell, "-" if none.
+#                  The generator lists them (loot-list.tsv)
+#   status         confirmed (the source shows it), unconfirmed or unreadable (the generator leaves the row out and
+#                  lists it)
+#   source         where the values come from: a Wowhead URL, or "client <build>"
+#   date           the day the source was read, YYYY-MM-DD
+#   notes
+kind	entry	foreverItem	sourceItem	name	quality	itemLevel	requiredLevel	bonding	class	subclass	inventoryType	delay	damage	armor	resistances	stats	bonuses	equipSpells	displayId	sellPrice	foreverStats	leftOut	status	source	date	notes
+# --- #242 stock boss drops: Taragaman the Hungerer (11520, reference loot 30332) and Jergosh the Invoker (11518, reference loot 30331). They keep their stock chance and their stock equal-chance group.
+stock	14145	14145	14145	Cursed Felblade	rare	18	13	pickup	-	-	-	2300	19-37	0	-	-	-	-	24981	1291	Main Hand Sword, 19-37 damage, speed 2.30; Chance on hit: reduces target enemy's attack power by 24 for 30 sec	Chance on hit: attack power -24 (the stock spell 18381 gives -15 and stays)	confirmed	https://nether.wowhead.com/tooltip/item/14145?dataEnv=16&locale=0	2026-10-31	stock: green, 16-31, speed 2.60
+stock	14147	14147	14147	Cavedweller Bracers	rare	18	13	pickup	-	-	-	-	-	78	-	Str 2, Spi 3	-	-	24982	387	78 armor, +2 Str, +3 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/14147?dataEnv=16&locale=0	2026-10-31	stock: green, 71 armor, +1 Str, +2 Sta
+stock	14148	14148	14148	Crystalline Cuffs	rare	18	13	pickup	-	-	-	-	-	15	-	Sta 2, Spi 3	-	-	24983	258	15 armor, +2 Sta, +3 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/14148?dataEnv=16&locale=0	2026-10-31	stock: green, 14 armor, +2 Spi, +1 Int
+stock	14149	14149	14149	Subterranean Cape	rare	18	13	pickup	-	-	-	-	-	17	-	Str 3	-	-	24985	387	17 armor, +3 Str	-	confirmed	https://nether.wowhead.com/tooltip/item/14149?dataEnv=16&locale=0	2026-10-31	stock: green, 16 armor, +2 Agi, +2 Str
+stock	14150	14150	14150	Robe of Evocation	rare	18	13	pickup	-	-	-	-	-	35	-	Sta 6, Int 4, Spi 4	-	-	24988	516	35 armor, +6 Sta, +4 Int, +4 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/14150?dataEnv=16&locale=0	2026-10-31	stock: green, 32 armor, +4 Int, +3 Sta
+stock	14151	14151	14151	Chanting Blade	rare	18	13	pickup	-	-	-	1500	12-24	0	-	Agi 2, Sta 3	-	-	24990	1291	One-Hand Dagger, 12-24 damage, speed 1.50, +2 Agi, +3 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/14151?dataEnv=16&locale=0	2026-10-31	stock: green, 9-18, +1 Agi, +1 Sta
+# --- #242 new boss drops: Oggleflint (11517) and Bazzalan (11519) had no unique drop in stock.
+new	71000	272996	-	Trogg Scepter	rare	18	13	pickup	2	4	21	2400	13-26	0	-	Spi 4	SpellPower 11, Healing 22	-	-	1342	Main Hand Mace, 13-26 damage, speed 2.40, +4 Spi; Equip: healing up to 33 and damage up to 11	-	confirmed	https://nether.wowhead.com/tooltip/item/272996?dataEnv=16&locale=0	2026-10-31	Dropped by Oggleflint 3.22%
+new	71001	272998	-	Bone Knuckles	rare	18	13	pickup	2	13	21	2000	17-32	0	-	-	AP 6, BeastSlaying 15 (Forever 6)	-	-	1352	Main Hand Fist Weapon, 17-32 damage, speed 2.00; Equip: +6 Attack Power; Equip: +6 Attack Power against Beasts	-	confirmed	https://nether.wowhead.com/tooltip/item/272998?dataEnv=16&locale=0	2026-10-31	Dropped by Oggleflint 2.65%
+new	71002	272999	-	Barbaric Crossbow	rare	18	13	pickup	2	18	26	2000	15-23	0	-	-	-	-	-	920	Ranged Crossbow, 15-23 damage, speed 2.00; Chance on hit: wounds the target for 14 Physical damage	Chance on hit: wounds the target for 14 Physical damage (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/272999?dataEnv=16&locale=0	2026-10-31	Dropped by Oggleflint 2.93%
+new	71003	273003	-	Searing Dagger	rare	18	13	pickup	2	15	21	1600	9-17	0	-	Spi 4	-	-	-	1246	Main Hand Dagger, 9-17 damage, speed 1.60, +4 Spi; Equip: harmful spell casts sear the target for 7 Fire damage	Equip: harmful spell casts sear the target for 7 Fire damage (no 1.12 equip effect)	confirmed	https://nether.wowhead.com/tooltip/item/273003?dataEnv=16&locale=0	2026-10-31	Dropped by Bazzalan 2.84%
+new	71004	273005	-	Satyrskin Cloak	rare	18	13	pickup	4	1	16	-	-	17	-	Sta 3	-	-	-	376	Back, 17 armor, +3 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/273005?dataEnv=16&locale=0	2026-10-31	Dropped by Bazzalan 2.89%
+new	71005	273007	-	Chasm Walkers	rare	18	13	pickup	4	2	8	-	-	56	-	Spi 5	AP 4	-	-	475	Feet Leather, 56 armor, +5 Spi; Equip: +4 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/273007?dataEnv=16&locale=0	2026-10-31	Dropped by Bazzalan 2.82%
+# --- #242 quest rewards: the new choice of quest 5724 and the Forever stats of the stock rewards of 5724, 5725 and 5730.
+new	71006	270003	-	Garrison Cuffs	uncommon	18	0	pickup	4	3	9	-	-	71	-	Spi 2	SpellPower 1, Healing 2 (Forever 1)	-	-	324	Wrist Mail, 71 armor, +2 Spi; Equip: healing up to 2 and damage up to 1	-	confirmed	https://nether.wowhead.com/tooltip/item/270003?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 5724
+stock	15453	15453	15453	Savannah Bracers	uncommon	18	0	pickup	-	-	-	-	-	33	-	Sta 3	-	-	28247	271	33 armor, +3 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/15453?dataEnv=16&locale=0	2026-10-31	quest 5724; stock: sell price 269
+stock	15449	15449	15449	Ghastly Trousers	uncommon	18	0	pickup	-	-	-	-	-	28	-	Sta 3, Int 3	-	-	16850	430	28 armor, +3 Sta, +3 Int	-	confirmed	https://nether.wowhead.com/tooltip/item/15449?dataEnv=16&locale=0	2026-10-31	quest 5725; stock: +4 Int, +2 Sta
+stock	15450	15450	15450	Dredgemire Leggings	uncommon	18	0	pickup	-	-	-	-	-	65	-	Sta 3, Spi 3	-	-	28147	537	65 armor, +3 Sta, +3 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/15450?dataEnv=16&locale=0	2026-10-31	quest 5725; stock: +2 Sta, +2 Spi, +2 Agi
+stock	15451	15451	15451	Gargoyle Leggings	uncommon	18	0	pickup	-	-	-	-	-	141	-	Str 3, Spi 3	-	-	2922	645	141 armor, +3 Str, +3 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/15451?dataEnv=16&locale=0	2026-10-31	quest 5725; stock: +2 Str, +2 Sta, +2 Agi
+stock	15443	15443	15443	Kris of Orgrimmar	rare	18	0	pickup	-	-	-	1500	8-16	0	-	Sta 4	SpellPower 11, Healing 22	-	28199	1291	One-Hand Dagger, 8-16 damage, speed 1.50, +4 Sta; Equip: healing up to 33 and damage up to 11	-	confirmed	https://nether.wowhead.com/tooltip/item/15443?dataEnv=16&locale=0	2026-10-31	quest 5730; stock: green, 9-18, +1 Sta, +1 Spi
+stock	15445	15445	15445	Hammer of Orgrimmar	rare	18	0	pickup	-	-	-	2900	25-47	0	-	Str 3, Spi 3	-	-	28191	1291	Main Hand Mace, 25-47 damage, speed 2.90, +3 Str, +3 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/15445?dataEnv=16&locale=0	2026-10-31	quest 5730; stock: green, 18-35, +1 Str, +1 Sta
+stock	15424	15424	15424	Axe of Orgrimmar	rare	18	0	pickup	-	-	-	3300	42-64	0	-	Sta 6, Spi 6	-	-	3243	1614	Two-Hand Axe, 42-64 damage, speed 3.30, +6 Sta, +6 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/15424?dataEnv=16&locale=0	2026-10-31	quest 5730; stock: green, 31-47, +3 Sta, +3 Str
+stock	15444	15444	15444	Staff of Orgrimmar	rare	18	0	pickup	-	-	-	3300	31-47	0	-	Agi 6, Int 6	SpellPower 18	-	28228	1614	Two-Hand Staff, 31-47 damage, speed 3.30, +6 Agi, +6 Int; Equip: damage and healing up to 18	-	confirmed	https://nether.wowhead.com/tooltip/item/15444?dataEnv=16&locale=0	2026-10-31	quest 5730; stock: green, +2 Spi, +4 Int

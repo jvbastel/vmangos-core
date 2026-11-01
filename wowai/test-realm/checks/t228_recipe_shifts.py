@@ -67,7 +67,7 @@ results.check("the trainer teaches it at Blacksmithing %d" % TRAINER_SKILL[mode]
               bracers is not None and bracers[1:] == (BLACKSMITHING_SKILL, TRAINER_SKILL[mode]), "got %r" % (bracers,))
 results.check("at skill %d the recipe is %s" % (SKILL, "green" if mode == "forever" else "red"),
               bracers is not None and bracers[0] == TRAINER_STATE[mode], "got %r" % (bracers,))
-c.gm(".npc delete", select=trainer)
+c.gm(".npc spawn delete", select=trainer)
 
 # The weightstone: Coarse Stone and no Wool Cloth.
 c.gm(".learn %d" % COARSE_WEIGHTSTONE, select=me)

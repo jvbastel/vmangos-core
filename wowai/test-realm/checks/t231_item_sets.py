@@ -26,20 +26,12 @@ check then says SKIP for the parts that need stock pieces, checks that the refus
 that Imperial Plate Gauntlets is a piece of set 321 (forever_item_template) and that it alone gives no bonus. Run
 the check on a slot acquired with `--set WowPatch=10` to check the stock pieces too.
 """
-import re
-import struct
 import sys
-from pathlib import Path
 
-from kit import Realm, Results, clear_backpack
-from wowclient import CMSG_DESTROYITEM, SpellClient
+from kit import Realm, Results
+from set_kit import Wearer, set_bonuses
+from wowclient import SpellClient
 
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "forever" / "generator"))
-from forever_gen import item_sets, spec  # noqa: E402  (the reader of forever/spec/item_sets.tsv)
-
-CMSG_AUTOEQUIP_ITEM = 266
-BACKPACK, EQUIPMENT_SLOTS = 255, 19
 PLATE_MAIL = 750
 LEVEL = 60
 BLESSED, IMPERIAL = 1968, 321
@@ -64,69 +56,7 @@ def skip_stock(mode):
 
 def forever_bonuses(set_id):
     """{threshold: [spell]} of the ported bonus rows of the set in forever/spec/item_sets.tsv."""
-    path = ROOT / "forever" / "spec" / "item_sets.tsv"
-    rows = item_sets.read_rows(str(path), spec.data_lines(path.read_text(encoding="utf-8")))["item_sets"]
-    found = {}
-    for spell, threshold in item_sets.spells(next(s for s in rows if s.set_id == set_id)):
-        found.setdefault(threshold, []).append(spell)
-    return found
-
-
-def auras():
-    """The spell IDs of the auras on the character (`.list auras`)."""
-    found = set()
-    for line in c.gm(".list auras", select=me, wait=1.0):
-        m = re.search(r"id: (\d+) eff: \d+ type: \d+", line)
-        if m:
-            found.add(int(m.group(1)))
-    return found
-
-
-def equipped():
-    c.gm(".save", select=me)
-    rows = realm.sql("characters", "SELECT item_id FROM character_inventory WHERE guid = %d AND bag = 0 AND slot < %d"
-                     % (me, EQUIPMENT_SLOTS))
-    return {int(row) for row in rows.split() if row.isdigit()}
-
-
-def backpack_slot_of(entry):
-    c.gm(".save", select=me)
-    row = realm.sql("characters", "SELECT slot FROM character_inventory WHERE guid = %d AND bag = 0 AND slot >= 23 "
-                    "AND item_id = %d ORDER BY slot LIMIT 1" % (me, entry))
-    return int(row.split()[0]) if row else None
-
-
-def wear(*entries):
-    """Adds each item and equips it from the backpack. True when the server made each item."""
-    made = True
-    for entry in entries:
-        c.gm(".additem %d" % entry, select=me)
-        slot = backpack_slot_of(entry)
-        if slot is None:
-            made = False
-            continue
-        c.send(CMSG_AUTOEQUIP_ITEM, struct.pack("<BB", BACKPACK, slot))
-        c.pump(1.5)
-    return made
-
-
-def undress():
-    """Destroys every equipped item, so that the next set starts from no piece (and the check can run again)."""
-    for slot in range(EQUIPMENT_SLOTS):
-        c.send(CMSG_DESTROYITEM, struct.pack("<BBBBBB", BACKPACK, slot, 0, 0, 0, 0))
-    c.pump(1.5)
-    clear_backpack(realm, c)
-
-
-def check_bonuses(label, bonuses, worn):
-    """Each bonus up to `worn` pieces is on the character, each one above is not."""
-    have = auras()
-    for threshold, spells in sorted(bonuses.items()):
-        on = threshold <= worn
-        for spell in spells:
-            results.check("%s, %d pieces: the %d-piece bonus %d is %s" % (label, worn, threshold, spell,
-                                                                         "on" if on else "off"),
-                          (spell in have) == on, "auras %s" % sorted(have))
+    return set_bonuses("item_sets.tsv", set_id)
 
 
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -138,6 +68,9 @@ results = Results()
 name = "Setplate" if mode == "forever" else "Setvanilla"
 c = realm.login("PLAYER231", name, race=2, cls=1, client_class=SpellClient)
 me = c.guid
+wearer = Wearer(realm, c, results)
+auras, equipped, backpack_slot_of = wearer.auras, wearer.equipped, wearer.backpack_slot_of
+wear, undress, check_bonuses = wearer.wear, wearer.undress, wearer.check_bonuses
 level = int(realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % me) or 1)
 if level < LEVEL:
     c.gm(".levelup %d" % (LEVEL - level), select=me)

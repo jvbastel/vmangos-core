@@ -2,6 +2,8 @@
 
 It imports no other module of the generator, so every module can import it at the top: no import cycle.
 """
+import re
+from collections import namedtuple
 
 # The value of a spec column that holds no value. Each column says what no value means for it (keep the value
 # of the source row, none, or not ported).
@@ -20,6 +22,24 @@ class SpecError(Exception):
     """The spec breaks a rule. The generator writes nothing."""
 
 
+# The source of a dungeon loot row (spec #240): a Wowhead Forever URL or the client build, and the day it was read.
+SOURCE = re.compile(r"(https://nether\.wowhead\.com/tooltip/\w+/\d+\?dataEnv=16&locale=0|https://www\.wowhead\.com/forever/\S+"
+                    r"|client \d+\.\d+\.\d+\.\d+)$")
+DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
+# One line of the loot list (loot-list.tsv, #242): list (left-out, unconfirmed, unreadable, manual-source), kind, id,
+# name, detail.
+Listed = namedtuple("Listed", "list kind id name detail")
+
+
+def check_source(where, raw):
+    """Refuses a row whose `source` is no Wowhead Forever URL and no 'client <build>', or whose `date` is not
+    YYYY-MM-DD."""
+    if not SOURCE.match(raw["source"]):
+        raise SpecError("%s has no source: '%s' is no Wowhead Forever URL and no 'client <build>'" % (where, raw["source"]))
+    if not DATE.match(raw["date"]):
+        raise SpecError("%s: the date '%s' is not YYYY-MM-DD" % (where, raw["date"]))
+
+
 def rows_of(path, lines, header):
     """(where, {column: value}) of each row of a spec file whose column line is `header`."""
     rows = []
@@ -30,6 +50,11 @@ def rows_of(path, lines, header):
         raw = dict(zip(header, values))
         rows.append(("%s (data line %d)" % (raw["name"], number), raw))
     return rows
+
+
+def optional_int(raw, column):
+    """The number in `column` of a spec row, or None for NO_VALUE (the column keeps the value of the source row)."""
+    return None if raw[column] == NO_VALUE else int(raw[column])
 
 
 def int32(value):

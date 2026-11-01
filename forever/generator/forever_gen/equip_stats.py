@@ -19,8 +19,14 @@ against the stock Spell.dbc, so a wrong table entry fails the generator.
 
 The bonus names: Crit, Hit, Dodge, Parry and Block in percent; BlockValue; Defense (skill); AP (melee and
 ranged attack power) and RangedAP; SpellPower (damage and healing of all magic schools) and Healing;
-SpellCrit and SpellHit in percent; Mp5 (mana every 5 seconds); AllRes (all magic resistances); and the
-spell damage of one school, HolyDamage to ArcaneDamage.
+SpellCrit and SpellHit in percent; Mp5 (mana every 5 seconds); AllRes (all magic resistances); the
+spell damage of one school, HolyDamage to ArcaneDamage; and, for the dungeon loot (#240), HealthRegen (health
+every 5 seconds), NatureThorns (Nature damage to an attacker), SpellPen, BeastSlaying and ElementalSlaying
+(attack power against one creature type), Herbalism, Mining and Lockpicking (skill), FearRes and SilenceRes (resist
+chance in percent) and SpellDamageReduction (spell damage taken).
+
+The rounding rule holds for every bonus here, so a Forever stat whose kind is in this table is rounded, never
+left out (#240 lead decision). Only a stat with no stock spell of its kind at all goes into `leftOut`.
 """
 from collections import namedtuple
 
@@ -132,6 +138,32 @@ BONUSES = {
         18025, 51: 18026, 53: 18027, 54: 18028, 56: 26728, 57: 26729, 59: 26730, 60: 26731, 61: 26732, 63:
         26733, 64: 23594, 66: 26734, 67: 26735, 69: 23265
     }),
+    # The bonuses of the dungeon loot (#240 final fix pass). Same rule: the spell of a value is the one that most
+    # stock items use, else the lowest equip-style spell up to the largest value an item uses.
+    # Vitality: health every 5 seconds, also in combat.
+    "HealthRegen": (((161, 0),), {
+        2: 21346, 3: 21593, 4: 21347, 5: 21596, 6: 21348, 7: 21601, 8: 20885, 10: 21607, 14: 21350, 16: 23210
+    }),
+    # A Nature damage shield: "When struck in combat inflicts N Nature damage to the attacker" (spell school 3).
+    "NatureThorns": (((15, 0),), {4: 21991}),
+    # Spell penetration of all magic schools (the spell points are negative: SIGNS).
+    "SpellPen": (((123, 124),), {6: 27516, 10: 25975, 13: 28869, 20: 26283, 25: 28799}),
+    # Melee and ranged attack power against one creature type (Beast 1, Elemental 8).
+    "BeastSlaying": (((102, 1), (131, 1)), {
+        15: 20877, 18: 19691, 21: 18080, 24: 18201, 27: 14198, 30: 14565, 33: 19380, 39: 18109, 42: 15688, 45: 18067,
+        48: 17482, 60: 18207, 63: 13492, 72: 18076
+    }),
+    "ElementalSlaying": (((102, 8), (131, 8)), {36: 22836}),
+    # Profession skills (aura 30 with the skill line: Herbalism 182, Mining 186, Lockpicking 633). Herbalism 2
+    # (13614) and Mining 2 (13611) have no tooltip text: the skill works, the tooltip shows no line.
+    "Herbalism": (((30, 182),), {2: 13614, 5: 9134}),
+    "Mining": (((30, 186),), {2: 13611, 5: 12560}),
+    "Lockpicking": (((30, 633),), {5: 9133}),
+    # The chance to resist a mechanic, in percent (Fear 5, Silence 9).
+    "FearRes": (((117, 5),), {4: 24351}),
+    "SilenceRes": (((117, 9),), {5: 18985, 7: 19786, 10: 26208}),
+    # Spell damage taken, all magic schools (negative points: SIGNS).
+    "SpellDamageReduction": (((14, 126),), {10: 27518}),
     "ArcaneDamage": (((13, 64),), {
         1: 13590, 3: 13591, 4: 13592, 6: 13593, 7: 13594, 9: 13595, 10: 13596, 11: 13597, 13: 13598, 14: 13599,
         16: 13601, 17: 13602, 19: 13603, 20: 13604, 21: 13605, 23: 17821, 26: 17823, 27: 17824, 29: 17825, 30:
@@ -139,10 +171,15 @@ BONUSES = {
     }),
 }
 
-# Spell.dbc 1.12.1: 61-63 Effect, 64-66 EffectDieSides, 76-78 EffectBasePoints (common.py), 91-93
+# The bonuses whose spell points are the negative bonus value.
+SIGNS = {"SpellPen": -1, "SpellDamageReduction": -1}
+# The bonuses whose spells must be of one spell school (Spell.dbc field 1): the damage school of a damage shield.
+SCHOOLS = {"NatureThorns": 3}
+
+# Spell.dbc 1.12.1: 1 School, 61-63 Effect, 64-66 EffectDieSides, 76-78 EffectBasePoints (common.py), 91-93
 # EffectApplyAuraName, 106-108 EffectMiscValue.
 EFFECT, DIE_SIDES, BASE_POINTS = SPELL_EFFECT1, SPELL_DIE_SIDES1, SPELL_BASE_POINTS1
-AURA, MISC = 91, 106
+SCHOOL, AURA, MISC = 1, 91, 106
 SPELL_EFFECT_APPLY_AURA = 6
 
 
@@ -196,5 +233,6 @@ def check(stock, table=BONUSES):
                 for k in range(3) if row[EFFECT + k]]
             if row is None or [e[:2] for e in effects] != list(auras) or \
                     any(row[EFFECT + k] not in (0, SPELL_EFFECT_APPLY_AURA) for k in range(3)) or \
-                    any(e[2] != value for e in effects):
+                    any(e[2] != SIGNS.get(name, 1) * value for e in effects) or \
+                    row[SCHOOL] != SCHOOLS.get(name, row[SCHOOL]):
                 raise SpecError("the equip spell table: spell %d is no stock spell that gives %s %d" % (spell, name, value))

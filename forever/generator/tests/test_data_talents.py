@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-from test_pipeline import STOCK, generate, int32, read_dbc
+from test_pipeline import STOCK, int32, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -41,11 +41,6 @@ ABILITIES = {
 }
 # Pummel's second rank has no family flags in the stock data either.
 PUMMEL_RANKS = (6552, 6554)
-
-
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever"))
 
 
 @pytest.fixture(scope="module")

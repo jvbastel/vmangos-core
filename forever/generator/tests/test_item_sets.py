@@ -12,8 +12,9 @@ import re
 
 import pytest
 
+from test_blacksmithing import spec_rows
 from test_new_recipes import refused, run, spec_folder
-from test_pipeline import STOCK, generate, pytestmark, read_dbc  # noqa: F401  (pytestmark: skip without stock data)
+from test_pipeline import STOCK, pytestmark, read_dbc  # noqa: F401  (pytestmark: skip without stock data)
 
 # ItemSet.dbc 1.12.1: 0 ID, 1-8 Name, 9 the name flags, 10-26 ItemID[17], 27-34 SetSpellID[8],
 # 35-42 SetThreshold[8], 43 RequiredSkill, 44 RequiredSkillRank.
@@ -21,6 +22,8 @@ NAME, ITEMS, SPELLS, THRESHOLDS = 1, 10, 27, 35
 MAX_PIECES, MAX_SET_SPELLS = 17, 8
 
 BLESSED, IMPERIAL = 1968, 321
+# The item sets of the dungeon loot (#248).
+DUNGEON_SETS = {int(row["set"]) for row in spec_rows("loot_item_sets.tsv")}
 EXPECTED = {
     BLESSED: {
         "name": "Blessed Plate",
@@ -57,11 +60,6 @@ def item_set(row, text):
     }
 
 
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever231"))
-
-
 @pytest.mark.parametrize("set_id", [BLESSED, IMPERIAL])
 def test_the_server_item_set_table_has_the_set_with_its_pieces_and_stock_equip_spell_bonuses(out, set_id):
     rows, text = read_dbc(out / "dbc" / "ItemSet.dbc")
@@ -77,7 +75,8 @@ def test_the_other_stock_item_sets_stay_byte_for_byte(out):
     stock, stock_text = read_dbc(STOCK / "ItemSet.dbc")
     assert set(rows) == set(stock) | {BLESSED}
     for set_id, row in stock.items():
-        if set_id != IMPERIAL:
+        # The dungeon sets of #248 change too (loot_item_sets.tsv, test_loot_item_sets.py).
+        if set_id != IMPERIAL and set_id not in DUNGEON_SETS:
             assert row[:1] + row[2:] == rows[set_id][:1] + rows[set_id][2:]
             assert text(rows[set_id][NAME]) == stock_text(row[NAME])
 
@@ -94,7 +93,8 @@ def set_ids(out):
 
 def test_the_server_item_rows_of_the_new_pieces_carry_their_set(out):
     # The stock Imperial pieces keep their stock rows (set_id 321 in the world database).
-    assert set_ids(out) == {**{entry: BLESSED for entry in EXPECTED[BLESSED]["items"]}, 70208: IMPERIAL}
+    found = {entry: set_id for entry, set_id in set_ids(out).items() if set_id in (BLESSED, IMPERIAL)}
+    assert found == {**{entry: BLESSED for entry in EXPECTED[BLESSED]["items"]}, 70208: IMPERIAL}
 
 
 def test_a_new_item_copied_from_a_set_piece_is_in_no_set(out):

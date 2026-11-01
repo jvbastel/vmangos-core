@@ -13,14 +13,18 @@ Every stat other than the base stats is a bonus: a stock equip spell (equip_stat
 from collections import namedtuple
 
 from . import equip_stats
-from .common import NO_VALUE, SpecError, check_kind, copy_item_sql, fail_unless, id_range, rows_of, sql_text
+from .common import NO_VALUE, SpecError, check_kind, copy_item_sql, fail_unless, id_range, optional_int, rows_of, sql_text
 
 # stats: [(item_template stat type, value)]; bonuses: [equip_stats.Bonus]; equip_spells: [spell ID];
 # quality, bonding and inventory_type: the numbers. inventory_type, delay, damage (min, max) and resistances
-# ({column: value}): None keeps the source value.
+# ({column: value}): None keeps the source value. allowable_class: the class mask, and disenchant_id: the disenchant
+# loot ID; None keeps the source value (loot.py: a lifted class lock of a quest reward, and the disenchant ID of the
+# item's class, quality and level). block: the shield block value; None keeps the source value (loot.py, #243).
+# buy_price: None keeps the source value (loot.py: a new dungeon item costs 5 times its sell price, #240).
 Item = namedtuple("Item", "kind entry source_item name quality item_level required_level bonding inventory_type "
                           "delay damage armor resistances stats bonuses equip_spells display_id sell_price "
-                          "forever_item forever_stats notes")
+                          "forever_item forever_stats notes allowable_class disenchant_id block buy_price",
+                  defaults=(None, None, None, None))
 
 COLUMNS = ("kind", "entry", "sourceItem", "name", "quality", "itemLevel", "requiredLevel", "bonding", "inventoryType",
            "delay", "damage", "armor", "resistances", "stats", "bonuses", "equipSpells", "displayId", "sellPrice",
@@ -43,7 +47,7 @@ SPELL_SLOT = (("spellid", "0"), ("spelltrigger", "0"), ("spellcharges", "0"), ("
               ("spellcooldown", "-1"), ("spellcategory", "0"), ("spellcategorycooldown", "-1"))
 
 
-def _stats(where, text):
+def parse_stats(where, text):
     if text == NO_VALUE:
         return []
     stats = []
@@ -57,7 +61,7 @@ def _stats(where, text):
     return stats
 
 
-def _resistances(where, text):
+def parse_resistances(where, text):
     if text == NO_VALUE:
         return None
     values = dict.fromkeys(RESISTANCES, 0)
@@ -69,7 +73,7 @@ def _resistances(where, text):
     return {"%s_res" % name.lower(): value for name, value in values.items()}
 
 
-def _damage(where, text):
+def parse_damage(where, text):
     if text == NO_VALUE:
         return None
     low, _, high = text.partition("-")
@@ -97,11 +101,11 @@ def read_rows(path, lines):
             quality=named(where, "quality", raw["quality"], QUALITIES), item_level=int(raw["itemLevel"]),
             required_level=int(raw["requiredLevel"]), bonding=named(where, "bonding", raw["bonding"], BONDINGS),
             inventory_type=None if raw["inventoryType"] == NO_VALUE else named(where, "inventoryType", raw["inventoryType"], SLOTS),
-            delay=None if raw["delay"] == NO_VALUE else int(raw["delay"]), damage=_damage(where, raw["damage"]),
-            armor=int(raw["armor"]), resistances=_resistances(where, raw["resistances"]),
-            stats=_stats(where, raw["stats"]), bonuses=bonuses, equip_spells=spells,
+            delay=optional_int(raw, "delay"), damage=parse_damage(where, raw["damage"]),
+            armor=int(raw["armor"]), resistances=parse_resistances(where, raw["resistances"]),
+            stats=parse_stats(where, raw["stats"]), bonuses=bonuses, equip_spells=spells,
             display_id=int(raw["displayId"]), sell_price=int(raw["sellPrice"]),
-            forever_item=None if raw["foreverItem"] == NO_VALUE else int(raw["foreverItem"]),
+            forever_item=optional_int(raw, "foreverItem"),
             forever_stats=raw["foreverStats"], notes=raw["notes"]))
     return {"items": items}
 
@@ -163,6 +167,14 @@ def item_columns(item):
         columns += [("set_id", "0"), ("random_property", "0")]
     if item.inventory_type is not None:
         columns.append(("inventory_type", str(item.inventory_type)))
+    if item.allowable_class is not None:
+        columns.append(("allowable_class", str(item.allowable_class)))
+    if item.disenchant_id is not None:
+        columns.append(("disenchant_id", str(item.disenchant_id)))
+    if item.block is not None:
+        columns.append(("block", str(item.block)))
+    if item.buy_price is not None:
+        columns.append(("buy_price", str(item.buy_price)))
     if item.delay is not None:
         columns.append(("delay", str(item.delay)))
     if item.damage is not None:

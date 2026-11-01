@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from test_pipeline import SPEC_DIR, STAT_TYPES, STOCK, bonus_of, generate, int32, read_dbc
+from test_pipeline import SPEC_DIR, STAT_TYPES, STOCK, bonus_of, int32, read_dbc
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -29,6 +29,11 @@ def spec_rows(name):
              if line and not line.startswith("#")]
     header = lines[0].split("\t")
     return [dict(zip(header, line.split("\t"))) for line in lines[1:]]
+
+
+def loot_item_rows():
+    """The item rows of the dungeon loot files (forever/spec/loot_*_items.tsv, #242)."""
+    return [row for path in sorted(SPEC_DIR.glob("loot_*_items.tsv")) for row in spec_rows(path.name)]
 
 
 def cut_ids(out, kind):
@@ -78,11 +83,6 @@ def sql_rows(out, temp_table):
         values = dict(re.findall(r"`(\w+)`=('(?:[^'\\]|\\.)*'|-?\d+(?:\.\d+)?)", m.group(1)))
         rows.append({k: unquote(v) for k, v in values.items()})
     return rows
-
-
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever226"))
 
 
 def test_the_spec_folder_has_the_warrior_blacksmithing_and_item_files():
@@ -194,9 +194,11 @@ def test_the_tracer_item_has_its_forever_stats(out):
 def test_the_item_table_is_made_again_in_the_shape_of_the_stock_table(out):
     sql = (out / "sql" / "forever_world.sql").read_text(encoding="utf-8")
     assert "DROP TABLE IF EXISTS `forever_item_template`;\nCREATE TABLE `forever_item_template` LIKE `item_template`;" in sql
-    # The new items of items.tsv and the new ores of mining.tsv (#232).
+    # The new items of items.tsv, the new ores of mining.tsv (#232) and the confirmed new items of the dungeon loot (#242).
     ores = [row for row in spec_rows("mining.tsv") if row["kind"] == "ore"]
-    assert sql.count("INSERT INTO `forever_item_template` SELECT * FROM `forever_item_new`;") == len(new_items(out)) + len(ores)
+    loot = [row for row in loot_item_rows() if row["kind"] != "stock" and row["status"] == "confirmed"]
+    assert sql.count("INSERT INTO `forever_item_template` SELECT * FROM `forever_item_new`;") == \
+        len(new_items(out)) + len(ores) + len(loot)
 
 
 def test_new_recipe_and_item_ids_are_in_their_free_ranges(out):

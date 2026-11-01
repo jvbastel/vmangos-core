@@ -102,8 +102,8 @@ void LootStore::LoadLootTable()
 
     sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "%s :", GetName());
 
-    // WOWAI Forever rules (#232): the forever_gameobject_loot_template rows replace the stock rows of their loot ID.
-    std::string const fromTable = this == &LootTemplates_Gameobject ? Forever::Table(GetName(), "entry") : GetName();
+    // WOWAI Forever rules (#232, #242): the forever_<table> rows of gameobject, creature and reference loot replace the stock rows of their entry.
+    std::string const fromTable = this == &LootTemplates_Gameobject || this == &LootTemplates_Creature || this == &LootTemplates_Reference ? Forever::Table(GetName(), "entry") : GetName();
     //                                                                 0      1     2                    3        4              5         6
     std::unique_ptr<QueryResult> result = WorldDatabase.PQuery("SELECT entry, item, ChanceOrQuestChance, groupid, mincountOrRef, maxcount, condition_id FROM %s WHERE ((%u >= patch_min) && (%u <= patch_max)) && ((mincountOrRef < 0) || (item NOT IN (SELECT entry FROM forbidden_items WHERE (after_or_before = 0 && patch <= %u) || (after_or_before = 1 && patch >= %u))))", fromTable.c_str(), sWorld.GetWowPatch(), sWorld.GetWowPatch(), sWorld.GetWowPatch(), sWorld.GetWowPatch());
 

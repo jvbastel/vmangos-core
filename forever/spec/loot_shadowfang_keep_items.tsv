@@ -1,0 +1,98 @@
+# Forever loot of Shadowfang Keep (map 33): the item rows (spec jvbastel/WOWAI#240, ticket #245). forever/generator
+# writes each confirmed row into forever_item_template (world database). The drop and quest reward rows are in
+# loot_shadowfang_keep.tsv. The layout of the loot files is in forever/REFRESH.md, "Dungeon loot".
+# Never edit a generated file by hand.
+#
+# Sources, read 2026-10-31: the Forever client build 1.60.1.70685 (Item.db2: class, subclass and slot of each item;
+# ItemSparse holds every row of this file in encrypted data) and Wowhead's Forever tooltip data
+# (https://nether.wowhead.com/tooltip/item/<id>?dataEnv=16&locale=0, raw answers cached in
+# notes/forever/wowhead-cache/item, read with forever/generator/tools/wowhead_tooltips.py). Only numbers and names.
+# Stock values: the stock world database (item_template, creature_loot_template, reference_loot_template).
+#
+# Item ID block: 71300-71399. Next free item ID: 71310.
+#
+# Rows: the 19 stock boss drops with their Forever stats (all blue in Forever); the 7 new boss drops of Rethilgore,
+# Baron Silverlaine, Commander Springvale, Odo the Blindwatcher, Fenrus the Devourer and Wolf Master Nandos; the new
+# quest rewards of quests 1013 and 1098; the stock quest rewards of 1013, 1014, 1098 and 1740 with their Forever stats.
+# Rugged Spaulders (5254) is a stock drop of Rethilgore (creature loot 3914, 100 %): it keeps that row and chance.
+# No row: the stock world-style greens on the bosses (6575, 3193, 9792, 9773, 9816, 9794): random-property items whose
+# Forever tooltip equals the stock item.
+# Spell power: Forever splits "healing up to X and damage up to Y". 1.12 writes it as SpellPower Y (damage and
+# healing) plus Healing X-Y. Forever bonus armor is added to `armor`, as in items.tsv.
+# Rounding: every Forever stat whose kind has stock equip spells takes the nearest one, up on a tie, and keeps
+# its Forever value ("SpellPower 4 (Forever 3)"); Unique-Equipped is left out; a shield writes "Block <value>" in
+# `stats`. The rules are in forever/REFRESH.md, "Dungeon loot".
+#
+# Columns (tab-separated). "-" in inventoryType, delay, damage, resistances, bonuses and equipSpells keeps the value
+# of the source row.
+#   kind           stock: a changed stock item (entry = sourceItem, its own stock ID)
+#                  item: a new item with a stock twin (sourceItem: the stock item whose row is copied)
+#                  new: a new item with no stock twin: class, subclass and inventoryType from Item.db2; the
+#                       generator copies the stock item of that class, subclass and slot nearest in item level
+#                       (forever_gen/loot.py) and takes its display
+#   entry          the item ID: a stock ID (stock), else from the item ID block of this file
+#   foreverItem    the item ID in the Forever client and on Wowhead
+#   sourceItem     the stock item whose row is copied (stock, item), "-" for new
+#   name, quality (poor, common, uncommon, rare, epic), itemLevel, requiredLevel, bonding (none, pickup, equip, use)
+#   class, subclass  the item class and subclass (new), else "-"
+#   inventoryType  the slot as a number (13 one-hand, 21 main hand, 26 ranged right, 16 back, ...), "-" keeps it
+#   delay          the weapon speed in ms; damage: "<min>-<max>"; armor; resistances: "Fire 5, ..." or "none"
+#   stats          the base stats: "Str 2, Spi 3" (Str, Agi, Sta, Int, Spi, Health, Mana)
+#   bonuses        the other stats as stock equip spells (forever_gen/equip_stats.py): "SpellPower 11, Healing 22"
+#   equipSpells    more stock equip spells by ID
+#   displayId      a stock ItemDisplayInfo.dbc ID (it also gives the icon); "-" for new: the display of the copied item
+#   sellPrice      in copper
+#   foreverStats   the Forever stats as the source shows them
+#   leftOut        the Forever stats and effects that 1.12 cannot show or that have no stock equip spell, "-" if none.
+#                  The generator lists them (loot-list.tsv)
+#   status         confirmed (the source shows it), unconfirmed or unreadable (the generator leaves the row out and
+#                  lists it)
+#   source         where the values come from: a Wowhead URL, or "client <build>"
+#   date           the day the source was read, YYYY-MM-DD
+#   notes
+kind	entry	foreverItem	sourceItem	name	quality	itemLevel	requiredLevel	bonding	class	subclass	inventoryType	delay	damage	armor	resistances	stats	bonuses	equipSpells	displayId	sellPrice	foreverStats	leftOut	status	source	date	notes
+# --- #245 stock boss drops. They keep their stock chance and their stock equal-chance group (the boss references 30129-30142, and Rethilgore's creature loot for Rugged Spaulders).
+stock	5254	5254	5254	Rugged Spaulders	rare	22	17	pickup	-	-	-	-	-	87	Arcane 2, Fire 2, Nature 2, Frost 2, Shadow 2	-	-	-	10179	849	Shoulder Leather, 67 armor, +20 bonus armor, +2 Arcane, Fire, Nature, Frost and Shadow resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/5254?dataEnv=16&locale=0	2026-10-31	Rethilgore 3914, stock creature loot row 100% (Wowhead 81.62%); stock: common, i20 r15, 55 armor, binds on none. Not in the stock gear file: its disenchant ID stays stock (0)
+stock	1292	1292	1292	Butcher's Cleaver	rare	25	20	pickup	-	-	-	1700	19-36	0	-	Str 5, Agi 2	-	-	8466	3258	One-Hand Axe, 19-36 damage, speed 1.70, +5 Str, +2 Agi	-	confirmed	https://nether.wowhead.com/tooltip/item/1292?dataEnv=16&locale=0	2026-10-31	Razorclaw the Butcher 3886, reference 30130; stock: 23-32
+stock	6226	6226	6226	Bloody Apron	rare	24	19	pickup	-	-	-	-	-	42	-	Sta 10	SpellPower 4, Healing 9	-	12652	1153	Chest Cloth, 42 armor, +10 Sta; Equip: healing up to 13 and damage up to 4	-	confirmed	https://nether.wowhead.com/tooltip/item/6226?dataEnv=16&locale=0	2026-10-31	Razorclaw the Butcher 3886, reference 30130; stock: green i23 r18, 37 armor, +8 Sta
+stock	6633	6633	6633	Butcher's Slicer	rare	23	18	pickup	-	-	-	2900	30-57	0	-	Sta 3	AP 6	-	12610	2551	One-Hand Sword, 30-57 damage, speed 2.90, +3 Sta; Equip: +6 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/6633?dataEnv=16&locale=0	2026-10-31	Razorclaw the Butcher 3886, reference 30130; stock: green, 23-44, +2 Str, +2 Sta
+# Baron Silverlaine 3887, reference 30131.
+stock	6321	6321	6321	Silverlaine's Family Seal	rare	26	21	pickup	-	-	-	-	-	0	-	Str 5, Sta 2	-	-	14433	1472	Finger, +5 Str, +2 Sta; Equip: movement speed +2% in Tirisfal Glades, Silverpine Forest and Shadowfang Keep	Equip: movement speed +2% in Tirisfal Glades, Silverpine Forest and Shadowfang Keep (no 1.12 zone-bound speed spell); Unique-Equipped (no 1.12 meaning)	confirmed	https://nether.wowhead.com/tooltip/item/6321?dataEnv=16&locale=0	2026-10-31	stock: +7 Str, +3 Sta
+stock	6323	6323	6323	Baron's Scepter	rare	26	21	pickup	-	-	-	2400	28-52	0	-	Str 2, Sta 3	-	-	21051	3681	Main Hand Mace, 28-52 damage, speed 2.40, +2 Str, +3 Sta; Equip: party members within 30 yds regenerate 4 health every 5 sec	Equip: party members within 30 yds regenerate 4 health every 5 sec (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/6323?dataEnv=16&locale=0	2026-10-31	stock: green i25 r20, 21-40, +4 Str
+# Commander Springvale 4278, reference 30141.
+stock	3191	3191	3191	Arced War Axe	rare	26	21	pickup	-	-	-	3300	57-86	0	-	Str 9, Sta 9	-	-	11165	4602	Two-Hand Axe, 57-86 damage, speed 3.30, +9 Str, +9 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/3191?dataEnv=16&locale=0	2026-10-31	stock: green, 46-70, +6 Str, +6 Sta
+stock	6320	6320	6320	Commander's Crest	rare	26	21	pickup	-	-	-	-	-	585	-	Str 5, Sta 3, Block 12	-	-	18700	2356	Off Hand Shield, 585 armor, 12 Block, +5 Str, +3 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/6320?dataEnv=16&locale=0	2026-10-31	stock: i28 r23, 623 armor, +6 Str, +3 Spi, +3 Sta
+# Odo the Blindwatcher 4279, reference 30142.
+stock	6318	6318	6318	Odo's Ley Staff	rare	26	21	pickup	-	-	-	2900	37-56	0	-	Sta 5, Spi 12	SpellPower 18 (Forever 17), Healing 35	-	20335	4602	Two-Hand Staff, 37-56 damage, speed 2.90, +5 Sta, +12 Spi; Equip: healing up to 52 and damage up to 17	-	confirmed	https://nether.wowhead.com/tooltip/item/6318?dataEnv=16&locale=0	2026-10-31	stock: 50-76
+stock	6319	6319	6319	Girdle of the Blindwatcher	rare	26	21	pickup	-	-	-	-	-	54	-	Sta 5	SpellPower 7	-	11253	927	Waist Leather, 54 armor, +5 Sta; Equip: damage and healing up to 7; Equip: stealth detection +1	Equip: effective stealth detection level +1 (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/6319?dataEnv=16&locale=0	2026-10-31	stock: green, 49 armor, +5 Int, +3 Sta
+# Fenrus the Devourer 4274, reference 30139.
+stock	3230	3230	3230	Black Wolf Bracers	rare	27	22	pickup	-	-	-	-	-	63	-	Sta 7	AP 4	-	17166	1020	Wrist Leather, 43 armor, +20 bonus armor, +7 Sta; Equip: +4 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/3230?dataEnv=16&locale=0	2026-10-31	stock: green i26 r21, 38 armor, +5 Sta
+stock	6340	6340	6340	Fenrus' Hide	rare	27	22	pickup	-	-	-	-	-	22	-	Agi 4, Sta 6	-	-	23027	1215	Back, 22 armor, +4 Agi, +6 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/6340?dataEnv=16&locale=0	2026-10-31	stock: green i26 r21, 20 armor, +4 Agi, +2 Sta
+# Wolf Master Nandos 3927, reference 30132.
+stock	3748	3748	3748	Feline Mantle	rare	28	23	pickup	-	-	-	-	-	34	-	Agi 2, Int 8	SpellPower 4	-	10169	1336	Shoulder Cloth, 34 armor, +2 Agi, +8 Int; Equip: damage and healing up to 4; Equip: reduces damage from falling	Equip: reduces damage from falling (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/3748?dataEnv=16&locale=0	2026-10-31	stock: +2 Agi, +10 Int, +3 Spi
+stock	6314	6314	6314	Wolfmaster Cape	rare	27	22	pickup	-	-	-	-	-	22	-	Sta 3	AP 10, BeastSlaying 15 (Forever 9)	-	23082	1215	Back, 22 armor, +3 Sta; Equip: +10 Attack Power; Equip: +9 Attack Power against Beasts	-	confirmed	https://nether.wowhead.com/tooltip/item/6314?dataEnv=16&locale=0	2026-10-31	stock: green, 20 armor, +4 Agi, +2 Sta
+# Archmage Arugal 4275, reference 30140.
+stock	6220	6220	6220	Meteor Shard	rare	28	23	pickup	-	-	-	1800	22-42	0	Fire 3	-	-	-	20536	4455	One-Hand Dagger, 22-42 damage, speed 1.80, +3 Fire resistance; Chance on hit: blasts a target for 42 Fire damage	Chance on hit: 42 Fire damage (the stock spell 13442 gives 35 and stays); Unique-Equipped (no 1.12 meaning)	confirmed	https://nether.wowhead.com/tooltip/item/6220?dataEnv=16&locale=0	2026-10-31	stock: i29 r24, 23-43
+stock	6324	6324	6324	Robes of Arugal	rare	28	23	pickup	-	-	-	-	-	46	Shadow 8	Sta 5, Spi 6	SpellPower 6, Healing 13 (Forever 12)	-	12696	1782	Chest Cloth, 46 armor, +5 Sta, +6 Spi, +8 Shadow resistance; Equip: healing up to 18 and damage up to 6	-	confirmed	https://nether.wowhead.com/tooltip/item/6324?dataEnv=16&locale=0	2026-10-31	stock: i29 r24, +3 Agi, +9 Int, +10 Spi, +5 Sta
+stock	6392	6392	6392	Belt of Arugal	rare	28	23	pickup	-	-	-	-	-	26	-	Agi 2, Int 3, Spi 5	SpellPower 9	-	11533	891	Waist Cloth, 26 armor, +2 Agi, +3 Int, +5 Spi; Equip: damage and healing up to 9	-	confirmed	https://nether.wowhead.com/tooltip/item/6392?dataEnv=16&locale=0	2026-10-31	stock: i29 r24, +2 Agi, +10 Int, +3 Spi
+# Deathsworn Captain 3872 (rare), reference 30129. The tooltips name no "Dropped by"; the stock drop stays as it is, with its Forever stats.
+stock	6641	6641	6641	Haunting Blade	rare	27	22	pickup	-	-	-	3800	68-102	0	-	-	SpellPower 11, Healing 22	-	20167	5062	Two-Hand Sword, 68-102 damage, speed 3.80; Equip: healing up to 33 and damage up to 11	-	confirmed	https://nether.wowhead.com/tooltip/item/6641?dataEnv=16&locale=0	2026-10-31	stock: green i26 r21, 53-80, +9 Spi
+stock	6642	6642	6642	Phantom Armor	rare	27	22	pickup	-	-	-	-	-	208	-	Str 3, Sta 12, Spi 5	-	-	12632	2430	Chest Mail, 208 armor, +3 Str, +12 Sta, +5 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/6642?dataEnv=16&locale=0	2026-10-31	stock: i25 r20, 201 armor, +11 Sta
+# --- #245 new boss drops (Wowhead "Dropped by" names the boss). Blueprint: Tanning Rack (273096, Razorclaw 0.34%) and Blueprint: Toxin Study (273105, Springvale 0.32%) have no item row: Forever campsite features with no 1.12 meaning (left-out drop rows in loot_shadowfang_keep.tsv).
+new	71300	273456	-	Cell Keeper's Claws	rare	22	17	pickup	2	13	21	2500	25-48	0	-	Agi 2	AP 6	-	-	2188	Main Hand Fist Weapon, 25-48 damage, speed 2.50, +2 Agi; Equip: +6 Attack Power; Equip: +6 Attack Power against Humanoids	Equip: +6 Attack Power against Humanoids (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/273456?dataEnv=16&locale=0	2026-10-31	Dropped by Rethilgore 1.68%
+new	71301	273457	-	Sorcerer Collar	rare	22	17	pickup	4	0	2	-	-	0	-	Int 2, Spi 2	SilenceRes 5 (Forever 4)	-	-	878	Neck, +2 Int, +2 Spi; Equip: reduces the hit chance of Silence effects against you by 4%	-	confirmed	https://nether.wowhead.com/tooltip/item/273457?dataEnv=16&locale=0	2026-10-31	Dropped by Rethilgore 2.09%
+new	71302	273637	-	Blade of Silverlaine	rare	26	21	pickup	2	7	21	2300	17-33	0	Shadow 6	-	SpellPower 28	-	-	3772	Main Hand Sword, 17-33 damage, speed 2.30, +6 Shadow resistance; Equip: damage and healing up to 28	-	confirmed	https://nether.wowhead.com/tooltip/item/273637?dataEnv=16&locale=0	2026-10-31	Dropped by Baron Silverlaine 1.72%
+new	71303	273643	-	Worgenbane Talisman	rare	26	21	pickup	4	0	12	-	-	0	-	-	-	-	-	1433	Trinket; Use: stuns target Worgen for 4 sec (5 min cooldown)	Use: stuns target Worgen for 4 sec (5 min cooldown) (no stock item spell; 1.12 has no Worgen creature type); Unique-Equipped (no 1.12 meaning)	confirmed	https://nether.wowhead.com/tooltip/item/273643?dataEnv=16&locale=0	2026-10-31	Dropped by Commander Springvale 1.67%
+new	71304	273645	-	Blindwatcher's Sight	rare	26	21	pickup	4	1	1	-	-	35	-	-	-	-	-	1082	Head Cloth, 35 armor; Equip: reduces the hit chance of Disorient effects against you by 7%	Equip: hit chance of Disorient effects against you -7% (no stock item spell)	confirmed	https://nether.wowhead.com/tooltip/item/273645?dataEnv=16&locale=0	2026-10-31	Dropped by Odo the Blindwatcher 1.72%
+new	71305	273646	-	Half-Eaten Boots	rare	27	22	pickup	4	3	8	-	-	43	Nature 10	Str 8	-	-	-	1801	Feet Mail, 143 armor, -100 bonus armor, +8 Str, +10 Nature resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/273646?dataEnv=16&locale=0	2026-10-31	Dropped by Fenrus the Devourer 1.99%; armor 143 - 100
+new	71306	273647	-	Worgpelt Leggings	rare	26	21	pickup	4	2	7	-	-	84	Fire 7	Agi 10, Str 5	-	-	-	1818	Legs Leather, 84 armor, +10 Agi, +5 Str, +7 Fire resistance	-	confirmed	https://nether.wowhead.com/tooltip/item/273647?dataEnv=16&locale=0	2026-10-31	Dropped by Wolf Master Nandos 1.75%
+# --- #245 quest rewards: the new choices of quests 1013 and 1098, and the Forever stats of the stock rewards of 1013, 1014, 1098 and 1740.
+new	71307	270023	-	Tanned Shoulderpads	uncommon	27	0	pickup	4	2	3	-	-	67	-	Str 3, Int 6	-	-	-	1309	Shoulder Leather, 67 armor, +3 Str, +6 Int	-	confirmed	https://nether.wowhead.com/tooltip/item/270023?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 1098
+new	71308	270024	-	Bronzed Shoulderguards	uncommon	27	0	pickup	4	3	3	-	-	142	-	Sta 4, Spi 5	-	-	-	1579	Shoulder Mail, 142 armor, +4 Sta, +5 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/270024?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 1098
+new	71309	270030	-	Tattered Mittens	uncommon	28	0	pickup	4	1	10	-	-	26	-	Sta 6	SpellPower 4 (Forever 3), Healing 7 (Forever 6)	-	-	711	Hands Cloth, 26 armor, +6 Sta; Equip: healing up to 9 and damage up to 3	-	confirmed	https://nether.wowhead.com/tooltip/item/270030?dataEnv=16&locale=0	2026-10-31	new reward choice of quest 1013
+stock	3324	3324	3324	Ghostly Mantle	uncommon	27	0	pickup	-	-	-	-	-	30	-	Spi 6	SpellPower 2, Healing 4	-	21457	1012	Shoulder Cloth, 30 armor, +6 Spi; Equip: healing up to 6 and damage up to 2	-	confirmed	https://nether.wowhead.com/tooltip/item/3324?dataEnv=16&locale=0	2026-10-31	quest 1098 (a choice in Forever, the fixed reward in stock); stock: i28, 31 armor, +5 Int, +5 Spi
+stock	4534	4534	4534	Steel-clasped Bracers	uncommon	28	0	pickup	-	-	-	-	-	84	-	Sta 4, Spi 4	-	-	6996	1113	Wrist Mail, 84 armor, +4 Sta, +4 Spi	-	confirmed	https://nether.wowhead.com/tooltip/item/4534?dataEnv=16&locale=0	2026-10-31	quest 1013; stock: i29, 85 armor, +1 Spi, +6 Sta
+stock	6335	6335	6335	Grizzled Boots	uncommon	28	0	pickup	-	-	-	-	-	82	-	Sta 7	-	-	11330	1395	Feet Leather, 62 armor, +20 bonus armor, +7 Sta	-	confirmed	https://nether.wowhead.com/tooltip/item/6335?dataEnv=16&locale=0	2026-10-31	quest 1013; stock: i29, 63 armor, +2 Str, +7 Sta
+stock	6414	6414	6414	Seal of Sylvanas	rare	29	0	pickup	-	-	-	-	-	0	-	Sta 8	AP 6	-	9846	1960	Finger, +8 Sta; Equip: +6 Attack Power	-	confirmed	https://nether.wowhead.com/tooltip/item/6414?dataEnv=16&locale=0	2026-10-31	quest 1014; stock: +3 Str, +8 Sta
+stock	6898	6898	6898	Orb of Soran'ruk	rare	25	0	pickup	-	-	-	-	-	0	-	-	FireDamage 9, ShadowDamage 9	-	21597	1303	Held In Off-hand, Warlock; Equip: Fire damage up to 9; Equip: Shadow damage up to 9; Use: restores 48 health every 3 sec for 30 sec (10 min cooldown)	Use: 48 health every 3 sec (the stock use spell 18956 gives 25 and stays)	confirmed	https://nether.wowhead.com/tooltip/item/6898?dataEnv=16&locale=0	2026-10-31	quest 1740 (Warlock, lock unchanged); stock: green, Fire and Shadow damage up to 4
+stock	15109	15109	15109	Staff of Soran'ruk	rare	25	0	pickup	-	-	-	2900	36-55	0	-	Sta 14	FireDamage 34, ShadowDamage 34	-	28225	4072	Two-Hand Staff, Warlock, 36-55 damage, speed 2.90, +14 Sta; Equip: Fire damage up to 34; Equip: Shadow damage up to 34	-	confirmed	https://nether.wowhead.com/tooltip/item/15109?dataEnv=16&locale=0	2026-10-31	quest 1740 (Warlock, lock unchanged); stock: green, 39-59, Fire and Shadow damage up to 9

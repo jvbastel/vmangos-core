@@ -119,7 +119,7 @@ offered = c.trainer_list(trainer)
 results.check("the Blacksmithing trainer opens its trainer window", offered is not None)
 results.check("the trainer offers no removed recipe", offered is not None and not offered.keys() & set(REMOVED.values()),
               "offered %r" % sorted((offered or {}).keys() & set(REMOVED.values())))
-c.gm(".npc delete", select=trainer)
+c.gm(".npc spawn delete", select=trainer)
 learned_rows = realm.sql("mangos", "SELECT COUNT(*) FROM npc_trainer WHERE spell IN (%s)"
                          % ", ".join(str(s) for s in REMOVED.values()))
 results.check("no stock trainer row teaches a removed recipe", learned_rows == "0", "got %r" % learned_rows)

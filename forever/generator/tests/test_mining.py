@@ -14,7 +14,7 @@ import pytest
 
 from test_blacksmithing import refused as refused_in, spec_rows
 from test_new_recipes import cut_list, run, spec_folder
-from test_pipeline import ROOT, STOCK, generate
+from test_pipeline import ROOT, STOCK
 
 pytestmark = pytest.mark.skipif(not (STOCK / "Spell.dbc").is_file(), reason="no stock DBC folder at %s" % STOCK)
 
@@ -33,11 +33,6 @@ DROPS = {
 COPPER_VEIN, COPPER_LOOT = 1731, 1502
 TABLE = "forever_gameobject_loot_template"
 MARKER = "forever_removed"
-
-
-@pytest.fixture(scope="module")
-def out(tmp_path_factory):
-    return generate(tmp_path_factory.mktemp("forever232"))
 
 
 def sql(out):
@@ -182,4 +177,5 @@ def test_the_core_needs_the_table_with_the_rules_on_and_reads_gameobject_loot_th
     forever = (ROOT / "src" / "game" / "Forever" / "Forever.cpp").read_text(encoding="utf-8")
     assert '"%s"' % TABLE in forever
     loot = (ROOT / "src" / "game" / "LootMgr.cpp").read_text(encoding="utf-8")
-    assert "this == &LootTemplates_Gameobject ? Forever::Table(GetName(), \"entry\")" in loot
+    # #242 widens the hook to creature and reference loot (test_loot_rfc.py).
+    assert "this == &LootTemplates_Gameobject ||" in loot and "? Forever::Table(GetName(), \"entry\")" in loot
