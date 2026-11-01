@@ -63,6 +63,7 @@ CMSG_TRAINER_BUY_SPELL, SMSG_TRAINER_BUY_SUCCEEDED, SMSG_TRAINER_BUY_FAILED = 43
 # One spell of SMSG_TRAINER_LIST (NPCHandler.cpp, SendTrainerSpellHelper): spell, state, cost, 2 x
 # profession flags, level, required skill, required skill value, 2 x chain spells, 0.
 TRAINER_SPELL = struct.Struct("<IBIIIBIIIII")
+CMSG_GOSSIP_HELLO, CMSG_GOSSIP_SELECT_OPTION, SMSG_GOSSIP_MESSAGE, SMSG_GOSSIP_COMPLETE = 379, 380, 381, 382
 
 CHAT_MSG_SAY = 0x00
 CHAT_MSG_PARTY = 0x01
@@ -463,6 +464,73 @@ class TrainerClient(SpellClient):
         self.send(CMSG_TRAINER_BUY_SPELL, struct.pack("<QI", guid, spell))
         self.pump(wait)
         return [answer for s, answer in self.trainer_buys[start:] if s == spell]
+
+
+class GossipMenu:
+    """One SMSG_GOSSIP_MESSAGE: the npc guid, the npc_text id of its text, and its options as (index, icon,
+    coded, text). A coded option asks the client for a code (a text box)."""
+
+    def __init__(self, npc, text_id, options):
+        self.npc = npc
+        self.text_id = text_id
+        self.options = options
+
+    def option(self, words):
+        """The index of the first option whose text holds `words` (no case), or None."""
+        for index, _, _, text in self.options:
+            if words.lower() in text.lower():
+                return index
+        return None
+
+    def __repr__(self):
+        return "GossipMenu(text %d, %s)" % (self.text_id, [text for _, _, _, text in self.options])
+
+
+class GossipClient(WorldClient):
+    """A WorldClient that talks to gossip NPCs: gossip_hello opens the menu of an NPC, gossip_select picks an
+    option. gossip is the last menu that the server sent, or None after SMSG_GOSSIP_COMPLETE (the menu
+    closed). It calls super()._observe, so a check can mix it with another client class."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.gossip = None
+
+    def _observe(self, opcode, body):
+        super()._observe(opcode, body)
+        try:
+            if opcode == SMSG_GOSSIP_MESSAGE:
+                # PlayerMenu::SendGossipMenu (1.12): npc guid, text id, option count, then per option the
+                # index (u32), icon (u8), coded (u8) and text. The quest list after it is skipped.
+                npc, text_id, count = struct.unpack_from("<QII", body, 0)
+                pos, options = 16, []
+                for _ in range(count):
+                    index, icon, coded = struct.unpack_from("<IBB", body, pos)
+                    text, pos = cstr(body, pos + 6)
+                    options.append((index, icon, bool(coded), text))
+                self.gossip = GossipMenu(npc, text_id, options)
+            elif opcode == SMSG_GOSSIP_COMPLETE:
+                self.gossip = None
+        except (IndexError, struct.error):
+            pass
+
+    def gossip_hello(self, npc, wait=1.5):
+        """Opens the gossip of the NPC `npc` (a full guid), as a right click does. Its menu, or None when the
+        NPC sends none (out of reach, or no gossip)."""
+        self.gossip = None
+        self.send(CMSG_GOSSIP_HELLO, struct.pack("<Q", npc))
+        self.pump(wait)
+        return self.gossip
+
+    def gossip_select(self, npc, index, code=None, wait=1.5):
+        """Picks option `index` of the open menu of `npc` (with `code` for a coded option). The next menu, or
+        None when the NPC closes the gossip."""
+        self.gossip = None
+        body = struct.pack("<QI", npc, index)
+        if code is not None:
+            body += code.encode() + b"\0"
+        self.send(CMSG_GOSSIP_SELECT_OPTION, body)
+        self.pump(wait)
+        return self.gossip
 
 
 def unpack_guid(data, pos):

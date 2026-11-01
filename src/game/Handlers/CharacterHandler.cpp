@@ -44,6 +44,7 @@
 #include "MapManager.h"
 #include "AccountMgr.h"
 #include "Forever.h"
+#include "Hardcore.h"
 
 class LoginQueryHolder : public SqlQueryHolder
 {
@@ -681,6 +682,8 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder *holder)
 
     if (!pCurrChar->IsGMVisible())
         SendNotification(LANG_INVISIBLE_INVISIBLE, pCurrChar->GetGMInvisibilityLevel());
+
+    Hardcore::OnLogin(pCurrChar); // WOWAI hardcore characters (#251): "Hardcore: alive"
 
     std::string IP_str = GetRemoteAddress();
 

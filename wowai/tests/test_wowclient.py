@@ -153,6 +153,69 @@ class TrainerClientTest(unittest.TestCase):
         self.assertEqual(c.client.trainer_buys, [(61196, 2), (61197, True)])
 
 
+HARDCORE_NPC = 0xF13002E72A262F64  # creature 190250, spawn 2502500
+
+
+def gossip_menu_packet(npc, text_id, options, quests=()):
+    """An SMSG_GOSSIP_MESSAGE body, as PlayerMenu::SendGossipMenu writes it for 1.12: the npc guid, the text
+    id, the count and one (index, icon u8, coded u8, text) per option, then the quest count and one (id,
+    icon, level, title) per quest."""
+    body = struct.pack("<QII", npc, text_id, len(options))
+    for index, (icon, coded, text) in enumerate(options):
+        body += struct.pack("<IBB", index, icon, coded) + text.encode() + b"\0"
+    body += struct.pack("<I", len(quests))
+    for quest, icon, level, title in quests:
+        body += struct.pack("<III", quest, icon, level) + title.encode() + b"\0"
+    return body
+
+
+class GossipClientTest(unittest.TestCase):
+    def gossip_client(self):
+        c = client(self, client_class=wowclient.GossipClient)
+        c.client.pump = lambda wait: None
+        return c
+
+    def test_the_gossip_menu_keeps_the_npc_the_text_and_the_options(self):
+        c = self.gossip_client()
+        c.client._observe(wowclient.SMSG_GOSSIP_MESSAGE, gossip_menu_packet(
+            HARDCORE_NPC, 190250, [(0, 0, "Take the status"), (0, 1, "Secret")], quests=[(788, 2, 1, "Cutting Teeth")]))
+        menu = c.client.gossip
+        self.assertEqual((menu.npc, menu.text_id), (HARDCORE_NPC, 190250))
+        self.assertEqual(menu.options, [(0, 0, False, "Take the status"), (1, 0, True, "Secret")])
+
+    def test_hello_sends_the_npc_and_returns_its_menu(self):
+        c = self.gossip_client()
+        c.client.pump = lambda wait: c.client._observe(
+            wowclient.SMSG_GOSSIP_MESSAGE, gossip_menu_packet(HARDCORE_NPC, 190250, [(0, 0, "Take the status")]))
+        menu = c.client.gossip_hello(HARDCORE_NPC)
+        self.assertEqual(c.sent(), [(wowclient.CMSG_GOSSIP_HELLO, struct.pack("<Q", HARDCORE_NPC))])
+        self.assertEqual(menu.option("take the status"), 0)
+        self.assertIsNone(menu.option("drop"))
+
+    def test_hello_with_no_answer_returns_none(self):
+        c = self.gossip_client()
+        self.assertIsNone(c.client.gossip_hello(HARDCORE_NPC))
+
+    def test_select_sends_the_option_index_and_returns_the_next_menu(self):
+        c = self.gossip_client()
+        c.client.pump = lambda wait: c.client._observe(
+            wowclient.SMSG_GOSSIP_MESSAGE, gossip_menu_packet(HARDCORE_NPC, 190251, [(0, 0, "Yes"), (0, 0, "No")]))
+        menu = c.client.gossip_select(HARDCORE_NPC, 1)
+        self.assertEqual(c.sent(), [(wowclient.CMSG_GOSSIP_SELECT_OPTION, struct.pack("<QI", HARDCORE_NPC, 1))])
+        self.assertEqual(menu.text_id, 190251)
+
+    def test_a_coded_option_sends_its_code(self):
+        c = self.gossip_client()
+        c.client.gossip_select(HARDCORE_NPC, 0, code="yes")
+        self.assertEqual(c.sent(), [(wowclient.CMSG_GOSSIP_SELECT_OPTION, struct.pack("<QI", HARDCORE_NPC, 0) + b"yes\0")])
+
+    def test_gossip_complete_closes_the_menu(self):
+        c = self.gossip_client()
+        c.client._observe(wowclient.SMSG_GOSSIP_MESSAGE, gossip_menu_packet(HARDCORE_NPC, 190250, []))
+        c.client._observe(wowclient.SMSG_GOSSIP_COMPLETE, b"")
+        self.assertIsNone(c.client.gossip)
+
+
 class TeleportAckTest(unittest.TestCase):
     def test_far_teleport_is_acked(self):
         c = client(self)
