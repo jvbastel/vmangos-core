@@ -202,7 +202,7 @@ void WorldSession::HandleSendMail(WorldPackets::Mail::SendMail const& packet)
         return;
     }
 
-    if (!Hardcore::AllowMail(GetPlayer(), req->receiver.GetCounter(), req->COD != 0)) return; // WOWAI hardcore characters (#254): no mail into a hardcore character
+    if (!Hardcore::AllowMail(GetPlayer(), req->receiver.GetCounter(), req->COD != 0)) return; // WOWAI hardcore characters (#254): no mail across the border (into a hardcore character, or cash on delivery out of one)
 
     req->receiverPtr = sObjectMgr.GetPlayer(req->receiver);
 

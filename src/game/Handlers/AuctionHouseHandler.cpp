@@ -199,6 +199,8 @@ void WorldSession::SendAuctionCancelledToBidderMail(AuctionEntry* auction)
 
 AuctionHouseEntry const* WorldSession::GetCheckedAuctionHouseForAuctioneer(ObjectGuid guid)
 {
+    if (!Hardcore::AllowAuctionHouse(GetPlayer())) return nullptr; // WOWAI hardcore characters (#254): no sell, bid, cancel or list either
+
     Unit* auctioneer = nullptr;
 
     // GM case

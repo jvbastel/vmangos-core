@@ -83,7 +83,8 @@ namespace Hardcore
     // Mail sent by the game (MailDraft: quests, auctions, GM commands) does not pass here, so it arrives.
     bool AllowMail(Player* sender, uint32 receiverGuid, bool cashOnDelivery);
 
-    // Hook: WorldSession::HandleAuctionHelloOpcode. Refused for a hardcore character.
+    // Hooks: WorldSession::HandleAuctionHelloOpcode, and WorldSession::GetCheckedAuctionHouseForAuctioneer (so
+    // a client that skips the hello cannot sell, bid, cancel or list). Refused for a hardcore character.
     bool AllowAuctionHouse(Player* player);
 
     // Hook: WorldSession::HandleGroupInviteOpcode. Refused between a hardcore character and a character that

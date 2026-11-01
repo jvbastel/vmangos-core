@@ -146,8 +146,9 @@ src/game/Handlers/TradeHandler.cpp
 # Hardcore hook 6: Hardcore::AllowMail in WorldSession::HandleSendMail: no mail from a character that is not
 # hardcore to a hardcore character, no cash on delivery the other way; game mail does not pass here (WOWAI#254).
 src/game/Handlers/MailHandler.cpp
-# Hardcore hook 7: Hardcore::AllowAuctionHouse in WorldSession::HandleAuctionHelloOpcode: no auction house for
-# a hardcore character (WOWAI#254).
+# Hardcore hook 7: Hardcore::AllowAuctionHouse in WorldSession::HandleAuctionHelloOpcode and in
+# WorldSession::GetCheckedAuctionHouseForAuctioneer (the check of every sell, bid, cancel and list packet): no
+# auction house for a hardcore character (WOWAI#254).
 src/game/Handlers/AuctionHouseHandler.cpp
 # Hardcore hook 8: Hardcore::AllowGroupInvite in WorldSession::HandleGroupInviteOpcode: no group invite across
 # the hardcore border (WOWAI#254).
