@@ -20,7 +20,8 @@ check names no bot (the roster changes).
 pos(client, guid) and stat(client, guid) read a unit with GM commands.
 dist(a, b), kill(client, guid), and revive_all(realm, client, bots) are the
 small helpers that the checks share. take_hardcore(realm, client) takes the hardcore status at the hardcore
-NPC (with wowclient.GossipClient), and hardcore_line(client) is the answer of `.hardcore`.
+NPC (with wowclient.GossipClient), drop_hardcore(realm, client[, spawn]) drops it, HARDCORE_SPAWNS lists the
+12 NPC spawns, and hardcore_line(client) is the answer of `.hardcore`.
 spawn(realm, client), sturdy(client,
 guid) and saved_spells(realm, client) serve the spell and talent checks,
 with wowclient.SpellClient as the client class.
@@ -248,9 +249,65 @@ HARDCORE_TEXT_GREETING = 190250
 HARDCORE_TEXT_TAKE_RULES = 190251
 
 
-def go_to_hardcore_npc(client):
-    """GM-teleports the client's character next to the hardcore NPC of Valley of Trials."""
-    client.gm(".go xyz %.1f %.1f %.1f %d" % HARDCORE_NPC_PLACE, wait=3.0)
+HardcoreSpawn = collections.namedtuple("HardcoreSpawn", "place low capital map x y z")
+# Every spawn of the hardcore NPC (world migrations of WOWAI#251 and #255): the 6 starting areas, where it
+# offers the status and the drop, and the 6 capitals, where it only offers the drop. low is the creature
+# guid; (map, x, y, z) is the spawn point.
+HARDCORE_SPAWNS = [
+    HardcoreSpawn("Valley of Trials", 2502500, False, 1, -604.0, -4248.0, 39.0),
+    HardcoreSpawn("Northshire", 2502501, False, 0, -8936.9, -135.7, 83.45),
+    HardcoreSpawn("Coldridge Valley", 2502502, False, 0, -6232.8, 323.0, 383.14),
+    HardcoreSpawn("Shadowglen", 2502503, False, 1, 10325.6, 827.1, 1326.46),
+    HardcoreSpawn("Deathknell", 2502504, False, 0, 1678.6, 1664.9, 135.85),
+    HardcoreSpawn("Camp Narache", 2502505, False, 1, -2912.6, -261.0, 53.02),
+    HardcoreSpawn("Stormwind", 2502506, True, 0, -8934.9, 622.9, 99.61),
+    HardcoreSpawn("Ironforge", 2502507, True, 0, -4880.7, -986.3, 504.02),
+    HardcoreSpawn("Darnassus", 2502508, True, 1, 9942.6, 2515.4, 1317.66),
+    HardcoreSpawn("Orgrimmar", 2502509, True, 1, 1627.9, -4384.1, 11.80),
+    HardcoreSpawn("Thunder Bluff", 2502510, True, 1, -1257.6, 27.0, 128.27),
+    HardcoreSpawn("Undercity", 2502511, True, 0, 1591.9, 244.2, -52.06),
+]
+# The npc_text ids of WOWAI#255: the capital greeting, and the drop warning with its confirmation.
+HARDCORE_TEXT_CAPITAL_GREETING = 190252
+HARDCORE_TEXT_DROP_WARNING = 190253
+
+
+def hardcore_spawn(place):
+    """The HardcoreSpawn of a place name ("Orgrimmar")."""
+    return next(spawn for spawn in HARDCORE_SPAWNS if spawn.place == place)
+
+
+def hardcore_npc(spawn):
+    """The full guid of the hardcore NPC of a HardcoreSpawn."""
+    return (0xF130 << 48) | (HARDCORE_NPC_ENTRY << 24) | spawn.low
+
+
+def go_to_hardcore_npc(client, spawn=None):
+    """GM-teleports the client's character next to the hardcore NPC of Valley of Trials, or onto the spawn
+    point of the HardcoreSpawn `spawn` (in reach of its gossip). Returns the NPC's full guid."""
+    if spawn is None:
+        client.gm(".go xyz %.1f %.1f %.1f %d" % HARDCORE_NPC_PLACE, wait=3.0)
+        return HARDCORE_NPC
+    client.gm(".go xyz %.2f %.2f %.2f %d" % (spawn.x, spawn.y, spawn.z, spawn.map), wait=3.0)
+    return hardcore_npc(spawn)
+
+
+def drop_hardcore(realm, client, spawn=None):
+    """Drops the hardcore status at a hardcore NPC (Valley of Trials, or the HardcoreSpawn `spawn`), as a
+    player does: a GM teleport, the gossip hello, the drop option, the warning page and its confirmation.
+    The client is a wowclient.GossipClient. True when character_hardcore then says Dropped (3)."""
+    npc = go_to_hardcore_npc(client, spawn)
+    menu = client.gossip_hello(npc)
+    drop = menu.option("drop") if menu else None
+    if drop is None:
+        return False
+    warning = client.gossip_select(npc, drop)
+    confirm = warning.option("yes") if warning else None
+    if confirm is None:
+        return False
+    client.gossip_select(npc, confirm)
+    row = realm.sql("characters", "SELECT status FROM character_hardcore WHERE guid = %d" % (client.guid & 0xFFFFFFFF))
+    return row == "3"
 
 
 def hardcore_line(client):
