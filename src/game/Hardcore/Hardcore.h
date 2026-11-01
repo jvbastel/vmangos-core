@@ -62,6 +62,17 @@ namespace Hardcore
     // character, that it is not hardcore and whether it dropped the status before.
     std::string StatusLine(Player const* player);
 
+    // The hardcore NPC offers "drop the status": the character is a hardcore character that is alive. A dead
+    // hardcore character keeps its final death.
+    bool CanDropStatus(Player const* player);
+
+    // The player drops the hardcore status at a hardcore NPC (WOWAI#255). One call drops it for the player
+    // and for every hardcore member of the player's group that is alive (the hardcore bots too, online or
+    // not): each becomes Dropped ("was hardcore", never again), written at once with the time. Each online
+    // group member that dropped with the player is told in its chat; the NPC script tells the player.
+    // Returns how many characters dropped the status: 0 (and nothing changes) when CanDropStatus is false.
+    uint32 DropStatus(Player* player);
+
     // Hook: WorldSession::HandlePlayerLogin, after the character is in the world. Reads the character's row
     // again, and shows "Hardcore: alive" in the chat of a hardcore character (the 1.12 client has no
     // hardcore icon).
