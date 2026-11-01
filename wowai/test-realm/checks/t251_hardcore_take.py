@@ -96,7 +96,8 @@ results.check("the rules page asks for a confirmation", rules is not None and ru
               and rules.option("no") is not None, repr(rules))
 results.check("the status is not set before the confirmation", status_row(realm, player) == "")
 start = len(player.chat_log)
-closed = player.gossip_select(HARDCORE_NPC, rules.option("yes")) if rules else "no rules page"
+closed = (player.gossip_select(HARDCORE_NPC, rules.option("yes"))
+          if rules is not None and rules.option("yes") is not None else "no rules page")
 results.check("the confirmation closes the gossip", closed is None)
 results.check("the confirmation tells the player", any("hardcore character now" in line for line in login_lines(player, start)),
               login_lines(player, start))

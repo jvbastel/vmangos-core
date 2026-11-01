@@ -41,6 +41,21 @@ namespace
         std::lock_guard<std::mutex> guard(cacheLock);
         cache[guid] = status;
     }
+
+    // A read that ran outside the lock must not overwrite a write that landed meanwhile: it only fills an
+    // empty place. Returns the status the cache holds afterwards.
+    Hardcore::Status RememberRead(uint32 guid, Hardcore::Status status)
+    {
+        std::lock_guard<std::mutex> guard(cacheLock);
+        return cache.emplace(guid, status).first->second;
+    }
+
+    // After a failed write the cache may disagree with the database: the next ask reads the row again.
+    void Forget(uint32 guid)
+    {
+        std::lock_guard<std::mutex> guard(cacheLock);
+        cache.erase(guid);
+    }
 }
 
 Hardcore::Status Hardcore::GetStatus(uint32 guid)
@@ -51,9 +66,7 @@ Hardcore::Status Hardcore::GetStatus(uint32 guid)
         if (found != cache.end())
             return found->second;
     }
-    Status const status = ReadStatus(guid);
-    Remember(guid, status);
-    return status;
+    return RememberRead(guid, ReadStatus(guid));
 }
 
 bool Hardcore::IsHardcore(uint32 guid)
@@ -71,10 +84,12 @@ void Hardcore::SetStatus(uint32 guid, Status status)
 {
     // Database: a direct (synchronous) write, not the 15-minute save. Client: none here; the caller tells
     // the player.
-    CharacterDatabase.DirectPExecute(
-        "INSERT INTO `character_hardcore` (`guid`, `status`) VALUES (%u, %u) "
-        "ON DUPLICATE KEY UPDATE `status` = VALUES(`status`)", guid, uint32(status));
-    Remember(guid, status);
+    if (CharacterDatabase.DirectPExecute(
+            "INSERT INTO `character_hardcore` (`guid`, `status`) VALUES (%u, %u) "
+            "ON DUPLICATE KEY UPDATE `status` = VALUES(`status`)", guid, uint32(status)))
+        Remember(guid, status);
+    else
+        Forget(guid);
 }
 
 bool Hardcore::CanTakeStatus(Player const* player)
@@ -91,9 +106,15 @@ bool Hardcore::TakeStatus(Player* player)
         return false;
     uint32 const guid = player->GetGUIDLow();
     // Database: a direct write with the time, at once. Client: the NPC script tells the player.
-    CharacterDatabase.DirectPExecute(
-        "INSERT INTO `character_hardcore` (`guid`, `status`, `taken_at`) VALUES (%u, %u, %u)",
-        guid, uint32(Status::Alive), uint32(time(nullptr)));
+    // A failed INSERT (a database error, or a row the cache did not know) sets nothing: the player is told
+    // that the status was not taken, and the next ask reads the row again.
+    if (!CharacterDatabase.DirectPExecute(
+            "INSERT INTO `character_hardcore` (`guid`, `status`, `taken_at`) VALUES (%u, %u, " UI64FMTD ")",
+            guid, uint32(Status::Alive), uint64(time(nullptr))))
+    {
+        Forget(guid);
+        return false;
+    }
     Remember(guid, Status::Alive);
     return true;
 }
