@@ -16,6 +16,7 @@
 #include "Bag.h"
 #include "Corpse.h"
 #include "Group.h"
+#include "Hardcore.h"
 #include "GridMap.h"
 #include "Log.h"
 #include "MotionMaster.h"
@@ -1227,4 +1228,15 @@ Bots::BotView::GroupMarks BotAdapter::GetGroupMarks() const
 Bots::RoleChoice BotAdapter::GetRoleChoice(Bots::Guid member) const
 {
     return sBotMgr.RoleChoiceOf(ObjectGuid(member));
+}
+
+// jvbastel/WOWAI#252, #257: a player the bot can see whose status is
+// hardcore (alive or dead), from the hardcore module. False for a creature
+// and for a unit out of sight. A dead hardcore bot never releases and the
+// Priest does not resurrect it: the database and the client stay as the
+// death left them (Hardcore::OnDeath).
+bool BotAdapter::IsHardcore(Bots::Guid member) const
+{
+    Unit const* found = Find(member);
+    return found && found->IsPlayer() && Hardcore::IsHardcore(static_cast<Player const*>(found));
 }

@@ -44,6 +44,7 @@
 #include "Conditions.h"
 #include "Anticheat.h"
 #include "MasterPlayer.h"
+#include "Hardcore.h"
 
 void WorldSession::HandleRepopRequestOpcode(NullClientPacket const& /*packet*/)
 {
@@ -51,6 +52,8 @@ void WorldSession::HandleRepopRequestOpcode(NullClientPacket const& /*packet*/)
 
     if (_player->IsAlive() || _player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))
         return;
+
+    if (!Hardcore::AllowRelease(_player)) return; // WOWAI hardcore characters (#253): no release, no ghost walk
 
     // the world update order is sessions, players, creatures
     // the netcode runs in parallel with all of these

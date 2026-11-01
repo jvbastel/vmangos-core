@@ -1392,6 +1392,7 @@ ChatCommand * ChatHandler::getCommandTable()
         { "antispam",       SEC_TICKETMASTER,   true, nullptr,                                         "", AntiSpamCommandTable },
         { "gold",           SEC_BASIC_ADMIN,    true, nullptr,                                         "", goldCommandTable },
         { "wareffort",      SEC_DEVELOPER,      true, nullptr,                                         "", warEffortCommandTable },
+        { "hardcore",       SEC_PLAYER,         false, &ChatHandler::HandleHardcoreCommand,           "Show the hardcore status of your character", nullptr }, // WOWAI hardcore characters (#251): .hardcore
         { nullptr,          0,                  false, nullptr,                                        "", nullptr }
     };
 

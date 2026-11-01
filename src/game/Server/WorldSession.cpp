@@ -43,6 +43,7 @@
 #include "MasterPlayer.h"
 #include "PlayerBroadcaster.h"
 #include "Crypto/Hash/MD5.h"
+#include "Hardcore.h"
 
 #include <limits>
 
@@ -438,7 +439,7 @@ bool WorldSession::ForcePlayerLogoutDelay()
         {
             GetPlayer()->RemoveFromGroup();
         }
-        else if (sWorld.getConfig(CONFIG_BOOL_FORCE_LOGOUT_DELAY))
+        else if (sWorld.getConfig(CONFIG_BOOL_FORCE_LOGOUT_DELAY) || Hardcore::KeepInWorldAfterLostConnection(GetPlayer())) // WOWAI hardcore characters (#256): no escape from a fight
         {
             sLog.Player(this, LOG_CHAR, "LostSocket", LOG_LVL_BASIC, "");
             SetDisconnectedSession();
@@ -689,10 +690,12 @@ void WorldSession::LogoutPlayer(bool Save)
         if (ObjectGuid lootGuid = GetPlayer()->GetLootGuid())
             DoLootRelease(lootGuid);
 
+        Hardcore::OnLogout(_player); // WOWAI hardcore characters (#250): a dead hardcore character leaves its group
+
         if (inWorld)
         {
             // If the player just died before logging out, make him appear as a ghost
-            if (_player->GetDeathTimer())
+            if (_player->GetDeathTimer() && !Hardcore::IsHardcore(_player)) // WOWAI hardcore characters (#253): the body stays where it died
             {
                 _player->GetHostileRefManager().deleteReferences();
                 _player->BuildPlayerRepop();

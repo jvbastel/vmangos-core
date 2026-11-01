@@ -17,6 +17,13 @@ namespace Bots
             return !IsAlive(context.view, context.view.GetSelf());
         }
 
+        // jvbastel/WOWAI#252: the death of a hardcore bot is final. It never
+        // releases and never walks as a ghost: it stays where it died.
+        bool MayRelease(BotContext const& context)
+        {
+            return SelfState(context) == LifeState::Dead && !context.view.IsHardcore(context.view.GetSelf());
+        }
+
         // True while a resurrect can still come to the dead bot: a living
         // member that it sees can resurrect, and has not given up its
         // resurrect (no safe place to cast it from).
@@ -105,7 +112,7 @@ namespace Bots
             Rule{"release with the leader", P + 30,
                 [](BotContext const& context) {
                     Guid const leader = context.view.GetGroupLeader();
-                    return SelfState(context) == LifeState::Dead && leader != NoGuid
+                    return MayRelease(context) && leader != NoGuid
                         && leader != context.view.GetSelf()
                         && context.view.GetLifeState(leader) == LifeState::Ghost;
                 },
@@ -115,7 +122,7 @@ namespace Bots
             // After the fight, so that a Priest that lives can still come.
             Rule{"release when no resurrect comes", P + 20,
                 [](BotContext const& context) {
-                    return SelfState(context) == LifeState::Dead && SomeoneLives(context.view)
+                    return MayRelease(context) && SomeoneLives(context.view)
                         && !IsGroupInCombat(context.view) && !ResurrectCanCome(context);
                 },
                 Always([](BotContext const& context) {
@@ -125,7 +132,9 @@ namespace Bots
 
             // No bot revives at its corpse on its own: a ghost runs back.
             Rule{"walk back as a ghost", P + 10,
-                [](BotContext const& context) { return SelfState(context) == LifeState::Ghost; },
+                [](BotContext const& context) {
+                    return SelfState(context) == LifeState::Ghost && !context.view.IsHardcore(context.view.GetSelf());
+                },
                 Always([](BotContext const& context) { context.actions.WalkAsGhost(); })},
 
             // A dead bot does nothing else.

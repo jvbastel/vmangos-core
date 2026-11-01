@@ -22,6 +22,7 @@
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "Group.h"
+#include "Hardcore.h"
 #include "Log.h"
 #include "Map.h"
 #include "MotionMaster.h"
@@ -323,6 +324,18 @@ bool BotRun::Start(std::string const& dataDir, std::string const& scriptName, st
             error = "No bot is named " + name + ". The test realm setup makes the bots and the test driver.";
             return false;
         }
+    // jvbastel/WOWAI#257: a scripted run revives its dead and releases the
+    // test driver (`release`); a hardcore death is final, so no hardcore
+    // character takes part.
+    for (std::string const& name : names)
+    {
+        std::string wanted = name;
+        if (normalizePlayerName(wanted) && Hardcore::IsHardcore(sObjectMgr.GetPlayerGuidByName(wanted).GetCounter()))
+        {
+            error = name + " is hardcore. A scripted run revives its dead, so it takes no hardcore character.";
+            return false;
+        }
+    }
 
     m_script = script.script;
     m_route = route.route;
@@ -1335,6 +1348,10 @@ bool BotRun::ExpectAlive(std::string& detail)
 // member see the resurrect and the move through the normal update packets.
 void BotRun::ReviveAt(Player* member, uint32 mapId, float x, float y, float z, float o)
 {
+    // jvbastel/WOWAI#257: a hardcore death is final (Start takes no
+    // hardcore member; this guard keeps the body where it died).
+    if (Hardcore::IsHardcore(member))
+        return;
     member->ResurrectPlayer(0.5f);
     member->SpawnCorpseBones();
     // Half health and mana is no reason to rest for a bot: it rests until

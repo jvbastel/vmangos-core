@@ -120,3 +120,75 @@ src/game/Objects/Item.cpp
 # Spec hook 23, #225 final review: the GM item commands find a Forever item by its name (.additem and
 # .deleteitem in CharacterCommands.cpp read item_template through Forever::Table).
 src/game/Commands/CharacterCommands.cpp
+# The hardcore characters (spec jvbastel/WOWAI#250). The fork's own Hardcore folder (one facade, Hardcore.h,
+# namespace Hardcore; the game CMake globs it like Bots and Forever), its migrations, and the hardcore NPC
+# script. Each hook in a stock file is one line: `Hardcore::On<Event>(...)` or
+# `if (!Hardcore::Allow<Action>(...)) return ...;` (the return value the stock function needs). `git grep "Hardcore::"` finds every hook at an upstream merge.
+# Numbering: one number per hook purpose; a number may name several call lines of that purpose (hooks 7, 14,
+# 20), and one Hardcore function may serve several purposes (AllowResurrect: hooks 10, 15, 16).
+src/game/Hardcore/**
+# The characters table character_hardcore (the status and the death record).
+sql/migrations/20261101120000_characters.sql
+# The hardcore NPC: creature 190250, its gossip texts, and its spawn in Valley of Trials.
+sql/migrations/20261101120100_world.sql
+src/scripts/custom/npc_hardcore.cpp
+# Hardcore hook 1: the NPC script in the custom scripts: one source line in the scripts CMake, and one
+# AddSC_npc_hardcore line in custom.h and custom.cpp (WOWAI#251).
+src/scripts/CMakeLists.txt
+src/scripts/custom/custom.h
+src/scripts/custom/custom.cpp
+# Hardcore hook 2: Hardcore::OnLogin in WorldSession::HandlePlayerLogin (CharacterHandler.cpp, above): the
+# login line "Hardcore: alive" (WOWAI#251).
+# Hardcore hook 3: the player command .hardcore: one command table line (Chat.cpp, above) and its handler
+# name (Chat.h, above); the handler is in src/game/Hardcore/HardcoreCommand.cpp (WOWAI#251).
+# Hardcore hook 4: the game CMake globs src/game/Hardcore, and adds it to the include directories
+# (src/game/CMakeLists.txt, above, two places) (WOWAI#251).
+# Hardcore hook 5: Hardcore::AllowTrade in WorldSession::HandleInitiateTradeOpcode: no trade across the
+# hardcore border (WOWAI#254).
+src/game/Handlers/TradeHandler.cpp
+# Hardcore hook 6: Hardcore::AllowMail in WorldSession::HandleSendMail: no mail from a character that is not
+# hardcore to a hardcore character, no cash on delivery the other way; game mail does not pass here (WOWAI#254).
+src/game/Handlers/MailHandler.cpp
+# Hardcore hook 7: Hardcore::AllowAuctionHouse in WorldSession::HandleAuctionHelloOpcode and in
+# WorldSession::GetCheckedAuctionHouseForAuctioneer (the check of every sell, bid, cancel and list packet): no
+# auction house for a hardcore character (WOWAI#254).
+src/game/Handlers/AuctionHouseHandler.cpp
+# Hardcore hook 8: Hardcore::AllowGroupInvite in WorldSession::HandleGroupInviteOpcode: no group invite across
+# the hardcore border (WOWAI#254).
+src/game/Handlers/GroupHandler.cpp
+# The hardcore NPC in the other 5 starting areas and the 6 capitals, and the texts of the drop (WOWAI#255).
+sql/migrations/20261101125500_world.sql
+# Hardcore hook 9: Hardcore::OnDeath in Player::SetDeathState (Player.cpp, above): the final death of a
+# hardcore character, also at the CORPSE state of a living one (the Spirit of Redemption logout) (WOWAI#253).
+# Hardcore hook 10: Hardcore::AllowResurrect in Player::ResurrectPlayer (Player.cpp, above): no resurrect by any
+# path after the final death (WOWAI#253).
+# Hardcore hook 11: Hardcore::AllowRelease in WorldSession::HandleRepopRequestOpcode: no release, no ghost walk
+# (WOWAI#253).
+src/game/Handlers/MiscHandler.cpp
+# Hardcore hook 12: Hardcore::AllowLogin in WorldSession::HandlePlayerLoginOpcode (CharacterHandler.cpp, above):
+# the 1.12 error "character locked" and the death record, also for a relog in the 60 seconds (WOWAI#253).
+# Hardcore hook 13: Hardcore::OnDelete in Player::DeleteFromDB (Player.cpp, above): the character_hardcore row
+# of a deleted character goes too (WOWAI#253).
+# Hardcore hook 14: a Hardcore::DeathCause scope in Unit::Kill (Unit.cpp, above) and in
+# Player::EnvironmentalDamage (Player.cpp, above): the killer or the cause (fall, drowning, ...) of the death
+# record, which Player::SetDeathState does not know (WOWAI#253).
+# Hardcore hook 15: Hardcore::AllowResurrect in Player::ResurrectUsingRequestData (Player.cpp, above): an
+# accepted resurrect does not teleport the dead body or give it health (WOWAI#253).
+# Hardcore hook 16: Hardcore::AllowResurrect in WorldSession::SendSpiritResurrect: the spirit healer takes no
+# durability from a dead hardcore character (WOWAI#253).
+src/game/Handlers/NPCHandler.cpp
+# Hardcore hook 17: Hardcore::IsHardcore in WorldSession::LogoutPlayer (WorldSession.cpp, above): the logout
+# does not make a dead hardcore character a ghost at the graveyard (WOWAI#253).
+# Hardcore hook 18: Hardcore::KeepInWorldAfterLostConnection in WorldSession::ForcePlayerLogoutDelay
+# (WorldSession.cpp, above): after a lost connection a hardcore character in combat gets the stock delayed
+# logout even with ForceLogoutDelay off, so killing the client is no escape from a fight (WOWAI#256).
+# Hardcore hook 19: Hardcore::AllowGroupMember in Group::AddMember: no group across the hardcore border by any
+# path that skips the invite handler (the invite accept, the stock party bots, the meeting stone, the bot
+# manager, scripted runs); a battleground's own raid group is not limited (WOWAI#250 final review).
+src/game/Group/Group.cpp
+# Hardcore hook 20: Hardcore::AllowRepop in Player::BuildPlayerRepop, Player::ScheduleRepopAtGraveyard and
+# Player::RepopAtGraveyard (Player.cpp, above): no ghost and no graveyard after the final death by the paths no
+# packet asks for (the 6-minute auto release, the fall under the map, battlegrounds, the stock bots)
+# (WOWAI#250 final review).
+# Hardcore hook 21: Hardcore::OnLogout in WorldSession::LogoutPlayer (WorldSession.cpp, above): a dead
+# hardcore character leaves its group at its logout, so its bots leave and log out too (WOWAI#250 final review).

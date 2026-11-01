@@ -6,7 +6,8 @@
 */
 
 // The GM commands of the WOWAI bots:
-//   .wowai bot create <name> <class> <role> [race|horde|alliance] [gear <template>]
+//   .wowai bot create <name> <class> <role> [race|horde|alliance] [gear <template>] [hardcore [level]]
+//     (hardcore: in the game only, by a hardcore character that is alive, at or below its level; WOWAI#257)
 //   .wowai bot login <name>
 //   .wowai bot logout <name>
 //   .wowai gear equip <character> [template]
@@ -18,6 +19,9 @@
 #include "BotMgr.h"
 #include "BotRecipe.h"
 #include "Chat.h"
+#include "Hardcore.h"
+#include "Player.h"
+#include "WorldSession.h"
 
 #include <sstream>
 
@@ -38,9 +42,25 @@ bool ChatHandler::HandleWowaiBotCreateCommand(char* args)
 {
     Bots::BotRecipeResult parsed = Bots::ParseBotRecipe(Words(args));
     std::string error = parsed.error;
+    if (parsed.ok && parsed.recipe.hardcore)
+    {
+        // jvbastel/WOWAI#257: the level of a hardcore bot, against the
+        // level of the character that asks.
+        Player const* asker = m_session ? m_session->GetPlayer() : nullptr;
+        Bots::HardcoreAsker const facts = {asker != nullptr,
+            asker && asker->IsAlive() && Hardcore::GetStatus(asker) == Hardcore::Status::Alive,
+            asker ? uint32(asker->GetLevel()) : 0};
+        Bots::BotLevelChoice const level = Bots::HardcoreBotLevel(parsed.recipe.level, facts);
+        parsed.ok = level.ok;
+        parsed.recipe.level = level.level;
+        error = level.error;
+    }
     if (parsed.ok && sBotMgr.CreateBot(parsed.recipe, error))
     {
-        PSendSysMessage("Bot %s made. It logs in now.", parsed.recipe.name.c_str());
+        if (parsed.recipe.hardcore)
+            PSendSysMessage("Hardcore bot %s made at level %u. It logs in now.", parsed.recipe.name.c_str(), parsed.recipe.level);
+        else
+            PSendSysMessage("Bot %s made. It logs in now.", parsed.recipe.name.c_str());
         std::string const gear = Bots::GeneratedGearTemplateName(parsed.recipe.botClass, parsed.recipe.role);
         if (parsed.recipe.gearTemplate.empty() && !sBotMgr.GetGear().Find(gear))
             PSendSysMessage("No gear template is named %s. The bot keeps its starting gear.", gear.c_str());

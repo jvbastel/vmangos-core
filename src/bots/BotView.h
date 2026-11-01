@@ -272,6 +272,11 @@ namespace Bots
         // the role choice add-on (RoleChoice.h). RoleChoice::None for a bot,
         // and for a human with no add-on or no pick.
         virtual RoleChoice GetRoleChoice(Guid member) const = 0;
+        // jvbastel/WOWAI#252: true when group member `member` is a hardcore
+        // character (GLOSSARY.md). Its death is final: no resurrect works on
+        // it, and it never releases its spirit. False for any other unit, and
+        // for a unit that the bot cannot see.
+        virtual bool IsHardcore(Guid member) const = 0;
     };
 }
 

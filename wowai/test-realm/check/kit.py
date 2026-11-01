@@ -19,7 +19,12 @@ realm.roster() and realm.bot(role, faction) give the bots by role, so a
 check names no bot (the roster changes).
 pos(client, guid) and stat(client, guid) read a unit with GM commands.
 dist(a, b), kill(client, guid), and revive_all(realm, client, bots) are the
-small helpers that the checks share. spawn(realm, client), sturdy(client,
+small helpers that the checks share. take_hardcore(realm, client) takes the hardcore status at the hardcore
+NPC (with wowclient.GossipClient), drop_hardcore(realm, client[, spawn]) drops it, HARDCORE_SPAWNS lists the
+12 NPC spawns, and hardcore_line(client) is the answer of `.hardcore`. hardcore_row(realm, guid) and
+hardcore_locked(realm, guid) read the status, the death record and the lock flag (WOWAI#253);
+unit_field(viewer, guid, name) reads an update field of a unit.
+spawn(realm, client), sturdy(client,
 guid) and saved_spells(realm, client) serve the spell and talent checks,
 with wowclient.SpellClient as the client class.
 Realm(62) works outside the check command too.
@@ -234,6 +239,149 @@ def saved_spells(realm, client, enabled_only=True):
     if enabled_only:
         query += " AND disabled = 0"
     return {int(row) for row in realm.sql("characters", query).splitlines() if row}
+
+
+# The hardcore NPC (WOWAI#251): creature 190250 with the gossip script npc_hardcore. Its spawn in Valley of
+# Trials (creature guid 2502500, Kalimdor), and a place 2 yards west of it, in reach of its gossip.
+HARDCORE_NPC_ENTRY = 190250
+HARDCORE_NPC = (0xF130 << 48) | (HARDCORE_NPC_ENTRY << 24) | 2502500
+HARDCORE_NPC_PLACE = (-606.0, -4248.0, 39.0, 1)
+# Its npc_text ids: the greeting, and the rules page with the confirmation.
+HARDCORE_TEXT_GREETING = 190250
+HARDCORE_TEXT_TAKE_RULES = 190251
+
+
+HardcoreSpawn = collections.namedtuple("HardcoreSpawn", "place low capital map x y z")
+# Every spawn of the hardcore NPC (world migrations of WOWAI#251 and #255): the 6 starting areas, where it
+# offers the status and the drop, and the 6 capitals, where it only offers the drop. low is the creature
+# guid; (map, x, y, z) is the spawn point.
+HARDCORE_SPAWNS = [
+    HardcoreSpawn("Valley of Trials", 2502500, False, 1, -604.0, -4248.0, 39.0),
+    HardcoreSpawn("Northshire", 2502501, False, 0, -8936.9, -135.7, 83.45),
+    HardcoreSpawn("Coldridge Valley", 2502502, False, 0, -6232.8, 323.0, 383.14),
+    HardcoreSpawn("Shadowglen", 2502503, False, 1, 10325.6, 827.1, 1326.46),
+    HardcoreSpawn("Deathknell", 2502504, False, 0, 1678.6, 1664.9, 135.85),
+    HardcoreSpawn("Camp Narache", 2502505, False, 1, -2912.6, -261.0, 53.02),
+    HardcoreSpawn("Stormwind", 2502506, True, 0, -8934.9, 622.9, 99.61),
+    HardcoreSpawn("Ironforge", 2502507, True, 0, -4880.7, -986.3, 504.02),
+    HardcoreSpawn("Darnassus", 2502508, True, 1, 9942.6, 2515.4, 1317.66),
+    HardcoreSpawn("Orgrimmar", 2502509, True, 1, 1627.9, -4384.1, 11.80),
+    HardcoreSpawn("Thunder Bluff", 2502510, True, 1, -1257.6, 27.0, 128.27),
+    HardcoreSpawn("Undercity", 2502511, True, 0, 1591.9, 244.2, -52.06),
+]
+# The npc_text ids of WOWAI#255: the capital greeting, and the drop warning with its confirmation.
+HARDCORE_TEXT_CAPITAL_GREETING = 190252
+HARDCORE_TEXT_DROP_WARNING = 190253
+
+
+def hardcore_spawn(place):
+    """The HardcoreSpawn of a place name ("Orgrimmar")."""
+    return next(spawn for spawn in HARDCORE_SPAWNS if spawn.place == place)
+
+
+def hardcore_npc(spawn):
+    """The full guid of the hardcore NPC of a HardcoreSpawn."""
+    return (0xF130 << 48) | (HARDCORE_NPC_ENTRY << 24) | spawn.low
+
+
+def go_to_hardcore_npc(client, spawn=None):
+    """GM-teleports the client's character next to the hardcore NPC of Valley of Trials, or onto the spawn
+    point of the HardcoreSpawn `spawn` (in reach of its gossip). Returns the NPC's full guid."""
+    if spawn is None:
+        client.gm(".go xyz %.1f %.1f %.1f %d" % HARDCORE_NPC_PLACE, wait=3.0)
+        return HARDCORE_NPC
+    client.gm(".go xyz %.2f %.2f %.2f %d" % (spawn.x, spawn.y, spawn.z, spawn.map), wait=3.0)
+    return hardcore_npc(spawn)
+
+
+def drop_hardcore(realm, client, spawn=None):
+    """Drops the hardcore status at a hardcore NPC (Valley of Trials, or the HardcoreSpawn `spawn`), as a
+    player does: a GM teleport, the gossip hello, the drop option, the warning page and its confirmation.
+    The client is a wowclient.GossipClient. True when character_hardcore then says Dropped (3)."""
+    npc = go_to_hardcore_npc(client, spawn)
+    menu = client.gossip_hello(npc)
+    drop = menu.option("drop") if menu else None
+    if drop is None:
+        return False
+    warning = client.gossip_select(npc, drop)
+    confirm = warning.option("yes") if warning else None
+    if confirm is None:
+        return False
+    client.gossip_select(npc, confirm)
+    row = realm.sql("characters", "SELECT status FROM character_hardcore WHERE guid = %d" % (client.guid & 0xFFFFFFFF))
+    return row == "3"
+
+
+def hardcore_line(client):
+    """The answer of `.hardcore` (one line), or "" when there is none."""
+    lines = client.gm(".hardcore")
+    return lines[0] if lines else ""
+
+
+def take_hardcore(realm, client):
+    """Takes the hardcore status at the hardcore NPC of Valley of Trials, as a player does: a GM teleport to
+    the NPC, the gossip hello, the take option, the rules page, and the confirmation. The client is a
+    wowclient.GossipClient (realm.login(..., client_class=GossipClient)); the character must be level 1 with
+    0 XP and never hardcore. True when the status is Alive in character_hardcore and `.hardcore` says
+    "Hardcore: alive"."""
+    go_to_hardcore_npc(client)
+    menu = client.gossip_hello(HARDCORE_NPC)
+    take = menu.option("hardcore") if menu else None
+    if take is None:
+        return False
+    rules = client.gossip_select(HARDCORE_NPC, take)
+    confirm = rules.option("yes") if rules else None
+    if confirm is None:
+        return False
+    client.gossip_select(HARDCORE_NPC, confirm)
+    row = realm.sql("characters", "SELECT status FROM character_hardcore WHERE guid = %d" % (client.guid & 0xFFFFFFFF))
+    return row == "1" and hardcore_line(client) == "Hardcore: alive"
+
+
+# The death of a hardcore character (WOWAI#253): the lock flag of a dead one, and the status Dead. The status
+# column of character_hardcore as the strings realm.sql returns: alive, dead, dropped.
+HARDCORE_LOCK_FLAG = 0x4  # CHARACTER_FLAG_LOCKED_FOR_TRANSFER
+HARDCORE_ALIVE = "1"
+HARDCORE_DEAD = "2"
+HARDCORE_DROPPED = "3"
+PLAYER_FLAGS_GHOST = 0x10
+# Reason lines of the hardcore refusals (parts that the checks match). Keep them in step with the texts in
+# src/game/Hardcore/HardcoreRules.cpp, HardcoreBots.cpp, HardcoreStatus.cpp and HardcoreDrop.cpp.
+HARDCORE_REASON_NO_GROUP = "cannot be in a group with a character that is not hardcore"
+HARDCORE_REASON_DEAD = "dead for good"
+HARDCORE_REASON_BOT_ABOVE_LEVEL = "above your level cannot join your group"
+HARDCORE_REASON_TAKE_IN_GROUP = "Leave the group first"
+HARDCORE_REASON_DROP_WITH_PLAYER = "another hardcore player"
+
+
+def online(realm, guid):
+    """True when characters.online is 1 for the (full or low) guid."""
+    return realm.sql("characters", "SELECT online FROM characters WHERE guid = %d" % (guid & 0xFFFFFFFF)) == "1"
+
+
+def hardcore_row(realm, guid):
+    """[status, death_time, death_zone, death_killer, death_level] of character_hardcore, as strings, for the
+    character with the (full or low) guid; [] when it has no row (never hardcore)."""
+    row = realm.sql("characters", "SELECT status, death_time, death_zone, death_killer, death_level "
+                    "FROM character_hardcore WHERE guid = %d" % (guid & 0xFFFFFFFF))
+    return row.split("\t") if row else []
+
+
+def hardcore_locked(realm, guid):
+    """True when the character has the lock flag of a dead hardcore character in the database."""
+    flags = realm.sql("characters", "SELECT character_flags FROM characters WHERE guid = %d" % (guid & 0xFFFFFFFF))
+    return bool(flags) and bool(int(flags) & HARDCORE_LOCK_FLAG)
+
+
+def unit_field(viewer, guid, name):
+    """An update field of a unit (GM `.debug getvaluebyname`, the viewer selects the unit), or -1."""
+    for line in viewer.gm(".debug getvaluebyname %s" % name, select=guid):
+        if line.startswith(name + ":"):
+            try:
+                return int(line.split(":", 1)[1].split("/")[0])
+            except ValueError:
+                return -1
+    return -1
 
 
 class Results:

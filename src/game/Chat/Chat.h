@@ -331,6 +331,8 @@ class ChatHandler
         bool HandleRouteTraceResumeCommand(char* args);
         bool HandleRouteBuildCommand(char* args);
         bool HandleRouteExportCommand(char* args);
+        // WOWAI hardcore characters (#251): .hardcore (src/game/Hardcore/HardcoreCommand.cpp)
+        bool HandleHardcoreCommand(char* args);
         bool HandleBattleBotAddAlteracCommand(char* args);
         bool HandleBattleBotAddArathiCommand(char* args);
         bool HandleBattleBotAddWarsongCommand(char* args);

@@ -239,11 +239,12 @@ namespace Bots
             }
 
             // A dead member that has not released, and whose resurrect the
-            // bot has not given up.
+            // bot has not given up. jvbastel/WOWAI#252: and that is not
+            // hardcore. No resurrect works on a dead hardcore character.
             bool MayResurrect(BotContext const& context, Guid member)
             {
                 return context.view.GetLifeState(member) == LifeState::Dead
-                    && !context.group.IsResurrectGivenUp(member);
+                    && !context.group.IsResurrectGivenUp(member) && !context.view.IsHardcore(member);
             }
 
             // The members of the bot's group. jvbastel/WOWAI#195: in a

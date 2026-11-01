@@ -83,6 +83,7 @@
 #include "world/scourge_invasion.h"
 #include "world/world_event_wareffort.h"
 #include "BotHooks.h"
+#include "Hardcore.h"
 #include "Forever.h"
 
 #include <climits>
@@ -759,6 +760,7 @@ uint32 Player::EnvironmentalDamage(EnvironmentalDamageType type, uint32 damage)
 
     SendEnvironmentalDamageLog(type, damage, absorb, resist);
 
+    Hardcore::DeathCause const hardcoreCause(uint32(type)); // WOWAI hardcore characters (#253): the cause of a death record
     damage = DealDamage(this, damage, nullptr, SELF_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, nullptr, false);
 
     // DealDamage not apply item durability loss at self damage
@@ -1564,6 +1566,8 @@ void Player::SetDeathState(DeathState s)
         SetResurrectionSpellId(ressSpellId);
 #endif
     }
+
+    if ((s == JUST_DIED || s == CORPSE) && cur) Hardcore::OnDeath(this); // WOWAI hardcore characters (#253): the final death (CORPSE: the Spirit of Redemption logout)
 
     if (IsAlive() && !cur)
     {
@@ -4491,6 +4495,7 @@ void Player::DeleteFromDB(ObjectGuid playerGuid, uint32 accountId, bool updateRe
             CharacterDatabase.PExecute("DELETE FROM `mail_items` WHERE `receiver_guid` = '%u'", lowGuid);
             CharacterDatabase.PExecute("DELETE FROM `character_pet` WHERE `owner_guid` = '%u'", lowGuid);
             CharacterDatabase.PExecute("DELETE FROM `guild_eventlog` WHERE `player_guid1` = '%u' OR `player_guid2` = '%u'", lowGuid, lowGuid);
+            Hardcore::OnDelete(lowGuid); // WOWAI hardcore characters (#253): the character_hardcore row goes too
             CharacterDatabase.CommitTransaction();
             break;
         }
@@ -4598,6 +4603,7 @@ void Player::RemoveGhostForm()
 */
 void Player::BuildPlayerRepop()
 {
+    if (!Hardcore::AllowRepop(this)) return; // WOWAI hardcore characters (#250): no ghost after the final death, by any path
     // Waiting to Resurrect (probably redundant cast, yet to check thoroughly)
     if (InBattleGround())
         CastSpell(this, 2584, true);
@@ -4651,6 +4657,8 @@ void Player::BuildPlayerRepop()
 
 void Player::ResurrectPlayer(float restore_percent, bool applySickness)
 {
+    if (!Hardcore::AllowResurrect(this)) return; // WOWAI hardcore characters (#253): no resurrect after the final death
+
     // Interrupt resurrect spells
     InterruptSpellsCastedOnMe(false, true);
 
@@ -4993,6 +5001,7 @@ uint32 Player::DurabilityRepair(uint16 pos, bool cost, float discountMod)
 
 void Player::ScheduleRepopAtGraveyard()
 {
+    if (!Hardcore::AllowRepop(this)) return; // WOWAI hardcore characters (#250): the body stays where it died
     if (IsInWorld() && GetSession()->IsConnected())
         m_repopAtGraveyardPending = true;
     else
@@ -5005,6 +5014,7 @@ void Player::RepopAtGraveyard()
     // for example from WorldSession::HandleMovementOpcodes
 
     m_repopAtGraveyardPending = false;
+    if (!Hardcore::AllowRepop(this)) return; // WOWAI hardcore characters (#250): the body stays where it died
     WorldSafeLocsEntry const* pClosestGrave = nullptr;
 
     // Special handle for battleground maps
@@ -20091,6 +20101,8 @@ uint32 Player::GetBaseWeaponSkillValue(WeaponAttackType attType) const
 
 void Player::ResurrectUsingRequestData()
 {
+    if (!Hardcore::AllowResurrect(this)) return; // WOWAI hardcore characters (#253): no teleport to the resurrector, no health on the dead body
+
     // Teleport before resurrecting by player, otherwise the player might get attacked from creatures near his corpse
     if (m_resurrectData.resurrectorGuid.IsPlayer())
     {

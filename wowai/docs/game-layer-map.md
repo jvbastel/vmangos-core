@@ -30,6 +30,7 @@ The fork's own code:
   - `src/game/Bots/BotMgr.h`: `sBotMgr`. `src/game/Bots/BotAI.h`: the AI of one bot.
   - `src/game/Bots/BotHooks.cpp`: the hooks that upstream files call. `src/game/Bots/BotCommands.cpp`: the `.wowai` handlers.
   - Also `src/game/Bots/BotChat.cpp`, `src/game/Bots/BotGear.cpp`, `src/game/Bots/BotLoot.cpp`, `src/game/Bots/BotLevelRoutine.cpp`, `src/game/Bots/BotRun.cpp`, `src/game/Bots/RouteCommands.cpp`.
+- `src/game/Hardcore`: the hardcore characters (spec WOWAI#250). The facade is `src/game/Hardcore/Hardcore.h` (namespace `Hardcore`). The hardcore NPC script is `src/scripts/custom/npc_hardcore.cpp`; its 12 spawns (6 starting areas, 6 capitals, creature guids 2502500-2502511) are in `kit.HARDCORE_SPAWNS`. The drop of the status is `src/game/Hardcore/HardcoreDrop.cpp`.
 - `src/bots` and `src/game/Bots` are globbed with `CONFIGURE_DEPENDS`: a new file needs no CMake edit. The upstream lists in `src/game/CMakeLists.txt` are written by hand.
 - `bots/data`: the bot data files. `bots/data/gear`, `bots/data/routes`, `bots/data/spells`, `bots/data/talents`, `bots/data/bottests`.
 - `sql/migrations`: the database migrations (`wowai/dev realm migrate` applies the new ones).
@@ -92,6 +93,7 @@ The columns that the checks use (not all columns of each table):
 | `characters` | `groups` | `group_id`, `leader_guid`, `loot_method`, `loot_threshold`, `is_raid` |
 | `characters` | `group_member` | `group_id`, `member_guid`, `assistant`, `subgroup` |
 | `characters` | `bot_character` | `guid`, `account`, `role`, `world_bot` |
+| `characters` | `character_hardcore` | `guid`, `status`, `taken_at`, `dropped_at`, `death_time`, `death_zone`, `death_killer`, `death_level` |
 | `mangos` | `item_template` | `entry`, `name`, `class`, `subclass`, `quality`, `inventory_type`, `allowable_class`, `item_level`, `required_level`, `stat_type1`, `stat_value1`, `armor`, `dmg_min1`, `dmg_max1`, `delay`, `spellid_1` |
 | `mangos` | `creature` | `guid`, `id`, `map`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecsmin`, `spawntimesecsmax` |
 | `mangos` | `creature_template` | `entry`, `name`, `level_min`, `level_max`, `faction`, `rank`, `loot_id`, `gold_min`, `gold_max` |
@@ -108,6 +110,7 @@ Notes:
 
 - `character_inventory.bag` is 0 for the equipment and the backpack. Slots 0 to 18 are the equipment, 19 to 22 the bags, 23 to 38 the backpack.
 - `bot_character` is the fork's table (migration in `sql/migrations`). `role` is `tank`, `healer`, `melee`, or `ranged`.
+- `character_hardcore` is the fork's table of the hardcore characters (WOWAI#251). `status` is 1 hardcore (alive), 2 dead, 3 dropped ("was hardcore"); a character with no row was never hardcore. mangosd reads a character's row again at its login, so a row changed by SQL counts from the next login.
 - The GM level of an account is in `account_access` (`gmlevel` 6 for the `.wowai` commands). mangosd reads it only at startup.
 - A bot does not save its in-game changes unless `PlayerBot.AllowSaving = 1`. Run `.saveall` before you read a bot's rows.
 

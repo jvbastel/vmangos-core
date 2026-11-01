@@ -527,6 +527,12 @@ file(GLOB game_FOREVER_SRCS CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/Forever/*.h"
 )
 list(APPEND game_SRCS ${game_FOREVER_SRCS})
+# The fork's own folder Hardcore: hardcore characters (jvbastel/WOWAI#250), also a glob.
+file(GLOB game_HARDCORE_SRCS CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/Hardcore/*.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Hardcore/*.h"
+)
+list(APPEND game_SRCS ${game_HARDCORE_SRCS})
 
 if((${CMAKE_VERSION} VERSION_LESS "3.16") OR USE_PCH_OLD)
   list(APPEND game_SRCS
@@ -564,6 +570,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/Battlegrounds
   ${CMAKE_CURRENT_SOURCE_DIR}/Bots
   ${CMAKE_CURRENT_SOURCE_DIR}/Forever
+  ${CMAKE_CURRENT_SOURCE_DIR}/Hardcore
   ${CMAKE_CURRENT_SOURCE_DIR}/Chat
   ${CMAKE_CURRENT_SOURCE_DIR}/Commands
   ${CMAKE_CURRENT_SOURCE_DIR}/Database

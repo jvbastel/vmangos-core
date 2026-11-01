@@ -210,6 +210,52 @@ TEST(Death, InAWipeTheBotsWaitForTheLeaderToRelease)
     EXPECT_EQ(bot.Think(), "wait dead");
 }
 
+// jvbastel/WOWAI#252: the death of a hardcore bot is final. It never
+// releases and never walks back as a ghost: it stays where it died. A dead
+// bot that is not hardcore keeps the rules above.
+TEST(Death, ADeadHardcoreBotDoesNotReleaseWithTheLeader)
+{
+    DeadMage bot;
+    bot.fake.SetHardcore(Mage);
+    bot.Die(Player, LifeState::Ghost);
+
+    EXPECT_EQ(bot.Think(), "wait dead");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
+TEST(Death, ADeadHardcoreBotDoesNotReleaseWhenNoResurrectComes)
+{
+    DeadMage bot;
+    bot.fake.SetHardcore(Mage);
+    bot.Die(Healer);
+
+    EXPECT_EQ(bot.Think(), "wait dead");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+    EXPECT_TRUE(bot.group.TakeEvents().empty());
+}
+
+TEST(Death, AHardcoreGhostDoesNotWalkBack)
+{
+    DeadMage bot;
+    bot.fake.SetHardcore(Mage);
+    bot.fake.SetLifeState(Mage, LifeState::Ghost);
+
+    EXPECT_EQ(bot.Think(), "wait dead");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
+// Only the bot's own status counts: a hardcore leader does not hold back the
+// release of a dead bot that is not hardcore.
+TEST(Death, ADeadBotThatIsNotHardcoreStillReleasesWithAHardcoreLeader)
+{
+    DeadMage bot;
+    bot.fake.SetHardcore(Player);
+    bot.Die(Player, LifeState::Ghost);
+
+    EXPECT_EQ(bot.Think(), "release with the leader");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"release"}));
+}
+
 TEST(Death, ALivingBotIgnoresTheDeathRules)
 {
     GroupBot bot(Tank, Bots::BotClass::Warrior, Bots::BotRole::Tank);
@@ -243,6 +289,35 @@ TEST(Resurrect, ThePriestDoesNotResurrectInAFight)
     bot.fake.SetInCombat(Tank);
 
     EXPECT_NE(bot.Think(), "resurrect a member");
+}
+
+// jvbastel/WOWAI#252: no resurrect works on a dead hardcore character, so
+// the Priest does not try it.
+TEST(Resurrect, ThePriestDoesNotResurrectADeadHardcoreMember)
+{
+    GroupBot bot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer);
+    bot.fake.SetKnownSpell(Priest::Resurrection);
+    bot.fake.SetCastsOnDead(Priest::Resurrection);
+    bot.fake.SetAura(Healer, Priest::InnerFire);
+    bot.fake.SetHardcore(Mage);
+    bot.Die(Mage);
+
+    EXPECT_NE(bot.Think(), "resurrect a member");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
+TEST(Resurrect, ThePriestResurrectsTheNonHardcoreMemberBesideADeadHardcoreOne)
+{
+    GroupBot bot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer);
+    bot.fake.SetKnownSpell(Priest::Resurrection);
+    bot.fake.SetCastsOnDead(Priest::Resurrection);
+    bot.fake.SetAura(Healer, Priest::InnerFire);
+    bot.fake.SetHardcore(Tank);
+    bot.Die(Tank);
+    bot.Die(Mage);
+
+    EXPECT_EQ(bot.Think(), "resurrect a member");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"cast 2006 on 0x0000000000000013"}));
 }
 
 TEST(Resurrect, ThePriestDoesNotResurrectAGhost)
@@ -303,6 +378,18 @@ TEST(Resurrect, AfterTheFightThePriestWalksToASafePlaceNearACorpseOutOfReach)
     // The safe place nearest to the Priest (SafePlace.h), 0.9 of the 26
     // yards of the cast from the corpse.
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"keep move to 26.6 0 0"}));
+    EXPECT_FALSE(bot.group.IsResurrectGivenUp(Mage));
+}
+
+// jvbastel/WOWAI#252: the Priest does not walk to the corpse of a hardcore
+// member either, and the walk does not count as a give-up.
+TEST(Resurrect, ThePriestDoesNotWalkToTheCorpseOfAHardcoreMember)
+{
+    GroupPriest bot;
+    bot.fake.SetHardcore(Mage);
+    bot.DieOutOfReach(Mage);
+
+    EXPECT_NE(bot.Think(), "go to a corpse out of reach");
     EXPECT_FALSE(bot.group.IsResurrectGivenUp(Mage));
 }
 

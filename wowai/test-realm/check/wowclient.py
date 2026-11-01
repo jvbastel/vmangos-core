@@ -63,6 +63,7 @@ CMSG_TRAINER_BUY_SPELL, SMSG_TRAINER_BUY_SUCCEEDED, SMSG_TRAINER_BUY_FAILED = 43
 # One spell of SMSG_TRAINER_LIST (NPCHandler.cpp, SendTrainerSpellHelper): spell, state, cost, 2 x
 # profession flags, level, required skill, required skill value, 2 x chain spells, 0.
 TRAINER_SPELL = struct.Struct("<IBIIIBIIIII")
+CMSG_GOSSIP_HELLO, CMSG_GOSSIP_SELECT_OPTION, SMSG_GOSSIP_MESSAGE, SMSG_GOSSIP_COMPLETE = 379, 380, 381, 382
 
 CHAT_MSG_SAY = 0x00
 CHAT_MSG_PARTY = 0x01
@@ -463,6 +464,325 @@ class TrainerClient(SpellClient):
         self.send(CMSG_TRAINER_BUY_SPELL, struct.pack("<QI", guid, spell))
         self.pump(wait)
         return [answer for s, answer in self.trainer_buys[start:] if s == spell]
+
+
+class GossipMenu:
+    """One SMSG_GOSSIP_MESSAGE: the npc guid, the npc_text id of its text, and its options as (index, icon,
+    coded, text). A coded option asks the client for a code (a text box)."""
+
+    def __init__(self, npc, text_id, options):
+        self.npc = npc
+        self.text_id = text_id
+        self.options = options
+
+    def option(self, words):
+        """The index of the first option whose text holds `words` (no case), or None."""
+        for index, _, _, text in self.options:
+            if words.lower() in text.lower():
+                return index
+        return None
+
+    def __repr__(self):
+        return "GossipMenu(text %d, %s)" % (self.text_id, [text for _, _, _, text in self.options])
+
+
+class GossipClient(WorldClient):
+    """A WorldClient that talks to gossip NPCs: gossip_hello opens the menu of an NPC, gossip_select picks an
+    option. gossip is the last menu that the server sent, or None after SMSG_GOSSIP_COMPLETE (the menu
+    closed). It calls super()._observe, so a check can mix it with another client class."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.gossip = None
+
+    def _observe(self, opcode, body):
+        super()._observe(opcode, body)
+        try:
+            if opcode == SMSG_GOSSIP_MESSAGE:
+                # PlayerMenu::SendGossipMenu (1.12): npc guid, text id, option count, then per option the
+                # index (u32), icon (u8), coded (u8) and text. The quest list after it is skipped.
+                npc, text_id, count = struct.unpack_from("<QII", body, 0)
+                pos, options = 16, []
+                for _ in range(count):
+                    index, icon, coded = struct.unpack_from("<IBB", body, pos)
+                    text, pos = cstr(body, pos + 6)
+                    options.append((index, icon, bool(coded), text))
+                self.gossip = GossipMenu(npc, text_id, options)
+            elif opcode == SMSG_GOSSIP_COMPLETE:
+                self.gossip = None
+        except (IndexError, struct.error):
+            pass
+
+    def gossip_hello(self, npc, wait=1.5):
+        """Opens the gossip of the NPC `npc` (a full guid), as a right click does. Its menu, or None when the
+        NPC sends none (out of reach, or no gossip)."""
+        self.gossip = None
+        self.send(CMSG_GOSSIP_HELLO, struct.pack("<Q", npc))
+        self.pump(wait)
+        return self.gossip
+
+    def gossip_select(self, npc, index, code=None, wait=1.5):
+        """Picks option `index` of the open menu of `npc` (with `code` for a coded option). The next menu, or
+        None when the NPC closes the gossip."""
+        self.gossip = None
+        body = struct.pack("<QI", npc, index)
+        if code is not None:
+            body += code.encode() + b"\0"
+        self.send(CMSG_GOSSIP_SELECT_OPTION, body)
+        self.pump(wait)
+        return self.gossip
+
+
+# Trade, mail, auction house, group and guild (WOWAI#254). Opcodes of 1.12.1 (Opcodes_1_12_1.h).
+CMSG_GROUP_INVITE = 110
+SMSG_GROUP_INVITE = 111
+CMSG_GROUP_ACCEPT = 114
+CMSG_GROUP_DECLINE = 115
+CMSG_GROUP_DISBAND = 123  # leave the group
+SMSG_GROUP_LIST = 125
+SMSG_PARTY_COMMAND_RESULT = 127
+CMSG_GUILD_INVITE = 130
+SMSG_GUILD_INVITE = 131
+CMSG_GUILD_ACCEPT = 132
+CMSG_GUILD_DECLINE = 133
+SMSG_GUILD_EVENT = 146
+SMSG_GUILD_COMMAND_RESULT = 147
+CMSG_INITIATE_TRADE = 278
+CMSG_BEGIN_TRADE = 279
+CMSG_ACCEPT_TRADE = 282
+CMSG_CANCEL_TRADE = 284
+CMSG_SET_TRADE_GOLD = 287
+SMSG_TRADE_STATUS = 288
+CMSG_SEND_MAIL = 568
+SMSG_SEND_MAIL_RESULT = 569
+CMSG_MAIL_TAKE_MONEY = 581
+CMSG_MAIL_TAKE_ITEM = 582
+MSG_AUCTION_HELLO = 597
+SMSG_RECEIVED_MAIL = 645
+
+# TradeStatus (SharedDefines.h).
+TRADE_STATUS_BUSY = 0
+TRADE_STATUS_BEGIN_TRADE = 1
+TRADE_STATUS_OPEN_WINDOW = 2
+TRADE_STATUS_TRADE_CANCELED = 3
+TRADE_STATUS_TRADE_ACCEPT = 4
+TRADE_STATUS_TRADE_COMPLETE = 8
+# MailResponseType and MailResponseResult (SharedDefines.h).
+MAIL_SEND = 0
+MAIL_MONEY_TAKEN = 1
+MAIL_ITEM_TAKEN = 2
+MAIL_OK = 0
+MAIL_ERR_INTERNAL_ERROR = 6
+MAIL_STATIONERY_DEFAULT = 41
+# PartyOperation and PartyResult (WorldSession.h).
+PARTY_OP_INVITE = 0
+ERR_PARTY_RESULT_OK = 0
+# GuildEvents (Guild.h).
+GE_JOINED = 3
+
+
+class TradeClient(WorldClient):
+    """A WorldClient that trades with another character. trade_statuses: each SMSG_TRADE_STATUS status, in order;
+    trade_asked_by: the character that last asked this one to trade (TRADE_STATUS_BEGIN_TRADE). A trade: one
+    side calls trade_initiate(other), the other side trade_begin() (both get TRADE_STATUS_OPEN_WINDOW), then
+    trade_gold and trade_accept on both sides (TRADE_STATUS_TRADE_COMPLETE). Mixable (super()._observe)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.trade_statuses = []
+        self.trade_asked_by = 0
+
+    def _observe(self, opcode, body):
+        super()._observe(opcode, body)
+        if opcode == SMSG_TRADE_STATUS and len(body) >= 4:
+            status = struct.unpack_from("<I", body, 0)[0]
+            self.trade_statuses.append(status)
+            if status == TRADE_STATUS_BEGIN_TRADE and len(body) >= 12:
+                self.trade_asked_by = struct.unpack_from("<Q", body, 4)[0]
+
+    def _trade_send(self, opcode, body=b"", wait=1.5):
+        start = len(self.trade_statuses)
+        self.send(opcode, body)
+        self.pump(wait)
+        return self.trade_statuses[start:]
+
+    def trade_initiate(self, other, wait=1.5):
+        """Asks the character `other` (a full guid) to trade. The trade statuses that came meanwhile."""
+        return self._trade_send(CMSG_INITIATE_TRADE, struct.pack("<Q", other), wait)
+
+    def trade_begin(self, wait=1.5):
+        """Says yes to the trade that another character asked for."""
+        return self._trade_send(CMSG_BEGIN_TRADE, b"", wait)
+
+    def trade_gold(self, copper, wait=1.0):
+        return self._trade_send(CMSG_SET_TRADE_GOLD, struct.pack("<I", copper), wait)
+
+    def trade_accept(self, wait=1.5):
+        return self._trade_send(CMSG_ACCEPT_TRADE, struct.pack("<I", 1), wait)
+
+    def trade_cancel(self, wait=1.0):
+        return self._trade_send(CMSG_CANCEL_TRADE, b"", wait)
+
+
+class MailClient(WorldClient):
+    """A WorldClient that sends mail and takes what a mail holds. The character must stand at a mailbox (its full
+    guid). mail_results: each SMSG_SEND_MAIL_RESULT as (mail id, action, error); new_mail: the count of
+    SMSG_RECEIVED_MAIL notes (a mail arrived). Mixable (super()._observe)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mail_results = []
+        self.new_mail = 0
+
+    def _observe(self, opcode, body):
+        super()._observe(opcode, body)
+        if opcode == SMSG_SEND_MAIL_RESULT and len(body) >= 12:
+            self.mail_results.append(struct.unpack_from("<III", body, 0))
+        elif opcode == SMSG_RECEIVED_MAIL:
+            self.new_mail += 1
+
+    def _mail_send(self, opcode, body, wait):
+        start = len(self.mail_results)
+        self.send(opcode, body)
+        self.pump(wait)
+        return self.mail_results[start:]
+
+    def send_mail(self, mailbox, receiver, subject, text, item=0, money=0, cod=0, wait=2.0):
+        """Sends a mail to the character named `receiver`, with an item (its full guid), money and cash on
+        delivery (copper). The mail results that came meanwhile: [(0, MAIL_SEND, MAIL_OK)] when it is sent."""
+        body = (struct.pack("<Q", mailbox) + receiver.encode() + b"\0" + subject.encode() + b"\0" + text.encode()
+                + b"\0" + struct.pack("<II", MAIL_STATIONERY_DEFAULT, 0) + struct.pack("<QII", item, money, cod)
+                + struct.pack("<QB", 0, 0))
+        return self._mail_send(CMSG_SEND_MAIL, body, wait)
+
+    def mail_take_item(self, mailbox, mail_id, wait=1.5):
+        """Takes the item of the mail `mail_id` (the id column of the mail table)."""
+        return self._mail_send(CMSG_MAIL_TAKE_ITEM, struct.pack("<QI", mailbox, mail_id), wait)
+
+    def mail_take_money(self, mailbox, mail_id, wait=1.5):
+        return self._mail_send(CMSG_MAIL_TAKE_MONEY, struct.pack("<QI", mailbox, mail_id), wait)
+
+
+class AuctionClient(WorldClient):
+    """A WorldClient that opens the auction house. auction_hello returns (auctioneer, house id) when the
+    server opens the window, else None. Mixable (super()._observe)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.auction_house = None
+
+    def _observe(self, opcode, body):
+        super()._observe(opcode, body)
+        if opcode == MSG_AUCTION_HELLO and len(body) >= 12:
+            self.auction_house = struct.unpack_from("<QI", body, 0)
+
+    def auction_hello(self, auctioneer, wait=1.5):
+        """Talks to the auctioneer `auctioneer` (a full guid), as a right click does."""
+        self.auction_house = None
+        self.send(MSG_AUCTION_HELLO, struct.pack("<Q", auctioneer))
+        self.pump(wait)
+        return self.auction_house
+
+
+class GroupClient(WorldClient):
+    """A WorldClient that invites to a group and answers invites. party_results: each SMSG_PARTY_COMMAND_RESULT
+    as (operation, name, result); group_invites: the names of the characters that invited this one;
+    group_members: guid -> name of the other members (SMSG_GROUP_LIST; empty without a group);
+    group_leader: the leader's guid. Mixable (super()._observe)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.party_results = []
+        self.group_invites = []
+        self.group_members = {}
+        self.group_leader = 0
+
+    def _observe(self, opcode, body):
+        super()._observe(opcode, body)
+        try:
+            if opcode == SMSG_PARTY_COMMAND_RESULT:
+                operation = struct.unpack_from("<I", body, 0)[0]
+                name, pos = cstr(body, 4)
+                self.party_results.append((operation, name, struct.unpack_from("<I", body, pos)[0]))
+            elif opcode == SMSG_GROUP_INVITE:
+                self.group_invites.append(cstr(body, 0)[0])
+            elif opcode == SMSG_GROUP_LIST:
+                # GroupList::AppendBodyTo: type, own flags, count, (name, guid, online, flags) each, leader.
+                count, pos, members = struct.unpack_from("<I", body, 2)[0], 6, {}
+                for _ in range(count):
+                    name, pos = cstr(body, pos)
+                    members[struct.unpack_from("<Q", body, pos)[0]] = name
+                    pos += 10
+                self.group_members = members
+                self.group_leader = struct.unpack_from("<Q", body, pos)[0]
+        except (IndexError, ValueError, struct.error):
+            pass
+
+    def group_invite(self, name, wait=1.5):
+        """Invites the character `name`. The party results that came meanwhile."""
+        start = len(self.party_results)
+        self.send(CMSG_GROUP_INVITE, name.encode() + b"\0")
+        self.pump(wait)
+        return self.party_results[start:]
+
+    def group_accept(self, wait=1.5):
+        self.send(CMSG_GROUP_ACCEPT)
+        self.pump(wait)
+
+    def group_decline(self, wait=1.0):
+        self.send(CMSG_GROUP_DECLINE)
+        self.pump(wait)
+
+    def group_leave(self, wait=1.0):
+        self.send(CMSG_GROUP_DISBAND)
+        self.pump(wait)
+
+
+class GuildClient(WorldClient):
+    """A WorldClient that invites to a guild and answers invites. guild_results: each SMSG_GUILD_COMMAND_RESULT
+    as (command, name, result); guild_invites: (inviter, guild name) of each invite; guild_events: (event,
+    strings) of each SMSG_GUILD_EVENT (GE_JOINED: the name of the new member). Mixable (super()._observe)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.guild_results = []
+        self.guild_invites = []
+        self.guild_events = []
+
+    def _observe(self, opcode, body):
+        super()._observe(opcode, body)
+        try:
+            if opcode == SMSG_GUILD_COMMAND_RESULT:
+                command = struct.unpack_from("<I", body, 0)[0]
+                name, pos = cstr(body, 4)
+                self.guild_results.append((command, name, struct.unpack_from("<I", body, pos)[0]))
+            elif opcode == SMSG_GUILD_INVITE:
+                inviter, pos = cstr(body, 0)
+                self.guild_invites.append((inviter, cstr(body, pos)[0]))
+            elif opcode == SMSG_GUILD_EVENT:
+                event, count = body[0], body[1]
+                pos, strings = 2, []
+                for _ in range(count):
+                    text, pos = cstr(body, pos)
+                    strings.append(text)
+                self.guild_events.append((event, strings))
+        except (IndexError, ValueError, struct.error):
+            pass
+
+    def guild_invite(self, name, wait=1.5):
+        """Invites the character `name` to the own guild. The guild results that came meanwhile."""
+        start = len(self.guild_results)
+        self.send(CMSG_GUILD_INVITE, name.encode() + b"\0")
+        self.pump(wait)
+        return self.guild_results[start:]
+
+    def guild_accept(self, wait=1.5):
+        self.send(CMSG_GUILD_ACCEPT)
+        self.pump(wait)
+
+    def guild_decline(self, wait=1.0):
+        self.send(CMSG_GUILD_DECLINE)
+        self.pump(wait)
 
 
 def unpack_guid(data, pos):
