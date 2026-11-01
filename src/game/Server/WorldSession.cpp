@@ -439,7 +439,7 @@ bool WorldSession::ForcePlayerLogoutDelay()
         {
             GetPlayer()->RemoveFromGroup();
         }
-        else if (sWorld.getConfig(CONFIG_BOOL_FORCE_LOGOUT_DELAY))
+        else if (sWorld.getConfig(CONFIG_BOOL_FORCE_LOGOUT_DELAY) || Hardcore::KeepInWorldAfterLostConnection(GetPlayer())) // WOWAI hardcore characters (#256): no escape from a fight
         {
             sLog.Player(this, LOG_CHAR, "LostSocket", LOG_LVL_BASIC, "");
             SetDisconnectedSession();

@@ -176,3 +176,6 @@ src/game/Handlers/MiscHandler.cpp
 src/game/Handlers/NPCHandler.cpp
 # Hardcore hook 17: Hardcore::IsHardcore in WorldSession::LogoutPlayer (WorldSession.cpp, above): the logout
 # does not make a dead hardcore character a ghost at the graveyard (WOWAI#253).
+# Hardcore hook 18: Hardcore::KeepInWorldAfterLostConnection in WorldSession::ForcePlayerLogoutDelay
+# (WorldSession.cpp, above): after a lost connection a hardcore character in combat gets the stock delayed
+# logout even with ForceLogoutDelay off, so killing the client is no escape from a fight (WOWAI#256).

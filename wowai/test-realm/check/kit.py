@@ -21,7 +21,9 @@ pos(client, guid) and stat(client, guid) read a unit with GM commands.
 dist(a, b), kill(client, guid), and revive_all(realm, client, bots) are the
 small helpers that the checks share. take_hardcore(realm, client) takes the hardcore status at the hardcore
 NPC (with wowclient.GossipClient), drop_hardcore(realm, client[, spawn]) drops it, HARDCORE_SPAWNS lists the
-12 NPC spawns, and hardcore_line(client) is the answer of `.hardcore`.
+12 NPC spawns, and hardcore_line(client) is the answer of `.hardcore`. hardcore_row(realm, guid) and
+hardcore_locked(realm, guid) read the status, the death record and the lock flag (WOWAI#253);
+unit_field(viewer, guid, name) reads an update field of a unit.
 spawn(realm, client), sturdy(client,
 guid) and saved_spells(realm, client) serve the spell and talent checks,
 with wowclient.SpellClient as the client class.
@@ -334,6 +336,36 @@ def take_hardcore(realm, client):
     client.gossip_select(HARDCORE_NPC, confirm)
     row = realm.sql("characters", "SELECT status FROM character_hardcore WHERE guid = %d" % (client.guid & 0xFFFFFFFF))
     return row == "1" and hardcore_line(client) == "Hardcore: alive"
+
+
+# The death of a hardcore character (WOWAI#253): the lock flag of a dead one, and the status Dead.
+HARDCORE_LOCK_FLAG = 0x4  # CHARACTER_FLAG_LOCKED_FOR_TRANSFER
+HARDCORE_DEAD = "2"
+
+
+def hardcore_row(realm, guid):
+    """[status, death_time, death_zone, death_killer, death_level] of character_hardcore, as strings, for the
+    character with the (full or low) guid; [] when it has no row (never hardcore)."""
+    row = realm.sql("characters", "SELECT status, death_time, death_zone, death_killer, death_level "
+                    "FROM character_hardcore WHERE guid = %d" % (guid & 0xFFFFFFFF))
+    return row.split("\t") if row else []
+
+
+def hardcore_locked(realm, guid):
+    """True when the character has the lock flag of a dead hardcore character in the database."""
+    flags = realm.sql("characters", "SELECT character_flags FROM characters WHERE guid = %d" % (guid & 0xFFFFFFFF))
+    return bool(flags) and bool(int(flags) & HARDCORE_LOCK_FLAG)
+
+
+def unit_field(viewer, guid, name):
+    """An update field of a unit (GM `.debug getvaluebyname`, the viewer selects the unit), or -1."""
+    for line in viewer.gm(".debug getvaluebyname %s" % name, select=guid):
+        if line.startswith(name + ":"):
+            try:
+                return int(line.split(":", 1)[1].split("/")[0])
+            except ValueError:
+                return -1
+    return -1
 
 
 class Results:
