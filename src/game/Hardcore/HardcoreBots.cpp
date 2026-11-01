@@ -14,6 +14,7 @@
 // client to log out).
 
 #include "Hardcore.h"
+#include "BotAI.h"
 #include "BotMgr.h"
 #include "Database/DatabaseEnv.h"
 #include "Log.h"
@@ -69,7 +70,9 @@ bool Hardcore::AllowBotLogin(uint32 guid, std::string& error)
 
 bool Hardcore::LogOutDeadBot(Player* player)
 {
-    if (!player->GetSession()->GetBot())
+    // Only a WOWAI bot (BotAI): a stock PlayerBot keeps the normal logout, as the bot manager does not know it.
+    PlayerBotEntry const* entry = player->GetSession()->GetBot();
+    if (!entry || !dynamic_cast<BotAI const*>(entry->ai.get()))
         return false;
     // The bot manager runs on the world thread, this event on a map thread: it leaves the group and logs out
     // at the bot manager's next update.

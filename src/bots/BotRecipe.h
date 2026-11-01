@@ -6,8 +6,10 @@
 #include <vector>
 
 // What the GM command that creates a bot asks for: a fixed name, a class, a
-// role, and optionally a race or a faction. The bots are all level 16. The game layer maps these values to its own races and
-// classes; the library has no game types.
+// role, and optionally a race or a faction. A normal bot is level 16; a
+// hardcore bot is at or below the level of the player who asks. The game
+// layer maps these values to its own races and classes; the library has no
+// game types.
 namespace Bots
 {
     std::uint32_t const Version1BotLevel = 16;

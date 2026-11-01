@@ -202,6 +202,7 @@ namespace Bots
         char const* const usage = "Usage: <name> <class> <role> [race|horde|alliance] [gear <template>] [hardcore [level]]";
         std::vector<std::string> words = allWords;
         // jvbastel/WOWAI#257: the last words `hardcore [level]`.
+        std::string const levelError = "A bot level is a number from 1 to " + std::to_string(MaxBotLevel) + ".";
         bool hardcore = false;
         std::uint32_t level = Version1BotLevel;
         for (std::size_t i = 3; i < words.size(); ++i)
@@ -216,10 +217,10 @@ namespace Bots
                     std::string const& number = words[i + 1];
                     if (number.empty() || number.size() > 2 ||
                         !std::all_of(number.begin(), number.end(), [](char c) { return std::isdigit(static_cast<unsigned char>(c)) != 0; }))
-                        return Fail("A bot level is a number from 1 to 60.");
+                        return Fail(levelError);
                     level = static_cast<std::uint32_t>(std::stoul(number));
                     if (level < 1 || level > MaxBotLevel)
-                        return Fail("A bot level is a number from 1 to 60.");
+                        return Fail(levelError);
                 }
                 words.resize(i);
                 break;

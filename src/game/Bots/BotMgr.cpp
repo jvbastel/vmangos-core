@@ -712,6 +712,9 @@ bool BotMgr::LoginBot(std::string const& name, std::string& error)
     {
         error = record->entry->name + ": " + error;
         sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s does not log in: a dead hardcore bot", record->entry->name.c_str());
+        // It went offline before its final logout (a GM logout, a restart):
+        // its seat in the group is free now.
+        LeaveGroupForGood(ObjectGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID)));
         return false;
     }
     if (record->entry->state != PB_STATE_OFFLINE)
@@ -742,6 +745,10 @@ bool BotMgr::LogoutBot(std::string const& name, std::string& error)
         error = record->entry->name + " is offline already.";
         return false;
     }
+    // jvbastel/WOWAI#257: a dead hardcore bot leaves its group for good
+    // here too: its 60 s logout event dies with the logout.
+    if (Hardcore::GetStatus(uint32(record->entry->playerGUID)) == Hardcore::Status::Dead)
+        LeaveGroupForGood(ObjectGuid(HIGHGUID_PLAYER, uint32(record->entry->playerGUID)));
     // WorldSession::Update logs out the player of an offline bot entry and
     // ends the session.
     record->entry->state = PB_STATE_OFFLINE;
@@ -840,18 +847,25 @@ bool BotMgr::RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player
     return true;
 }
 
+void BotMgr::LeaveGroupForGood(ObjectGuid guid)
+{
+    // Database: the group row goes now, also for a bot that is offline or in
+    // a far teleport. Its seat is free for a new hardcore bot.
+    if (Group* group = sObjectMgr.GetGroupByMember(guid))
+        Player::RemoveFromGroup(group, guid);
+}
+
 void BotMgr::LogOutDeadBot(ObjectGuid guid)
 {
     auto found = m_bots.find(guid.GetCounter());
-    if (found == m_bots.end() || found->second.entry->state == PB_STATE_OFFLINE)
+    if (found == m_bots.end())
         return;
     BotRecord& record = found->second;
-    // Database: the group row goes now; the session's logout saves the bot
-    // (the lock and the death record are written already, at the death).
-    // Its seat is free for a new hardcore bot.
-    if (Player* bot = BotPlayer(record))
-        if (Group* group = bot->GetGroup())
-            Player::RemoveFromGroup(group, guid);
+    // The session's logout saves the bot (the lock and the death record are
+    // written already, at the death).
+    LeaveGroupForGood(guid);
+    if (record.entry->state == PB_STATE_OFFLINE)
+        return;
     record.pendingInvite.Clear();
     record.wasInGroup = false;
     record.entry->state = PB_STATE_OFFLINE;

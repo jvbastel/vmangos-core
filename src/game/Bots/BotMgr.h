@@ -288,6 +288,11 @@ class BotMgr
         // A group event of the group with the id `groupId`, once for the
         // group: a log line and its bot chat event.
         void OnGroupEvent(uint32 groupId, Bots::GroupEvent const& event);
+        // jvbastel/WOWAI#257: the final logout of a dead hardcore bot (from
+        // m_finalLogouts): it leaves its group and logs out.
+        void LogOutDeadBot(ObjectGuid guid);
+        // The group row of the dead hardcore bot `guid` goes, online or not.
+        void LeaveGroupForGood(ObjectGuid guid);
 
         BotSettings m_settings;
         BotLevelRoutine m_levelRoutine;
@@ -295,7 +300,6 @@ class BotMgr
         Bots::Inbox<BotLine> m_lines;
         Bots::Inbox<GroupCommandMessage> m_groupCommands;
         Bots::Inbox<ObjectGuid> m_finalLogouts;
-        void LogOutDeadBot(ObjectGuid guid);
         BotGear m_gear;
         // The bots of one group can sit on two map threads.
         Bots::CoordinatorRegistry m_coordinators;
