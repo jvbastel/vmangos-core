@@ -32,6 +32,7 @@
 #include "Opcodes.h"
 #include "Packet.h"
 #include "Packets/Misc.h"
+#include "Packets/Trade.h"
 #include "WorldSession.h"
 
 #include <chrono>
@@ -67,6 +68,7 @@ bool BotAI::IsInboxOpcode(uint16 opcode)
         case SMSG_LOOT_ROLL_WON:
         case SMSG_RESURRECT_REQUEST:
         case SMSG_GROUP_INVITE:
+        case SMSG_TRADE_STATUS:
         case MSG_MOVE_TELEPORT_ACK:
         case SMSG_NEW_WORLD:
         case SMSG_TRANSFER_PENDING:
@@ -238,6 +240,9 @@ void BotAI::HandlePacket(WorldPacket const& packet)
             return;
         case SMSG_RESURRECT_REQUEST:
             AcceptResurrect(packet);
+            return;
+        case SMSG_TRADE_STATUS:
+            AnswerTrade(packet);
             return;
         default:
             break;
@@ -577,6 +582,33 @@ void BotAI::AcceptResurrect(WorldPacket const& packet)
     response->accept = true;
     me->GetSession()->QueuePacket(std::move(response));
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s accepts the resurrect of %s", me->GetName(), resurrector.GetString().c_str());
+}
+
+void BotAI::AnswerTrade(WorldPacket const& packet)
+{
+    // jvbastel/WOWAI#257 (spec #250 story 47): loot and gear move inside the
+    // group. Like the client of a player, the bot opens the trade that a
+    // member of its group asks for, and accepts it when that member accepted
+    // it. It puts nothing in the trade itself. It cancels a trade that
+    // anyone else asks for. Database and client: the core's trade handlers.
+    WorldPacket data(packet);
+    uint32 status = 0;
+    data >> status;
+    if (status == TRADE_STATUS_BEGIN_TRADE)
+    {
+        ObjectGuid asker;
+        data >> asker;
+        Group const* group = me->GetGroup();
+        bool const member = group && group->IsMember(asker);
+        me->GetSession()->QueuePacket(std::make_unique<NullClientPacket>(member ? CMSG_BEGIN_TRADE : CMSG_CANCEL_TRADE));
+        sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s %s the trade of %s", me->GetName(), member ? "opens" : "cancels",
+            asker.GetString().c_str());
+    }
+    else if (status == TRADE_STATUS_TRADE_ACCEPT)
+    {
+        me->GetSession()->QueuePacket(std::make_unique<WorldPackets::Trade::AcceptTrade>());
+        sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "[Bots] %s accepts the trade", me->GetName());
+    }
 }
 
 bool BotAI::GroupRests()

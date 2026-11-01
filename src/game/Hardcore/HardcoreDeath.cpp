@@ -139,9 +139,11 @@ void Hardcore::OnDeath(Player* player)
     // The logout 60 seconds later, as a logout that the player asked for: WorldSession::Update logs the
     // character out (it saves it) and sends SMSG_LOGOUT_COMPLETE, so the client goes back to the character
     // list. The event dies with the player object, if the character leaves the world sooner. A bot has no
-    // client and does not log out this way (WOWAI#257).
+    // client: it leaves its group and logs out through the bot manager (WOWAI#257, HardcoreBots.cpp).
     player->m_Events.AddLambdaEventAtOffset([player]()
     {
+        if (LogOutDeadBot(player))
+            return;
         // ShouldLogOut is true 20 seconds after the request time: the next session update logs out.
         player->GetSession()->LogoutRequest(time(nullptr) - 20);
     }, LogoutDelayMs);

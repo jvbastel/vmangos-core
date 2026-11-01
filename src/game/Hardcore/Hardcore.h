@@ -162,6 +162,27 @@ namespace Hardcore
     // minutes), even with the realm setting ForceLogoutDelay off, and a death in that time is final. False
     // for any other character: the realm setting decides, as before.
     bool KeepInWorldAfterLostConnection(Player const* player);
+
+    // --- Hardcore bots (WOWAI#257, HardcoreBots.cpp) ---
+    // A hardcore bot is a hardcore character: its death is OnDeath's, and DropStatus drops it with the
+    // player. These calls come from the bot game layer (src/game/Bots), not from stock code.
+
+    // The bot manager made the bot `guid` with the hardcore option: its status is Alive, written at once
+    // with the time. False when the write failed.
+    bool MakeBotHardcore(uint32 guid);
+
+    // The bot manager adds the bot `botGuid` (online or not) to the group of `player`: false across the
+    // hardcore border, as AllowGroupInvite (the bot manager's join does not pass the invite handler), and
+    // for a dead hardcore bot. The player is told the reason.
+    bool AllowBotInGroup(Player* player, uint32 botGuid);
+
+    // The bot manager logs the bot `guid` in: false (with a line for the asker in `error`) for a dead
+    // hardcore bot. Never again, also after a server restart.
+    bool AllowBotLogin(uint32 guid, std::string& error);
+
+    // OnDeath's logout 60 seconds after the death, for a bot (it has no client to log out): the bot leaves
+    // its group and logs out at the next update of the bot manager. False for a character that is no bot.
+    bool LogOutDeadBot(Player* player);
 }
 
 #endif
