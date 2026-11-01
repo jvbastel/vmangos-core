@@ -149,6 +149,11 @@ class BotMgr
         // From any thread (the chat handlers): the bot manager runs the
         // group command at its next update.
         void QueueGroupCommand(GroupCommandMessage message) { m_groupCommands.Push(std::move(message)); }
+        // From any thread (a map thread, 60 seconds after the final death of
+        // a hardcore bot, Hardcore::LogOutDeadBot): at its next update the
+        // bot manager takes the bot out of its group and logs it out
+        // (jvbastel/WOWAI#257).
+        void QueueFinalLogout(ObjectGuid bot) { m_finalLogouts.Push(bot); }
 
         // Equips a character in the world from a gear template, by name. With
         // no template name, a bot wears the generated template of its class
@@ -289,6 +294,8 @@ class BotMgr
         std::map<uint32 /*character GUID*/, BotRecord> m_bots;
         Bots::Inbox<BotLine> m_lines;
         Bots::Inbox<GroupCommandMessage> m_groupCommands;
+        Bots::Inbox<ObjectGuid> m_finalLogouts;
+        void LogOutDeadBot(ObjectGuid guid);
         BotGear m_gear;
         // The bots of one group can sit on two map threads.
         Bots::CoordinatorRegistry m_coordinators;

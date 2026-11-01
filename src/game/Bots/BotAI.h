@@ -107,6 +107,8 @@ class BotAI : public PlayerBotAI
         void Think();
         // Accepts the resurrect of SMSG_RESURRECT_REQUEST.
         void AcceptResurrect(WorldPacket const& packet);
+        // jvbastel/WOWAI#257: opens and accepts a trade of a group member.
+        void AnswerTrade(WorldPacket const& packet);
         // True when a member of the bot's group on its map eats or drinks
         // after a fight: the group waits for it.
         bool GroupRests();

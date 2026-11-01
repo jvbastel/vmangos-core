@@ -19,6 +19,7 @@
 #include "Crypto/Authentication/SRP6.h"
 #include "Database/DatabaseEnv.h"
 #include "Forever.h"
+#include "Hardcore.h"
 #include "Log.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -270,6 +271,8 @@ void BotMgr::Update(uint32 diff)
         m_run.NoteChatSent(sent);
     for (Bots::ChatEventOutcome const& outcome : m_chat.TakeOutcomes())
         m_run.NoteChatOutcome(outcome);
+    for (ObjectGuid const& guid : m_finalLogouts.Drain())
+        LogOutDeadBot(guid);
     for (GroupCommandMessage const& message : m_groupCommands.Drain())
         RunGroupCommand(message);
     for (ObjectGuid const& player : m_panelRequests.Drain())
@@ -662,6 +665,10 @@ bool BotMgr::CreateBot(Bots::BotRecipe const& recipe, std::string& error)
         guid, accountId, role.c_str());
     CharacterDatabase.CommitTransaction();
     sWorld.UpdateRealmCharCount(accountId);
+    // jvbastel/WOWAI#257: a hardcore bot, for the group of a hardcore
+    // character (the command checked the level against the player's).
+    if (recipe.hardcore && !Hardcore::MakeBotHardcore(guid))
+        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] %s: the hardcore status was not written", name.c_str());
 
     BotRecord& record = m_bots[guid];
     record.entry = NewEntry(guid, accountId, name, role, m_settings);
@@ -672,7 +679,8 @@ bool BotMgr::CreateBot(Bots::BotRecipe const& recipe, std::string& error)
         record.pendingGear = gearName;
     else
         sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] No gear template %s: %s keeps its starting gear", gearName.c_str(), name.c_str());
-    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Made the bot %s (GUID %u, account %u, %s)", name.c_str(), guid, accountId, role.c_str());
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] Made the bot %s (GUID %u, account %u, %s%s, level %u)", name.c_str(), guid,
+        accountId, role.c_str(), recipe.hardcore ? ", hardcore" : "", recipe.level);
     m_chat.SetRoster(BotGuids());
 
     StartLogin(record, session);
@@ -698,6 +706,13 @@ bool BotMgr::LoginBot(std::string const& name, std::string& error)
             sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "[Bots] %s does not log in: %s", record->entry->name.c_str(), refusal.c_str());
             return false;
         }
+    }
+    // jvbastel/WOWAI#257: a dead hardcore bot never logs in again.
+    if (!Hardcore::AllowBotLogin(uint32(record->entry->playerGUID), error))
+    {
+        error = record->entry->name + ": " + error;
+        sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s does not log in: a dead hardcore bot", record->entry->name.c_str());
+        return false;
     }
     if (record->entry->state != PB_STATE_OFFLINE)
     {
@@ -766,6 +781,11 @@ void BotMgr::RunGroupCommand(GroupCommandMessage const& message)
 
 bool BotMgr::RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player* player)
 {
+    // jvbastel/WOWAI#257: the hardcore border has no bot exception. This
+    // join does not pass the invite handler (Hardcore::AllowGroupInvite).
+    if (kind == Bots::GroupCommandKind::Invite && record &&
+        !Hardcore::AllowBotInGroup(player, uint32(record->entry->playerGUID)))
+        return false;
     Bots::GroupCommandPlan const plan = Bots::PlanGroupCommand(kind, GroupFactsFor(record, player));
     if (!plan.ok)
     {
@@ -818,6 +838,24 @@ bool BotMgr::RunGroupPlan(Bots::GroupCommandKind kind, BotRecord* record, Player
         record->entry->state = PB_STATE_OFFLINE;
     }
     return true;
+}
+
+void BotMgr::LogOutDeadBot(ObjectGuid guid)
+{
+    auto found = m_bots.find(guid.GetCounter());
+    if (found == m_bots.end() || found->second.entry->state == PB_STATE_OFFLINE)
+        return;
+    BotRecord& record = found->second;
+    // Database: the group row goes now; the session's logout saves the bot
+    // (the lock and the death record are written already, at the death).
+    // Its seat is free for a new hardcore bot.
+    if (Player* bot = BotPlayer(record))
+        if (Group* group = bot->GetGroup())
+            Player::RemoveFromGroup(group, guid);
+    record.pendingInvite.Clear();
+    record.wasInGroup = false;
+    record.entry->state = PB_STATE_OFFLINE;
+    sLog.Out(LOG_BASIC, LOG_LVL_MINIMAL, "[Bots] %s is dead for good: it leaves its group and logs out", record.entry->name.c_str());
 }
 
 void BotMgr::UpdateGroupOf(BotRecord& record)
