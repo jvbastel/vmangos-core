@@ -34,7 +34,8 @@ namespace Bots
     // rank on the dead tank (not released, its resurrect not given up).
     // Such a bot resurrects the tank before it rests: it does not start to
     // eat or drink (DeathAndRest.h), and a bot that already sits stands up
-    // (BotAI), since a sitting bot casts nothing. False in a bot-tank group.
+    // (BotAI), since a sitting bot casts nothing. False in a bot-tank group,
+    // and for a hardcore tank (jvbastel/WOWAI#252).
     bool ResurrectsTankBeforeRest(BotView const& view, GroupCoordinator const& group);
 }
 

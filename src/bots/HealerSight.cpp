@@ -71,7 +71,8 @@ namespace Bots
         Guid const self = view.GetSelf();
         Guid const tank = PlayerTankOf(view, group);
         if (tank == NoGuid || !IsAlive(view, self) || IsGroupInCombat(view)
-            || view.GetLifeState(tank) != LifeState::Dead || group.IsResurrectGivenUp(tank))
+            || view.GetLifeState(tank) != LifeState::Dead || group.IsResurrectGivenUp(tank)
+            || view.IsHardcore(tank)) // jvbastel/WOWAI#252: no resurrect works on it.
             return false;
         SpellId const rank = RankForTarget(view, Priest::Resurrection, tank);
         return rank != NoSpell && view.GetRankAmounts(rank).manaCost <= view.GetMana(self).current;
