@@ -123,7 +123,7 @@ src/game/Commands/CharacterCommands.cpp
 # The hardcore characters (spec jvbastel/WOWAI#250). The fork's own Hardcore folder (one facade, Hardcore.h,
 # namespace Hardcore; the game CMake globs it like Bots and Forever), its migrations, and the hardcore NPC
 # script. Each hook in a stock file is one line: `Hardcore::On<Event>(...)` or
-# `if (!Hardcore::Allow<Action>(...)) return;`. `git grep "Hardcore::"` finds every hook at an upstream merge.
+# `if (!Hardcore::Allow<Action>(...)) return ...;` (the return value the stock function needs). `git grep "Hardcore::"` finds every hook at an upstream merge.
 # Numbering: one number per hook purpose; a number may name several call lines of that purpose (hooks 7, 14,
 # 20), and one Hardcore function may serve several purposes (AllowResurrect: hooks 10, 15, 16).
 src/game/Hardcore/**
