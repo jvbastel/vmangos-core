@@ -77,6 +77,30 @@ namespace Hardcore
     // again, and shows "Hardcore: alive" in the chat of a hardcore character (the 1.12 client has no
     // hardcore icon).
     void OnLogin(Player* player);
+
+    // No help across the hardcore border (WOWAI#254, src/game/Hardcore/HardcoreRules.cpp). Each Allow* is the
+    // check of one stock handler: false refuses the action. The module then tells the acting character the
+    // hardcore reason (a system line, and the refusal packet that its window waits for); the hook only
+    // returns. Two hardcore characters, and two characters that are not hardcore, are not limited. Guilds are
+    // not limited (a 1.12 guild moves no items or gold).
+
+    // Hook: WorldSession::HandleInitiateTradeOpcode. Refused between a hardcore character and a character
+    // that is not hardcore, in both directions.
+    bool AllowTrade(Player* player, Player const* other);
+
+    // Hook: WorldSession::HandleSendMail, with the receiver's low guid (it may be offline). Refused from a
+    // character that is not hardcore to a hardcore character (text, money, item and cash on delivery), and
+    // cash on delivery from a hardcore character to one that is not (its payment is gold across the border).
+    // Mail sent by the game (MailDraft: quests, auctions, GM commands) does not pass here, so it arrives.
+    bool AllowMail(Player* sender, uint32 receiverGuid, bool cashOnDelivery);
+
+    // Hooks: WorldSession::HandleAuctionHelloOpcode, and WorldSession::GetCheckedAuctionHouseForAuctioneer (so
+    // a client that skips the hello cannot sell, bid, cancel or list). Refused for a hardcore character.
+    bool AllowAuctionHouse(Player* player);
+
+    // Hook: WorldSession::HandleGroupInviteOpcode. Refused between a hardcore character and a character that
+    // is not hardcore, in both directions.
+    bool AllowGroupInvite(Player* inviter, Player const* invited);
 }
 
 #endif

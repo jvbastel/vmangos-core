@@ -140,5 +140,18 @@ src/scripts/custom/custom.cpp
 # Hardcore hook 3: the player command .hardcore: one command table line (Chat.cpp, above) and its handler
 # name (Chat.h, above); the handler is in src/game/Hardcore/HardcoreCommand.cpp (WOWAI#251).
 # Hardcore hook 4: the game CMake globs src/game/Hardcore (src/game/CMakeLists.txt, above) (WOWAI#251).
+# Hardcore hook 5: Hardcore::AllowTrade in WorldSession::HandleInitiateTradeOpcode: no trade across the
+# hardcore border (WOWAI#254).
+src/game/Handlers/TradeHandler.cpp
+# Hardcore hook 6: Hardcore::AllowMail in WorldSession::HandleSendMail: no mail from a character that is not
+# hardcore to a hardcore character, no cash on delivery the other way; game mail does not pass here (WOWAI#254).
+src/game/Handlers/MailHandler.cpp
+# Hardcore hook 7: Hardcore::AllowAuctionHouse in WorldSession::HandleAuctionHelloOpcode and in
+# WorldSession::GetCheckedAuctionHouseForAuctioneer (the check of every sell, bid, cancel and list packet): no
+# auction house for a hardcore character (WOWAI#254).
+src/game/Handlers/AuctionHouseHandler.cpp
+# Hardcore hook 8: Hardcore::AllowGroupInvite in WorldSession::HandleGroupInviteOpcode: no group invite across
+# the hardcore border (WOWAI#254).
+src/game/Handlers/GroupHandler.cpp
 # The hardcore NPC in the other 5 starting areas and the 6 capitals, and the texts of the drop (WOWAI#255).
 sql/migrations/20261101125500_world.sql

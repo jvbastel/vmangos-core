@@ -32,6 +32,7 @@
 #include "Utilities/Random.h"
 #include "SocialMgr.h"
 #include "Util.h"
+#include "Hardcore.h"
 
 /* differeces from off:
     -you can uninvite yourself - is is useful
@@ -100,6 +101,8 @@ void WorldSession::HandleGroupInviteOpcode(WorldPackets::Group::GroupInvite cons
         SendPartyResult(PARTY_OP_INVITE, packet.memberName, ERR_ALREADY_IN_GROUP_S);
         return;
     }
+
+    if (!Hardcore::AllowGroupInvite(GetPlayer(), player)) return; // WOWAI hardcore characters (#254): no group across the border
 
     if (group)
     {

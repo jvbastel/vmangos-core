@@ -41,6 +41,7 @@
 #include "AccountMgr.h"
 #include "TransactionLog.h"
 #include "Database/DatabaseImpl.h"
+#include "Hardcore.h"
 
 void WorldSession::SendMailResult(uint32 mailId, MailResponseType mailAction, MailResponseResult mailError, uint32 equipError, uint32 item_guid, uint32 item_count)
 {
@@ -200,6 +201,8 @@ void WorldSession::HandleSendMail(WorldPackets::Mail::SendMail const& packet)
         SendMailResult(0, MAIL_SEND, MAIL_ERR_CANNOT_SEND_TO_SELF);
         return;
     }
+
+    if (!Hardcore::AllowMail(GetPlayer(), req->receiver.GetCounter(), req->COD != 0)) return; // WOWAI hardcore characters (#254): no mail across the border (into a hardcore character, or cash on delivery out of one)
 
     req->receiverPtr = sObjectMgr.GetPlayer(req->receiver);
 

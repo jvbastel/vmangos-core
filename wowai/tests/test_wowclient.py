@@ -337,5 +337,202 @@ class SpellClientTest(unittest.TestCase):
         self.assertEqual(c.sent(), [(wowclient.CMSG_SET_ACTION_BUTTON, struct.pack("<BI", 115, 60127))])
 
 
+TRADER = 0x0000000000000043
+MAILBOX = 0xF1100000A1000077
+AUCTIONEER = 0xF130000D5D000123
+
+
+class TradeClientTest(unittest.TestCase):
+    """The trade packets (WOWAI#254): open a trade, put gold in, accept, and the trade statuses."""
+
+    def trade_client(self):
+        c = client(self, client_class=wowclient.TradeClient)
+        c.client.pump = lambda wait: None
+        return c
+
+    def test_initiate_sends_the_other_character_and_returns_the_new_statuses(self):
+        c = self.trade_client()
+        c.client.pump = lambda wait: c.client._observe(wowclient.SMSG_TRADE_STATUS, struct.pack("<I", wowclient.TRADE_STATUS_OPEN_WINDOW))
+        statuses = c.client.trade_initiate(TRADER)
+        self.assertEqual(c.sent(), [(wowclient.CMSG_INITIATE_TRADE, struct.pack("<Q", TRADER))])
+        self.assertEqual(statuses, [wowclient.TRADE_STATUS_OPEN_WINDOW])
+
+    def test_a_trade_request_keeps_who_asked(self):
+        c = self.trade_client()
+        c.client._observe(wowclient.SMSG_TRADE_STATUS, struct.pack("<IQ", wowclient.TRADE_STATUS_BEGIN_TRADE, TRADER))
+        self.assertEqual(c.client.trade_statuses, [wowclient.TRADE_STATUS_BEGIN_TRADE])
+        self.assertEqual(c.client.trade_asked_by, TRADER)
+
+    def test_begin_gold_accept_and_cancel(self):
+        c = self.trade_client()
+        c.client.trade_begin()
+        c.client.trade_gold(250)
+        c.client.trade_accept()
+        c.client.trade_cancel()
+        self.assertEqual(c.sent(), [(wowclient.CMSG_BEGIN_TRADE, b""),
+                                    (wowclient.CMSG_SET_TRADE_GOLD, struct.pack("<I", 250)),
+                                    (wowclient.CMSG_ACCEPT_TRADE, struct.pack("<I", 1)),
+                                    (wowclient.CMSG_CANCEL_TRADE, b"")])
+
+    def test_a_short_status_is_ignored(self):
+        c = self.trade_client()
+        c.client._observe(wowclient.SMSG_TRADE_STATUS, b"\x01")
+        self.assertEqual(c.client.trade_statuses, [])
+
+
+class MailClientTest(unittest.TestCase):
+    """The mail packets (WOWAI#254): send a mail at a mailbox, take its item or money, and the results."""
+
+    def mail_client(self):
+        c = client(self, client_class=wowclient.MailClient)
+        c.client.pump = lambda wait: None
+        return c
+
+    def test_send_mail_writes_the_1_12_layout_and_returns_the_results(self):
+        c = self.mail_client()
+        c.client.pump = lambda wait: c.client._observe(wowclient.SMSG_SEND_MAIL_RESULT, struct.pack("<III", 0, wowclient.MAIL_SEND, 0))
+        results = c.client.send_mail(MAILBOX, "Hela", "Hi", "Text", item=0x4000000000000123, money=30, cod=5)
+        body = (struct.pack("<Q", MAILBOX) + b"Hela\0Hi\0Text\0" + struct.pack("<II", 41, 0)
+                + struct.pack("<QII", 0x4000000000000123, 30, 5) + struct.pack("<QB", 0, 0))
+        self.assertEqual(c.sent(), [(wowclient.CMSG_SEND_MAIL, body)])
+        self.assertEqual(results, [(0, wowclient.MAIL_SEND, wowclient.MAIL_OK)])
+
+    def test_take_item_and_take_money(self):
+        c = self.mail_client()
+        c.client.mail_take_item(MAILBOX, 7)
+        c.client.mail_take_money(MAILBOX, 8)
+        self.assertEqual(c.sent(), [(wowclient.CMSG_MAIL_TAKE_ITEM, struct.pack("<QI", MAILBOX, 7)),
+                                    (wowclient.CMSG_MAIL_TAKE_MONEY, struct.pack("<QI", MAILBOX, 8))])
+
+    def test_an_item_taken_result_keeps_mail_action_and_error(self):
+        c = self.mail_client()
+        c.client._observe(wowclient.SMSG_SEND_MAIL_RESULT, struct.pack("<IIIII", 7, wowclient.MAIL_ITEM_TAKEN, 0, 0x123, 1))
+        self.assertEqual(c.client.mail_results, [(7, wowclient.MAIL_ITEM_TAKEN, wowclient.MAIL_OK)])
+
+    def test_the_new_mail_note_is_counted(self):
+        c = self.mail_client()
+        c.client._observe(wowclient.SMSG_RECEIVED_MAIL, struct.pack("<I", 0))
+        self.assertEqual(c.client.new_mail, 1)
+
+
+class AuctionClientTest(unittest.TestCase):
+    """The auction house hello (WOWAI#254): the window opens with MSG_AUCTION_HELLO from the server."""
+
+    def test_hello_sends_the_auctioneer_and_returns_the_house(self):
+        c = client(self, client_class=wowclient.AuctionClient)
+        c.client.pump = lambda wait: c.client._observe(wowclient.MSG_AUCTION_HELLO, struct.pack("<QI", AUCTIONEER, 6))
+        self.assertEqual(c.client.auction_hello(AUCTIONEER), (AUCTIONEER, 6))
+        self.assertEqual(c.sent(), [(wowclient.MSG_AUCTION_HELLO, struct.pack("<Q", AUCTIONEER))])
+
+    def test_hello_with_no_answer_returns_none(self):
+        c = client(self, client_class=wowclient.AuctionClient)
+        c.client.pump = lambda wait: None
+        self.assertIsNone(c.client.auction_hello(AUCTIONEER))
+
+
+def group_list_packet(members, leader, loot=(0, 0, 2)):
+    """An SMSG_GROUP_LIST body of 1.12 (GroupList::AppendBodyTo): type, own flags, the other members (name,
+    guid, online, flags), the leader, and with members the loot method, looter and threshold, and the dungeon
+    difficulty."""
+    body = struct.pack("<BBI", 0, 0, len(members))
+    for name, guid in members:
+        body += name.encode() + b"\0" + struct.pack("<QBB", guid, 1, 0)
+    body += struct.pack("<Q", leader)
+    if members:
+        body += struct.pack("<BQBB", loot[0], loot[1], loot[2], 0)
+    return body
+
+
+class GroupClientTest(unittest.TestCase):
+    """The group invite packets (WOWAI#254): invite by name, the invite note, accept or decline, leave, the
+    party command results, and the members of the group list."""
+
+    def group_client(self):
+        c = client(self, client_class=wowclient.GroupClient)
+        c.client.pump = lambda wait: None
+        return c
+
+    def test_invite_sends_the_name_and_returns_the_party_results(self):
+        c = self.group_client()
+        c.client.pump = lambda wait: c.client._observe(wowclient.SMSG_PARTY_COMMAND_RESULT, struct.pack("<I", 0) + b"Hela\0" + struct.pack("<I", 0))
+        results = c.client.group_invite("Hela")
+        self.assertEqual(c.sent(), [(wowclient.CMSG_GROUP_INVITE, b"Hela\0")])
+        self.assertEqual(results, [(wowclient.PARTY_OP_INVITE, "Hela", wowclient.ERR_PARTY_RESULT_OK)])
+
+    def test_an_invite_note_keeps_the_inviter(self):
+        c = self.group_client()
+        c.client._observe(wowclient.SMSG_GROUP_INVITE, b"Grukk\0")
+        self.assertEqual(c.client.group_invites, ["Grukk"])
+
+    def test_accept_decline_and_leave(self):
+        c = self.group_client()
+        c.client.group_accept()
+        c.client.group_decline()
+        c.client.group_leave()
+        self.assertEqual(c.sent(), [(wowclient.CMSG_GROUP_ACCEPT, b""), (wowclient.CMSG_GROUP_DECLINE, b""),
+                                    (wowclient.CMSG_GROUP_DISBAND, b"")])
+
+    def test_the_group_list_keeps_the_other_members_and_the_leader(self):
+        c = self.group_client()
+        c.client._observe(wowclient.SMSG_GROUP_LIST, group_list_packet([("Grukk", GRUKK), ("Hela", TRADER)], GRUKK))
+        self.assertEqual(c.client.group_members, {GRUKK: "Grukk", TRADER: "Hela"})
+        self.assertEqual(c.client.group_leader, GRUKK)
+
+    def test_an_empty_group_list_means_no_group(self):
+        c = self.group_client()
+        c.client._observe(wowclient.SMSG_GROUP_LIST, group_list_packet([("Grukk", GRUKK)], GRUKK))
+        c.client._observe(wowclient.SMSG_GROUP_LIST, group_list_packet([], 0))
+        self.assertEqual(c.client.group_members, {})
+
+
+class GuildClientTest(unittest.TestCase):
+    """The guild invite packets (WOWAI#254): invite by name, the invite note, accept or decline, the guild
+    command results and the guild events."""
+
+    def guild_client(self):
+        c = client(self, client_class=wowclient.GuildClient)
+        c.client.pump = lambda wait: None
+        return c
+
+    def test_invite_sends_the_name_and_returns_the_guild_results(self):
+        c = self.guild_client()
+        c.client.pump = lambda wait: c.client._observe(wowclient.SMSG_GUILD_COMMAND_RESULT, struct.pack("<I", 1) + b"Hela\0" + struct.pack("<I", 0))
+        self.assertEqual(c.client.guild_invite("Hela"), [(1, "Hela", 0)])
+        self.assertEqual(c.sent(), [(wowclient.CMSG_GUILD_INVITE, b"Hela\0")])
+
+    def test_an_invite_note_keeps_the_inviter_and_the_guild(self):
+        c = self.guild_client()
+        c.client._observe(wowclient.SMSG_GUILD_INVITE, b"Grukk\0Border Guards\0")
+        self.assertEqual(c.client.guild_invites, [("Grukk", "Border Guards")])
+
+    def test_accept_and_decline(self):
+        c = self.guild_client()
+        c.client.guild_accept()
+        c.client.guild_decline()
+        self.assertEqual(c.sent(), [(wowclient.CMSG_GUILD_ACCEPT, b""), (wowclient.CMSG_GUILD_DECLINE, b"")])
+
+    def test_a_guild_event_keeps_its_strings(self):
+        c = self.guild_client()
+        c.client._observe(wowclient.SMSG_GUILD_EVENT, struct.pack("<BB", wowclient.GE_JOINED, 1) + b"Hela\0" + struct.pack("<Q", TRADER))
+        self.assertEqual(c.client.guild_events, [(wowclient.GE_JOINED, ["Hela"])])
+
+
+class MixedClientTest(unittest.TestCase):
+    """The classes call super()._observe, so a check mixes them; each one keeps its own packets."""
+
+    def test_a_mixed_client_sees_trade_group_and_gossip(self):
+        class Mixed(wowclient.GossipClient, wowclient.TradeClient, wowclient.MailClient, wowclient.AuctionClient,
+                    wowclient.GroupClient, wowclient.GuildClient):
+            pass
+        c = client(self, client_class=Mixed)
+        c.client._observe(wowclient.SMSG_TRADE_STATUS, struct.pack("<I", wowclient.TRADE_STATUS_OPEN_WINDOW))
+        c.client._observe(wowclient.SMSG_GROUP_INVITE, b"Grukk\0")
+        c.client._observe(wowclient.SMSG_GOSSIP_COMPLETE, b"")
+        c.client._observe(wowclient.SMSG_MESSAGECHAT, chat_packet(wowclient.CHAT_MSG_SYSTEM, "Hardcore: no."))
+        self.assertEqual(c.client.trade_statuses, [wowclient.TRADE_STATUS_OPEN_WINDOW])
+        self.assertEqual(c.client.group_invites, ["Grukk"])
+        self.assertEqual(c.client.chat_log[-1][2], "Hardcore: no.")
+
+
 if __name__ == "__main__":
     unittest.main()
