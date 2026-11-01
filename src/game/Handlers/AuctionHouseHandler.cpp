@@ -33,6 +33,7 @@
 #include "Util.h"
 #include "Chat.h"
 #include "Anticheat.h"
+#include "Hardcore.h"
 
 // please DO NOT use iterator++, because it is slower than ++iterator!!!
 // post-incrementation is always slower than pre-incrementation !
@@ -46,6 +47,8 @@ void WorldSession::HandleAuctionHelloOpcode(WorldPackets::AuctionHouse::AuctionH
         sLog.Out(LOG_BASIC, LOG_LVL_DEBUG, "WORLD: HandleAuctionHelloOpcode - %s not found or you can't interact with him.", packet.auctioneerGuid.GetString().c_str());
         return;
     }
+
+    if (!Hardcore::AllowAuctionHouse(GetPlayer())) return; // WOWAI hardcore characters (#254): no auction house
 
     // remove fake death
     if (GetPlayer()->HasUnitState(UNIT_STATE_FEIGN_DEATH))

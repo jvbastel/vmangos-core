@@ -32,6 +32,7 @@
 #include "Utilities/Random.h"
 #include "SocialMgr.h"
 #include "Util.h"
+#include "Hardcore.h"
 
 /* differeces from off:
     -you can uninvite yourself - is is useful
@@ -72,6 +73,8 @@ void WorldSession::HandleGroupInviteOpcode(WorldPackets::Group::GroupInvite cons
         SendPartyResult(PARTY_OP_INVITE, packet.memberName, ERR_BAD_PLAYER_NAME_S);
         return;
     }
+
+    if (!Hardcore::AllowGroupInvite(GetPlayer(), player)) return; // WOWAI hardcore characters (#254): no group across the border
 
     // Can't group with
     if (!GetPlayer()->IsGameMaster() && !sWorld.getConfig(CONFIG_BOOL_ALLOW_TWO_SIDE_INTERACTION_GROUP) && GetPlayer()->GetTeam() != player->GetTeam())

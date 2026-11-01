@@ -33,6 +33,7 @@
 #include "Map.h"
 #include "TradeData.h"
 #include "TransactionLog.h"
+#include "Hardcore.h"
 
 void WorldSession::SendTradeStatus(TradeStatus status)
 {
@@ -648,6 +649,8 @@ void WorldSession::HandleInitiateTradeOpcode(WorldPackets::Trade::InitiateTrade 
         SendTradeStatus(TRADE_STATUS_TRIAL_ACCOUNT);
         return;
     }
+
+    if (!Hardcore::AllowTrade(_player, pOther)) return; // WOWAI hardcore characters (#254): no trade across the border
 
     // OK start trade
     _player->m_trade = new TradeData(_player, pOther);
