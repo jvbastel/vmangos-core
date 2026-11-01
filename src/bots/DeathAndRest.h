@@ -20,6 +20,8 @@ namespace Bots
     // come: no living member that it sees can resurrect, or the Priest gave
     // it up (GroupCoordinator::GiveUpResurrect). In a wipe it waits for the
     // leader. A scripted run cuts the ghost run short (spec section 10).
+    // jvbastel/WOWAI#252: a hardcore bot (BotView::IsHardcore) never
+    // releases and never walks as a ghost. Its death is final: it waits dead.
     std::shared_ptr<Strategy const> MakeDeathStrategy();
 
     // The rest after a fight, in the Command band over the corpse loot: a

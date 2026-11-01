@@ -210,6 +210,52 @@ TEST(Death, InAWipeTheBotsWaitForTheLeaderToRelease)
     EXPECT_EQ(bot.Think(), "wait dead");
 }
 
+// jvbastel/WOWAI#252: the death of a hardcore bot is final. It never
+// releases and never walks back as a ghost: it stays where it died. A dead
+// bot that is not hardcore keeps the rules above.
+TEST(Death, ADeadHardcoreBotDoesNotReleaseWithTheLeader)
+{
+    DeadMage bot;
+    bot.fake.SetHardcore(Mage);
+    bot.Die(Player, LifeState::Ghost);
+
+    EXPECT_EQ(bot.Think(), "wait dead");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
+TEST(Death, ADeadHardcoreBotDoesNotReleaseWhenNoResurrectComes)
+{
+    DeadMage bot;
+    bot.fake.SetHardcore(Mage);
+    bot.Die(Healer);
+
+    EXPECT_EQ(bot.Think(), "wait dead");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+    EXPECT_TRUE(bot.group.TakeEvents().empty());
+}
+
+TEST(Death, AHardcoreGhostDoesNotWalkBack)
+{
+    DeadMage bot;
+    bot.fake.SetHardcore(Mage);
+    bot.fake.SetLifeState(Mage, LifeState::Ghost);
+
+    EXPECT_EQ(bot.Think(), "wait dead");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
+// Only the bot's own status counts: a hardcore leader does not hold back the
+// release of a dead bot that is not hardcore.
+TEST(Death, ADeadBotThatIsNotHardcoreStillReleasesWithAHardcoreLeader)
+{
+    DeadMage bot;
+    bot.fake.SetHardcore(Player);
+    bot.Die(Player, LifeState::Ghost);
+
+    EXPECT_EQ(bot.Think(), "release with the leader");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"release"}));
+}
+
 TEST(Death, ALivingBotIgnoresTheDeathRules)
 {
     GroupBot bot(Tank, Bots::BotClass::Warrior, Bots::BotRole::Tank);
