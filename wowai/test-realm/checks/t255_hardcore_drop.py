@@ -18,8 +18,10 @@ tours the Alliance capitals in GM mode (`.gm on`), so that no guard kills it.
    hardcore before, and the NPC offers neither the status nor the drop, also after a relog.
 3. after: the dropped character and a character that was never hardcore trade, mail each other, and group
    (both directions), and the dropped character opens the auction house. Needs #254's packets.
-4. group: two hardcore characters in one group (#254 allows it); one drops the status at the Orgrimmar NPC,
-   and both are Dropped at once, the other told so in its chat.
+4. group: two hardcore characters in one group (#254 allows it). The NPC refuses the drop to one of them, with
+   the reason (a drop takes the group's hardcore bots along, never another player's status; #250 final
+   review, lead decision): both stay alive and hardcore. Out of the group, the leader drops alone, and the
+   other keeps its status. (The bots that drop with the player: t257 part 6.)
 5. dead: a hardcore character dies next to the Valley of Trials NPC (#253 makes the death final): the NPC
    does not offer it the drop, and the character stays dead (status 2).
 """
@@ -240,7 +242,7 @@ def same_group(a, b):
 
 
 def part_group():
-    """One drop call drops every hardcore member of the group (two hardcore players here; #257 with bots)."""
+    """The drop takes only the group's hardcore bots: with another hardcore player in the group, it is refused."""
     leader = login("Hclead" + tag, "PLAYER255E")
     member = login("Hcmemb" + tag, "PLAYER255F")
     results.check("the leader takes the status", take_hardcore(realm, leader))
@@ -249,16 +251,21 @@ def part_group():
     member.group_accept()
     member.pump(1)
     results.check("two hardcore characters group", invite_ok(party) and same_group(leader, member), party)
-    start = len(member.chat_log)
-    results.check("the leader drops the status at the Orgrimmar NPC (a capital)",
-                  drop_hardcore(realm, leader, hardcore_spawn("Orgrimmar")))
-    member.pump(1)
-    results.check("the hardcore member dropped it at the same moment", status_row(realm, member) == "3",
-                  status_row(realm, member))
-    results.check("the member is told in its chat", any("dropped the hardcore status" in line
-                  for line in system_lines(member, start)), system_lines(member, start))
-    results.check(".hardcore of the member says dropped", hardcore_line(member) == DROPPED, hardcore_line(member))
+    start = len(leader.chat_log)
+    results.check("the NPC refuses the drop with another hardcore player in the group (Orgrimmar NPC)",
+                  not drop_hardcore(realm, leader, hardcore_spawn("Orgrimmar")))
+    results.check("the refusal tells the reason", any("another hardcore player" in line
+                  for line in system_lines(leader, start)), system_lines(leader, start))
+    results.check("both stay hardcore and alive", status_row(realm, leader) == "1" and status_row(realm, member) == "1",
+                  (status_row(realm, leader), status_row(realm, member)))
     leader.group_leave()
+    member.pump(1)
+    start = len(member.chat_log)
+    results.check("out of the group, the leader drops the status", drop_hardcore(realm, leader, hardcore_spawn("Orgrimmar")))
+    member.pump(1)
+    results.check("the other player keeps its status", status_row(realm, member) == "1", status_row(realm, member))
+    results.check("the other player is told nothing", not any("dropped the hardcore status" in line
+                  for line in system_lines(member, start)), system_lines(member, start))
     close(leader)
     close(member)
 

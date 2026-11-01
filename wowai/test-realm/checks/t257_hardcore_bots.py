@@ -14,7 +14,11 @@ and the ranged member.
    above the player's (11) is refused, and no character is made. A hardcore bot refuses a group invite of a
    character that is not hardcore. The player invites the three (whisper `invite`).
 2. border: a bot that is not hardcore cannot join: the whisper `invite` and a /invite packet are refused
-   with the hardcore reason, and it is in no group with the player.
+   with the hardcore reason, and it is in no group with the player. A stock party bot (`.partybot add`,
+   which skips the invite handler) is refused by the group rule of Group::AddMember (#250 final review): the
+   hardcore reason, the log line, and no new member in the group.
+2b. level (#250 final review, story 39): a hardcore bot that is above the player's level now (made at its
+   level, then levelled up by a GM) cannot join: the whisper `invite` and a /invite packet are refused.
 3. trade: the player trades gold with the healer (the bot opens and accepts the trade); mail from the
    player reaches the healer.
 4. loot: the group loots a Mottled Boar with fixed green loot (set by SQL, put back at the end): group loot
@@ -28,12 +32,28 @@ and the ranged member.
    the same moment (same dropped_at). The dead ranged member stays dead (status 2).
 7. restart: after a server restart, the dead ranged member is not logged in, and `.wowai bot login` still
    refuses it.
+8. players (#250 final review), on new level 1 characters:
+   - take: a character in a group with a character that is not hardcore cannot take the status at the NPC
+     (the reason, no row); after it leaves the group it can.
+   - accept: a character that took the status with an invite open from a character that is not hardcore
+     cannot accept it (Group::AddMember refuses, with the reason).
+   - drop: in a group of two hardcore players, the NPC refuses the drop (the reason; both stay alive).
+   - dead invite: a dead hardcore player (its 60 seconds, not in a group) cannot be invited (the "dead for
+     good" reason).
+   - player death: a dead hardcore player leaves its group at its 60-second logout, so its hardcore bot
+     leaves the group and logs out too.
 """
 import re
 import struct
 import time
 
-from kit import BOAR, Realm, Results, drop_hardcore, kill, spawn, stat, take_hardcore
+import wowclient
+
+from kit import (BOAR, HARDCORE_ALIVE, HARDCORE_DEAD, HARDCORE_DROPPED, HARDCORE_REASON_BOT_ABOVE_LEVEL,
+                 HARDCORE_REASON_DEAD, HARDCORE_REASON_DROP_WITH_PLAYER, HARDCORE_REASON_NO_GROUP,
+                 HARDCORE_REASON_TAKE_IN_GROUP, PLAYER_FLAGS_GHOST, Realm, Results, drop_hardcore, hardcore_locked,
+                 hardcore_row, kill, spawn, stat, take_hardcore, unit_field)
+from kit import online as kit_online
 from wowclient import CHAT_MSG_PARTY, CHAT_MSG_SYSTEM, CHAT_MSG_WHISPER, GossipClient
 # The trade, mail and group packets of #254.
 from wowclient import (MAIL_OK, MAIL_SEND, TRADE_STATUS_OPEN_WINDOW, TRADE_STATUS_TRADE_COMPLETE, GroupClient,
@@ -52,8 +72,6 @@ MASTER_LOOT, GROUP_LOOT = 2, 3
 UNCOMMON = 2
 ROLL_PASS = 0
 
-CHARACTER_FLAG_LOCKED_FOR_TRANSFER = 0x4
-PLAYER_FLAGS_GHOST = 0x10
 PLAYER_LEVEL = 10
 # Fixed green loot of the Mottled Boar (as in #41): War Paint Legguards and a green pair of pants.
 LOOT_ITEMS = (14727, 2974)
@@ -61,8 +79,11 @@ ORGRIMMAR_MAILBOX = 10107  # gameobject guid: the mailbox by the Orgrimmar bank
 ORGRIMMAR_MAIL_SPOT = ".go xyz 1617.0 -4391.6 10.2 1"
 VALLEY_SPOT = ".go xyz -600.0 -4250.0 38.9 1"
 
-NO_GROUP = "cannot be in a group with a character that is not hardcore"
-DEAD_BOT = "dead for good"
+NO_GROUP = HARDCORE_REASON_NO_GROUP
+DEAD_BOT = HARDCORE_REASON_DEAD
+ABOVE_LEVEL = HARDCORE_REASON_BOT_ABOVE_LEVEL
+TAKE_IN_GROUP = HARDCORE_REASON_TAKE_IN_GROUP
+DROP_WITH_PLAYER = HARDCORE_REASON_DROP_WITH_PLAYER
 
 
 class Client(GossipClient, TradeClient, MailClient, GroupClient):
@@ -112,7 +133,8 @@ def said(client, start, words):
 
 def status_of(guid):
     """The status column of the character_hardcore row ("" without a row)."""
-    return realm.sql("characters", "SELECT status FROM character_hardcore WHERE guid = %d" % low(guid))
+    row = hardcore_row(realm, guid)
+    return row[0] if row else ""
 
 
 def in_group_with(a, b):
@@ -122,18 +144,12 @@ def in_group_with(a, b):
 
 
 def online(guid):
-    return realm.sql("characters", "SELECT online FROM characters WHERE guid = %d" % low(guid)) == "1"
+    return kit_online(realm, guid)
 
 
 def field(guid, name):
     """An update field of a unit (GM `.debug getvaluebyname`), or -1."""
-    for line in player.gm(".debug getvaluebyname %s" % name, select=guid):
-        if line.startswith(name + ":"):
-            try:
-                return int(line.split(":", 1)[1].split("/")[0])
-            except ValueError:
-                return -1
-    return -1
+    return unit_field(player, guid, name)
 
 
 def soap(command):
@@ -200,7 +216,7 @@ def part_make():
         guid = guids[name]
         level = realm.sql("characters", "SELECT level FROM characters WHERE guid = %d" % guid)
         results.check("%s: level %d" % (role[name], wanted), level == str(wanted), level)
-        results.check("%s: hardcore (alive)" % role[name], status_of(guid) == "1", status_of(guid))
+        results.check("%s: hardcore (alive)" % role[name], status_of(guid) == HARDCORE_ALIVE, status_of(guid))
         taken = realm.sql("characters", "SELECT taken_at FROM character_hardcore WHERE guid = %d" % guid)
         results.check("%s: the time of the status is written" % role[name], taken.isdigit() and int(taken) > 0, taken)
         worn = realm.sql("characters", "SELECT COUNT(*) FROM character_inventory WHERE guid = %d AND bag = 0 "
@@ -253,6 +269,53 @@ def part_border():
                   said(player, start, NO_GROUP), (party, system_lines(player, start)))
     results.check("/invite: it is not in the hardcore group", not in_group_with(player.guid, guid))
     print("  logout:", soap(".wowai bot logout %s" % name))
+
+
+    # A stock party bot does not pass the invite handler or the bot manager: Group::AddMember refuses it.
+    realm.mark("partybot")
+    members = realm.sql("characters", "SELECT COUNT(*) FROM group_member WHERE group_id = (SELECT group_id FROM "
+                        "group_member WHERE member_guid = %d)" % low(player.guid))
+    start = len(player.chat_log)
+    answer = player.gm(".partybot add priest", wait=3.0)
+    player.pump(5)
+    print("  partybot add:", answer)
+    results.check("partybot: a stock party bot is refused with the hardcore reason", said(player, start, NO_GROUP),
+                  system_lines(player, start))
+    results.check("partybot: the server log has the refusal of Group::AddMember",
+                  re.search(r"Hardcore: refused guid \d+ in the group of leader guid %d" % low(player.guid), realm.log())
+                  is not None)
+    after = realm.sql("characters", "SELECT COUNT(*) FROM group_member WHERE group_id = (SELECT group_id FROM "
+                      "group_member WHERE member_guid = %d)" % low(player.guid))
+    results.check("partybot: no new member in the hardcore group", after == members, (members, after))
+
+
+# --- 2b. level ---
+
+def part_level():
+    answer = make_bot(climber, "warrior tank hardcore")
+    results.check("level: the player makes a hardcore bot at its level", any("Hardcore bot %s made at level %d"
+                  % (climber, PLAYER_LEVEL) in line for line in answer), answer)
+    realm.wait_log(r"\[Bots\] %s logs in" % climber, 20, player)
+    # In the world for the GM level-up (the online level is the one the rule reads).
+    print("  login:", soap(".wowai bot login %s" % climber))
+    player.pump(3)
+    print("  levelup:", soap(".levelup %s 2" % climber))
+    player.pump(2)
+    guid = realm.guid_of(climber)
+    start = len(player.chat_log)
+    player.chat(CHAT_MSG_WHISPER, "invite", target=climber)
+    player.pump(4)
+    results.check("level: the whisper invite refuses a hardcore bot above the player's level",
+                  said(player, start, ABOVE_LEVEL) and not in_group_with(player.guid, guid), system_lines(player, start))
+    print("  login:", soap(".wowai bot login %s" % climber))
+    player.pump(3)
+    start = len(player.chat_log)
+    party = player.group_invite(climber)
+    player.pump(3)
+    results.check("level: a /invite refuses a hardcore bot above the player's level",
+                  said(player, start, ABOVE_LEVEL) and not in_group_with(player.guid, guid),
+                  (party, system_lines(player, start)))
+    print("  logout:", soap(".wowai bot logout %s" % climber))
 
 
 # --- 3. trade and mail ---
@@ -370,13 +433,11 @@ def part_death():
     player.pump(2)
     row = realm.sql("characters", "SELECT status, death_time, death_zone, death_killer, death_level "
                     "FROM character_hardcore WHERE guid = %d" % guid).split("\t")
-    results.check("death: the ranged member's death is final (status 2)", row[:1] == ["2"], row)
+    results.check("death: the ranged member's death is final (status 2)", row[:1] == [HARDCORE_DEAD], row)
     results.check("death: the ranged member has a death record (time, zone, killer, level)", len(row) == 5
                   and row[1].isdigit() and int(row[1]) > 0 and row[2] not in ("", "0", "NULL") and row[3] not in ("", "NULL")
                   and row[4] == str(PLAYER_LEVEL - 2), row)
-    flags = realm.sql("characters", "SELECT character_flags FROM characters WHERE guid = %d" % guid)
-    results.check("death: the lock flag is written at once", flags.isdigit()
-                  and bool(int(flags) & CHARACTER_FLAG_LOCKED_FOR_TRANSFER), flags)
+    results.check("death: the lock flag is written at once", hardcore_locked(realm, guid))
 
     print("  revive:", player.gm(".revive", select=guid))
     player.pump(2)
@@ -409,7 +470,7 @@ def part_death():
                   system_lines(player, start))
     answer = make_bot(ranged, "mage ranged troll hardcore")
     results.check("death: .wowai bot create cannot make it again", any("exists already" in line for line in answer), answer)
-    results.check("death: still dead (status 2)", status_of(guid) == "2", status_of(guid))
+    results.check("death: still dead (status 2)", status_of(guid) == HARDCORE_DEAD, status_of(guid))
 
 
 # --- 6. drop ---
@@ -422,9 +483,102 @@ def part_drop():
     mine = table.get(low(player.guid), ("", ""))
     for name in (tank, healer):
         bot = table.get(guids[name], ("", ""))
-        results.check("drop: the %s dropped its status at the same moment" % role[name], bot[0] == "3"
+        results.check("drop: the %s dropped its status at the same moment" % role[name], bot[0] == HARDCORE_DROPPED
                       and bot[1] == mine[1], (mine, bot))
-    results.check("drop: the dead ranged member stays dead", status_of(guids[ranged]) == "2", status_of(guids[ranged]))
+    results.check("drop: the dead ranged member stays dead", status_of(guids[ranged]) == HARDCORE_DEAD, status_of(guids[ranged]))
+
+
+# --- 8. players ---
+
+def new_player(account, name):
+    client = realm.login(account, name, client_class=Client)
+    client.gm(".gm off")
+    return client
+
+
+def part_players():
+    # take: in a group with a character that is not hardcore.
+    joiner = new_player("PLAYER257C", "Hcjoin" + tag)
+    normal.group_invite("Hcjoin" + tag)
+    joiner.group_accept(wait=2.0)
+    grouped = in_group_with(normal.guid, joiner.guid)
+    results.check("take: the new character is in a group with a character that is not hardcore", grouped)
+    start = len(joiner.chat_log)
+    results.check("take: the NPC refuses the status in that group", not take_hardcore(realm, joiner)
+                  and status_of(joiner.guid) == "", status_of(joiner.guid))
+    results.check("take: the refusal says to leave the group", said(joiner, start, TAKE_IN_GROUP), system_lines(joiner, start))
+    joiner.group_leave(wait=2.0)
+    normal.group_leave(wait=1.0)
+    results.check("take: out of the group, it takes the status", take_hardcore(realm, joiner))
+
+    # accept: an invite from before the status, accepted after it (the accept passes Group::AddMember only).
+    pending = new_player("PLAYER257E", "Hcpend" + tag)
+    normal.group_invite("Hcpend" + tag)
+    results.check("accept: with an open invite (no group yet) a character takes the status", take_hardcore(realm, pending))
+    start = len(pending.chat_log)
+    pending.group_accept(wait=2.0)
+    results.check("accept: the old invite of a character that is not hardcore is refused at the accept",
+                  said(pending, start, NO_GROUP) and not in_group_with(normal.guid, pending.guid),
+                  system_lines(pending, start))
+    normal.group_leave(wait=1.0)
+    try:
+        pending.sock.close()
+    except Exception:
+        pass
+
+    # drop: a group of two hardcore players.
+    second = new_player("PLAYER257D", "Hcsecd" + tag)
+    results.check("drop: a second hardcore player", take_hardcore(realm, second))
+    joiner.group_invite("Hcsecd" + tag)
+    second.group_accept(wait=2.0)
+    results.check("drop: two hardcore players group", in_group_with(joiner.guid, second.guid))
+    start = len(joiner.chat_log)
+    results.check("drop: the NPC refuses the drop with another hardcore player in the group",
+                  not drop_hardcore(realm, joiner) and status_of(joiner.guid) == HARDCORE_ALIVE and status_of(second.guid) == HARDCORE_ALIVE,
+                  (status_of(joiner.guid), status_of(second.guid)))
+    results.check("drop: the refusal names the other hardcore player", said(joiner, start, DROP_WITH_PLAYER),
+                  system_lines(joiner, start))
+    second.group_leave(wait=2.0)
+
+    # dead invite: the second player dies alone; in its 60 seconds a /invite of it is refused.
+    second.gm(".die", select=second.guid, wait=2.0)
+    results.check("dead invite: the second player died for good", status_of(second.guid) == HARDCORE_DEAD, status_of(second.guid))
+    start = len(normal.chat_log)
+    normal.group_invite("Hcsecd" + tag)
+    normal.pump(2)
+    results.check("dead invite: a /invite of a dead hardcore character is refused", said(normal, start, DEAD_BOT)
+                  and not in_group_with(normal.guid, second.guid), system_lines(normal, start))
+
+    # player death: the first player, with a hardcore bot in its group, dies.
+    answer = joiner.gm(".wowai bot create %s priest healer hardcore" % follower, wait=2.0)
+    results.check("player death: the player makes a hardcore bot", any("Hardcore bot %s made" % follower in line
+                  for line in answer), answer)
+    realm.wait_log(r"\[Bots\] %s logs in" % follower, 20, joiner)
+    joiner.chat(CHAT_MSG_WHISPER, "invite", target=follower)
+    joiner.pump(4)
+    bot = realm.guid_of(follower)
+    results.check("player death: the hardcore bot joins", in_group_with(joiner.guid, bot))
+    joiner.gm(".namego %s" % follower, wait=1.0)
+    realm.mark("player death")
+    joiner.gm(".die", select=joiner.guid, wait=2.0)
+    results.check("player death: the player died for good", status_of(joiner.guid) == HARDCORE_DEAD, status_of(joiner.guid))
+    try:
+        joiner.wait_for(wowclient.SMSG_LOGOUT_COMPLETE, 80)
+        logged_out = True
+    except Exception as error:
+        print("  player death logout:", error)
+        logged_out = False
+    results.check("player death: the server logs the dead player out", logged_out)
+    gone = realm.wait_log(r"\[Bots\] %s is out of its group and logs out" % follower, 20)
+    rows = realm.sql("characters", "SELECT COUNT(*) FROM group_member WHERE member_guid IN (%d, %d)"
+                     % (low(joiner.guid), bot))
+    results.check("player death: the dead player and its bot are out of the group", rows == "0", rows)
+    results.check("player death: the bot logs out", gone and not online(bot))
+    for client in (joiner, second):
+        try:
+            client.sock.close()
+        except Exception:
+            pass
 
 
 # --- 7. restart ---
@@ -441,13 +595,14 @@ realm = Realm()
 results = Results()
 tag = suffix()
 tank, healer, ranged, over = ("Hctank" + tag, "Hcheal" + tag, "Hcrang" + tag, "Hcover" + tag)
+climber, follower = "Hcclim" + tag, "Hcfoll" + tag
 role = {tank: "the tank", healer: "the healer", ranged: "the ranged member"}
 guids = {}
 player = realm.login("PLAYER257A", "Hcplay" + tag, client_class=Client)
 normal = realm.login("PLAYER257B", "Hcnorm" + tag, client_class=Client)
 player.gm(".gm off")
-for name, part in (("make", part_make), ("border", part_border), ("trade", part_trade), ("loot", part_loot),
-                   ("death", part_death), ("drop", part_drop)):
+for name, part in (("make", part_make), ("border", part_border), ("level", part_level), ("trade", part_trade),
+                   ("loot", part_loot), ("death", part_death), ("drop", part_drop), ("players", part_players)):
     print("== part %s" % name)
     part()
 for client in (player, normal):

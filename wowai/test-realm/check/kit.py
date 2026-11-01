@@ -338,9 +338,25 @@ def take_hardcore(realm, client):
     return row == "1" and hardcore_line(client) == "Hardcore: alive"
 
 
-# The death of a hardcore character (WOWAI#253): the lock flag of a dead one, and the status Dead.
+# The death of a hardcore character (WOWAI#253): the lock flag of a dead one, and the status Dead. The status
+# column of character_hardcore as the strings realm.sql returns: alive, dead, dropped.
 HARDCORE_LOCK_FLAG = 0x4  # CHARACTER_FLAG_LOCKED_FOR_TRANSFER
+HARDCORE_ALIVE = "1"
 HARDCORE_DEAD = "2"
+HARDCORE_DROPPED = "3"
+PLAYER_FLAGS_GHOST = 0x10
+# Reason lines of the hardcore refusals (parts that the checks match). Keep them in step with the texts in
+# src/game/Hardcore/HardcoreRules.cpp, HardcoreBots.cpp, HardcoreStatus.cpp and HardcoreDrop.cpp.
+HARDCORE_REASON_NO_GROUP = "cannot be in a group with a character that is not hardcore"
+HARDCORE_REASON_DEAD = "dead for good"
+HARDCORE_REASON_BOT_ABOVE_LEVEL = "above your level cannot join your group"
+HARDCORE_REASON_TAKE_IN_GROUP = "Leave the group first"
+HARDCORE_REASON_DROP_WITH_PLAYER = "another hardcore player"
+
+
+def online(realm, guid):
+    """True when characters.online is 1 for the (full or low) guid."""
+    return realm.sql("characters", "SELECT online FROM characters WHERE guid = %d" % (guid & 0xFFFFFFFF)) == "1"
 
 
 def hardcore_row(realm, guid):

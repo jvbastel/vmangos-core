@@ -25,6 +25,10 @@ of Trials (kit.take_hardcore), except the plain character and the watcher.
 7. restart: after a server restart the logins of the dead characters are still refused.
 8. delete: the dead character of part 2 is deleted from the character list. Its rows go. A new character with
    the same name is made and takes the hardcore status.
+9. void (final review of #250, the ghost paths that no packet asks for): a hardcore character at 1 health
+   falls under the map (a client heartbeat at z -600, the stock "Antiundermap2" path). It dies for good
+   ("a fall into the void"), and the stock code does not make it a ghost or move it to a graveyard: no
+   ghost flag, and the server still has it under the map.
 
 Not run yet (batch 2 of spec #250 runs it). Parts that a tester may need to adjust: the fall (the client
 movement packets: a heartbeat with MOVEFLAG_FALLINGFAR 80 yards up, then MSG_MOVE_FALL_LAND with a 4 s fall
@@ -416,5 +420,23 @@ reborn = login("MOB253", mob_name)
 results.check("delete: a new character with the same name is made", reborn.guid not in (0, mob_guid), hex(reborn.guid))
 results.check("delete: the new character takes the hardcore status", take_hardcore(realm, reborn))
 close(reborn)
+
+# 9. A fall under the map: the stock code kills the character and asks for a ghost at the graveyard
+# (MovementHandler "Antiundermap2": EnvironmentalDamage, KillPlayer, BuildPlayerRepop, RepopAtGraveyard).
+void = new_hardcore("VOID253", "Hcvoid" + tag)
+void.gm(".go xyz %.1f %.1f %.1f 1" % VALLEY, wait=3.0)
+void.gm(".modify hp 1", select=void.guid)
+void.set_active_mover()
+start, void.notes = len(void.chat_log), []
+for _ in range(3):  # the stock path runs on each movement packet below -500
+    void.move(wowclient.MSG_MOVE_HEARTBEAT, VALLEY[0], VALLEY[1], -600.0, 0.0, flags=MOVEFLAG_FALLINGFAR)
+    void.pump(1)
+void.pump(2)
+death_checks("void", void, start, killer="a fall into the void")
+ghost = field(void, void.guid, "PLAYER_FLAGS")
+results.check("void: no ghost after the fall under the map", ghost >= 0 and not ghost & PLAYER_FLAGS_GHOST, ghost)
+where = pos(void, void.guid)
+results.check("void: not moved to a graveyard (the body stays under the map)", where is not None and where[2] < -400, where)
+close(void)
 
 results.finish()
