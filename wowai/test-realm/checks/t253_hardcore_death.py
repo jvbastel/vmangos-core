@@ -36,7 +36,8 @@ import struct
 import time
 
 import wowclient
-from kit import (Realm, Results, pos, spawn, stat, take_hardcore)
+from kit import (Realm, Results, hardcore_locked, pos, spawn, stat, take_hardcore, unit_field)
+from kit import hardcore_row as kit_hardcore_row
 from wowclient import CHAT_MSG_SAY, CHAT_MSG_SYSTEM, GossipClient
 
 CMSG_CHAR_DELETE = 56
@@ -54,7 +55,6 @@ MOVEFLAG_FALLINGFAR = 0x4000
 
 CHAR_LOGIN_LOCKED_FOR_TRANSFER = 0x44  # ResponseCodes in SharedDefines.h (build 5875)
 CHAR_DELETE_SUCCESS = 0x39
-CHARACTER_FLAG_LOCKED_FOR_TRANSFER = 0x4
 PLAYER_FLAGS_GHOST = 0x10
 DUROTAR_ZONE = 14  # Durotar (AreaTable.dbc); Valley of Trials is an area of it
 BOAR = 3098  # Mottled Boar
@@ -153,14 +153,11 @@ def try_login(client, guid):
 
 def hardcore_row(client_or_guid):
     guid = client_or_guid if isinstance(client_or_guid, int) else low(client_or_guid)
-    row = realm.sql("characters", "SELECT status, death_time, death_zone, death_killer, death_level "
-                    "FROM character_hardcore WHERE guid = %d" % guid)
-    return row.split("\t") if row else []
+    return kit_hardcore_row(realm, guid)
 
 
 def locked(client):
-    flags = realm.sql("characters", "SELECT character_flags FROM characters WHERE guid = %d" % low(client))
-    return bool(flags) and bool(int(flags) & CHARACTER_FLAG_LOCKED_FOR_TRANSFER)
+    return hardcore_locked(realm, client.guid)
 
 
 def health(watcher, guid):
@@ -168,14 +165,7 @@ def health(watcher, guid):
 
 
 def field(viewer, guid, name):
-    """An update field of a unit (GM `.debug getvaluebyname`), or -1."""
-    for line in viewer.gm(".debug getvaluebyname %s" % name, select=guid):
-        if line.startswith(name + ":"):
-            try:
-                return int(line.split(":", 1)[1].split("/")[0])
-            except ValueError:
-                return -1
-    return -1
+    return unit_field(viewer, guid, name)
 
 
 def new_hardcore(account, name, cls=1):
