@@ -380,6 +380,8 @@ void WorldSession::HandlePlayerLoginOpcode(WorldPackets::Character::PlayerLogin 
         return;
     }
 
+    if (!Hardcore::AllowLogin(this, packet.guid)) return; // WOWAI hardcore characters (#253): "character locked" and the death record
+
     LoginQueryHolder* holder = new LoginQueryHolder(GetAccountId(), packet.guid);
     if (!holder->Initialize())
     {

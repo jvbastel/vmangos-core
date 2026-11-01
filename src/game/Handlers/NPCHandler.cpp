@@ -36,6 +36,7 @@
 #include "Spell.h"
 #include "Chat.h"
 #include "CharacterDatabaseCache.h"
+#include "Hardcore.h"
 
 enum StableResultCode
 {
@@ -429,6 +430,8 @@ void WorldSession::HandleSpiritHealerActivateOpcode(WorldPackets::Npc::SpiritHea
 
 void WorldSession::SendSpiritResurrect()
 {
+    if (!Hardcore::AllowResurrect(_player)) return; // WOWAI hardcore characters (#253): no durability loss, no teleport
+
     _player->ResurrectPlayer(0.5f, true);
 
     _player->DurabilityLossAll(0.25f, true);

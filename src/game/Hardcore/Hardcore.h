@@ -12,7 +12,10 @@
 
 #include <string>
 
+class ObjectGuid;
 class Player;
+class Unit;
+class WorldSession;
 
 // Hardcore characters on the play realm (spec jvbastel/WOWAI#250, ADR 0003). A hardcore character is a
 // character with the hardcore status: its first death is final, and it gets no help from non-hardcore
@@ -101,6 +104,56 @@ namespace Hardcore
     // Hook: WorldSession::HandleGroupInviteOpcode. Refused between a hardcore character and a character that
     // is not hardcore, in both directions.
     bool AllowGroupInvite(Player* inviter, Player const* invited);
+
+    // --- The final death (WOWAI#253, HardcoreDeath.cpp) ---
+
+    // What killed a character, for its death record. A scope object on the stack of the code that kills:
+    // Unit::Kill (the killer) and Player::EnvironmentalDamage (a fall, drowning, fatigue, lava, slime or
+    // fire). OnDeath reads the scopes that are open on its thread when the death comes. One line each in
+    // the stock code; it changes nothing in the game.
+    class DeathCause
+    {
+    public:
+        explicit DeathCause(Unit const* killer);              // Unit::Kill: `this`
+        explicit DeathCause(uint32 environmentalDamageType);  // Player::EnvironmentalDamage: its `type`
+        ~DeathCause();
+        DeathCause(DeathCause const&) = delete;
+        DeathCause& operator=(DeathCause const&) = delete;
+
+        DeathCause const* Outer() const { return m_outer; }
+        Unit const* Killer() const { return m_killer; }
+        int32 Environment() const { return m_environment; }   // -1: none
+
+    private:
+        DeathCause const* m_outer;
+        Unit const* m_killer;
+        int32 m_environment;
+    };
+
+    // Hook: Player::SetDeathState, at the "just died" state of a living player, after the core put the
+    // self-resurrect spell back; also at the corpse state of a living player (the logout of a priest in
+    // Spirit of Redemption kills it without the "just died" state). For a hardcore character that is
+    // alive: the status Dead, the lock flag CHARACTER_FLAG_LOCKED_FOR_TRANSFER and the death record (time,
+    // zone, killer or cause, level), all written to the database at once; no self-resurrect spell (no
+    // Soulstone or Reincarnation button); the message that the character is dead forever; and the logout 60
+    // seconds later. Any other character: nothing.
+    void OnDeath(Player* player);
+
+    // Hook: Player::ResurrectPlayer. False for a dead hardcore character: no resurrect by any path (spells,
+    // Soulstone, Reincarnation, the spirit healer, GM commands, scripted runs).
+    bool AllowResurrect(Player* player);
+
+    // Hook: WorldSession::HandleRepopRequestOpcode. False for a hardcore character: no release, no ghost.
+    bool AllowRelease(Player* player);
+
+    // Hook: WorldSession::HandlePlayerLoginOpcode, before the core loads the character or takes the one
+    // still in the world. False (with the 1.12 error "character locked" and the death record) for a dead
+    // hardcore character of the session's account. Reads the database, so it holds after a restart.
+    bool AllowLogin(WorldSession* session, ObjectGuid const& guid);
+
+    // Hook: Player::DeleteFromDB, in its transaction of a full delete: the character's character_hardcore
+    // row goes with it.
+    void OnDelete(uint32 guid);
 }
 
 #endif
