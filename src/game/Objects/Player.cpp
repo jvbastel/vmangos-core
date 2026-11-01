@@ -1567,7 +1567,7 @@ void Player::SetDeathState(DeathState s)
 #endif
     }
 
-    if (s == JUST_DIED && cur) Hardcore::OnDeath(this); // WOWAI hardcore characters (#253): the final death
+    if ((s == JUST_DIED || s == CORPSE) && cur) Hardcore::OnDeath(this); // WOWAI hardcore characters (#253): the final death (CORPSE: the Spirit of Redemption logout)
 
     if (IsAlive() && !cur)
     {
@@ -20098,6 +20098,8 @@ uint32 Player::GetBaseWeaponSkillValue(WeaponAttackType attType) const
 
 void Player::ResurrectUsingRequestData()
 {
+    if (!Hardcore::AllowResurrect(this)) return; // WOWAI hardcore characters (#253): no teleport to the resurrector, no health on the dead body
+
     // Teleport before resurrecting by player, otherwise the player might get attacked from creatures near his corpse
     if (m_resurrectData.resurrectorGuid.IsPlayer())
     {

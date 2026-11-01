@@ -257,6 +257,7 @@ row = death_checks("monster", mob, start, killer=boar_name)
 results.check("monster: the death record has the zone (Durotar)", len(row) == 5 and row[2] == str(DUROTAR_ZONE), row)
 results.check("monster: the server logs the death", realm.wait_log(r"Hardcore: Hcmob%s .* died for good" % tag, 5, mob))
 results.check("monster: the character is dead", health(watcher, mob.guid) == 0)
+death_spot = pos(watcher, mob.guid)
 # Chat in the 60 seconds: the watcher hears the dead character say a line.
 said = "farewell " + tag
 heard_from = len(watcher.chat_log)
@@ -274,6 +275,16 @@ while time.time() < end and mob.logged_out_at is None:
 after = (mob.logged_out_at or time.time()) - died_at
 results.check("monster: the server logs the character out about 60 seconds after the death (%.0f s)" % after,
               mob.logged_out_at is not None and 55 <= after <= 75)
+# The logout saves the body where it died: no ghost, no corpse, no teleport to the graveyard.
+saved = realm.sql("characters", "SELECT player_flags, position_x, position_y FROM characters WHERE guid = %d"
+                  % low(mob)).split("\t")
+results.check("monster: after the logout the saved character is no ghost",
+              len(saved) == 3 and not (int(saved[0]) & PLAYER_FLAGS_GHOST), saved)
+results.check("monster: after the logout the character is saved where it died", len(saved) == 3 and
+              death_spot is not None and abs(float(saved[1]) - death_spot[0]) < 2 and
+              abs(float(saved[2]) - death_spot[1]) < 2, (saved, death_spot))
+results.check("monster: after the logout there is no corpse",
+              realm.sql("characters", "SELECT COUNT(*) FROM corpse WHERE player_guid = %d" % low(mob)).strip() == "0")
 outcome, code, notes = try_login(mob, mob.guid)
 results.check("monster: the next login is refused with the character locked error",
               outcome == "refused" and code == CHAR_LOGIN_LOCKED_FOR_TRANSFER, (outcome, code))

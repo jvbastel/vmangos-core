@@ -107,7 +107,8 @@ namespace Hardcore
     };
 
     // Hook: Player::SetDeathState, at the "just died" state of a living player, after the core put the
-    // self-resurrect spell back. For a hardcore character that is alive: the status Dead, the lock flag
+    // self-resurrect spell back; also at the corpse state of a living player (the logout of a priest in
+    // Spirit of Redemption kills it without the "just died" state). For a hardcore character that is alive: the status Dead, the lock flag
     // CHARACTER_FLAG_LOCKED_FOR_TRANSFER and the death record (time, zone, killer or cause, level), all
     // written to the database at once; no self-resurrect spell (no Soulstone or Reincarnation button); the
     // message that the character is dead forever; and the logout 60 seconds later. Any other character:

@@ -143,7 +143,7 @@ src/scripts/custom/custom.cpp
 # The hardcore NPC in the other 5 starting areas and the 6 capitals, and the texts of the drop (WOWAI#255).
 sql/migrations/20261101125500_world.sql
 # Hardcore hook 5: Hardcore::OnDeath in Player::SetDeathState (Player.cpp, above): the final death of a
-# hardcore character (WOWAI#253).
+# hardcore character, also at the CORPSE state of a living one (the Spirit of Redemption logout) (WOWAI#253).
 # Hardcore hook 6: Hardcore::AllowResurrect in Player::ResurrectPlayer (Player.cpp, above): no resurrect by any
 # path after the final death (WOWAI#253).
 # Hardcore hook 7: Hardcore::AllowRelease in WorldSession::HandleRepopRequestOpcode: no release, no ghost walk
@@ -156,3 +156,10 @@ src/game/Handlers/MiscHandler.cpp
 # Hardcore hook 10: a Hardcore::DeathCause scope in Unit::Kill (Unit.cpp, above) and in
 # Player::EnvironmentalDamage (Player.cpp, above): the killer or the cause (fall, drowning, ...) of the death
 # record, which Player::SetDeathState does not know (WOWAI#253).
+# Hardcore hook 11: Hardcore::AllowResurrect in Player::ResurrectUsingRequestData (Player.cpp, above): an
+# accepted resurrect does not teleport the dead body or give it health (WOWAI#253).
+# Hardcore hook 12: Hardcore::AllowResurrect in WorldSession::SendSpiritResurrect: the spirit healer takes no
+# durability from a dead hardcore character (WOWAI#253).
+src/game/Handlers/NPCHandler.cpp
+# Hardcore hook 13: Hardcore::IsHardcore in WorldSession::LogoutPlayer (WorldSession.cpp, above): the logout
+# does not make a dead hardcore character a ghost at the graveyard (WOWAI#253).
