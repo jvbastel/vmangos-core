@@ -16,7 +16,7 @@ INSERT INTO `migrations` VALUES ('20261101125500');
 --
 -- Each place comes from the world database (2026-11-01), not from memory: a starting area spawn stands about
 -- 3 yards from a stock NPC next to the start point of playercreateinfo; a capital spawn stands in the bank,
--- about 5 yards in front of a stock banker (Undercity: between two bankers of the ring), at the banker's z.
+-- about 5 yards in front of a stock banker (Undercity: just outside the ring of bankers), at the banker's z.
 
 DELETE FROM `broadcast_text` WHERE `entry` IN (190252, 190253);
 INSERT INTO `broadcast_text` (`entry`, `male_text`, `female_text`) VALUES

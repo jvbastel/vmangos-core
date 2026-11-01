@@ -142,7 +142,7 @@ def part_drop():
     results.check("the drop option opens the warning page", warning is not None
                   and warning.text_id == HARDCORE_TEXT_DROP_WARNING, repr(warning))
     results.check("the warning page asks for a confirmation", warning is not None and warning.option("yes") is not None
-                  and warning.option("no") is not None, repr(warning))
+                  and warning.option("keep it") is not None, repr(warning))
     results.check("the status stays until the confirmation", status_row(realm, client) == "1", status_row(realm, client))
     start = len(client.chat_log)
     closed = (client.gossip_select(npc, warning.option("yes"))
@@ -264,6 +264,22 @@ def part_dead():
     results.check("the NPC does not offer the drop to a dead hardcore character",
                   menu is None or menu.option("drop") is None, repr(menu))
     results.check("the dead character stays dead", status_row(realm, client) == "2", status_row(realm, client))
+    close(client)
+
+    # The server refuses gossip to a dead player anyway, so the lines above prove little about the NPC.
+    # A living character whose row says Dead (set by SQL; the module re-reads the row at login) must get
+    # no drop either.
+    name = "Hcdeadrow" + tag
+    client = login(name, "PLAYER255G")
+    results.check("a new character takes the status (dead row)", take_hardcore(realm, client))
+    guid = low(client)
+    close(client)
+    realm.sql("characters", "UPDATE character_hardcore SET status = 2 WHERE guid = %d" % guid)
+    client = login(name, "PLAYER255G")
+    npc = go_to_hardcore_npc(client)
+    menu = client.gossip_hello(npc)
+    results.check("the NPC offers no drop to a living character whose status is Dead",
+                  menu is not None and menu.option("drop") is None, repr(menu))
     close(client)
 
 

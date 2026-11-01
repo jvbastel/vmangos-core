@@ -28,9 +28,10 @@ namespace
         if (Hardcore::GetStatus(guid) != Hardcore::Status::Alive)
             return false;
         // Database: one direct (synchronous) UPDATE, so the status and its time land together and at once.
+        // Only an Alive row changes: when two members drop at once on two map threads, the first time stays.
         if (!CharacterDatabase.DirectPExecute(
-                "UPDATE `character_hardcore` SET `status` = %u, `dropped_at` = " UI64FMTD " WHERE `guid` = %u",
-                uint32(Hardcore::Status::Dropped), now, guid))
+                "UPDATE `character_hardcore` SET `status` = %u, `dropped_at` = " UI64FMTD " WHERE `guid` = %u AND `status` = %u",
+                uint32(Hardcore::Status::Dropped), now, guid, uint32(Hardcore::Status::Alive)))
             return false;
         // The cache. SetStatus writes the same status once more; the module has no cache-only setter.
         Hardcore::SetStatus(guid, Hardcore::Status::Dropped);
