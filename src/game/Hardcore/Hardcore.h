@@ -155,6 +155,14 @@ namespace Hardcore
     // row goes with it.
     void OnDelete(uint32 guid);
 
+    // --- No escape by a lost connection (WOWAI#256, HardcoreDisconnect.cpp) ---
+
+    // Hook: WorldSession::ForcePlayerLogoutDelay, when the client of a player (not a bot) is gone. True for a
+    // hardcore character that is alive and in combat: the stock delayed logout keeps it in the world (2
+    // minutes), even with the realm setting ForceLogoutDelay off, and a death in that time is final. False
+    // for any other character: the realm setting decides, as before.
+    bool KeepInWorldAfterLostConnection(Player const* player);
+
     // --- Hardcore bots (WOWAI#257, HardcoreBots.cpp) ---
     // A hardcore bot is a hardcore character: its death is OnDeath's, and DropStatus drops it with the
     // player. These calls come from the bot game layer (src/game/Bots), not from stock code.
