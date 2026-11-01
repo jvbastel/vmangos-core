@@ -25,15 +25,14 @@ Not run yet (batch 2 of spec #250 runs it).
 import struct
 import time
 
-from kit import (Realm, Results, hardcore_locked, hardcore_row, pos, spawn, stat, sturdy, take_hardcore,
-                 unit_field)
+from kit import (BOAR, HARDCORE_DEAD, Realm, Results, hardcore_locked, hardcore_row, pos, spawn, stat, sturdy,
+                 take_hardcore, unit_field)
 from wowclient import GossipClient
 
 CMSG_ATTACKSWING = 321
 UNIT_FLAG_IN_COMBAT = 0x00080000
 PLAYER_FLAGS_GHOST = 0x10
 DUROTAR_ZONE = 14
-BOAR = 3098  # Mottled Boar
 VALLEY = (-620.0, -4250.0, 38.0)  # Valley of Trials, a little west of the hardcore NPC
 DELAY = 120  # the stock delay of WorldSession::ForcePlayerLogoutDelay, in seconds
 AT_ONCE = 15  # "at once": the socket close, the session update and the save, with room to spare
@@ -147,7 +146,7 @@ results.check("death: the death comes during the delay (%.0f s after the lost co
 death_spot = pos(watcher, dying.guid)
 row = hardcore_row(realm, dying.guid)
 print("  death record:", row)
-results.check("death: the status is dead", row[:1] == ["2"], row)
+results.check("death: the status is dead", row[:1] == [HARDCORE_DEAD], row)
 results.check("death: the lock flag is in the database", hardcore_locked(realm, dying.guid))
 results.check("death: the death record names the boar", len(row) == 5 and row[3] == boar_name, row)
 results.check("death: the death record has the zone (Durotar) and the level",
@@ -161,13 +160,15 @@ results.check("death: saved where it died", len(saved) == 3 and death_spot is no
               abs(float(saved[1]) - death_spot[0]) < 3 and abs(float(saved[2]) - death_spot[1]) < 3,
               (saved, death_spot))
 results.check("death: still dead and locked after the logout",
-              hardcore_row(realm, dying.guid)[:1] == ["2"] and hardcore_locked(realm, dying.guid))
+              hardcore_row(realm, dying.guid)[:1] == [HARDCORE_DEAD] and hardcore_locked(realm, dying.guid))
 
 # 3. A hardcore character that is not in combat leaves the world at once.
 name = "Dcquiet" + tag
 quiet = player("QUIET256", name, True)
 quiet.pump(6)  # the combat of the hardcore NPC teleport and the GM commands, if any, is long over
-results.check("quiet: the character is not in combat", not in_combat(quiet.guid))
+quiet_flags = unit_field(watcher, quiet.guid, "UNIT_FIELD_FLAGS")
+results.check("quiet: the character is not in combat (unit flags read)",
+              quiet_flags >= 0 and not quiet_flags & UNIT_FLAG_IN_COMBAT, quiet_flags)
 realm.mark("quiet")
 drop(quiet)
 gone = wait_offline(quiet.guid, AT_ONCE)
