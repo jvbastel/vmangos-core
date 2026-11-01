@@ -30,7 +30,7 @@ The fork's own code:
   - `src/game/Bots/BotMgr.h`: `sBotMgr`. `src/game/Bots/BotAI.h`: the AI of one bot.
   - `src/game/Bots/BotHooks.cpp`: the hooks that upstream files call. `src/game/Bots/BotCommands.cpp`: the `.wowai` handlers.
   - Also `src/game/Bots/BotChat.cpp`, `src/game/Bots/BotGear.cpp`, `src/game/Bots/BotLoot.cpp`, `src/game/Bots/BotLevelRoutine.cpp`, `src/game/Bots/BotRun.cpp`, `src/game/Bots/RouteCommands.cpp`.
-- `src/game/Hardcore`: the hardcore characters (spec WOWAI#250). The facade is `src/game/Hardcore/Hardcore.h` (namespace `Hardcore`). The hardcore NPC script is `src/scripts/custom/npc_hardcore.cpp`.
+- `src/game/Hardcore`: the hardcore characters (spec WOWAI#250). The facade is `src/game/Hardcore/Hardcore.h` (namespace `Hardcore`). The hardcore NPC script is `src/scripts/custom/npc_hardcore.cpp`; its 12 spawns (6 starting areas, 6 capitals, creature guids 2502500-2502511) are in `kit.HARDCORE_SPAWNS`. The drop of the status is `src/game/Hardcore/HardcoreDrop.cpp`.
 - `src/bots` and `src/game/Bots` are globbed with `CONFIGURE_DEPENDS`: a new file needs no CMake edit. The upstream lists in `src/game/CMakeLists.txt` are written by hand.
 - `bots/data`: the bot data files. `bots/data/gear`, `bots/data/routes`, `bots/data/spells`, `bots/data/talents`, `bots/data/bottests`.
 - `sql/migrations`: the database migrations (`wowai/dev realm migrate` applies the new ones).
