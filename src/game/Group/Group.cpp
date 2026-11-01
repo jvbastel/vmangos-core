@@ -38,6 +38,7 @@
 #include "LFGQueue.h"
 #include "UpdateMask.h"
 #include "Utilities/Random.h"
+#include "Hardcore.h"
 
 #include <array>
 
@@ -330,6 +331,7 @@ Player* Group::GetInvited(std::string const& name) const
 
 bool Group::AddMember(ObjectGuid guid, char const* name, uint8 joinMethod)
 {
+    if (!Hardcore::AllowGroupMember(this, guid)) return false; // WOWAI hardcore characters (#250): no group across the border, by any path
     if (!_addMember(guid, name))
         return false;
 

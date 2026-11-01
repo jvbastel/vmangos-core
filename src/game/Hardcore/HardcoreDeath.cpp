@@ -12,6 +12,7 @@
 #include "Hardcore.h"
 #include "Database/DatabaseEnv.h"
 #include "Database/SQLStorages.h"
+#include "Group.h"
 #include "Log.h"
 #include "Map.h"
 #include "ObjectGuid.h"
@@ -100,7 +101,7 @@ Hardcore::DeathCause::~DeathCause()
 
 void Hardcore::OnDeath(Player* player)
 {
-    if (!player || GetStatus(player->GetGUIDLow()) != Status::Alive)
+    if (GetStatus(player) != Status::Alive)
         return;
 
     uint32 const guid = player->GetGUIDLow();
@@ -110,16 +111,27 @@ void Hardcore::OnDeath(Player* player)
     std::string const killer = KillerOf(player);
 
     // Database: direct (synchronous) writes, not the 15-minute save, so a server stop or a crash cannot
-    // undo the death. First the status (the guards read it), then the lock flag that LoadFromDB refuses,
-    // then the death record. The flag also goes into m_characterFlags, so the save at the logout keeps it.
-    SetStatus(guid, Status::Dead);
+    // undo the death. First the status and the death record in one UPDATE that only changes an Alive row
+    // (the guards read the status; a drop on another map thread cannot turn Dead into Dropped, nor this
+    // death undo a drop that landed first), then the lock flag that LoadFromDB refuses. The flag also goes
+    // into m_characterFlags, so the save at the logout keeps it.
+    std::string escaped = killer.substr(0, 64);
+    CharacterDatabase.escape_string(escaped);
+    std::string const record = ", `death_time` = " + std::to_string(when) + ", `death_zone` = " + std::to_string(zone)
+        + ", `death_killer` = '" + escaped + "', `death_level` = " + std::to_string(level);
+    if (!ChangeStatus(guid, Status::Alive, Status::Dead, record))
+    {
+        // A drop landed first: a normal death of a normal character.
+        if (GetStatus(guid) == Status::Dropped)
+            return;
+        // The write failed: the death is still final. The lock flag below holds the character (LoadFromDB
+        // refuses it, AllowResurrect and AllowRepop read the flag).
+        sLog.Out(LOG_BASIC, LOG_LVL_ERROR, "Hardcore: %s (guid %u) died for good, but its status was not written; "
+            "the lock flag holds it", player->GetName(), guid);
+    }
     player->SetCharacterFlag(CHARACTER_FLAG_LOCKED_FOR_TRANSFER, true);
     CharacterDatabase.DirectPExecute("UPDATE `characters` SET `character_flags` = `character_flags` | %u WHERE `guid` = %u",
         uint32(CHARACTER_FLAG_LOCKED_FOR_TRANSFER), guid);
-    std::string escaped = killer.substr(0, 64);
-    CharacterDatabase.escape_string(escaped);
-    CharacterDatabase.DirectPExecute("UPDATE `character_hardcore` SET `death_time` = " UI64FMTD ", `death_zone` = %u, "
-        "`death_killer` = '%s', `death_level` = %u WHERE `guid` = %u", when, zone, escaped.c_str(), level, guid);
 
     // Client: no self-resurrect spell, so the release dialog shows no Soulstone or Reincarnation button
     // (Unit::Kill sends the field right after this hook).
@@ -149,9 +161,20 @@ void Hardcore::OnDeath(Player* player)
     }, LogoutDelayMs);
 }
 
+namespace
+{
+    // The final death holds: the status Dead, or the lock flag of the death (the status write at the death
+    // failed, OnDeath). LoadFromDB refuses a character with the flag, so in the world only OnDeath sets it.
+    bool DeadForGood(Player const* player)
+    {
+        return Hardcore::GetStatus(player) == Hardcore::Status::Dead
+            || player->HasCharacterFlag(CHARACTER_FLAG_LOCKED_FOR_TRANSFER);
+    }
+}
+
 bool Hardcore::AllowResurrect(Player* player)
 {
-    if (!player || GetStatus(player->GetGUIDLow()) != Status::Dead)
+    if (!player || !DeadForGood(player))
         return true;
     // Database and client: nothing changes; the character stays dead. The player is told why.
     player->SendSysMessage("A hardcore character's death is final. Nothing can bring it back.");
@@ -167,6 +190,12 @@ bool Hardcore::AllowRelease(Player* player)
     player->SendSysMessage("A hardcore character cannot release its spirit. It stays where it died.");
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "Hardcore: refused the release of %s (guid %u)", player->GetName(), player->GetGUIDLow());
     return false;
+}
+
+bool Hardcore::AllowRepop(Player const* player)
+{
+    // Database and client: nothing changes; the body stays where it died.
+    return !player || player->IsAlive() || !(IsHardcore(player) || DeadForGood(player));
 }
 
 bool Hardcore::AllowLogin(WorldSession* session, ObjectGuid const& guid)
@@ -193,6 +222,19 @@ bool Hardcore::AllowLogin(WorldSession* session, ObjectGuid const& guid)
     session->SendNotification("%s", record.c_str());
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "Hardcore: refused the login of a dead hardcore character: %s", record.c_str());
     return false;
+}
+
+void Hardcore::OnLogout(Player* player)
+{
+    if (!player || !DeadForGood(player))
+        return;
+    // Database and client: the stock group removal (group_member row, the group's update packets). The
+    // battleground raid and the original group both, as Player::LeaveBattleground does not free the latter.
+    ObjectGuid const guid = player->GetObjectGuid();
+    if (Group* group = player->GetGroup())
+        Player::RemoveFromGroup(group, guid);
+    if (Group* group = player->GetOriginalGroup())
+        Player::RemoveFromGroup(group, guid);
 }
 
 void Hardcore::OnDelete(uint32 guid)

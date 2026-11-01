@@ -124,6 +124,8 @@ src/game/Commands/CharacterCommands.cpp
 # namespace Hardcore; the game CMake globs it like Bots and Forever), its migrations, and the hardcore NPC
 # script. Each hook in a stock file is one line: `Hardcore::On<Event>(...)` or
 # `if (!Hardcore::Allow<Action>(...)) return;`. `git grep "Hardcore::"` finds every hook at an upstream merge.
+# Numbering: one number per hook purpose; a number may name several call lines of that purpose (hooks 7, 14,
+# 20), and one Hardcore function may serve several purposes (AllowResurrect: hooks 10, 15, 16).
 src/game/Hardcore/**
 # The characters table character_hardcore (the status and the death record).
 sql/migrations/20261101120000_characters.sql
@@ -139,7 +141,8 @@ src/scripts/custom/custom.cpp
 # login line "Hardcore: alive" (WOWAI#251).
 # Hardcore hook 3: the player command .hardcore: one command table line (Chat.cpp, above) and its handler
 # name (Chat.h, above); the handler is in src/game/Hardcore/HardcoreCommand.cpp (WOWAI#251).
-# Hardcore hook 4: the game CMake globs src/game/Hardcore (src/game/CMakeLists.txt, above) (WOWAI#251).
+# Hardcore hook 4: the game CMake globs src/game/Hardcore, and adds it to the include directories
+# (src/game/CMakeLists.txt, above, two places) (WOWAI#251).
 # Hardcore hook 5: Hardcore::AllowTrade in WorldSession::HandleInitiateTradeOpcode: no trade across the
 # hardcore border (WOWAI#254).
 src/game/Handlers/TradeHandler.cpp
@@ -179,3 +182,13 @@ src/game/Handlers/NPCHandler.cpp
 # Hardcore hook 18: Hardcore::KeepInWorldAfterLostConnection in WorldSession::ForcePlayerLogoutDelay
 # (WorldSession.cpp, above): after a lost connection a hardcore character in combat gets the stock delayed
 # logout even with ForceLogoutDelay off, so killing the client is no escape from a fight (WOWAI#256).
+# Hardcore hook 19: Hardcore::AllowGroupMember in Group::AddMember: no group across the hardcore border by any
+# path that skips the invite handler (the invite accept, the stock party bots, the meeting stone, the bot
+# manager, scripted runs); a battleground's own raid group is not limited (WOWAI#250 final review).
+src/game/Group/Group.cpp
+# Hardcore hook 20: Hardcore::AllowRepop in Player::BuildPlayerRepop, Player::ScheduleRepopAtGraveyard and
+# Player::RepopAtGraveyard (Player.cpp, above): no ghost and no graveyard after the final death by the paths no
+# packet asks for (the 6-minute auto release, the fall under the map, battlegrounds, the stock bots)
+# (WOWAI#250 final review).
+# Hardcore hook 21: Hardcore::OnLogout in WorldSession::LogoutPlayer (WorldSession.cpp, above): a dead
+# hardcore character leaves its group at its logout, so its bots leave and log out too (WOWAI#250 final review).

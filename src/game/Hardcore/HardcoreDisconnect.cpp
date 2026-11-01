@@ -16,7 +16,7 @@
 
 bool Hardcore::KeepInWorldAfterLostConnection(Player const* player)
 {
-    if (!player || !player->IsInCombat() || GetStatus(player->GetGUIDLow()) != Status::Alive)
+    if (!player || !player->IsInCombat() || GetStatus(player) != Status::Alive)
         return false;
     sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "Hardcore: %s (guid %u) lost its connection in combat: it stays in the world "
         "for the logout delay", player->GetName(), player->GetGUIDLow());

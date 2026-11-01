@@ -10,6 +10,7 @@
 
 #include "Hardcore.h"
 #include "Database/DatabaseEnv.h"
+#include "Group.h"
 #include "Player.h"
 
 #include <ctime>
@@ -69,6 +70,11 @@ Hardcore::Status Hardcore::GetStatus(uint32 guid)
     return RememberRead(guid, ReadStatus(guid));
 }
 
+Hardcore::Status Hardcore::GetStatus(Player const* player)
+{
+    return player ? GetStatus(player->GetGUIDLow()) : Status::Never;
+}
+
 bool Hardcore::IsHardcore(uint32 guid)
 {
     Status const status = GetStatus(guid);
@@ -80,34 +86,11 @@ bool Hardcore::IsHardcore(Player const* player)
     return player && IsHardcore(player->GetGUIDLow());
 }
 
-void Hardcore::SetStatus(uint32 guid, Status status)
+bool Hardcore::InsertAlive(uint32 guid)
 {
-    // Database: a direct (synchronous) write, not the 15-minute save. Client: none here; the caller tells
-    // the player.
-    if (CharacterDatabase.DirectPExecute(
-            "INSERT INTO `character_hardcore` (`guid`, `status`) VALUES (%u, %u) "
-            "ON DUPLICATE KEY UPDATE `status` = VALUES(`status`)", guid, uint32(status)))
-        Remember(guid, status);
-    else
-        Forget(guid);
-}
-
-bool Hardcore::CanTakeStatus(Player const* player)
-{
-    return player
-        && player->GetLevel() == 1
-        && player->GetUInt32Value(PLAYER_XP) == 0
-        && GetStatus(player->GetGUIDLow()) == Status::Never;
-}
-
-bool Hardcore::TakeStatus(Player* player)
-{
-    if (!CanTakeStatus(player))
-        return false;
-    uint32 const guid = player->GetGUIDLow();
-    // Database: a direct write with the time, at once. Client: the NPC script tells the player.
-    // A failed INSERT (a database error, or a row the cache did not know) sets nothing: the player is told
-    // that the status was not taken, and the next ask reads the row again.
+    // Database: a direct (synchronous) write with the time, not the 15-minute save. Client: none here; the
+    // caller tells the player. A failed INSERT (a database error, or a row the cache did not know) sets
+    // nothing, and the next ask reads the row again.
     if (!CharacterDatabase.DirectPExecute(
             "INSERT INTO `character_hardcore` (`guid`, `status`, `taken_at`) VALUES (%u, %u, " UI64FMTD ")",
             guid, uint32(Status::Alive), uint64(time(nullptr))))
@@ -119,12 +102,63 @@ bool Hardcore::TakeStatus(Player* player)
     return true;
 }
 
+bool Hardcore::ChangeStatus(uint32 guid, Status from, Status to, std::string const& columns)
+{
+    // Database: one direct (synchronous) UPDATE that only changes a row with the status `from`. The driver
+    // does not return the changed row count, so the row is read back: when another map thread changed the
+    // status first (a death against a drop), the status read is not `to`, and nothing of this call landed.
+    if (!CharacterDatabase.DirectPExecute(
+            "UPDATE `character_hardcore` SET `status` = %u%s WHERE `guid` = %u AND `status` = %u",
+            uint32(to), columns.c_str(), guid, uint32(from)))
+    {
+        Forget(guid);
+        return false;
+    }
+    if (ReadStatus(guid) != to)
+    {
+        Forget(guid);
+        return false;
+    }
+    Remember(guid, to);
+    return true;
+}
+
+bool Hardcore::CanTakeStatus(Player const* player)
+{
+    return player
+        && player->GetLevel() == 1
+        && player->GetUInt32Value(PLAYER_XP) == 0
+        && GetStatus(player->GetGUIDLow()) == Status::Never;
+}
+
+char const* Hardcore::TakeRefusal(Player const* player)
+{
+    Group const* group = player ? player->GetGroup() : nullptr;
+    if (!group)
+        return nullptr;
+    // The status would put the group across the hardcore border: every other member must be hardcore
+    // already (the group rule of Group::AddMember, which this change of status does not pass).
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+        if (slot.guid != player->GetObjectGuid() && !IsHardcore(slot.guid.GetCounter()))
+            return "You cannot take the hardcore status in a group with a character that is not hardcore. "
+                "Leave the group first.";
+    return nullptr;
+}
+
+bool Hardcore::TakeStatus(Player* player)
+{
+    if (!CanTakeStatus(player) || TakeRefusal(player))
+        return false;
+    // Client: the NPC script tells the player.
+    return InsertAlive(player->GetGUIDLow());
+}
+
 std::string Hardcore::StatusLine(Player const* player)
 {
-    switch (GetStatus(player->GetGUIDLow()))
+    switch (GetStatus(player))
     {
         case Status::Alive:
-            return "Hardcore: alive";
+            return AliveLine;
         case Status::Dead:
             return "Hardcore: dead";
         case Status::Dropped:
@@ -141,5 +175,5 @@ void Hardcore::OnLogin(Player* player)
     Status const status = ReadStatus(guid);
     Remember(guid, status);
     if (status == Status::Alive)
-        player->SendSysMessage("Hardcore: alive");
+        player->SendSysMessage(AliveLine);
 }

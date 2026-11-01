@@ -4603,6 +4603,7 @@ void Player::RemoveGhostForm()
 */
 void Player::BuildPlayerRepop()
 {
+    if (!Hardcore::AllowRepop(this)) return; // WOWAI hardcore characters (#250): no ghost after the final death, by any path
     // Waiting to Resurrect (probably redundant cast, yet to check thoroughly)
     if (InBattleGround())
         CastSpell(this, 2584, true);
@@ -5000,6 +5001,7 @@ uint32 Player::DurabilityRepair(uint16 pos, bool cost, float discountMod)
 
 void Player::ScheduleRepopAtGraveyard()
 {
+    if (!Hardcore::AllowRepop(this)) return; // WOWAI hardcore characters (#250): the body stays where it died
     if (IsInWorld() && GetSession()->IsConnected())
         m_repopAtGraveyardPending = true;
     else
@@ -5012,6 +5014,7 @@ void Player::RepopAtGraveyard()
     // for example from WorldSession::HandleMovementOpcodes
 
     m_repopAtGraveyardPending = false;
+    if (!Hardcore::AllowRepop(this)) return; // WOWAI hardcore characters (#250): the body stays where it died
     WorldSafeLocsEntry const* pClosestGrave = nullptr;
 
     // Special handle for battleground maps

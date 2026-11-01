@@ -15,7 +15,7 @@
  */ 
 
 void AddSC_custom_creatures();
-void AddSC_npc_hardcore(); // WOWAI hardcore NPC (#251)
+void AddSC_npc_hardcore(); // WOWAI hardcore characters (#251): the hardcore NPC script
 
 // used to call all scripts
 void AddSC_zero_scripts();

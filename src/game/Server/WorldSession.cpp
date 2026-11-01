@@ -690,6 +690,8 @@ void WorldSession::LogoutPlayer(bool Save)
         if (ObjectGuid lootGuid = GetPlayer()->GetLootGuid())
             DoLootRelease(lootGuid);
 
+        Hardcore::OnLogout(_player); // WOWAI hardcore characters (#250): a dead hardcore character leaves its group
+
         if (inWorld)
         {
             // If the player just died before logging out, make him appear as a ghost

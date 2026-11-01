@@ -48,7 +48,7 @@ bool ChatHandler::HandleWowaiBotCreateCommand(char* args)
         // level of the character that asks.
         Player const* asker = m_session ? m_session->GetPlayer() : nullptr;
         Bots::HardcoreAsker const facts = {asker != nullptr,
-            asker && asker->IsAlive() && Hardcore::GetStatus(asker->GetGUIDLow()) == Hardcore::Status::Alive,
+            asker && asker->IsAlive() && Hardcore::GetStatus(asker) == Hardcore::Status::Alive,
             asker ? uint32(asker->GetLevel()) : 0};
         Bots::BotLevelChoice const level = Bots::HardcoreBotLevel(parsed.recipe.level, facts);
         parsed.ok = level.ok;

@@ -8,7 +8,7 @@
 // Hardcore bots in a hardcore character's group (WOWAI#257, user stories 38-49 and 53 of #250). A hardcore bot
 // is a character with the hardcore status, like the player: the same row in character_hardcore, the same
 // final death (Hardcore::OnDeath: the lock, the death record and the 60 seconds), the same border rules and
-// the same drop (Hardcore::DropStatus drops every hardcore member of the player's group). This file holds
+// the same drop (Hardcore::DropStatus drops every hardcore bot of the player's group). This file holds
 // only what differs for a bot: its status at its creation, the bot manager's group join (which does not
 // pass the group invite handler), its login, and its logout 60 seconds after its death (a bot has no
 // client to log out).
@@ -18,38 +18,44 @@
 #include "BotMgr.h"
 #include "Database/DatabaseEnv.h"
 #include "Log.h"
+#include "ObjectAccessor.h"
 #include "Player.h"
 #include "WorldSession.h"
 
-#include <ctime>
-
 namespace
 {
-    // The same reason as the group invite refusal of HardcoreRules.cpp: one rule, one line for the player.
-    char const* const NoGroup =
-        "Hardcore: a hardcore character cannot be in a group with a character that is not hardcore.";
     char const* const DeadBot = "Hardcore: this bot is dead for good. A hardcore death is final.";
+    char const* const BotAboveLevel =
+        "Hardcore: a hardcore bot above your level cannot join your group. A hardcore bot is at or below your level.";
 }
 
 bool Hardcore::MakeBotHardcore(uint32 guid)
 {
-    // Database: a direct write with the time, at once, as Hardcore::TakeStatus does for the player; then the
-    // cache (SetStatus writes the same status once more).
-    if (!CharacterDatabase.DirectPExecute(
-            "INSERT INTO `character_hardcore` (`guid`, `status`, `taken_at`) VALUES (%u, %u, " UI64FMTD ")",
-            guid, uint32(Status::Alive), uint64(time(nullptr))))
-        return false;
-    SetStatus(guid, Status::Alive);
-    return true;
+    return InsertAlive(guid);
+}
+
+bool Hardcore::IsBot(uint32 guid)
+{
+    return sBotMgr.IsBotCharacter(ObjectGuid(HIGHGUID_PLAYER, guid));
+}
+
+char const* Hardcore::BotLevelRefusal(Player const* player, uint32 botGuid)
+{
+    if (!IsHardcore(player) || !IsHardcore(botGuid))
+        return nullptr;
+    // The level of the bot in the world, or of its saved character (the player cache, then the database).
+    ObjectGuid const guid(HIGHGUID_PLAYER, botGuid);
+    Player const* bot = ObjectAccessor::FindPlayer(guid);
+    uint32 const level = bot ? bot->GetLevel() : Player::GetLevelFromDB(guid);
+    return level > player->GetLevel() ? BotAboveLevel : nullptr;
 }
 
 bool Hardcore::AllowBotInGroup(Player* player, uint32 botGuid)
 {
-    char const* reason = nullptr;
-    if (GetStatus(botGuid) == Status::Dead)
-        reason = DeadBot;
-    else if (IsHardcore(player) != IsHardcore(botGuid))
-        reason = NoGroup;
+    // A dead bot first: its own reason, also for a player that is not hardcore.
+    char const* reason = GetStatus(botGuid) == Status::Dead ? DeadBot : GroupRefusal(botGuid, player->GetGUIDLow());
+    if (!reason)
+        reason = BotLevelRefusal(player, botGuid);
     if (!reason)
         return true;
     // Client: the reason line to the player. Database: nothing changes; the bot does not log in for it.

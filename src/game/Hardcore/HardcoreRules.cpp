@@ -10,6 +10,9 @@
 // Each refusal tells the acting character the hardcore rule that blocked it.
 
 #include "Hardcore.h"
+#include "Group.h"
+#include "Log.h"
+#include "ObjectAccessor.h"
 #include "Player.h"
 #include "SharedDefines.h"
 #include "WorldSession.h"
@@ -23,12 +26,29 @@ namespace
     char const* const NoAuctionHouse = "Hardcore: a hardcore character cannot use the auction house.";
     char const* const NoGroup =
         "Hardcore: a hardcore character cannot be in a group with a character that is not hardcore.";
+    char const* const DeadMember = "Hardcore: this character is dead for good. A hardcore death is final.";
 
     // True when exactly one of the two characters is hardcore.
+    bool AcrossBorder(uint32 one, uint32 two)
+    {
+        return Hardcore::IsHardcore(one) != Hardcore::IsHardcore(two);
+    }
+
     bool AcrossBorder(Player const* one, Player const* two)
     {
         return Hardcore::IsHardcore(one) != Hardcore::IsHardcore(two);
     }
+}
+
+char const* Hardcore::GroupRefusal(uint32 joiner, uint32 member)
+{
+    // A dead member already in the group (its 60 seconds) does not block a new member: it leaves at its
+    // logout.
+    if (GetStatus(joiner) == Status::Dead)
+        return DeadMember;
+    if (AcrossBorder(joiner, member))
+        return NoGroup;
+    return nullptr;
 }
 
 bool Hardcore::AllowTrade(Player* player, Player const* other)
@@ -69,10 +89,37 @@ bool Hardcore::AllowAuctionHouse(Player* player)
 
 bool Hardcore::AllowGroupInvite(Player* inviter, Player const* invited)
 {
-    if (!AcrossBorder(inviter, invited))
+    char const* reason = GetStatus(inviter) == Status::Dead ? DeadMember
+        : GroupRefusal(invited->GetGUIDLow(), inviter->GetGUIDLow());
+    if (!reason && IsBot(invited->GetGUIDLow()))
+        reason = BotLevelRefusal(inviter, invited->GetGUIDLow());
+    if (!reason)
         return true;
     // Client: the reason line only. The invited character gets no invite. No PartyResult of 1.12 names this
     // rule, so none is sent.
-    inviter->SendSysMessage(NoGroup);
+    inviter->SendSysMessage(reason);
+    return false;
+}
+
+bool Hardcore::AllowGroupMember(Group const* group, ObjectGuid const& guid)
+{
+    // The battleground raid: see Hardcore.h.
+    if (!group || group->isBGGroup())
+        return true;
+    char const* reason = nullptr;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+        if (slot.guid != guid && (reason = GroupRefusal(guid.GetCounter(), slot.guid.GetCounter())))
+            break;
+    if (!reason)
+        return true;
+    // Database and client: nothing changes; the stock code sees a failed add. The new member and the leader
+    // read the reason, when they are online.
+    if (Player* member = ObjectAccessor::FindPlayer(guid))
+        member->SendSysMessage(reason);
+    if (group->GetLeaderGuid() != guid)
+        if (Player* leader = ObjectAccessor::FindPlayer(group->GetLeaderGuid()))
+            leader->SendSysMessage(reason);
+    sLog.Out(LOG_BASIC, LOG_LVL_BASIC, "Hardcore: refused guid %u in the group of leader guid %u: %s", guid.GetCounter(),
+        group->GetLeaderGuid().GetCounter(), reason);
     return false;
 }

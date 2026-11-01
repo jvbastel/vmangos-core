@@ -15,8 +15,10 @@
 //
 // Dropping the status (WOWAI#255): the greeting offers it only to a hardcore character that is alive
 // (Hardcore::CanDropStatus). The option opens a warning page (a dropped status never comes back) and the
-// confirmation; the confirmation drops the status of the player and of every hardcore member of its group
-// (Hardcore::DropStatus). The drop option's text has no "hardcore" in it: the checks find the take option
+// confirmation; the confirmation drops the status of the player and of every hardcore bot of its group
+// (Hardcore::DropStatus). The NPC refuses, with the reason, the take in a group with a character that is not
+// hardcore (Hardcore::TakeRefusal) and the drop in a group with another hardcore player
+// (Hardcore::DropRefusal). The drop option's text has no "hardcore" in it: the checks find the take option
 // by that word.
 //
 // The NPC stands in the 6 starting areas and the 6 capitals (world migration 20261101125500_world.sql). In
@@ -102,34 +104,49 @@ bool GossipSelect_npc_hardcore(Player* player, Creature* creature, uint32 /*send
     switch (action)
     {
         case ACTION_TAKE_RULES:
-            if (OffersTake(player, creature))
-                SendTakeRules(player, creature);
-            else
+            if (!OffersTake(player, creature))
                 SendGreeting(player, creature);
+            else if (char const* refusal = Hardcore::TakeRefusal(player))
+            {
+                player->CLOSE_GOSSIP_MENU();
+                player->SendSysMessage(refusal);
+            }
+            else
+                SendTakeRules(player, creature);
             return true;
         case ACTION_TAKE_CONFIRM:
             player->CLOSE_GOSSIP_MENU();
             if (!InCapital(creature) && Hardcore::TakeStatus(player))
-                player->SendSysMessage("You are a hardcore character now. Hardcore: alive");
+                player->PSendSysMessage("You are a hardcore character now. %s", Hardcore::AliveLine);
+            else if (char const* refusal = Hardcore::TakeRefusal(player))
+                player->SendSysMessage(refusal);
             else
                 player->SendSysMessage("You cannot take the hardcore status: only a level 1 character with no experience that was never hardcore can.");
             return true;
         case ACTION_DROP_WARNING:
-            if (Hardcore::CanDropStatus(player))
-                SendDropWarning(player, creature);
-            else
+            if (!Hardcore::CanDropStatus(player))
                 SendGreeting(player, creature);
+            else if (char const* refusal = Hardcore::DropRefusal(player))
+            {
+                player->CLOSE_GOSSIP_MENU();
+                player->SendSysMessage(refusal);
+            }
+            else
+                SendDropWarning(player, creature);
             return true;
         case ACTION_DROP_CONFIRM:
         {
             player->CLOSE_GOSSIP_MENU();
             uint32 const dropped = Hardcore::DropStatus(player);
-            if (dropped == 0)
+            char const* const refusal = dropped == 0 ? Hardcore::DropRefusal(player) : nullptr;
+            if (refusal)
+                player->SendSysMessage(refusal);
+            else if (dropped == 0)
                 player->SendSysMessage("You cannot drop the hardcore status: only a hardcore character that is alive can.");
             else if (dropped == 1)
                 player->SendSysMessage("You dropped the hardcore status. This character is a normal character now, and can never take it again.");
             else
-                player->PSendSysMessage("You dropped the hardcore status, and %u members of your group dropped it with you. "
+                player->PSendSysMessage("You dropped the hardcore status, and %u bots of your group dropped it with you. "
                     "This character is a normal character now, and can never take it again.", dropped - 1);
             return true;
         }
