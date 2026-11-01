@@ -392,6 +392,16 @@ TEST(PlayerTankDeath, InABotTankGroupTheSittingHealerKeepsResting)
     EXPECT_FALSE(Bots::ResurrectsTankBeforeRest(bot.fake, bot.group));
 }
 
+// jvbastel/WOWAI#252: no resurrect works on a dead hardcore tank, so the
+// healer does not wait for one: it keeps resting.
+TEST(PlayerTankDeath, TheSittingHealerKeepsRestingWhenTheDeadTankIsHardcore)
+{
+    DrinkingHealerWithDeadTank bot;
+    bot.fake.SetHardcore(Human);
+    EXPECT_FALSE(Bots::ResurrectsTankBeforeRest(bot.fake, bot.group));
+    EXPECT_EQ(bot.Think(), "keep resting");
+}
+
 TEST(PlayerTankDeath, TheHealerResurrectsTheTankBeforeOtherDeadMembers)
 {
     PlayerTankHealer bot;

@@ -107,6 +107,7 @@ class BotAdapter : public Bots::BotView, public Bots::BotActions
         GroupMarks GetGroupMarks() const override;
         // jvbastel/WOWAI#197: the last role choice message of the player (BotMgr::RoleChoiceOf).
         Bots::RoleChoice GetRoleChoice(Bots::Guid member) const override;
+        bool IsHardcore(Bots::Guid member) const override;
 
         // BotActions
         void CastSpell(Bots::SpellId spell, Bots::Guid target) override;

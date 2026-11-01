@@ -245,6 +245,35 @@ TEST(Resurrect, ThePriestDoesNotResurrectInAFight)
     EXPECT_NE(bot.Think(), "resurrect a member");
 }
 
+// jvbastel/WOWAI#252: no resurrect works on a dead hardcore character, so
+// the Priest does not try it.
+TEST(Resurrect, ThePriestDoesNotResurrectADeadHardcoreMember)
+{
+    GroupBot bot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer);
+    bot.fake.SetKnownSpell(Priest::Resurrection);
+    bot.fake.SetCastsOnDead(Priest::Resurrection);
+    bot.fake.SetAura(Healer, Priest::InnerFire);
+    bot.fake.SetHardcore(Mage);
+    bot.Die(Mage);
+
+    EXPECT_NE(bot.Think(), "resurrect a member");
+    EXPECT_TRUE(bot.fake.Deeds().empty());
+}
+
+TEST(Resurrect, ThePriestResurrectsTheNonHardcoreMemberBesideADeadHardcoreOne)
+{
+    GroupBot bot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer);
+    bot.fake.SetKnownSpell(Priest::Resurrection);
+    bot.fake.SetCastsOnDead(Priest::Resurrection);
+    bot.fake.SetAura(Healer, Priest::InnerFire);
+    bot.fake.SetHardcore(Tank);
+    bot.Die(Tank);
+    bot.Die(Mage);
+
+    EXPECT_EQ(bot.Think(), "resurrect a member");
+    EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"cast 2006 on 0x0000000000000013"}));
+}
+
 TEST(Resurrect, ThePriestDoesNotResurrectAGhost)
 {
     GroupBot bot(Healer, Bots::BotClass::Priest, Bots::BotRole::Healer);
@@ -303,6 +332,18 @@ TEST(Resurrect, AfterTheFightThePriestWalksToASafePlaceNearACorpseOutOfReach)
     // The safe place nearest to the Priest (SafePlace.h), 0.9 of the 26
     // yards of the cast from the corpse.
     EXPECT_EQ(bot.fake.Deeds(), (std::vector<std::string>{"keep move to 26.6 0 0"}));
+    EXPECT_FALSE(bot.group.IsResurrectGivenUp(Mage));
+}
+
+// jvbastel/WOWAI#252: the Priest does not walk to the corpse of a hardcore
+// member either, and the walk does not count as a give-up.
+TEST(Resurrect, ThePriestDoesNotWalkToTheCorpseOfAHardcoreMember)
+{
+    GroupPriest bot;
+    bot.fake.SetHardcore(Mage);
+    bot.DieOutOfReach(Mage);
+
+    EXPECT_NE(bot.Think(), "go to a corpse out of reach");
     EXPECT_FALSE(bot.group.IsResurrectGivenUp(Mage));
 }
 

@@ -1228,3 +1228,10 @@ Bots::RoleChoice BotAdapter::GetRoleChoice(Bots::Guid member) const
 {
     return sBotMgr.RoleChoiceOf(ObjectGuid(member));
 }
+
+// jvbastel/WOWAI#252: no member is hardcore yet. The hardcore bots ticket
+// (jvbastel/WOWAI#257) answers from the hardcore module.
+bool BotAdapter::IsHardcore(Bots::Guid /*member*/) const
+{
+    return false;
+}
