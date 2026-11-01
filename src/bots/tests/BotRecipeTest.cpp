@@ -80,7 +80,7 @@ TEST(BotRecipe, RefusesAnUnknownClassOrRole)
 
 TEST(BotRecipe, RefusesTooFewOrTooManyWords)
 {
-    std::string const usage = "Usage: <name> <class> <role> [race|horde|alliance] [gear <template>]";
+    std::string const usage = "Usage: <name> <class> <role> [race|horde|alliance] [gear <template>] [hardcore [level]]";
 
     EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior"}).error, usage);
     EXPECT_EQ(ParseBotRecipe({"Grukk", "warrior", "tank", "orc", "extra"}).error, usage);
@@ -175,4 +175,93 @@ TEST(BotRecipe, TheForeverRulesAllowEachOtherClass)
 TEST(BotRecipe, WithoutTheForeverRulesAWarriorBotIsAllowed)
 {
     EXPECT_EQ(Bots::BotClassRefusal(BotClass::Warrior, false), "");
+}
+
+// jvbastel/WOWAI#257: hardcore bots for a hardcore character's group.
+
+TEST(BotRecipe, ABotIsNotHardcoreWithoutTheHardcoreWord)
+{
+    BotRecipeResult result = ParseBotRecipe({"Tankbot", "warrior", "tank", "gear", "tank_dungeon"});
+
+    ASSERT_TRUE(result.ok) << result.error;
+    EXPECT_FALSE(result.recipe.hardcore);
+    EXPECT_EQ(result.recipe.level, 16u);
+}
+
+TEST(BotRecipe, TheHardcoreWordAloneAsksForTheLevelOfThePlayer)
+{
+    BotRecipeResult result = ParseBotRecipe({"Healbot", "priest", "healer", "HARDCORE"});
+
+    ASSERT_TRUE(result.ok) << result.error;
+    EXPECT_TRUE(result.recipe.hardcore);
+    EXPECT_EQ(result.recipe.level, Bots::PlayerLevel);
+}
+
+TEST(BotRecipe, TheHardcoreWordTakesALevel)
+{
+    BotRecipeResult result = ParseBotRecipe({"Rangebot", "mage", "ranged", "undead", "gear", "mage_dungeon", "hardcore", "7"});
+
+    ASSERT_TRUE(result.ok) << result.error;
+    EXPECT_TRUE(result.recipe.hardcore);
+    EXPECT_EQ(result.recipe.level, 7u);
+    EXPECT_EQ(result.recipe.race, BotRace::Undead);
+    EXPECT_EQ(result.recipe.gearTemplate, "mage_dungeon");
+}
+
+TEST(BotRecipe, RefusesAHardcoreLevelThatIsNoLevel)
+{
+    std::string const level = "A bot level is a number from 1 to 60.";
+
+    EXPECT_EQ(ParseBotRecipe({"Tankbot", "warrior", "tank", "hardcore", "0"}).error, level);
+    EXPECT_EQ(ParseBotRecipe({"Tankbot", "warrior", "tank", "hardcore", "61"}).error, level);
+    EXPECT_EQ(ParseBotRecipe({"Tankbot", "warrior", "tank", "hardcore", "ten"}).error, level);
+    EXPECT_EQ(ParseBotRecipe({"Tankbot", "warrior", "tank", "hardcore", "-3"}).error, level);
+}
+
+TEST(BotRecipe, TheHardcoreWordsComeLast)
+{
+    std::string const usage = "Usage: <name> <class> <role> [race|horde|alliance] [gear <template>] [hardcore [level]]";
+
+    EXPECT_EQ(ParseBotRecipe({"Tankbot", "warrior", "tank", "hardcore", "5", "orc"}).error, usage);
+    EXPECT_EQ(ParseBotRecipe({"Tankbot", "warrior", "tank", "hardcore", "gear", "tank_dungeon"}).error, usage);
+}
+
+TEST(HardcoreBotLevel, ABotAtThePlayersLevelOrBelowIsAllowed)
+{
+    Bots::HardcoreAsker const player = {true, true, 12};
+
+    Bots::BotLevelChoice same = Bots::HardcoreBotLevel(12, player);
+    ASSERT_TRUE(same.ok) << same.error;
+    EXPECT_EQ(same.level, 12u);
+
+    Bots::BotLevelChoice below = Bots::HardcoreBotLevel(9, player);
+    ASSERT_TRUE(below.ok) << below.error;
+    EXPECT_EQ(below.level, 9u);
+}
+
+TEST(HardcoreBotLevel, WithNoLevelTheBotGetsThePlayersLevel)
+{
+    Bots::BotLevelChoice choice = Bots::HardcoreBotLevel(Bots::PlayerLevel, {true, true, 23});
+
+    ASSERT_TRUE(choice.ok) << choice.error;
+    EXPECT_EQ(choice.level, 23u);
+}
+
+TEST(HardcoreBotLevel, RefusesALevelAboveThePlayersLevel)
+{
+    Bots::BotLevelChoice choice = Bots::HardcoreBotLevel(13, {true, true, 12});
+
+    EXPECT_FALSE(choice.ok);
+    EXPECT_EQ(choice.error, "A hardcore bot cannot be above your level (12).");
+}
+
+TEST(HardcoreBotLevel, OnlyAHardcorePlayerInTheGameGetsAHardcoreBot)
+{
+    Bots::BotLevelChoice console = Bots::HardcoreBotLevel(5, {false, false, 0});
+    EXPECT_FALSE(console.ok);
+    EXPECT_EQ(console.error, "A hardcore bot is for the group of a hardcore character: ask in the game, as that character.");
+
+    Bots::BotLevelChoice normal = Bots::HardcoreBotLevel(5, {true, false, 30});
+    EXPECT_FALSE(normal.ok);
+    EXPECT_EQ(normal.error, "Only a hardcore character that is alive can make a hardcore bot.");
 }

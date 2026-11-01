@@ -1,7 +1,9 @@
 #include "BotRecipe.h"
 #include "Faction.h"
 
+#include <algorithm>
 #include <cctype>
+#include <string>
 
 namespace Bots
 {
@@ -197,8 +199,31 @@ namespace Bots
 
     BotRecipeResult ParseBotRecipe(std::vector<std::string> const& allWords)
     {
-        char const* const usage = "Usage: <name> <class> <role> [race|horde|alliance] [gear <template>]";
+        char const* const usage = "Usage: <name> <class> <role> [race|horde|alliance] [gear <template>] [hardcore [level]]";
         std::vector<std::string> words = allWords;
+        // jvbastel/WOWAI#257: the last words `hardcore [level]`.
+        bool hardcore = false;
+        std::uint32_t level = Version1BotLevel;
+        for (std::size_t i = 3; i < words.size(); ++i)
+            if (Lower(words[i]) == "hardcore")
+            {
+                if (i + 2 < words.size())
+                    return Fail(usage);
+                hardcore = true;
+                level = PlayerLevel;
+                if (i + 1 < words.size())
+                {
+                    std::string const& number = words[i + 1];
+                    if (number.empty() || number.size() > 2 ||
+                        !std::all_of(number.begin(), number.end(), [](char c) { return std::isdigit(static_cast<unsigned char>(c)) != 0; }))
+                        return Fail("A bot level is a number from 1 to 60.");
+                    level = static_cast<std::uint32_t>(std::stoul(number));
+                    if (level < 1 || level > MaxBotLevel)
+                        return Fail("A bot level is a number from 1 to 60.");
+                }
+                words.resize(i);
+                break;
+            }
         std::string gearTemplate;
         for (std::size_t i = 3; i < words.size(); ++i)
             if (Lower(words[i]) == "gear")
@@ -264,8 +289,26 @@ namespace Bots
         result.recipe.race = race;
         result.recipe.botClass = classInfo->botClass;
         result.recipe.role = role;
-        result.recipe.level = Version1BotLevel;
+        result.recipe.level = level;
+        result.recipe.hardcore = hardcore;
         result.recipe.gearTemplate = gearTemplate;
         return result;
+    }
+
+    BotLevelChoice HardcoreBotLevel(std::uint32_t wanted, HardcoreAsker const& asker)
+    {
+        BotLevelChoice choice = {false, 0, ""};
+        if (!asker.inGame)
+            choice.error = "A hardcore bot is for the group of a hardcore character: ask in the game, as that character.";
+        else if (!asker.hardcoreAlive)
+            choice.error = "Only a hardcore character that is alive can make a hardcore bot.";
+        else if (wanted > asker.level)
+            choice.error = "A hardcore bot cannot be above your level (" + std::to_string(asker.level) + ").";
+        else
+        {
+            choice.ok = true;
+            choice.level = wanted == PlayerLevel ? asker.level : wanted;
+        }
+        return choice;
     }
 }
