@@ -140,3 +140,17 @@ src/scripts/custom/custom.cpp
 # Hardcore hook 3: the player command .hardcore: one command table line (Chat.cpp, above) and its handler
 # name (Chat.h, above); the handler is in src/game/Hardcore/HardcoreCommand.cpp (WOWAI#251).
 # Hardcore hook 4: the game CMake globs src/game/Hardcore (src/game/CMakeLists.txt, above) (WOWAI#251).
+# Hardcore hook 5: Hardcore::OnDeath in Player::SetDeathState (Player.cpp, above): the final death of a
+# hardcore character (WOWAI#253).
+# Hardcore hook 6: Hardcore::AllowResurrect in Player::ResurrectPlayer (Player.cpp, above): no resurrect by any
+# path after the final death (WOWAI#253).
+# Hardcore hook 7: Hardcore::AllowRelease in WorldSession::HandleRepopRequestOpcode: no release, no ghost walk
+# (WOWAI#253).
+src/game/Handlers/MiscHandler.cpp
+# Hardcore hook 8: Hardcore::AllowLogin in WorldSession::HandlePlayerLoginOpcode (CharacterHandler.cpp, above):
+# the 1.12 error "character locked" and the death record, also for a relog in the 60 seconds (WOWAI#253).
+# Hardcore hook 9: Hardcore::OnDelete in Player::DeleteFromDB (Player.cpp, above): the character_hardcore row
+# of a deleted character goes too (WOWAI#253).
+# Hardcore hook 10: a Hardcore::DeathCause scope in Unit::Kill (Unit.cpp, above) and in
+# Player::EnvironmentalDamage (Player.cpp, above): the killer or the cause (fall, drowning, ...) of the death
+# record, which Player::SetDeathState does not know (WOWAI#253).

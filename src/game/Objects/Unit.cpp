@@ -60,6 +60,7 @@
 #include "Errors.h"
 #include "Utilities/Random.h"
 #include "Forever.h"
+#include "Hardcore.h"
 
 #include <limits>
 
@@ -989,6 +990,7 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
 
 void Unit::Kill(Unit* pVictim, SpellEntry const* spellProto, bool durabilityLoss)
 {
+    Hardcore::DeathCause const hardcoreCause(this); // WOWAI hardcore characters (#253): the killer of a death record
     // find player: owner of controlled `this` or `this` itself maybe
     // for loot will be sued only if pGroupTap == nullptr
     Player* pPlayerTap = GetCharmerOrOwnerPlayerOrPlayerItself();

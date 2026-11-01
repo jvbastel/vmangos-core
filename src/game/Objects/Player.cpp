@@ -83,6 +83,7 @@
 #include "world/scourge_invasion.h"
 #include "world/world_event_wareffort.h"
 #include "BotHooks.h"
+#include "Hardcore.h"
 #include "Forever.h"
 
 #include <climits>
@@ -759,6 +760,7 @@ uint32 Player::EnvironmentalDamage(EnvironmentalDamageType type, uint32 damage)
 
     SendEnvironmentalDamageLog(type, damage, absorb, resist);
 
+    Hardcore::DeathCause const hardcoreCause(uint32(type)); // WOWAI hardcore characters (#253): the cause of a death record
     damage = DealDamage(this, damage, nullptr, SELF_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, nullptr, false);
 
     // DealDamage not apply item durability loss at self damage
@@ -1564,6 +1566,8 @@ void Player::SetDeathState(DeathState s)
         SetResurrectionSpellId(ressSpellId);
 #endif
     }
+
+    if (s == JUST_DIED && cur) Hardcore::OnDeath(this); // WOWAI hardcore characters (#253): the final death
 
     if (IsAlive() && !cur)
     {
@@ -4491,6 +4495,7 @@ void Player::DeleteFromDB(ObjectGuid playerGuid, uint32 accountId, bool updateRe
             CharacterDatabase.PExecute("DELETE FROM `mail_items` WHERE `receiver_guid` = '%u'", lowGuid);
             CharacterDatabase.PExecute("DELETE FROM `character_pet` WHERE `owner_guid` = '%u'", lowGuid);
             CharacterDatabase.PExecute("DELETE FROM `guild_eventlog` WHERE `player_guid1` = '%u' OR `player_guid2` = '%u'", lowGuid, lowGuid);
+            Hardcore::OnDelete(lowGuid); // WOWAI hardcore characters (#253): the character_hardcore row goes too
             CharacterDatabase.CommitTransaction();
             break;
         }
@@ -4651,6 +4656,8 @@ void Player::BuildPlayerRepop()
 
 void Player::ResurrectPlayer(float restore_percent, bool applySickness)
 {
+    if (!Hardcore::AllowResurrect(this)) return; // WOWAI hardcore characters (#253): no resurrect after the final death
+
     // Interrupt resurrect spells
     InterruptSpellsCastedOnMe(false, true);
 
