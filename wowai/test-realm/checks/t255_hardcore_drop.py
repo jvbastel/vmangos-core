@@ -30,15 +30,9 @@ from kit import (HARDCORE_NPC, HARDCORE_NPC_ENTRY, HARDCORE_SPAWNS, HARDCORE_TEX
                  HARDCORE_TEXT_DROP_WARNING, HARDCORE_TEXT_GREETING, Realm, Results, drop_hardcore,
                  go_to_hardcore_npc, hardcore_line, hardcore_spawn, kill, take_hardcore)
 from wowclient import CHAT_MSG_SYSTEM, GossipClient
-# The trade, mail, auction house and group invite packets of #254. This check expects these names (the
-# merger of #254 and #255 aligns them with what #254 wrote):
-#   TradeClient.trade_open(guid) -> True when the trade window opens (SMSG_TRADE_STATUS open window);
-#       TradeClient.trade_cancel()
-#   MailClient.send_mail(mailbox, to_name, subject, body) -> the mail result (0 = MAIL_OK)
-#   AuctionClient.auction_hello(auctioneer) -> True when the auction house opens (MSG_AUCTION_HELLO)
-#   GroupClient.group_invite(name) -> the party result (0 = ERR_PARTY_RESULT_OK); group_accept();
-#       group_leave()
-from wowclient import AuctionClient, GroupClient, MailClient, TradeClient
+# The trade, mail, auction house and group invite packets of #254.
+from wowclient import (ERR_PARTY_RESULT_OK, MAIL_OK, MAIL_SEND, TRADE_STATUS_OPEN_WINDOW, AuctionClient,
+                       GroupClient, MailClient, TradeClient)
 
 DROPPED = "This character is not hardcore. It dropped the hardcore status before, and can never take it again."
 ALIVE = "Hardcore: alive"
@@ -184,15 +178,15 @@ def part_after(dropped=None):
     for client in (dropped, normal):
         client.gm(place, wait=3.0)
 
-    results.check("trade: the dropped character opens a trade with a normal one", dropped.trade_open(normal.guid))
+    results.check("trade: the dropped character opens a trade with a normal one", trade_opens(dropped, normal))
     dropped.trade_cancel()
-    results.check("trade: a normal character opens a trade with the dropped one", normal.trade_open(dropped.guid))
+    results.check("trade: a normal character opens a trade with the dropped one", trade_opens(normal, dropped))
     normal.trade_cancel()
 
     sent = normal.send_mail(mailbox, name_of(dropped), "after the drop", "t255")
-    results.check("mail: a normal character mails the dropped one", sent == 0, sent)
+    results.check("mail: a normal character mails the dropped one", mail_sent(sent), sent)
     sent = dropped.send_mail(mailbox, name_of(normal), "after the drop", "t255")
-    results.check("mail: the dropped character mails a normal one", sent == 0, sent)
+    results.check("mail: the dropped character mails a normal one", mail_sent(sent), sent)
     arrived = realm.sql("characters", "SELECT COUNT(*) FROM mail WHERE receiver = %d AND sender = %d"
                         % (low(dropped), low(normal)))
     results.check("mail: the mail reaches the dropped character", arrived not in ("", "0"), arrived)
@@ -206,13 +200,13 @@ def part_after(dropped=None):
     party = dropped.group_invite(name_of(normal))
     normal.group_accept()
     normal.pump(1)
-    results.check("group: the dropped character invites a normal one", party == 0 and same_group(dropped, normal), party)
+    results.check("group: the dropped character invites a normal one", invite_ok(party) and same_group(dropped, normal), party)
     normal.group_leave()
     dropped.pump(1)
     party = normal.group_invite(name_of(dropped))
     dropped.group_accept()
     dropped.pump(1)
-    results.check("group: a normal character invites the dropped one", party == 0 and same_group(dropped, normal), party)
+    results.check("group: a normal character invites the dropped one", invite_ok(party) and same_group(dropped, normal), party)
     dropped.group_leave()
 
     menu, _ = greeting(dropped)
@@ -220,6 +214,23 @@ def part_after(dropped=None):
                   and menu.option("hardcore") is None, repr(menu))
     close(dropped)
     close(normal)
+
+
+def trade_opens(asker, other):
+    """`asker` asks `other` to trade and `other` says yes. True when the trade window opens."""
+    asked = asker.trade_initiate(other.guid)
+    begun = other.trade_begin()
+    asker.pump(0.5)
+    return TRADE_STATUS_OPEN_WINDOW in asked + begun + asker.trade_statuses[-2:]
+
+
+def mail_sent(answers):
+    return answers == [(0, MAIL_SEND, MAIL_OK)]
+
+
+def invite_ok(answers):
+    """The party results of one invite: at least one, and all ERR_PARTY_RESULT_OK."""
+    return bool(answers) and all(result == ERR_PARTY_RESULT_OK for _, _, result in answers)
 
 
 def same_group(a, b):
@@ -237,7 +248,7 @@ def part_group():
     party = leader.group_invite(name_of(member))
     member.group_accept()
     member.pump(1)
-    results.check("two hardcore characters group", party == 0 and same_group(leader, member), party)
+    results.check("two hardcore characters group", invite_ok(party) and same_group(leader, member), party)
     start = len(member.chat_log)
     results.check("the leader drops the status at the Orgrimmar NPC (a capital)",
                   drop_hardcore(realm, leader, hardcore_spawn("Orgrimmar")))
