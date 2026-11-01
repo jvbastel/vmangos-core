@@ -19,7 +19,9 @@ realm.roster() and realm.bot(role, faction) give the bots by role, so a
 check names no bot (the roster changes).
 pos(client, guid) and stat(client, guid) read a unit with GM commands.
 dist(a, b), kill(client, guid), and revive_all(realm, client, bots) are the
-small helpers that the checks share. spawn(realm, client), sturdy(client,
+small helpers that the checks share. take_hardcore(realm, client) takes the hardcore status at the hardcore
+NPC (with wowclient.GossipClient), and hardcore_line(client) is the answer of `.hardcore`.
+spawn(realm, client), sturdy(client,
 guid) and saved_spells(realm, client) serve the spell and talent checks,
 with wowclient.SpellClient as the client class.
 Realm(62) works outside the check command too.
@@ -234,6 +236,47 @@ def saved_spells(realm, client, enabled_only=True):
     if enabled_only:
         query += " AND disabled = 0"
     return {int(row) for row in realm.sql("characters", query).splitlines() if row}
+
+
+# The hardcore NPC (WOWAI#251): creature 190250 with the gossip script npc_hardcore. Its spawn in Valley of
+# Trials (creature guid 2502500, Kalimdor), and a place 2 yards west of it, in reach of its gossip.
+HARDCORE_NPC_ENTRY = 190250
+HARDCORE_NPC = (0xF130 << 48) | (HARDCORE_NPC_ENTRY << 24) | 2502500
+HARDCORE_NPC_PLACE = (-606.0, -4248.0, 39.0, 1)
+# Its npc_text ids: the greeting, and the rules page with the confirmation.
+HARDCORE_TEXT_GREETING = 190250
+HARDCORE_TEXT_TAKE_RULES = 190251
+
+
+def go_to_hardcore_npc(client):
+    """GM-teleports the client's character next to the hardcore NPC of Valley of Trials."""
+    client.gm(".go xyz %.1f %.1f %.1f %d" % HARDCORE_NPC_PLACE, wait=3.0)
+
+
+def hardcore_line(client):
+    """The answer of `.hardcore` (one line), or "" when there is none."""
+    lines = client.gm(".hardcore")
+    return lines[0] if lines else ""
+
+
+def take_hardcore(realm, client):
+    """Takes the hardcore status at the hardcore NPC of Valley of Trials, as a player does: a GM teleport to
+    the NPC, the gossip hello, the take option, the rules page, and the confirmation. The client is a
+    wowclient.GossipClient (realm.login(..., client_class=GossipClient)); the character must be level 1 with
+    0 XP and never hardcore. True when the status is Alive in character_hardcore and `.hardcore` says
+    "Hardcore: alive"."""
+    go_to_hardcore_npc(client)
+    menu = client.gossip_hello(HARDCORE_NPC)
+    take = menu.option("hardcore") if menu else None
+    if take is None:
+        return False
+    rules = client.gossip_select(HARDCORE_NPC, take)
+    confirm = rules.option("yes") if rules else None
+    if confirm is None:
+        return False
+    client.gossip_select(HARDCORE_NPC, confirm)
+    row = realm.sql("characters", "SELECT status FROM character_hardcore WHERE guid = %d" % (client.guid & 0xFFFFFFFF))
+    return row == "1" and hardcore_line(client) == "Hardcore: alive"
 
 
 class Results:

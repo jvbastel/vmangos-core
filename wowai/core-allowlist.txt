@@ -120,3 +120,23 @@ src/game/Objects/Item.cpp
 # Spec hook 23, #225 final review: the GM item commands find a Forever item by its name (.additem and
 # .deleteitem in CharacterCommands.cpp read item_template through Forever::Table).
 src/game/Commands/CharacterCommands.cpp
+# The hardcore characters (spec jvbastel/WOWAI#250). The fork's own Hardcore folder (one facade, Hardcore.h,
+# namespace Hardcore; the game CMake globs it like Bots and Forever), its migrations, and the hardcore NPC
+# script. Each hook in a stock file is one line: `Hardcore::On<Event>(...)` or
+# `if (!Hardcore::Allow<Action>(...)) return;`. `git grep "Hardcore::"` finds every hook at an upstream merge.
+src/game/Hardcore/**
+# The characters table character_hardcore (the status and the death record).
+sql/migrations/20261101120000_characters.sql
+# The hardcore NPC: creature 190250, its gossip texts, and its spawn in Valley of Trials.
+sql/migrations/20261101120100_world.sql
+src/scripts/custom/npc_hardcore.cpp
+# Hardcore hook 1: the NPC script in the custom scripts: one source line in the scripts CMake, and one
+# AddSC_npc_hardcore line in custom.h and custom.cpp (WOWAI#251).
+src/scripts/CMakeLists.txt
+src/scripts/custom/custom.h
+src/scripts/custom/custom.cpp
+# Hardcore hook 2: Hardcore::OnLogin in WorldSession::HandlePlayerLogin (CharacterHandler.cpp, above): the
+# login line "Hardcore: alive" (WOWAI#251).
+# Hardcore hook 3: the player command .hardcore: one command table line (Chat.cpp, above) and its handler
+# name (Chat.h, above); the handler is in src/game/Hardcore/HardcoreCommand.cpp (WOWAI#251).
+# Hardcore hook 4: the game CMake globs src/game/Hardcore (src/game/CMakeLists.txt, above) (WOWAI#251).

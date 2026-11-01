@@ -20,4 +20,5 @@
 void AddSC_zero_scripts()
 {
     AddSC_custom_creatures();
+    AddSC_npc_hardcore(); // WOWAI hardcore NPC (#251)
 }
